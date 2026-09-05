@@ -1,8 +1,15 @@
-"""Search Capabilities — web, document, and semantic search integrations."""
+"""Search Capabilities — web and document search integrations.
+
+SemanticSearchCapability was removed: it was a dead stub
+(execute() unconditionally returned an empty result with "requires
+embedding model"), never registered or imported anywhere in the
+repository. Real semantic/vector search already exists and is wired in —
+kernel/semantic_memory.py::SemanticMemory (Elasticsearch + Ollama
+nomic-embed-text) via kernel/knowledge/sittingface_retrieval.py — this
+package must not grow a second, competing implementation."""
 
 from __future__ import annotations
 
-from typing import Any
 from cerebellum.capability import Capability
 
 
@@ -50,14 +57,3 @@ class DocumentSearchCapability(Capability):
             if query in doc['content'].lower():
                 results.append({"id": doc_id, "content": doc['content'][:200], "score": 1.0})
         return {"results": results, "count": len(results)}
-
-
-class SemanticSearchCapability(Capability):
-    """Semantic search using vector embeddings."""
-    
-    def __init__(self):
-        super().__init__(name='semantic_search')
-    
-    async def execute(self, state, **kwargs):
-        query = state.get('query', '')
-        return {"results": [], "count": 0, "message": "Semantic search requires embedding model"}

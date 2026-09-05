@@ -50,7 +50,12 @@ Diagrams use [Mermaid](https://mermaid.js.org/). Syntax targets **GitHub's rende
 19. [SittingFace knowledge retrieval](#19-sittingface-knowledge-retrieval)
 20. [Runtime governance pipeline](#20-runtime-governance-pipeline-ensure_governed)
 21. [Portable delegation and attenuation](#21-portable-delegation-and-attenuation)
-22. [Geography vs Society](#geography-vs-society-structural-axes)
+22. [Edge-local state and governance layer](#22-edge-local-state-and-governance-layer)
+23. [Sequence: edge action execution](#23-sequence-edge-action-execution-local-vs-escalated)
+24. [Sequence: live delegation message wiring](#24-sequence-live-delegation-message-wiring)
+25. [Edge synchronization transport](#25-edge-synchronization-transport)
+26. [ROS execution boundary and optional retrieval backend](#26-ros-execution-boundary-and-optional-retrieval-backend)
+27. [Geography vs Society](#geography-vs-society-structural-axes)
 
 ---
 
@@ -1004,10 +1009,10 @@ parameter — the same trusted-only injection pattern already used for
 `recipient_spiffe_id` — never populated from agent-supplied `extra`.
 `ActionExecutor` reads a pre-verified delegation off
 `context["verified_delegation"]` when present and threads it through
-`ensure_governed`; nothing today automatically extracts and verifies a
-delegation off a live inbound agent-to-agent message, so this is the
-integration point a future message-handling change plugs into, not
-something the agent communication layer does on its own yet.
+`ensure_governed`. `kernel/edge/delegation_message.py` is what populates
+it from a live inbound agent-to-agent NATS message (section 24) —
+extraction and verification happen at the message boundary itself, never
+inside `ActionExecutor`.
 
 **Revoking a parent invalidates every descendant:** `DelegationStore`
 tracks parent/child links and cascades `revoke()` down the chain; a
@@ -1020,6 +1025,204 @@ delegation, wrong delegate, privilege/capability/constraint escalation,
 broken chain, excessive depth, self-delegation, SPIFFE identity mismatch,
 OPA unavailable, delegation reaching real capability execution):
 `tests/security/test_portable_delegation.py`.
+
+---
+
+## 22. Edge-local state and governance layer
+
+`kernel/edge/` — a durable local cache/state layer plus a local
+authorization evaluator for an actor running at the edge, on a device, or
+on a robot. Central authority is cached and re-verified locally; it is
+never re-derived or manufactured on the edge. Neo4j/Mongo/Redis/OPA
+remain authoritative — this layer only reduces how often they need to be
+reached synchronously.
+
+```mermaid
+flowchart TD
+    subgraph WorkingSet["Actor working set in process"]
+        Caches["BoundedTTLCache backed caches context delegation semantic"]
+    end
+    Caches -->|miss| Local["EdgeLocalStore SQLite namespace partitioned"]
+    Local -->|policy_snapshot| PolicyCache["EdgePolicyCache signed TTL bounded"]
+    Local -->|delegation| DelCache["Verified delegation cache never past own expiry"]
+    Local -->|world_projection| Fresh["classify_freshness FRESH STALE_BUT_USABLE STALE_MUST_REFRESH"]
+    PolicyCache --> Gov["LocalGovernanceEvaluator allow deny escalate"]
+    DelCache --> Gov
+    Fresh --> Gov
+    Gov --> Exec["ActionExecutor ensure_governed"]
+    Local <-->|sync| Transport["EdgeSyncClient over SyncTransport section 25"]
+    Transport <--> ControlPlane["Control plane OPA Neo4j Mongo Redis"]
+```
+
+Reads and writes to `EdgeLocalStore` never touch governance directly —
+`LocalGovernanceEvaluator` is the only consumer authorized to turn cached
+state into an allow/deny/escalate outcome, and only when the outer
+connectivity gate (`kernel/pipeline/offline_safety.py`) has already
+determined the control plane is not reachable for this call.
+
+Core modules: `kernel/edge/local_store.py`, `freshness.py`,
+`policy_cache.py`, `local_governance.py`, `local_cache.py`,
+`delegation_cache.py`, `context_cache.py`, `semantic_cache.py`,
+`moss_retrieval.py` (optional, retrieval only — see section 26).
+
+---
+
+## 23. Sequence: edge action execution (local vs escalated)
+
+The intended shape — local authority executes locally; only genuinely
+insufficient authority reaches the control plane. `EdgeDecisionState`
+(`kernel/edge/decision_state.py`) names WHY a decision landed where it
+did, reusing `GovernanceOrigin`'s LOCAL/CENTRAL/ESCALATED distinction
+rather than inventing a second one.
+
+```mermaid
+flowchart TD
+    Tick["Inbound tick or message"] --> Connect["offline_safety connectivity gate"]
+    Connect -->|CONNECTED| Central["Live _authorize OPA section 20"]
+    Connect -->|refused DISCONNECTED DEGRADED| Edge["LocalGovernanceEvaluator evaluate"]
+    Edge --> Deleg{delegation_chain supplied}
+    Deleg -->|yes fails verify| LocalDeny["LOCAL_DENY confident no escalation"]
+    Deleg -->|yes verifies, or none supplied| Snap{policy snapshot cached valid}
+    Snap -->|none| EscPolicy["ESCALATE_POLICY contact control plane"]
+    Snap -->|DENY| LocalDeny2["LOCAL_DENY"]
+    Snap -->|HUMAN_APPROVAL_REQUIRED| EscApproval["LOCAL_HUMAN_APPROVAL_REQUIRED never satisfiable locally"]
+    Snap -->|AUTO_APPROVE stale but usable| EscFresh["ESCALATE_FRESHNESS"]
+    Snap -->|AUTO_APPROVE fresh| LocalAllow["LOCAL_ALLOW zero central round trips"]
+    LocalAllow --> Executor["ActionExecutor capability handle"]
+    Central --> Executor
+    EscPolicy --> Central
+    EscFresh --> Central
+    EscApproval --> Central
+```
+
+Measured (real `ActionExecutor`, N=30, `tests/unit/test_edge_hot_path_zero_round_trips.py`):
+local governance decision p50 ≈ 1ms; a test that fails the whole suite if
+`_authorize` (the live OPA call) is ever reached proves the zero-round-trip
+claim structurally, not by timing alone.
+
+---
+
+## 24. Sequence: live delegation message wiring
+
+Closes the gap `kernel/edge/local_governance.py`'s own delegation support
+had no live producer for: a signed delegation chain riding on an inbound
+NATS agent-to-agent message is extracted and verified at the narrowest
+trusted boundary, never read from agent-claimed content.
+
+```mermaid
+sequenceDiagram
+    participant A as Agent A issuer
+    participant B as Agent B delegate of D1 issuer of D2
+    participant C as Agent C delegate of D2
+    participant Inbox as subscribe_actor_inbox on_message
+    participant Extract as delegation_message extract_and_verify
+    participant Gov as LocalGovernanceEvaluator
+    participant Exec as ActionExecutor ensure_governed
+
+    A->>B: issues D1 signed
+    B->>C: attenuates issues D2 signed forwards delegated_task plus chain
+    C->>Inbox: NATS message delegation_chain D1 D2
+    Inbox->>Inbox: bind trusted identity SPIFFE or service evidence
+    Inbox->>Extract: extract_and_verify_delegation authenticated_delegate equals bound identity
+    Extract->>Extract: verify_delegation_chain signature attenuation expiry audience revocation depth
+    Extract-->>Inbox: verified_delegation and raw chain, or denial reason
+    Inbox->>Exec: context verified_delegation and delegation_chain
+    Exec->>Gov: evaluate delegation_chain re-verified independently
+    Gov-->>Exec: allow deny or escalate
+    Exec->>Exec: capability handle only if allowed
+```
+
+`authenticated_delegate` always comes from the identity this handler
+already bound for itself, never from the message body — a message
+carrying `{"delegate": "mallory"}` alongside a real chain for `"C"` is
+verified as `"C"`, not `"mallory"`. A malformed or failed chain is
+rejected outright when one was supplied; no chain at all is the normal,
+non-delegated case and falls through unchanged.
+
+Core modules: `kernel/edge/delegation_message.py`,
+`kernel/domains/grocery.py::subscribe_actor_inbox`/`_run_delegated_tasks`.
+Tests: `tests/security/test_edge_delegation_message_wiring.py` (14 cases:
+valid chain, attenuated chain, wrong delegate, wrong audience, expired
+parent, revoked parent, privilege escalation despite a valid signature,
+malformed chain, excessive depth, identity-binding never read from the
+message, plus two real-`ActionExecutor` end-to-end cases).
+
+---
+
+## 25. Edge synchronization transport
+
+The transport boundary is explicit so a real network client can be
+swapped in without touching `EdgeSyncClient`'s own idempotency/epoch/
+reconciliation logic at all.
+
+```mermaid
+flowchart LR
+    subgraph Sync["EdgeSyncClient kernel edge sync.py unchanged"]
+        Idem["epoch comparison never apply an older snapshot over a newer one"]
+    end
+    Sync --> Source["ControlPlaneSyncSource Protocol"]
+    Source --> Adapter["TransportSyncSource"]
+    Adapter --> Transport{SyncTransport}
+    Transport --> InProc["InProcessSyncTransport direct calls tests single process"]
+    Transport --> Net["NetworkSyncTransport real httpx retries timeouts auth typing"]
+    Net -->|mTLS SVID| WI["kernel workload_identity existing SPIFFE reused not reinvented"]
+    Net --> CP["Control plane edge sync endpoints"]
+```
+
+`NetworkSyncTransport` classifies failures explicitly: 401/403 raises
+`SyncTransportAuthenticationError` (never silently retried like a
+transient error), malformed JSON or a wrong response shape raises
+`SyncTransportMalformedResponseError` (never partially applied — section
+3's own invariant, "the edge must never interpret an unverified remote
+update as authoritative"), and exhausted retries raise
+`SyncTransportUnavailableError` (the transport-level classification of a
+network partition). Tested against `httpx.MockTransport` — a real HTTP
+client exercising real retry logic against a fake server, not a mocked
+class. No live control-plane sync endpoint exists in this environment to
+validate against end-to-end; that requires a real deployment.
+
+Core module: `kernel/edge/sync_transport.py`. Tests:
+`tests/unit/test_edge_sync_transport.py`.
+
+---
+
+## 26. ROS execution boundary and optional retrieval backend
+
+Two intentionally narrow dependency seams, both lazily imported so the
+normal CognitiveOS runtime never crashes because an optional package
+isn't installed.
+
+```mermaid
+flowchart TD
+    Plan["Committed plan capability call"] --> Exec["ActionExecutor ensure_governed"]
+    Exec -->|force_authorize true| RunGoverned["run_ros_action_if_governed"]
+    RunGoverned --> Protocol{RosExecutionAdapter Protocol}
+    Protocol --> Fake["FakeRosExecutionAdapter in memory always in CI"]
+    Protocol --> Real["RclpyRosExecutionAdapter lazy import real ROS2 service call"]
+    Real -.->|rclpy not installed| Unavail["RosUnavailableError only if require_real true"]
+
+    Retrieval["SittingFaceKnowledgeRetriever semantic_memory"] --> Backend{semantic_memory}
+    Backend --> ES["SemanticMemory Elasticsearch Ollama default"]
+    Backend --> Moss["MossSemanticMemory optional narrow scope retrieval only"]
+    Moss -.->|not configured| NoneBackend["build_moss_semantic_memory returns None falls back"]
+```
+
+The adapter itself never contains authorization logic — checked
+structurally in `tests/unit/test_ros_integration_contract.py`, not just
+asserted in a comment. `build_ros_execution_adapter(require_real=False)`
+(the default, normal runtime) never crashes when ROS is absent;
+`require_real=True` (a robot deployment's own explicit startup path)
+raises a clear `RosUnavailableError` instead of silently degrading to a
+fake adapter that would misrepresent itself as hardware. Neither the ROS
+contract's real-`rclpy` half nor Moss's real-credentials half has been
+exercised in this environment — both honestly `pytest.mark.skipif`, never
+fabricate a pass. Moss is retrieval-only, narrowed from an original
+"replace SQLite" proposal — see
+[`CLOUD_EDGE_ACTOR_ARCHITECTURE.md`](../CLOUD_EDGE_ACTOR_ARCHITECTURE.md)
+section 18's MossDB scope decision for the full reasoning; `EdgeLocalStore`
+remains SQLite-backed for policy/delegation/execution/idempotency/world-state.
+
+Core modules: `kernel/edge/ros_integration.py`, `moss_retrieval.py`.
 
 ---
 

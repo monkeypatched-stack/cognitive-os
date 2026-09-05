@@ -637,6 +637,7 @@ async def run_governed_mutation(
     idempotent_effect: bool = False,
     force_authorize: bool = False,
     verified_delegation: dict[str, Any] | None = None,
+    local_policy_decision: dict[str, Any] | None = None,
 ) -> T:
     """Execute a security-sensitive mutation only after the full pipeline.
 
@@ -681,6 +682,21 @@ async def run_governed_mutation(
     AUTO_APPROVE operations proceed directly to mutation.
     HUMAN_APPROVAL_REQUIRED operations are blocked here (ValidationError raised).
     DENY operations are blocked here (ValidationError raised).
+
+    local_policy_decision (Edge Local Governance, kernel/edge/
+    local_governance.py): a policy dict SHAPED IDENTICALLY to what
+    _authorize() returns, supplied ONLY by LocalGovernanceEvaluator after
+    it has independently verified a signed, control-plane-issued policy
+    snapshot (proof, principal match, freshness, epoch) and, where
+    applicable, a delegation chain — never agent-supplied, never
+    fabricated locally. When present, this REPLACES the live _authorize()
+    (OPA) call for this one operation; every downstream step (approval-
+    artifact creation, self-approval prevention, DENY/HITL/AUTO_APPROVE
+    handling, ledger writes) is completely unchanged, because this is
+    still literally OPA's own prior verdict, only consulted without a
+    live round trip. This does not create a second authorization model —
+    it is the SAME approval_mode vocabulary flowing through the SAME
+    pipeline, sourced from a cache instead of a socket.
     """
     from src.monkey_brain.kernel.security_operation import (
         DuplicateSecurityOperation,
@@ -704,7 +720,15 @@ async def run_governed_mutation(
         SecurityBoundaryDenied / HumanApprovalRequired otherwise."""
         _assert_auth()
         policy = {"allowed": True, "reason": "skipped"}
-        if skip_authz:
+        if local_policy_decision is not None:
+            # Edge local governance already did the verification work
+            # (signature, freshness, epoch, delegation chain) BEFORE
+            # calling ensure_governed at all — this is not a fresh trust
+            # decision made here, only a substitution of where the
+            # verdict came from.
+            policy = local_policy_decision
+            _note("AUTHZ")
+        elif skip_authz:
             _note("AUTHZ")
         else:
             if require_opa() or not insecure_dev_mode():
@@ -1063,6 +1087,7 @@ async def ensure_governed(
     operation_id: str | None = None,
     force_authorize: bool = False,
     verified_delegation: dict[str, Any] | None = None,
+    local_policy_decision: dict[str, Any] | None = None,
 ) -> T:
     """Single commitment API for security-critical effects.
 
@@ -1132,7 +1157,7 @@ async def ensure_governed(
     return await run_governed_mutation(
         action=action, resource=resource, mutate=effect, extra=extra, skip_authz=skip_authz,
         operation_id=operation_id, force_authorize=force_authorize,
-        verified_delegation=verified_delegation,
+        verified_delegation=verified_delegation, local_policy_decision=local_policy_decision,
     )
 
 

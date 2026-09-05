@@ -210,19 +210,177 @@ runtime process (graceful shutdown) and boots a fresh one with the same
 `ACTOR_ID`, asserting exactly one registry entry exists afterward. See
 `docs/ACTOR_ARTIFACT.md` for the full artifact/container/binary mapping.
 
-## Known limitations
+## 18. Edge-local governance, delegation, sync transport, and ROS boundary
+(gap-closure pass)
 
-1. **`EdgeActor` was not touched or migrated** — a deliberate choice
+A later pass built out `kernel/edge/` into a full local state +
+governance layer, then closed specific functional gaps identified in it.
+Distinguishing what is proven today from what merely cannot crash from
+what is genuinely unvalidated matters more here than anywhere else in
+this document — do not read "implemented" as "validated against real
+hardware or a real network."
+
+**Proven today** (real code, real tests, real dependent infrastructure
+where available — Redis/Neo4j/Elasticsearch/Ollama/a real local OPA
+server/MongoDB were all exercised live during this work, never mocked
+where a real instance was reachable):
+
+- Local governance (`edge/local_governance.py`): a signed, TTL-bounded
+  `EdgePolicyCache` snapshot plus, optionally, a delegation chain,
+  evaluated with zero live OPA round trips — proven by a test that fails
+  the suite outright if `_authorize` is ever called
+  (`tests/security/test_edge_local_governance.py`,
+  `tests/unit/test_edge_hot_path_zero_round_trips.py`).
+- Portable delegation verification (`kernel/delegation.py`, unchanged) —
+  signature, attenuation, expiry, audience, revocation, and depth are all
+  independently re-verified at every use, never trusted from a prior
+  check or from message content.
+- Live delegation wiring: a delegation chain riding on an inbound
+  NATS agent-to-agent message
+  (`kernel/domains/grocery.py::subscribe_actor_inbox`) is extracted and
+  verified at the message boundary
+  (`kernel/edge/delegation_message.py`) before it can influence either
+  the central OPA path (`context["verified_delegation"]`) or the local
+  path (`context["delegation_chain"]` →
+  `LocalGovernanceEvaluator.evaluate`) — never read from agent-claimed
+  content, never a second verifier.
+- Explicit, separate freshness dimensions
+  (`edge/decision_state.py::EdgeExecutionAssessment`) — connectivity,
+  policy freshness, world-state freshness, and authority freshness are
+  four independent fields; "CONNECTED + STALE_POLICY" is a real,
+  correctly-non-healthy state a test asserts on directly.
+- Explicit `EdgeDecisionState` vocabulary
+  (`LOCAL_ALLOW`/`LOCAL_DENY`/`LOCAL_HUMAN_APPROVAL_REQUIRED`/
+  `ESCALATE_POLICY`/`ESCALATE_AUTHORITY`/`ESCALATE_FRESHNESS`/
+  `ESCALATE_COORDINATION`/`OFFLINE_DENY`) attached to every
+  `LocalGovernanceOutcome`.
+- The transport boundary for edge↔control-plane sync is explicit
+  (`edge/sync_transport.py`: `SyncTransport` Protocol,
+  `InProcessSyncTransport`, `NetworkSyncTransport`) —
+  `EdgeSyncClient`'s own idempotency/epoch/reconciliation logic
+  (`edge/sync.py`) is untouched and requires zero changes to consume
+  either transport. `NetworkSyncTransport`'s retry/timeout/auth-failure/
+  malformed-response handling is real code, tested against
+  `httpx.MockTransport` (a real HTTP client exercising real retry logic
+  against a fake server, not a mocked class).
+- The ROS execution boundary (`edge/ros_integration.py`) is a real
+  dependency seam: `FakeRosExecutionAdapter` (in-memory, always runs in
+  CI) and `RclpyRosExecutionAdapter` (real rclpy service-call
+  implementation, lazily imported) both satisfy the same
+  `RosExecutionAdapter` Protocol and the same contract test suite
+  (`tests/unit/test_ros_integration_contract.py`). Every path into it —
+  fake or real — is forced through `ensure_governed` via
+  `run_ros_action_if_governed`; the adapter itself contains no
+  authorization logic (checked structurally in the contract tests, not
+  just asserted in a comment).
+- `build_ros_execution_adapter()`'s startup behavior: the normal
+  CognitiveOS runtime (`require_real=False`, the default) never crashes
+  because ROS is not installed. A robot deployment that explicitly opts
+  into `require_real=True` gets a clear `RosUnavailableError`, not a
+  silent fallback to a fake adapter that would misrepresent itself as
+  hardware.
+
+**MossDB scope decision.** A later request asked to integrate "MossDB" as
+the general edge persistence substrate — replacing `edge/local_store.py`'s
+SQLite backend for policy/delegation/execution/idempotency/world-state.
+Investigation found: no package or product named "MossDB" exists; the
+closest real match is `moss` (PyPI, docs.usemoss.dev) — a cloud-backed
+semantic-search SaaS (`MossClient(project_id, project_key)` against
+`service.usemoss.dev`), document/embedding-shaped (`add_docs`/`query`/
+`push_index`), with no documented transaction or atomicity guarantees.
+Using it as the general persistence substrate would have meant either
+fabricating an atomicity guarantee it does not provide (directly
+violating this pass's own "atomic security state" requirement) or
+introducing a new external cloud dependency and credential into a layer
+whose entire purpose is reducing central round trips. Neither was
+acceptable, so the scope was narrowed, with the user's explicit sign-off,
+to the one place Moss's real shape actually fits: semantic retrieval.
+`edge/local_store.py` is **unchanged** and remains the sole production
+persistence backend for everything else.
+
+- `kernel/edge/moss_retrieval.py::MossSemanticMemory` satisfies the exact
+  `semantic_memory.query(query) -> dict` contract
+  `kernel/knowledge/sittingface_retrieval.py::SittingFaceKnowledgeRetriever`
+  already depends on (the same contract `kernel/semantic_memory.py::
+  SemanticMemory` implements against Elasticsearch+Ollama) — a drop-in
+  alternative backend requiring zero changes to `sittingface_retrieval.py`
+  itself, verified end-to-end with a real `SittingFaceKnowledgeRetriever`
+  instance and a fake Moss client (real credentials are not configured in
+  this environment).
+- Every result Moss returns is tagged `retrieval_method="vector"`
+  (honest — Moss has no keyword-only code path), and any Moss-side
+  failure (auth, network, no session yet) degrades to `{"results": []}`
+  rather than raising, classified as `FailureMode.MOSS_UNAVAILABLE` →
+  `LOCAL_DEGRADE` in `kernel/edge/failure_modes.py` — costs retrieval
+  quality only, never correctness or security.
+- `build_moss_semantic_memory()` returns `None` when
+  `MOSS_PROJECT_ID`/`MOSS_PROJECT_KEY` are not configured — the normal
+  CognitiveOS runtime never depends on Moss and never crashes because it
+  is absent, matching `build_ros_execution_adapter()`'s own convention.
+- Honest limitation: this module implements the query side of the
+  contract only. No pipeline exists that populates a Moss index from
+  CognitiveOS's actual knowledge charts — `index_documents()` is real but
+  unused by anything yet; constructing `MossSemanticMemory` does not, by
+  itself, give the edge any indexed knowledge to retrieve.
+- No real Moss credentials exist in this environment — the real-Moss
+  integration test in `tests/unit/test_edge_moss_retrieval.py` is
+  `pytest.mark.skipif`-gated on `MOSS_PROJECT_ID`/`MOSS_PROJECT_KEY` being
+  set and reports "skipped," never a fabricated "passed."
+
+**Implemented but requiring environment-specific validation** — real
+code exists and passes its own tests, but the specific claim below has
+NOT been exercised in this environment and must not be read as proven
+until it is:
+
+- `RclpyRosExecutionAdapter` has never run against a real ROS 2
+  installation or physical/simulated hardware — this development
+  environment has no ROS 2 distribution installed. Its contract test is
+  `pytest.mark.skipif`-gated on `rclpy` being importable and reports
+  "skipped," never a fabricated "passed."
+- `NetworkSyncTransport` and `build_mtls_httpx_client_from_workload_identity`
+  have never been exercised against a real control-plane sync HTTP
+  endpoint or a real SPIRE agent socket — both require infrastructure
+  this environment does not run. What is proven is the transport's own
+  retry/timeout/auth/malformed-response handling (against a fake HTTP
+  server), not an end-to-end sync against a real deployment.
+- The intended full agent-to-agent delegation round trip (Agent A issues
+  D1 over a live NATS message to Agent B, who attenuates it to D2 and
+  forwards to Agent C) has been proven at the RECEIVING boundary
+  (`extract_and_verify_delegation` against real, cryptographically signed
+  chains) and through the real `ActionExecutor`/`LocalGovernanceEvaluator`
+  path, but `DelegateTaskCapability` (the SENDING side) does not yet
+  construct or attach a `delegation_chain` to its own outbound messages —
+  see Remaining limitations below.
+
+**Remaining limitations** (genuinely not done, not merely unvalidated):
+
+1. **`DelegateTaskCapability` never issues or attaches an outbound
+   delegation** — an actor delegating a task to another actor today
+   forwards only `tasks`/`shared_budget_id`, never a signed
+   `DelegationCredential` chain, even though the receiving boundary is
+   fully wired to consume one if present. Closing this needs a real
+   product decision (when should a delegator actually grant sub-authority
+   vs. simply ask another actor to run its own already-existing
+   authority?), not just plumbing.
+2. **`ESCALATE_COORDINATION` is defined but nothing currently returns
+   it** — `kernel/edge/negotiation.py`'s `NegotiationError` (a forbidden
+   term key) is the natural trigger, documented in `decision_state.py`'s
+   own docstring, but no code path classifies a `NegotiationError` into
+   this specific enum value yet.
+3. **No real control-plane HTTP sync server exists to test
+   `NetworkSyncTransport` end-to-end** — see the validation-required note
+   above; this is an infrastructure gap, not a code gap.
+4. **`EdgeActor` was not touched or migrated** — a deliberate choice
    (Section 1), not an oversight; it remains a disconnected prototype.
-2. **Offline classification (`offline_safety.py`) covers only the
+5. **Offline classification (`offline_safety.py`) covers only the
    capabilities explicitly listed** — an unlisted capability defaults
    safely (REQUIRES_AUTHORITY) but is not individually verified; keeping
    this list current as new capabilities are added is a manual,
    unenforced discipline, not a compile-time check.
-3. **No real edge hardware, no real intermittent-connectivity network
+6. **No real edge hardware, no real intermittent-connectivity network
    simulation** was tested — `ConnectivityStatus` assessment (Redis/NATS
    ping) was verified via a fake Redis, not a real flaky network.
-4. **Consequential-action-non-replay across migration/restart** relies
+7. **Consequential-action-non-replay across migration/restart** relies
    entirely on the pre-existing `execution_checkpoint_store.py`/
    `resume_execution_id` mechanism, unmodified by this pass — verified by
    inspection (the mechanism is unconditionally consulted by

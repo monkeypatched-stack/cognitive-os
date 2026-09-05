@@ -70,6 +70,7 @@ class _FakeSemanticMemory:
                     "text": "Vector hit: batch release requires QA sign-off.",
                     "score": 0.91,
                     "metadata": {"name": "batch-release", "source_path": "/fake/batch"},
+                    "retrieval_method": "vector",
                 }
             ]
         }

@@ -144,8 +144,20 @@ class SittingFaceKnowledgeRetriever:
                 )
                 if vector_items:
                     items.extend(vector_items)
-                    methods.append("vector")
-                    report.vector_used = True
+                    # vector_used reflects what ACTUALLY happened, per item
+                    # -- never inferred merely from _vector_retrieve()
+                    # returning something. SemanticMemory.query() can
+                    # produce a result that is genuinely a full-text
+                    # (EmbeddingStore's own fallback, or SomaticCompiler's
+                    # keyword search) hit; each item already carries its
+                    # own true retrieval_method (see semantic_memory.py),
+                    # so only claim vector_used when at least one item is
+                    # actually tagged "vector".
+                    if any(i.retrieval_method == "vector" for i in vector_items):
+                        report.vector_used = True
+                        methods.append("vector")
+                    elif "keyword" not in methods:
+                        methods.append("keyword")
             except Exception as exc:
                 logger.warning("[sittingface_retrieval] vector search failed: %s", exc)
                 report.error = str(exc)
@@ -252,6 +264,14 @@ class SittingFaceKnowledgeRetriever:
         *,
         existing_charts: set[str],
     ) -> list[ExternalKnowledgeItem]:
+        """Despite the name, this does not itself guarantee a vector
+        result: SemanticMemory.query() can return hits from EmbeddingStore
+        (real cosineSimilarity, OR EmbeddingStore's own full-text fallback
+        when no real embedding was available) and from SomaticCompiler's
+        keyword chart search, merged into one list. Each hit already
+        carries the actual mechanism that produced it (see
+        semantic_memory.py); this only ever forwards that tag, never
+        overrides it to "vector"."""
         result = await semantic_memory.query(query)
         if not isinstance(result, dict):
             return []
@@ -268,11 +288,19 @@ class SittingFaceKnowledgeRetriever:
             if chart_name and chart_name in existing_charts:
                 continue
             score = float(hit.get("score") or hit.get("_score") or 0.65)
+            # Trust only the tag the actual source attached. A missing/
+            # unrecognized tag is treated as "keyword" -- the
+            # conservative direction, since over-claiming vector_used is
+            # exactly the bug this is fixing; under-claiming it merely
+            # loses a "vector" label on an otherwise-correct result.
+            method = hit.get("retrieval_method")
+            if method not in ("vector", "keyword"):
+                method = "keyword"
             items.append(ExternalKnowledgeItem(
                 content=text[:500],
                 source_chart=chart_name,
                 source_path=str(meta.get("source_path") or ""),
-                retrieval_method="vector",
+                retrieval_method=method,
                 relevance_score=min(1.0, score),
                 query=query,
             ))
