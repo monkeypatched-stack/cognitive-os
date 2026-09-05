@@ -270,3 +270,94 @@ def test_create_planet_needs_no_parent():
     assert planet is not None
     assert planet.entity_type == GeographicEntityType.PLANET
     assert planet.parent_id is None
+
+
+class _FakePresence:
+    """Minimal PresenceLookup stand-in — GeographicEntityRuntime.tick()
+    only calls .occupants(entity_id) (kernel/geography/runtime.py:420)."""
+
+    def __init__(self, entity_occupants: dict[str, list[str]]) -> None:
+        self._entity_occupants = entity_occupants
+
+    def occupants(self, entity_id: str) -> list[str]:
+        return self._entity_occupants.get(entity_id, [])
+
+
+class TestOccupantTicksRunConcurrently:
+    """Society architecture review, Phase 4: docs/adr/016-performance-gate9.md
+    and docs/adr/019-runtime-performance-audit.md found (and measured live,
+    30+s for 10 actors) that GeographicEntityRuntime.tick() awaited each
+    present actor's LLM-backed cognitive tick SERIALLY. The current source
+    (runtime.py:419-425) already awaits every occupant via asyncio.gather(),
+    with a code comment justifying why this is safe (each occupant only
+    writes to its own keyed slot). That fix existed with NO test covering
+    it at all -- grep for "occupants"/"presence" in this file before this
+    test found zero matches. This closes that gap: proves N occupants'
+    ticks actually overlap in wall-clock time, not merely that the code
+    calls asyncio.gather (which could still be trivially true even if
+    concurrency were accidentally serialized by a bug elsewhere)."""
+
+    def test_n_occupant_ticks_complete_in_roughly_one_ticks_time_not_n_times(self):
+        import time
+
+        registry = GeographicRegistry()
+        planet = registry.create(GeographicEntityType.PLANET, "Earth")
+
+        n = 8
+        delay_seconds = 0.05
+        occupant_ids = [f"actor-{i}" for i in range(n)]
+        presence = _FakePresence({planet.entity_id: occupant_ids})
+
+        async def slow_actor_ticker(actor_id: str) -> bool:
+            await asyncio.sleep(delay_seconds)
+            return True
+
+        async def run():
+            runtime = GeographicEntityRuntime(
+                registry, planet.entity_id, {}.get,
+                presence=presence, actor_ticker=slow_actor_ticker,
+            )
+            start = time.perf_counter()
+            result = await runtime.tick()
+            elapsed = time.perf_counter() - start
+            return result, elapsed
+
+        result, elapsed = asyncio.run(run())
+
+        assert result.actors_ticked_total == n
+        # Serial execution would take n * delay_seconds (0.4s for n=8);
+        # concurrent execution takes roughly one delay_seconds regardless
+        # of n. A generous multiple of one delay (not n delays) proves
+        # real overlap without being sensitive to test-runner scheduling
+        # noise.
+        assert elapsed < delay_seconds * (n / 2), (
+            f"occupant ticks took {elapsed:.3f}s for n={n} actors at "
+            f"{delay_seconds}s each -- expected them to overlap (~{delay_seconds:.3f}s), "
+            f"not run serially (~{n * delay_seconds:.3f}s)"
+        )
+
+    def test_one_occupants_tick_failure_does_not_prevent_others_from_completing(self):
+        """The comment justifying gather() over the serial loop claims each
+        occupant only touches its own keyed slot -- proven here: one
+        occupant's ticker raising must not stop the others from being
+        counted."""
+        registry = GeographicRegistry()
+        planet = registry.create(GeographicEntityType.PLANET, "Earth")
+
+        occupant_ids = ["good-1", "bad", "good-2"]
+        presence = _FakePresence({planet.entity_id: occupant_ids})
+
+        async def flaky_actor_ticker(actor_id: str) -> bool:
+            if actor_id == "bad":
+                raise RuntimeError("simulated actor tick failure")
+            return True
+
+        async def run():
+            runtime = GeographicEntityRuntime(
+                registry, planet.entity_id, {}.get,
+                presence=presence, actor_ticker=flaky_actor_ticker,
+            )
+            return await runtime.tick()
+
+        result = asyncio.run(run())
+        assert result.actors_ticked_total == 2

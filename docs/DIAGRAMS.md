@@ -55,7 +55,9 @@ Diagrams use [Mermaid](https://mermaid.js.org/). Syntax targets **GitHub's rende
 24. [Sequence: live delegation message wiring](#24-sequence-live-delegation-message-wiring)
 25. [Edge synchronization transport](#25-edge-synchronization-transport)
 26. [ROS execution boundary and optional retrieval backend](#26-ros-execution-boundary-and-optional-retrieval-backend)
-27. [Geography vs Society](#geography-vs-society-structural-axes)
+27. [Architecture boundary hardening](#27-architecture-boundary-hardening)
+28. [SittingFace and Moss boundary](#28-sittingface-and-moss-knowledgeretrieval-boundary)
+29. [Geography vs Society](#geography-vs-society-structural-axes)
 
 ---
 
@@ -112,7 +114,14 @@ flowchart TD
 
 SittingFace loads `somatic/charts/` at AgentOS boot (`init_sittingface`). The
 `SittingFaceKnowledgeRetriever` serves chart knowledge to planning and ETASS compile
-paths. Neo4j remains authoritative world state; SittingFace is external reference knowledge.
+paths. `kernel/knowledge_graph.py::KnowledgeGraph` (Redis-persisted, in-process —
+not Neo4j) is the live world-state store the grocery/commerce cognitive loop
+actually reasons over by default; `Neo4jBackedKnowledgeGraph` is a second, real
+implementation used for a narrower, separate concern (durable household/
+organization-role and delegation facts, `kernel/domains/domain_security.py` and
+delegation-related API routes), not a drop-in replacement for it — see
+section 27's WorldStateStore boundary for the corrected picture. SittingFace
+is external reference knowledge either way.
 
 ```mermaid
 flowchart TB
@@ -1223,6 +1232,76 @@ section 18's MossDB scope decision for the full reasoning; `EdgeLocalStore`
 remains SQLite-backed for policy/delegation/execution/idempotency/world-state.
 
 Core modules: `kernel/edge/ros_integration.py`, `moss_retrieval.py`.
+
+---
+
+## 27. Architecture boundary hardening
+
+Making implicit boundaries explicit (Protocols + structural tests,
+`tests/architecture/`), not a redesign. Every box below already existed;
+this pass added the interface layer and the tests proving each arrow's
+direction actually holds in the real import graph and call sequence.
+
+```mermaid
+flowchart TB
+    subgraph society["SOCIETY"]
+        direction LR
+        CP["CONTROL PLANE Registry Scheduler LifecycleController ArtifactRegistry Governance"]
+        COORD["COORDINATION NATS Redis leases delegation tasks"]
+    end
+    society --> AR["ACTOR RUNTIME observe desired state restore reconcile activate execute"]
+    AR --> COG["COGNITIVE LOOP belief goals local reasoning"]
+    AR --> SI["STATE INTERFACES ActorStateStoreProtocol WorldStateStore"]
+    COG --> GOV["GOVERNANCE ensure_governed OPA delegation approval section 20 21"]
+    GOV --> EA["EXECUTION ADAPTER ExecutionAdapterProtocol"]
+    EA --> API["API Capability adapter"]
+    EA --> ROS["ROS2 adapter Fake or Rclpy"]
+    API --> WORLD["WORLD KnowledgeGraph WorldStateStore"]
+    ROS --> WORLD
+    SI --> WORLD
+```
+
+Every interface named above has at least one real production
+implementation and a passing test (`tests/architecture/
+test_actor_state_store_portability.py`, `test_dependency_direction.py`,
+`test_architecture_invariants.py`) — none was added merely to make this
+diagram look cleaner. `ActorStateStoreProtocol`/`WorldStateStore`/
+`ExecutionAdapterProtocol` live in `kernel/pipeline/protocols.py`,
+alongside the Protocol conventions (`WorldView`, `CapabilityBus`,
+`EventBusProtocol`, etc.) already established there before this pass.
+
+**What is genuinely new here:** the three Protocols above, plus
+`kernel/edge/actor_state_store.py::EdgeActorStateStore` (the second real
+`ActorStateStoreProtocol` implementation, SQLite-backed, portable
+between cloud and edge). **What already existed and is only now tested
+explicitly:** `SchedulingDecision`/`ActorPlacementRequirements`
+(`kernel/society/actor_scheduler.py`) already separate placement from
+actor identity; `ActorLifecycleController` already separates desired
+state (set only by control-plane components) from observed state
+(`kernel/society/actor_lifecycle_controller.py`); `WorldEvent`/
+`SharedWorld.record_event()` (`kernel/society/world.py`) already keep
+event history separate from entity mutation; portable delegation
+(section 21) already enforces `Authority(child) ⊆ Authority(parent)`.
+
+---
+
+## 28. SittingFace and Moss: knowledge/retrieval boundary
+
+```mermaid
+flowchart LR
+    SF["SittingFace somatic charts"] --> CCE["ContextConstructionEngine"]
+    CCE --> LLM["LLM reasoning"]
+    Moss["Moss usemoss.dev optional narrow scope"] -.->|retrieval only, cache-only| SFR["SittingFaceKnowledgeRetriever semantic_memory slot"]
+    SFR --> CCE
+```
+
+Neither SittingFace nor Moss can mutate `KnowledgeGraph`/`SharedWorld`
+(`tests/architecture/test_architecture_invariants.py::
+TestMossCannotMutateWorldState` — structural: `moss_retrieval.py` has no
+reference to `knowledge_graph`/`SharedWorld`/any mutation method, and
+`MossSemanticMemory`'s only public methods are `available`/
+`index_documents`/`query`). `index_documents()` writes only to Moss's own
+retrieval index, never to CognitiveOS world state.
 
 ---
 

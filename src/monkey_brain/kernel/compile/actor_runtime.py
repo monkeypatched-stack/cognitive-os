@@ -180,7 +180,40 @@ class ActorRuntime:
         return self._cognitive_os
 
     async def tick(self, prompt_request: Any = None) -> Any:
-        """Run the complete hidden cognitive cycle for this actor."""
+        """Run the complete hidden cognitive cycle for this actor.
+
+        Actor Runtime review, Phase 1 (P0): autonomous/scheduler-triggered
+        ticks (PlanetaryRuntime._auto_tick_loop -> GeographicEntityRuntime.
+        tick -> SocietyRuntime.tick_one_actor -> here) have no incoming
+        HTTP request or NATS message to bind an identity from. Without
+        this, every governed capability such a tick reaches would be
+        denied by ensure_governed's AUTH stage in any deployment with
+        COGNITIVEOS_ALLOW_INSECURE_DEV_MODE correctly off — making
+        genuinely autonomous (non-request-triggered) action impossible in
+        production, not merely degraded.
+
+        A request-triggered tick (api/dependencies.py, the /execute proxy
+        in actor_runtime.py, subscribe_actor_inbox) has ALREADY bound a
+        real caller/workload identity before reaching here -- never
+        overwrite that; only fall back to a per-actor service identity
+        (the same evidence_for_service(f"actor-runtime:{actor_id}")
+        pattern subscribe_actor_inbox already uses for the exact same
+        "no better identity available" case) when nothing better is
+        already bound.
+
+        asyncio.gather()'d occupant ticks (kernel/geography/runtime.py)
+        each get their own copy of trusted_auth's ContextVar at
+        task-creation time, so binding here -- inside each occupant's own
+        tick() call/task -- keeps concurrent actors' identities isolated
+        from one another. Do not move this binding to a scope ABOVE the
+        gather() call, which would leak one identity across every
+        concurrently-ticked actor in that cycle.
+        """
+        from src.monkey_brain.kernel.trusted_auth import (
+            bind_trusted_auth, evidence_for_service, get_trusted_auth,
+        )
+        if not get_trusted_auth().authenticated:
+            bind_trusted_auth(evidence_for_service(f"actor-runtime:{self.actor_id}"))
         return await self._cognitive_os.tick(prompt_request)
 
     def set_society_runtime(self, runtime: Any) -> None:
@@ -339,6 +372,14 @@ class ActorRuntime:
         All operations run on the actor's LOCAL belief. Belief is fused (with trust
         weighting) before planning, ensuring the actor reasons from freshest available
         information.
+
+        Actor Runtime review, Phase 5: this is the SYNCHRONOUS, non-LLM,
+        local-graph-pathfinding cycle (see CognitiveActor's own "Phase 5"
+        docstring block, kernel/compile/cognitive_actor.py) -- NOT the
+        async LLM-driven engine every real /prompt request uses
+        (ActorRuntime.tick() -> CognitiveActor._cognitive_tick()). Its
+        "Execute" step never reaches ensure_governed; it advances a local
+        simulation, not a real capability.
         """
         import math
         assert isinstance(start, str) and start, "start must be non-empty string"

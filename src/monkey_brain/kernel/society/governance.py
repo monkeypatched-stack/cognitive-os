@@ -10,11 +10,23 @@ Naming note: this module's `SocietyGovernanceEngine` shares a name with a second
 unrelated class at `kernel/governance.py`, which evaluates runtime charters
 and IS live in production (called from `/plan` /execute` /predict` /query`).
 This one governs individual actors' permissions/trust/safety WITHIN a
-Society Runtime — a different layer, different data model, currently
-dormant in production, owned by `SocietyRuntime` (Step 12.10: moved here
-from being Planetary-Runtime-only, matching Society's ownership of
-collective state established in Step 12.3). Do not import one expecting
-the other's behavior.
+Society Runtime — a different layer, different data model, owned by
+`SocietyRuntime` (Step 12.10: moved here from being Planetary-Runtime-only,
+matching Society's ownership of collective state established in Step
+12.3). Do not import one expecting the other's behavior.
+
+Scope correction (Society architecture review): `authorize()`/
+`check_permission()` are NOT dormant — they are real, live inputs to
+kernel/affiliations/graph.py's `resolve_communication` cascade, deciding
+whether two actors may EXCHANGE MESSAGES at all. That is the full extent
+of this engine's real authority in production today. It is NEVER
+consulted by kernel/pipeline/action_executor.py or anything in
+kernel/domains/ — capability-EXECUTION authority runs exclusively through
+kernel/security_boundary.py::ensure_governed (SPIFFE + OPA + portable
+delegation + approval). Do not wire this engine's authorize()/
+check_permission() into a capability-authorization decision — that would
+create a second, competing authority path this codebase does not
+currently have and should not gain by accident.
 """
 from __future__ import annotations
 

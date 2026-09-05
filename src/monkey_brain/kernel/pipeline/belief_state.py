@@ -589,6 +589,7 @@ class BeliefState:
         max_observations: int = 200,
         max_learned_updates: int = 200,
         max_predictions: int = 200,
+        max_facts: int = 200,
     ) -> dict[str, int]:
         """Decay confidence on facts and prune stale hypotheses/facts.
 
@@ -608,6 +609,21 @@ class BeliefState:
         capped by count instead (keep the most recent N) rather than by a
         decayed score.
 
+        Actor Runtime review, Phase 6 (scalability): facts had the SAME
+        unbounded-growth exposure as those three, missed by the Phase 5
+        stress fix above — confirmed live: 50 re-observations of the
+        SAME (entity, attribute) (the realistic, common case — a standing
+        fact like "milk price is $3.99" re-confirmed every cycle) produced
+        50 retained facts, zero pruned, because a freshly re-observed fact
+        never decays low enough to cross fact_prune_threshold, and unlike
+        hypotheses, facts had no hard count-cap fallback for exactly that
+        case. max_facts below closes it, using the same "keep the most
+        recent N" convention observations/learned_updates/predictions
+        already use (not confidence-sorted, like hypotheses — a global
+        confidence sort could unfairly evict one entity's entire fact set
+        merely because another entity's facts happen to carry a higher
+        baseline confidence).
+
         Args:
             decay_rate: multiplicative decay per tick (0.05 = 5% per tick)
             hypothesis_prune_threshold: remove hypotheses below this confidence
@@ -616,6 +632,7 @@ class BeliefState:
             fact_confidence_floor: facts never decay below this (keeps planning alive)
             max_observations: hard cap on observation count (keeps the most recent)
             max_learned_updates: hard cap on learned_updates count (keeps the most recent)
+            max_facts: hard cap on fact count (keeps the most recent)
 
         Returns:
             Counts of pruned items for logging.
@@ -645,6 +662,14 @@ class BeliefState:
             else:
                 pruned_facts += 1
         self.facts = new_facts
+
+        # Hard count cap (Phase 6 fix): a fact re-observed every tick
+        # never decays low enough to be caught by fact_prune_threshold
+        # above, and unlike hypotheses this list had no fallback cap --
+        # this is what actually bounds it in that case.
+        if len(self.facts) > max_facts:
+            pruned_facts += len(self.facts) - max_facts
+            self.facts = self.facts[-max_facts:]
 
         new_hypotheses = []
         for hyp in self.hypotheses:

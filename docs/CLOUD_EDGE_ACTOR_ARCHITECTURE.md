@@ -387,3 +387,63 @@ until it is:
    `ActionExecutor`, independent of node class), not by a new end-to-end
    test with a real LLM-driven payment capability (no LLM was invoked in
    this session's testing, per its own conventions).
+
+## 19. Actor data: registry vs. runtime snapshot vs. belief checkpoint
+
+Society architecture review (Phase 2): "the registry" is not one store.
+Tracing every real call site (`kernel/society/integration.py`) rather
+than assuming from a docstring, there are two physical backends and
+three conceptually distinct reads/writes:
+
+**Redis hash `monkeybrain:actors:hash`** (one key: `self._ACTORS_HASH_KEY`)
+holds BOTH of these — they are different VIEWS of the same entries, not
+separate stores:
+
+- `ActorRegistryEntry` (`locate_actor()`/`list_registry()`) — the cheap,
+  read-only existence/location/status projection: `actor_id`,
+  `actor_type`, `society_id`, `status`, `node_id`, `updated_at`,
+  `artifact_version`, `runtime_version`. One `HGET`, no actor
+  reconstruction.
+- The full actor runtime snapshot (`_save_actor()`/`_load_actors()`) —
+  richer per-actor JSON (profile, capabilities, constraints, metadata)
+  written on every `register_actor()` call (`_save_actor()`, O(1)) and
+  read back at boot (`_load_actors()`).
+
+**MongoDB, via `persistence/actor_state_store.py::ActorStateStore`**
+(`checkpoint_actor_belief()`/`restore_actor_belief()`) is the genuinely
+separate backend: belief_state/bellman_policy/phi_compiled/memory_kv —
+the actor's actual cognition, never written to the Redis hash above.
+
+**A fourth path exists but is disaster recovery, not a competing
+registry:** `locate_actor()`/`list_registry()` first try
+`_list_registry_from_mongodb()`, which uses
+`kernel/society/redis_index_reconstruction.py::RedisIndexReconstructor`
+to rebuild registry-shaped entries by scanning `ActorStateStore`'s Mongo
+collection — for recovering the Redis index after Redis data loss, not a
+second source of truth consulted in normal operation. One edge case
+worth a closer look outside this review's scope: when Mongo is reachable
+but returns zero actor documents (e.g. a fresh Mongo), `locate_actor()`
+currently treats that empty result as "Mongo is the registry of record"
+and logs a warning that a populated Redis entry was ignored — verify this
+is the intended behavior before relying on it in a fresh-Mongo deployment.
+
+**What is authoritative for what**, restated precisely (correcting the
+earlier, looser "three actor-data stores" framing from this review's own
+initial pass — same conclusion, more precise mechanism):
+
+| Data | Backend | Authoritative for |
+|---|---|---|
+| Existence/location/status | Redis hash (Mongo-reconstructable) | "does this actor exist, where, in what lifecycle status" |
+| Profile/capabilities/constraints | Redis hash (same key, richer view) | actor specification as last registered |
+| Belief/bellman/Φ/memory | MongoDB (`ActorStateStore`) | actor cognition — what this actor believes |
+| Lease/fence | Redis (`_ACTOR_LEASE_KEY_PREFIX`/`_ACTOR_FENCE_KEY_PREFIX`) | who currently owns the next tick for this actor_id |
+
+**Split-brain protection already exists and is already tested** (a
+correction to this review's own first pass, which claimed no direct test
+existed): `checkpoint_actor_belief()` refuses to write
+(`integration.py:3427`) when the live Redis fence has advanced past the
+fence this process last acquired — proven by
+`tests/unit/test_multi_replica_safety.py::TestLeaseFenceCheckpoint::
+test_checkpoint_skipped_when_fence_superseded`, which exercises the real
+`checkpoint_actor_belief()` method end-to-end, not a reimplementation of
+its logic.

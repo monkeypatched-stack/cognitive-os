@@ -170,6 +170,35 @@ PERFORMANCE_BUDGETS = {
         name="workload.codegen", target_ms=30000, p50_ms=20000, p95_ms=60000,
         p99_ms=120000, max_ms=300000, timeout_ms=600000,
     ),
+
+    # Edge hybrid storage (kernel/edge/local_store.py + moss_retrieval.py) --
+    # see tests/unit/test_edge_moss_sqlite_hybrid.py. Overridable per-run via
+    # EDGE_<NAME>_P50_BUDGET_MS / _P95_ / _P99_ env vars (that test reads
+    # these values as its own defaults, never hardcoding a second copy).
+    "edge.sqlite_read": LatencyBudget(
+        name="edge.sqlite_read", target_ms=0.05, p50_ms=0.05, p95_ms=0.20,
+        p99_ms=0.50, max_ms=5.0, timeout_ms=100,
+    ),
+    "edge.sqlite_write": LatencyBudget(
+        name="edge.sqlite_write", target_ms=0.5, p50_ms=0.5, p95_ms=1.0,
+        p99_ms=2.0, max_ms=20.0, timeout_ms=100,
+    ),
+    "edge.moss_ingest": LatencyBudget(
+        name="edge.moss_ingest", target_ms=5, p50_ms=5, p95_ms=10,
+        p99_ms=20, max_ms=100, timeout_ms=5000,
+    ),
+    "edge.moss_retrieve": LatencyBudget(
+        name="edge.moss_retrieve", target_ms=5, p50_ms=5, p95_ms=10,
+        p99_ms=20, max_ms=100, timeout_ms=5000,
+    ),
+    "edge.hybrid_tick": LatencyBudget(
+        name="edge.hybrid_tick", target_ms=5, p50_ms=5, p95_ms=10,
+        p99_ms=20, max_ms=100, timeout_ms=5000,
+    ),
+    "edge.restart_ready": LatencyBudget(
+        name="edge.restart_ready", target_ms=50, p50_ms=50, p95_ms=200,
+        p99_ms=500, max_ms=5000, timeout_ms=30000,
+    ),
 }
 
 

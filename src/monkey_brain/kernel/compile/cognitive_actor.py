@@ -543,6 +543,32 @@ class CognitiveActor(Entity):
         self._actor_belief.observe(src, dst, reward=reward, confidence=confidence,
                                    source="direct", domain=domain)
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # Actor Runtime review (Society architecture hardening), Phase 5: five of
+    # the six methods below -- plan/simulate/execute/learn/cognitive_cycle --
+    # are a SEPARATE, SYNCHRONOUS, non-LLM cognitive mechanism: graph
+    # pathfinding + propagation over this actor's own local SparseTransitionTensor,
+    # genuinely live (kernel/compile/actor_runtime.py::ActorRuntime.
+    # cognitive_cycle(), kernel/compile/society_runtime.py), but NOT what a
+    # real grocery/commerce prompt request runs. They share vocabulary with,
+    # but are NOT the same mechanism as, this class's own async LLM-driven
+    # engine: tick() -> _cognitive_tick() -> belief_runtime.py's canonical
+    # Observe->Believe->Plan->Predict->Decide->Govern->Execute->Commit
+    # pipeline (used by every real /prompt request, confirmed: zero import of
+    # this synchronous path from src/monkey_brain/api/). In particular,
+    # `execute()` below never reaches ensure_governed and never touches a
+    # real capability -- it advances a LOCAL simulation against a supplied
+    # SparseTransitionTensor `world` argument, nothing external. Do not
+    # confuse a call to `actor.execute(...)` here with the governed
+    # capability-execution boundary the real engine's Execute stage uses.
+    #
+    # The sixth, compile_phi(), is the ONE deliberate exception: a genuinely
+    # shared, single-purpose utility (compile the Bellman policy into a
+    # sparse transition operator Φ) that execute_cognitive_loop() ALSO calls
+    # directly after the real async engine's own learning step -- reuse of
+    # one real utility, not a second copy of cognition.
+    # ═══════════════════════════════════════════════════════════════════════
+
     # ── Layer 3: Decision (Planning) ────────────────────────────────────────
 
     def plan(self, start: str, goal: str, k: int = 12) -> list[str]:
