@@ -306,6 +306,23 @@ class GeographicEntityRuntime:
             observed_society_ids.update(self._registry.societies_at_or_above(entity.entity_id))
 
         # get society runtime by id
+        #
+        # Deliberately SERIAL, unlike the occupant-actor loop below --
+        # Society architecture review, Phase 4: do not parallelize this
+        # with asyncio.gather. Each iteration reads the ACCUMULATED
+        # ticked_actor_ids set (`exclude_actor_ids = frozenset(ticked_actor_ids)`)
+        # produced by every PRIOR society this entity hosts, then updates
+        # that same set before the next society's tick — specifically so
+        # an actor who is a member of two societies hosted at the same
+        # entity is ticked at most once per cycle. Running these
+        # concurrently would let two societies both read the same
+        # not-yet-updated ticked_actor_ids and double-tick that actor —
+        # exactly the DANGEROUS race this loop exists to prevent. Safe to
+        # leave serial: unlike the occupant loop (one entry per present
+        # actor, each with its own multi-second LLM call), an entity
+        # typically hosts very few societies, so this loop's own
+        # contribution to cycle time is small relative to the
+        # already-parallelized occupant-actor cost.
         for society_id in entity.hosted_society_ids:
             if actor_id is not None and society_id != selected_society_id:
                 continue
@@ -440,6 +457,28 @@ class GeographicEntityRuntime:
                     effective_memberships[occupant_id] = eff_memberships
 
         # find the child societies and tick them too
+        #
+        # Deliberately SERIAL, same reasoning as the societies loop above
+        # (Society architecture review, Phase 4): every child recursion
+        # shares this SAME `ticked_actor_ids` set (`_ticked_actor_ids=
+        # ticked_actor_ids` below), read-then-updated across siblings, so
+        # an actor present under two different children of this entity is
+        # ticked at most once per cycle. Parallelizing sibling children
+        # via asyncio.gather would let two children both observe the
+        # actor as not-yet-ticked before either writes it, double-ticking
+        # it — the same DANGEROUS race the societies loop's own comment
+        # describes. Unlike that loop, this one COULD matter more at
+        # scale (a high branching-factor entity, e.g. a City with many
+        # Streets, pays this serially), but the dominant cost at every
+        # tier — each present actor's own LLM-backed cognitive tick — is
+        # already parallelized inside each child's own occupant loop
+        # regardless of recursion order. Safely parallelizing sibling
+        # recursion would require replacing this shared, sequentially-
+        # mutated set with a two-phase collect-then-dedupe-then-tick
+        # protocol — a genuine redesign of the double-tick-prevention
+        # mechanism, intentionally out of scope here without a live
+        # measurement showing child fan-out (not per-actor LLM latency)
+        # is the actual bottleneck.
         children_ticked: list[str] = []
         entities_ticked_total = 1
         societies_ticked_total = len(societies_ticked)

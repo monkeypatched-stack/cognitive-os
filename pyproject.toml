@@ -71,6 +71,22 @@ dependencies = [
 dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff"]
 enterprise = ["elasticsearch[async]", "pyspark", "mem0ai", "spacy"]
 soma = ["soma-cli>=1.0.0"]
+# Robot/ROS deployments only (kernel/edge/ros_integration.py). rclpy is
+# NOT a normal CognitiveOS dependency -- it is not installable via PyPI
+# at all (it ships with a ROS 2 distribution's own apt/conda packaging),
+# so this extra documents the requirement and constrains ros distro
+# version expectations rather than declaring a pip-installable package.
+# A robot deployment installs ROS 2 itself (see docs/ROS_INTEGRATION.md)
+# and only needs this extra to signal that dependency in tooling/CI that
+# inspects pyproject.toml.
+ros = []
+# Optional edge semantic-retrieval backend (kernel/edge/moss_retrieval.py).
+# Moss (docs.usemoss.dev) is a cloud-backed semantic-search SaaS -- NOT
+# the edge persistence substrate (that remains kernel/edge/local_store.py's
+# SQLite backend, unchanged; see docs/CLOUD_EDGE_ACTOR_ARCHITECTURE.md
+# Section 18's "MossDB scope decision"). Never imported unless
+# MOSS_PROJECT_ID/MOSS_PROJECT_KEY are configured.
+moss = ["moss==1.7.3"]
 
 [project.scripts]
 monkeybrain = "monkey_brain.cli.main:main"

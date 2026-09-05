@@ -158,3 +158,77 @@ class EventBusProtocol(Protocol):
     async def publish(self, event_type: str, payload: dict) -> None:
         """Publish an event."""
         ...
+
+
+@runtime_checkable
+class ActorStateStoreProtocol(Protocol):
+    """Architecture Boundary Hardening (Section 1): the interface
+    kernel/society/integration.py::PlanetaryRuntime.checkpoint_actor_belief/
+    restore_actor_belief already depend on via _get_actor_state_store() --
+    made explicit here rather than left as an implicit convention. Matches
+    persistence/actor_state_store.py::ActorStateStore's real, existing
+    method surface exactly (no renaming) so that class satisfies this
+    Protocol with zero changes. kernel/edge/actor_state_store.py::
+    EdgeActorStateStore is the second, edge-local implementation --
+    portable, but never authoritative in place of whichever store the
+    control plane designates (see that module's own docstring)."""
+
+    def save(self, actor_state: Any) -> None:
+        """Persist a persistence.actor_state_store.PersistedActorState."""
+        ...
+
+    def load(self, actor_id: str, tenant_id: str) -> Any:
+        """Returns a PersistedActorState, or None if not found."""
+        ...
+
+    def delete(self, actor_id: str, tenant_id: str) -> bool:
+        ...
+
+    def list_actors(self, tenant_id: str, active_only: bool = True) -> list[str]:
+        ...
+
+
+@runtime_checkable
+class WorldStateStore(Protocol):
+    """Architecture Boundary Hardening (Section 2): the interface the
+    cognitive/capability layer already exclusively uses to read/mutate
+    world entities and relationships -- kernel/knowledge_graph.py::
+    KnowledgeGraph already satisfies this with zero changes (confirmed:
+    no capability or cognitive-loop module imports a neo4j driver
+    directly; see tests/architecture/test_dependency_direction.py).
+    kernel/knowledge_graph_neo4j.py::Neo4jBackedKnowledgeGraph is a second
+    real implementation, used today for a narrower, distinct concern
+    (durable household/organization-role and delegation facts queried by
+    kernel/domains/domain_security.py and delegation-related API routes)
+    -- NOT a drop-in replacement for the default, Redis-persisted,
+    in-process KnowledgeGraph every grocery/commerce capability actually
+    reasons over; both are real, both satisfy this Protocol, they serve
+    different scopes by design, not by oversight."""
+
+    def get_entity(self, entity_id: str) -> Any: ...
+
+    def add_entity(self, entity: Any) -> None: ...
+
+    def get_relationship(self, relationship_id: str) -> Any: ...
+
+
+@runtime_checkable
+class ExecutionAdapterProtocol(Protocol):
+    """Architecture Boundary Hardening (Section 4): the shape every
+    execution substrate behind kernel/pipeline/action_executor.py::
+    ActionExecutor's ensure_governed boundary already satisfies --
+    kernel/edge/ros_integration.py::RosExecutionAdapter (Fake and Rclpy)
+    already matches this exactly; CapabilityBus.discover(name).handle(...)
+    (the API/domain-capability path) satisfies the same shape structurally
+    even though nothing forces it through this literal Protocol today
+    (see Section 12's dependency-direction test and this task's own
+    warning against introducing abstraction with no enforcement value --
+    a capability's `.handle()` signature varies per capability by design,
+    so this Protocol documents the COMMON shape without forcing every
+    capability to formally implement it). An ExecutionAdapter must never
+    itself decide policy/approval/authority -- see
+    run_ros_action_if_governed's own docstring, which is the enforcement
+    point, not this Protocol."""
+
+    async def invoke(self, *, capability: str, parameters: dict) -> dict:
+        ...

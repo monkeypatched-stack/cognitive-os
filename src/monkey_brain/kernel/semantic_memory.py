@@ -113,8 +113,17 @@ class EmbeddingStore:
     def available(self) -> bool:
         return self._connected
 
-    async def embed(self, text: str) -> list[float]:
-        """Embed text using Ollama nomic-embed-text."""
+    async def embed(self, text: str) -> list[float] | None:
+        """Embed text using Ollama nomic-embed-text, or None if Ollama is
+        unavailable.
+
+        No fabricated fallback vector: a hash-of-text is not a semantic
+        embedding, and presenting one to cosineSimilarity as if it were
+        would silently rank results by MD5-prefix similarity, not meaning.
+        Callers must treat None as "no vector retrieval possible right
+        now" and fall back to keyword/full-text search — never invent a
+        vector to keep the vector code path superficially alive.
+        """
         if self._embedder == "ollama":
             try:
                 import httpx
@@ -123,28 +132,31 @@ class EmbeddingStore:
                         "http://localhost:11434/api/embeddings",
                         json={"model": "nomic-embed-text:latest", "prompt": text},
                     )
-                    return resp.json().get("embedding", [0.0] * self.EMBEDDING_DIM)
+                    embedding = resp.json().get("embedding")
+                    if isinstance(embedding, list) and embedding:
+                        return embedding
             except Exception as e:
                 logger.debug("[embedding_store] embed failed: %s", e)
 
-        # Deterministic fallback
-        import hashlib
-        h = hashlib.md5(text.encode()).digest()
-        return [b / 255.0 for b in h] + [0.0] * (self.EMBEDDING_DIM - len(h))
+        return None
 
     async def add(self, item_id: str, text: str, metadata: dict | None = None) -> None:
-        """Add knowledge item to Elasticsearch with embedding."""
+        """Add knowledge item to Elasticsearch. Indexed with a real
+        embedding when one is available; otherwise stored without one
+        (still discoverable via _fallback_search's full-text match, never
+        via a fabricated vector)."""
         if not self.available:
             return
 
         embedding = await self.embed(text)
-        doc = {
+        doc: dict[str, Any] = {
             "item_id": item_id,
             "text": text,
             "metadata": metadata or {},
-            "embedding": embedding,
             "created_at": int(time.time() * 1000),
         }
+        if embedding is not None:
+            doc["embedding"] = embedding
         self._items.append(doc)
 
         try:
@@ -158,7 +170,7 @@ class EmbeddingStore:
             logger.debug("[embedding_store] ES index failed: %s", e)
 
     async def search(self, query: str, limit: int = 5) -> list[dict]:
-        """Search by embedding similarity + full-text fallback.
+        """Search by embedding similarity, falling back to full-text.
 
         Uses script_score + cosineSimilarity, not the top-level `knn` search
         clause: that clause is an ES 8.0+ feature and this deployment runs
@@ -169,11 +181,20 @@ class EmbeddingStore:
         — the intended `except -> _fallback_search` path was silently never
         reached. Similarity search returned nothing, always, on this ES
         version, and nobody could tell from the code that it was broken.
+
+        Every returned hit carries retrieval_method ("vector" for a real
+        cosineSimilarity match, "keyword" for the full-text fallback) so a
+        caller merging results from multiple sources (SemanticMemory.query)
+        never has to guess, or assume, which one actually produced a hit.
         """
         if not self.available:
             return []
 
         embedding = await self.embed(query)
+        if embedding is None:
+            # No real embedding available -- do not fabricate one and
+            # send it to cosineSimilarity. Degrade straight to full-text.
+            return await self._fallback_search(query, limit)
 
         try:
             import httpx
@@ -204,13 +225,15 @@ class EmbeddingStore:
                     return await self._fallback_search(query, limit)
                 data = resp.json()
                 hits = data.get("hits", {}).get("hits", [])
-                return [h["_source"] for h in hits]
+                return [{**h["_source"], "retrieval_method": "vector"} for h in hits]
         except Exception as e:
             logger.debug("[embedding_store] similarity search failed: %s", e)
             return await self._fallback_search(query, limit)
 
     async def _fallback_search(self, query: str, limit: int) -> list[dict]:
-        """Full-text search fallback when kNN fails."""
+        """Full-text search fallback when embedding search is unavailable
+        or fails. Never mislabeled as a vector result — see search()'s
+        docstring."""
         try:
             import httpx
             match_query = {
@@ -224,7 +247,7 @@ class EmbeddingStore:
                     json=match_query,
                 )
                 hits = resp.json().get("hits", {}).get("hits", [])
-                return [h["_source"] for h in hits]
+                return [{**h["_source"], "retrieval_method": "keyword"} for h in hits]
         except Exception:
             return []
 
@@ -352,6 +375,16 @@ class SemanticMemory:
         return self._initialized
 
     async def query(self, question: str) -> dict | None:
+        """Merges two genuinely different retrieval mechanisms into one
+        `results` list -- embedding-similarity hits from EmbeddingStore
+        (already self-tagged retrieval_method by search(), whether that
+        turned out to be a real vector match or its own full-text
+        fallback) and SomaticCompiler's own keyword chart search. Every
+        item here MUST carry an accurate retrieval_method: a caller (see
+        sittingface_retrieval.py::_vector_retrieve) has no way to tell
+        the two sources apart otherwise, and must never assume every item
+        returned from this method is a vector-similarity result merely
+        because query() was called."""
         if not self.available:
             return None
         results = []
@@ -365,7 +398,7 @@ class SemanticMemory:
             try:
                 chart_results = self._compiler.search(question)
                 if isinstance(chart_results, list):
-                    results.extend(chart_results)
+                    results.extend({**r, "retrieval_method": "keyword"} for r in chart_results if isinstance(r, dict))
             except Exception:
                 logger.debug("query: suppressed exception", exc_info=True)
         return {"results": results, "count": len(results), "source": "semantic_memory"}

@@ -5607,7 +5607,10 @@ class AnswerQuestionCapability:
         return facts
 
 
-async def _run_delegated_tasks(pr: Any, actor_id: str, actor_role: str, tasks: list, shared_budget_id: str | None = None) -> dict:
+async def _run_delegated_tasks(
+    pr: Any, actor_id: str, actor_role: str, tasks: list, shared_budget_id: str | None = None,
+    verified_delegation: dict | None = None, delegation_chain: tuple = (),
+) -> dict:
     """Real dispatch shared by subscribe_actor_inbox's NATS path and
     DelegateTaskCapability's in-process fallback below -- exactly one real
     execution path, not two. Runs the TARGET actor's own capability chain
@@ -5645,6 +5648,18 @@ async def _run_delegated_tasks(pr: Any, actor_id: str, actor_role: str, tasks: l
         # few lines up), so a real shared budget can only ever reach here
         # by being passed explicitly.
         context["shared_budget_id"] = shared_budget_id
+    if verified_delegation is not None:
+        # The ONLY trusted-injection seam action_executor.py reads
+        # (context["verified_delegation"], populated exclusively from an
+        # ALREADY-verified chain -- see kernel/edge/delegation_message.py
+        # and action_executor.py's own "Portable Delegation integration
+        # point" comment). Never populated from anything agent-claimed.
+        context["verified_delegation"] = verified_delegation
+        # Raw parsed chain for the EDGE/local decision path
+        # (LocalGovernanceEvaluator.evaluate(), which independently
+        # re-verifies it) -- a separate consumer from verified_delegation
+        # above (OPA's shaped input), not a duplicate of it.
+        context["delegation_chain"] = delegation_chain
     exec_result = await pr._execution_engine.execute(actions, context)
     return {
         "success": exec_result.goal_achieved,
@@ -5747,10 +5762,33 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
         # AnswerQuestionCapability exactly as before this branch existed;
         # this is purely additive, not a replacement.
         if payload.get("msg_type") == "delegated_task":
-            result = await _run_delegated_tasks(
-                pr, actor_id, actor_role, payload.get("tasks", []),
-                shared_budget_id=payload.get("shared_budget_id"),
-            )
+            # Edge gap-closure (Section 4/6): extract+verify a delegation
+            # chain riding on this message at the narrowest trusted
+            # boundary -- right after this handler has bound ITS OWN
+            # verified identity (SPIFFE/service evidence above), before
+            # any capability executes. `actor_id` (this actor, the one
+            # actually about to act) is passed as authenticated_delegate,
+            # never a value read out of the message -- that is the
+            # identity-binding check. A chain that fails verification is
+            # rejected outright (never silently dropped, never let through
+            # ungoverned) since the caller explicitly supplied one; no
+            # chain at all is the normal, unauthenticated-authority case
+            # and falls through unchanged.
+            from src.monkey_brain.kernel.edge.delegation_message import extract_and_verify_delegation
+
+            extraction = extract_and_verify_delegation(payload, authenticated_delegate=actor_id)
+            if extraction.present and not extraction.verified:
+                result = {
+                    "success": False,
+                    "error": f"delegation chain rejected: {extraction.denial_reason}",
+                }
+            else:
+                result = await _run_delegated_tasks(
+                    pr, actor_id, actor_role, payload.get("tasks", []),
+                    shared_budget_id=payload.get("shared_budget_id"),
+                    verified_delegation=extraction.verified_delegation,
+                    delegation_chain=extraction.chain,
+                )
         elif payload.get("msg_type") == "broadcast":
             # Real gap this closes: BroadcastToAffiliationCapability
             # (below) used to only ever call SocietyRuntime.

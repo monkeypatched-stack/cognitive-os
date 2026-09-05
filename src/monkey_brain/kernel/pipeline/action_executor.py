@@ -47,9 +47,18 @@ class ActionExecutor:
         propose_transition: Callable[[Action, dict], ProposedTransition | None] | None = None,
         transition_gate: TransitionGate | None = None,
         connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
+        edge_governance: Any = None,
     ) -> None:
         self._capability_bus = capability_bus
         self._failure_rate = failure_rate
+        # Edge-local state and governance layer: consulted ONLY when
+        # connectivity_check above has already decided a capability
+        # cannot proceed for lack of reachable central authority. A
+        # kernel.edge.local_governance.LocalGovernanceEvaluator (or
+        # anything with the same .evaluate() signature); None (the
+        # default) preserves the exact prior behavior (unconditional
+        # refusal when disconnected) for every existing caller.
+        self._edge_governance = edge_governance
         # Cloud/Edge Actor Convergence, Section 11/31: offline-safety gate,
         # evaluated BEFORE the negotiation gate below (a capability this
         # node can't safely reach authority for is refused before it's
@@ -376,21 +385,86 @@ class ActionExecutor:
                     # all -- behaves exactly as before for those.
                     gate_decision = None
                     gated_outcome = None
+                    local_policy_decision = None
                     if self._connectivity_check is not None:
                         allowed, waiting_state, reason = self._connectivity_check(action.capability)
                         if not allowed:
-                            # Refused before the capability is ever invoked --
-                            # same "never call handle() for a gated action"
-                            # contract the negotiation gate below establishes.
-                            # Never reached for TRANSITION_GATE gating below
-                            # since gated_outcome is already set.
-                            gated_outcome = ActionOutcome(
-                                action_id=action.action_id, success=False,
-                                result={"waiting_state": waiting_state, "capability": action.capability},
-                                error=reason, latency_ms=0.0,
-                            )
                             from src.monkey_brain.kernel.compile import _obs
-                            _obs.counter("offline_safety.blocked.total", waiting_state=waiting_state, capability=action.capability)
+                            # Edge Local Governance: the blunt connectivity
+                            # gate above only knows "can this node reach
+                            # central authority" -- it has no notion of
+                            # already-issued, still-valid authority cached
+                            # locally. Before accepting its refusal as
+                            # final, ask whether a signed, verified,
+                            # fresh control-plane snapshot already covers
+                            # this exact (principal, capability, resource)
+                            # -- never a fresh trust decision made here,
+                            # only a check of whether one was already made
+                            # centrally and is still safe to use.
+                            edge_outcome = None
+                            if self._edge_governance is not None:
+                                from src.monkey_brain.kernel.trusted_auth import get_trusted_auth
+                                principal = get_trusted_auth().principal_id
+                                # Edge gap-closure (Section 4): a raw,
+                                # already-parsed delegation chain from the
+                                # live message boundary (kernel/edge/
+                                # delegation_message.py, via context
+                                # ["delegation_chain"]) is handed to the
+                                # SAME LocalGovernanceEvaluator.evaluate()
+                                # every other edge decision uses -- it
+                                # independently re-verifies the chain
+                                # itself (never trusts that a message
+                                # boundary already did so), exactly like
+                                # every other consumer of a delegation
+                                # chain in this codebase.
+                                delegation_chain = (
+                                    context.get("delegation_chain", ()) if isinstance(context, dict) else ()
+                                )
+                                edge_outcome = self._edge_governance.evaluate(
+                                    principal=principal,
+                                    action=f"capability.{action.capability}",
+                                    resource=action.capability,
+                                    authenticated_principal=principal,
+                                    delegation_chain=delegation_chain,
+                                )
+                            if edge_outcome is not None and not edge_outcome.escalate:
+                                from src.monkey_brain.kernel.edge.local_governance import to_policy_decision
+                                _obs.counter(
+                                    "edge.governance.decision", origin=edge_outcome.origin.value,
+                                    allowed=str(edge_outcome.allowed), capability=action.capability,
+                                )
+                                if edge_outcome.allowed:
+                                    local_policy_decision = to_policy_decision(edge_outcome)
+                                else:
+                                    gated_outcome = ActionOutcome(
+                                        action_id=action.action_id, success=False,
+                                        result={
+                                            "waiting_state": "", "capability": action.capability,
+                                            "governance_origin": edge_outcome.origin.value,
+                                        },
+                                        error=edge_outcome.reason, latency_ms=0.0,
+                                    )
+                            else:
+                                # No edge governance wired in, or it could
+                                # not establish a confident local decision
+                                # (escalate=True) -- exactly the prior
+                                # refusal behavior, unchanged.
+                                if edge_outcome is not None:
+                                    _obs.counter(
+                                        "edge.governance.decision", origin=edge_outcome.origin.value,
+                                        allowed="false", capability=action.capability,
+                                    )
+                                # Refused before the capability is ever invoked --
+                                # same "never call handle() for a gated action"
+                                # contract the negotiation gate below establishes.
+                                # Never reached for TRANSITION_GATE gating below
+                                # since gated_outcome is already set.
+                                gated_outcome = ActionOutcome(
+                                    action_id=action.action_id, success=False,
+                                    result={"waiting_state": waiting_state, "capability": action.capability},
+                                    error=reason, latency_ms=0.0,
+                                )
+                                _obs.counter("offline_safety.blocked.total", waiting_state=waiting_state, capability=action.capability)
                     if (
                         gated_outcome is None
                         and self._propose_transition is not None
@@ -559,7 +633,7 @@ class ActionExecutor:
                         event_publish_ms += (time.perf_counter() - publish_started) * 1000
                         continue
 
-                    outcome = await self._execute_action(action, context)
+                    outcome = await self._execute_action(action, context, local_policy_decision=local_policy_decision)
                     if gate_decision is not None and isinstance(outcome.result, dict):
                         outcome.result["gate_decision"] = gate_decision.to_dict()
 
@@ -866,8 +940,20 @@ class ActionExecutor:
             return capability
         return self._casefold_resolve(capability)
 
-    async def _execute_action(self, action: Action, context: Any = None) -> ActionOutcome:
-        """Execute a single action through the capability bus."""
+    async def _execute_action(
+        self, action: Action, context: Any = None, *,
+        local_policy_decision: dict[str, Any] | None = None,
+    ) -> ActionOutcome:
+        """Execute a single action through the capability bus.
+
+        local_policy_decision: computed by _execute_actions's own
+        connectivity-gate block (kernel/edge/local_governance.py), never
+        by this method itself, and never read back out of `context` --
+        passed as an explicit parameter specifically so it can never leak
+        across actions the way a shared context-dict key could (context
+        is the SAME dict object for every action in a batch; a per-action
+        decision stashed there without being cleared each iteration could
+        silently apply to the wrong action)."""
         import inspect
         import random
         start_time = time.time()
@@ -1088,12 +1174,12 @@ class ActionExecutor:
 
             # Portable Delegation integration point: a caller that has
             # ALREADY run kernel/delegation.py::verify_delegation_chain
-            # (today: nothing does this automatically -- agent-to-agent
-            # message handling in kernel/domains/grocery.py does not yet
-            # extract+verify a delegation off an inbound message; this is
-            # the seam a future such integration plugs into) may stash the
-            # verified result via kernel/delegation.py::
+            # may stash the verified result via kernel/delegation.py::
             # to_opa_delegation_context under context["verified_delegation"].
+            # Populated today by kernel/edge/delegation_message.py, called
+            # from subscribe_actor_inbox's live message handler
+            # (kernel/domains/grocery.py) for delegated_task messages that
+            # carry a delegation_chain field.
             # Never read a caller-supplied "delegation" claim from
             # action.parameters -- that would be exactly the self-asserted-
             # authority path Section 21 forbids; this dict must already be
@@ -1118,6 +1204,7 @@ class ActionExecutor:
                     # and why this specific nesting needs to opt out of it).
                     force_authorize=True,
                     verified_delegation=verified_delegation,
+                    local_policy_decision=local_policy_decision,
                 )
             except asyncio.TimeoutError:
                 latency = (time.time() - start_time) * 1000

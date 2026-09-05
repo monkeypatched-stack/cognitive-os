@@ -6,12 +6,16 @@ transferring any identity/credential material.
 Two existing "delegation" concepts in this codebase solve different,
 narrower problems and are NOT extended here:
 kernel/society/delegation.py::Delegation (unauthenticated, single-process,
-membership-permission convenience) and
+membership-permission convenience — its only real, live consumer is
+kernel/affiliations/graph.py's communication-routing cascade, deciding
+whether two actors may exchange messages at all; it is never consulted
+for capability-execution authority) and
 kernel/domains/domain_security.py::grant_delegation (KG-persisted,
 household/grocery-specific, string IDs only, no proof). Neither can
 express "Agent A cryptographically proves it granted Agent B this exact
 bounded, attenuable, chainable authority" — this module is the one place
-that does.
+that does, and it is the ONLY delegation mechanism ensure_governed ever
+consults for execution authority.
 
 Core invariant (Section 1 of the task this module implements):
 

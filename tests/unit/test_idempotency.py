@@ -9,17 +9,36 @@ dependencies at all.
 """
 from __future__ import annotations
 
-import os
+import pytest
+from fastapi import Depends, FastAPI, Request
+from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
-os.environ.setdefault("IDEMPOTENCY_STORE_BACKEND", "memory")
-
-from fastapi import Depends, FastAPI, Request  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
-
-from src.monkey_brain.api.idempotency import (  # noqa: E402
+from src.monkey_brain.api.idempotency import (
     IdempotencyStore, get_idempotency_store, idempotent, request_fingerprint,
 )
+
+
+@pytest.fixture(autouse=True)
+def _memory_backend_env(monkeypatch):
+    """Actor Runtime review, Phase 4: IDEMPOTENCY_STORE_BACKEND=memory
+    used to be set via a bare, module-level `os.environ.setdefault(...)`
+    -- set once at import time and NEVER reverted, since Python caches
+    module imports for the whole pytest session. Combined with
+    IdempotencyStore's own process-wide singleton (_reset_store() below
+    only clears it at the START of each of THIS file's tests, never
+    after the LAST one), this leaked a memory-backed singleton into every
+    later test in the same session -- confirmed live: a real, fail-closed
+    (COGNITIVEOS_ALLOW_INSECURE_DEV_MODE correctly unset) ensure_governed
+    call in a LATER, unrelated test file got denied with "idempotency
+    store missing" because the memory backend is deliberately forbidden
+    in fail-closed mode (api/idempotency.py's own policy), and the
+    leaked singleton never got a chance to reconstruct against that
+    later test's own (correct) environment. monkeypatch.setenv here
+    reverts automatically after each test, closing that leak."""
+    monkeypatch.setenv("IDEMPOTENCY_STORE_BACKEND", "memory")
+    yield
+    IdempotencyStore._instance = None
 
 
 def _fake_auth() -> str:

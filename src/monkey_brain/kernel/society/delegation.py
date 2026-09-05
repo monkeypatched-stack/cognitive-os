@@ -1,13 +1,29 @@
 """Delegation — temporary delegation of authority from one membership to
 an actor (Membership as a First-Class Runtime Resource refactor).
 
-A new, lightweight, dependency-free model, distinct from two existing
+A new, lightweight, dependency-free model, distinct from THREE existing
 mechanisms in this codebase that model different situations:
 kernel/domains/domain_security.py's grant/revoke/check_delegation (real,
 working, but Neo4j-KG-backed and written for grocery/household semantics
-specifically), and kernel/compile/trust.py::TrustEdge.delegation_chain
+specifically), kernel/compile/trust.py::TrustEdge.delegation_chain
 (transitive delegation across the runtime-to-runtime institutional trust
-layer — a different layer entirely). Neither is touched by this refactor.
+layer — a different layer entirely), and — most important to keep
+straight, added later — kernel/delegation.py::DelegationCredential
+(cryptographically signed, Ed25519, attenuation-chain-verified authority
+used at the ensure_governed/OPA boundary to gate real capability
+EXECUTION). None of the three is touched by this refactor.
+
+THIS module's `Delegation`/`DelegationRegistry` carries NO cryptographic
+proof and grants NO execution authority whatsoever — its only real,
+live consumer is kernel/affiliations/graph.py's communication-routing
+cascade (`_delegated_authority`), deciding whether two actors may
+EXCHANGE MESSAGES at all, never whether a capability may execute. Do not
+wire `DelegationRegistry.is_valid()`/`effective_delegated_permissions()`
+into any capability-authorization decision — that is exclusively
+kernel/delegation.py::verify_delegation_chain's job, via ensure_governed.
+Sharing the name "delegation" across these mechanisms is a known,
+accepted naming collision (see docs/CLOUD_EDGE_ACTOR_ARCHITECTURE.md's
+Society architecture review), not an indication they are interchangeable.
 
 In-memory dict-backed — delegations are few and lightweight per actor, so
 no pluggable-backend machinery (unlike kernel/timeline/store.py's
