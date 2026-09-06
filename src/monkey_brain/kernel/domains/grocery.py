@@ -122,6 +122,11 @@ def build_default_capability_bus() -> "GroceryCapabilityBus":
     bus.register(DeliveryCapability())
     from src.monkey_brain.kernel.domains.recall import RecallCapability
     bus.register(RecallCapability())
+    # Swarm-readiness audit: the one real, governed, minimal ROS capability
+    # (docs/ACTOR_CELL_ARCHITECTURE.md / kernel/domains/robot.py). A no-op
+    # for any actor with no bound ROS adapter (i.e. every non-robot actor).
+    from src.monkey_brain.kernel.domains.robot import HeartbeatCapability
+    bus.register(HeartbeatCapability())
     grocery_capability_bundle(bus).validate()
     return bus
 
@@ -802,12 +807,21 @@ def _unit_cost(entity, stores_by_id=None) -> float:
 _REJECTION_THRESHOLD = 2  # GS-0800: this many rejections of the same type reads as "always rejects"
 
 
-def record_rejection(kg, type_keyword: str, max_attempts: int = 5) -> int:
+def record_rejection(kg, actor_id: str, type_keyword: str, max_attempts: int = 5) -> int:
     """Record that the actor rejected a product of this type (e.g.
     'almond'). Stored as a small Preference entity in the actor's OWN
     graph — rejection is personal to the actor, not a property of the
     product or store, unlike trust (see record_order_outcome). Returns the
     new cumulative count.
+
+    Actor Cell Architecture planning (docs/ACTOR_CELL_ARCHITECTURE.md)
+    found this entity_id had no actor_id in it at all despite the "personal
+    to the actor" claim above — every actor sharing this one process's KG
+    collapsed onto the SAME entity, so actor A's rejections silently became
+    actor B's filter too. actor_id is now part of both the key (so two
+    actors' rejections of the same type_keyword never collide) and the
+    stored attributes (so get_rejected_keywords below can filter by it
+    without re-parsing the id).
 
     Uses compare_and_swap, not a plain read-then-write — Level 12's
     concurrency stress test caught the same read-modify-write race here
@@ -819,20 +833,20 @@ def record_rejection(kg, type_keyword: str, max_attempts: int = 5) -> int:
     been found.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
-    entity_id = f"pref_reject_{type_keyword}"
+    entity_id = f"pref_reject_{actor_id}_{type_keyword}"
     for _ in range(max_attempts):
         existing = kg.get_entity(entity_id)
         if existing is None:
             # First rejection of this type — no prior version to race
             # against; add_entity's own write is the initial creation.
             entity = kg.add_entity(entity_id, EntityType.OTHER, f"Rejection: {type_keyword}",
-                                    {"type_keyword": type_keyword, "count": 1, "last_rejected": time.time()})
+                                    {"actor_id": actor_id, "type_keyword": type_keyword, "count": 1, "last_rejected": time.time()})
             return entity.attributes["count"]
 
         count = existing.attributes.get("count", 0) + 1
         version = kg.version_of(entity_id)
         ok, _current = kg.compare_and_swap(entity_id, version, {
-            "type_keyword": type_keyword, "count": count, "last_rejected": time.time(),
+            "actor_id": actor_id, "type_keyword": type_keyword, "count": count, "last_rejected": time.time(),
         })
         if ok:
             return count
@@ -840,9 +854,12 @@ def record_rejection(kg, type_keyword: str, max_attempts: int = 5) -> int:
     return current.attributes.get("count", 0) if current else 0
 
 
-def get_rejected_keywords(kg) -> frozenset:
-    """Type keywords the actor has rejected often enough to treat as a
-    standing preference against them, not just a one-off "not today"."""
+def get_rejected_keywords(kg, actor_id: str) -> frozenset:
+    """Type keywords THIS actor has rejected often enough to treat as a
+    standing preference against them, not just a one-off "not today" —
+    scoped by actor_id so one actor's rejections never filter another
+    actor's results (see record_rejection's own docstring for the leak
+    this closes)."""
     from src.monkey_brain.kernel.knowledge_graph import EntityType
     rejected = set()
     # record_rejection (above) always creates these as EntityType.OTHER --
@@ -850,7 +867,8 @@ def get_rejected_keywords(kg) -> frozenset:
     # entirely (GS-6000), rather than scanning every product to find a
     # handful of preference-rejection markers.
     for e in kg.entities_by_type(EntityType.OTHER):
-        if e.entity_id.startswith("pref_reject_") and e.attributes.get("count", 0) >= _REJECTION_THRESHOLD:
+        if (e.entity_id.startswith("pref_reject_") and e.attributes.get("actor_id") == actor_id
+                and e.attributes.get("count", 0) >= _REJECTION_THRESHOLD):
             kw = e.attributes.get("type_keyword", "")
             if kw:
                 rejected.add(kw)
@@ -4179,7 +4197,15 @@ class CounterfactualCapability:
             return {"success": False, "error": "no knowledge graph available"}
 
         lactose_free = wants_lactose_free(question)
-        rejected_keywords = get_rejected_keywords(kg)
+        # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md Step 3):
+        # rejection/preference facts are actor-private -- read from the
+        # actor's OWN KnowledgeGraph (CognitiveActor._knowledge_graph,
+        # injected as this context key) when it's wired, not the shared
+        # catalog KG `kg`. Falls back to `kg` (with the actor_id-scoped key
+        # get_rejected_keywords already applies) for callers that don't
+        # wire the per-actor KG into context yet.
+        actor_kg = context.get("actor_local_knowledge_graph") or kg
+        rejected_keywords = get_rejected_keywords(actor_kg, context.get("actor_id", ""))
 
         if _COMPARE_RE.search(question):
             item_phrases = _split_requested_items(question)
@@ -4735,7 +4761,10 @@ class ProductSelectionCapability:
         excluded_allergens = wants_allergen_free(question)
         budget = parse_budget(question)
         item_phrases = _split_requested_items(question)
-        rejected_keywords = get_rejected_keywords(kg)
+        # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md Step 3):
+        # see CounterfactualCapability's identical comment above.
+        actor_kg = context.get("actor_local_knowledge_graph") or kg
+        rejected_keywords = get_rejected_keywords(actor_kg, context.get("actor_id", ""))
 
         # GS-1500/1501: an item SocialSourcing already borrowed or
         # negotiated peer-to-peer must not ALSO be bought from a store —
@@ -5169,7 +5198,10 @@ class OrderConfirmationCapability:
         lactose_free = wants_lactose_free(context.get("question", ""))
         request_optimization = context.get("optimization", "cost")
         stores_by_id = {e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)} if kg is not None else {}
-        rejected_keywords = get_rejected_keywords(kg) if kg is not None else frozenset()
+        # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md Step 3):
+        # see CounterfactualCapability's identical comment above.
+        actor_kg = context.get("actor_local_knowledge_graph") or kg
+        rejected_keywords = get_rejected_keywords(actor_kg, context.get("actor_id", "")) if actor_kg is not None else frozenset()
         coupon_code = parse_coupon_code(context.get("question", ""))
 
         # Human approval / pause-resume (Qualification Gap Closure, Phase
@@ -5693,6 +5725,13 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
     if nc is None:
         return False
 
+    # Actor Cell identity (docs/ACTOR_CELL_ARCHITECTURE.md Section J): one
+    # cache per actor's inbox subscription (this function runs once per
+    # actor_id at registration), mirroring actor_runtime.py's per-Pod
+    # /execute handler. See kernel/actor_identity.py.
+    from src.monkey_brain.kernel.actor_identity import ActorCellIdentityCache
+    cell_identity = ActorCellIdentityCache(actor_id=actor_id)
+
     async def _on_message(msg: Any) -> None:
         import json
         # Runtime Approval Gate: this NATS callback runs in its own task,
@@ -5718,10 +5757,12 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
         # DelegateTask, broadcast) actually passes through, so it is the
         # correct place to enforce this, not a downstream capability.
         from src.monkey_brain.kernel.trusted_auth import (
-            bind_trusted_auth, evidence_for_service, evidence_from_spiffe, unauthenticated_evidence,
+            bind_trusted_auth, evidence_for_service, evidence_from_spiffe,
+            get_trusted_auth, unauthenticated_evidence,
         )
         from src.monkey_brain.kernel.workload_identity import get_workload_identity_provider
         from src.monkey_brain.kernel.production_gates import production_mode_enabled
+        from src.monkey_brain.kernel.actor_identity import ActorIdentityError
 
         def _spiffe_required_for_agent_communication() -> bool:
             import os as _os
@@ -5752,6 +5793,29 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
             return
         else:
             bind_trusted_auth(evidence_for_service(f"actor-runtime:{actor_id}"))
+
+        # Actor Cell identity (docs/ACTOR_CELL_ARCHITECTURE.md Section J):
+        # the evidence bound above authenticates this PROCESS, not this
+        # specific actor_id. Layer a per-actor DelegationCredential
+        # (kernel/actor_identity.py) scoped to exactly this actor_id on top
+        # -- same pattern as actor_runtime.py's per-Pod POST /execute.
+        # Fails closed: a credential minted for a different actor_id can
+        # never verify here.
+        try:
+            issuer = get_trusted_auth().principal_id
+            cell_identity.ensure(issuer=issuer)
+            cell_identity.bind_trusted_auth(authenticated_issuer=issuer)
+        except ActorIdentityError as exc:
+            logger.warning("subscribe_actor_inbox: Actor Cell identity rejected for actor %s: %s", actor_id, exc)
+            if msg.reply:
+                try:
+                    await msg.respond(json.dumps({
+                        "success": False,
+                        "error": f"Actor Cell identity rejected: {exc}",
+                    }).encode())
+                except Exception:
+                    logger.debug("subscribe_actor_inbox: refusal reply failed for actor %s", actor_id, exc_info=True)
+            return
         try:
             payload = json.loads(msg.data.decode())
         except Exception:
@@ -7310,7 +7374,11 @@ class OrderCreationCapability:
 
                 if lactose_free is None:
                     lactose_free = wants_lactose_free(context.get("question", ""))
-                    rejected_keywords = get_rejected_keywords(kg)
+                    # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md
+                    # Step 3): see CounterfactualCapability's identical
+                    # comment above.
+                    actor_kg = context.get("actor_local_knowledge_graph") or kg
+                    rejected_keywords = get_rejected_keywords(actor_kg, context.get("actor_id", ""))
                     coupon_code = parse_coupon_code(context.get("question", ""))
                     request_optimization = context.get("optimization", "cost")
 

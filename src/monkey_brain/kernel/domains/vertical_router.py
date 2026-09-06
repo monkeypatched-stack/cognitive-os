@@ -80,7 +80,8 @@ def resolve_vertical(name: str = "grocery") -> VerticalRuntime:
 
 
 def _build_execution_engine(vertical: VerticalRuntime, context_stream: Any = None,
-                            connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None) -> Any:
+                            connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
+                            edge_governance: Any = None) -> Any:
     """Verify an already-resolved vertical's bus is intact, and return a
     ready execution engine.
 
@@ -98,6 +99,16 @@ def _build_execution_engine(vertical: VerticalRuntime, context_stream: Any = Non
     production; nothing downstream could ever react to "OrderCreated" etc.
     because no such event was ever actually published. None (the default)
     preserves prior behavior for any other caller that doesn't pass one.
+
+    edge_governance (Edge-First authority activation): ActionExecutor has
+    accepted this parameter since Cloud/Edge Actor Convergence, but nothing
+    in this factory chain ever forwarded it — a kernel.edge.local_
+    governance.LocalGovernanceEvaluator built and passed in by the caller
+    (PlanetaryRuntime.__init__) was therefore always silently dropped,
+    making every already-built edge-authority mechanism (signed policy
+    snapshots, fail-closed local governance) unreachable in production
+    despite having full test coverage in isolation. None (the default)
+    preserves prior behavior for any caller that doesn't pass one.
     """
     from src.monkey_brain.kernel.pipeline.capability_runtime import CapabilityRuntime
 
@@ -129,11 +140,13 @@ def _build_execution_engine(vertical: VerticalRuntime, context_stream: Any = Non
         propose_transition=vertical.propose_transition,
         transition_gate=transition_gate,
         connectivity_check=connectivity_check,
+        edge_governance=edge_governance,
     )
 
 
 def build_execution_engine(name: str = "grocery", context_stream: Any = None,
-                           connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None) -> Any:
+                           connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
+                           edge_governance: Any = None) -> Any:
     """Resolve a vertical and return a ready execution engine. A route
     should never construct a bus, run a security check, or wire an
     executor itself; it just asks for something it can execute with.
@@ -143,13 +156,20 @@ def build_execution_engine(name: str = "grocery", context_stream: Any = None,
     — None (the default) preserves exactly the prior behavior. Every
     existing caller of this function is unaffected; only
     PlanetaryRuntime._attach_society passes one, and only when
-    OFFLINE_SAFETY_GATE_ENABLED is explicitly set."""
-    return _build_execution_engine(resolve_vertical(name), context_stream=context_stream, connectivity_check=connectivity_check)
+    OFFLINE_SAFETY_GATE_ENABLED is explicitly set.
+
+    edge_governance: see _build_execution_engine's own docstring."""
+    return _build_execution_engine(
+        resolve_vertical(name), context_stream=context_stream,
+        connectivity_check=connectivity_check, edge_governance=edge_governance,
+    )
 
 
 def build_runtime_engine(
     observation_provider: Any, name: str = "grocery", context_stream: Any = None,
     transition_model: Any = None, current_plans: dict[str, Any] | None = None,
+    connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
+    edge_governance: Any = None,
 ) -> Any:
     """Assemble a fully-wired cognitive runtime engine for a vertical —
     base runtime, planner, plan validator, and execution engine — so a
@@ -171,7 +191,16 @@ def build_runtime_engine(
     starts with no Current Plan for any goal yet; each goal's first real
     tick always "replaces" (bootstrap case, kernel/pipeline/planning/
     plan_hysteresis.py::decide) and is lazily loaded from Redis
-    per-goal_key by _run_decide itself, not preloaded here."""
+    per-goal_key by _run_decide itself, not preloaded here.
+
+    connectivity_check / edge_governance: previously silently dropped —
+    this function never forwarded either to _build_execution_engine, so
+    an actor wired here (api/routes/actors.py::create_actor, the real
+    POST /actors path) never got the offline-safety gate or edge
+    authority evaluation regardless of OFFLINE_SAFETY_GATE_ENABLED. None
+    (the default) preserves prior behavior for any caller that doesn't
+    pass one; PlanetaryRuntime's own callers should pass the same
+    instances it already builds for its shared execution engine."""
     from src.monkey_brain.kernel.pipeline.comparison.integration import build_comparison_integrated_runtime
 
     # resolve the vertical
@@ -182,7 +211,10 @@ def build_runtime_engine(
     # configured; assigning `_execution_engine` afterward leaves the policy
     # holding the empty default executor, so real capabilities (including
     # AskActor and RespondToInquiry) are silently simulated or rejected.
-    execution_engine = _build_execution_engine(vertical, context_stream=context_stream)
+    execution_engine = _build_execution_engine(
+        vertical, context_stream=context_stream,
+        connectivity_check=connectivity_check, edge_governance=edge_governance,
+    )
     engine = build_comparison_integrated_runtime(
         observation_provider=observation_provider,
         planning_engine=vertical.planner,

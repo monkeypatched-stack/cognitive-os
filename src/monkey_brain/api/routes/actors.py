@@ -87,19 +87,35 @@ def _find_actor_state(pr: Any, actor_id: str) -> tuple[Any, Any] | None:
     return None
 
 
-def _gate_on_world_validation(pr: Any) -> None:
+def _gate_on_world_validation(pr: Any, actor_id: str | None = None) -> None:
     """Gate 3 (ADR-010) — before execute: block a real action from running
     against a structurally broken world. Off switch (WORLD_VALIDATION_GATE_
     EXECUTE=false) exists for perf-sensitive deployments once scale testing
     (Gate 7) has a real number for the cost of a full world scan per call;
-    default is ON because correctness matters more than that cost today."""
+    default is ON because correctness matters more than that cost today.
+
+    actor_id scopes an actor-scoped violation (presence_consistency/
+    membership_consistency) belonging to some OTHER actor out of the
+    pass/fail decision — same reasoning validate_world()'s own docstring
+    already documents, and the same param prompt.py's equivalent gate
+    call already passes (validate_world(planetary_runtime, actor_id=
+    user_id)). Without this, run_actor_tick() (used by both this route's
+    POST /actors/{id}/execute and actor_runtime.py's per-Pod POST
+    /execute) blocked EVERY actor's execution on ANY unrelated actor's
+    pre-existing violation anywhere in the whole shared world, not just
+    a violation about the actor actually being executed — confirmed live
+    with a second, unrelated debug actor's own presence gap. NOTE: this
+    does NOT exempt a violation about actor_id itself (validate_world's
+    own filter keeps `v["actor_id"] == actor_id` in `blocking` on
+    purpose) — an actor whose OWN presence/membership record is broken
+    still correctly blocks on its own execution either way."""
     import os
 
     if os.getenv("WORLD_VALIDATION_GATE_EXECUTE", "true").strip().lower() == "false":
         return
     from src.monkey_brain.kernel.validation.world_validator import validate_world
 
-    report = validate_world(pr)
+    report = validate_world(pr, actor_id=actor_id)
     if not report["ok"]:
         raise HTTPException(
             status_code=409,
@@ -792,6 +808,8 @@ async def create_actor(
         engine = build_runtime_engine(
             None, name="grocery", context_stream=pr.context_stream,
             transition_model=prior_transition_model,
+            connectivity_check=getattr(pr, "_connectivity_check", None),
+            edge_governance=getattr(pr, "_local_governance", None),
         )
         engine._context_engine = ContextConstructionEngine(
             planetary_runtime=pr, knowledge_graph=pr.knowledge_graph, memory_manager=pr.memory_manager,
@@ -801,6 +819,16 @@ async def create_actor(
             entity_id=actor_id, engine=engine, name=body.name,
             context_factory=lambda question: {
                 "knowledge_graph": pr.knowledge_graph, "actor_id": actor_id,
+                # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md):
+                # same additive key as kernel/society/runtime.py's own
+                # context_factory — `wired_actor` is resolved at CALL time,
+                # after the assignment below has completed.
+                "actor_local_knowledge_graph": wired_actor._knowledge_graph,
+                # HeartbeatCapability (kernel/domains/robot.py) reads this
+                # -- None here (this route has no robot-deployment
+                # concept); `state` is resolved at CALL time, same as
+                # `wired_actor` above.
+                "ros_adapter": (state.cell.ros_adapter if getattr(state, "cell", None) is not None else None),
                 "planetary_runtime": pr,
                 # Cognitive Loop Verification: the Observe stage
                 # (WorldPollingProvider) needs context["world"] — same
@@ -817,6 +845,23 @@ async def create_actor(
             },
         )
         state = pr.register_actor(profile, actor=wired_actor, society_id=body.society_id or None)
+        # Actor Cell (docs/ACTOR_CELL_ARCHITECTURE.md Section B/O): this
+        # route passes an already-constructed `actor`, so SocietyRuntime.
+        # register_actor's own ActorCell-construction (its `if actor is
+        # None` branch) never runs for it -- build one here too, same
+        # best-effort, non-fatal pattern.
+        try:
+            from src.monkey_brain.kernel.actor_identity import mint_actor_cell_identity
+            from src.monkey_brain.kernel.society.actor_cell import ActorCell
+            from src.monkey_brain.kernel.trusted_auth import get_trusted_auth
+
+            issuer = get_trusted_auth().principal_id or "planetary-runtime"
+            credential = mint_actor_cell_identity(actor_id, issuer=issuer)
+            state.cell = ActorCell(
+                actor_id=actor_id, identity=credential, actor=wired_actor, runtime_state=state,
+            )
+        except Exception:
+            logger.debug("create_actor: ActorCell construction skipped for %s (non-fatal)", actor_id, exc_info=True)
         # Multi-Actor Execution Handoff: the real per-actor NATS inbox
         # subscription (kernel/domains/grocery.py::subscribe_actor_inbox)
         # is wired centrally in PlanetaryRuntime.register_actor() itself
@@ -3351,7 +3396,7 @@ async def run_actor_tick(actor_id: str, pr: Any, state: Any) -> dict[str, Any]:
     than re-implementing the same response shape."""
     if state.actor_runtime is None:
         return {"actor_id": actor_id, "status": "no_tick_handler"}
-    _gate_on_world_validation(pr)
+    _gate_on_world_validation(pr, actor_id=actor_id)
     try:
         # Same 30s cap SocietyRuntime.tick_one_actor() already applies to
         # the identical operation (a single actor's cognitive tick, LLM

@@ -96,7 +96,42 @@ import signal
 import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+# Same sys.path insertions as api/main.py (see that module's own comment
+# for why each is needed) -- required here too because POST /execute
+# lazily imports src.monkey_brain.api.routes.actors, which imports
+# `services.common.opa` at module level; that name only resolves via the
+# domains/manufacturing/knowledge insertion below. Without this, every
+# uvicorn src.monkey_brain.actor_runtime:app process (the real per-actor
+# edge/device/robot Pod entrypoint) 500'd on its first /execute call with
+# ModuleNotFoundError: No module named 'services.common.opa' -- confirmed
+# live booting a real edge actor. parents[2] is the repo root from
+# src/monkey_brain/actor_runtime.py (monkey_brain -> src -> repo root),
+# one level shallower than main.py's parents[3] since this module has no
+# enclosing api/ package directory.
+_pkg_cerebellum = Path(__file__).parents[2] / "packages" / "cerebellum"
+if _pkg_cerebellum.exists() and str(_pkg_cerebellum) not in sys.path:
+    sys.path.insert(0, str(_pkg_cerebellum))
+
+_pkg_services = Path(__file__).parents[2] / "domains" / "manufacturing" / "knowledge"
+if _pkg_services.exists() and str(_pkg_services) not in sys.path:
+    sys.path.insert(0, str(_pkg_services))
+
+_pkg_broca = Path(__file__).parents[2] / "packages" / "broca"
+if _pkg_broca.exists() and str(_pkg_broca) not in sys.path:
+    sys.path.insert(0, str(_pkg_broca))
+
+# Imported at module level (not just inside _build_app) because
+# `from __future__ import annotations` above turns every handler's type
+# hints into strings that FastAPI resolves via get_type_hints() against
+# THIS module's globals -- a Request imported only inside _build_app's
+# local scope is invisible to that lookup, so `request: Request` silently
+# fails to resolve and FastAPI falls back to treating it as a plain query
+# parameter (confirmed live: POST /execute returned 422 "field required:
+# query.request" with no body/query param ever supplied for it).
+from fastapi import Request
 
 logger = logging.getLogger("agentos.actor_runtime")
 
@@ -271,6 +306,20 @@ class ActorRuntime:
         self.state_reason: str = ""
         self.started_at: float = time.time()
         self.ready_since: float | None = None
+        # Actor Cell identity (docs/ACTOR_CELL_ARCHITECTURE.md Section J):
+        # a per-actor DelegationCredential layered on top of this process's
+        # one SPIFFE SVID, minted lazily on first /execute call and re-
+        # minted transparently if it expires or the issuer changes -- see
+        # kernel/actor_identity.py. Never persisted: a Cell restart just
+        # re-minted this from scratch, which is the desired behavior.
+        from src.monkey_brain.kernel.actor_identity import ActorCellIdentityCache
+        self.cell_identity = ActorCellIdentityCache(actor_id=config.actor_id)
+        # Actor Cell -> ROS Adapter binding (docs/ACTOR_CELL_ARCHITECTURE.md
+        # Section I/3): built in start() below, only for a node_class=robot
+        # deployment, bound to this Cell's own actor_id. None for every
+        # other node class -- no ROS relevance for a cloud/edge/device
+        # actor, matching today's "one per Pod" convention.
+        self.ros_adapter: Any = None
 
     async def start(self) -> None:
         # Cloud/Edge Actor Convergence, Section 11/31: an edge/device/robot
@@ -318,6 +367,20 @@ class ActorRuntime:
             capabilities=self.config.node_capabilities, region=self.config.node_region,
         )
 
+        if node_class == NodeClass.ROBOT:
+            # Actor Cell -> ROS Adapter binding (docs/
+            # ACTOR_CELL_ARCHITECTURE.md Section I/3): bind a ROS adapter to
+            # exactly this Pod's one actor_id. require_real is left at its
+            # default (False) so a robot node_class deployment without ROS
+            # actually installed still boots, exactly as before this
+            # attribute existed. HeartbeatCapability (kernel/domains/
+            # robot.py) is the one real, governed capability that reaches
+            # this adapter today -- attached to this actor's ActorCell
+            # below, once the actor is loaded, so context["ros_adapter"]
+            # resolves to it on this actor's own ticks.
+            from src.monkey_brain.kernel.edge.ros_integration import build_ros_execution_adapter
+            self.ros_adapter = build_ros_execution_adapter(actor_id=self.config.actor_id)
+
         if self.config.claim_placement:
             # Explicit operator intent: this deployment IS the placement
             # decision for this specific actor_id (Section 19 — the same
@@ -341,6 +404,21 @@ class ActorRuntime:
         # scope_actor_id docstring).
         pr.start_actor_lifecycle_reconciliation(scope_actor_id=self.config.actor_id)
         await self._reconcile_until_settled()
+
+        if self.ros_adapter is not None:
+            # Attach this Pod's ROS adapter to its own actor's ActorCell,
+            # now that the actor is loaded -- best-effort, non-fatal, same
+            # posture as ActorCell construction itself (kernel/society/
+            # runtime.py::register_actor).
+            try:
+                state = pr._society_runtime.get_actor(self.config.actor_id)
+                if state is not None and getattr(state, "cell", None) is not None:
+                    state.cell.ros_adapter = self.ros_adapter
+            except Exception:
+                logger.debug(
+                    "ActorRuntime.start: ROS adapter attachment to ActorCell skipped for %s (non-fatal)",
+                    self.config.actor_id, exc_info=True,
+                )
 
         if self.state == ReadinessState.READY:
             pr.start_auto_tick(interval_seconds=self.config.tick_interval)
@@ -501,7 +579,7 @@ class ActorRuntime:
 # ── ASGI app (uvicorn src.monkey_brain.actor_runtime:app) ────────────────
 
 def _build_app() -> Any:
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI
 
     fastapi_app = FastAPI(title="CognitiveOS Actor Runtime", version=ACTOR_RUNTIME_VERSION)
     runtime_holder: dict[str, ActorRuntime] = {}
@@ -578,8 +656,10 @@ def _build_app() -> Any:
         from src.monkey_brain.api.routes.actors import run_actor_tick
         from src.monkey_brain.kernel.security_boundary import ensure_governed
         from src.monkey_brain.kernel.trusted_auth import (
-            bind_trusted_auth, evidence_for_service, evidence_from_spiffe, unauthenticated_evidence,
+            bind_trusted_auth, evidence_for_service, evidence_from_spiffe,
+            get_trusted_auth, unauthenticated_evidence,
         )
+        from src.monkey_brain.kernel.actor_identity import ActorIdentityError
 
         require_internal_service_token(request)
 
@@ -621,10 +701,29 @@ def _build_app() -> Any:
         else:
             bind_trusted_auth(evidence_for_service(f"actor-runtime:{actor_id}"))
 
+        # Actor Cell identity (docs/ACTOR_CELL_ARCHITECTURE.md Section J):
+        # the SPIFFE/self-asserted evidence above authenticates this
+        # PROCESS -- it says nothing about whether this process is actually
+        # entitled to answer as `actor_id` specifically. Layer a per-actor
+        # DelegationCredential (kernel/actor_identity.py) on top, scoped to
+        # exactly this actor_id, issued by this process's own just-bound
+        # identity. Fails closed (403) rather than falling back to running
+        # ungoverned or under unscoped identity -- a credential minted for
+        # a different actor_id can never verify here (kernel/delegation.py's
+        # delegate check), which is what makes Actor A unable to
+        # authenticate as Actor B.
+        issuer = get_trusted_auth().principal_id
+        try:
+            runtime.cell_identity.ensure(issuer=issuer)
+            verified_delegation = runtime.cell_identity.bind_trusted_auth(authenticated_issuer=issuer)
+        except ActorIdentityError as exc:
+            raise HTTPException(status_code=403, detail=f"Actor Cell identity rejected: {exc}") from exc
+
         return await ensure_governed(
             "actor.tick",
             actor_id,
             lambda: run_actor_tick(actor_id, pr, state),
+            verified_delegation=verified_delegation,
         )
 
     return fastapi_app

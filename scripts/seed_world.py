@@ -228,19 +228,14 @@ def ensure_wallet(owner_id: str, balance: float, newly_created_actor: bool) -> b
     # itself is already idempotent above.
     if not newly_created_actor:
         return False
-    # UPI Reserve Pay only (kernel/domains/payment_provider.py) — every
-    # actor's SOLE real payment account, not a second account alongside a
-    # regular debit/cash wallet. finance.py::_find_wallet prefers a
-    # non-UPI account when one genuinely exists (a legacy/typed account),
-    # but otherwise resolves straight to this one — UPI is the default
-    # now, not an opt-in alternative. `balance` (the seed's normal
-    # starting amount) is still applied here even though UPI has no
-    # local "spendable balance" concept the way a debit wallet did —
-    # PaymentConfirmationCapability never reads it for a upi_reserve_pay
-    # account, but it's kept as an honest record of the demo's intended
-    # starting funding level, not defaulted to 0.
-    post("/wallets", {"owner": owner_id, "balance": balance, "account_type": "upi_reserve_pay",
-                       "name": f"{owner_id}'s UPI Wallet"})
+    # Plain debit/cash wallet, not UPI Reserve Pay — PaymentCapability
+    # (kernel/domains/grocery.py) only routes a wallet through the real
+    # Razorpay UPI integration when account_type=="upi_reserve_pay"; no
+    # tag at all (the default here) keeps Payment on the local simulated
+    # payment_processor/CAS-balance path, which needs no external
+    # credentials and actually debits/checks `balance` below.
+    post("/wallets", {"owner": owner_id, "balance": balance,
+                       "name": f"{owner_id}'s Wallet"})
     return True
 
 

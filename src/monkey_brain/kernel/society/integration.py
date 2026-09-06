@@ -597,6 +597,36 @@ class PlanetaryRuntime:
         # Version of the world perturbation context used to track world-state changes.
         self._world_perturbation_context_version = 0
 
+        # Edge-First Architecture: construct the local authority/persistence
+        # stack BEFORE any _load_* call below — every one of them (world,
+        # societies, geography, actors, knowledge graph) falls back to this
+        # when self._redis is None, so it must exist first, not be built
+        # later alongside the execution engine (a real ordering bug this
+        # comment exists to prevent regressing: _edge_local_store used to
+        # be constructed after these _load_* calls, so they always saw it
+        # as unset and silently failed to load anything on a disconnected
+        # edge node's very first boot).
+        node_class_hint = os.getenv("ACTOR_NODE_CLASS", "cloud").strip().lower()
+        offline_safety_default = "true" if node_class_hint in ("edge", "device", "robot") else "false"
+        offline_safety_enabled = (
+            os.getenv("OFFLINE_SAFETY_GATE_ENABLED", offline_safety_default).strip().lower()
+            not in ("false", "0", "no")
+        )
+        self._edge_local_store = None
+        self._edge_policy_cache = None
+        self._local_governance = None
+        if offline_safety_enabled:
+            from src.monkey_brain.kernel.edge.local_store import get_edge_local_store
+            from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache
+            from src.monkey_brain.kernel.edge.local_governance import LocalGovernanceEvaluator
+
+            self._edge_local_store = get_edge_local_store()
+            self._edge_policy_cache = EdgePolicyCache(self._edge_local_store)
+            self._local_governance = LocalGovernanceEvaluator(
+                self._edge_policy_cache,
+                current_authority_epoch_fn=lambda: self._edge_local_store.get_sync_state("policy")[0],
+            )
+
         # Restore the persisted world state before reconstructing dependent runtime state.
         self._load_world()
 
@@ -613,10 +643,27 @@ class PlanetaryRuntime:
             self._save_societies()
 
         # Optional connectivity validation used by the offline safety gate.
+        # Edge-First Architecture: defaults to ENABLED for edge/device/robot
+        # node classes (an ACTOR_NODE_CLASS actor_runtime.py always sets
+        # before constructing this) — previously defaulted to "false" for
+        # every process, cloud or edge, meaning the entire offline-safety +
+        # edge-authority mechanism below was inert everywhere unless an
+        # operator explicitly opted in. Cloud's own default (unset
+        # ACTOR_NODE_CLASS -> "cloud") is unchanged: still "false" unless
+        # explicitly overridden, preserving exact prior behavior there.
+        # (offline_safety_enabled/self._edge_local_store et al. were
+        # already constructed above, before the _load_* calls.)
         connectivity_check = None
-        if os.getenv("OFFLINE_SAFETY_GATE_ENABLED", "false").lower() not in ("false", "0", "no"):
+        edge_governance = None
+        if offline_safety_enabled:
+            # ActionExecutor (kernel/pipeline/action_executor.py) has
+            # accepted an edge_governance parameter since it was built;
+            # nothing in this factory chain ever constructed one to pass
+            # in until now.
             from src.monkey_brain.kernel.pipeline.offline_safety import make_connectivity_check
             connectivity_check = make_connectivity_check(self)
+            edge_governance = self._local_governance
+        self._connectivity_check = connectivity_check
 
         # Grocery registers itself on import (vertical_router does not import
         # verticals). Boot used to hit this before any grocery import, so
@@ -626,6 +673,7 @@ class PlanetaryRuntime:
         # Build the domain execution engine with the current context stream and safety checks.
         self._execution_engine = build_execution_engine(
             "grocery", context_stream=self.context_stream, connectivity_check=connectivity_check,
+            edge_governance=edge_governance,
         )
 
         # Attach each restored society to the planetary runtime.
@@ -887,44 +935,108 @@ class PlanetaryRuntime:
     _KG_ENTITIES_HASH_KEY = "monkeybrain:knowledge_graph:entities"
     _KG_RELATIONSHIPS_HASH_KEY = "monkeybrain:knowledge_graph:relationships"
 
+    # ── Edge-First Architecture: generic local-persistence fallback ─────
+    #
+    # Every _load_*/_save_* pair below (KG/catalog, world, actors,
+    # societies, geography) historically opened with `if not self._redis:
+    # return` — a silent no-op with no local durability whatsoever. These
+    # three helpers give those methods a SECOND, local-only home for the
+    # exact same snapshot/hash data (kernel/edge/local_store.py::
+    # EdgeLocalStore, SQLite, no network dependency) — used only when
+    # self._edge_local_store was constructed (offline-safety gate enabled,
+    # see __init__), never replacing Redis when Redis is reachable. Kept
+    # deliberately generic (three tiny methods) rather than one bespoke
+    # local-persistence mechanism per subsystem, mirroring EdgeLocalStore's
+    # own "namespace column, not a table per concept" design choice.
+    def _edge_local_put(self, namespace: str, key: str, value: dict) -> None:
+        if self._edge_local_store is None:
+            return
+        try:
+            from src.monkey_brain.kernel.edge.freshness import CacheProvenance
+            provenance = CacheProvenance(source="edge_local:planetary_runtime", observed_at=time.time(), freshness_requirement="safe_offline")
+            self._edge_local_store.put(namespace, key, value, provenance)
+        except Exception as exc:
+            logger.debug("edge-local put failed for %s/%s: %s", namespace, key, exc)
+
+    def _edge_local_get(self, namespace: str, key: str) -> dict | None:
+        if self._edge_local_store is None:
+            return None
+        try:
+            entry = self._edge_local_store.get(namespace, key)
+            return entry.value if entry is not None else None
+        except Exception as exc:
+            logger.debug("edge-local get failed for %s/%s: %s", namespace, key, exc)
+            return None
+
+    def _edge_local_list(self, namespace: str) -> list[dict]:
+        if self._edge_local_store is None:
+            return []
+        try:
+            return [entry.value for entry in self._edge_local_store.list(namespace)]
+        except Exception as exc:
+            logger.debug("edge-local list failed for %s: %s", namespace, exc)
+            return []
+
+    def _edge_local_delete(self, namespace: str, key: str) -> None:
+        if self._edge_local_store is None:
+            return
+        try:
+            self._edge_local_store.delete(namespace, key)
+        except Exception as exc:
+            logger.debug("edge-local delete failed for %s/%s: %s", namespace, key, exc)
+
     def _on_knowledge_graph_change(self, kind: str, obj_id: str, action: str) -> None:
         """Gate 6 (Persistence) — KnowledgeGraph.set_on_change()'s callback.
         O(1) per mutation from the start (ADR-011 already found the cost
         of getting this wrong): one HSET/HDEL for the single entity or
-        relationship that actually changed, never a full-graph resync."""
-        if not self._redis:
+        relationship that actually changed, never a full-graph resync.
+        Edge-First Architecture: this is also where the operational
+        catalog (products/stores, KG entities with entity_type=ASSET)
+        gets its edge-local persistence — same generic entity/relationship
+        path, no separate catalog-specific mechanism."""
+        namespace = "kg_entity" if kind == "entity" else "kg_relationship"
+        if kind == "entity":
+            getter = self._knowledge_graph.get_entity
+        else:
+            getter = self._knowledge_graph.get_relationship
+
+        if action == "delete":
+            if self._redis:
+                try:
+                    hash_key = self._KG_ENTITIES_HASH_KEY if kind == "entity" else self._KG_RELATIONSHIPS_HASH_KEY
+                    self._redis.hdel(hash_key, obj_id)
+                except Exception as exc:
+                    logger.debug("KnowledgeGraph save failed for %s %s: %s", kind, obj_id, exc)
+            self._edge_local_delete(namespace, obj_id)
             return
-        try:
-            if kind == "entity":
-                hash_key = self._KG_ENTITIES_HASH_KEY
-                getter = self._knowledge_graph.get_entity
-            else:
-                hash_key = self._KG_RELATIONSHIPS_HASH_KEY
-                getter = self._knowledge_graph.get_relationship
 
-            if action == "delete":
-                self._redis.hdel(hash_key, obj_id)
-                return
-
-            obj = getter(obj_id)
-            if obj is not None:
+        obj = getter(obj_id)
+        if obj is None:
+            return
+        if self._redis:
+            try:
+                hash_key = self._KG_ENTITIES_HASH_KEY if kind == "entity" else self._KG_RELATIONSHIPS_HASH_KEY
                 self._redis.hset(hash_key, obj_id, json.dumps(obj.to_dict()))
-        except Exception as exc:
-            logger.debug("KnowledgeGraph save failed for %s %s: %s", kind, obj_id, exc)
+            except Exception as exc:
+                logger.debug("KnowledgeGraph save failed for %s %s: %s", kind, obj_id, exc)
+        self._edge_local_put(namespace, obj_id, obj.to_dict())
 
     def _load_knowledge_graph(self) -> None:
-        if not self._redis:
-            return
         try:
             from src.monkey_brain.kernel.knowledge_graph import Entity, Relationship
 
-            entities_data = self._redis.hgetall(self._KG_ENTITIES_HASH_KEY)
+            if self._redis:
+                entities_data = self._redis.hgetall(self._KG_ENTITIES_HASH_KEY)
+                relationships_data = self._redis.hgetall(self._KG_RELATIONSHIPS_HASH_KEY)
+            else:
+                entities_data = {d["entity_id"]: json.dumps(d) for d in self._edge_local_list("kg_entity")}
+                relationships_data = {d["relationship_id"]: json.dumps(d) for d in self._edge_local_list("kg_relationship")}
+
             for entity_id, raw in entities_data.items():
                 entity = Entity.from_dict(json.loads(raw))
                 self._knowledge_graph._entities[entity_id] = entity
                 self._knowledge_graph._index_add(entity)
 
-            relationships_data = self._redis.hgetall(self._KG_RELATIONSHIPS_HASH_KEY)
             for rel_id, raw in relationships_data.items():
                 rel = Relationship.from_dict(json.loads(raw))
                 self._knowledge_graph._relationships[rel_id] = rel
@@ -940,18 +1052,19 @@ class PlanetaryRuntime:
             logger.warning("KnowledgeGraph load failed: %s", exc)
 
     def _save_world(self) -> None:
-        if not self._redis:
-            return
-        try:
-            self._redis.set("monkeybrain:world", json.dumps(self._world.to_dict()))
-        except Exception as exc:
-            logger.debug("World save failed: %s", exc)
+        if self._redis:
+            try:
+                self._redis.set("monkeybrain:world", json.dumps(self._world.to_dict()))
+            except Exception as exc:
+                logger.debug("World save failed: %s", exc)
+        self._edge_local_put("world", "world", self._world.to_dict())
 
     def _load_world(self) -> None:
-        if not self._redis:
-            return
         try:
-            data = self._redis.get("monkeybrain:world")
+            data = self._redis.get("monkeybrain:world") if self._redis else None
+            if data is None:
+                edge_value = self._edge_local_get("world", "world")
+                data = json.dumps(edge_value) if edge_value is not None else None
             if data:
                 new_world = SharedWorld.from_dict(json.loads(data))
                 # Update existing world in-place instead of replacing
@@ -1009,15 +1122,15 @@ class PlanetaryRuntime:
         through register_actor() took over 60s and was still climbing.
         Both this and _save_actors() write to the SAME hash key so the
         two paths never drift out of sync with each other."""
-        if not self._redis:
-            return
         try:
             if not society_id:
                 society_id = next(
                     (sid for sid, s in self._societies.items() if state in s.all_actors()), "",
                 )
             actor_data = self._actor_state_to_dict(state, society_id)
-            self._redis.hset(self._ACTORS_HASH_KEY, state.actor_id, json.dumps(actor_data))
+            if self._redis:
+                self._redis.hset(self._ACTORS_HASH_KEY, state.actor_id, json.dumps(actor_data))
+            self._edge_local_put("actor", state.actor_id, actor_data)
         except Exception as exc:
             # Live Deployment Validation finding: this was DEBUG-level,
             # invisible at this deployment's default LOG_LEVEL=INFO --
@@ -1035,11 +1148,9 @@ class PlanetaryRuntime:
         pipelined write per actor) rather than one giant JSON blob, so a
         caller that only changed one actor should prefer _save_actor()
         instead of paying for everyone else's unchanged data too."""
-        if not self._redis:
-            return
         try:
             seen: set[str] = set()
-            pipe = self._redis.pipeline()
+            pipe = self._redis.pipeline() if self._redis else None
             wrote_any = False
             for sid, sr in self._societies.items():
                 for state in sr.all_actors():
@@ -1047,15 +1158,18 @@ class PlanetaryRuntime:
                         continue
                     seen.add(state.actor_id)
                     actor_data = self._actor_state_to_dict(state, sid)
-                    pipe.hset(self._ACTORS_HASH_KEY, state.actor_id, json.dumps(actor_data))
-                    wrote_any = True
-            if wrote_any:
+                    if pipe is not None:
+                        pipe.hset(self._ACTORS_HASH_KEY, state.actor_id, json.dumps(actor_data))
+                        wrote_any = True
+                    self._edge_local_put("actor", state.actor_id, actor_data)
+            if wrote_any and pipe is not None:
                 pipe.execute()
         except Exception as exc:
             logger.debug("Actors save failed: %s", exc)
 
     def _load_actors(self) -> None:
-        """Load actors from Redis and register them.
+        """Load actors from Redis (or, absent Redis, EdgeLocalStore — Edge-
+        First Architecture) and register them.
 
         Idempotent: skips actors that are already registered (by name + society).
 
@@ -1064,15 +1178,16 @@ class PlanetaryRuntime:
         (read-only, never written again) so actors persisted before this
         fix stay visible instead of silently disappearing on the next boot.
         """
-        if not self._redis:
-            return
         try:
-            hash_data = self._redis.hgetall(self._ACTORS_HASH_KEY)
-            if hash_data:
-                actors = [json.loads(v) for v in hash_data.values()]
+            if self._redis:
+                hash_data = self._redis.hgetall(self._ACTORS_HASH_KEY)
+                if hash_data:
+                    actors = [json.loads(v) for v in hash_data.values()]
+                else:
+                    legacy = self._redis.get(self._ACTORS_LEGACY_ARRAY_KEY)
+                    actors = json.loads(legacy) if legacy else []
             else:
-                legacy = self._redis.get(self._ACTORS_LEGACY_ARRAY_KEY)
-                actors = json.loads(legacy) if legacy else []
+                actors = self._edge_local_list("actor")
             # Live Deployment Validation finding (P0, confirmed live):
             # a single-actor Actor Runtime pod (actor_runtime.py,
             # ACTOR_ID set) previously loaded and locally activated
@@ -2134,28 +2249,28 @@ return new_count
         relationships, context) already survives a restart; a tracked
         geographic entity (a created County/City, a hosted society) must
         too, not silently vanish on the next boot."""
-        if not self._redis:
-            return
         try:
             entities = [e.to_dict() for e in self._geo_registry.all()]
-            self._redis.set("monkeybrain:geography", json.dumps(entities))
+            if self._redis:
+                self._redis.set("monkeybrain:geography", json.dumps(entities))
+            self._edge_local_put("geography", "all", {"entities": entities})
         except Exception as exc:
             logger.debug("Geography save failed: %s", exc)
 
     def _load_geography(self) -> None:
-        if not self._redis:
-            return
         try:
-            data = self._redis.get("monkeybrain:geography")
-            if data:
-                for entity_data in json.loads(data):
-                    self._geo_registry.register_from_dict(entity_data)
+            if self._redis:
+                data = self._redis.get("monkeybrain:geography")
+                entities = json.loads(data) if data else []
+            else:
+                edge_value = self._edge_local_get("geography", "all")
+                entities = edge_value.get("entities", []) if edge_value is not None else []
+            for entity_data in entities:
+                self._geo_registry.register_from_dict(entity_data)
         except Exception as exc:
             logger.warning("Geography load failed: %s", exc)
 
     def _save_societies(self) -> None:
-        if not self._redis:
-            return
         try:
             societies = []
             for society_id, sr in self._societies.items():
@@ -2223,22 +2338,27 @@ return new_count
                         for e in sr.governance.audit_log(limit=200)
                     ],
                 })
-            self._redis.set("monkeybrain:societies", json.dumps(societies))
+            if self._redis:
+                self._redis.set("monkeybrain:societies", json.dumps(societies))
+            self._edge_local_put("society", "all", {"societies": societies})
         except Exception as exc:
             logger.debug("Societies save failed: %s", exc)
 
     def _load_societies(self) -> None:
-        if not self._redis:
-            return
         try:
-            data = self._redis.get("monkeybrain:societies")
-            if data:
+            if self._redis:
+                data = self._redis.get("monkeybrain:societies")
+                societies_raw = json.loads(data) if data else None
+            else:
+                edge_value = self._edge_local_get("society", "all")
+                societies_raw = edge_value.get("societies") if edge_value is not None else None
+            if societies_raw:
                     import dataclasses
                     from src.monkey_brain.kernel.society.governance import (
                         GovernancePolicy, PolicyType, GovernanceLevel, Permission,
                         TrustRecord, SafetyConstraint, AuditEntry, ComplianceStatus,
                     )
-                    societies = json.loads(data)
+                    societies = societies_raw
                     for soc_data in societies:
                         sid = soc_data.get("society_id", "")
                         if sid and sid not in self._societies:
@@ -3343,11 +3463,30 @@ return new_count
 
     def _get_actor_state_store(self) -> Any | None:
         """Lazy, fail-soft accessor for the canonical belief persistence
-        backend (Step 14 — Architecture Consolidation: ActorStateStore/Mongo,
-        via the established persistence/db_pool.py::get_db_pool() singleton).
-        Returns None if Mongo is unreachable — callers degrade to "continue
-        with in-memory belief," never fail the request."""
+        backend. Edge-First Architecture: an edge/device/robot node (this
+        process's own ACTOR_NODE_CLASS, the same signal __init__ already
+        uses for the offline-safety gate) gets kernel/edge/actor_state_
+        store.py::EdgeActorStateStore — SQLite via EdgeLocalStore, no
+        network dependency — instead of the Mongo-backed
+        persistence/actor_state_store.py::ActorStateStore every cloud
+        process still uses (Step 14 — Architecture Consolidation, via the
+        established persistence/db_pool.py::get_db_pool() singleton).
+        EdgeActorStateStore satisfies the exact same ActorStateStoreProtocol
+        (kernel/pipeline/protocols.py), so restore_actor_belief/
+        checkpoint_actor_belief below need no branching of their own.
+        Returns None if the chosen backend is unavailable — callers degrade
+        to "continue with in-memory belief," never fail the request."""
         if self._actor_state_store is not None:
+            return self._actor_state_store
+        node_class_hint = os.getenv("ACTOR_NODE_CLASS", "cloud").strip().lower()
+        if node_class_hint in ("edge", "device", "robot"):
+            try:
+                from src.monkey_brain.kernel.edge.actor_state_store import EdgeActorStateStore
+                from src.monkey_brain.kernel.edge.local_store import get_edge_local_store
+                self._actor_state_store = EdgeActorStateStore(get_edge_local_store())
+            except Exception as exc:
+                logger.warning("[planetary] EdgeActorStateStore unavailable, belief persistence disabled: %s", exc)
+                return None
             return self._actor_state_store
         try:
             from src.monkey_brain.persistence.actor_state_store import ActorStateStore

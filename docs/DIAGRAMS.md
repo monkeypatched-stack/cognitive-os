@@ -57,7 +57,8 @@ Diagrams use [Mermaid](https://mermaid.js.org/). Syntax targets **GitHub's rende
 26. [ROS execution boundary and optional retrieval backend](#26-ros-execution-boundary-and-optional-retrieval-backend)
 27. [Architecture boundary hardening](#27-architecture-boundary-hardening)
 28. [SittingFace and Moss boundary](#28-sittingface-and-moss-knowledgeretrieval-boundary)
-29. [Geography vs Society](#geography-vs-society-structural-axes)
+29. [Actor Cell: identity, knowledge, ROS binding, concurrent execution](#29-actor-cell-identity-knowledge-ros-binding-and-concurrent-execution)
+30. [Geography vs Society](#geography-vs-society-structural-axes)
 
 ---
 
@@ -1035,6 +1036,15 @@ broken chain, excessive depth, self-delegation, SPIFFE identity mismatch,
 OPA unavailable, delegation reaching real capability execution):
 `tests/security/test_portable_delegation.py`.
 
+**Applied to per-Actor identity (`kernel/actor_identity.py`, section 29):**
+this exact mechanism, not a new one, is what gives each Actor Cell its own
+identity layered on top of the one process-level SPIFFE SVID
+(`kernel/workload_identity.py`) — `issuer` = the process's own authenticated
+identity, `delegate` = `actor_id`, root delegation (no parent). `validate_
+delegation`'s existing `child.delegate != authenticated_delegate` check is
+what makes Actor A's credential unable to authorize as Actor B — no new
+crypto, no SPIFFE/SPIRE redesign, no per-actor SPIRE registration entry.
+
 ---
 
 ## 22. Edge-local state and governance layer
@@ -1203,11 +1213,14 @@ isn't installed.
 
 ```mermaid
 flowchart TD
-    Plan["Committed plan capability call"] --> Exec["ActionExecutor ensure_governed"]
-    Exec -->|force_authorize true| RunGoverned["run_ros_action_if_governed"]
-    RunGoverned --> Protocol{RosExecutionAdapter Protocol}
+    Cap["HeartbeatCapability the one real capability wired to ROS today"] --> Exec["ActionExecutor ensure_governed force_authorize"]
+    Exec --> RunGoverned["run_ros_action_if_governed"]
+    RunGoverned --> Bind{adapter.actor_id matches calling actor_id}
+    Bind -->|mismatch| Refuse["RosUnavailableError fail closed before governance even runs"]
+    Bind -->|match or unbound| Gov["ensure_governed force_authorize true"]
+    Gov --> Protocol{RosExecutionAdapter Protocol actor_id bound at construction}
     Protocol --> Fake["FakeRosExecutionAdapter in memory always in CI"]
-    Protocol --> Real["RclpyRosExecutionAdapter lazy import real ROS2 service call"]
+    Protocol --> Real["RclpyRosExecutionAdapter own rclpy Context actor scoped node_name and service_prefix"]
     Real -.->|rclpy not installed| Unavail["RosUnavailableError only if require_real true"]
 
     Retrieval["SittingFaceKnowledgeRetriever semantic_memory"] --> Backend{semantic_memory}
@@ -1231,7 +1244,31 @@ fabricate a pass. Moss is retrieval-only, narrowed from an original
 section 18's MossDB scope decision for the full reasoning; `EdgeLocalStore`
 remains SQLite-backed for policy/delegation/execution/idempotency/world-state.
 
-Core modules: `kernel/edge/ros_integration.py`, `moss_retrieval.py`.
+**Actor Cell binding (added this pass — see section 29):** every
+`RosExecutionAdapter` is now constructed bound to exactly one `actor_id`
+(`build_ros_execution_adapter(actor_id=...)`), and `run_ros_action_if_governed`
+refuses (fail closed, `RosUnavailableError`) to invoke an adapter bound to a
+*different* actor than the one the call is being made on behalf of — checked
+*before* `ensure_governed` even runs. `RclpyRosExecutionAdapter` additionally
+gets its own `rclpy.Context()` per instance (not the process-global default
+context) and an actor-scoped default `node_name`/`service_prefix`, so two
+co-resident adapters in one process never share ROS runtime state, only the
+`rclpy` module import itself. `HeartbeatCapability`
+(`kernel/domains/robot.py`) is the one real, minimal, governed capability
+wired to this path today — a no-op liveness ping, deliberately not a real
+motion capability — proving `ActionExecutor -> ensure_governed ->
+run_ros_action_if_governed -> actor-bound adapter` works end to end without
+fabricating a robot task that doesn't exist. `context["ros_adapter"]` (set
+by `ActorCell.ros_adapter`, `None` for any non-robot actor) is what
+`HeartbeatCapability` reads. Isolation proven in
+`tests/isolation/test_actor_cell_isolation.py` (`TestRosIsolation`,
+`TestHeartbeatCapability`): a bound adapter used on behalf of a different
+actor_id, and a capability context carrying a mismatched actor's adapter,
+both fail closed.
+
+Core modules: `kernel/edge/ros_integration.py`, `kernel/domains/robot.py`,
+`kernel/actor_identity.py`, `kernel/society/actor_cell.py`,
+`moss_retrieval.py`.
 
 ---
 
@@ -1302,6 +1339,71 @@ reference to `knowledge_graph`/`SharedWorld`/any mutation method, and
 `MossSemanticMemory`'s only public methods are `available`/
 `index_documents`/`query`). `index_documents()` writes only to Moss's own
 retrieval index, never to CognitiveOS world state.
+
+---
+
+## 29. Actor Cell: identity, knowledge, ROS binding, and concurrent execution
+
+Formalizes what an Actor owns *exclusively* into one boundary object,
+composed from pieces that mostly already existed correctly-scoped
+(`CognitiveActor`'s belief/KG/memory/cognitive runtime, `ActorRuntimeState`)
+plus two additions: a per-actor identity credential and a per-actor-bound
+ROS adapter. No cloud-authoritative state (Society/World/Presence/Policy/
+Approval/Delegation/Plans/Catalog/Registry/Audit) moved to the edge.
+
+```mermaid
+flowchart TD
+    subgraph CellA["ActorCell A"]
+        IdA["identity: DelegationCredential delegate=A"]
+        CogA["CognitiveActor A belief KG memory cognitive runtime"]
+        StateA["ActorRuntimeState A"]
+        RosA["RosExecutionAdapter actor_id=A own rclpy Context"]
+    end
+    subgraph CellB["ActorCell B"]
+        IdB["identity: DelegationCredential delegate=B"]
+        CogB["CognitiveActor B belief KG memory cognitive runtime"]
+        StateB["ActorRuntimeState B"]
+        RosB["RosExecutionAdapter actor_id=B own rclpy Context"]
+    end
+    CellA -.->|never shared| CellB
+    Cloud["Cloud: Society World Presence Policy Approval Delegation Plans Catalog Registry Audit"] --> CellA
+    Cloud --> CellB
+```
+
+`CognitiveActor._knowledge_graph` (constructed since before this pass but
+never read by any domain capability — every capability read the shared,
+unscoped `PlanetaryRuntime.knowledge_graph` instead, the root cause of a
+confirmed cross-actor preference leak) is now the real destination for
+actor-private facts: `kernel/domains/grocery.py`'s `record_rejection`/
+`get_rejected_keywords` prefer `context["actor_local_knowledge_graph"]`
+(this actor's own KG) over the shared catalog KG, falling back gracefully
+when a caller hasn't wired it. Catalog/product/store data (genuinely
+Society-scoped) is untouched, still read from the shared KG.
+
+**Concurrent execution:** `SocietyRuntime.tick()` and `tick_team()` used to
+tick every actor with a plain sequential `for` loop, even though
+`tick_one_actor()` already serializes correctness per-actor via its own
+Redis actor lease — nothing required *different* actors to run one at a
+time. Both now use `asyncio.gather(..., return_exceptions=True)`, so N
+co-resident actors' ticks (including real I/O like an LLM call inside
+`managed.tick()`) genuinely overlap instead of queuing, and one actor's
+unexpected exception no longer aborts the rest of the sweep. The one
+process-wide serialization point deliberately left untouched:
+`PlanetaryRuntime._tick_lock`/`_acquire_planetary_cycle_lock`, which makes
+`execute_actor_request` (the `/prompt` HTTP path) fully exclusive by
+design — two separate `/prompt` calls for two different actors still
+serialize; only the work *inside* one already-locked call (or `tick()`/
+`tick_team()` calls that don't go through that lock at all) now overlaps.
+
+Isolation proven end to end in `tests/isolation/test_actor_cell_isolation.py`:
+identity (A's credential cannot authorize as B), knowledge graph, memory
+(actor_id+task_id keyed), belief, runtime state, ROS binding, crash
+isolation, and wall-clock concurrency (3 actors complete in ~1x a simulated
+tick delay, not ~3x).
+
+Core modules: `kernel/actor_identity.py`, `kernel/society/actor_cell.py`,
+`kernel/domains/robot.py`, `kernel/edge/ros_integration.py`,
+`kernel/society/runtime.py`.
 
 ---
 

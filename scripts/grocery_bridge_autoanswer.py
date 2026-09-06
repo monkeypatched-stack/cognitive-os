@@ -77,8 +77,23 @@ PLAN_TEMPLATE = {
 
 
 def _should_answer(prompt: str) -> bool:
-    p = prompt.lower()
-    return "productselection" in p or "buy" in p and "milk" in p or "mik" in p
+    # Match only the CURRENT tick's actual goal line ("Goal: ...", the
+    # first line of every llm_planner.py prompt) — not any substring
+    # anywhere in the prompt. Priya has multiple standing goals (e.g.
+    # "buy groceries efficiently" AND "stay within household budget")
+    # that /execute cycles through independently of what was last asked
+    # via /prompt; a bare substring match on "buy"+"milk" also matched
+    # PAST memory lines ("Relevant experiences: ... Buy 1L of milk ...")
+    # on a tick whose real goal was unrelated, feeding this script's
+    # hardcoded milk-buying plan into a grounding context that never
+    # offered a milk product at all — confirmed live: "planner selected
+    # ..., which was never offered in this execution's grounding".
+    goal_line = ""
+    for line in prompt.splitlines():
+        if line.startswith("Goal:"):
+            goal_line = line.lower()
+            break
+    return "grocer" in goal_line or "milk" in goal_line
 
 
 def main() -> None:

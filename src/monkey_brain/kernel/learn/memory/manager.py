@@ -51,8 +51,12 @@ class MemoryManager:
         self.vector_db = vector_client
         self.graph_db  = graph_client
 
-        # Volatile working space — one slot per active task
-        self.working_memory: dict[str, MemoryNode] = {}
+        # Volatile working space — one slot per active task, keyed by
+        # (actor_id, task_id) so two actors' tasks can never collide on the
+        # same task_id (Actor Cell Architecture planning found this keyed
+        # by task_id alone, with no actor_id at all — docs/
+        # ACTOR_CELL_ARCHITECTURE.md).
+        self.working_memory: dict[tuple[str, str], MemoryNode] = {}
 
         # Cognitive State refactor: a materialized per-actor index over
         # record_experience()'s real writes — the only way to answer
@@ -66,27 +70,31 @@ class MemoryManager:
 
     def allocate_working_context(
         self,
+        actor_id:      str,
         task_id:       str,
         initial_state: dict[str, Any],
         provenance:    ProvenanceToken,
     ) -> MemoryNode:
-        """Allocate a volatile workspace for an active runtime thread."""
+        """Allocate a volatile workspace for an active runtime thread,
+        scoped to actor_id so a task_id collision across actors can never
+        share a working-memory slot."""
         node = MemoryNode(
             node_id=task_id,
             memory_type="working",
             payload=initial_state,
             provenance=provenance,
         )
-        self.working_memory[task_id] = node
+        self.working_memory[(actor_id, task_id)] = node
         return node
 
-    def persist_to_episodic_stream(self, task_id: str) -> MemoryNode | None:
+    def persist_to_episodic_stream(self, actor_id: str, task_id: str) -> MemoryNode | None:
         """Evict working memory and commit it to the long-term episodic store.
 
-        Returns the persisted node, or None if task_id was not in working memory.
-        The node's memory_type is promoted to 'episodic' before writing.
+        Returns the persisted node, or None if (actor_id, task_id) was not
+        in working memory. The node's memory_type is promoted to 'episodic'
+        before writing.
         """
-        node = self.working_memory.pop(task_id, None)
+        node = self.working_memory.pop((actor_id, task_id), None)
         if not node:
             return None
 
