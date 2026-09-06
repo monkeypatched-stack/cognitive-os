@@ -66,8 +66,8 @@ class TestAutoApproveFlow:
             mutation_called = True
             return {"result": "success"}
 
-        with patch("src.monkey_brain.kernel.security_boundary._authorize") as mock_authz:
-            mock_authz.return_value = {
+        async def mock_authorize(action, resource, extra, *, verified_delegation=None):
+            return {
                 "allowed": True,
                 "reason": "policy_permit",
                 "approval_mode": "AUTO_APPROVE",
@@ -77,6 +77,7 @@ class TestAutoApproveFlow:
                 "requires_hitl": False,
             }
 
+        with patch("src.monkey_brain.kernel.security_boundary._authorize", side_effect=mock_authorize):
             with patch("src.monkey_brain.kernel.trusted_auth.get_trusted_auth") as mock_auth:
                 mock_auth.return_value = make_trusted_auth("user:test")
 
@@ -98,8 +99,8 @@ class TestAutoApproveFlow:
         async def mutate():
             return "done"
 
-        with patch("src.monkey_brain.kernel.security_boundary._authorize") as mock_authz:
-            mock_authz.return_value = {
+        async def mock_authorize(action, resource, extra, *, verified_delegation=None):
+            return {
                 "allowed": True,
                 "reason": "policy_permit",
                 "approval_mode": "AUTO_APPROVE",
@@ -109,6 +110,7 @@ class TestAutoApproveFlow:
                 "requires_hitl": False,
             }
 
+        with patch("src.monkey_brain.kernel.security_boundary._authorize", side_effect=mock_authorize):
             with patch("src.monkey_brain.kernel.trusted_auth.get_trusted_auth") as mock_auth:
                 mock_auth.return_value = make_trusted_auth("user:test")
 
@@ -152,7 +154,7 @@ class TestHumanApprovalRequiredFlow:
             return "should not execute"
 
         # Patch the _authorize method directly in the module
-        async def mock_authorize(action, resource, extra):
+        async def mock_authorize(action, resource, extra, *, verified_delegation=None):
             return {
                 "allowed": True,
                 "reason": "policy_requires_human_approval",
@@ -187,7 +189,7 @@ class TestHumanApprovalRequiredFlow:
         async def mutate():
             return "should not execute"
 
-        async def mock_authorize(action, resource, extra):
+        async def mock_authorize(action, resource, extra, *, verified_delegation=None):
             return {
                 "allowed": True,
                 "reason": "policy_requires_human_approval",
@@ -229,7 +231,7 @@ class TestHumanApprovalRequiredFlow:
         async def mutate():
             return "should not execute"
 
-        async def mock_authorize(action, resource, extra):
+        async def mock_authorize(action, resource, extra, *, verified_delegation=None):
             return {
                 "allowed": True,
                 "reason": "policy_requires_human_approval",
@@ -283,7 +285,7 @@ class TestDenyFlow:
             mutation_called = True
             return "should not execute"
 
-        async def mock_authorize(action, resource, extra):
+        async def mock_authorize(action, resource, extra, *, verified_delegation=None):
             return {
                 "allowed": False,
                 "reason": "policy_deny",
@@ -318,7 +320,7 @@ class TestDenyFlow:
         async def mutate():
             return "should not execute"
 
-        async def mock_authorize(action, resource, extra):
+        async def mock_authorize(action, resource, extra, *, verified_delegation=None):
             return {
                 "allowed": False,
                 "reason": "insufficient_permissions",

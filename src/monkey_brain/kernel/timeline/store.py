@@ -274,8 +274,123 @@ class _RedisTimelineBackend:
             return 0
 
 
+# ── Edge-local backend (SQLite, durable across restarts, no network) ────
+class _EdgeLocalTimelineBackend:
+    """Backed by kernel/edge/local_store.py::EdgeLocalStore — durable
+    (survives a process restart, unlike _InMemoryTimelineBackend) but
+    requires no reachable network service (unlike _RedisTimelineBackend),
+    the property Edge-First Architecture needs for Presence/Membership/
+    Goal/etc. to work on a genuinely offline edge/device/robot node.
+
+    One EdgeLocalStore namespace per TimelineKind ("timeline:{kind}"), key
+    "{actor_id}:{entry_id}" — mirrors the Redis backend's per-kind
+    partitioning (its own key pattern's {kind} segment) rather than a
+    single shared namespace, so a bulk `clear_kind` stays a single
+    `EdgeLocalStore.clear_namespace` call. No TTL/expiry (EdgeLocalStore
+    has none) and no separate index structure — `list(namespace)` plus an
+    in-process filter stands in for the Redis backend's ZSET index; this
+    trades index-query elegance for reusing the one already-tested local
+    storage primitive rather than adding a second SQLite table shape."""
+
+    def __init__(self, store: Any) -> None:
+        self._store = store
+
+    @staticmethod
+    def _namespace(kind: TimelineKind) -> str:
+        return f"timeline:{kind.value}"
+
+    @staticmethod
+    def _key(actor_id: str, entry_id: str) -> str:
+        return f"{actor_id}:{entry_id}"
+
+    def _provenance(self) -> Any:
+        from src.monkey_brain.kernel.edge.freshness import CacheProvenance
+        import time as _time
+        return CacheProvenance(source="edge_local:timeline", observed_at=_time.time(), freshness_requirement="safe_offline")
+
+    def append(self, entry: TimelineEntry, kind: TimelineKind) -> TimelineEntry:
+        try:
+            self._store.put(
+                self._namespace(kind), self._key(entry.actor_id, entry.entry_id),
+                json.loads(_entry_to_json(entry)), self._provenance(),
+            )
+        except Exception as exc:
+            logger.warning("TimelineStore(edge_local).append failed for actor=%r kind=%s: %s", entry.actor_id, kind, exc)
+        return entry
+
+    def close(self, actor_id: str, kind: TimelineKind, entry_id: str, closed_entry: TimelineEntry) -> None:
+        try:
+            self._store.put(
+                self._namespace(kind), self._key(actor_id, entry_id),
+                json.loads(_entry_to_json(closed_entry)), self._provenance(),
+            )
+        except Exception as exc:
+            logger.warning("TimelineStore(edge_local).close failed for actor=%r kind=%s: %s", actor_id, kind, exc)
+
+    def _all_entries(self, kind: TimelineKind) -> list[TimelineEntry]:
+        try:
+            raw_entries = self._store.list(self._namespace(kind))
+        except Exception as exc:
+            logger.warning("TimelineStore(edge_local) list failed for kind=%s: %s", kind, exc)
+            return []
+        out = []
+        for cache_entry in raw_entries:
+            try:
+                out.append(_entry_from_json(json.dumps(cache_entry.value)))
+            except Exception as exc:
+                logger.warning("TimelineStore(edge_local) corrupt entry %s: %s", cache_entry.key, exc)
+        return out
+
+    def query(self, actor_id: str, kind: TimelineKind,
+              since: float | None, until: float | None) -> tuple[TimelineEntry, ...]:
+        entries = [e for e in self._all_entries(kind) if e.actor_id == actor_id]
+        if since is not None:
+            entries = [e for e in entries if e.start_time >= since]
+        if until is not None:
+            entries = [e for e in entries if e.start_time <= until]
+        return tuple(entries)
+
+    def all_for_actor(self, actor_id: str) -> tuple[TimelineEntry, ...]:
+        result: list[TimelineEntry] = []
+        for kind in TimelineKind:
+            result.extend(e for e in self._all_entries(kind) if e.actor_id == actor_id)
+        return tuple(result)
+
+    def known_actors(self, kind: TimelineKind) -> tuple[str, ...]:
+        return tuple({e.actor_id for e in self._all_entries(kind)})
+
+    def entry_count(self, kind: TimelineKind | None = None) -> int:
+        kinds = [kind] if kind is not None else list(TimelineKind)
+        return sum(len(self._all_entries(k)) for k in kinds)
+
+    def clear_kind(self, kind: TimelineKind) -> int:
+        try:
+            return self._store.clear_namespace(self._namespace(kind))
+        except Exception as exc:
+            logger.warning("TimelineStore(edge_local).clear_kind failed for kind=%s: %s", kind, exc)
+            return 0
+
+
 def _make_backend() -> Any:
     choice = os.getenv("TIMELINE_STORE_BACKEND", "auto").strip().lower()
+
+    # Edge-First Architecture: an edge/device/robot node prefers durable
+    # local storage over an in-memory-only fallback — EdgeLocalStore is a
+    # local SQLite file, always available, no network dependency, so
+    # "auto" on this node class tries it BEFORE falling all the way back
+    # to _InMemoryTimelineBackend (which loses everything on restart).
+    node_class_hint = os.getenv("ACTOR_NODE_CLASS", "cloud").strip().lower()
+    prefers_edge_local = node_class_hint in ("edge", "device", "robot")
+
+    if choice == "edge_local" or (choice == "auto" and prefers_edge_local):
+        try:
+            from src.monkey_brain.kernel.edge.local_store import get_edge_local_store
+            logger.info("TimelineStore: edge-local SQLite backend (node_class=%s)", node_class_hint)
+            return _EdgeLocalTimelineBackend(get_edge_local_store())
+        except Exception as exc:
+            if choice == "edge_local":
+                logger.error("TimelineStore: TIMELINE_STORE_BACKEND=edge_local but EdgeLocalStore unavailable: %s", exc)
+            # "auto" falls through to the Redis/memory logic below.
     # REDIS_URL is the explicit override; PlanetaryRuntime's own Redis
     # connection (kernel/society/integration.py::_init_persistence) uses
     # REDIS_HOST/REDIS_PORT instead — without this fallback, an

@@ -41,6 +41,7 @@ governance always runs first, exactly like any other capability.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Protocol
 
 logger = logging.getLogger("agentos.edge.ros_integration")
@@ -59,7 +60,18 @@ class RosExecutionAdapter(Protocol):
     """What a real ROS integration must implement. Deliberately minimal
     and transport-agnostic (rclpy topics/services/actions are all valid
     implementations) — this module does not prescribe ROS 1 vs ROS 2,
-    or any specific message type."""
+    or any specific message type.
+
+    Actor Cell binding (docs/ACTOR_CELL_ARCHITECTURE.md Section I/3): an
+    adapter instance is constructed bound to one actor_id (see
+    build_ros_execution_adapter below) and exposes it as `.actor_id` so
+    run_ros_action_if_governed can assert the calling actor matches before
+    ever reaching `invoke()` — today's one-actor-per-process deployment
+    convention makes this redundant in practice, but nothing previously
+    enforced it, so a future wiring mistake handing actor A's plan
+    adapter B's instance would previously have gone undetected."""
+
+    actor_id: str
 
     async def invoke(self, *, capability: str, parameters: dict[str, Any]) -> dict[str, Any]:
         """Send a committed action to sensors/actuators and return the
@@ -70,7 +82,7 @@ class RosExecutionAdapter(Protocol):
 
 async def run_ros_action_if_governed(
     *, capability: str, resource: str, parameters: dict[str, Any],
-    adapter: RosExecutionAdapter, local_policy_decision: dict[str, Any] | None = None,
+    adapter: RosExecutionAdapter, actor_id: str = "", local_policy_decision: dict[str, Any] | None = None,
     verified_delegation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The ONLY sanctioned entry point from a robot actor's committed
@@ -80,7 +92,23 @@ async def run_ros_action_if_governed(
     pattern) — a robot capability is never invoked directly, and this
     function has no other way to reach `adapter.invoke()` than through
     a successful governance decision.
+
+    actor_id: the actor this call is being made ON BEHALF OF. When both
+    this and the adapter's own bound `.actor_id` are non-empty and they
+    differ, this raises RosUnavailableError (fail closed) BEFORE
+    governance even runs — Actor Cell ROS isolation (docs/
+    ACTOR_CELL_ARCHITECTURE.md:139): actor A's plan must never reach
+    actor B's ROS adapter. Omitting actor_id (the default, "") preserves
+    prior behavior exactly for any existing caller/adapter that doesn't
+    bind one yet.
     """
+    bound_actor_id = getattr(adapter, "actor_id", "") or ""
+    if actor_id and bound_actor_id and actor_id != bound_actor_id:
+        raise RosUnavailableError(
+            f"ROS adapter is bound to actor_id={bound_actor_id!r}, refusing to invoke it "
+            f"on behalf of actor_id={actor_id!r} -- Actor Cell ROS isolation would be violated",
+        )
+
     from src.monkey_brain.kernel.security_boundary import ensure_governed
 
     async def _invoke() -> dict[str, Any]:
@@ -88,7 +116,7 @@ async def run_ros_action_if_governed(
 
     return await ensure_governed(
         f"capability.{capability}", resource, _invoke,
-        extra={"capability": capability, "parameters": parameters},
+        extra={"capability": capability, "parameters": parameters, "actor_id": actor_id},
         force_authorize=True,
         local_policy_decision=local_policy_decision,
         verified_delegation=verified_delegation,
@@ -101,7 +129,8 @@ class FakeRosExecutionAdapter:
     and returns a deterministic, honestly-labeled result; never claims to
     have moved a real actuator."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, actor_id: str = "") -> None:
+        self.actor_id = actor_id
         self.calls: list[dict[str, Any]] = []
 
     async def invoke(self, *, capability: str, parameters: dict[str, Any]) -> dict[str, Any]:
@@ -129,7 +158,9 @@ class RclpyRosExecutionAdapter:
     section and docs/DIAGRAMS.md's ROS integration note.
     """
 
-    def __init__(self, *, node_name: str = "cognitiveos_edge_actor", service_prefix: str = "/cognitiveos") -> None:
+    def __init__(
+        self, *, actor_id: str = "", node_name: str | None = None, service_prefix: str | None = None,
+    ) -> None:
         try:
             import rclpy  # type: ignore[import-not-found]
             from rclpy.node import Node  # type: ignore[import-not-found]
@@ -140,11 +171,42 @@ class RclpyRosExecutionAdapter:
                 f"import failed: {exc}",
             ) from exc
 
+        self.actor_id = actor_id
+        # Actor Cell binding (docs/ACTOR_CELL_ARCHITECTURE.md Section I/3):
+        # namespace the ROS node/service prefix by actor_id by default, so
+        # two Cells never collide on the same ROS namespace even if they
+        # ever ran co-resident -- an explicit node_name/service_prefix
+        # still overrides this (e.g. a deployment with its own naming
+        # scheme), preserving prior behavior for any existing caller.
+        default_prefix = f"/cognitiveos/{actor_id}" if actor_id else "/cognitiveos"
+        # ROS 2 node names must match ^[a-zA-Z][a-zA-Z0-9_]*$ -- unlike the
+        # topic-shaped service_prefix above, a raw actor_id (e.g.
+        # "actor-A", commonly hyphenated) is not a valid node name, so it's
+        # sanitized here before being embedded.
+        default_node_name = (
+            f"cognitiveos_edge_actor_{re.sub(r'[^a-zA-Z0-9_]', '_', actor_id)}"
+            if actor_id else "cognitiveos_edge_actor"
+        )
+        node_name = node_name if node_name is not None else default_node_name
+        service_prefix = service_prefix if service_prefix is not None else default_prefix
+
+        # Swarm-readiness audit finding (docs/ACTOR_CELL_ARCHITECTURE.md /
+        # this session's audit): the prior implementation called the
+        # process-global `rclpy.init()` once (guarded by `rclpy.ok()`) and
+        # every adapter's Node implicitly used that one shared default
+        # Context -- real namespace isolation (service_prefix/node_name)
+        # but NOT runtime isolation: two co-resident adapters shared one
+        # rclpy Context with no per-actor executor. Each adapter now gets
+        # its own Context, so two Actor Cells co-resident in one process
+        # never share ROS runtime state, only the one global `rclpy`
+        # import (unavoidable -- it's a single C extension module, not
+        # per-actor state) -- symmetric with shutdown() below, which tears
+        # down only this adapter's own context, never any other actor's.
         self._rclpy = rclpy
         self._service_prefix = service_prefix
-        if not rclpy.ok():
-            rclpy.init()
-        self._node = Node(node_name)
+        self._context = rclpy.Context()
+        rclpy.init(context=self._context)
+        self._node = Node(node_name, context=self._context)
         self._clients: dict[str, Any] = {}
 
     def _client_for(self, capability: str) -> Any:
@@ -177,9 +239,15 @@ class RclpyRosExecutionAdapter:
 
     def shutdown(self) -> None:
         self._node.destroy_node()
+        # Tear down only THIS adapter's own Context (per-actor, from
+        # __init__ above) -- never the process-global `rclpy.shutdown()`,
+        # which would also tear down every other co-resident actor's ROS
+        # runtime.
+        if self._context.ok():
+            self._context.try_shutdown()
 
 
-def build_ros_execution_adapter(*, require_real: bool = False) -> RosExecutionAdapter:
+def build_ros_execution_adapter(*, actor_id: str = "", require_real: bool = False) -> RosExecutionAdapter:
     """Clear, explicit startup behavior (Section 1's own requirement):
 
     - require_real=False (default -- the normal CognitiveOS runtime):
@@ -190,11 +258,20 @@ def build_ros_execution_adapter(*, require_real: bool = False) -> RosExecutionAd
       actionable message if rclpy cannot be imported, rather than
       silently degrading to a fake adapter that would make a robot
       deployment believe it is actually moving hardware when it is not.
+
+    actor_id (Actor Cell binding, docs/ACTOR_CELL_ARCHITECTURE.md Section
+    I/3): binds the returned adapter to exactly one actor, so
+    run_ros_action_if_governed can refuse to invoke it on behalf of any
+    other actor_id. Optional/defaulted ("") -- omitting it preserves prior
+    behavior exactly (an unbound adapter, as every existing caller
+    constructs today; there are no production callers of this function
+    yet, per docs/ACTOR_CELL_ARCHITECTURE.md's own finding, so this only
+    affects future wiring, not any live call site).
     """
     if not require_real:
-        return FakeRosExecutionAdapter()
+        return FakeRosExecutionAdapter(actor_id=actor_id)
     try:
-        return RclpyRosExecutionAdapter()
+        return RclpyRosExecutionAdapter(actor_id=actor_id)
     except RosUnavailableError:
         raise
     except Exception as exc:

@@ -58,6 +58,16 @@ class ActorRuntimeState:
     last_tick_result: Any = None
     last_lease_fence: int = 0
     """Monotonic lease fence from the most recent tick — used to reject stale belief checkpoints."""
+    cell: Any = None
+    """The formal ActorCell boundary object (kernel/society/actor_cell.py),
+    when one was successfully constructed for this actor -- identity
+    credential, this same `actor`/`self` pairing, and (for a robot node
+    class) a bound ROS adapter. None is a legitimate value (e.g. this
+    SocietyRuntime is standalone/unit-test usage with no identity issuer
+    available) -- nothing in the existing tick/execution path requires
+    this field, it exists for the Cell isolation tests and any future
+    caller that wants the formal boundary rather than reaching into
+    `actor`/`actor_runtime` directly."""
     """A reference to the actual Actor Runtime object (duck-typed — anything
     exposing an async `tick()`, per the corrected hierarchy's Actor Runtime
     abstraction; current implementations: CognitiveActor/ActorSystem).
@@ -351,8 +361,24 @@ class SocietyRuntime:
             context_factory = (
                 (lambda question: {
                     "knowledge_graph": self._knowledge_graph, "actor_id": entity_id,
+                    # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md):
+                    # CognitiveActor already constructs its OWN per-actor
+                    # KnowledgeGraph (self._knowledge_graph on that class,
+                    # KnowledgeGraph(person_id=entity_id)) but nothing ever
+                    # read it — every capability only ever saw the shared
+                    # graph above. Additive key: existing capabilities that
+                    # only read context["knowledge_graph"] are unaffected;
+                    # `actor` is resolved at CALL time (this lambda only
+                    # runs on a later tick), by which point the assignment
+                    # below has already completed.
+                    "actor_local_knowledge_graph": actor._knowledge_graph,
                     "world": self._world, "question": question,
                     "planetary_runtime": self._planetary_runtime,
+                    # HeartbeatCapability (kernel/domains/robot.py) reads
+                    # this -- None for every actor that isn't a robot
+                    # deployment (the normal case); `state` (defined below)
+                    # is resolved at CALL time, same as `actor` above.
+                    "ros_adapter": (state.cell.ros_adapter if getattr(state, "cell", None) is not None else None),
                 })
                 if self._knowledge_graph is not None else None
             )
@@ -408,6 +434,30 @@ class SocietyRuntime:
         )
         with self._actors_lock:
             self._actors[profile.identity.actor_id] = state
+
+        # Actor Cell (docs/ACTOR_CELL_ARCHITECTURE.md Section B/O): a
+        # best-effort formal boundary object -- never gates registration
+        # itself (an actor that already exists must still register even if
+        # minting fails for some environmental reason). The REAL,
+        # fail-closed identity enforcement happens where an actor actually
+        # answers a request (actor_runtime.py's per-Pod /execute,
+        # grocery.py's NATS inbox handler), via kernel/actor_identity.py.
+        try:
+            from src.monkey_brain.kernel.actor_identity import mint_actor_cell_identity
+            from src.monkey_brain.kernel.society.actor_cell import ActorCell
+            from src.monkey_brain.kernel.trusted_auth import get_trusted_auth
+
+            issuer = get_trusted_auth().principal_id or "society-runtime"
+            credential = mint_actor_cell_identity(profile.identity.actor_id, issuer=issuer)
+            state.cell = ActorCell(
+                actor_id=profile.identity.actor_id, identity=credential,
+                actor=actor, runtime_state=state,
+            )
+        except Exception:
+            logger.debug(
+                "register_actor: ActorCell construction skipped for %s (non-fatal)",
+                profile.identity.actor_id, exc_info=True,
+            )
 
         if self._membership_registry is not None:
             # Membership as a First-Class Runtime Resource refactor: this
@@ -575,19 +625,31 @@ class SocietyRuntime:
         """Tick every member actor of a team, via the same tick_one_actor()
         coordination path SocietyRuntime.tick() uses for the whole society —
         the tier-consistent completion of Planet->Country->City tick
-        cascading down to Team, one level above Actor."""
+        cascading down to Team, one level above Actor.
+
+        Concurrency (swarm-readiness audit, blocker 3): members tick via
+        asyncio.gather, not a sequential for-loop -- a 3-actor Team (the
+        audit's own drone-swarm scenario) previously always ran fully
+        sequentially even though tick_one_actor already serializes safely
+        per actor via its own Redis actor lease. Same safety reasoning as
+        SocietyRuntime.tick()'s own concurrent sweep above."""
         start = time.time()
         team = self._teams.get(team_id)
         if team is None:
             return TeamTickResult(team_id=team_id)
 
+        results = await asyncio.gather(
+            *(self.tick_one_actor(actor_id) for actor_id in team.member_actor_ids),
+            return_exceptions=True,
+        )
+
         ticked: list[str] = []
-        for actor_id in team.member_actor_ids:
-            try:
-                if await self.tick_one_actor(actor_id):
-                    ticked.append(actor_id)
-            except Exception as e:
-                logger.error("Actor %s tick failed in team %s: %s", actor_id, team_id, e)
+        for actor_id, result in zip(team.member_actor_ids, results):
+            if isinstance(result, BaseException):
+                logger.error("Actor %s tick failed in team %s: %s", actor_id, team_id, result)
+                continue
+            if result:
+                ticked.append(actor_id)
 
         return TeamTickResult(
             team_id=team_id,
@@ -1097,29 +1159,57 @@ class SocietyRuntime:
 
         start = time.time()
         self._tick_count += 1
-        actors_ticked = 0
         actor_execution_result = None
 
         # Deliver queued messages from previous tick
         self._deliver_messages()
 
-        # tick the actor
+        # Concurrency (swarm-readiness audit, blocker 3 -- "in-process tick
+        # concurrency doesn't exist"): tick_one_actor already serializes
+        # correctly PER ACTOR via its own Redis actor lease (acquire_
+        # actor_lease/release_actor_lease, above) -- nothing ever required
+        # DIFFERENT actors' ticks to run one at a time in wall-clock terms,
+        # only that this loop happened to await them sequentially. Building
+        # the target list first, then gathering, lets actor A's real
+        # in-flight I/O (an LLM call inside managed.tick(), deep inside
+        # _coordinate_actor) overlap with actor B's instead of blocking it.
+        # Safe: every per-actor mutation this ends up doing
+        # (_commit_world_events/_publish_tick_events/record_coordination,
+        # all inside _coordinate_actor) is plain synchronous code with no
+        # `await` of its own, so asyncio can never interleave two of them
+        # mid-call -- only BETWEEN actors, exactly like the old sequential
+        # loop already allowed between iterations.
+        targets: list[tuple[str, Any]] = []
         for actor_state in self.active_actors():
             if exclude_actor_ids and actor_state.actor_id in exclude_actor_ids:
                 continue
             if single_actor_only and actor_state.actor_id != target_actor_id:
                 continue
-            if actor_state.actor_id == target_actor_id:
-                actor_prompt_request = prompt_request
-            else:
-                actor_prompt_request = broadcast_context
-            ticked = await self.tick_one_actor(actor_state.actor_id, actor_prompt_request)
+            actor_prompt_request = prompt_request if actor_state.actor_id == target_actor_id else broadcast_context
+            targets.append((actor_state.actor_id, actor_prompt_request))
+
+        results = await asyncio.gather(
+            *(self.tick_one_actor(actor_id, actor_prompt_request) for actor_id, actor_prompt_request in targets),
+            return_exceptions=True,
+        )
+
+        actors_ticked = 0
+        for (actor_id, _), ticked in zip(targets, results):
+            if isinstance(ticked, BaseException):
+                # tick_one_actor already catches its own real failures and
+                # returns None -- reaching this means something even more
+                # unexpected escaped it. Same posture as its own internal
+                # except blocks: log and continue, never let one actor's
+                # failure take down the rest of this tick.
+                logger.error("Actor %s tick raised during society tick: %s", actor_id, ticked)
+                continue
             if ticked:
                 actors_ticked += 1
-                if actor_state.actor_id == target_actor_id:
-                    actor_execution_result = actor_state.last_tick_result
+                if actor_id == target_actor_id:
+                    target_state = self._actors.get(actor_id)
+                    actor_execution_result = target_state.last_tick_result if target_state is not None else None
 
-        # get the interation results for each actor 
+        # get the interation results for each actor
         interactions = self._interaction_manager.active_interactions()
         interactions_routed = len(interactions)
 
