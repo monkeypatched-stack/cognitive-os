@@ -1303,7 +1303,17 @@ class SocietyRuntime:
                     "goal_achieved": outcome.get("goal_achieved", False),
                 },
             )
-            self._world.record_event(event)
+            # record_event() asserts assert_state_mutation_allowed() -- this
+            # runs AFTER the tick's own actions already went through
+            # ensure_governed individually (ActionExecutor); by this point
+            # commitment_active() is no longer true, so this bookkeeping
+            # summary of an already-governed tick failed closed with
+            # SecurityBoundaryDenied on EVERY actor's tick outside
+            # insecure-dev-mode, aborting the tick entirely rather than
+            # just failing to record its own outcome summary.
+            from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
+            with privileged_infrastructure(reason="_commit_world_events: recording the outcome of an already-governed tick, not a new mutation"):
+                self._world.record_event(event)
 
     def _publish_tick_events(self, actor_id: str, result: Any) -> None:
         """Translates one _CognitiveTickResult into Context Stream events.

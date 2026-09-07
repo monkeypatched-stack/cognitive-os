@@ -14,12 +14,18 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+import os
+
 CONTAINER = "monkeypatched-agentos-1"
 REDIS_CONTAINER = "monkeypatched-redis-1"
 BRIDGE_DIR = "/tmp/mb-llm-bridge"
 BASE = "http://localhost:8031/api/v1/agentos"
-PRIYA = "0c3cf78910424a15817ea1477cf4edec"
-MILK_ID = "product_5cac29e2d0ef4ef0bd31a0352bf26baf"
+PRIYA = os.environ.get("DEMO_PRIYA_ACTOR_ID", "0c3cf78910424a15817ea1477cf4edec")
+# Product UUIDs are minted fresh by every scripts/seed_world.py reseed --
+# same env-override pattern as scripts/grocery_bridge_autoanswer.py's
+# DEMO_MILK_PRODUCT_ID, so this stays in sync with whichever product a
+# fresh reseed actually created instead of silently going stale.
+MILK_ID = os.environ.get("DEMO_MILK_PRODUCT_ID", "product_5cac29e2d0ef4ef0bd31a0352bf26baf")
 
 PLAN = {
     "steps": [

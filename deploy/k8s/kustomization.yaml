@@ -9,6 +9,8 @@ resources:
   - pvc.yaml
   - deployment.yaml
   - service.yaml
+  - auth-deployment.yaml
+  - frontend-deployment.yaml
   - servicemonitor.yaml
   - prometheusrule.yaml
   - opa.yaml

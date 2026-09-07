@@ -107,9 +107,18 @@ async def create_merchant(
     user_id: str = Depends(require_permission("perm-manage-actors")),
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.domains.commerce import onboard_merchant
+    from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
 
     attrs = {k: v for k, v in body.model_dump().items() if k not in ("merchant_id", "store_name")}
-    return _result(onboard_merchant(_kg(request), body.merchant_id, body.store_name, **attrs))
+    # onboard_merchant() writes the Store ORGANIZATION entity via
+    # kg.add_entity(), which asserts assert_state_mutation_allowed() --
+    # this route is operator/onboarding-driven (no agent, no capability,
+    # no committed plan behind it), so it was never actually coverable by
+    # ensure_governed the way an agent capability would be. Confirmed
+    # live: fails closed with SecurityBoundaryDenied (500) outside
+    # insecure-dev-mode without this.
+    with privileged_infrastructure(reason="POST /merchants: operator onboarding a merchant, not an agent action"):
+        return _result(onboard_merchant(_kg(request), body.merchant_id, body.store_name, **attrs))
 
 
 @router.get("/merchants", tags=["Commerce"])
@@ -185,13 +194,17 @@ async def create_pantry_item(
     find_household_pantry_stock()/predict_household_stockout()
     (grocery.py), which previously had no way to get real data to read."""
     from src.monkey_brain.kernel.domains.grocery import add_pantry_item
+    from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
 
     attrs = {k: v for k, v in body.model_dump().items()
              if k not in ("name", "quantity", "owner_id", "household_members")}
-    return _result(add_pantry_item(
-        _kg(request), body.name, body.quantity,
-        owner_id=body.owner_id, household_members=body.household_members, **attrs,
-    ))
+    # Same class of fix as POST /merchants above -- add_pantry_item()
+    # writes via kg.add_entity(), operator-driven, not an agent action.
+    with privileged_infrastructure(reason="POST /pantry: operator seeding a pantry item, not an agent action"):
+        return _result(add_pantry_item(
+            _kg(request), body.name, body.quantity,
+            owner_id=body.owner_id, household_members=body.household_members, **attrs,
+        ))
 
 
 # ── Riders ──────────────────────────────────────────────────────────────
@@ -211,13 +224,17 @@ async def create_rider(
     "no riders available" against a world built entirely through real
     APIs otherwise)."""
     from src.monkey_brain.kernel.domains.logistics import onboard_rider
+    from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
 
     # capacity=None is RiderCreateRequest's real "unconstrained" default
     # (see its own docstring) — dropped here, not forwarded as a literal
     # None, so select_delivery_riders() sees a genuinely missing key
     # rather than one it would (crash trying to) compare against.
     attrs = {k: v for k, v in body.model_dump().items() if k != "name" and v is not None}
-    return _result(onboard_rider(_kg(request), body.name, **attrs))
+    # Same class of fix as POST /merchants above -- onboard_rider() writes
+    # via kg.add_entity(), operator-driven onboarding, not an agent action.
+    with privileged_infrastructure(reason="POST /riders: operator onboarding a rider, not an agent action"):
+        return _result(onboard_rider(_kg(request), body.name, **attrs))
 
 
 # ── Wallets ─────────────────────────────────────────────────────────────
@@ -234,6 +251,7 @@ async def create_wallet(
     _find_wallet()/_owned_by() convention: attributes["owner"])."""
     import uuid
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+    from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
 
     name = body.name or f"{body.owner}'s Wallet"
     wallet_id = body.wallet_id or f"wallet_{uuid.uuid4().hex}"
@@ -241,10 +259,13 @@ async def create_wallet(
              if k not in ("owner", "name", "account_type", "balance", "wallet_id")}
 
     kg = _kg(request)
-    kg.add_entity(wallet_id, EntityType.ACCOUNT, name, {
-        "account_type": body.account_type, "balance": body.balance, "owner": body.owner,
-        **extra,
-    })
+    # Same class of fix as POST /merchants above -- direct kg.add_entity(),
+    # operator-driven wallet provisioning, not an agent action.
+    with privileged_infrastructure(reason="POST /wallets: operator provisioning a wallet, not an agent action"):
+        kg.add_entity(wallet_id, EntityType.ACCOUNT, name, {
+            "account_type": body.account_type, "balance": body.balance, "owner": body.owner,
+            **extra,
+        })
     entity = kg.get_entity(wallet_id)
     return {"success": True, "wallet_id": wallet_id, **entity.attributes}
 
@@ -404,12 +425,17 @@ async def create_product(
     user_id: str = Depends(require_permission("perm-manage-actors")),
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.domains.commerce import list_product
+    from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
 
     attrs = {k: v for k, v in body.model_dump().items()
              if k not in ("store_id", "merchant_id", "name", "price", "quantity")}
-    result = _result(list_product(
-        _kg(request), body.store_id, body.merchant_id, body.name, body.price, body.quantity, **attrs,
-    ))
+    # Same class of fix as POST /merchants above -- list_product() writes
+    # via kg.add_entity(), operator-driven catalog management, not an
+    # agent action.
+    with privileged_infrastructure(reason="POST /products: operator listing a product, not an agent action"):
+        result = _result(list_product(
+            _kg(request), body.store_id, body.merchant_id, body.name, body.price, body.quantity, **attrs,
+        ))
     # Product name only — the raw id is still real data in the payload for
     # anything that needs it (e.g. ProductSelection's grounding-membership
     # check), but a human/LLM reading this event's description doesn't

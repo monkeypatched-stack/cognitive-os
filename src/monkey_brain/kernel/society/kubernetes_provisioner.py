@@ -69,18 +69,38 @@ def provisioning_enabled() -> bool:
     return os.getenv("KUBERNETES_PROVISIONING_ENABLED", "false").lower() not in ("false", "0", "no")
 
 
+_PROVISIONABLE_REASONS = frozenset({
+    "no healthy nodes registered",
+    # Actors default to edge: this repo's actor-deployment.yaml is a
+    # ONE-ACTOR-PER-POD template (ACTOR_NODE_CAPACITY=1, one ACTOR_ID
+    # substituted per apply) — every already-provisioned actor Pod
+    # therefore ALWAYS reports zero available capacity for placing any
+    # OTHER actor, by design, not as a symptom of real exhaustion needing
+    # an operator's scaling decision. So "no healthy node has available
+    # capacity" (ActorScheduler._summarize_no_candidate_reason's default
+    # message, no other requirement set) means exactly the same thing
+    # "no healthy nodes registered" does for a totally empty registry:
+    # this specific actor has no dedicated Pod of its own yet. A generic
+    # capability/node_class mismatch still produces a DIFFERENT, more
+    # specific reason string ("no healthy node satisfies: ...") and is
+    # deliberately still excluded below — provisioning a generic Pod
+    # cannot satisfy a requirement it was never templated to meet.
+    "no healthy node has available capacity",
+})
+
+
 def should_provision(unschedulable_reason: str) -> bool:
-    """Distinguishes the ONE UNSCHEDULABLE cause provisioning can actually
-    fix ("no healthy nodes registered at all" — nothing exists to host
-    ANY actor yet) from every other UNSCHEDULABLE cause (a real node
-    exists but rejects THIS actor's specific requirements — missing
-    capability, wrong node_class, full capacity). Provisioning a generic
-    cloud Pod would not satisfy a capability/node_class requirement it
-    doesn't meet, and capacity-exhaustion needs a scaling decision, not
-    a duplicate Pod for the same node identity — see
+    """Distinguishes the UNSCHEDULABLE causes provisioning can actually
+    fix (nothing exists to host THIS actor yet, whether because zero
+    nodes are registered at all or because every registered node is
+    either non-actor-hosting or already dedicated to a different actor)
+    from every other UNSCHEDULABLE cause (a real node exists but rejects
+    THIS actor's specific requirements — missing capability, wrong
+    node_class). Provisioning a generic Pod would not satisfy a
+    capability/node_class requirement it doesn't meet — see
     ActorScheduler._summarize_no_candidate_reason for the exact reason
     strings this matches against."""
-    return unschedulable_reason == "no healthy nodes registered"
+    return unschedulable_reason in _PROVISIONABLE_REASONS
 
 
 class KubernetesProvisioner:

@@ -1,0 +1,126 @@
+# Auth and Organization Service (domains/manufacturing/knowledge/services/auth/)
+# — already fully built out (login, MFA, users/roles/permissions, audit) and
+# already proven working in docker-compose.yml's own "auth" service, but
+# never containerized into this Kubernetes cluster. kong.yml already routes
+# /api/v1/auth, /api/v1/me, /api/v1/users, /api/v1/roles, /api/v1/permissions,
+# /api/v1/departments, /api/v1/teams, /api/v1/members, /api/v1/session,
+# /api/v1/ws, /api/v1/integration-config to a Service literally named
+# "auth" on port 8010 — this manifest just has to exist with that exact
+# name/port for those routes to start working, no Kong changes needed.
+#
+# envFrom agentos-config is safe to reuse as-is: services/common/config.py's
+# Settings field names (MONGODB_URL, DB_NAME, REDIS_URL, NATS_URL,
+# NEO4J_URI, NEO4J_USER) already match that ConfigMap's keys verbatim —
+# confirmed by reading both, not assumed.
+#
+# No InfluxDB/Elasticsearch env vars: confirmed by reading the actual code
+# (helpers/audit_elasticsearch_sync.py, helpers/nats_consumer.py,
+# helpers/influx_store.py::ensure_event_measurements) that every one of
+# main.py's lifespan startup calls into these degrades to a background-task
+# warning log rather than raising/blocking boot when they're unreachable —
+# this cluster deploys neither, and that's fine.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: monkeybrain
+  labels:
+    app: auth
+    component: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              for target in redis:6379 mongodb:27017 nats:4222; do
+                host="${target%%:*}"; port="${target##*:}"
+                until nc -z -w2 "$host" "$port"; do
+                  echo "waiting for $target..."
+                  sleep 2
+                done
+                echo "$target is up"
+              done
+      containers:
+        - name: auth
+          image: monkeybrain/auth:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8010
+              name: http
+          envFrom:
+            - configMapRef:
+                name: agentos-config
+          env:
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: neo4j-password
+            - name: ACCESS_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: access-token-secret
+            - name: REFRESH_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: refresh-token-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8010
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8010
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8010
+            periodSeconds: 5
+            failureThreshold: 30
+            timeoutSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth
+  namespace: monkeybrain
+  labels:
+    app: auth
+spec:
+  selector:
+    app: auth
+  ports:
+    - port: 8010
+      targetPort: 8010
+      protocol: TCP
+      name: http
+  type: ClusterIP

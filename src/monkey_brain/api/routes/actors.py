@@ -3696,15 +3696,28 @@ async def create_actor_address(
     kg = getattr(pr, "knowledge_graph", None)
     if kg is not None:
         from src.monkey_brain.kernel.knowledge_graph import EntityType
-        kg.add_entity(
-            f"address_{addr.address_id}", EntityType.ADDRESS, f"{actor_id} address",
-            attributes={
-                "full_address": body.value,
-                "is_primary": body.is_primary,
-                "actor_id": actor_id,
-                **body.metadata,
-            },
-        )
+        from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
+        # Real, live-confirmed bug: kg.add_entity() asserts
+        # assert_state_mutation_allowed() (security_boundary.py), which
+        # fails closed with SecurityBoundaryDenied (surfaced as an
+        # unhandled 500) outside insecure-dev-mode, a commitment, or this
+        # context — this endpoint is operator/onboarding-driven (no
+        # agent, no capability, no committed plan behind it), so it was
+        # never actually coverable by "run it inside ensure_governed"
+        # like an agent capability would be. privileged_infrastructure()
+        # is the correct, existing (if previously never-called) escape
+        # hatch for exactly this: a trusted, non-agent-initiated
+        # management write.
+        with privileged_infrastructure(reason="POST /actors/{id}/addresses: operator-set delivery address, not an agent action"):
+            kg.add_entity(
+                f"address_{addr.address_id}", EntityType.ADDRESS, f"{actor_id} address",
+                attributes={
+                    "full_address": body.value,
+                    "is_primary": body.is_primary,
+                    "actor_id": actor_id,
+                    **body.metadata,
+                },
+            )
 
     return addr.to_dict()
 

@@ -4,6 +4,13 @@ metadata:
   name: agentos-config
   namespace: monkeybrain
 data:
+  # No real LLM provider credentials exist in this local test cluster --
+  # without this, POST /prompt's planner call fails fast with an empty
+  # plan (goal_achieved: null, no bridge activity at all), silently
+  # looking like nothing happened rather than a real error. dev_bridge is
+  # the same file-based LLM stand-in scripts/grocery_bridge_autoanswer.py
+  # / docker-compose.override.yml already use for local/dev testing.
+  MODEL_BACKEND: "dev_bridge"
   MONGODB_URL: "mongodb://mongodb:27017"
   # Final Conformance run finding (live deployment test): ActorStateStore's
   # own Mongo connection (persistence/db_pool.py) reads DATABASE_URL, NOT
@@ -87,6 +94,16 @@ data:
   KERNEL_PHASE_TIMEOUT: "180"
   CAPABILITY_TIMEOUT_SECONDS: "120"
   COGNITIVEOS_PRODUCTION_MODE: "true"
+  # Temporary, explicit toggle (not insecure-dev-mode) — kernel/
+  # production_gates.py::mfa_required()'s last line honors an explicit
+  # falsy value here regardless of production mode. Turned off "for now"
+  # per direct instruction, so login stays plain email/password without
+  # the MFA enroll/challenge flow (living-world-explorer/src/components/
+  # LoginPage.tsx). Flip back to "true" (or delete this line — true is the
+  # default) to re-require it; nothing else needs to change since the
+  # frontend's MFA screens only ever render when the server actually asks
+  # for them.
+  COGNITIVEOS_MFA_REQUIRED: "false"
   API_GATEWAY_REQUIRED: "true"
   ACTOR_RUNTIME_INTERNAL_ONLY: "true"
   # KubernetesProvisioner enablement (Gap Remediation audit fix):
@@ -97,7 +114,7 @@ data:
   # false — deployments without kubectl/RBAC configured see zero behavior
   # change. See docs/KUBERNETES_PROVISIONER_ENABLEMENT.md and
   # src/monkey_brain/kernel/society/kubernetes_provisioner.py for details.
-  KUBERNETES_PROVISIONING_ENABLED: "false"
+  KUBERNETES_PROVISIONING_ENABLED: "true"
   # SPIFFE/SPIRE workload identity (kernel/workload_identity.py). This
   # trust domain MUST match deploy/k8s/spire-server.yaml's ConfigMap
   # (one value, not duplicated/hard-coded per subsystem) and MUST differ

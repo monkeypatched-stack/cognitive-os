@@ -40,25 +40,32 @@ spec:
             - name: kong-config
               mountPath: /etc/kong
               readOnly: true
+          # KONG_ADMIN_LISTEN is deliberately 127.0.0.1:8001 (Admin API
+          # never exposed outside the Pod -- correct security posture).
+          # kubelet's httpGet probes connect from OUTSIDE the container's
+          # network namespace via the Pod IP, so they can never reach a
+          # loopback-only port -- confirmed live (permanent "connection
+          # refused" on both probes even though Kong's own logs showed a
+          # fully successful boot). exec probes run inside the container's
+          # own namespace, where 127.0.0.1 correctly resolves to Kong
+          # itself, without loosening the Admin API's bind address.
           readinessProbe:
-            httpGet:
-              path: /status
-              port: 8001
+            exec:
+              command: ["kong", "health"]
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /status
-              port: 8001
+            exec:
+              command: ["kong", "health"]
             initialDelaySeconds: 15
             periodSeconds: 30
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 512Mi
             limits:
               cpu: 1000m
-              memory: 512Mi
+              memory: 1Gi
       volumes:
         - name: kong-config
           configMap:

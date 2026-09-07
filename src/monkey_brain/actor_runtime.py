@@ -378,8 +378,20 @@ class ActorRuntime:
             # this adapter today -- attached to this actor's ActorCell
             # below, once the actor is loaded, so context["ros_adapter"]
             # resolves to it on this actor's own ticks.
+            #
+            # require_real reads ROS_REQUIRE_REAL (default true for a
+            # robot deployment -- "each drone is an actor, it must have
+            # its own [real] Pod," not a Pod that silently degrades to a
+            # fake adapter while claiming node_class=robot). An operator
+            # deploying a robot-class actor deliberately WITHOUT real ROS
+            # available yet (e.g. bringing up the Pod before its px4-sitl
+            # sidecar is ready) can still opt back into the old
+            # never-fails behavior by setting ROS_REQUIRE_REAL=false.
             from src.monkey_brain.kernel.edge.ros_integration import build_ros_execution_adapter
-            self.ros_adapter = build_ros_execution_adapter(actor_id=self.config.actor_id)
+            require_real = os.getenv("ROS_REQUIRE_REAL", "true").strip().lower() not in ("false", "0", "no")
+            self.ros_adapter = build_ros_execution_adapter(
+                actor_id=self.config.actor_id, require_real=require_real,
+            )
 
         if self.config.claim_placement:
             # Explicit operator intent: this deployment IS the placement
@@ -725,6 +737,100 @@ def _build_app() -> Any:
             lambda: run_actor_tick(actor_id, pr, state),
             verified_delegation=verified_delegation,
         )
+
+    @fastapi_app.post("/prompt")
+    async def prompt(request: Request) -> Any:
+        """A fresh natural-language mission for THIS Pod's one actor --
+        the gap /execute above deliberately does not fill (run_actor_tick
+        replays whatever goal/context this actor already has; it accepts
+        no request body). Mirrors api/routes/prompt.py's own
+        unified_prompt as closely as this single-actor Pod's shape allows:
+        same call (PlanetaryRuntime.execute_actor_request), same "govern
+        inside the pipeline, not by wrapping the whole call" posture the
+        cloud route already uses -- ensure_governed is still the sole
+        gate for the actual capability execution the resulting plan
+        drives (ActionExecutor), same as every other entry point.
+
+        Discovered live: this session's own prompt-driven PX4 mission
+        work had no way to send a fresh mission to a real robot-class
+        Actor Pod's already-running process at all -- only to a
+        separately-constructed PlanetaryRuntime in a throwaway script,
+        which would have contended for this actor's own lease instead of
+        talking to the Pod that already legitimately holds it.
+        """
+        from src.monkey_brain.api.internal_auth import require_internal_service_token
+        from src.monkey_brain.kernel.trusted_auth import bind_trusted_auth, evidence_for_service, get_trusted_auth
+        from src.monkey_brain.kernel.actor_identity import ActorIdentityError
+
+        require_internal_service_token(request)
+        runtime = _runtime()
+        pr = runtime.planetary_runtime
+        if pr is None:
+            raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
+        actor_id = runtime.config.actor_id
+        state = pr._society_runtime.get_actor(actor_id)
+        if state is None:
+            raise HTTPException(status_code=404, detail=f"Actor {actor_id} not resident on this Pod")
+
+        # Presence/Membership/... timelines default to the edge-local SQLite
+        # backend for node_class in (edge, device, robot) (kernel/timeline/
+        # store.py::_make_backend) -- deliberately per-process durable local
+        # storage, not shared Redis. That means a Presence set for this actor
+        # through the CLOUD control plane (POST /actors/{id}/move against
+        # the cloud's own Redis-backed PlanetaryRuntime) is invisible here:
+        # this Pod's own PlanetaryRuntime resolves _resolve_actor_space()
+        # against ITS OWN local Presence timeline, which starts empty on
+        # every fresh Pod. Confirmed live: execute_actor_request raised
+        # "Actor ... is not associated with a space" even though the same
+        # actor_id already had an open Presence against the cloud API.
+        # Geography itself (GeographicRegistry) is NOT edge-local — it is
+        # restored from the same shared store every PlanetaryRuntime loads
+        # from (confirmed live: this Pod's own _geo_registry already
+        # contains the real, cloud-seeded Space hierarchy, not an empty
+        # registry) — so any Space id from it resolves correctly here too;
+        # only the per-actor Presence *entry* (which Space this actor is
+        # AT) fails to carry over. There is no EdgeSyncClient wired yet to
+        # replicate cloud Presence down to a new edge Pod (tracked
+        # separately), so fall back to establishing local presence at
+        # whatever Space this Pod's own registry already knows about.
+        from src.monkey_brain.kernel.geography.entity import GeographicEntityType
+
+        presence = pr._presence.current(actor_id)
+        if presence is None or not presence.is_open():
+            fallback_space = next(iter(pr._geo_registry.all(GeographicEntityType.SPACE)), None)
+            if fallback_space is not None:
+                pr.move_actor(
+                    actor_id, fallback_space.entity_id,
+                    activity="idle", source="edge-local-presence-bootstrap",
+                )
+
+        body = await request.json()
+        question = body.get("question", "")
+        if not question:
+            raise HTTPException(status_code=400, detail="'question' is required")
+
+        bind_trusted_auth(evidence_for_service(f"actor-runtime:{actor_id}"))
+        issuer = get_trusted_auth().principal_id
+        try:
+            runtime.cell_identity.ensure(issuer=issuer)
+            runtime.cell_identity.bind_trusted_auth(authenticated_issuer=issuer)
+        except ActorIdentityError as exc:
+            raise HTTPException(status_code=403, detail=f"Actor Cell identity rejected: {exc}") from exc
+
+        result = await pr.execute_actor_request(actor_id, {"question": question})
+        observations = getattr(result, "observations", {}) or {}
+        outcome = observations.get("outcome", {}) if isinstance(observations, dict) else {}
+        plan = getattr(result, "plan", None)
+        actions = getattr(result, "actions", []) or []
+        return {
+            "question": question,
+            "goal_achieved": outcome.get("goal_achieved") if isinstance(outcome, dict) else None,
+            "plan": {"steps": [getattr(s, "action", s) for s in getattr(plan, "steps", ())]} if plan is not None else None,
+            "actions": [
+                {"action_id": a.get("action_id"), "success": a.get("success"), "error": a.get("error")}
+                for a in actions if isinstance(a, dict)
+            ],
+        }
 
     return fastapi_app
 

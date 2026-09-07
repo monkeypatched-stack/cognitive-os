@@ -1,0 +1,182 @@
+# CognitiveOS Drone Actor — a robot-class Actor Cell. Same TEMPLATE
+# precedent as actor-deployment.yaml (render once PER drone actor_id via
+# envsubst, apply directly — not part of kustomization.yaml's static base).
+#
+# The PX4 simulator (px4-sitl, xrce-agent, mavlink-heartbeat) and the ROS
+# 2/rclpy bridge to it (ros-bridge) now live in a SEPARATE Pod/Deployment
+# (deploy/k8s/px4-sim-deployment.yaml, same ACTOR_ID) — this Pod contains
+# ONLY the CognitiveOS actor itself, back on the plain, unmodified
+# monkeybrain/agentos:latest image every non-robot actor already uses (no
+# ROS 2 baked in at all). It reaches the ROS bridge over plain HTTP via
+# that Deployment's own Service (kernel/edge/ros_integration.py::
+# RemoteRosExecutionAdapter, ROS_ADAPTER_KIND=remote_http below) — this
+# avoids ever needing cross-Pod ROS 2 DDS discovery (kindnet does not
+# guarantee multicast across Pods, and this repo has no Discovery-Server/
+# static-peers configuration to work around that); only the already-
+# governed HTTP call to ros-bridge crosses a Pod boundary, and plain
+# unicast TCP has no such discovery dependency.
+#
+#   ACTOR_ID=drone-a ACTOR_ARTIFACT_VERSION=1.0.0 \
+#     envsubst '${ACTOR_ID} ${ACTOR_ARTIFACT_VERSION}' \
+#     < deploy/k8s/drone-actor-deployment.yaml | kubectl apply -f -
+#
+# Must be applied for the SAME ACTOR_ID as a px4-sim-deployment.yaml
+# rendering (ROS_BRIDGE_URL below points at that Deployment's Service by
+# name) — this Pod alone cannot fly anything.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cognitiveos-actor-${ACTOR_ID}
+  namespace: monkeybrain
+  labels:
+    app: cognitiveos-actor
+    component: drone-actor-runtime
+    actor-id: "${ACTOR_ID}"
+    node-class: "robot"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cognitiveos-actor
+      actor-id: "${ACTOR_ID}"
+  template:
+    metadata:
+      labels:
+        app: cognitiveos-actor
+        actor-id: "${ACTOR_ID}"
+        node-class: "robot"
+    spec:
+      serviceAccountName: cognitiveos-actor-provisioner
+      terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              for target in redis:6379 mongodb:27017 nats:4222; do
+                host="${target%%:*}"; port="${target##*:}"
+                until nc -z -w2 "$host" "$port"; do
+                  echo "waiting for $target..."
+                  sleep 2
+                done
+                echo "$target is up"
+              done
+      containers:
+        - name: cognitiveos-actor
+          # Back on the plain image (no ROS 2 baked in) — ROS execution
+          # now happens in the separate px4-sim-${ACTOR_ID} Pod's
+          # ros-bridge container, reached over HTTP (ROS_ADAPTER_KIND=
+          # remote_http below), so this container never imports rclpy at
+          # all. See this file's own header for why.
+          image: monkeybrain/agentos:latest
+          imagePullPolicy: IfNotPresent
+          # docker/Dockerfile.base's own default CMD runs the CLOUD
+          # control-plane app (src.monkey_brain.api.main:app), not the
+          # per-actor runtime -- same override actor-deployment.yaml
+          # already uses for this exact image. Needed here now that this
+          # container is back on the plain image (agentos-robot:latest's
+          # own CMD used to point at actor_runtime.py directly, which is
+          # why this override wasn't needed before the ROS split).
+          command:
+            - python
+            - -m
+            - uvicorn
+            - src.monkey_brain.actor_runtime:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8051"
+          ports:
+            - containerPort: 8051
+              name: http
+          envFrom:
+            - configMapRef:
+                name: agentos-config
+          env:
+            - name: ACTOR_ID
+              value: "${ACTOR_ID}"
+            - name: ACTOR_NODE_CLASS
+              value: "robot"
+            - name: ACTOR_NODE_CAPACITY
+              value: "1"
+            - name: ACTOR_CLAIM_PLACEMENT
+              value: "true"
+            - name: ACTOR_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: ACTOR_ARTIFACT_VERSION
+              value: "${ACTOR_ARTIFACT_VERSION}"
+            # Real PX4 adapter selection (kernel/edge/ros_integration.py
+            # build_ros_execution_adapter) -- remote_http delegates
+            # invoke() over HTTP to the separate px4-sim-${ACTOR_ID} Pod's
+            # ros-bridge container instead of importing rclpy in-process
+            # (see this file's own header). ROS_BRIDGE_URL must match
+            # px4-sim-deployment.yaml's Service name for the SAME
+            # ACTOR_ID.
+            - name: ROS_ADAPTER_KIND
+              value: "remote_http"
+            - name: ROS_REQUIRE_REAL
+              value: "true"
+            - name: ROS_BRIDGE_URL
+              value: "http://px4-sim-${ACTOR_ID}.monkeybrain.svc.cluster.local:9000"
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: neo4j-password
+            - name: INTERNAL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: internal-service-token
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8051
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8051
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /live
+              port: 8051
+            periodSeconds: 5
+            failureThreshold: 20
+            timeoutSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cognitiveos-actor-${ACTOR_ID}
+  namespace: monkeybrain
+  labels:
+    app: cognitiveos-actor
+    actor-id: "${ACTOR_ID}"
+spec:
+  selector:
+    app: cognitiveos-actor
+    actor-id: "${ACTOR_ID}"
+  ports:
+    - port: 8051
+      targetPort: 8051
+      protocol: TCP
+      name: http
+  type: ClusterIP

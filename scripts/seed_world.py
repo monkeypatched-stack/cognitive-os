@@ -51,6 +51,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+import uuid
 
 BASE = os.environ.get("SEED_WORLD_API_BASE", "http://localhost:8031/api/v1/agentos")
 USER = "seed-world"
@@ -72,6 +73,15 @@ def api(method: str, path: str, body: dict | None = None, ok404: bool = False):
     req.add_header("X-User-ID", USER)
     if TOKEN:
         req.add_header("Authorization", f"Bearer {TOKEN}")
+    if method in ("POST", "PATCH", "PUT", "DELETE"):
+        # Required by a real (non-insecure-dev-mode) deployment for every
+        # mutating call. A fresh key per call is correct here, not a bug:
+        # this script's OWN by-name find-or-create checks (see module
+        # docstring) are what make re-running `seed` logically idempotent;
+        # this header's job is narrower -- don't double-apply THIS one
+        # HTTP call if the network retries it, not de-duplicate across
+        # separate calls this script already decided to make.
+        req.add_header("Idempotency-Key", str(uuid.uuid4()))
     try:
         with urllib.request.urlopen(req) as resp:
             raw = resp.read()
@@ -305,9 +315,21 @@ def seed() -> dict:
         (tj_plaza, "Trader Joe's Plaza", 37.3650, -122.0410, "1100 Maple Ave, Sunnyvale, CA"),
         (sw_plaza, "Safeway Plaza", 37.3720, -122.0300, "1500 Maple Ave, Sunnyvale, CA"),
     ]:
-        loc_id, c = ensure_world_location(name, lat, lng, address)
-        counts["world_locations"] += c
-        ensure_geo_location(building_id, loc_id)
+        try:
+            loc_id, c = ensure_world_location(name, lat, lng, address)
+            counts["world_locations"] += c
+            ensure_geo_location(building_id, loc_id)
+        except RuntimeError as exc:
+            # A production deployment's WORLD_MUTATION_BLOCK correctly
+            # disables direct /world/locations writes (see that route's
+            # own error message) -- this loop exists only to give the
+            # frontend World Map a marker per Building; every actor/
+            # society/commerce path below uses ensure_geo's own Building/
+            # Space entities directly and does not depend on this link.
+            # Degrade to "no map markers," never fail the whole seed over
+            # a purely cosmetic write a secured deployment correctly
+            # refuses.
+            print(f"  (skipping world_location {name!r}: {exc})")
 
     # 2. Societies + hosting. Every society an actor will be registered
     # into at creation-time MUST be hosted at a real Space BEFORE that

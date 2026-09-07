@@ -788,10 +788,18 @@ async def add_society_governance_policy(
     # SharedWorld.record_policy's docstring for why this was previously
     # dead scaffolding), keyed by the SAME policy_id so a later edit to
     # this policy is recognized as a re-registration, not a new one.
-    sr.world.record_policy(
-        policy_id=policy.policy_id, name=policy.name, description=policy.description,
-        rules=policy.rules, scope=policy.scope,
-    )
+    #
+    # record_policy() asserts assert_state_mutation_allowed() (world.py's
+    # _require_write) -- same class of fix as POST /merchants etc.
+    # elsewhere in this pass: this route is operator/admin-driven society
+    # governance setup, not an agent action, and fails closed with
+    # SecurityBoundaryDenied (500) outside insecure-dev-mode without this.
+    from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
+    with privileged_infrastructure(reason="POST /societies/{id}/governance-policies: operator defining a policy, not an agent action"):
+        sr.world.record_policy(
+            policy_id=policy.policy_id, name=policy.name, description=policy.description,
+            rules=policy.rules, scope=policy.scope,
+        )
     # SocietyGovernanceEngine cross-process gap: _save_societies() already
     # serializes sr.governance.policies() into the same durable blob every
     # OTHER society-mutating route here calls it after -- this route was

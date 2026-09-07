@@ -1,0 +1,186 @@
+# PX4 Simulator — the physical (simulated) embodiment for one drone actor,
+# now fully separate from the CognitiveOS actor Pod (deploy/k8s/
+# drone-actor-deployment.yaml). Same TEMPLATE precedent as
+# actor-deployment.yaml (render once PER drone actor_id via envsubst, apply
+# directly — not part of kustomization.yaml's static base).
+#
+#   px4-sitl           — PX4 SITL + Gazebo (px4-sitl-flat:latest — see
+#                        drone-actor-deployment.yaml's original header for
+#                        why it's a locally re-tagged flattening of
+#                        px4io/px4-sitl-gazebo:latest, not the upstream tag
+#                        directly).
+#   xrce-agent         — Micro XRCE-DDS Agent bridging PX4's own uXRCE-DDS
+#                        client to real ROS 2 topics.
+#   mavlink-heartbeat  — liveness-only MAVLink HEARTBEAT sender (zero
+#                        command authority) satisfying PX4's "No
+#                        connection to the GCS" preflight datalink check.
+#   ros-bridge         — NEW: the ROS 2/rclpy side of the actor, split out
+#                        of the CognitiveOS actor container so THAT
+#                        container never needs ROS 2 installed (see
+#                        drone-actor-deployment.yaml, now back on the
+#                        plain monkeybrain/agentos:latest image). Wraps
+#                        kernel/edge/px4_ros_adapter.py::
+#                        Px4RosExecutionAdapter (unchanged) behind one
+#                        HTTP endpoint (kernel/edge/ros_bridge_server.py,
+#                        docker/Dockerfile.ros-bridge) that the
+#                        CognitiveOS actor Pod calls via this file's own
+#                        Service (kernel/edge/ros_integration.py::
+#                        RemoteRosExecutionAdapter, ROS_ADAPTER_KIND=
+#                        remote_http).
+#
+# All four still share ONE Pod deliberately — same reasoning
+# drone-actor-deployment.yaml's original header gave for the whole group:
+# PX4's own docker-entrypoint.sh only redirects MAVLink/uXRCE-DDS traffic
+# to a host IP when `host.docker.internal` resolves; hostAliases below
+# pins that to 127.0.0.1 so it stays targeting this Pod's own network
+# namespace. ros-bridge talks to xrce-agent over that same localhost link
+# (127.0.0.1:8888, real ROS 2 DDS topics) — keeping it in this Pod is what
+# avoids ever needing cross-Pod ROS 2 DDS discovery (kindnet does not
+# guarantee multicast across Pods, and this repo has no Discovery-Server/
+# static-peers configuration to work around that). Only the CognitiveOS
+# actor's own HTTP call to ros-bridge's Service crosses a Pod boundary,
+# which needs no such discovery mechanism (plain unicast TCP).
+#
+#   ACTOR_ID=drone-a PX4_NAMESPACE=px4_a \
+#     envsubst '${ACTOR_ID} ${PX4_NAMESPACE}' \
+#     < deploy/k8s/px4-sim-deployment.yaml | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: px4-sim-${ACTOR_ID}
+  namespace: monkeybrain
+  labels:
+    app: px4-sim
+    component: px4-simulator
+    actor-id: "${ACTOR_ID}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: px4-sim
+      actor-id: "${ACTOR_ID}"
+  template:
+    metadata:
+      labels:
+        app: px4-sim
+        actor-id: "${ACTOR_ID}"
+    spec:
+      terminationGracePeriodSeconds: 60
+      hostAliases:
+        - ip: "127.0.0.1"
+          hostnames: ["host.docker.internal"]
+      containers:
+        - name: px4-sitl
+          image: px4-sitl-flat:latest
+          imagePullPolicy: IfNotPresent
+          tty: true
+          stdin: true
+          env:
+            - name: PX4_UXRCE_DDS_NS
+              value: "${PX4_NAMESPACE}"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "3Gi"
+
+        - name: xrce-agent
+          image: cognitiveos-px4-ros2:latest
+          imagePullPolicy: IfNotPresent
+          command: ["bash", "-lc", "MicroXRCEAgent udp4 -p 8888"]
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+        - name: mavlink-heartbeat
+          image: cognitiveos-px4-ros2:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "-c"]
+          args:
+            - |
+              import socket, time
+              MAV_TYPE_GCS, MAV_AUTOPILOT_INVALID, MAV_STATE_ACTIVE = 6, 8, 4
+              CRC_EXTRA = 50
+              def x25crc(data):
+                  crc = 0xFFFF
+                  for b in data:
+                      tmp = b ^ (crc & 0xFF)
+                      tmp = (tmp ^ (tmp << 4)) & 0xFF
+                      crc = ((crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF
+                  return crc
+              def heartbeat(seq):
+                  payload = (0).to_bytes(4, "little") + bytes([MAV_TYPE_GCS, MAV_AUTOPILOT_INVALID, 0, MAV_STATE_ACTIVE, 3])
+                  header = bytes([0xFD, len(payload), 0, 0, seq & 0xFF, 255, 190, 0, 0, 0])
+                  crc = x25crc(header[1:] + payload + bytes([CRC_EXTRA]))
+                  return header + payload + crc.to_bytes(2, "little")
+              sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+              seq = 0
+              while True:
+                  sock.sendto(heartbeat(seq), ("127.0.0.1", 18570))
+                  seq += 1
+                  time.sleep(1.0)
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+
+        - name: ros-bridge
+          image: monkeybrain/ros-bridge:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9000
+              name: http
+          env:
+            - name: ACTOR_ID
+              value: "${ACTOR_ID}"
+            - name: PX4_NAMESPACE
+              value: "${PX4_NAMESPACE}"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /live
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: px4-sim-${ACTOR_ID}
+  namespace: monkeybrain
+  labels:
+    app: px4-sim
+    actor-id: "${ACTOR_ID}"
+spec:
+  selector:
+    app: px4-sim
+    actor-id: "${ACTOR_ID}"
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+      name: http
+  type: ClusterIP

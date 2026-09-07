@@ -1,0 +1,55 @@
+# ros-bridge — the ROS 2/rclpy side of a robot actor, split into its own
+# container (deploy/k8s/px4-sim-deployment.yaml) so the CognitiveOS actor
+# container (docker/Dockerfile.base) never needs ROS 2 installed at all.
+# Wraps kernel/edge/px4_ros_adapter.py::Px4RosExecutionAdapter (unchanged)
+# behind one small FastAPI endpoint (kernel/edge/ros_bridge_server.py) that
+# kernel/edge/ros_integration.py::RemoteRosExecutionAdapter calls into over
+# plain HTTP from the separate CognitiveOS actor Pod.
+#
+# Same ROS 2 Jazzy + px4_msgs + Micro-XRCE-DDS-Agent build steps as
+# docker/Dockerfile.robot (that part is genuinely shared and unavoidable —
+# rclpy + px4_msgs are what this container exists to provide). Differs from
+# Dockerfile.robot in what it copies: only `src/` itself (kernel/__init__.py
+# eagerly imports a fair amount of the wider kernel package — capability
+# interface, observer, policy, etc. — so a hand-picked handful of files
+# isn't actually importable standalone; `src/` as a whole is), never
+# `domains/`, `packages/`, `sdk/`, `monkeypatched_sdk/`, or `deploy/k8s/`,
+# none of which ros-bridge's own code touches. Runs ros_bridge_server.py,
+# never actor_runtime.py — this container never boots a CognitiveActor.
+FROM ros:jazzy-ros-base
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl git cmake build-essential python3-pip \
+        python3-colcon-common-extensions python3-rosdep \
+        libasio-dev libtinyxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone -b v2.4.3 --depth 1 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git /opt/Micro-XRCE-DDS-Agent \
+    && cd /opt/Micro-XRCE-DDS-Agent && mkdir build && cd build \
+    && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j$(nproc) && make install && ldconfig
+
+RUN mkdir -p /opt/px4_ws/src && cd /opt/px4_ws/src \
+    && git clone --depth 1 https://github.com/PX4/px4_msgs.git
+RUN . /opt/ros/jazzy/setup.sh && cd /opt/px4_ws && colcon build --packages-select px4_msgs
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+COPY requirements.txt .
+RUN uv pip install --system --break-system-packages -r requirements.txt
+
+COPY src/ ./src/
+
+EXPOSE 9000
+
+COPY docker/robot-entrypoint.sh /ros_entrypoint_robot.sh
+RUN chmod +x /ros_entrypoint_robot.sh
+ENTRYPOINT ["/ros_entrypoint_robot.sh"]
+CMD ["python3", "-m", "uvicorn", "src.monkey_brain.kernel.edge.ros_bridge_server:app", "--host", "0.0.0.0", "--port", "9000"]

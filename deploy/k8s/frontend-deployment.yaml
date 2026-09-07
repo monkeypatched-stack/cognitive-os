@@ -1,0 +1,71 @@
+# Living World Explorer — the dashboard frontend, previously only ever run
+# as a local `npm run dev` Vite dev server pointed at the cluster via a
+# manual port-forward + VITE_API_PROXY override. This is the real,
+# production-built (nginx-served) equivalent: same app, same login/MFA
+# flow (src/store/authStore.ts), same relative /api paths — nginx
+# (docker/services/frontend/nginx.conf) does what Vite's dev proxy did,
+# proxying to the in-cluster Kong Service directly (no port-forward
+# indirection needed from inside the cluster).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: monkeybrain
+  labels:
+    app: frontend
+    component: dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: monkeybrain/frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: monkeybrain
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  type: ClusterIP
