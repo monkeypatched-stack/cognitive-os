@@ -77,6 +77,22 @@ async def seed():
         "role_id": "ROLE-001",
         "password": _hash("Admin@12345678"),
         "plant_id": "PLANT-TBL-IN-001",
+        # Confirmed live: services/common/auth.py::get_current_user calls
+        # set_tenant_from_claims(payload) for every authenticated request,
+        # which puts the access token's own "tenant" claim (create_access_
+        # token's tenant=user_tenant(user) — "default" for a user with no
+        # tenant field) into context. services/common/tenant_scope.py's
+        # wrap() then tenant-scopes every db["users"] query for the REST
+        # of that request (get_by_id inside /mfa/enroll, /mfa/enable,
+        # /me, ...) to {"tenant_id": "default", ...} — a user document
+        # with no tenant_id field at all is invisible to that filter, so
+        # every one of those routes 401s "User not found" despite a
+        # perfectly valid token. /login itself is unauthenticated (no
+        # tenant in context yet), so it alone was unaffected — this only
+        # surfaced on the very next authenticated call. Must match
+        # default_tenant()'s own value ("default" unless DEFAULT_TENANT
+        # is overridden) exactly.
+        "tenant_id": "default",
         "created_at": NOW,
         "updated_at": NOW,
     }

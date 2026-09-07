@@ -1347,6 +1347,22 @@ class PlanetaryRuntime:
         store = self._get_actor_state_store()
         if not store:
             return None
+        if not hasattr(store, "_db"):
+            # _get_actor_state_store() returns kernel/edge/actor_state_
+            # store.py::EdgeActorStateStore (SQLite, no `_db`) whenever
+            # ACTOR_NODE_CLASS is edge/device/robot -- _scan_mongodb_actors
+            # below unconditionally assumes a Mongo-backed store and, given
+            # a store with no `_db`, catches its own AttributeError and
+            # returns an EMPTY dict rather than raising. That made this
+            # method return `()` (mongo-scan "succeeded" with zero rows)
+            # instead of None (no mongo-backed registry available here) --
+            # locate_actor() then treated the empty tuple as an
+            # authoritative "zero actors exist," and explicitly discarded a
+            # correct Redis hit for any actor a cloud node had registered.
+            # Returning None here instead makes locate_actor() correctly
+            # fall through to its own Redis/in-memory fallback, exactly as
+            # it already does for a genuine Mongo connection failure.
+            return None
         try:
             docs = recon._scan_mongodb_actors(store)
         except Exception:
@@ -2410,11 +2426,25 @@ return new_count
                                 # SharedWorld.policies() populated across a
                                 # process restart's rehydration too, not
                                 # only for policies added after boot.
-                                sr.world.record_policy(
-                                    policy_id=policy.policy_id, name=policy.name,
-                                    description=policy.description, rules=policy.rules,
-                                    scope=policy.scope,
-                                )
+                                #
+                                # record_policy() asserts
+                                # assert_state_mutation_allowed() -- outside
+                                # insecure-dev-mode this raised
+                                # SecurityBoundaryDenied on EVERY boot for
+                                # ANY society with a persisted governance
+                                # policy, caught by this method's own broad
+                                # except-Exception below, which meant
+                                # societies silently failed to load AT ALL
+                                # (not just this one policy) for the rest of
+                                # this method. This is boot-time state
+                                # rehydration, not an agent action.
+                                from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
+                                with privileged_infrastructure(reason="boot: rehydrating a persisted governance policy, not an agent action"):
+                                    sr.world.record_policy(
+                                        policy_id=policy.policy_id, name=policy.name,
+                                        description=policy.description, rules=policy.rules,
+                                        scope=policy.scope,
+                                    )
                             except ValueError:
                                 continue
                         for perm_data in soc_data.get("permissions", []):

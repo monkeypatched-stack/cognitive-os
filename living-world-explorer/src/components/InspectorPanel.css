@@ -285,6 +285,8 @@
 .lwe-dashboard-search { width: 180px; padding: 8px 11px; border: 1px solid #263b56; border-radius: 6px; color: #8b9bb0; font-size: 11px; }
 .lwe-dashboard-avatar { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #9d62dd; color: white; font-size: 10px; }
 .lwe-dashboard-user { font-size: 11px; color: #ecf3ff; }.lwe-dashboard-user small { display: block; color: #76869e; font-size: 9px; }
+.lwe-dashboard-logout { background: none; border: none; color: #8b9bb0; font-size: 15px; cursor: pointer; padding: 4px; }
+.lwe-dashboard-logout:hover { color: #ecf3ff; }
 .lwe-dashboard-pagehead { min-height: 78px; padding: 12px 14px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #172a42; }
 .lwe-dashboard-pagehead > div { flex: 1; }.lwe-dashboard-pagehead h1 { margin: 0; font-size: 20px; color: #f1f6ff; }.lwe-dashboard-pagehead h1 span { margin-left: 9px; padding: 4px 8px; border-radius: 5px; background: #083d33; color: #37db92; font-size: 10px; vertical-align: 3px; }.lwe-dashboard-pagehead p { margin: 6px 0 0; color: #8798ad; font-size: 10px; }
 .lwe-dashboard-pagehead button { border: 1px solid #2b405c; background: #0b1b30; color: #d6e2f1; border-radius: 5px; padding: 8px 13px; font-size: 11px; }

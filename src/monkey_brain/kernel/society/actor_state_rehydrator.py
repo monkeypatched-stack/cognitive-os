@@ -113,6 +113,17 @@ class ActorStateRehydrator:
             if not store:
                 logger.warning("ActorStateStore unavailable, cannot rehydrate actors from MongoDB")
                 return result
+            if not hasattr(store, "_db"):
+                # Edge/device/robot nodes get kernel/edge/actor_state_
+                # store.py::EdgeActorStateStore (SQLite, no `_db`) --
+                # MongoDB rehydration is a cloud-node concept (Edge-First
+                # Architecture), not a failure for a node that was never
+                # Mongo-backed in the first place. Was previously logged
+                # as an ERROR ('EdgeActorStateStore' object has no
+                # attribute '_db') on every normal edge boot.
+                logger.info("Actor state store is not Mongo-backed (edge node) -- skipping MongoDB rehydration")
+                result.success = True
+                return result
 
             # Get MongoDB connection
             db = store._db.get_db()

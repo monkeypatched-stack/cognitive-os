@@ -432,8 +432,16 @@ class ActorLifecycleController:
             # provisioning attempt leaves UNSCHEDULABLE exactly as before.
             from src.monkey_brain.kernel.society import kubernetes_provisioner as _k8s_provisioner
             if _k8s_provisioner.provisioning_enabled() and _k8s_provisioner.should_provision(decision.reason):
+                # Actors default to edge: an actor with no explicit
+                # required_node_class gets a dedicated EDGE Pod, not a
+                # second cloud-class node — the control plane already IS
+                # the one cloud-class node (SCHEDULER_NODE_CAPACITY=0,
+                # deployment.yaml), so provisioning another "cloud" Pod
+                # here would just recreate the same non-actor-hosting
+                # node under a different name instead of giving this
+                # actor the dedicated Pod it actually needs.
                 provisioned = self._planetary.kubernetes_provisioner.provision(
-                    actor_id, node_class=requirements.required_node_class.value if requirements.required_node_class else "cloud",
+                    actor_id, node_class=requirements.required_node_class.value if requirements.required_node_class else "edge",
                 )
                 if provisioned:
                     # Wake the fast path instead of waiting for the 300s

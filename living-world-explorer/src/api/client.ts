@@ -2,6 +2,8 @@
 // (vite.config.ts) to http://localhost:8031, so relative paths work
 // without CORS. The env vars override this for a build served from a
 // different origin than the API.
+import { useAuthStore } from '../store/authStore'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1/agentos'
 // /live, /health, /ready are mounted at the app root, not under the
 // /api/v1/agentos prefix (see src/monkey_brain/api/main.py) — a
@@ -19,7 +21,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(base: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${base}${path}`, init)
+  const token = useAuthStore.getState().token
+  const headers = new Headers(init?.headers)
+  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
+  const res = await fetch(`${base}${path}`, { ...init, headers })
   if (!res.ok) {
     throw new ApiError(`${init?.method ?? 'GET'} ${path} -> ${res.status}`, res.status)
   }

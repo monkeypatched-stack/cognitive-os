@@ -202,7 +202,20 @@ class RedisIndexReconstructor:
             Dict mapping actor_id to actor document from MongoDB
         """
         actors = {}
-        
+
+        if not hasattr(store, "_db"):
+            # Edge/device/robot nodes get kernel/edge/actor_state_store.py
+            # ::EdgeActorStateStore (SQLite, no `_db`) -- scanning MongoDB
+            # is meaningless for a node that was never Mongo-backed.
+            # Previously this fell through to the except-Exception branch
+            # below and logged an ERROR ('EdgeActorStateStore' object has
+            # no attribute '_db') on every normal edge boot, and callers
+            # (e.g. PlanetaryRuntime._list_registry_from_mongodb) could not
+            # tell "genuinely zero actors in Mongo" apart from "there is no
+            # Mongo here" since both returned the same empty dict.
+            logger.debug("_scan_mongodb_actors: store is not Mongo-backed (edge node) -- returning empty")
+            return actors
+
         try:
             # Get MongoDB connection
             db = store._db.get_db()

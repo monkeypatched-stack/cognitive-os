@@ -25,6 +25,13 @@ COPY domains/ ./domains/
 COPY packages/ ./packages/
 COPY sdk/ ./sdk/
 COPY monkeypatched_sdk/ ./monkeypatched_sdk/
+# KubernetesProvisioner (kernel/society/kubernetes_provisioner.py) reads
+# deploy/k8s/actor-deployment.yaml at runtime to render+apply a new
+# actor's dedicated Pod -- confirmed live this was missing entirely from
+# the shipped image (every provisioning attempt failed with "could not
+# read template ... No such file or directory"), silently leaving every
+# actor UNSCHEDULABLE forever regardless of KUBERNETES_PROVISIONING_ENABLED.
+COPY deploy/k8s/ ./deploy/k8s/
 
 EXPOSE 8031
 

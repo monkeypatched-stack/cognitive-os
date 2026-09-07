@@ -21,6 +21,12 @@ COPY src/ ./src/
 # services/) — same layout as docker/services/agentos/Dockerfile.
 COPY domains/manufacturing/knowledge/services/common/ ./services/common/
 COPY domains/manufacturing/knowledge/services/auth/ ./services/auth/
+# services/auth/routers/integration_config.py imports services.module_control
+# (confirmed live: ModuleNotFoundError: No module named 'services.module_control'
+# on first real boot of this image — docker-compose.yml's own "auth" service
+# uses this same Dockerfile with no compensating bind-mount, so this was a
+# pre-existing gap there too, just never previously exercised/noticed).
+COPY domains/manufacturing/knowledge/services/module_control/ ./services/module_control/
 RUN rm -f services/auth/.env
 
 EXPOSE 8010

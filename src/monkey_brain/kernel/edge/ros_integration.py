@@ -41,6 +41,7 @@ governance always runs first, exactly like any other capability.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any, Protocol
 
@@ -247,6 +248,56 @@ class RclpyRosExecutionAdapter:
             self._context.try_shutdown()
 
 
+class RemoteRosExecutionAdapter:
+    """RosExecutionAdapter that delegates the real work to a separate
+    `ros-bridge` sidecar container over plain HTTP, instead of importing
+    rclpy in-process.
+
+    Why this is safe from a governance standpoint: `invoke()` is only ever
+    reached through `run_ros_action_if_governed` above, which documents
+    (and enforces, via `ensure_governed`) that authorization has ALREADY
+    happened before `invoke()` is called. Moving where invoke()'s actual
+    execution runs — in-process vs. one HTTP hop to a co-located sidecar —
+    does not move where that authorization decision is made; it still
+    happens entirely inside this actor's own process, same as every other
+    adapter in this file.
+
+    Why HTTP instead of rclpy directly: this lets the CognitiveOS actor
+    container stay the plain, unmodified image every non-robot actor
+    already uses (no ROS 2/rclpy/px4_msgs baked in), with the actual ROS
+    bridge (kernel/edge/ros_bridge_server.py, wrapping
+    kernel/edge/px4_ros_adapter.py::Px4RosExecutionAdapter unchanged)
+    running in its own container inside the simulator's own Pod
+    (deploy/k8s/px4-sim-deployment.yaml) — same-Pod localhost networking
+    between the bridge and PX4/xrce-agent there, exactly as before,
+    avoiding cross-Pod ROS 2 DDS discovery entirely (unicast HTTP has no
+    multicast-discovery dependency, unlike raw rclpy).
+    """
+
+    def __init__(self, *, actor_id: str = "", base_url: str) -> None:
+        if not base_url:
+            raise ValueError("base_url is required")
+        self.actor_id = actor_id
+        self._base_url = base_url.rstrip("/")
+
+    async def invoke(self, *, capability: str, parameters: dict[str, Any]) -> dict[str, Any]:
+        import httpx
+
+        # Generous timeout: must cover Px4RosExecutionAdapter's own
+        # longest real wait (_LAND_TIMEOUT_S=45 in px4_ros_adapter.py) with
+        # margin, not just typical request latency.
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self._base_url}/invoke",
+                    json={"capability": capability, "parameters": parameters},
+                )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as exc:
+            return {"success": False, "error": f"ros-bridge call failed: {exc}"}
+
+
 def build_ros_execution_adapter(*, actor_id: str = "", require_real: bool = False) -> RosExecutionAdapter:
     """Clear, explicit startup behavior (Section 1's own requirement):
 
@@ -267,10 +318,43 @@ def build_ros_execution_adapter(*, actor_id: str = "", require_real: bool = Fals
     constructs today; there are no production callers of this function
     yet, per docs/ACTOR_CELL_ARCHITECTURE.md's own finding, so this only
     affects future wiring, not any live call site).
+
+    ROS_ADAPTER_KIND (env var, checked only when require_real=True):
+    "px4" (default "rclpy") selects the real, PX4-specific
+    kernel/edge/px4_ros_adapter.py::Px4RosExecutionAdapter (Arm/Takeoff/
+    Waypoint/Land against real PX4 topics, telemetry-confirmed) instead
+    of the generic RclpyRosExecutionAdapter (topic-agnostic, no PX4
+    knowledge) -- actor_runtime.py's own node_class=robot boot path
+    previously only ever built the generic adapter (and even then only
+    with require_real defaulted False, i.e. the FAKE one), so a drone
+    actor's standard boot never got the real, already-proven-live PX4
+    adapter this session's prompt-driven mission had to construct by
+    hand instead. PX4_NAMESPACE (required when ROS_ADAPTER_KIND=px4)
+    matches PX4_UXRCE_DDS_NS on the px4-sitl sidecar in the same Pod
+    (e.g. "px4_1") -- see deploy/k8s/drone-actor-deployment.yaml.
     """
     if not require_real:
         return FakeRosExecutionAdapter(actor_id=actor_id)
+    adapter_kind = os.getenv("ROS_ADAPTER_KIND", "rclpy").strip().lower()
     try:
+        if adapter_kind == "remote_http":
+            base_url = os.getenv("ROS_BRIDGE_URL", "").strip()
+            if not base_url:
+                raise RosUnavailableError(
+                    "ROS_ADAPTER_KIND=remote_http requires ROS_BRIDGE_URL to be set "
+                    "(the ros-bridge sidecar's own Service URL, e.g. "
+                    "http://px4-sim-<actor>.monkeybrain.svc.cluster.local:9000)"
+                )
+            return RemoteRosExecutionAdapter(actor_id=actor_id, base_url=base_url)
+        if adapter_kind == "px4":
+            namespace = os.getenv("PX4_NAMESPACE", "").strip()
+            if not namespace:
+                raise RosUnavailableError(
+                    "ROS_ADAPTER_KIND=px4 requires PX4_NAMESPACE to be set "
+                    "(must match the px4-sitl sidecar's own PX4_UXRCE_DDS_NS)"
+                )
+            from src.monkey_brain.kernel.edge.px4_ros_adapter import Px4RosExecutionAdapter
+            return Px4RosExecutionAdapter(actor_id=actor_id, namespace=namespace)
         return RclpyRosExecutionAdapter(actor_id=actor_id)
     except RosUnavailableError:
         raise

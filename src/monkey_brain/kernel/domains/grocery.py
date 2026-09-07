@@ -125,8 +125,18 @@ def build_default_capability_bus() -> "GroceryCapabilityBus":
     # Swarm-readiness audit: the one real, governed, minimal ROS capability
     # (docs/ACTOR_CELL_ARCHITECTURE.md / kernel/domains/robot.py). A no-op
     # for any actor with no bound ROS adapter (i.e. every non-robot actor).
-    from src.monkey_brain.kernel.domains.robot import HeartbeatCapability
+    from src.monkey_brain.kernel.domains.robot import (
+        ArmCapability, HeartbeatCapability, LandCapability, TakeoffCapability, WaypointCapability,
+    )
     bus.register(HeartbeatCapability())
+    # Prompt-driven PX4 demo (docs/PX4_MAC_DOCKER.md): the four operations
+    # Px4RosExecutionAdapter actually implements, selectable by the same
+    # LLM planner that already selects grocery capabilities -- no
+    # invented capability, no separate dispatch path.
+    bus.register(ArmCapability())
+    bus.register(TakeoffCapability())
+    bus.register(WaypointCapability())
+    bus.register(LandCapability())
     grocery_capability_bundle(bus).validate()
     return bus
 

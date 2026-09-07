@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { PanelContainer } from './PanelContainer'
 import { useWorldStore } from '../store/worldStore'
 import { useRefreshStore } from '../store/refreshStore'
+import { useAuthStore } from '../store/authStore'
 import { fetchAllActors } from '../api/actorClient'
 import { fetchActorCognitiveState, type ActorCognitiveState } from '../api/cognitiveClient'
 import {
@@ -67,6 +68,9 @@ function navForPath(path: string): string {
 function DashboardFrame({ dashboard, children, onExport, debuggerPage = true }: { dashboard: boolean; children: ReactNode; onExport?: () => void; debuggerPage?: boolean }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
+  const initials = (user?.email ?? '??').slice(0, 2).toUpperCase()
   const [activeNav, setActiveNav] = useState(() => navForPath(location.pathname))
   const [activeTab, setActiveTab] = useState('Grounding')
   useEffect(() => {
@@ -95,7 +99,7 @@ function DashboardFrame({ dashboard, children, onExport, debuggerPage = true }: 
     <main className="lwe-dashboard-main">
       <header className="lwe-dashboard-header">
         <div className="lwe-dashboard-breadcrumb">Living World Explorer <b>›</b> {dashboardHome ? activeNav : debuggerPage ? 'Debugger' : activeNav}</div>
-        <div className="lwe-dashboard-header-actions"><div className="lwe-dashboard-search">⌕ &nbsp; Search anything...</div><span>◎</span><span>♧</span><span className="lwe-dashboard-avatar">PS</span><span className="lwe-dashboard-user">Priya Sharma<small>Customer</small></span></div>
+        <div className="lwe-dashboard-header-actions"><div className="lwe-dashboard-search">⌕ &nbsp; Search anything...</div><span>◎</span><span>♧</span><span className="lwe-dashboard-avatar">{initials}</span><span className="lwe-dashboard-user">{user?.email ?? 'Unknown user'}<small>{user?.role || 'User'}</small></span><button type="button" className="lwe-dashboard-logout" onClick={logout} title="Sign out">⏻</button></div>
       </header>
       <div className="lwe-dashboard-pagehead"><div><h1>{dashboardHome ? 'CognitiveOS Dashboard' : debuggerPage ? 'Execution Debugger' : activeNav} <span>{dashboardHome ? 'Live' : debuggerPage ? 'Completed' : 'Live'}</span></h1><p>{dashboardHome ? 'Living world operations and cognitive execution overview' : debuggerPage ? 'Grounding view · persisted planner context and execution evidence' : `CognitiveOS ${activeNav.toLowerCase()} workspace`}</p></div>{debuggerPage && <><button type="button" onClick={() => tab('Grounding')}>Compare</button><button type="button" onClick={onExport}>Export Report⌄</button></>}</div>
       {debuggerPage && <nav className="lwe-dashboard-tabs">{['Plan', 'Grounding', 'Conversations', 'Metrics', 'Logs'].map((item) => <button type="button" key={item} onClick={() => tab(item)} className={activeTab === item ? 'selected' : ''}>{item === 'Grounding' ? '▧' : '◉'} &nbsp; {item}</button>)}</nav>}

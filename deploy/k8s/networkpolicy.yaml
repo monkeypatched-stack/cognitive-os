@@ -76,6 +76,37 @@ spec:
         - protocol: TCP
           port: 53
 ---
+# Actors default to edge: KubernetesProvisioner (kernel/society/
+# kubernetes_provisioner.py) shells out to `kubectl apply` from inside
+# the agentos Pod (RBAC already scoped for this — see rbac.yaml) whenever
+# an actor needs its own dedicated Pod. Confirmed live this was missing:
+# default-deny-all correctly blocks ALL egress not explicitly allowed,
+# including the kube-apiserver itself (which lives outside this
+# namespace, so allow-intra-namespace doesn't cover it) -- every
+# provisioning attempt hung for the full 30s subprocess timeout and
+# failed. The apiserver's in-cluster ClusterIP is the standard
+# `kubernetes.default.svc` address (10.96.0.1 here; the well-known
+# default Service CIDR's first address on any cluster using it) --
+# scoped to just the agentos Pod, the only one that ever runs kubectl.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agentos-to-apiserver
+  namespace: monkeybrain
+spec:
+  podSelector:
+    matchLabels:
+      app: agentos
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.96.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -111,6 +142,27 @@ spec:
     - ports:
         - protocol: TCP
           port: 8000
+---
+# Same shape as allow-external-to-kong above — the frontend Pod is the
+# other real ingress-facing surface (browser -> nginx), reached the same
+# way (kubectl port-forward on kind; a real Ingress/LoadBalancer on a real
+# cluster). frontend -> kong-proxy itself is already covered by
+# allow-intra-namespace, so this only needs to open inbound.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-to-frontend
+  namespace: monkeybrain
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

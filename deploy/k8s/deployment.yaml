@@ -167,6 +167,49 @@ spec:
                 secretKeyRef:
                   name: agentos-secrets
                   key: internal-service-token
+            - name: ACCESS_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: access-token-secret
+            - name: REFRESH_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: refresh-token-secret
+            - name: AGENTOS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: agentos-api-key
+            # Actors default to edge: this control-plane Pod is the
+            # scheduler/API/registry surface, not an actor-hosting node.
+            # Tried disabling self-registration entirely first
+            # (SCHEDULER_SELF_REGISTER=false) so list_nodes() would be
+            # empty -- confirmed LIVE that this backfires: an empty node
+            # list hits ActorScheduler.schedule()'s OWN "no nodes
+            # registered -- unmanaged single-node mode" early return
+            # (scheduled=True, unconstrained) before it ever reaches the
+            # "no healthy nodes registered" UNSCHEDULABLE reason
+            # kubernetes_provisioner.should_provision() matches on -- so
+            # disabling registration just reproduces the exact same
+            # "runs on the control plane" behavior one step earlier,
+            # never triggering provisioning at all.
+            #
+            # Correct fix: stay registered (a REAL, healthy node genuinely
+            # exists) but with zero actor-hosting capacity, so schedule()
+            # exits unmanaged mode, evaluates real candidates, and finds
+            # none available -- ActorScheduler._summarize_no_candidate_
+            # reason()'s "no healthy node has available capacity" string
+            # (kubernetes_provisioner.should_provision(), expanded to
+            # match this reason too) is exactly the same class of gap
+            # "no healthy nodes registered" already covers ("nothing
+            # exists to host ANY actor yet"), just reached via a real
+            # node with 0 capacity instead of literally zero nodes.
+            - name: SCHEDULER_NODE_CLASS
+              value: "cloud"
+            - name: SCHEDULER_NODE_CAPACITY
+              value: "0"
           volumeMounts:
             - name: data
               mountPath: /data
