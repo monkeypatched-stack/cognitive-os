@@ -76,6 +76,22 @@ _NO_PERMISSION_NEEDED_ACTIONS = frozenset({
     "AskActor", "BroadcastToAffiliation", "RespondToInquiry",
     "EvaluateStrategy", "CompeteForResource", "RecordAgreement",
     "GetAgreements", "DelegationCheck",
+    # kernel/domains/robot.py's PX4 mission capabilities: already really
+    # governed at the ROS layer (ensure_governed(force_authorize=True)
+    # inside run_ros_action_if_governed, kernel/edge/ros_integration.py)
+    # -- this pre-execution required_permission gate is a second,
+    # redundant layer on top that only exists because the LLM populates
+    # it, never a real requirement these capabilities declare themselves.
+    # Confirmed live: the exact same failure mode this frozenset was
+    # already built for, on a different action set -- a small local
+    # model tagged a plausible-looking invented "resource:drone_control"
+    # onto its own "Arm"/"Takeoff"/"Waypoint"/"Land" steps despite the
+    # system prompt's identical "leave required_permission empty"
+    # instruction, and since no permission by that name has ever existed
+    # anywhere in this codebase (confirmed: not a single reference), it
+    # could never resolve for ANY actor -- a real drone mission would
+    # fail 100% of the time on this alone, regardless of who's asking.
+    "Heartbeat", "Arm", "Takeoff", "Waypoint", "Land",
 })
 """The exact action set llm_planner.py's own system prompt tells the
 model to leave required_permission empty for. Confirmed live: a small

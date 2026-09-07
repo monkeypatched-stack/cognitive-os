@@ -157,11 +157,48 @@ spec:
             failureThreshold: 60
             timeoutSeconds: 5
           env:
+            # A containerized Ollama sidecar (per-actor, then a single
+            # shared one here) was tried and reverted FOUR times: image
+            # pulls fine, but `ollama pull` (fetching a model manifest)
+            # reproducibly times out after exactly 30s over HTTPS from
+            # inside this cluster's pod network — even with HTTP/2
+            # explicitly disabled (GODEBUG=http2client=0). A plain
+            # busybox wget against the SAME host succeeds fine, so this
+            # is specific to Ollama's own Go HTTP client in this
+            # environment (possibly Cloudflare edge-blackholing its
+            # traffic pattern), not a general connectivity gap. Points
+            # at this host's own already-populated native Ollama
+            # instead — host.docker.internal resolves inside pods here
+            # (Docker Desktop injects it cluster-wide, confirmed live).
+            - name: OLLAMA_BASE_URL
+              value: "http://host.docker.internal:11434"
+            # llama-server (llama.cpp's OpenAI-compatible server, distinct
+            # process/port from Ollama above) -- see configmap.yaml's
+            # MODEL_BACKEND comment for why this replaced Ollama as the
+            # default provider. Same host.docker.internal pattern, same
+            # reasoning (native on this host, not a containerized sidecar).
+            - name: LLAMACPP_BASE_URL
+              value: "http://host.docker.internal:8090"
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: agentos-secrets
                   key: neo4j-password
+            - name: MOSS_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: moss-project-id
+            - name: MOSS_PROJECT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: moss-project-key
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: openrouter-api-key
             - name: INTERNAL_SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:

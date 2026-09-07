@@ -19,6 +19,7 @@ from typing import Any
 
 from src.monkey_brain.kernel.pipeline.belief_state import Goal, Plan, PlanStep
 from src.monkey_brain.kernel.compile.error_recovery import CircuitBreaker, CircuitBreakerConfig
+from src.monkey_brain.kernel.pipeline.llm_plan_cache import get_cached_response, put_cached_response
 
 # Gate 11 (production readiness): CircuitBreaker existed (kernel/compile/
 # error_recovery.py) but was only ever re-exported, never instantiated or
@@ -491,6 +492,45 @@ class LLMPlanner:
         stage_timings_ms: dict[str, float] = {}
         metadata = context.metadata if isinstance(getattr(context, "metadata", None), dict) else None
 
+        # Semantic (goal-similarity) cache, checked BEFORE the exact-match
+        # llm_plan_cache below and before even building the prompt — a hit
+        # here skips LLM planning entirely, including the (still real,
+        # still slow) exact-match cache path for a byte-different prompt.
+        # get_moss_plan_cache() returns None outright when MOSS_PROJECT_ID/
+        # KEY aren't configured, so this is a no-op cost when Moss isn't in
+        # use. See moss_plan_cache.py's own module docstring for why this
+        # is deliberately approximate (a similarity match, not an exact
+        # one) and why that trade-off is acceptable for a cache.
+        # Lazy import, same convention this file already uses for
+        # kernel.pipeline.planning.* (see PlanningContext/
+        # try_resolve_promoted_plan above): kernel.pipeline.planning's own
+        # __init__.py imports LLMPlanner (via .integration), so a
+        # module-level import here would be a circular import back into
+        # this not-yet-fully-defined module.
+        from src.monkey_brain.kernel.pipeline.planning.moss_plan_cache import get_moss_plan_cache
+        moss_cache = get_moss_plan_cache()
+        facts_text = "; ".join(
+            str(getattr(f, "description", "") or getattr(f, "entity", "")) for f in facts
+        )
+        if moss_cache is not None:
+            cached_plan = await moss_cache.get_similar_plan(resolved_goal.name, facts_text)
+            if cached_plan is not None:
+                if metadata is not None:
+                    metadata["_moss_cache_hit"] = True
+                cached_summary = ""
+                if isinstance(cached_plan.metadata, dict):
+                    cached_summary = str(cached_plan.metadata.get("summary", ""))
+                return Plan(
+                    goal=resolved_goal.name,
+                    steps=cached_plan.steps,
+                    expected_outcomes=cached_plan.expected_outcomes,
+                    confidence=cached_plan.confidence,
+                    risk=cached_plan.risk,
+                    goal_state=resolved_goal.name,
+                    planner="llm",
+                    metadata={"summary": cached_summary, "goal_id": goal_id, "moss_cache_hit": True},
+                )
+
         prompt_build_started = time.perf_counter()
         prompt = self._build_prompt(resolved_goal, facts, context)
         stage_timings_ms["prompt_build_ms"] = round((time.perf_counter() - prompt_build_started) * 1000, 3)
@@ -526,35 +566,48 @@ class LLMPlanner:
         llm_provider = getattr(self._backend, "_provider", "unknown")
         llm_model = getattr(self._backend, "_model", "unknown")
         for attempt in range(_MAX_PARSE_ATTEMPTS):
+            # Cache is only ever checked on the FIRST attempt of a given
+            # plan() call. This is deliberately not "check every attempt":
+            # llm_plan_cache only ever writes a raw response that already
+            # parsed successfully (see its own module docstring), so a
+            # cache hit here is guaranteed to parse the same way it did
+            # when cached (same input, same deterministic parser) — a
+            # later attempt existing at all means the FIRST one (real or
+            # cached) already failed to parse, so re-checking the cache
+            # would just replay that same failure forever instead of
+            # letting the retry get a fresh sample.
+            cached_raw = get_cached_response(llm_model, _SYSTEM_PROMPT, prompt) if attempt == 0 else None
             llm_call_started = time.perf_counter()
-            try:
-                raw = await _llm_backend_breaker.acall(self._backend.complete, prompt, system=_SYSTEM_PROMPT)
-            except Exception as exc:
+            this_call_ms = 0.0  # stays 0.0 for a cache hit — no real call was made to time
+            if cached_raw is not None:
+                raw = cached_raw
+                logger.info("[llm_planner] cache hit for goal=%r — skipping backend call", resolved_goal.name)
+            else:
+                try:
+                    raw = await _llm_backend_breaker.acall(self._backend.complete, prompt, system=_SYSTEM_PROMPT)
+                except Exception as exc:
+                    this_call_ms = (time.perf_counter() - llm_call_started) * 1000
+                    llm_call_ms += this_call_ms
+                    llm_call_count += 1
+                    _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="error")
+                    _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
+                    logger.warning("[llm_planner] planning failed: %s", exc)
+                    stage_timings_ms["llm_call_ms"] = round(llm_call_ms, 3)
+                    stage_timings_ms["llm_call_count"] = llm_call_count
+                    stage_timings_ms["response_parse_ms"] = round(response_parse_ms, 3)
+                    if metadata is not None:
+                        metadata["_stage_timings_ms"] = stage_timings_ms
+                    return Plan(
+                        goal=resolved_goal.name, confidence=0.0, planner="llm",
+                        metadata={"error": str(exc)},
+                    )
                 this_call_ms = (time.perf_counter() - llm_call_started) * 1000
                 llm_call_ms += this_call_ms
                 llm_call_count += 1
-                _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="error")
-                _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
-                logger.warning("[llm_planner] planning failed: %s", exc)
-                stage_timings_ms["llm_call_ms"] = round(llm_call_ms, 3)
-                stage_timings_ms["llm_call_count"] = llm_call_count
-                stage_timings_ms["response_parse_ms"] = round(response_parse_ms, 3)
-                if metadata is not None:
-                    metadata["_stage_timings_ms"] = stage_timings_ms
-                return Plan(
-                    goal=resolved_goal.name, confidence=0.0, planner="llm",
-                    metadata={"error": str(exc)},
-                )
-            this_call_ms = (time.perf_counter() - llm_call_started) * 1000
-            llm_call_ms += this_call_ms
-            llm_call_count += 1
             parse_started = time.perf_counter()
             try:
                 parsed = self._parse(raw)
                 response_parse_ms += (time.perf_counter() - parse_started) * 1000
-                _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="success")
-                _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
-                break
             except Exception as exc:
                 response_parse_ms += (time.perf_counter() - parse_started) * 1000
                 parse_error = exc
@@ -564,6 +617,46 @@ class LLMPlanner:
                     "[llm_planner] plan parse failed (attempt %d/%d): %s",
                     attempt + 1, _MAX_PARSE_ATTEMPTS, exc,
                 )
+                continue
+
+            # Well-formed JSON is not the same as a USEFUL plan: a known
+            # failure mode of small local models (this module's own
+            # _SYSTEM_PROMPT explicitly warns against it, see the
+            # "leaving every step's confidence at exactly 0.0" comment
+            # above) is copying the prompt's own "confidence": 0.0
+            # placeholder verbatim into every step instead of estimating
+            # a real value — syntactically valid, semantically empty.
+            # Confirmed live against gemma3:latest: a plan with real,
+            # reasonable steps came back with every step AND the
+            # top-level confidence at exactly 0.0, which always fails the
+            # validator's confidence_below_threshold/risk_too_high checks
+            # downstream (risk is derived as 1 - confidence below) no
+            # matter how sound the steps are. That deserves exactly the
+            # same bounded resample a parse failure already gets above —
+            # same rationale ("the same prompt sampled again commonly
+            # comes back well-formed") — except on the FINAL attempt,
+            # where accepting what we have and letting the validator give
+            # its real rejection reason beats a generic "planning failed".
+            _raw_steps_preview = parsed.get("steps", [])
+            has_real_confidence = bool(parsed.get("confidence", 0.0) or 0.0) or any(
+                isinstance(s, dict) and float(s.get("confidence", 0.0) or 0.0) > 0.0
+                for s in _raw_steps_preview
+            )
+            if _raw_steps_preview and not has_real_confidence and attempt < _MAX_PARSE_ATTEMPTS - 1:
+                parse_error = ValueError("degenerate plan: every step confidence was 0.0")
+                _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="degenerate_confidence")
+                _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
+                logger.warning(
+                    "[llm_planner] plan parsed but every step confidence was 0.0 (attempt %d/%d) — resampling",
+                    attempt + 1, _MAX_PARSE_ATTEMPTS,
+                )
+                continue
+
+            if cached_raw is None:
+                _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="success")
+                _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
+                put_cached_response(llm_model, _SYSTEM_PROMPT, prompt, raw)
+            break
         stage_timings_ms["llm_call_ms"] = round(llm_call_ms, 3)
         stage_timings_ms["llm_call_count"] = llm_call_count
         stage_timings_ms["response_parse_ms"] = round(response_parse_ms, 3)
@@ -615,7 +708,7 @@ class LLMPlanner:
             getattr(resolved_goal, "goal_id", "")
             or str(context.metadata.get("execution_id", "") or "")
         )
-        return Plan(
+        final_plan = Plan(
             goal=resolved_goal.name,
             steps=steps,
             expected_outcomes=(summary,) if summary else (),
@@ -625,6 +718,14 @@ class LLMPlanner:
             planner="llm",
             metadata={"summary": summary, "goal_id": goal_id},
         )
+        if moss_cache is not None and steps:
+            # Fresh, real, non-empty plan the LLM actually just produced —
+            # index it for a future similar goal to reuse. store_plan()
+            # itself never raises (see its own docstring), so a slow or
+            # failed Moss write degrades to "not cached this time", never
+            # to a broken response for THIS call.
+            await moss_cache.store_plan(resolved_goal.name, facts_text, final_plan)
+        return final_plan
 
     def _build_prompt(self, goal: Goal, facts: list, context: Any = None) -> str:
         lines = [f"Goal: {goal.name}"]

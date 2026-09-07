@@ -1,8 +1,9 @@
 """CodeGen Agent — generates Python code from somatic prompts.
 
-Provider priority:
-1. Claude (claude-sonnet-4-6) via Anthropic SDK — primary
-2. Ollama local (qwen2.5-coder:7b) — fallback
+Provider priority: Ollama local (qwen2.5-coder:7b) primary, Claude
+(claude-sonnet-4-6) and OpenRouter (openai/gpt-4o-mini) as fallbacks.
+Set CODEGEN_PRIMARY=ollama|claude|openrouter to change which is tried
+first; the other two remain fallbacks regardless.
 """
 
 from __future__ import annotations
@@ -187,15 +188,16 @@ class CodeGenAgent:
             "Preserve existing API, imports, and structure."
         )
 
-        # Provider order: Claude primary, Ollama fallback.
-        # Set CODEGEN_PRIMARY=ollama in the environment to switch back after stabilization.
-        primary = os.environ.get("CODEGEN_PRIMARY", "claude").lower()
-
-        providers = (
-            [self._try_claude, self._try_ollama]
-            if primary == "claude"
-            else [self._try_ollama, self._try_claude]
-        )
+        # Provider order: whichever CODEGEN_PRIMARY names goes first, the
+        # other two remain fallbacks in a fixed order behind it.
+        primary = os.environ.get("CODEGEN_PRIMARY", "ollama").lower()
+        try_fns = {
+            "openrouter": self._try_openrouter,
+            "claude": self._try_claude,
+            "ollama": self._try_ollama,
+        }
+        order = [primary] + [p for p in ("openrouter", "claude", "ollama") if p != primary]
+        providers = [try_fns[p] for p in order]
         for try_fn in providers:
             client = try_fn(model)
             if client:
@@ -204,6 +206,15 @@ class CodeGenAgent:
 
         logger.warning("No LLM available — codegen will mirror src/ files")
         self.llm = None
+
+    def _try_openrouter(self, model: str) -> "OpenRouterClient | None":
+        api_key = os.environ.get("OPENROUTER_API_KEY", "")
+        if not api_key:
+            logger.warning("OpenRouter unavailable (OPENROUTER_API_KEY not set) — trying next provider")
+            return None
+        client = OpenRouterClient(api_key=api_key, model=model or os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini"))
+        logger.info("Using OpenRouter (%s)", client.model)
+        return client
 
     def _try_claude(self, model: str) -> "ClaudeClient | None":
         try:

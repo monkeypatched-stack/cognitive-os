@@ -4,13 +4,38 @@ metadata:
   name: agentos-config
   namespace: monkeybrain
 data:
-  # No real LLM provider credentials exist in this local test cluster --
-  # without this, POST /prompt's planner call fails fast with an empty
-  # plan (goal_achieved: null, no bridge activity at all), silently
-  # looking like nothing happened rather than a real error. dev_bridge is
-  # the same file-based LLM stand-in scripts/grocery_bridge_autoanswer.py
-  # / docker-compose.override.yml already use for local/dev testing.
-  MODEL_BACKEND: "dev_bridge"
+  # llama.cpp (a native `llama-server` process on this host, port 8090)
+  # replaced Ollama as the primary provider: Ollama's own HTTP round-trip
+  # plus llm_planner.py's retry-on-degenerate-confidence (up to 3 calls
+  # per plan) could together exceed Kong's agentos-service gateway
+  # timeout — confirmed live as a 504 upstream timeout on this exact
+  # workload. llama-server, serving the SAME gemma-3-4b-it weights
+  # directly with no Ollama layer in between, is meaningfully faster per
+  # call on this hardware. A containerized sidecar was tried for Ollama
+  # (per-actor, then a single shared one) and reverted four times —
+  # `ollama pull` reproducibly timed out over HTTPS from inside this
+  # cluster's pod network even with HTTP/2 disabled — so llama-server
+  # also just runs natively on this host, same host.docker.internal
+  # pattern every Pod that needs it (deployment.yaml / actor-
+  # deployment.yaml / drone-actor-deployment.yaml) already sets via its
+  # own LLAMACPP_BASE_URL. Ollama itself is left running/reachable
+  # (OLLAMA_MODEL below, MODEL_BACKEND=ollama) as a fallback provider,
+  # not removed.
+  MODEL_BACKEND: "llamacpp"
+  LLAMACPP_MODEL: "gemma-3-4b-it-Q4_K_M"
+  OLLAMA_MODEL: "gemma3:latest"
+  # Content-addressed LLM response cache (kernel/pipeline/llm_plan_cache.py,
+  # packages/broca/broca/agents/_llm_cache.py) — collapses an identical
+  # planning prompt (same goal re-asked, execute+simulate re-planning the
+  # same goal) to one real backend call. Real perf win specifically because
+  # Ollama planning calls are the slowest step in this pipeline by far (see
+  # llm_planner.py's own circuit breaker comment). See also MOSS_PROJECT_ID/
+  # KEY in secret.yaml for the SEPARATE semantic (goal-similarity) plan
+  # cache, which catches a differently-phrased repeat this exact-match
+  # cache always misses.
+  LLM_RESPONSE_CACHE: "1"
+  LLM_CACHE_DIR: "/tmp/mb-llm-cache"
+  LLM_CACHE_MAX: "1024"
   MONGODB_URL: "mongodb://mongodb:27017"
   # Final Conformance run finding (live deployment test): ActorStateStore's
   # own Mongo connection (persistence/db_pool.py) reads DATABASE_URL, NOT

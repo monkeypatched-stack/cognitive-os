@@ -24,3 +24,4 @@ typer
 rich
 networkx
 phart
+moss==1.7.3

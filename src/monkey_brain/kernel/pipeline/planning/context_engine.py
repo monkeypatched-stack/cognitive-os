@@ -23,6 +23,7 @@ entry point kernel/society/transaction.py uses.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 from typing import Any
@@ -31,6 +32,62 @@ from src.monkey_brain.kernel.pipeline.planning.domain import PlanningContext, Re
 from src.monkey_brain.kernel.timeline.entry import TimelineKind
 
 logger = logging.getLogger("agentos.pipeline.planning.context_engine")
+
+# kernel/domains/grocery.py registers every capability -- grocery AND
+# robot (kernel/domains/robot.py's Arm/Takeoff/Waypoint/Land/Heartbeat)
+# -- on ONE shared CommerceCapabilityBus; vertical_router.py's own
+# docstring calls this "the only vertical this codebase has" and
+# documents a real second vertical as future work, not yet built.
+# Confirmed live this is a genuinely different domain, not a cosmetic
+# label difference: a robot actor's LLM prompt offered the full mixed
+# list produced a plan that tried "ProductSelection" on a hallucinated
+# "weapon_001" for what was really an "Arm the drone" step -- grocery
+# and flight-control capabilities read as interchangeable options to a
+# small model with no domain boundary drawn between them at all.
+# _retrieve_available_capabilities below draws that boundary without
+# requiring a second real VerticalRuntime/bus (a much larger change
+# touching planner/plan_validator/context_projector wiring too) --
+# same shared bus, but each actor's own PROMPT only ever lists the
+# subset of names relevant to its own domain.
+# Heartbeat (robot.py's own generic ROS liveness capability, built for
+# the swarm-readiness audit) is NOT one of Px4RosExecutionAdapter's four
+# implemented operations (robot.py's own docstring: "these expose
+# exactly the four operations Px4RosExecutionAdapter.invoke() actually
+# implements (Arm/Takeoff/Waypoint/Land)") -- confirmed live, offering
+# it to a PX4-bound drone got "unsupported PX4 capability: Heartbeat"
+# every time, since the adapter simply never claims to support that
+# name. Left out of the offered set entirely: it isn't a flight action
+# this mission needs, and it isn't compatible with this specific
+# adapter regardless of what plan asks for it.
+_ROBOT_CAPABILITY_NAMES = frozenset({"Arm", "Takeoff", "Waypoint", "Land"})
+# Cross-domain primitives every actor legitimately needs regardless of
+# domain, split by whether they need a real counterparty to succeed.
+# SELF-CONTAINED ones never reference another actor by name/id, so
+# there's nothing for a small model to hallucinate a target for.
+# COORDINATION ones (AskActor, DelegateTask, ...) take a target_actor/
+# counterparty parameter the model must supply verbatim -- confirmed
+# live this is exactly where the same small-model-hallucination pattern
+# (_ROBOT_CAPABILITY_NAMES's own "weapon_001" case, belief_runtime.py's
+# "resource:drone_control" case) shows up a third time: a robot mission
+# with no actual need to coordinate with anyone still got an unprompted
+# "AskActor" step aimed at a fabricated "DronePilot_a1b2c3d4" that was
+# never a real actor, which then blocked the whole dependency chain
+# behind it (AskActorCapability's own target-resolution correctly
+# rejects the fake name -- the damage is the plan built a real flight
+# mission's success on top of a coordination step it never needed in
+# the first place). A robot flying a direct, self-contained mission has
+# no standing reason to delegate to or ask a colleague by default, so
+# it's only ever offered the self-contained subset; non-robot actors
+# still get the full set, coordination capabilities included.
+_SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES = frozenset({
+    "Counterfactual", "Explain", "AnswerQuestion", "ReportWorldPerturbation", "recall",
+})
+_COORDINATION_UNIVERSAL_CAPABILITY_NAMES = frozenset({
+    "DelegationCheck", "SocietyQuery", "AskActor", "DelegateTask",
+    "BroadcastToAffiliation", "RespondToInquiry", "EvaluateStrategy",
+    "CompeteForResource", "RecordAgreement", "GetAgreements",
+})
+_UNIVERSAL_CAPABILITY_NAMES = _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES | _COORDINATION_UNIVERSAL_CAPABILITY_NAMES
 
 _STOPWORDS = frozenset({
     "a", "an", "the", "for", "to", "of", "and", "or", "in", "on", "at", "is", "are",
@@ -928,6 +985,20 @@ class ContextConstructionEngine:
         site (vertical_router.py) already uses. Returns () (silently,
         same as every other _retrieve_* method's "nothing available"
         case) if no vertical is registered at all.
+
+        Domain-scoped from there: ACTOR_NODE_CLASS is set on whichever
+        process is actually building this plan (actor_runtime.py's own
+        env, e.g. "robot" for a drone's dedicated Pod) — and since
+        api/routes/prompt.py's own forward-to-dedicated-Pod fix means a
+        robot actor's cognition now always runs THERE, not on the shared
+        central control plane, this env var reliably reflects the
+        CURRENT actor's own domain at the exact point this method runs.
+        A robot process only ever sees robot + universal names; every
+        other process (grocery/human actors, the shared cloud control
+        plane) sees everything except the robot-only ones — see this
+        module's own _ROBOT_CAPABILITY_NAMES/_UNIVERSAL_CAPABILITY_NAMES
+        comment for why a real second VerticalRuntime wasn't needed to
+        fix this.
         """
         bus = self._capability_bus
         if bus is None:
@@ -936,10 +1007,16 @@ class ContextConstructionEngine:
                 bus = resolve_vertical("grocery").bus
             except Exception:
                 return ()
-        return tuple(
+        names = (
             name for name in bus.names()
             if callable(getattr(bus.discover(name), "handle", None))
         )
+        if os.environ.get("ACTOR_NODE_CLASS", "cloud") == "robot":
+            return tuple(
+                n for n in names
+                if n in _ROBOT_CAPABILITY_NAMES or n in _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES
+            )
+        return tuple(n for n in names if n not in _ROBOT_CAPABILITY_NAMES)
 
     def _retrieve_actor_profile(self, actor_id: str) -> Any:
         if self._planetary_runtime is None:

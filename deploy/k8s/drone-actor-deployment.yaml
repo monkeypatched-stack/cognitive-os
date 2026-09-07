@@ -107,6 +107,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            # See actor-deployment.yaml's identical env var comment — a
+            # stable, deterministic node identity across restarts
+            # (PlanetaryRuntime otherwise generates a random one every
+            # restart, the real root cause of recurring lease-
+            # reconciliation churn on this exact actor).
+            - name: COGNITIVEOS_NODE_ID
+              value: "cognitiveos-actor-${ACTOR_ID}"
             - name: ACTOR_ARTIFACT_VERSION
               value: "${ACTOR_ARTIFACT_VERSION}"
             # Real PX4 adapter selection (kernel/edge/ros_integration.py
@@ -122,11 +129,31 @@ spec:
               value: "true"
             - name: ROS_BRIDGE_URL
               value: "http://px4-sim-${ACTOR_ID}.monkeybrain.svc.cluster.local:9000"
+            # See actor-deployment.yaml's identical env var comment — a
+            # containerized Ollama sidecar failed four times in this
+            # environment. Points at this host's own native Ollama.
+            - name: OLLAMA_BASE_URL
+              value: "http://host.docker.internal:11434"
+            # See actor-deployment.yaml's identical env var comment --
+            # llama-server (llama.cpp) replaced Ollama as the default
+            # provider (configmap.yaml's MODEL_BACKEND).
+            - name: LLAMACPP_BASE_URL
+              value: "http://host.docker.internal:8090"
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: agentos-secrets
                   key: neo4j-password
+            - name: MOSS_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: moss-project-id
+            - name: MOSS_PROJECT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: moss-project-key
             - name: INTERNAL_SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:

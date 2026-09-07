@@ -415,6 +415,13 @@ services:
 
   - name: agentos-service
     url: http://agentos:8031
+    # Real LLM planning calls (model_backend.py's Ollama path, 120s httpx
+    # client timeout) can legitimately exceed Kong's 60s default when the
+    # model needs a cold load — raised with margin above that 120s so a
+    # slow-but-genuine completion isn't cut off with a 504.
+    connect_timeout: 180000
+    write_timeout: 180000
+    read_timeout: 180000
     routes:
       - name: agentos-api
         strip_path: false

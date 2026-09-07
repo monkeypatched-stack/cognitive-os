@@ -24,7 +24,16 @@ services:
     # out (in Kubernetes) actually finish here too.
     environment:
       - KERNEL_PHASE_TIMEOUT=300
-      - MODEL_BACKEND=dev_bridge
+      - MODEL_BACKEND=ollama
+      # This host's own Mac-installed Ollama (the Ollama.app menu-bar
+      # app, port 11434) — not a containerized sidecar. Docker Desktop
+      # for Mac resolves host.docker.internal to the host, so this
+      # reaches that same native installation from inside the container.
+      # Not portable to plain Linux Docker or a real cluster (see
+      # deploy/k8s/actor-deployment.yaml / deployment.yaml's own ollama
+      # SIDECAR containers instead, which don't depend on this
+      # Docker-Desktop-specific hostname or this host's local install).
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - RAZORPAY_KEY_ID=rzp_test_TV0NvdrWxirPCL
       - RAZORPAY_KEY_SECRET=KBkPnoQvUM5OLPSa6qkSlCY3
       - COGNITIVEOS_ALLOW_INSECURE_DEV_MODE=true

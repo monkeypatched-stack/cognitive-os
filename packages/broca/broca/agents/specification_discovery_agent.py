@@ -74,6 +74,40 @@ class ClaudeClient:
         return msg.content[0].text
 
 
+class OpenRouterClient:
+    """OpenRouter (multi-model proxy) client — the primary provider (see
+    _select_provider below); Claude/Ollama remain fallbacks."""
+
+    def __init__(self, model: str = "", api_key: str = ""):
+        self.model = model or os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+        self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
+        self.base_url = os.environ.get("OPENROUTER_API_BASE_URL") or os.environ.get(
+            "OPENROUTER_API_URL", "https://openrouter.ai/api/v1",
+        )
+
+    async def generate(self, prompt: str, system: str = "") -> str:
+        import httpx
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "HTTP-Referer": os.environ.get("APP_URL", "https://github.com/monkeypatched"),
+                    "X-Title": os.environ.get("APP_NAME", "MonkeyBrain"),
+                },
+                json={"model": self.model, "messages": messages, "max_tokens": 4096},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        if "error" in data:
+            raise RuntimeError(f"OpenRouter error: {data['error']}")
+        return data["choices"][0]["message"]["content"] or ""
+
+
 def _ollama_available() -> bool:
     try:
         s = socket.socket()

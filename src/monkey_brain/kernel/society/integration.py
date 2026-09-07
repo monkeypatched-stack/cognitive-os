@@ -1431,21 +1431,29 @@ class PlanetaryRuntime:
                 if entry.actor_id == actor_id:
                     self._cache_registry_entry(entry)
                     return entry
-        elif rows is None and self._redis:
+        elif not rows and self._redis:
+            # `rows` is `()` here just as often as it is `None` in
+            # practice: a real Mongo connection that has scanned zero
+            # actor documents so far (e.g. the cloud actor_state
+            # collection hasn't been written to yet on a fresh cluster,
+            # or every actor is currently edge-resident and persisting to
+            # its own local SQLite instead — see _list_registry_from_
+            # mongodb()'s own comment on that exact split) looks
+            # identical to a genuine scan failure from here. Confirmed
+            # live: this used to treat `()` as "Mongo has spoken, zero
+            # actors exist" and explicitly discard a real, live Redis
+            # entry for an actor that WAS correctly registered — which
+            # silently broke every cross-process actor lookup (locate_
+            # actor() returning None) until Mongo's snapshot eventually
+            # caught up, including api/routes/prompt.py's own forward-to-
+            # dedicated-Pod fallback (it can't forward what it can't
+            # locate). An empty scan and a failed one both mean "Mongo
+            # can't currently answer this with confidence" -- Redis is
+            # the live index, trust it either way.
             try:
                 raw = self._redis.hget(self._ACTORS_HASH_KEY, actor_id)
                 if raw:
                     return self._registry_entry_from_dict(json.loads(raw))
-            except Exception as exc:
-                logger.debug("locate_actor(%r): Redis lookup failed: %s", actor_id, exc)
-        elif rows is not None and self._redis:
-            try:
-                raw = self._redis.hget(self._ACTORS_HASH_KEY, actor_id)
-                if raw:
-                    logger.warning(
-                        "locate_actor(%r): Redis entry ignored; Mongo is the registry of record",
-                        actor_id,
-                    )
             except Exception as exc:
                 logger.debug("locate_actor(%r): Redis lookup failed: %s", actor_id, exc)
         sr = self._home_society_runtime(actor_id)
@@ -1479,22 +1487,19 @@ class PlanetaryRuntime:
             for entry in rows:
                 self._cache_registry_entry(entry)
             return rows
-        if rows is None and self._redis:
+        # See locate_actor()'s identical `not rows` comment -- an empty
+        # scan and a failed/unavailable one both mean "Mongo can't
+        # currently answer this," so both fall back to Redis the same way
+        # rather than the empty case alone being treated as an
+        # authoritative "zero actors exist" that discards a real Redis
+        # index.
+        if not rows and self._redis:
             try:
                 hash_data = self._redis.hgetall(self._ACTORS_HASH_KEY)
                 if hash_data:
                     return tuple(
                         self._registry_entry_from_dict(json.loads(raw))
                         for raw in hash_data.values()
-                    )
-            except Exception as exc:
-                logger.debug("list_registry(): Redis scan failed: %s", exc)
-        elif rows is not None and self._redis:
-            try:
-                hash_data = self._redis.hgetall(self._ACTORS_HASH_KEY)
-                if hash_data:
-                    logger.warning(
-                        "list_registry(): ignoring Redis index with no Mongo documents"
                     )
             except Exception as exc:
                 logger.debug("list_registry(): Redis scan failed: %s", exc)
@@ -3612,7 +3617,19 @@ return new_count
                 profile = registry_state.profile
                 if hasattr(profile, "identity"):
                     actor_metadata["name"] = profile.identity.name
-                    actor_metadata["actor_type"] = profile.identity.actor_type
+                    # Confirmed live: the raw ActorType enum member (not
+                    # its .value) landing here made every belief
+                    # checkpoint save fail BSON encoding --
+                    # "cannot encode object: <ActorType.HUMAN: 'human'>,
+                    # of type: <enum 'ActorType'>" -- for every actor, on
+                    # every tick, silently (caught by this method's own
+                    # broad except below and logged as "non-fatal").
+                    # Same normalization already used for desired_state
+                    # a few lines down.
+                    actor_type = profile.identity.actor_type
+                    actor_metadata["actor_type"] = (
+                        actor_type.value if hasattr(actor_type, "value") else str(actor_type)
+                    )
                 actor_metadata["description"] = getattr(profile, "description", "")
                 actor_metadata["capabilities"] = getattr(profile, "capabilities", [])
                 actor_metadata["constraints"] = getattr(profile, "constraints", [])
@@ -3620,9 +3637,27 @@ return new_count
             
             if sr is not None:
                 actor_metadata["society_id"] = sr.society.society_id
-            
+
+            # redis_index_reconstruction.py::_construct_registry_entry_
+            # from_mongodb() reads actor_type/name/society_id/status/
+            # node_id straight off memory_kv (this dict) to rebuild a
+            # registry entry when Mongo has to stand in for a cold/lost
+            # Redis index (see locate_actor()'s "not rows" fallback) —
+            # node_id was never actually written here, so every
+            # Mongo-reconstructed entry always fell back to that
+            # function's own "unknown" default. Confirmed live: this
+            # silently mismatched actor-deployment.yaml's real, resident
+            # node_id and made the Actor Lifecycle Controller believe the
+            # actor was "no longer resident/active here," sending an
+            # already-ready Pod back into RESTORING. Same self._node_id
+            # _actor_state_to_dict() already writes into the Redis
+            # registry hash above (line ~1108) -- this just carries it
+            # through the Mongo path too, using the same identity.
+            actor_metadata["node_id"] = self._node_id
+
             if registry_state:
-                actor_metadata["status"] = str(getattr(registry_state, "status", "registered"))
+                status = getattr(registry_state, "status", "registered")
+                actor_metadata["status"] = status.value if hasattr(status, "value") else str(status)
                 if hasattr(registry_state, "actor_runtime") and hasattr(registry_state.actor_runtime, "affiliations"):
                     try:
                         actor_metadata["affiliations"] = registry_state.actor_runtime.affiliations.to_dict()

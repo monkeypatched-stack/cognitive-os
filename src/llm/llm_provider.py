@@ -91,8 +91,8 @@ class OpenRouterProvider(BaseLLMProvider):
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable not set")
 
-        self.base_url = "https://openrouter.io/api/v1"
-        self.model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-2-70b-chat")
+        self.base_url = "https://openrouter.ai/api/v1"
+        self.model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={
@@ -216,10 +216,10 @@ class LLMProviderFactory:
         Provider is selected by:
         1. provider_name parameter
         2. LLM_PROVIDER environment variable
-        3. Default: Claude
+        3. Default: Ollama
         """
         if provider_name is None:
-            provider_name = os.getenv("LLM_PROVIDER", LLMProvider.CLAUDE.value)
+            provider_name = os.getenv("LLM_PROVIDER", LLMProvider.OLLAMA.value)
 
         provider_name = provider_name.lower()
 
@@ -249,14 +249,14 @@ class LLMConfig:
 
     def __init__(self):
         """Load configuration from environment"""
-        self.provider = os.getenv("LLM_PROVIDER", "claude").lower()
+        self.provider = os.getenv("LLM_PROVIDER", "ollama").lower()
         self._enabled = None  # Cache for enabled state (checked dynamically)
         self.cache_enabled = os.getenv("LLM_CACHE_ENABLED", "true").lower() == "true"
         self.cache_ttl_seconds = int(os.getenv("LLM_CACHE_TTL", "3600"))
 
         # Provider-specific config
         self.claude_model = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
-        self.openrouter_model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-2-70b-chat")
+        self.openrouter_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
         self.ollama_model = os.getenv("OLLAMA_MODEL", "llama2")
         self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
@@ -309,14 +309,21 @@ async def get_llm_completion(
         raise RuntimeError("LLM is disabled (USE_LLM=false)")
 
     provider = LLMProviderFactory.get_provider(provider_name)
-    model = None
 
-    if provider_name == "claude" or provider_name is None:
+    # provider_name=None means "use the configured default" (LLM_PROVIDER,
+    # resolved by LLMConfig above) — the model must match THAT provider,
+    # not be hardcoded to Claude's, or a non-Claude default provider gets
+    # sent a Claude model id.
+    if provider_name is None:
+        model = llm_config.get_model_for_provider()
+    elif provider_name == "claude":
         model = llm_config.claude_model
     elif provider_name == "openrouter":
         model = llm_config.openrouter_model
     elif provider_name == "ollama":
         model = llm_config.ollama_model
+    else:
+        model = None
 
     try:
         result = await asyncio.wait_for(

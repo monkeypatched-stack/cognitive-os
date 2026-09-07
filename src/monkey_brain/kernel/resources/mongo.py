@@ -7,6 +7,22 @@ Required: boot aborts if this never comes up (matches the existing
 "Startup aborted — primary persistence unavailable" behavior in
 bootstrap.py's init_persistence(), which never actually triggered before
 since MongoDBAdapter.connect() never raises).
+
+UNAVAILABLE vs FAILED: ResourceManager._try_initialize() retries both
+identically, but ResourceManager.initialize_all() only raises for a
+required resource that ends up FAILED after retries are exhausted — never
+for UNAVAILABLE (see resource_manager.py's own docstring, "Required
+resource failures raise immediately", which that asymmetry silently
+doesn't honor). A missing driver or an unreachable/unauthenticated server
+are exactly as terminal as a config exception for THIS resource (always
+required=True, no optional path) — a real drone run confirmed this live:
+Mongo was down for the whole run, _ping() below returned UNAVAILABLE, and
+boot proceeded anyway instead of aborting. Both branches below use FAILED
+so the required-resource contract actually fires; `category` still
+carries the real reason (DEPENDENCY_MISSING/NETWORK/AUTHENTICATION) for
+diagnostics, and the background retry loop still retries a FAILED
+resource exactly like an UNAVAILABLE one (see resource_manager.py's
+_PERMANENT_CATEGORIES — NETWORK/AUTHENTICATION aren't in it).
 """
 from __future__ import annotations
 
@@ -58,7 +74,7 @@ class MongoResource:
 
         if client is None:
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name, state=ResourceState.FAILED,
                 reason="Motor client not constructed — motor/pymongo not installed?",
                 category=ErrorCategory.DEPENDENCY_MISSING, required=True,
             )
@@ -70,6 +86,6 @@ class MongoResource:
             msg = str(exc).lower()
             category = ErrorCategory.AUTHENTICATION if ("auth" in msg or "401" in msg) else ErrorCategory.NETWORK
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name, state=ResourceState.FAILED,
                 reason=str(exc)[:200], category=category, required=True,
             )
