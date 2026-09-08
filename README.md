@@ -31,9 +31,12 @@ CognitiveOS manages intelligence as a governed runtime resource, separating:
 
 That decomposition is explicitly summarized in the final architectural principles.
 
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/29fecbd3-8922-45d7-b80d-eb351a1a9fea" />
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/807cd63e-a7d0-4bab-970a-ff85de6e4b4d" />
+
 
 ## How It Works
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/29fecbd3-8922-45d7-b80d-eb351a1a9fea" />
 
 *Condensed from the CognitiveOS paper's Abstract and §1–3. Full text
 available on request; this is the summary.*
@@ -302,11 +305,6 @@ things enforce this, at three different points in the request/tick
 lifecycle.
 
 **The TransitionGate — the last check before shared state changes**
-(`kernel/society/transition_gate.py::TransitionGate.evaluate`, called
-from `kernel/pipeline/action_executor.py` right before a capability
-that touches a shared resource actually runs — one shared instance,
-reused by every capability rather than each implementing its own
-version)
 
 Before a proposed action is allowed to commit, the gate checks the
 resources it touches for three things, in order:
@@ -330,47 +328,41 @@ the same thing" (see [Example: Buying Groceries](#example-buying-groceries)
 below) into either a clean pass-through or a real negotiation, instead
 of a race.
 
-**OPA — policy-as-code, checked at three separate points, not one
-central gate**
-(`services.common.opa`, backed by real [Open Policy
-Agent](https://www.openpolicyagent.org/) policies under `opa/policies/`)
+CognitiveOS uses Open Policy Agent (OPA) to enforce policies at three different points in the system rather than relying on a single central governance layer.
 
-There is no single "governance module" — three independent chokepoints
-each call out to OPA for their own decision:
+Request governance
+Policies are checked when an actor requests planning, execution, prediction, or information from the system.
+Actor management
+Policies are checked when actors are created, modified, or otherwise managed. This ensures that only authorised actors can perform those operations.
+Goal execution
+Policies are checked again immediately before a goal is executed. This provides a final safety boundary between deciding what to do and actually doing it.
 
-- **`kernel/governance.py::GovernanceEngine.evaluate`** — gates the
-  `/plan`, `/execute`, `/predict`, and `/query` routes against
-  `agentos_governance.rego`.
-- **`api/routes/actors.py`'s `require_opa("agentos/routes/allow", ...)`**
-  — gates actor-management routes against `agent_routes.rego`, for
-  agent-type Bearer principals.
-- **`kernel/plan/goals/executor.py::GoalExecutor._authorize`** — gates
-  goal execution against `agentos_execute.rego`.
+These checks are intentionally independent. Different operations can therefore have different policies and different levels of enforcement.
 
-The three behave differently on purpose. `GovernanceEngine` is
-`default_allow=True`: if `OPA_URL` isn't set, it allows through rather
-than failing an unconfigured deployment closed with no way to open it.
-`GoalExecutor._authorize` is `default_allow=False`: once enforcement
-is actually turned on, an unconfigured or unreachable OPA denies
-rather than silently permitting execution. In both cases, once OPA
-*is* configured and reachable, the `.rego` policy itself defaults to
-deny internally — so a misconfigured-but-reachable OPA fails closed,
-not open, regardless of which chokepoint is asking.
+The system also distinguishes between configuration and enforcement. At the general request level, if OPA has not been configured, the system can continue operating rather than becoming inaccessible. For actual goal execution, however, once policy enforcement is enabled, the absence or unavailability of OPA results in the action being denied.
 
-**Delegation — one actor acting with another's permissions, on
-purpose and revocably**
-(`kernel/society/delegation.py::DelegationRegistry`, consulted from
-`api/dependencies.py::require_permission`/`require_self_or_permission`
-via `_effective_delegated_permissions`)
+When OPA is available, the policies themselves default to deny. An operation must therefore explicitly satisfy the relevant policy before it is allowed.
 
-An actor can grant another actor a specific, time-bounded set of
-permissions (`DelegationRegistry.grant`) — every grant and revoke
-writes an immutable membership timeline entry, so delegation history
-is auditable, not just current state. When an API call checks whether
-a user has a permission, it checks the user's own permissions *and*
-whatever's been delegated to them (`effective_delegated_permissions`)
-before denying — the same request-time check either way, no separate
-"impersonation" code path.
+In simple terms: OPA is not a single gate at the centre of the system. Policy is checked at multiple points throughout the actor lifecycle, with the strongest check placed immediately before an action is executed.
+
+
+Delegation — allowing one actor to act with another actor’s permissions, deliberately and temporarily
+
+CognitiveOS allows one actor to delegate specific permissions to another actor. Delegation can be limited in scope and duration, and it can be revoked at any time.
+
+Every delegation and revocation is recorded as part of an immutable history. This means the system can show not only who currently has a permission, but also who granted it, when it was granted, when it was revoked, and what permissions were delegated.
+
+When an actor makes a request, the system considers both:
+
+the permissions the actor has directly, and
+any permissions that have been delegated to them.
+
+The result is the actor’s effective permissions for that request.
+
+There is no separate impersonation mechanism. The delegated permissions go through the same authorisation process as the actor’s own permissions.
+
+In simple terms: delegation lets one actor temporarily give another actor specific authority to act on their behalf, while keeping that authority explicit, revocable, and fully auditable.
+
 
 ## Example: Buying Groceries
 
