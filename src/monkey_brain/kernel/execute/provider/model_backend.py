@@ -1,7 +1,9 @@
 """ModelBackend — routes StructuredPromptIR to the right LLM provider.
 
-Currently implements Claude. GPT, Gemini, Qwen share the same interface.
-Provider is selected via MODEL_BACKEND env var (default: claude).
+Currently implements Claude, OpenRouter, GPT, Gemini, Qwen, Ollama,
+llama.cpp (a local `llama-server` process, distinct from Ollama) — all
+share the same interface. Provider is selected via MODEL_BACKEND env var
+(default: ollama).
 
 The PromptCompilerAgent produces a StructuredPromptIR.
 ModelBackend.complete() takes it and returns the raw model response string.
@@ -18,15 +20,17 @@ completion in an orphaned background thread when it was wrapped in
 asyncio.to_thread — real work continuing to consume Ollama capacity
 (now, post the asyncio.gather actor-tick fix, contending with every
 other concurrently-ticking actor) minutes after the runtime had already
-reported it as failed. The Ollama path below uses httpx.AsyncClient
-directly (a real awaited I/O call — asyncio can genuinely cancel this),
-so a cancellation actually aborts the request instead of merely
-abandoning it. The other providers' SDKs (anthropic/openai/
-google-generativeai) are synchronous clients with no async counterpart
-wired in here; their calls run via asyncio.to_thread as before,
-unaffected by this change and carrying the same fire-and-forget
-limitation MODEL_BACKEND=ollama used to have. Only Ollama's cancellation
-gap was actually diagnosed with evidence, so only it is actually fixed.
+reported it as failed. The Ollama and OpenRouter paths below use
+httpx.AsyncClient directly (a real awaited I/O call — asyncio can
+genuinely cancel this), so a cancellation actually aborts the request
+instead of merely abandoning it; OpenRouter got the same treatment while
+it was briefly the default provider and it was left in place after
+switching back to Ollama, since it costs nothing to keep. The other
+providers' SDKs (anthropic/openai/google-generativeai) are synchronous
+clients with no async counterpart wired in here; their calls run via
+asyncio.to_thread as before, unaffected by this change and carrying the
+same fire-and-forget limitation MODEL_BACKEND=ollama used to have before
+its own fix.
 """
 from __future__ import annotations
 
@@ -37,13 +41,19 @@ from typing import Any
 
 logger = logging.getLogger("monkey_brain.model_backend")
 
-_DEFAULT_PROVIDER = os.environ.get("MODEL_BACKEND", "claude")
+_DEFAULT_PROVIDER = os.environ.get("MODEL_BACKEND", "ollama")
 _DEFAULT_MODEL_MAP: dict[str, str] = {
-    "claude": "claude-sonnet-4-6",
-    "gpt":    "gpt-4o",
-    "gemini": "gemini-1.5-pro",
-    "qwen":   "qwen2.5-72b-instruct",
-    "ollama": os.environ.get("OLLAMA_MODEL", "gemma3:latest"),
+    "claude":     "claude-sonnet-4-6",
+    "openrouter": os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+    "gpt":        "gpt-4o",
+    "gemini":     "gemini-1.5-pro",
+    "qwen":       "qwen2.5-72b-instruct",
+    "ollama":     os.environ.get("OLLAMA_MODEL", "gemma3:latest"),
+    # llama-server serves exactly one model per process (whatever -m
+    # pointed at on startup) -- this "model" field is only ever echoed
+    # back in its OpenAI-compatible response, never used for routing, so
+    # it's descriptive/observability metadata, not a live selector.
+    "llamacpp":   os.environ.get("LLAMACPP_MODEL", "gemma-3-4b-it-Q4_K_M"),
 }
 
 
@@ -88,6 +98,8 @@ class ModelBackend:
 
         if self._provider == "claude":
             return await asyncio.to_thread(self._claude, prompt, system, tokens, **kwargs)
+        if self._provider == "openrouter":
+            return await self._openrouter(prompt, system, tokens, **kwargs)
         if self._provider == "gpt":
             return await asyncio.to_thread(self._gpt, prompt, system, tokens, **kwargs)
         if self._provider == "gemini":
@@ -96,6 +108,8 @@ class ModelBackend:
             return await asyncio.to_thread(self._qwen, prompt, system, tokens, **kwargs)
         if self._provider == "ollama":
             return await self._ollama(prompt, system, tokens, **kwargs)
+        if self._provider == "llamacpp":
+            return await self._llamacpp(prompt, system, tokens, **kwargs)
         if self._provider == "dev_bridge":
             return await self._dev_bridge(prompt, system, tokens, **kwargs)
         raise ValueError(f"Unknown MODEL_BACKEND provider: {self._provider!r}")
@@ -123,6 +137,46 @@ class ModelBackend:
         )
         self._total_tokens += resp.usage.input_tokens + resp.usage.output_tokens
         return resp.content[0].text
+
+    async def _openrouter(self, prompt: str, system: str, max_tokens: int, **_: Any) -> str:
+        # A real httpx.AsyncClient call (same reasoning as _ollama above:
+        # genuinely cancellable, not a to_thread-wrapped synchronous SDK
+        # call) — worth it here specifically because openrouter is now the
+        # primary provider, the most-used path a cancellation needs to
+        # actually reach. Also sidesteps depending on the `openai` package,
+        # which isn't a declared dependency of this project (confirmed:
+        # ModuleNotFoundError in the venv this was verified in) — the other
+        # OpenRouter call sites added alongside this one (broca agents,
+        # codegen_agent.py, classifier.py) all use raw httpx for the same
+        # reason.
+        api_key = os.environ.get("OPENROUTER_API_KEY", "")
+        if not api_key:
+            raise RuntimeError("OPENROUTER_API_KEY not set")
+        base_url = os.environ.get("OPENROUTER_API_BASE_URL") or os.environ.get(
+            "OPENROUTER_API_URL", "https://openrouter.ai/api/v1",
+        )
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        import httpx
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "HTTP-Referer": os.environ.get("APP_URL", "https://github.com/monkeypatched"),
+                    "X-Title": os.environ.get("APP_NAME", "MonkeyBrain"),
+                },
+                json={"model": self._model, "messages": messages, "max_tokens": max_tokens},
+            )
+        resp.raise_for_status()
+        data = resp.json()
+        if "error" in data:
+            raise RuntimeError(f"OpenRouter error: {data['error']}")
+        usage = data.get("usage") or {}
+        self._total_tokens += usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+        return data["choices"][0]["message"]["content"] or ""
 
     def _gpt(self, prompt: str, system: str, max_tokens: int, **_: Any) -> str:
         api_key = os.environ.get("OPENAI_API_KEY", "")
@@ -207,6 +261,34 @@ class ModelBackend:
             )
         resp.raise_for_status()
         return resp.json()["message"]["content"]
+
+    async def _llamacpp(self, prompt: str, system: str, max_tokens: int, **_: Any) -> str:
+        # A locally-run `llama-server` (llama.cpp's own OpenAI-compatible
+        # HTTP server, not Ollama) -- same _openrouter/_ollama real-
+        # httpx.AsyncClient reasoning (genuinely cancellable, no `openai`
+        # package dependency). Adopted specifically because Ollama's own
+        # HTTP round-trip + retry-on-degenerate-confidence (llm_planner.py)
+        # could together exceed Kong's agentos-service gateway timeout
+        # (confirmed live: a 504 upstream timeout on this exact model/
+        # prompt combination) -- llama-server serving the SAME model
+        # weights directly, with no Ollama layer in between, is
+        # meaningfully faster per call on this hardware.
+        base_url = os.environ.get("LLAMACPP_BASE_URL", "http://localhost:8090")
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        import httpx
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{base_url}/v1/chat/completions",
+                json={"model": self._model, "messages": messages, "max_tokens": max_tokens},
+            )
+        resp.raise_for_status()
+        data = resp.json()
+        usage = data.get("usage") or {}
+        self._total_tokens += usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+        return data["choices"][0]["message"]["content"] or ""
 
     async def _dev_bridge(self, prompt: str, system: str, max_tokens: int, **_: Any) -> str:
         """Route this completion to an external answerer via a file queue

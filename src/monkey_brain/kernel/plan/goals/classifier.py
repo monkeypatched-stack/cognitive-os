@@ -42,10 +42,10 @@ Return ONLY the JSON object, no other text."""
 
     user_prompt = f"Classify this question: {question}"
 
-    # Try OpenRouter first, then Ollama
-    result = await _classify_with_openrouter(system_prompt, user_prompt)
+    # Try Ollama first, then OpenRouter
+    result = await _classify_with_ollama(system_prompt, user_prompt)
     if result is None:
-        result = await _classify_with_ollama(system_prompt, user_prompt)
+        result = await _classify_with_openrouter(system_prompt, user_prompt)
 
     if result is None:
         return None

@@ -3,6 +3,16 @@
 Same lazy-connect issue as MongoDBAdapter: from_url() never verifies
 reachability, so this wrapper does a real PING. Required: boot aborts if
 this never comes up.
+
+UNAVAILABLE vs FAILED: same gap as MongoResource (kernel/resources/
+mongo.py — see its docstring for the full mechanism), fixed the same way.
+ResourceManager._try_initialize() retries FAILED and UNAVAILABLE
+identically, but ResourceManager.initialize_all() only raises for a
+required resource that ends up FAILED after retries are exhausted — never
+UNAVAILABLE. Since RedisResource is always required=True with no optional
+path, a missing driver or an unreachable/unauthenticated server are exactly
+as terminal as a config exception here, so both branches below use FAILED
+instead so the required-resource contract actually fires.
 """
 from __future__ import annotations
 
@@ -51,7 +61,7 @@ class RedisResource:
 
         if client is None:
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name, state=ResourceState.FAILED,
                 reason="Redis client not constructed — redis package not installed?",
                 category=ErrorCategory.DEPENDENCY_MISSING, required=True,
             )
@@ -63,6 +73,6 @@ class RedisResource:
             msg = str(exc).lower()
             category = ErrorCategory.AUTHENTICATION if ("auth" in msg or "noauth" in msg) else ErrorCategory.NETWORK
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name, state=ResourceState.FAILED,
                 reason=str(exc)[:200], category=category, required=True,
             )

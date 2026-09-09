@@ -134,6 +134,25 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            # Real, live-confirmed root cause of recurring "Actor ... was
+            # not reached by its effective societies" / lease-reconciliation
+            # churn: PlanetaryRuntime.__init__ (kernel/society/
+            # integration.py) falls back to `f"node-{uuid4().hex[:12]}"`
+            # for its OWN node identity whenever COGNITIVEOS_NODE_ID is
+            # unset — a brand-new random identity on EVERY restart. Every
+            # restart of this Pod therefore looked like an entirely new,
+            # unrelated node claiming the same actor to the rest of the
+            # system, not the same node reconnecting, defeating the
+            # Actor Registry's whole "who owns this actor" bookkeeping
+            # (kernel/society/actor_scheduler.py's SchedulingDecision.
+            # node_id, ActorRegistryEntry.node_id) across restarts. This
+            # value is deterministic per actor_id (matches this
+            # Deployment's own Service name, service.yaml/this file's
+            # own metadata.name), so it's stable across every restart —
+            # also what api/routes/prompt.py's central-control-plane
+            # forward-to-dedicated-Pod fallback checks for.
+            - name: COGNITIVEOS_NODE_ID
+              value: "cognitiveos-actor-${ACTOR_ID}"
             - name: ACTOR_ARTIFACT_VERSION
               # Live Deployment Validation finding: `envsubst` (this
               # template's own documented rendering tool, see the header
@@ -150,11 +169,34 @@ spec:
               # ACTOR_ARTIFACT_VERSION=1.0.0 explicitly, as this file's
               # own header example already does.
               value: "${ACTOR_ARTIFACT_VERSION}"
+            # See deployment.yaml's identical env var comment — a
+            # containerized Ollama sidecar failed four times (`ollama
+            # pull` reproducibly timing out over HTTPS from inside this
+            # cluster's pod network, even with HTTP/2 disabled). Points
+            # at this host's own already-populated native Ollama
+            # instead, reached the same way by every Pod in the cluster.
+            - name: OLLAMA_BASE_URL
+              value: "http://host.docker.internal:11434"
+            # See deployment.yaml's identical env var comment -- llama-
+            # server (llama.cpp) replaced Ollama as the default provider
+            # (configmap.yaml's MODEL_BACKEND).
+            - name: LLAMACPP_BASE_URL
+              value: "http://host.docker.internal:8090"
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: agentos-secrets
                   key: neo4j-password
+            - name: MOSS_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: moss-project-id
+            - name: MOSS_PROJECT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: moss-project-key
             - name: INTERNAL_SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:

@@ -304,15 +304,29 @@ class RedisIndexReconstructor:
             or None if unable to construct
         """
         try:
-            # Extract core identity from MongoDB (may be in various formats)
-            # depending on when the actor was persisted
-            actor_type = mongodb_doc.get("actor_type", "unknown")
-            name = mongodb_doc.get("name", actor_id)
-            society_id = mongodb_doc.get("society_id", "")
-            
+            # PersistedActorState (persistence/actor_state_store.py) has no
+            # top-level actor_type/name/society_id/status/node_id fields at
+            # all -- PlanetaryRuntime.checkpoint_actor_belief (kernel/
+            # society/integration.py) writes all of that identity/registry
+            # metadata into the memory_kv sub-object instead (see its own
+            # "actor_metadata" dict). Reading them off mongodb_doc's TOP
+            # LEVEL, as this used to, always missed and silently fell back
+            # to every one of the defaults below -- confirmed live: every
+            # Mongo-reconstructed entry came back actor_type="unknown",
+            # status="registered", node_id="unknown" regardless of the
+            # real, correct values sitting one level down, which made an
+            # actually-resident, READY actor look unowned/unrecognized to
+            # the Lifecycle Controller the moment Mongo (rather than a
+            # warm Redis index) was the source consulted.
+            memory_kv = mongodb_doc.get("memory_kv") or {}
+
+            actor_type = memory_kv.get("actor_type", "unknown")
+            name = memory_kv.get("name", actor_id)
+            society_id = memory_kv.get("society_id", "")
+
             # Preserve persisted lifecycle status (or default to registered)
-            status = mongodb_doc.get("status", "registered")
-            
+            status = memory_kv.get("status", "registered")
+
             # Construct registry entry in the format expected by _actor_state_to_dict()
             registry_entry = {
                 "identity": {
@@ -322,9 +336,9 @@ class RedisIndexReconstructor:
                 },
                 "society_id": society_id,
                 "belief_state": mongodb_doc.get("belief_state"),
-                "affiliations": mongodb_doc.get("affiliations"),
+                "affiliations": memory_kv.get("affiliations"),
                 "status": status,
-                "node_id": mongodb_doc.get("node_id", "unknown"),
+                "node_id": memory_kv.get("node_id", "unknown"),
                 "updated_at": time.time(),  # Mark as just-rebuilt
                 "artifact_version": mongodb_doc.get("artifact_version", ""),
                 "runtime_version": mongodb_doc.get("runtime_version", ""),

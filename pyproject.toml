@@ -65,10 +65,22 @@ dependencies = [
     "watchfiles",
     "networkx",
     "phart",
+    # Edge semantic-retrieval backend (kernel/edge/moss_retrieval.py). Moss
+    # (docs.usemoss.dev) is a cloud-backed semantic-search SaaS -- NOT the
+    # edge persistence substrate (that remains kernel/edge/local_store.py's
+    # SQLite backend, unchanged; see docs/CLOUD_EDGE_ACTOR_ARCHITECTURE.md
+    # Section 18's "MossDB scope decision"). The package itself is always
+    # installed; moss_retrieval.py's own MOSS_PROJECT_ID/MOSS_PROJECT_KEY
+    # check is what actually gates whether it's used at runtime -- this is
+    # a core dependency, not an optional extra, because .env and every
+    # deploy/k8s/*.yaml already wire real MOSS_PROJECT_ID/KEY secrets into
+    # these deployments, so the package must be present in the image for
+    # that configuration to actually work rather than silently degrading.
+    "moss==1.7.3",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff", "pre-commit"]
 enterprise = ["elasticsearch[async]", "pyspark", "mem0ai", "spacy"]
 soma = ["soma-cli>=1.0.0"]
 # Robot/ROS deployments only (kernel/edge/ros_integration.py). rclpy is
@@ -80,13 +92,6 @@ soma = ["soma-cli>=1.0.0"]
 # and only needs this extra to signal that dependency in tooling/CI that
 # inspects pyproject.toml.
 ros = []
-# Optional edge semantic-retrieval backend (kernel/edge/moss_retrieval.py).
-# Moss (docs.usemoss.dev) is a cloud-backed semantic-search SaaS -- NOT
-# the edge persistence substrate (that remains kernel/edge/local_store.py's
-# SQLite backend, unchanged; see docs/CLOUD_EDGE_ACTOR_ARCHITECTURE.md
-# Section 18's "MossDB scope decision"). Never imported unless
-# MOSS_PROJECT_ID/MOSS_PROJECT_KEY are configured.
-moss = ["moss==1.7.3"]
 
 [project.scripts]
 monkeybrain = "monkey_brain.cli.main:main"

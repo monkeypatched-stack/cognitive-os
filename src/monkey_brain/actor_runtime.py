@@ -131,7 +131,7 @@ if _pkg_broca.exists() and str(_pkg_broca) not in sys.path:
 # fails to resolve and FastAPI falls back to treating it as a plain query
 # parameter (confirmed live: POST /execute returned 422 "field required:
 # query.request" with no body/query param ever supplied for it).
-from fastapi import Request
+from fastapi import HTTPException, Request
 
 logger = logging.getLogger("agentos.actor_runtime")
 
@@ -331,7 +331,18 @@ class ActorRuntime:
         # unchanged.
         if self.config.node_class in ("edge", "device", "robot") and "OFFLINE_SAFETY_GATE_ENABLED" not in os.environ:
             os.environ["OFFLINE_SAFETY_GATE_ENABLED"] = "true"
-        if self.config.node_id:
+        # An explicitly-set COGNITIVEOS_NODE_ID (actor-deployment.yaml/
+        # drone-actor-deployment.yaml's deterministic "cognitiveos-actor-
+        # {actor_id}") must win over config.node_id (ACTOR_NODE_ID's
+        # fieldRef to metadata.name — the Pod name, which carries a
+        # ReplicaSet/Pod hash suffix that changes on every restart).
+        # Unconditionally overwriting here defeated that deterministic
+        # value at the exact env var PlanetaryRuntime.__init__ reads,
+        # reintroducing the random-per-restart node identity this was
+        # meant to fix. ACTOR_NODE_ID remains the fallback default when
+        # COGNITIVEOS_NODE_ID isn't set (matching this module's own
+        # docstring), e.g. edge_agent.py's ACTOR_NODE_ID-only callers.
+        if self.config.node_id and not os.environ.get("COGNITIVEOS_NODE_ID"):
             os.environ["COGNITIVEOS_NODE_ID"] = self.config.node_id
         os.environ["ACTOR_ARTIFACT_VERSION"] = self.config.artifact_version
         os.environ["ACTOR_RUNTIME_VERSION"] = self.config.runtime_version

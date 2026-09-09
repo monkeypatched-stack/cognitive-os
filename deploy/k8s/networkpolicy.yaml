@@ -203,3 +203,49 @@ spec:
       ports:
         - protocol: TCP
           port: 8051
+---
+# Same shape/precedent as allow-agentos-to-apiserver above (scoped ipBlock
+# + port, not a blanket external-egress hole) -- confirmed live this was
+# the OTHER missing default-deny-all exception: both agentos.yaml and
+# actor-deployment.yaml/drone-actor-deployment.yaml point OLLAMA_BASE_URL/
+# LLAMACPP_BASE_URL at host.docker.internal (this cluster has no in-cluster
+# LLM backend; see those files' own comments on the containerized-Ollama-
+# sidecar dead end), which resolves to the Docker Desktop host gateway.
+# Before this policy, every LLM planning call from every Pod silently
+# failed closed -- `agentos.pipeline.llm_planner: planning failed: ` with
+# an EMPTY exception message (an asyncio.TimeoutError, whose str() is "")
+# -- easy to misread as an application bug; confirmed live via iptables
+# counters that pod-sourced SYNs to this address never reach the node's
+# own NAT chain at all, while `docker exec <node> curl` (the node's own
+# netns) succeeds, i.e. default-deny-all was doing exactly its job, not a
+# CNI bug. 192.168.65.254 is Docker Desktop's own documented vpnkit
+# gateway address for host.docker.internal (also what the
+# DOCKER_POSTROUTING chain's own DNS SNAT rule already targets on this
+# same host) -- stable for a given Docker Desktop install, not something
+# this cluster invents. Port 8090 (llama-server, the default provider —
+# see configmap.yaml's MODEL_BACKEND) added alongside 11434 (Ollama, kept
+# reachable as a fallback provider, not removed).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-egress-to-ollama-host
+  namespace: monkeybrain
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - agentos
+          - cognitiveos-actor
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.65.254/32
+      ports:
+        - protocol: TCP
+          port: 11434
+        - protocol: TCP
+          port: 8090
