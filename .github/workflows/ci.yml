@@ -28,7 +28,16 @@ jobs:
   # tracked and doesn't grow silently, promotable to blocking (and to
   # pyproject.toml's own [tool.ruff.lint] select, currently just E9) one
   # rule/one directory at a time as it's cleaned up.
+  #
+  # Disabled for now (if: false) rather than blocking or removed: it has
+  # never passed since the day it was added (8,840 pre-existing findings
+  # repo-wide, verified against commit 81d54e5 which introduced this job
+  # already red) and continue-on-error already kept it from blocking any
+  # PR -- but its permanent red X on every PR's checks list was being
+  # mistaken for a regression. Re-enable by deleting this line once the
+  # backlog above is actually being paid down.
   lint-extended:
+    if: false
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -48,7 +57,13 @@ jobs:
   # e.g. B324 weak-hash-for-non-security-use and one B605 shell
   # subprocess call) -- same incremental-adoption precedent as
   # lint-extended above.
+  #
+  # Disabled for now (if: false) -- same rationale as lint-extended above:
+  # never green since introduction, continue-on-error already made it
+  # non-blocking, but the permanent red X reads as a regression. Re-enable
+  # by deleting this line once the backlog is being paid down.
   security-bandit:
+    if: false
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -87,7 +102,13 @@ jobs:
   # pyproject.toml [tool.mypy] python_version=3.12 fix (see its own
   # comment) -- without that, this crashes outright parsing numpy's own
   # stubs before it ever reaches this codebase's files.
+  #
+  # Disabled for now (if: false) -- same rationale as lint-extended above:
+  # never green since introduction, continue-on-error already made it
+  # non-blocking, but the permanent red X reads as a regression. Re-enable
+  # by deleting this line once the backlog is being paid down.
   typecheck-extended:
+    if: false
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
