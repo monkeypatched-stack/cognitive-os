@@ -35,11 +35,13 @@ whether a perturbed entity_id appears anywhere in it is a cheap,
 storage-free sufficient signal that the plan MIGHT depend on that entity
 -- no new field on CurrentPlanRecord, no snapshot to keep in sync.
 """
+
 from __future__ import annotations
 
 import dataclasses
 import logging
 import time
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -49,6 +51,7 @@ logger = logging.getLogger("agentos.pipeline.planning.deja_vu")
 def _plan_references_entity(plan_dict: dict[str, Any], entity_id: str) -> bool:
     """True iff entity_id appears anywhere in the persisted plan's
     serialized form -- see module docstring."""
+
     def _contains(value: Any) -> bool:
         if isinstance(value, str):
             return value == entity_id
@@ -57,6 +60,7 @@ def _plan_references_entity(plan_dict: dict[str, Any], entity_id: str) -> bool:
         if isinstance(value, (list, tuple)):
             return any(_contains(v) for v in value)
         return False
+
     return _contains(plan_dict)
 
 
@@ -80,13 +84,16 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
     if not touched_entity_ids:
         return []
 
-    from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
-        CurrentPlanRecord, load_current_plan, save_current_plan, plan_to_dict,
-    )
-    from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
-    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import score_plan, decide
-    from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
     from src.monkey_brain.kernel.pipeline.belief_state import Goal
+    from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
+    from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+        CurrentPlanRecord,
+        load_current_plan,
+        plan_to_dict,
+        save_current_plan,
+    )
+    from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
+    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import decide, score_plan
 
     engine = getattr(pr, "context_engine", None)
     if engine is None:
@@ -107,6 +114,20 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
 
             try:
                 context = engine.build(actor_id, Goal(name=current.goal))
+                # LLMPlanner.plan() reads context.metadata["_legacy_belief"].tenant_id
+                # to tenant-scope its promoted-plan lookup (see llm_planner.py) --
+                # engine.build() itself never sets this (only belief_runtime.py's
+                # _generate_plan does, for a regular tick). Without it every Deja
+                # Vu replay would resolve promoted plans under tenant_id="default"
+                # regardless of the actor's real tenant, silently never matching a
+                # capability promoted for a real (non-default) tenant. `state.actor`
+                # is the same duck-typed registered actor object CognitiveActor
+                # exposes `.tenant_id` on elsewhere (compile/cognitive_actor.py) --
+                # getattr, not a hard dependency, since a bare ActorProtocol
+                # implementation isn't guaranteed to carry one.
+                context.metadata["_legacy_belief"] = SimpleNamespace(
+                    tenant_id=getattr(getattr(state, "actor", None), "tenant_id", "") or "default",
+                )
                 # LLMPlanner.plan() is async (see llm_planner.py/model_backend.py --
                 # a real awaited Ollama call, genuinely cancellable, not a
                 # synchronous call hidden inside asyncio.to_thread). This whole
@@ -116,11 +137,14 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
                 # one just for this call, safely, since nothing else in this
                 # thread needs one.
                 import asyncio
+
                 new_plan = asyncio.run(planner.plan(context))
             except Exception:
                 logger.warning(
                     "replay_affected_actors: replay failed for actor %r goal %r (non-fatal)",
-                    actor_id, goal_key, exc_info=True,
+                    actor_id,
+                    goal_key,
+                    exc_info=True,
                 )
                 continue
             if not getattr(new_plan, "steps", None):
@@ -137,14 +161,16 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
 
             if verdict.action == "replace":
                 record = CurrentPlanRecord(
-                    plan_id=uuid4().hex, actor_id=actor_id,
+                    plan_id=uuid4().hex,
+                    actor_id=actor_id,
                     goal=getattr(new_plan, "goal", current.goal) or current.goal,
                     steps=tuple(s.action for s in new_plan.steps),
                     step_descriptions=tuple(s.description for s in new_plan.steps),
                     cost=float(getattr(new_plan, "cost", 0.0) or 0.0),
                     risk=float(getattr(new_plan, "risk", 0.0) or 0.0),
                     confidence=float(getattr(new_plan, "confidence", 0.0) or 0.0),
-                    score=new_score, score_components=components,
+                    score=new_score,
+                    score_components=components,
                     replaced_plan_id=current.plan_id,
                     plan=plan_to_dict(new_plan),
                 )
@@ -152,7 +178,9 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
                 logger.info("Deja Vu: replaced plan for actor %r goal %r (%s)", actor_id, goal_key, verdict.reason)
             else:
                 updated = dataclasses.replace(
-                    current, kept_count=current.kept_count + 1, last_kept_at=time.time(),
+                    current,
+                    kept_count=current.kept_count + 1,
+                    last_kept_at=time.time(),
                 )
                 save_current_plan(actor_id, goal_key, updated)
                 logger.info("Deja Vu: kept plan for actor %r goal %r (%s)", actor_id, goal_key, verdict.reason)

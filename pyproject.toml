@@ -80,7 +80,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff", "pre-commit"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff", "pre-commit", "bandit", "mypy"]
 enterprise = ["elasticsearch[async]", "pyspark", "mem0ai", "spacy"]
 soma = ["soma-cli>=1.0.0"]
 # Robot/ROS deployments only (kernel/edge/ros_integration.py). rclpy is
@@ -144,7 +144,19 @@ exclude = [
 select = ["E9"]
 
 [tool.mypy]
-python_version = "3.11"
+# Set to 3.12, one above requires-python's ">=3.11" floor, not because
+# this codebase needs 3.12 syntax -- because numpy>=2.5's bundled stubs
+# (numpy/__init__.pyi) use a PEP 695 `type` statement that mypy refuses
+# to even parse under python_version=3.11 ("Type statement is only
+# supported in Python 3.12 and greater"), crashing mypy on ANY file that
+# imports numpy transitively before it reaches this codebase's own
+# code -- confirmed locally, this is what blocked typecheck-extended
+# below from running at all until this changed. Known tradeoff: mypy
+# could in theory pass code that uses a real 3.12-only construct that
+# would fail at runtime on the project's actual 3.11 floor; no
+# lighter-weight fix (ignore_missing_imports, a per-module
+# follow_imports=skip override for numpy.*) avoided the crash.
+python_version = "3.12"
 explicit_package_bases = true
 namespace_packages = true
 ignore_missing_imports = true

@@ -17,34 +17,40 @@ Lemon is the cognitive observability hub. It owns:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from src.introspection.tracing import Tracer, Trace, Span
-from src.introspection.metrics import MetricsCollector, Metric
-from src.introspection.logging import StructuredLogger, LogEntry
-from src.introspection.health import HealthMonitor, HealthCheck
-from src.introspection.alerting import AlertManager, Alert, AlertRule, AlertSeverity
-from src.introspection.semantic_trace import (
-    SemanticEventStore,
-    IntentEvent, GoalEvent, PipelineStepEvent,
-    AgentReasonEvent, AgentReflectEvent, MemoryAccessEvent,
-    WorldModelEvent, GovernanceEvent, LearningEvent,
-)
-from src.introspection.otel_bridge import get_bridge
+from src.introspection.alerting import Alert, AlertManager, AlertRule, AlertSeverity
 from src.introspection.analytical_triggers import AnalyticalTriggerEngine
+from src.introspection.health import HealthCheck, HealthMonitor
+from src.introspection.logging import LogEntry, StructuredLogger
+from src.introspection.metrics import Metric, MetricsCollector
+from src.introspection.otel_bridge import get_bridge
+from src.introspection.semantic_trace import (
+    AgentReasonEvent,
+    AgentReflectEvent,
+    GoalEvent,
+    GovernanceEvent,
+    IntentEvent,
+    LearningEvent,
+    MemoryAccessEvent,
+    PipelineStepEvent,
+    SemanticEventStore,
+    WorldModelEvent,
+)
+from src.introspection.tracing import Span, Trace, Tracer
 
 logger = logging.getLogger(__name__)
 
-_lemon_instance: "Lemon | None" = None
+_lemon_instance: Lemon | None = None
 
 
-def set_lemon(lemon: "Lemon") -> None:
+def set_lemon(lemon: Lemon) -> None:
     global _lemon_instance
     _lemon_instance = lemon
 
 
-def get_lemon() -> "Lemon | None":
+def get_lemon() -> Lemon | None:
     return _lemon_instance
 
 
@@ -75,22 +81,22 @@ class Lemon:
     """
 
     def __init__(self, elasticsearch_url: str = "http://localhost:9200"):
-        self.tracer  = Tracer()
+        self.tracer = Tracer()
         self.metrics = MetricsCollector()
-        self.logger  = StructuredLogger()
-        self.health  = HealthMonitor()
-        self.alerts  = AlertManager()
+        self.logger = StructuredLogger()
+        self.health = HealthMonitor()
+        self.alerts = AlertManager()
         self._register_default_alert_rules()
-        self.semantic  = SemanticEventStore()
-        self.otel      = get_bridge()
-        self.triggers  = AnalyticalTriggerEngine()
-        self._es_url   = elasticsearch_url
+        self.semantic = SemanticEventStore()
+        self.otel = get_bridge()
+        self.triggers = AnalyticalTriggerEngine()
+        self._es_url = elasticsearch_url
         self._es_client = None
         self._persist_buffer: list[dict] = []
         # Lightweight rate-limit counters for trigger evaluation in hot paths
-        self._trigger_step_count:    int = 0
-        self._trigger_world_count:   int = 0
-        self._trigger_learn_count:   int = 0
+        self._trigger_step_count: int = 0
+        self._trigger_world_count: int = 0
+        self._trigger_learn_count: int = 0
 
     def _register_default_alert_rules(self) -> None:
         """Gate 11 (production readiness): AlertManager existed and was
@@ -108,92 +114,99 @@ class Lemon:
           - dependency health, since /health can report a real subsystem
             outage that nothing currently pages anyone about
         """
-        self.alerts.add_rule(AlertRule(
-            name="planetary_tick_slow",
-            condition=lambda ctx: ctx.get("duration_ms", 0) > 60_000,
-            severity=AlertSeverity.WARNING,
-            message_template="Planetary cycle took {duration_ms:.0f}ms (>60s) for {actors_observed} actors",
-        ))
-        self.alerts.add_rule(AlertRule(
-            name="planetary_tick_pileup_risk",
-            condition=lambda ctx: ctx.get("duration_ms", 0) > 180_000,
-            severity=AlertSeverity.CRITICAL,
-            message_template=(
-                "Planetary cycle took {duration_ms:.0f}ms — over 60% of the "
-                "300s auto-tick interval; cycles will start piling up and "
-                "getting skipped at this actor count/latency"
-            ),
-        ))
-        self.alerts.add_rule(AlertRule(
-            name="dependency_unhealthy",
-            condition=lambda ctx: ctx.get("health") not in (None, "healthy"),
-            severity=AlertSeverity.CRITICAL,
-            message_template="Overall health is {health} (checks: {checks})",
-        ))
+        self.alerts.add_rule(
+            AlertRule(
+                name="planetary_tick_slow",
+                condition=lambda ctx: ctx.get("duration_ms", 0) > 60_000,
+                severity=AlertSeverity.WARNING,
+                message_template="Planetary cycle took {duration_ms:.0f}ms (>60s) for {actors_observed} actors",
+            )
+        )
+        self.alerts.add_rule(
+            AlertRule(
+                name="planetary_tick_pileup_risk",
+                condition=lambda ctx: ctx.get("duration_ms", 0) > 180_000,
+                severity=AlertSeverity.CRITICAL,
+                message_template=(
+                    "Planetary cycle took {duration_ms:.0f}ms — over 60% of the "
+                    "300s auto-tick interval; cycles will start piling up and "
+                    "getting skipped at this actor count/latency"
+                ),
+            )
+        )
+        self.alerts.add_rule(
+            AlertRule(
+                name="dependency_unhealthy",
+                condition=lambda ctx: ctx.get("health") not in (None, "healthy"),
+                severity=AlertSeverity.CRITICAL,
+                message_template="Overall health is {health} (checks: {checks})",
+            )
+        )
 
     async def connect_elasticsearch(self) -> None:
         """Connect to Elasticsearch for persistence."""
         try:
             from elasticsearch import AsyncElasticsearch
+
             self._es_client = AsyncElasticsearch([self._es_url])
             await self._es_client.ping()
         except Exception as e:
             logger.debug("Elasticsearch connection failed: %s", e)
             self._es_client = None
-    
+
     async def persist_metrics(self) -> dict[str, Any]:
         """Persist all metrics to Elasticsearch."""
         if not self._es_client:
             return {"status": "no_elasticsearch"}
-        
+
         export = self.metrics.export()
-        timestamp = datetime.now(timezone.utc).isoformat()
-        
+        timestamp = datetime.now(UTC).isoformat()
+
         doc = {
             "timestamp": timestamp,
             "counters": export.get("counters", {}),
             "gauges": export.get("gauges", {}),
             "histograms": export.get("histograms", {}),
         }
-        
+
         try:
             await self._es_client.index(index="agentos-metrics", document=doc)
             return {"status": "persisted", "timestamp": timestamp}
         except Exception as e:
             return {"status": "error", "error": str(e)}
-    
+
     async def persist_traces(self) -> dict[str, Any]:
         """Persist recent traces to Elasticsearch."""
         if not self._es_client:
             return {"status": "no_elasticsearch"}
-        
+
         traces = list(self.tracer._traces.values())[-100:]
-        
+
         for trace in traces:
             doc = trace.to_dict()
             try:
                 await self._es_client.index(index="agentos-traces", document=doc)
             except Exception as e:
                 logger.debug("ES trace persist failed: %s", e)
-        
+
         return {"status": "persisted", "count": len(traces)}
-    
+
     async def persist_logs(self, limit: int = 100) -> dict[str, Any]:
         """Persist recent logs to Elasticsearch."""
         if not self._es_client:
             return {"status": "no_elasticsearch"}
-        
+
         logs = self.logger.get_entries(limit=limit)
-        
+
         for log in logs:
             doc = log.to_dict()
             try:
                 await self._es_client.index(index="agentos-logs", document=doc)
             except Exception as e:
                 logger.debug("ES log persist failed: %s", e)
-        
+
         return {"status": "persisted", "count": len(logs)}
-    
+
     async def persist_all(self) -> dict[str, Any]:
         """Persist all observability data to Elasticsearch."""
         results = {}
@@ -201,50 +214,59 @@ class Lemon:
         results["traces"] = await self.persist_traces()
         results["logs"] = await self.persist_logs()
         return results
-    
+
     async def query_metrics(self, metric_name: str | None = None, size: int = 100) -> list[dict]:
         """Query metrics from Elasticsearch."""
         if not self._es_client:
             return []
-        
+
         try:
             if metric_name:
                 query = {"query": {"term": {"counters." + metric_name: {"exists": True}}}}
             else:
                 query = {"query": {"match_all": {}}, "sort": [{"timestamp": "desc"}]}
-            
+
             result = await self._es_client.search(index="agentos-metrics", body={"size": size, **query})
             return [hit["_source"] for hit in result["hits"]["hits"]]
         except Exception as e:
             logger.debug("ES metrics query failed: %s", e)
             return []
-        
+
+    async def query_traces(self, trace_id: str | None = None, size: int = 100) -> list[dict]:
+        """Query traces from Elasticsearch."""
+        if not self._es_client:
+            return []
+
         try:
             if trace_id:
                 query = {"query": {"term": {"trace_id": trace_id}}}
             else:
                 query = {"query": {"match_all": {}}, "sort": [{"timestamp": "desc"}]}
-            
+
             result = await self._es_client.search(index="agentos-traces", body={"size": size, **query})
             return [hit["_source"] for hit in result["hits"]["hits"]]
         except Exception as e:
             logger.debug("ES traces query failed: %s", e)
             return []
 
-    async def query_logs(self, severity: str | None = None, component: str | None = None, size: int = 100) -> list[dict]:
+    async def query_logs(
+        self, severity: str | None = None, component: str | None = None, size: int = 100
+    ) -> list[dict]:
         """Query logs from Elasticsearch."""
         if not self._es_client:
             return []
-        
+
         try:
             must = []
             if severity:
                 must.append({"term": {"severity": severity}})
             if component:
                 must.append({"term": {"component": component}})
-            
+
             query = {"query": {"bool": {"must": must or [{"match_all": {}}]}}}
-            result = await self._es_client.search(index="agentos-logs", body={"size": size, "sort": [{"timestamp": "desc"}], **query})
+            result = await self._es_client.search(
+                index="agentos-logs", body={"size": size, "sort": [{"timestamp": "desc"}], **query}
+            )
             return [hit["_source"] for hit in result["hits"]["hits"]]
         except Exception as e:
             logger.debug("ES logs query failed: %s", e)
@@ -255,7 +277,7 @@ class Lemon:
         metrics = await self.query_metrics(size=1)
         traces = await self.query_traces(size=10)
         logs = await self.query_logs(size=10)
-        
+
         return {
             "latest_metrics": metrics[0] if metrics else {},
             "recent_traces": len(traces),
@@ -263,7 +285,7 @@ class Lemon:
             "health": self.health.summary(),
             "alerts": [a.to_dict() for a in self.alerts.get_active()],
         }
-    
+
     # --- Tracing ---
     def start_trace(self, name: str = "", trace_id: str | None = None, **metadata: Any) -> Trace:
         """`trace_id`: pass ExecutionContext.trace_id (or any external run
@@ -274,70 +296,70 @@ class Lemon:
         actual identity).
         """
         return self.tracer.start_trace(name, trace_id=trace_id, **metadata)
-    
+
     def start_span(self, name: str, component: str = "", **attributes: Any) -> Span:
         return self.tracer.start_span(name, component, **attributes)
-    
+
     def finish_span(self, status: str = "ok") -> None:
         self.tracer.finish_span(status)
-    
+
     def finish_trace(self) -> None:
         self.tracer.finish_trace()
-    
+
     # --- Metrics ---
     def record_metric(self, name: str, value: float, unit: str = "", **tags: str) -> Metric:
         return self.metrics.record(name, value, unit, **tags)
-    
+
     def counter(self, name: str, increment: int = 1, **tags: str) -> None:
         self.metrics.counter(name, increment, **tags)
-    
+
     def gauge(self, name: str, value: float, **tags: str) -> None:
         self.metrics.gauge(name, value, **tags)
-    
+
     def histogram(self, name: str, value: float, **tags: str) -> None:
         self.metrics.histogram(name, value, **tags)
-    
+
     # --- Logging ---
     def log(self, severity: str, message: str, component: str = "", **kwargs: Any) -> LogEntry:
         trace = self.tracer.get_current_trace()
         if trace:
             kwargs["trace_id"] = trace.trace_id
         return self.logger.log(severity, message, component=component, **kwargs)
-    
+
     def info(self, message: str, component: str = "", **kwargs: Any) -> LogEntry:
         return self.logger.info(message, component=component, **kwargs)
-    
+
     def warn(self, message: str, component: str = "", **kwargs: Any) -> LogEntry:
         return self.logger.warn(message, component=component, **kwargs)
-    
+
     def error(self, message: str, component: str = "", **kwargs: Any) -> LogEntry:
         return self.logger.error(message, component=component, **kwargs)
-    
+
     # --- Health ---
     def health_check(self, name: str, status: str = "healthy", **metadata: Any) -> HealthCheck:
         return self.health.check(name, status, **metadata)
-    
+
     def overall_health(self) -> str:
         return self.health.overall_status()
-    
+
     # --- Alerts ---
     def alert(self, name: str, message: str, severity: AlertSeverity = AlertSeverity.WARNING, **metadata: Any) -> Alert:
         return self.alerts.fire(name, message, severity, **metadata)
-    
+
     def add_alert_rule(self, rule: AlertRule) -> None:
         self.alerts.add_rule(rule)
-    
+
     # --- Summary ---
     def summary(self) -> dict[str, Any]:
         return {
-            "tracing":   self.tracer.summary(),
-            "metrics":   self.metrics.summary(),
-            "logging":   self.logger.summary(),
-            "health":    self.health.summary(),
-            "alerts":    self.alerts.summary(),
-            "semantic":  self.semantic.summary(),
-            "triggers":  self.triggers.summary(),
-            "otel":      {"available": self.otel.available},
+            "tracing": self.tracer.summary(),
+            "metrics": self.metrics.summary(),
+            "logging": self.logger.summary(),
+            "health": self.health.summary(),
+            "alerts": self.alerts.summary(),
+            "semantic": self.semantic.summary(),
+            "triggers": self.triggers.summary(),
+            "otel": {"available": self.otel.available},
             "elasticsearch_connected": self._es_client is not None,
         }
 
@@ -354,7 +376,7 @@ class Lemon:
         # reported {"count": 0} for every tagged histogram.
         histograms = {k: self.metrics._stats_for_values(v) for k, v in self.metrics._histograms.items()}
         return {
-            "summary":       self.summary(),
+            "summary": self.summary(),
             "metrics": {
                 "counters": counters,
                 "gauges": gauges,
@@ -362,11 +384,11 @@ class Lemon:
                 "total_defined": 138,
                 "active_count": len(counters) + len(gauges) + len(histograms),
             },
-            "health":        self.health.summary(),
+            "health": self.health.summary(),
             "active_alerts": [a.to_dict() for a in self.alerts.get_active()],
-            "dashboard":     self.dashboard("all"),
-            "traces":        recent_traces,
-            "logs":          recent_logs,
+            "dashboard": self.dashboard("all"),
+            "traces": recent_traces,
+            "logs": recent_logs,
         }
 
     # =========================================================================
@@ -645,17 +667,22 @@ class Lemon:
         panel: "intent" | "agent" | "pipeline" | "world_model" | "governance" | "learning" | "all"
         """
         from src.introspection.cognitive_dashboards import (
-            intent_dashboard, agent_dashboard, pipeline_dashboard,
-            world_model_dashboard, governance_dashboard, learning_dashboard,
+            agent_dashboard,
             full_dashboard,
+            governance_dashboard,
+            intent_dashboard,
+            learning_dashboard,
+            pipeline_dashboard,
+            world_model_dashboard,
         )
+
         _panels = {
-            "intent":      intent_dashboard,
-            "agent":       agent_dashboard,
-            "pipeline":    pipeline_dashboard,
+            "intent": intent_dashboard,
+            "agent": agent_dashboard,
+            "pipeline": pipeline_dashboard,
             "world_model": world_model_dashboard,
-            "governance":  governance_dashboard,
-            "learning":    learning_dashboard,
+            "governance": governance_dashboard,
+            "learning": learning_dashboard,
         }
         if panel == "all":
             return full_dashboard(self)
@@ -689,17 +716,19 @@ class Lemon:
                 self._fire_trigger_alert(f)
         except Exception as exc:
             import logging as _l
+
             _l.getLogger(__name__).debug("Trigger evaluation error (non-fatal): %s", exc)
 
     def _fire_trigger_alert(self, finding) -> None:
         """Convert a TriggerFinding into a Lemon alert."""
         try:
             from src.introspection.alerting import AlertSeverity as _AS
+
             sev_map = {
                 "CRITICAL": _AS.CRITICAL,
-                "HIGH":     _AS.ERROR,
-                "MEDIUM":   _AS.WARNING,
-                "LOW":      _AS.INFO,
+                "HIGH": _AS.ERROR,
+                "MEDIUM": _AS.WARNING,
+                "LOW": _AS.INFO,
             }
             sev = sev_map.get(finding.severity, _AS.WARNING)
             self.alert(
@@ -744,8 +773,7 @@ class Lemon:
             component="execution_graph",
         )
 
-    def observe_graph_change(self, change_type: str, node_type: str = "",
-                             node_id: str = "", **tags: str) -> None:
+    def observe_graph_change(self, change_type: str, node_type: str = "", node_id: str = "", **tags: str) -> None:
         """Record a runtime change to the ExecutionGraph.
 
         change_type: "node_added", "edge_added", "registration", "resolution"

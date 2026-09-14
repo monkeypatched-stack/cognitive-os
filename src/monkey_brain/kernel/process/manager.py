@@ -24,37 +24,38 @@ See VALID_TRANSITIONS in models.py for the enforced table, and the
 "Architecture Sprint: Design the Cognitive Process Manager" spec this
 implements for full justification of each design choice.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
-from typing import Any, Callable, Literal
+from collections.abc import Callable
+from typing import Any, Literal
 
 from src.monkey_brain.kernel.execute.context import ExecutionContext
 from src.monkey_brain.kernel.execute.graph import ExecutionGraph, NodeState
 from src.monkey_brain.kernel.fix.scheduler.graph_scheduler import GraphScheduler
 from src.monkey_brain.kernel.fix.self_healing.workload import SelfHealingPolicy
-
-from src.monkey_brain.kernel.process.models import (
-    RuntimeProcessControlBlock,
-    RuntimeProcessState,
-    VALID_TRANSITIONS,
-    ApprovalGateState,
-    ProcessError,
-    ProcessResourceLimits,
-    CheckpointRef,
-    InvalidTransitionError,
-    ProcessNotFoundError,
-)
 from src.monkey_brain.kernel.process.checkpoint import (
-    CheckpointStore,
     CheckpointOpsMixin,
+    CheckpointStore,
     build_checkpoint,
 )
-from src.monkey_brain.kernel.process.compensation import compensate as run_compensation
 from src.monkey_brain.kernel.process.compensation import CompensationRegistry, get_compensation_registry
+from src.monkey_brain.kernel.process.compensation import compensate as run_compensation
 from src.monkey_brain.kernel.process.expansion_policy import _TrackingExpansionPolicy
+from src.monkey_brain.kernel.process.models import (
+    VALID_TRANSITIONS,
+    ApprovalGateState,
+    CheckpointRef,
+    InvalidTransitionError,
+    ProcessError,
+    ProcessNotFoundError,
+    ProcessResourceLimits,
+    RuntimeProcessControlBlock,
+    RuntimeProcessState,
+)
 
 logger = logging.getLogger("agentos.process.manager")
 
@@ -81,6 +82,7 @@ class ProcessManager(CheckpointOpsMixin):
         self._compensation_registry = compensation_registry or get_compensation_registry()
         self._execute_capability = execute_capability
         self._max_repair_attempts = max_repair_attempts
+        self._max_scheduler_iterations_per_tick = max(1, max_scheduler_iterations_per_tick)
         self._graph_store = graph_store
 
         self._table: dict[str, RuntimeProcessControlBlock] = {}
@@ -96,7 +98,9 @@ class ProcessManager(CheckpointOpsMixin):
         if self._event_bus is not None:
             await self._event_bus.publish(event_type, payload)
 
-    async def _transition(self, rpcb: RuntimeProcessControlBlock, target: RuntimeProcessState, **event_extra: Any) -> None:
+    async def _transition(
+        self, rpcb: RuntimeProcessControlBlock, target: RuntimeProcessState, **event_extra: Any
+    ) -> None:
         current = rpcb.state
         if target not in VALID_TRANSITIONS.get(current, frozenset()):
             raise InvalidTransitionError(rpcb.run_id, current, target)
@@ -156,7 +160,9 @@ class ProcessManager(CheckpointOpsMixin):
 
         graph_source = graph if graph is not None else getattr(workload, "graph", None)
         if graph_source is None:
-            raise ValueError("create_process requires a pre-built graph; the planner must construct it before runtime handoff")
+            raise ValueError(
+                "create_process requires a pre-built graph; the planner must construct it before runtime handoff"
+            )
 
         rpcb = RuntimeProcessControlBlock(
             run_id=run_id,
@@ -173,7 +179,9 @@ class ProcessManager(CheckpointOpsMixin):
 
         policy = _TrackingExpansionPolicy(SelfHealingPolicy(max_repair_attempts=self._max_repair_attempts))
         self._expansion_policies[run_id] = policy
-        self._schedulers[run_id] = GraphScheduler(bus=capability_bus, expansion_policy=policy, execution_mode=execution_mode)
+        self._schedulers[run_id] = GraphScheduler(
+            bus=capability_bus, expansion_policy=policy, execution_mode=execution_mode
+        )
 
         await self._transition(rpcb, RuntimeProcessState.INITIALIZED)
         return rpcb
@@ -229,9 +237,15 @@ class ProcessManager(CheckpointOpsMixin):
         )
         for r in records:
             rpcb.compensation_log.append(r)
-            await self._publish("process.compensated_node", {
-                "run_id": run_id, "node_id": r.node_id, "capability": r.capability_name, "success": r.success,
-            })
+            await self._publish(
+                "process.compensated_node",
+                {
+                    "run_id": run_id,
+                    "node_id": r.node_id,
+                    "capability": r.capability_name,
+                    "success": r.success,
+                },
+            )
 
         if all_recovered:
             await self._transition(rpcb, RuntimeProcessState.ROLLED_BACK)
@@ -267,12 +281,17 @@ class ProcessManager(CheckpointOpsMixin):
 
         if decision == "approve":
             rpcb.graph.mark_complete(gate.node_id, result={"approved_by": approver, "note": note})
-            await self._publish("process.approval_granted", {"run_id": run_id, "node_id": gate.node_id, "approver": approver})
+            await self._publish(
+                "process.approval_granted", {"run_id": run_id, "node_id": gate.node_id, "approver": approver}
+            )
             rpcb.approval_gate = None
             await self._transition(rpcb, RuntimeProcessState.RUNNING)
         else:
             rpcb.graph.mark_failed(gate.node_id, error=f"rejected by {approver}: {note}")
-            await self._publish("process.approval_rejected", {"run_id": run_id, "node_id": gate.node_id, "approver": approver, "note": note})
+            await self._publish(
+                "process.approval_rejected",
+                {"run_id": run_id, "node_id": gate.node_id, "approver": approver, "note": note},
+            )
             rpcb.approval_gate = None
             await self._transition(rpcb, RuntimeProcessState.COMPENSATING)
             await self.compensate_process(run_id)
@@ -295,7 +314,8 @@ class ProcessManager(CheckpointOpsMixin):
         target="simulate" explicitly is the dry-run path (substitutes the
         world-model simulator for real capabilities).
         """
-        from src.monkey_brain.kernel.plan.goals.run_store import get_run_store, replay as _replay
+        from src.monkey_brain.kernel.plan.goals.run_store import get_run_store
+        from src.monkey_brain.kernel.plan.goals.run_store import replay as _replay
 
         store = get_run_store()
         original_target = store.get_target(run_id)
@@ -331,16 +351,21 @@ class ProcessManager(CheckpointOpsMixin):
         with the interpreter, which is what happened before this existed.
         """
         unfinished = [
-            rpcb for rpcb in self._table.values()
-            if rpcb.state not in (
-                RuntimeProcessState.COMPLETED, RuntimeProcessState.FAILED,
-                RuntimeProcessState.ROLLED_BACK, RuntimeProcessState.TERMINATED,
+            rpcb
+            for rpcb in self._table.values()
+            if rpcb.state
+            not in (
+                RuntimeProcessState.COMPLETED,
+                RuntimeProcessState.FAILED,
+                RuntimeProcessState.ROLLED_BACK,
+                RuntimeProcessState.TERMINATED,
             )
         ]
         if unfinished:
             logger.warning(
                 "ProcessManager shutdown: %d process(es) not in a terminal state: %s",
-                len(unfinished), [(r.run_id, r.state.value) for r in unfinished],
+                len(unfinished),
+                [(r.run_id, r.state.value) for r in unfinished],
             )
         await self._publish("process_manager.shutdown", {"unfinished": len(unfinished)})
 
@@ -377,14 +402,27 @@ class ProcessManager(CheckpointOpsMixin):
         state_before = {n.id: rpcb.graph.get_state(n.id) for n in rpcb.graph.all_nodes()}
 
         scheduler = self._schedulers[rpcb.run_id]
-        await scheduler.run_one_tick(rpcb.graph, iteration=rpcb.graph.iteration)
+        # Bounded by max_scheduler_iterations_per_tick (default 1 — identical
+        # to always calling run_one_tick() exactly once, as before this loop
+        # existed). >1 lets one external tick_all() pass drive a chain of
+        # immediately-ready nodes through several scheduler rounds without
+        # waiting for another driver call, while still returning control
+        # (and letting tick_all() reach other RUNNING processes) once the
+        # bound is hit rather than running this one process to completion.
+        # Stops early once a round executes nothing — further rounds would
+        # be identical no-ops until something external unblocks a node.
+        # Same "run rounds until nothing executes" idiom GraphScheduler.run()
+        # already implements internally, just bounded by a count here
+        # instead of run()'s own has_runnable_nodes() check, so this stays
+        # in step if that termination condition ever changes.
+        for _ in range(self._max_scheduler_iterations_per_tick):
+            executed = await scheduler.run_one_tick(rpcb.graph, iteration=rpcb.graph.iteration)
+            if not executed:
+                break
         await self._recompute_process_state(rpcb)
 
         state_after = {n.id: rpcb.graph.get_state(n.id) for n in rpcb.graph.all_nodes()}
-        changed_nodes = [
-            node_id for node_id, s_before in state_before.items()
-            if state_after.get(node_id) != s_before
-        ]
+        changed_nodes = [node_id for node_id, s_before in state_before.items() if state_after.get(node_id) != s_before]
 
         if changed_nodes:
             await self._sync_graph_state(rpcb, changed_nodes, state_after)
@@ -399,11 +437,12 @@ class ProcessManager(CheckpointOpsMixin):
         states = {n.id: graph.get_state(n.id) for n in all_nodes}
 
         failed_exhausted = [
-            node_id for node_id, state in states.items()
-            if state == NodeState.FAILED and node_id in policy.exhausted
+            node_id for node_id, state in states.items() if state == NodeState.FAILED and node_id in policy.exhausted
         ]
         if failed_exhausted:
-            rpcb.error = ProcessError(message=f"node(s) failed, retries exhausted: {failed_exhausted}", node_id=failed_exhausted[0])
+            rpcb.error = ProcessError(
+                message=f"node(s) failed, retries exhausted: {failed_exhausted}", node_id=failed_exhausted[0]
+            )
             await self._transition(rpcb, RuntimeProcessState.COMPENSATING)
             await self.compensate_process(rpcb.run_id)
             return
@@ -420,9 +459,14 @@ class ProcessManager(CheckpointOpsMixin):
                     node_id=gate_node.id,
                     prompt=str(gate_node.props.get("prompt", "")),
                 )
-                await self._publish("process.approval_requested", {
-                    "run_id": rpcb.run_id, "node_id": gate_node.id, "prompt": rpcb.approval_gate.prompt,
-                })
+                await self._publish(
+                    "process.approval_requested",
+                    {
+                        "run_id": rpcb.run_id,
+                        "node_id": gate_node.id,
+                        "prompt": rpcb.approval_gate.prompt,
+                    },
+                )
             await self._transition(rpcb, RuntimeProcessState.WAITING, reason="approval_gate")
             return
 
@@ -444,8 +488,10 @@ class ProcessManager(CheckpointOpsMixin):
         # specific node's budget is confirmed exhausted (handled above) or
         # something becomes runnable again.
         unexhausted_failed = [
-            node_id for node_id, state in states.items()
-            if state == NodeState.FAILED and node_id in {n.id for n in graph.get_step_nodes()}
+            node_id
+            for node_id, state in states.items()
+            if state == NodeState.FAILED
+            and node_id in {n.id for n in graph.get_step_nodes()}
             and node_id not in policy.exhausted
         ]
         if not graph.has_runnable_nodes() and not all_terminal and not unexhausted_failed:
@@ -476,7 +522,9 @@ class ProcessManager(CheckpointOpsMixin):
                 state_val = states.get(node_id, "unknown")
                 state_str = state_val.value if hasattr(state_val, "value") else str(state_val)
                 await self._graph_store.sync_node_state(
-                    node_id, state_str, run_id=rpcb.run_id,
+                    node_id,
+                    state_str,
+                    run_id=rpcb.run_id,
                 )
         except Exception as exc:
             logger.debug("live graph sync failed (non-fatal): %s", exc)
@@ -488,8 +536,10 @@ class ProcessManager(CheckpointOpsMixin):
         avoid checkpointing processes that are about to be cleaned up.
         """
         if rpcb.state in (
-            RuntimeProcessState.COMPLETED, RuntimeProcessState.FAILED,
-            RuntimeProcessState.ROLLED_BACK, RuntimeProcessState.TERMINATED,
+            RuntimeProcessState.COMPLETED,
+            RuntimeProcessState.FAILED,
+            RuntimeProcessState.ROLLED_BACK,
+            RuntimeProcessState.TERMINATED,
         ):
             return
         try:

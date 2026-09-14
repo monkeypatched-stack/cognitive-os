@@ -28,6 +28,7 @@ other.
 Same lazy Redis singleton / never-raises persistence shape as
 negotiation_store.py / approval_store.py / execution_checkpoint_store.py.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,6 +38,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
+
+from src.monkey_brain.kernel.pipeline.learning.domain import experience_tenant_id, scoped_goal_signature
 
 logger = logging.getLogger("agentos.pipeline.capability_promotion")
 
@@ -66,8 +69,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -87,6 +92,7 @@ class PromotedCapabilityCandidate:
     the count of times this SAME goal_signature has re-crossed the
     threshold (a fresh streak after a `reset`, e.g. following observed
     drift) — real versioned infrastructure, not a cosmetic field."""
+
     goal_signature: str
     candidate_id: str = ""
     consecutive_successes: int = 0
@@ -98,19 +104,26 @@ class PromotedCapabilityCandidate:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "goal_signature": self.goal_signature, "candidate_id": self.candidate_id,
-            "consecutive_successes": self.consecutive_successes, "confidence": self.confidence,
-            "outcome_summary": self.outcome_summary, "top_signal_summary": self.top_signal_summary,
-            "version": self.version, "created_at": self.created_at,
+            "goal_signature": self.goal_signature,
+            "candidate_id": self.candidate_id,
+            "consecutive_successes": self.consecutive_successes,
+            "confidence": self.confidence,
+            "outcome_summary": self.outcome_summary,
+            "top_signal_summary": self.top_signal_summary,
+            "version": self.version,
+            "created_at": self.created_at,
         }
 
     @staticmethod
-    def from_dict(d: dict[str, Any]) -> "PromotedCapabilityCandidate":
+    def from_dict(d: dict[str, Any]) -> PromotedCapabilityCandidate:
         return PromotedCapabilityCandidate(
-            goal_signature=d.get("goal_signature", ""), candidate_id=d.get("candidate_id", ""),
+            goal_signature=d.get("goal_signature", ""),
+            candidate_id=d.get("candidate_id", ""),
             consecutive_successes=int(d.get("consecutive_successes", 0)),
-            confidence=float(d.get("confidence", 0.0)), outcome_summary=d.get("outcome_summary", ""),
-            top_signal_summary=d.get("top_signal_summary", ""), version=int(d.get("version", 1)),
+            confidence=float(d.get("confidence", 0.0)),
+            outcome_summary=d.get("outcome_summary", ""),
+            top_signal_summary=d.get("top_signal_summary", ""),
+            version=int(d.get("version", 1)),
             created_at=float(d.get("created_at", time.time())),
         )
 
@@ -118,6 +131,7 @@ class PromotedCapabilityCandidate:
 @dataclass(frozen=True)
 class FrozenPlanStep:
     """One verified plan step — JSON-safe, no LLM, no runtime objects."""
+
     action: str
     description: str = ""
     parameters: dict[str, Any] = field(default_factory=dict)
@@ -126,13 +140,15 @@ class FrozenPlanStep:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "action": self.action, "description": self.description,
-            "parameters": dict(self.parameters), "depends_on": list(self.depends_on),
+            "action": self.action,
+            "description": self.description,
+            "parameters": dict(self.parameters),
+            "depends_on": list(self.depends_on),
             "required_permission": self.required_permission,
         }
 
     @staticmethod
-    def from_dict(d: dict[str, Any]) -> "FrozenPlanStep":
+    def from_dict(d: dict[str, Any]) -> FrozenPlanStep:
         raw_depends = d.get("depends_on") or ()
         return FrozenPlanStep(
             action=str(d.get("action", "")),
@@ -150,6 +166,7 @@ class VerifiedExecutionRecipe:
     Promotion replays THIS exact sequence — no LLM re-planning, no
     synthesized code. Authority stays bounded to capabilities already on
     the bus when the operator activates."""
+
     goal_signature: str
     steps: tuple[FrozenPlanStep, ...]
     source_candidate_id: str = ""
@@ -164,7 +181,7 @@ class VerifiedExecutionRecipe:
         }
 
     @staticmethod
-    def from_dict(d: dict[str, Any]) -> "VerifiedExecutionRecipe":
+    def from_dict(d: dict[str, Any]) -> VerifiedExecutionRecipe:
         return VerifiedExecutionRecipe(
             goal_signature=str(d.get("goal_signature", "")),
             steps=tuple(FrozenPlanStep.from_dict(s) for s in (d.get("steps") or [])),
@@ -197,9 +214,12 @@ def extract_recipe_from_experience(experience: Any) -> VerifiedExecutionRecipe |
 
     Called from the learning integration path only — never registers or
     activates anything."""
-    goal_signature = str((experience.metadata or {}).get("goal_name", "") or "")
+    bare_goal_name = str((experience.metadata or {}).get("goal_name", "") or "")
+    if not bare_goal_name:
+        return None
+    goal_signature = scoped_goal_signature(bare_goal_name, experience_tenant_id(experience))
     plan = getattr(experience, "plan", None)
-    if not goal_signature or plan is None:
+    if plan is None:
         return None
     steps = getattr(plan, "steps", None) or ()
     if not steps:
@@ -209,13 +229,15 @@ def extract_recipe_from_experience(experience: Any) -> VerifiedExecutionRecipe |
         action = getattr(step, "action", "") or ""
         if not action:
             continue
-        frozen.append(FrozenPlanStep(
-            action=action,
-            description=str(getattr(step, "description", "") or ""),
-            parameters=dict(getattr(step, "parameters", None) or {}),
-            depends_on=tuple(getattr(step, "depends_on", ()) or ()),
-            required_permission=str(getattr(step, "required_permission", "") or ""),
-        ))
+        frozen.append(
+            FrozenPlanStep(
+                action=action,
+                description=str(getattr(step, "description", "") or ""),
+                parameters=dict(getattr(step, "parameters", None) or {}),
+                depends_on=tuple(getattr(step, "depends_on", ()) or ()),
+                required_permission=str(getattr(step, "required_permission", "") or ""),
+            )
+        )
     if not frozen:
         return None
     return VerifiedExecutionRecipe(goal_signature=goal_signature, steps=tuple(frozen))
@@ -336,16 +358,27 @@ class CapabilityPromotionTracker:
     first crosses (streak_threshold, confidence_threshold). Thread-safe —
     actors within a society tick concurrently."""
 
-    def __init__(self, *, streak_threshold: int = _DEFAULT_STREAK_THRESHOLD,
-                 confidence_threshold: float = _DEFAULT_CONFIDENCE_THRESHOLD) -> None:
+    def __init__(
+        self,
+        *,
+        streak_threshold: int = _DEFAULT_STREAK_THRESHOLD,
+        confidence_threshold: float = _DEFAULT_CONFIDENCE_THRESHOLD,
+    ) -> None:
         self._streaks: dict[str, _GoalStreak] = {}
         self._lock = threading.Lock()
         self._streak_threshold = streak_threshold
         self._confidence_threshold = confidence_threshold
 
-    def observe(self, *, goal_signature: str, reward: float, confidence: float,
-                outcome_summary: str, top_signal_summary: str,
-                recipe: VerifiedExecutionRecipe | None = None) -> PromotedCapabilityCandidate | None:
+    def observe(
+        self,
+        *,
+        goal_signature: str,
+        reward: float,
+        confidence: float,
+        outcome_summary: str,
+        top_signal_summary: str,
+        recipe: VerifiedExecutionRecipe | None = None,
+    ) -> PromotedCapabilityCandidate | None:
         """Record one PhiArtifact's outcome. Returns a new, already-persisted
         PromotedCapabilityCandidate the moment this goal_signature's streak
         crosses the threshold; None otherwise (including on every later
@@ -368,18 +401,17 @@ class CapabilityPromotionTracker:
             streak.last_outcome_summary = outcome_summary
             streak.last_top_signal_summary = top_signal_summary
 
-            if (
-                streak.consecutive_successes >= self._streak_threshold
-                and not streak.promoted_this_run
-            ):
+            if streak.consecutive_successes >= self._streak_threshold and not streak.promoted_this_run:
                 streak.promoted_this_run = True
                 streak.times_promoted += 1
                 candidate = PromotedCapabilityCandidate(
                     goal_signature=goal_signature,
                     candidate_id=f"{goal_signature}::v{streak.times_promoted}",
                     consecutive_successes=streak.consecutive_successes,
-                    confidence=confidence, outcome_summary=outcome_summary,
-                    top_signal_summary=top_signal_summary, version=streak.times_promoted,
+                    confidence=confidence,
+                    outcome_summary=outcome_summary,
+                    top_signal_summary=top_signal_summary,
+                    version=streak.times_promoted,
                 )
                 _save_candidate(candidate)
                 if recipe is not None:
@@ -394,7 +426,10 @@ class CapabilityPromotionTracker:
                     "capability_promotion: %r crossed promotion threshold "
                     "(%d consecutive verified successes, confidence=%.2f) -- "
                     "recorded as PromotedCapabilityCandidate v%d",
-                    goal_signature, streak.consecutive_successes, confidence, streak.times_promoted,
+                    goal_signature,
+                    streak.consecutive_successes,
+                    confidence,
+                    streak.times_promoted,
                 )
                 return candidate
         return None
@@ -476,6 +511,7 @@ class PromotedDeterministicCapability:
             }
             if inspect.iscoroutinefunction(getattr(capability, "handle", None)):
                 import asyncio
+
                 result = asyncio.get_event_loop().run_until_complete(capability.handle(handle_args))
             else:
                 result = capability.handle(handle_args)
@@ -492,7 +528,8 @@ class PromotedDeterministicCapability:
                     "candidate_id": self.candidate_id,
                     "outcomes": outcomes,
                     "error": (result or {}).get("error", f"step {idx} ({step.action}) failed")
-                    if isinstance(result, dict) else f"step {idx} ({step.action}) failed",
+                    if isinstance(result, dict)
+                    else f"step {idx} ({step.action}) failed",
                 }
 
         return {
@@ -559,7 +596,8 @@ def activate_promoted_capability(
     candidate = load_candidate(candidate_id)
     if recipe is None or candidate is None:
         logger.warning(
-            "activate_promoted_capability: missing candidate or recipe for %r", candidate_id,
+            "activate_promoted_capability: missing candidate or recipe for %r",
+            candidate_id,
         )
         return None
     promoted = PromotedDeterministicCapability(recipe, capability_bus)
@@ -567,7 +605,8 @@ def activate_promoted_capability(
     _mark_active(candidate.goal_signature, candidate_id)
     logger.info(
         "capability_promotion: operator activated %r as %r on capability bus",
-        candidate_id, promoted.name,
+        candidate_id,
+        promoted.name,
     )
     return promoted
 

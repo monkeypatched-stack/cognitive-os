@@ -1,0 +1,23 @@
+# ServiceAccount whose token Vault's Kubernetes auth method validates for
+# the External Secrets Operator's SecretStore (vault-secretstore.yaml) to
+# authenticate to Vault as. No Kubernetes RBAC permissions are granted to
+# it here -- it doesn't call the Kubernetes API itself. The only
+# permission that matters lives on the Vault side: a Vault policy scoped
+# to read-only on secret/data/monkeybrain/production/agentos-secrets (see
+# ./README.md), bound to this ServiceAccount's namespace+name via a Vault
+# Kubernetes auth role.
+#
+# Vault's own Kubernetes auth method additionally needs a
+# system:auth-delegator ClusterRoleBinding on VAULT'S OWN ServiceAccount
+# (not this one) so it can call the TokenReview API to validate tokens
+# this ServiceAccount presents -- that's provisioned by Vault's own
+# install (e.g. the vault Helm chart's `server.authDelegator.enabled`),
+# not by this manifest.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets-vault-auth
+  namespace: monkeybrain
+  labels:
+    app: agentos
+    component: external-secrets

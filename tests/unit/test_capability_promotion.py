@@ -1,13 +1,13 @@
 """Tests for capability promotion — learning records candidates; operators activate."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-
 from src.monkey_brain.kernel.domains.commerce import CommerceCapabilityBus
-from src.monkey_brain.kernel.pipeline.belief_state import Plan, PlanStep
+from src.monkey_brain.kernel.pipeline.belief_state import PlanStep
 from src.monkey_brain.kernel.pipeline.learning.capability_promotion import (
     CapabilityPromotionTracker,
     FrozenPlanStep,
@@ -61,10 +61,16 @@ class TestCapabilityPromotionTracker:
         )
         results = []
         for _ in range(4):
-            results.append(tracker.observe(
-                goal_signature="acquire_milk", reward=1.0, confidence=0.9,
-                outcome_summary="ok", top_signal_summary="", recipe=recipe,
-            ))
+            results.append(
+                tracker.observe(
+                    goal_signature="acquire_milk",
+                    reward=1.0,
+                    confidence=0.9,
+                    outcome_summary="ok",
+                    top_signal_summary="",
+                    recipe=recipe,
+                )
+            )
         assert results[0] is None
         assert results[1] is None
         assert results[2] is not None
@@ -78,27 +84,42 @@ class TestCapabilityPromotionTracker:
     def test_broken_streak_resets_and_can_re_promote(self):
         tracker = CapabilityPromotionTracker(streak_threshold=2, confidence_threshold=0.75)
         tracker.observe(
-            goal_signature="g", reward=1.0, confidence=0.9,
-            outcome_summary="", top_signal_summary="",
+            goal_signature="g",
+            reward=1.0,
+            confidence=0.9,
+            outcome_summary="",
+            top_signal_summary="",
         )
         first = tracker.observe(
-            goal_signature="g", reward=1.0, confidence=0.9,
-            outcome_summary="", top_signal_summary="",
+            goal_signature="g",
+            reward=1.0,
+            confidence=0.9,
+            outcome_summary="",
+            top_signal_summary="",
         )
         assert first is not None
         assert first.version == 1
 
         tracker.observe(
-            goal_signature="g", reward=0.0, confidence=0.9,
-            outcome_summary="", top_signal_summary="",
+            goal_signature="g",
+            reward=0.0,
+            confidence=0.9,
+            outcome_summary="",
+            top_signal_summary="",
         )
         tracker.observe(
-            goal_signature="g", reward=1.0, confidence=0.9,
-            outcome_summary="", top_signal_summary="",
+            goal_signature="g",
+            reward=1.0,
+            confidence=0.9,
+            outcome_summary="",
+            top_signal_summary="",
         )
         second = tracker.observe(
-            goal_signature="g", reward=1.0, confidence=0.9,
-            outcome_summary="", top_signal_summary="",
+            goal_signature="g",
+            reward=1.0,
+            confidence=0.9,
+            outcome_summary="",
+            top_signal_summary="",
         )
         assert second is not None
         assert second.version == 2
@@ -107,15 +128,17 @@ class TestCapabilityPromotionTracker:
 class TestExtractRecipe:
     def test_extracts_plan_steps_from_experience(self):
         experience = _FakeExperience(
-            plan=_FakePlan(steps=(
-                PlanStep(action="ProductSelection", parameters={"selection": [{"id": "m1", "qty": 2}]}),
-                PlanStep(action="OrderCreation", depends_on=(0,)),
-            )),
+            plan=_FakePlan(
+                steps=(
+                    PlanStep(action="ProductSelection", parameters={"selection": [{"id": "m1", "qty": 2}]}),
+                    PlanStep(action="OrderCreation", depends_on=(0,)),
+                )
+            ),
             metadata={"goal_name": "acquire_milk"},
         )
         recipe = extract_recipe_from_experience(experience)
         assert recipe is not None
-        assert recipe.goal_signature == "acquire_milk"
+        assert recipe.goal_signature == "default::acquire_milk"
         assert len(recipe.steps) == 2
         assert recipe.steps[1].depends_on == (0,)
 
@@ -165,9 +188,11 @@ class TestPromotedDeterministicCapability:
             steps=(FrozenPlanStep(action="OrderCreation", required_permission="household_wallet:spend"),),
             source_candidate_id="g::v1",
         )
-        result = PromotedDeterministicCapability(recipe, bus).handle({
-            "context": {"_resolved_permissions": ("other:perm",)},
-        })
+        result = PromotedDeterministicCapability(recipe, bus).handle(
+            {
+                "context": {"_resolved_permissions": ("other:perm",)},
+            }
+        )
         assert result["success"] is False
         assert "permission denied" in result["error"]
 
@@ -180,8 +205,12 @@ class TestOperatorActivation:
             steps=(FrozenPlanStep(action="ProductSelection"),),
         )
         candidate = tracker.observe(
-            goal_signature="acquire_milk", reward=1.0, confidence=0.9,
-            outcome_summary="", top_signal_summary="", recipe=recipe,
+            goal_signature="acquire_milk",
+            reward=1.0,
+            confidence=0.9,
+            outcome_summary="",
+            top_signal_summary="",
+            recipe=recipe,
         )
         assert candidate is not None
 
@@ -203,8 +232,12 @@ class TestOperatorActivation:
             steps=(FrozenPlanStep(action="A"),),
         )
         candidate = tracker.observe(
-            goal_signature="g", reward=1.0, confidence=0.9,
-            outcome_summary="", top_signal_summary="", recipe=recipe,
+            goal_signature="g",
+            reward=1.0,
+            confidence=0.9,
+            outcome_summary="",
+            top_signal_summary="",
+            recipe=recipe,
         )
         bus = CommerceCapabilityBus()
         bus.register(_StubCapability("A"))
@@ -216,6 +249,7 @@ class TestOperatorActivation:
     def test_learning_path_does_not_activate(self):
         """integrated_compile_phi observes only — never activates."""
         import inspect
+
         from src.monkey_brain.kernel.pipeline.learning import integration as learning_integration
 
         source = inspect.getsource(learning_integration.LearningIntegratedPolicy.configure)

@@ -33,15 +33,18 @@ def _find_repo_root() -> Path:
 
 def _get_client():
     from sittingface.client import SittingFaceClient
+
     return SittingFaceClient(REGISTRY_URL)
 
 
 def _get_local():
     from sittingface.registry import SittingFaceRegistry
+
     return SittingFaceRegistry()
 
 
 # ── Remote (online) commands ──────────────────────────────────────────────────
+
 
 @app.command()
 def publish(
@@ -54,7 +57,12 @@ def publish(
     chart_dir = Path(chart) if Path(chart).is_absolute() else repo_root / chart
 
     if not chart_dir.exists():
-        for search in ["somatic/charts", "somatic/charts/cerebellum/capabilities", "somatic/charts/broca/agents", "helm"]:
+        for search in [
+            "somatic/charts",
+            "somatic/charts/cerebellum/capabilities",
+            "somatic/charts/broca/agents",
+            "helm",
+        ]:
             candidate = repo_root / search / chart
             if candidate.exists():
                 chart_dir = candidate
@@ -82,7 +90,7 @@ def publish(
         except Exception as e:
             console.print(f"[red]Failed to publish: {e}[/red]")
             console.print("Is the registry server running? Start with: sittingface serve")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
 
 @app.command()
@@ -172,7 +180,7 @@ def pull(
             console.print(f"[red]Not found: {chart} v{version}[/red]")
     except Exception as e:
         console.print(f"[red]Failed to pull: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command("list")
@@ -193,7 +201,7 @@ def list_charts(
         _print_chart_table(charts, f"Online Registry ({REGISTRY_URL})")
     except Exception as e:
         console.print(f"[red]Failed to connect: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def _print_chart_table(charts: list, title: str):
@@ -208,7 +216,13 @@ def _print_chart_table(charts: list, title: str):
     table.add_column("Tags")
     for c in charts:
         if isinstance(c, dict):
-            table.add_row(c["name"], c["version"], c.get("chart_type", ""), c.get("description", "")[:50], ", ".join(c.get("tags", [])[:3]))
+            table.add_row(
+                c["name"],
+                c["version"],
+                c.get("chart_type", ""),
+                c.get("description", "")[:50],
+                ", ".join(c.get("tags", [])[:3]),
+            )
         else:
             table.add_row(c.name, c.version, c.chart_type, c.description[:50], ", ".join(c.tags[:3]))
     console.print(table)
@@ -266,7 +280,7 @@ def info(
         _print_info(details)
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def _print_info(d: dict):
@@ -300,7 +314,7 @@ def remove(
         console.print(f"[green]Removed {name} from {REGISTRY_URL}[/green]")
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -310,6 +324,7 @@ def serve(
 ) -> None:
     """Start the SittingFace registry server."""
     from sittingface.server.app import run_server
+
     console.print(f"[green]Starting SittingFace Registry on {host}:{port}[/green]")
     run_server(host, port)
 
@@ -340,7 +355,7 @@ def stats(
             console.print(f"  Tags: {', '.join(s['tags'])}")
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -351,13 +366,15 @@ def version() -> None:
 
 # ── Git-equivalent commands ────────────────────────────────────────────────────
 
+
 @app.command()
 def init() -> None:
     """Initialize .soma directory for chart version control."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
-    console.print(f"[green]Initialized .soma/ directory[/green]")
+    console.print("[green]Initialized .soma/ directory[/green]")
 
 
 @app.command()
@@ -367,6 +384,7 @@ def commit(
 ) -> None:
     """Commit current chart state (like git commit)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
     c = h.commit(message=message, author=author)
@@ -383,6 +401,7 @@ def log(
 ) -> None:
     """Show commit history (like git log)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     commits = h.log(limit)
     if not commits:
@@ -397,6 +416,7 @@ def log(
 def status() -> None:
     """Show chart status (like git status)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     s = h.status()
     console.print(f"Charts: {s['total_charts']}")
@@ -405,15 +425,15 @@ def status() -> None:
     if s["head"]:
         console.print(f"HEAD: {s['head']}")
     if s["changed"]:
-        console.print(f"\nChanged:")
+        console.print("\nChanged:")
         for c in s["changed"]:
             console.print(f"  M {c}")
     if s["added"]:
-        console.print(f"\nAdded:")
+        console.print("\nAdded:")
         for a in s["added"]:
             console.print(f"  A {a}")
     if s["removed"]:
-        console.print(f"\nRemoved:")
+        console.print("\nRemoved:")
         for r in s["removed"]:
             console.print(f"  D {r}")
     if not s["changed"] and not s["added"] and not s["removed"]:
@@ -426,6 +446,7 @@ def show(
 ) -> None:
     """Show details of a commit (like git show)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
     c = h.show(ref)
@@ -454,6 +475,7 @@ def tag(
 ) -> None:
     """Create a tag (like git tag)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
     t = h.tag(name=name, message=message)
@@ -466,6 +488,7 @@ def revert(
 ) -> None:
     """Revert to a specific commit (like git revert)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
     result = h.revert(ref)
@@ -481,6 +504,7 @@ def stash(
 ) -> None:
     """Stash current chart changes (like git stash)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
     c = h.commit(message=f"STASH: {message}", author="soma-stash")
@@ -496,12 +520,13 @@ def blame(
 ) -> None:
     """Show who last modified each line of a chart (like git blame)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     commits = h.log(limit=100)
 
     chart_changes = {}
     for c in commits:
-        for name, checksum in c.get("charts", {}).items():
+        for name, _checksum in c.get("charts", {}).items():
             if name not in chart_changes:
                 chart_changes[name] = {"author": c["author"], "date": c["timestamp"][:10], "commit": c["commit_id"]}
 
@@ -522,6 +547,7 @@ def remote(
 ) -> None:
     """Show or set remote registry URL (like git remote)."""
     import os
+
     if url:
         os.environ["SITTINGFACE_URL"] = url
         console.print(f"[green]Remote set to {url}[/green]")
@@ -542,9 +568,7 @@ def fetch() -> None:
 
 
 @app.command()
-def push(
-    all_charts: bool = typer.Option(True, "--all", help="Push all charts"),
-) -> None:
+def push() -> None:
     """Push local charts to remote registry (like git push)."""
     try:
         client = _get_client()
@@ -555,7 +579,7 @@ def push(
         for chart_dir in sorted(somatic_dir.iterdir()):
             if chart_dir.is_dir() and (chart_dir / "values.yaml").exists():
                 try:
-                    result = client.publish_chart_dir(chart_dir)
+                    client.publish_chart_dir(chart_dir)
                     published += 1
                 except Exception:
                     pass
@@ -590,6 +614,7 @@ def branch(
 ) -> None:
     """List, create, or switch chart branches (like git branch)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
     branches_file = h.soma_dir / "branches.json"
@@ -621,6 +646,7 @@ def checkout(
 ) -> None:
     """Checkout a specific commit/tag/branch (like git checkout)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
 
@@ -657,6 +683,7 @@ def merge(
 ) -> None:
     """Merge a branch into current (like git merge)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
     branches_file = h.soma_dir / "branches.json"
@@ -669,7 +696,7 @@ def merge(
     branch_commit = branches.get(branch, "")
     current_head = h.head_file.read_text().strip() if h.head_file.exists() else ""
     if branch_commit == current_head:
-        console.print(f"[yellow]Already up to date[/yellow]")
+        console.print("[yellow]Already up to date[/yellow]")
         return
 
     # Merge by committing current state from branch head
@@ -688,6 +715,7 @@ def reset(
 ) -> None:
     """Reset to a specific state (like git reset)."""
     from sittingface.history import SomaticHistory
+
     h = SomaticHistory()
     h.init()
 
@@ -695,24 +723,28 @@ def reset(
         commits = h._load_commits()
         if len(commits) > 1:
             commit_id = commits[-2]["commit_id"]
-            result = h.revert(commit_id)
+            h.revert(commit_id)
             console.print(f"[green]Reset to {commit_id}[/green]")
         else:
             console.print("[yellow]No previous commit[/yellow]")
     else:
-        result = h.revert(ref)
+        h.revert(ref)
         console.print(f"[green]Reset to {ref}[/green]")
 
 
 # ── Vault (password-protected code) ───────────────────────────────────────────
 
+
 @app.command()
 def vault_lock(
-    directory: str = typer.Option(os.environ.get("SITTINGFACE_GENERATED_DIR", ""), "-d", "--dir", help="Directory to lock"),
+    directory: str = typer.Option(
+        os.environ.get("SITTINGFACE_GENERATED_DIR", ""), "-d", "--dir", help="Directory to lock"
+    ),
     password: str = typer.Option(None, "-p", "--password", help="Password (prompts if not set)"),
 ) -> None:
     """Encrypt generated code with password protection."""
     import getpass
+
     from sittingface.vault import CodeVault
 
     if not password:
@@ -736,14 +768,15 @@ def vault_lock(
 
     # Remove original unencrypted files
     import shutil
+
     backup = source_dir.parent / (source_dir.name + ".backup")
     shutil.move(str(source_dir), str(backup))
 
-    console.print(f"[green]Code locked with password protection[/green]")
+    console.print("[green]Code locked with password protection[/green]")
     console.print(f"  Source: {source_dir}")
     console.print(f"  Encrypted: {enc_dir}")
     console.print(f"  Backup: {backup}")
-    console.print(f"  Use 'sittingface vault-unlock' to decrypt")
+    console.print("  Use 'sittingface vault-unlock' to decrypt")
 
 
 @app.command()
@@ -754,6 +787,7 @@ def vault_unlock(
 ) -> None:
     """Decrypt generated code."""
     import getpass
+
     from sittingface.vault import CodeVault
 
     if not password:
@@ -774,12 +808,11 @@ def vault_unlock(
 
     vault = CodeVault(password=password)
     try:
-        out_dir = Path(output) if output else vault_dir.parent / vault_dir.name.replace(".vault", "")
         result = vault.decrypt_directory(vault_dir, password)
         console.print(f"[green]Code unlocked → {result}[/green]")
     except Exception as e:
-        console.print(f"[red]Decryption failed: wrong password?[/red]")
-        raise typer.Exit(1)
+        console.print("[red]Decryption failed: wrong password?[/red]")
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -788,6 +821,7 @@ def vault_check(
 ) -> None:
     """Verify a password against the vault."""
     import getpass
+
     from sittingface.vault import CodeVault
 
     if not password:
@@ -816,16 +850,10 @@ def vault_status() -> None:
 
     if locked:
         console.print("[red]🔒 Locked vaults:[/red]")
-        for l in locked:
-            console.print(f"  {l}")
+        for vault_name in locked:
+            console.print(f"  {vault_name}")
     else:
         console.print("[green]🔓 No locked vaults[/green]")
-
-
-@app.command()
-def version() -> None:
-    """Show SittingFace version."""
-    console.print(f"sittingface v{__import__('sittingface').__version__}")
 
 
 if __name__ == "__main__":

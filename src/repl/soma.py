@@ -1,4 +1,5 @@
 """Soma commands."""
+
 from __future__ import annotations
 
 import logging
@@ -8,7 +9,16 @@ from pathlib import Path
 import typer
 
 from cortex.engineering_report import EngineeringReport
-from repl._helpers import _brain_get, _brain_post, _brain_url, _auth_headers, _run_cingulate_review, _broca, _payload, _observations
+from repl._helpers import (
+    _auth_headers,
+    _brain_get,
+    _brain_post,
+    _brain_url,
+    _broca,
+    _observations,
+    _payload,
+    _run_cingulate_review,
+)
 
 logger = logging.getLogger("monkeypatched")
 
@@ -19,16 +29,18 @@ def soma_callback(ctx: typer.Context):
         typer.echo(ctx.get_help())
 
 
-
 def soma_compile(
     source: str = typer.Argument(
         "",
-        help="Chart file (values.yaml), chart folder, or charts directory. "
-             "Auto-detected from repo root if omitted.",
+        help="Chart file (values.yaml), chart folder, or charts directory. Auto-detected from repo root if omitted.",
     ),
-    output_dir: str = typer.Option("somatic/compiled", "--output-dir", "-o", help="Directory to write compiled prompt files"),
+    output_dir: str = typer.Option(
+        "somatic/compiled", "--output-dir", "-o", help="Directory to write compiled prompt files"
+    ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON summary instead of human-readable output"),
-    reload: bool = typer.Option(False, "--reload", "-r", help="Hot-reload the running MonkeyBrain instance after compile"),
+    reload: bool = typer.Option(
+        False, "--reload", "-r", help="Hot-reload the running MonkeyBrain instance after compile"
+    ),
 ):
     """Compile somatic charts → prompt files.
 
@@ -60,7 +72,7 @@ def soma_compile(
             compiler.load_path(src_path)
         except FileNotFoundError as e:
             typer.echo(f"Error: {e}", err=True)
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
     else:
         compiler.load_all()
 
@@ -73,10 +85,13 @@ def soma_compile(
 
     if json_output:
         import json
+
         data = {
             **summary,
             "output_dir": str(out_path),
-            "files_written": [str(p) if not p.is_relative_to(repo_root) else str(p.relative_to(repo_root)) for p in written],
+            "files_written": [
+                str(p) if not p.is_relative_to(repo_root) else str(p.relative_to(repo_root)) for p in written
+            ],
             "prompts": [
                 {
                     "chart": p.chart_name,
@@ -90,11 +105,13 @@ def soma_compile(
         }
         typer.echo(json.dumps(data, indent=2))
     else:
-        typer.echo(f"\nSomatic compilation complete")
-        typer.echo(f"  Charts loaded  : {summary['total_charts']}  "
-                   f"(module={summary['by_type']['module']}  "
-                   f"capability={summary['by_type']['capability']}  "
-                   f"agent={summary['by_type']['agent']})")
+        typer.echo("\nSomatic compilation complete")
+        typer.echo(
+            f"  Charts loaded  : {summary['total_charts']}  "
+            f"(module={summary['by_type']['module']}  "
+            f"capability={summary['by_type']['capability']}  "
+            f"agent={summary['by_type']['agent']})"
+        )
         typer.echo(f"  Prompts built  : {summary['prompts_compiled']}")
         typer.echo(f"  Files written  : {len(written)}")
         typer.echo(f"  Output dir     : {out_path}")
@@ -105,13 +122,15 @@ def soma_compile(
 
     if reload:
         import httpx
+
         brain_url = "http://localhost:8031"
         try:
             r = httpx.post(f"{brain_url}/somatic/recompile", timeout=10.0)
             if r.status_code == 200:
                 result = r.json()
-                typer.echo(f"\nMonkeyBrain reloaded: {result.get('charts')} charts, "
-                           f"{result.get('agents_loaded')} agents")
+                typer.echo(
+                    f"\nMonkeyBrain reloaded: {result.get('charts')} charts, {result.get('agents_loaded')} agents"
+                )
             else:
                 typer.echo(f"\nReload failed: {r.status_code}", err=True)
         except Exception as e:
@@ -122,9 +141,14 @@ def soma_compile(
         typer.echo("\nCommitting to git...")
         try:
             import subprocess
+
             subprocess.run(["git", "add", str(out_path)], cwd=str(repo_root), capture_output=True, timeout=10)
-            subprocess.run(["git", "commit", "-m", f"soma compile: {len(written)} prompt files"],
-                           cwd=str(repo_root), capture_output=True, timeout=10)
+            subprocess.run(
+                ["git", "commit", "-m", f"soma compile: {len(written)} prompt files"],
+                cwd=str(repo_root),
+                capture_output=True,
+                timeout=10,
+            )
             typer.echo("  Committed to git")
         except Exception as e:
             typer.echo(f"  Git commit failed: {e}", err=True)
@@ -132,7 +156,9 @@ def soma_compile(
         typer.echo("Indexing to Elasticsearch...")
         try:
             import asyncio
+
             from src.monkey_brain.kernel.semantic_memory import SemanticMemory
+
             sm = SemanticMemory()
             sm.initialize()
             if sm._embeddings.available:
@@ -150,23 +176,29 @@ def soma_compile(
             typer.echo(f"  Elasticsearch indexing failed: {e}", err=True)
 
 
-
 def soma_api(
     service_type: str = typer.Argument(
         ...,
         help="Service type to generate, e.g. todo, work-order, inventory, crm, or any custom name.",
     ),
     output_dir: str = typer.Option(
-        "somatic/compiled", "--output-dir", "-o",
+        "somatic/compiled",
+        "--output-dir",
+        "-o",
         help="Directory to write the compiled .prompt.md file.",
     ),
     save_chart: bool = typer.Option(
-        True, "--save-chart/--no-save-chart",
+        True,
+        "--save-chart/--no-save-chart",
         help="Persist the generated values.yaml to somatic/charts/<service>-api/.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON summary."),
-    review: bool = typer.Option(False, "--review", "-R",
-        help="Run Cingulate compliance review on the compiled prompt before code generation. Exits 1 if rejected."),
+    review: bool = typer.Option(
+        False,
+        "--review",
+        "-R",
+        help="Run Cingulate compliance review on the compiled prompt before code generation. Exits 1 if rejected.",
+    ),
 ):
     """Generate a production-grade DDD API prompt for a specific service type.
 
@@ -188,11 +220,15 @@ def soma_api(
 
     ApiChartAgent = _broca("agents.api_chart_agent.ApiChartAgent")
     agent = ApiChartAgent()
-    result = asyncio.run(agent.handle({
-        "service_slug": svc_slug,
-        "compiled_dir": str(out_path),
-        "save_chart": save_chart,
-    }))
+    result = asyncio.run(
+        agent.handle(
+            {
+                "service_slug": svc_slug,
+                "compiled_dir": str(out_path),
+                "save_chart": save_chart,
+            }
+        )
+    )
     p = _payload(result)
     compiled = p.get("compiled", False)
     prompt_path_str = p.get("prompt_path", "")
@@ -273,25 +309,32 @@ def soma_review(
     _run_cingulate_review(p, repo_root, json_output)
 
 
-
 def soma_codegen(
     service_type: str = typer.Argument(
         ...,
         help="Service type to generate code for, e.g. todo, work-order, inventory, crm.",
     ),
     output_dir: str = typer.Option(
-        "generated", "--output-dir", "-o",
+        "generated",
+        "--output-dir",
+        "-o",
         help="Directory to write generated service files.",
     ),
     review: bool = typer.Option(
-        False, "--review", "-R",
+        False,
+        "--review",
+        "-R",
         help="Run Cingulate compliance gate on the compiled prompt before generating code.",
     ),
     fmt: str = typer.Option(
-        "files", "--fmt", help="Output format: files (default) or zip.",
+        "files",
+        "--fmt",
+        help="Output format: files (default) or zip.",
     ),
     correct_with_claude: bool = typer.Option(
-        False, "--correct-with-claude", "-C",
+        False,
+        "--correct-with-claude",
+        "-C",
         help="Generate with Ollama, then run a Claude correction pass to fix quality issues.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON summary."),
@@ -343,17 +386,23 @@ def soma_codegen(
 
     ServiceGenAgent = _broca("agents.service_gen_agent.ServiceGenAgent")
     agent = ServiceGenAgent()
-    result = asyncio.run(agent.handle({
-        "service_slug": svc_slug,
-        "output_dir": str(out_base),
-        "question_source": "codegen",   # guard: rejects if routed through simulator
-    }))
+    result = asyncio.run(
+        agent.handle(
+            {
+                "service_slug": svc_slug,
+                "output_dir": str(out_base),
+                "question_source": "codegen",  # guard: rejects if routed through simulator
+            }
+        )
+    )
     p = _payload(result)
     generated = p.get("generated", False)
     written = p.get("files", [])
 
     if fmt == "zip" and generated:
-        import io, zipfile
+        import io
+        import zipfile
+
         svc_dir = out_base / svc_slug
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -391,12 +440,14 @@ def soma_codegen(
         else:
             try:
                 import anthropic as _anthropic
+
                 from sittingface.codegen_agent import CodeGenAgent as _CGA
 
                 # Collect written .py files (largest first — most likely to have issues)
                 py_files = sorted(
                     [repo_root / f for f in written if f.endswith(".py") and (repo_root / f).exists()],
-                    key=lambda p: p.stat().st_size, reverse=True
+                    key=lambda p: p.stat().st_size,
+                    reverse=True,
                 )[:12]
 
                 files_ctx = ""
@@ -453,11 +504,15 @@ def soma_codegen(
         try:
             SeedAgent = _broca("agents.seed_agent.SeedAgent")
             seed_agent = SeedAgent()
-            seed_result = asyncio.run(seed_agent.handle({
-                "service_slug": svc_slug,
-                "service_dir": str(out_base / svc_slug),
-                "question_source": "codegen",
-            }))
+            seed_result = asyncio.run(
+                seed_agent.handle(
+                    {
+                        "service_slug": svc_slug,
+                        "service_dir": str(out_base / svc_slug),
+                        "question_source": "codegen",
+                    }
+                )
+            )
             sp = _payload(seed_result)
             if json_output:
                 p["seed"] = sp
@@ -471,7 +526,6 @@ def soma_codegen(
                 typer.echo(f"  [seed] failed: {_se}", err=True)
 
 
-
 def soma_govern(
     artifact: str = typer.Argument(
         "",
@@ -479,7 +533,8 @@ def soma_govern(
     ),
     question: str = typer.Option(
         "",
-        "--question", "-q",
+        "--question",
+        "-q",
         help="Free-text artifact or question to review (used when no file path given).",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON report."),
@@ -544,7 +599,7 @@ def soma_govern(
     agent = CingulateAgent()
     result = asyncio.run(agent.handle({"question": content[:6000]}))
 
-    p         = _payload(result)
+    p = _payload(result)
     compliant = p.get("compliant", True)
     # evidence is a list of dicts; each may be the full LLM response or inner issues list
     _ev = result.evidence if hasattr(result, "evidence") else []
@@ -556,8 +611,8 @@ def soma_govern(
             issues.append(item)
         elif isinstance(item, list):
             issues.extend(item)
-    rec       = p.get("recommendation", "") or (_observations(result) or [""])[0]
-    verdict   = "COMPLIANT" if compliant else "NON-COMPLIANT"
+    rec = p.get("recommendation", "") or (_observations(result) or [""])[0]
+    verdict = "COMPLIANT" if compliant else "NON-COMPLIANT"
 
     if not json_output:
         typer.echo(f"Verdict:        {verdict}")
@@ -568,7 +623,7 @@ def soma_govern(
                 if isinstance(iss, dict):
                     sev = iss.get("severity", "")
                     desc = iss.get("description", str(iss))
-                    rem  = iss.get("remediation", "")
+                    rem = iss.get("remediation", "")
                     typer.echo(f"  [{sev}] {desc}")
                     if rem:
                         typer.echo(f"        → {rem}")
@@ -596,6 +651,7 @@ def soma_govern(
     # ── Emit to Lemon ─────────────────────────────────────────────────────────
     try:
         from introspection.lemon import Lemon
+
         lemon = Lemon()
         lemon.observe_governance(
             policy_path=artifact_label,
@@ -620,22 +676,27 @@ def soma_govern(
         raise typer.Exit(1)
 
 
-
 def soma_fixit(
     service_type: str = typer.Argument(
         ...,
         help="Service or client to fix, e.g. todo.",
     ),
     output_dir: str = typer.Option(
-        "generated", "--output-dir", "-o",
+        "generated",
+        "--output-dir",
+        "-o",
         help="Root directory containing generated services/clients.",
     ),
     report: str = typer.Option(
-        "", "--report", "-r",
+        "",
+        "--report",
+        "-r",
         help="Path to a specific governance/comply JSON report. Defaults to most recent.",
     ),
     artifact: str = typer.Option(
-        "", "--artifact", "-a",
+        "",
+        "--artifact",
+        "-a",
         help="Path to the source directory to fix (default: generated/<service>-client/).",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON summary."),
@@ -663,12 +724,16 @@ def soma_fixit(
 
     FixItAgent = _broca("agents.fixit_agent.FixItAgent")
     agent = FixItAgent()
-    result = asyncio.run(agent.handle({
-        "service_slug": svc_slug,
-        "output_dir": str(out_base),
-        "report_path": report,
-        "artifact_path": artifact,
-    }))
+    result = asyncio.run(
+        agent.handle(
+            {
+                "service_slug": svc_slug,
+                "output_dir": str(out_base),
+                "report_path": report,
+                "artifact_path": artifact,
+            }
+        )
+    )
     p = _payload(result)
     fixed = p.get("fixed", False)
 
@@ -689,7 +754,6 @@ def soma_fixit(
             raise typer.Exit(1)
 
 
-
 def soma_comply(
     standard: str = typer.Argument(
         ...,
@@ -697,12 +761,14 @@ def soma_comply(
     ),
     signals: str = typer.Option(
         "{}",
-        "--signals", "-s",
+        "--signals",
+        "-s",
         help="data_signals as JSON string or path to a JSON file.",
     ),
     attributes: str = typer.Option(
         "{}",
-        "--attributes", "-a",
+        "--attributes",
+        "-a",
         help="system_attributes as JSON string or path to a JSON file.",
     ),
     action: str = typer.Option("", "--action", help="Operation being proposed (e.g. 'store_user_data')."),
@@ -732,13 +798,13 @@ def soma_comply(
     sys.path.insert(0, str(repo_root / "src"))
 
     _AGENT_MAP = {
-        "gdpr":     ("broca.agents.ddd.compliance.gdpr",    "GDPRAgent"),
-        "soc2":     ("broca.agents.ddd.compliance.soc2",    "SOC2Agent"),
-        "fda":      ("broca.agents.ddd.compliance.fda",     "FDAAgent"),
-        "gxp":      ("broca.agents.ddd.compliance.gxp",     "GxPAgent"),
-        "iec61508": ("broca.agents.ddd.compliance.iec61508","IEC61508Agent"),
-        "iso10218": ("broca.agents.ddd.compliance.iso10218","ISO10218Agent"),
-        "iso27001": ("broca.agents.ddd.compliance.iso27001","ISO27001Agent"),
+        "gdpr": ("broca.agents.ddd.compliance.gdpr", "GDPRAgent"),
+        "soc2": ("broca.agents.ddd.compliance.soc2", "SOC2Agent"),
+        "fda": ("broca.agents.ddd.compliance.fda", "FDAAgent"),
+        "gxp": ("broca.agents.ddd.compliance.gxp", "GxPAgent"),
+        "iec61508": ("broca.agents.ddd.compliance.iec61508", "IEC61508Agent"),
+        "iso10218": ("broca.agents.ddd.compliance.iso10218", "ISO10218Agent"),
+        "iso27001": ("broca.agents.ddd.compliance.iso27001", "ISO27001Agent"),
     }
     std_key = standard.lower()
     if std_key not in _AGENT_MAP:
@@ -758,7 +824,7 @@ def soma_comply(
         system_attributes = _load_json(attributes)
     except Exception as e:
         typer.echo(f"Failed to parse JSON: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     context = {
         "data_signals": data_signals,
@@ -784,11 +850,11 @@ def soma_comply(
 
     report_data = _payload(result)
 
-    compliant      = report_data.get("compliant", True)
-    findings       = report_data.get("findings", [])
+    compliant = report_data.get("compliant", True)
+    findings = report_data.get("findings", [])
     critical_count = report_data.get("critical_count", sum(1 for f in findings if f.get("severity") == "CRITICAL"))
-    high_count     = report_data.get("high_count",    sum(1 for f in findings if f.get("severity") == "HIGH"))
-    verdict        = "COMPLIANT" if compliant else "NON-COMPLIANT"
+    high_count = report_data.get("high_count", sum(1 for f in findings if f.get("severity") == "HIGH"))
+    verdict = "COMPLIANT" if compliant else "NON-COMPLIANT"
 
     if not json_output:
         typer.echo(f"Standard:  {standard.upper()}")
@@ -797,10 +863,10 @@ def soma_comply(
         if findings:
             typer.echo("")
             for f in findings:
-                sev   = f.get("severity", "?")
-                art   = f.get("article", "")
-                desc  = f.get("description", str(f))
-                rem   = f.get("remediation", "")
+                sev = f.get("severity", "?")
+                art = f.get("article", "")
+                desc = f.get("description", str(f))
+                rem = f.get("remediation", "")
                 typer.echo(f"  [{sev}] {art}  {desc}")
                 if rem:
                     typer.echo(f"        → {rem}")
@@ -826,6 +892,7 @@ def soma_comply(
     # ── Emit to Lemon ─────────────────────────────────────────────────────────
     try:
         from introspection.lemon import Lemon
+
         lemon = Lemon()
         lemon.observe_governance(
             policy_path=f"compliance/{std_key}",
@@ -850,18 +917,21 @@ def soma_comply(
         raise typer.Exit(1)
 
 
-
 def soma_ddd_check(
     service_type: str = typer.Argument(
         ...,
         help="Generated service to check, e.g. todo, work-order.",
     ),
     output_dir: str = typer.Option(
-        "generated", "--output-dir", "-o",
+        "generated",
+        "--output-dir",
+        "-o",
         help="Root directory containing generated services.",
     ),
     max_loops: int = typer.Option(
-        2, "--max-loops", "-L",
+        2,
+        "--max-loops",
+        "-L",
         help="Max codegen retry attempts when structural issues are found (0 = check only).",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON report."),
@@ -912,10 +982,10 @@ def soma_ddd_check(
 
     # ── Layer spec: (name, forbidden_imports, required_files) ────────────────
     _LAYER_SPEC = [
-        ("domain",         ["fastapi", "motor", "pymongo", "sqlalchemy", "httpx"], []),
-        ("application",    ["fastapi", "motor", "pymongo", "sqlalchemy"],           []),
-        ("infrastructure", [],                                                       []),
-        ("api",            [],                                                       []),
+        ("domain", ["fastapi", "motor", "pymongo", "sqlalchemy", "httpx"], []),
+        ("application", ["fastapi", "motor", "pymongo", "sqlalchemy"], []),
+        ("infrastructure", [], []),
+        ("api", [], []),
     ]
 
     def _run_structural_checks() -> tuple[list[str], list[str]]:
@@ -982,11 +1052,15 @@ def soma_ddd_check(
         try:
             ServiceGenAgent = _broca("agents.service_gen_agent.ServiceGenAgent")
             agent = ServiceGenAgent()
-            asyncio.run(agent.handle({
-                "service_slug": svc_slug,
-                "output_dir": str(out_base),
-                "question_source": "codegen",
-            }))
+            asyncio.run(
+                agent.handle(
+                    {
+                        "service_slug": svc_slug,
+                        "output_dir": str(out_base),
+                        "question_source": "codegen",
+                    }
+                )
+            )
         except Exception as _rce:
             if not json_output:
                 typer.echo(f"  [retry] codegen error: {_rce}", err=True)
@@ -1062,6 +1136,7 @@ def soma_ddd_check(
 
     try:
         from introspection.lemon import Lemon
+
         lemon = Lemon()
         lemon.observe_governance(
             policy_path=str(svc_dir),
@@ -1085,7 +1160,6 @@ def soma_ddd_check(
 
     if report["verdict"] == "REJECTED":
         raise typer.Exit(1)
-
 
 
 def soma_seed(
@@ -1145,14 +1219,15 @@ def soma_seed(
         raise typer.Exit(1)
 
 
-
 def soma_serve(
     service_type: str = typer.Argument(
         ...,
         help="Generated service to start, e.g. todo.",
     ),
     output_dir: str = typer.Option(
-        "generated", "--output-dir", "-o",
+        "generated",
+        "--output-dir",
+        "-o",
         help="Root directory containing generated services.",
     ),
     port: int = typer.Option(8090, "--port", "-p", help="Port to bind the service."),
@@ -1198,13 +1273,17 @@ def soma_serve(
 
     ServeAgent = _broca("agents.serve_agent.ServeAgent")
     agent = ServeAgent()
-    result = asyncio.run(agent.handle({
-        "service_slug": svc_slug,
-        "output_dir": str(out_base),
-        "port": port,
-        "host": host,
-        "background": background,
-    }))
+    result = asyncio.run(
+        agent.handle(
+            {
+                "service_slug": svc_slug,
+                "output_dir": str(out_base),
+                "port": port,
+                "host": host,
+                "background": background,
+            }
+        )
+    )
     p = _payload(result)
     running = p.get("running", False)
 
@@ -1219,19 +1298,21 @@ def soma_serve(
         raise typer.Exit(1)
 
 
-
 def soma_client(
     service_type: str = typer.Argument(
         ...,
         help="Service to generate a client for, e.g. todo, work-order.",
     ),
     output_dir: str = typer.Option(
-        "generated", "--output-dir", "-o",
+        "generated",
+        "--output-dir",
+        "-o",
         help="Root directory containing generated services (also where client is written).",
     ),
     base_url: str = typer.Option(
         "http://localhost:8090",
-        "--base-url", "-u",
+        "--base-url",
+        "-u",
         help="Base URL the generated client will call.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON summary."),
@@ -1262,11 +1343,15 @@ def soma_client(
 
     ClientGenAgent = _broca("agents.client_gen_agent.ClientGenAgent")
     agent = ClientGenAgent()
-    result = asyncio.run(agent.handle({
-        "service_slug": svc_slug,
-        "output_dir": str(out_base),
-        "base_url": base_url,
-    }))
+    result = asyncio.run(
+        agent.handle(
+            {
+                "service_slug": svc_slug,
+                "output_dir": str(out_base),
+                "base_url": base_url,
+            }
+        )
+    )
     p = _payload(result)
     generated = p.get("generated", False)
     written = p.get("files", [])
@@ -1284,14 +1369,15 @@ def soma_client(
         raise typer.Exit(1)
 
 
-
 def soma_chart_from_client(
     service_type: str = typer.Argument(
         ...,
         help="Service whose client to charter, e.g. todo.",
     ),
     output_dir: str = typer.Option(
-        "generated", "--output-dir", "-o",
+        "generated",
+        "--output-dir",
+        "-o",
         help="Root directory where <service>-client/ lives.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON result."),
@@ -1320,8 +1406,7 @@ def soma_chart_from_client(
 
     if not client_dir.exists():
         typer.echo(
-            f"Client directory not found: {client_dir}\n"
-            f"Run: monkeypatched make client {svc_slug}",
+            f"Client directory not found: {client_dir}\nRun: monkeypatched make client {svc_slug}",
             err=True,
         )
         raise typer.Exit(1)
@@ -1332,10 +1417,14 @@ def soma_chart_from_client(
 
     ClientCharterAgent = _broca("agents.client_charter.ClientCharterAgent")
     agent = ClientCharterAgent()
-    result = asyncio.run(agent.handle({
-        "client_dir": str(client_dir),
-        "service_slug": svc_slug,
-    }))
+    result = asyncio.run(
+        agent.handle(
+            {
+                "client_dir": str(client_dir),
+                "service_slug": svc_slug,
+            }
+        )
+    )
 
     p = _payload(result)
     charted = p.get("charted", False)
@@ -1358,14 +1447,15 @@ def soma_chart_from_client(
         raise typer.Exit(1)
 
 
-
 def soma_compile_agent(
     service_type: str = typer.Argument(
         ...,
         help="Service whose client capability chart to compile, e.g. todo.",
     ),
     output_dir: str = typer.Option(
-        "somatic/compiled", "--output-dir", "-o",
+        "somatic/compiled",
+        "--output-dir",
+        "-o",
         help="Directory to write the compiled .prompt.md.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON summary."),
@@ -1391,10 +1481,14 @@ def soma_compile_agent(
 
     CompileAgentAgent = _broca("agents.compile_agent_agent.CompileAgentAgent")
     agent = CompileAgentAgent()
-    result = asyncio.run(agent.handle({
-        "service_slug": svc_slug,
-        "output_dir": str(out_base),
-    }))
+    result = asyncio.run(
+        agent.handle(
+            {
+                "service_slug": svc_slug,
+                "output_dir": str(out_base),
+            }
+        )
+    )
     p = _payload(result)
     compiled = p.get("compiled", False)
     prompt_path_str = p.get("prompt_path", "")
@@ -1414,7 +1508,6 @@ def soma_compile_agent(
         raise typer.Exit(1)
 
 
-
 def soma_create_agent(
     service_type: str = typer.Argument(
         ...,
@@ -1422,7 +1515,8 @@ def soma_create_agent(
     ),
     base_url: str = typer.Option(
         "",
-        "--base-url", "-u",
+        "--base-url",
+        "-u",
         help="Override the base URL from the chart.",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON spec."),
@@ -1451,8 +1545,7 @@ def soma_create_agent(
 
     if not chart_path.exists():
         typer.echo(
-            f"Capability chart not found: {chart_path}\n"
-            f"Run: monkeypatched make chart-from-client {svc_slug}",
+            f"Capability chart not found: {chart_path}\nRun: monkeypatched make chart-from-client {svc_slug}",
             err=True,
         )
         raise typer.Exit(1)
@@ -1493,7 +1586,7 @@ def soma_create_agent(
         typer.echo(f"Operations ({len(spec['operations'])}):")
         for name, op in spec["operations"].items():
             auth_flag = " 🔒" if op.get("auth_required") else ""
-            typer.echo(f"  {op.get('method','GET'):6} {op.get('path',''):<30} → {name}{auth_flag}")
+            typer.echo(f"  {op.get('method', 'GET'):6} {op.get('path', ''):<30} → {name}{auth_flag}")
         op_example = "list_" + svc_slug.replace("-", "_") + "s"
         agent_type = spec["agent_type"]
         typer.echo(f"\nTo invoke: monkeypatched query 'run {agent_type} operation={op_example}'")
@@ -1502,18 +1595,21 @@ def soma_create_agent(
         typer.echo(_json.dumps(spec, indent=2, default=str))
 
 
-
 def soma_test_service(
     service_type: str = typer.Argument(
         ...,
         help="Generated service to test, e.g. todo.",
     ),
     output_dir: str = typer.Option(
-        "generated", "--output-dir", "-o",
+        "generated",
+        "--output-dir",
+        "-o",
         help="Root directory containing generated services.",
     ),
     max_loops: int = typer.Option(
-        3, "--max-loops", "-n",
+        3,
+        "--max-loops",
+        "-n",
         help="Maximum correction-loop iterations when tests fail (0 = no correction).",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON summary."),
@@ -1543,11 +1639,15 @@ def soma_test_service(
 
     TestServiceAgent = _broca("agents.test_service_agent.TestServiceAgent")
     agent = TestServiceAgent()
-    result = asyncio.run(agent.handle({
-        "service_slug": svc_slug,
-        "output_dir": str(out_base),
-        "max_loops": max_loops,
-    }))
+    result = asyncio.run(
+        agent.handle(
+            {
+                "service_slug": svc_slug,
+                "output_dir": str(out_base),
+                "max_loops": max_loops,
+            }
+        )
+    )
     p = _payload(result)
     all_passed = p.get("all_passed", False)
 
@@ -1556,7 +1656,7 @@ def soma_test_service(
     else:
         sa = p.get("static_analysis", {})
         ut = p.get("unit_tests", {})
-        typer.echo(f"\n── Final results ────────────────────────────────────────────")
+        typer.echo("\n── Final results ────────────────────────────────────────────")
         typer.echo(f"Static analysis: {'clean' if sa.get('clean') else 'issues'}")
         if not sa.get("clean"):
             typer.echo(sa.get("output", "")[-400:])
@@ -1571,11 +1671,12 @@ def soma_test_service(
         raise typer.Exit(1)
 
 
-
 def soma_plan(
     goal: str = typer.Argument(..., help="Goal description, e.g. 'build a todo service with MongoDB'."),
     service: str = typer.Option("", "--service", "-s", help="Service name if relevant (e.g. todo)."),
-    output: str = typer.Option("", "--output", "-o", help="Save plan YAML to this path (default: ~/.monkeybrain/plans/<slug>_<ts>.yaml)."),
+    output: str = typer.Option(
+        "", "--output", "-o", help="Save plan YAML to this path (default: ~/.monkeybrain/plans/<slug>_<ts>.yaml)."
+    ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON representation of the plan."),
 ):
     """Generate a structured YAML execution plan from a free-text goal using PlannerAgent.
@@ -1603,6 +1704,7 @@ def soma_plan(
         raise typer.Exit(1)
 
     import yaml as _yaml
+
     plan_yaml = _yaml.dump(plan, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
     # Determine output path
@@ -1621,13 +1723,18 @@ def soma_plan(
         typer.echo(_json.dumps(plan, indent=2, default=str))
 
 
-
 def soma_execute_plan(
     plan_file: str = typer.Argument(..., help="Path to the plan YAML file generated by 'make plan'."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print steps without executing them."),
-    continue_on_error: bool = typer.Option(True, "--continue-on-error/--stop-on-error", help="Continue past failures and report at end (default: on)."),
-    auto_fix: bool = typer.Option(True, "--auto-fix/--no-auto-fix", help="Run loss-driven repair on step failure (default: on)."),
-    from_step: int = typer.Option(1, "--from-step", "-s", help="Resume from this step number (skip earlier steps as already done)."),
+    continue_on_error: bool = typer.Option(
+        True, "--continue-on-error/--stop-on-error", help="Continue past failures and report at end (default: on)."
+    ),
+    auto_fix: bool = typer.Option(
+        True, "--auto-fix/--no-auto-fix", help="Run loss-driven repair on step failure (default: on)."
+    ),
+    from_step: int = typer.Option(
+        1, "--from-step", "-s", help="Resume from this step number (skip earlier steps as already done)."
+    ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON execution report."),
 ):
     """Execute a YAML plan with loss-driven repair convergence loop.
@@ -1688,7 +1795,9 @@ def soma_execute_plan(
     report.quality.files_generated = sum(1 for s in steps if s.get("name") == "codegen")
     report.quality.files_patched = sum(1 for s in steps if s.get("status") == "healed")
     report.quality.tests_passed = sum(1 for s in steps if s.get("name") == "test_service" and s.get("status") == "ok")
-    report.quality.tests_healed = sum(1 for s in steps if s.get("name") == "test_service" and s.get("status") == "healed")
+    report.quality.tests_healed = sum(
+        1 for s in steps if s.get("name") == "test_service" and s.get("status") == "healed"
+    )
     report.repair.iterations = sum(1 for s in steps if s.get("name") == "fixit")
     report.repair.success_rate = 1.0 if all_ok else 0.5
 
@@ -1698,11 +1807,12 @@ def soma_execute_plan(
         typer.echo(_json.dumps({**payload, "engineering_report": report.to_dict()}, indent=2, default=str))
 
 
-
 def soma_run(
     service: str = typer.Argument(..., help="Service name to build, e.g. work-order, todo."),
     goal: str = typer.Option("", "--goal", "-g", help="Override goal text (default: 'build <service> service')."),
-    no_simulate: bool = typer.Option(False, "--no-simulate", help="Omit world-model simulation step (faster iteration)."),
+    no_simulate: bool = typer.Option(
+        False, "--no-simulate", help="Omit world-model simulation step (faster iteration)."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Plan only — print steps, do not execute."),
     from_step: int = typer.Option(1, "--from-step", "-s", help="Resume execution from this step number."),
     continue_on_error: bool = typer.Option(True, "--continue-on-error/--stop-on-error"),
@@ -1724,6 +1834,7 @@ def soma_run(
     import asyncio as _asyncio
     import datetime as _dt
     import json as _json
+
     import yaml as _yaml
 
     svc = service.lower().replace(" ", "-").replace("_", "-")
@@ -1736,11 +1847,15 @@ def soma_run(
 
     PlannerAgent = _broca("agents.planner.PlannerAgent")
     planner = PlannerAgent()
-    plan_result = _asyncio.run(planner.handle({
-        "goal": resolved_goal,
-        "service": svc,
-        "simulate_enabled": simulate_enabled,
-    }))
+    plan_result = _asyncio.run(
+        planner.handle(
+            {
+                "goal": resolved_goal,
+                "service": svc,
+                "simulate_enabled": simulate_enabled,
+            }
+        )
+    )
     plan_payload = _payload(plan_result)
     plan = plan_payload.get("plan")
 
@@ -1775,21 +1890,31 @@ def soma_run(
 
     ExecutorAgent = _broca("agents.executor.ExecutorAgent")
     executor = ExecutorAgent()
-    exec_result = _asyncio.run(executor.handle({
-        "plan_file": str(plan_path),
-        "dry_run": False,
-        "continue_on_error": continue_on_error,
-        "auto_fix": auto_fix,
-        "from_step": from_step,
-    }))
+    exec_result = _asyncio.run(
+        executor.handle(
+            {
+                "plan_file": str(plan_path),
+                "dry_run": False,
+                "continue_on_error": continue_on_error,
+                "auto_fix": auto_fix,
+                "from_step": from_step,
+            }
+        )
+    )
     exec_payload = _payload(exec_result)
 
     if json_output:
-        typer.echo(_json.dumps({
-            "plan": plan,
-            "plan_file": str(plan_path),
-            "execution": exec_payload,
-        }, indent=2, default=str))
+        typer.echo(
+            _json.dumps(
+                {
+                    "plan": plan,
+                    "plan_file": str(plan_path),
+                    "execution": exec_payload,
+                },
+                indent=2,
+                default=str,
+            )
+        )
         return
 
     steps_run = exec_payload.get("steps_run", [])
@@ -1819,7 +1944,9 @@ def soma_discover(
     diff: bool = typer.Option(False, "--diff", help="Compare simulation graph vs execution graph"),
     learn: bool = typer.Option(False, "--learn", help="Update Q-table from observations"),
     publish: bool = typer.Option(False, "--publish", help="Publish the canonical graph"),
-    auto: bool = typer.Option(False, "--auto", help="Run the full pipeline: discover → plan → execute → learn → publish → engineer"),
+    auto: bool = typer.Option(
+        False, "--auto", help="Run the full pipeline: discover → plan → execute → learn → publish → engineer"
+    ),
     max_epochs: int = typer.Option(10, "--max-epochs", help="Max learning epochs before convergence"),
     convergence: float = typer.Option(0.1, "--convergence", help="Loss threshold for convergence"),
     batch_size: int = typer.Option(10, "--batch-size", help="Number of iterations per batch for learning"),
@@ -1860,6 +1987,9 @@ def soma_discover(
         state_file.write_text(_json.dumps(state, indent=2, default=str))
 
     state = _load_state()
+    converged = False  # set for real in the LEARN block below; defaulted here
+    # so ENGINEER's convergence check can't NameError if a future reorder
+    # ever makes it reachable without LEARN having run first.
 
     # ── LOGS (--log) — rendered at the end of whatever phases ran ─────────
     # Observability panel fetched during *this* invocation. Not read from
@@ -1868,9 +1998,7 @@ def soma_discover(
 
     def _show_logs() -> None:
         """Fetch and display recent server logs from the observability panel."""
-        data = _fresh_obs or _brain_get(
-            "/api/v1/agentos/observability", _brain_url(), json_output=False, quiet=True
-        )
+        data = _fresh_obs or _brain_get("/api/v1/agentos/observability", _brain_url(), json_output=False, quiet=True)
         if not data:
             typer.echo("  Log fetch failed — is the runtime running?")
             return
@@ -1892,7 +2020,9 @@ def soma_discover(
         typer.echo(f"Classifying capability for: {intent}")
 
         base_url = _brain_url()
-        result = _brain_post("/api/v1/agentos/execute-direct", base_url, {"question": intent}, json_output=False, quiet=True)
+        result = _brain_post(
+            "/api/v1/agentos/execute-direct", base_url, {"question": intent}, json_output=False, quiet=True
+        )
         if not result:
             # A transport failure is recoverable — not a capability blocker.
             typer.echo(persona.note("The runtime did not respond. Execution was not attempted."))
@@ -1976,15 +2106,18 @@ def soma_discover(
         # 1. Check local Broca registry
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
             if registry.discover(agent_name) is not None:
                 logger.info("[plan] %s found in local registry", agent_name)
                 return "local"
             # Fuzzy match
-            for registered in getattr(registry, '_agents', {}).values():
-                reg_type = getattr(registered, 'agent_type', '').lower().replace('-', ' ').replace('_', ' ')
+            for registered in getattr(registry, "_agents", {}).values():
+                reg_type = getattr(registered, "agent_type", "").lower().replace("-", " ").replace("_", " ")
                 if agent_lower in reg_type or reg_type in agent_lower:
-                    logger.info("[plan] %s fuzzy-matched to local %s", agent_name, getattr(registered, 'agent_type', ''))
+                    logger.info(
+                        "[plan] %s fuzzy-matched to local %s", agent_name, getattr(registered, "agent_type", "")
+                    )
                     return "local"
         except Exception:
             pass
@@ -2022,10 +2155,14 @@ def soma_discover(
         # 4. Auto-generate (last resort)
         try:
             logger.info("[plan] %s not found anywhere — auto-generating", agent_name)
-            r = await auto_agent.handle({
-                "agent_name": agent_name, "agent_description": agent_name,
-                "specification": spec_data, "discovery": discovery,
-            })
+            r = await auto_agent.handle(
+                {
+                    "agent_name": agent_name,
+                    "agent_description": agent_name,
+                    "specification": spec_data,
+                    "discovery": discovery,
+                }
+            )
             if r.payload.get("generated"):
                 return "auto_generated"
         except Exception:
@@ -2036,8 +2173,8 @@ def soma_discover(
     def _cache_provider_agent(agent_name: str, provider_agent: dict, provider: str) -> None:
         """Cache a provider-discovered agent in the local Broca registry."""
         try:
-            from broca.registry import get_registry
             from broca.agents.provider_proxy import ProviderProxyAgent
+            from broca.registry import get_registry
 
             registry = get_registry()
             agent_info = {
@@ -2055,6 +2192,7 @@ def soma_discover(
         gm = _plan()
         if not auto and gm:
             from repl.ascii_graph import render_ascii_graph
+
             resolved = state.get("resolved", {})
             graph = gm.get("graph", {}) if isinstance(gm, dict) else {}
             nodes = graph.get("nodes", [])
@@ -2087,16 +2225,22 @@ def soma_discover(
         result = _simulate_fn()
         if not auto and result:
             from repl.ascii_graph import render_ascii_simulate_graph
+
             graph = result.get("graph", result.get("execution_graph", {}))
             nodes = graph.get("nodes", []) if isinstance(graph, dict) else []
             edges = graph.get("edges", []) if isinstance(graph, dict) else []
             execution_order = graph.get("execution_order", []) if isinstance(graph, dict) else []
             state_data = graph.get("state", {}) if isinstance(graph, dict) else {}
-            print(render_ascii_simulate_graph(
-                nodes, edges, execution_order, state_data,
-                grounding_score=result.get("grounding_score", 0.0),
-                needs_correction=result.get("needs_correction", False),
-            ))
+            print(
+                render_ascii_simulate_graph(
+                    nodes,
+                    edges,
+                    execution_order,
+                    state_data,
+                    grounding_score=result.get("grounding_score", 0.0),
+                    needs_correction=result.get("needs_correction", False),
+                )
+            )
 
     # ── ACT (--act) ──────────────────────────────────────────────────────
     def _act_fn():
@@ -2110,6 +2254,7 @@ def soma_discover(
 
         # Try streaming execute first
         from repl.execution_monitor import stream_execute
+
         try:
             result = stream_execute(base_url, plan_response, headers)
         except Exception as e:
@@ -2144,6 +2289,7 @@ def soma_discover(
     def _render_execute_output(result: dict):
         """Render the execution result with the monitor display."""
         from repl.execution_monitor import render_execution_result
+
         output = render_execution_result(result)
         if output:
             typer.echo(output)
@@ -2160,6 +2306,7 @@ def soma_discover(
     # ── DIFF (--diff) ────────────────────────────────────────────────────
     def _diff_fn():
         from src.monkey_brain.kernel.graph_manager import GraphManager
+
         gm = GraphManager()
         gm.graph = state.get("graph", {})
         sim_graph = state.get("simulation_graph", {})
@@ -2177,7 +2324,13 @@ def soma_discover(
 
     # ── LEARN (--learn) ──────────────────────────────────────────────────
     def _learn_fn():
-        """Call POST /api/v1/agentos/learn via the runtime API — returns perplexity."""
+        """Call POST /api/v1/agentos/learn via the runtime API — returns perplexity.
+
+        One call already runs batch_size * epochs iterations server-side
+        (api/routes/predict.py's /learn route). max_epochs/convergence are
+        an OUTER loop of repeated calls to that — the docstring's own
+        "Learn → Converged?" pipeline stage — since the server has no
+        convergence concept of its own to forward these into."""
         base_url = _brain_url()
         body = {"batch_size": batch_size, "epochs": epochs}
         result = _brain_post("/api/v1/agentos/learn", base_url, body, json_output=False, quiet=True)
@@ -2189,7 +2342,17 @@ def soma_discover(
         return result
 
     if learn or auto:
-        result = _learn_fn()
+        result = None
+        converged = False
+        outer_epochs_run = 0
+        while outer_epochs_run < max_epochs:
+            outer_epochs_run += 1
+            result = _learn_fn()
+            if not result:
+                break
+            if result.get("final_perplexity", float("inf")) <= convergence:
+                converged = True
+                break
         if not auto and result:
             typer.echo("")
             typer.echo("═══ LEARN ═══")
@@ -2199,7 +2362,14 @@ def soma_discover(
             typer.echo(f"  Final Q-value: {result.get('final_q_value', 0):.4f}")
             typer.echo(f"  Elapsed: {result.get('elapsed_ms', 0):.0f}ms")
             for entry in result.get("results", []):
-                typer.echo(f"    batch={entry['batch']} epoch={entry['epoch']} perplexity={entry['perplexity']:.4f} q={entry['q_value']:.4f}")
+                typer.echo(
+                    f"    batch={entry['batch']} epoch={entry['epoch']} "
+                    f"perplexity={entry['perplexity']:.4f} q={entry['q_value']:.4f}"
+                )
+            if converged:
+                typer.echo(f"  Converged after {outer_epochs_run}/{max_epochs} epoch(s) (perplexity <= {convergence})")
+            else:
+                typer.echo(f"  Did not converge within {max_epochs} epoch(s) (perplexity > {convergence})")
 
     # ── OBSERVE (--observe) ──────────────────────────────────────────────
     # Runs after every work phase (simulate / execute / diff / learn) so the
@@ -2241,16 +2411,22 @@ def soma_discover(
 
     # ── ENGINEER (after --auto converges) ────────────────────────────────
     if auto:
+        if not converged:
+            typer.echo(
+                f"  ⚠ Learn phase did not converge within {max_epochs} epoch(s) "
+                f"(perplexity > {convergence}) — proceeding to engineer anyway"
+            )
         typer.echo("")
         typer.echo("═══ ENGINEER ═══")
         typer.echo("  Starting SDLC pipeline...")
         from repl.sdlc import run_sdlc_pipeline
+
         try:
             run_sdlc_pipeline(intent)
         except Exception as e:
             typer.echo(f"  SDLC pipeline failed: {e}", err=True)
-            raise typer.Exit(1)
-        typer.echo(f"  ✓ Pipeline complete")
+            raise typer.Exit(1) from e
+        typer.echo("  ✓ Pipeline complete")
 
     # ── LOGS (--log) — always last, after every phase has rendered ────────
     if log:
@@ -2271,11 +2447,15 @@ def soma_discover(
         typer.echo("  --publish   publish the canonical graph")
         typer.echo("  --auto      run full pipeline: spec → plan → act → learn → diff → publish → engineer")
         typer.echo("")
-        typer.echo("  Flags compose: discover \"...\" --plan --observe --log")
+        typer.echo('  Flags compose: discover "..." --plan --observe --log')
 
     typer.echo("")
 
 
 def _hash_intent(intent: str) -> str:
     import hashlib
-    return hashlib.md5(intent.encode()).hexdigest()[:12]
+
+    # Fingerprint only (short id for a log/cache key), not a security or
+    # integrity check -- usedforsecurity=False documents that and silences
+    # bandit's weak-hash warning (B324) without switching to a slower hash.
+    return hashlib.md5(intent.encode(), usedforsecurity=False).hexdigest()[:12]

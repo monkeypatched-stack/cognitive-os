@@ -23,6 +23,7 @@ Serialization contract:
     Nested dataclasses serialize recursively. Timestamps serialize as
     float epoch seconds. UUIDs serialize as hex strings.
 """
+
 from __future__ import annotations
 
 import time
@@ -31,10 +32,10 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Enums
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class ActorType(Enum):
     HUMAN = "human"
@@ -63,6 +64,7 @@ class ActorStatus(Enum):
     than silently repurposing RETIRED's ambiguous prior meaning. FAILED is
     also new: the controller's own crash-detection signal (a RUNNING-desired
     actor whose registry record has gone stale with no lease held)."""
+
     REGISTERED = "registered"
     INITIALIZED = "initialized"
     ACTIVE = "active"
@@ -82,6 +84,7 @@ class RelationshipType(Enum):
     Kept here, alongside ActorRelationship and Society.relationships below, only so
     already-persisted Society blobs with a populated "relationships" field still
     deserialize; do not write new data through this path."""
+
     PEER = "peer"
     SUPERIOR = "superior"
     SUBORDINATE = "subordinate"
@@ -106,6 +109,7 @@ class CapabilityLevel(Enum):
 # Serialization helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _enum_val(e: Enum) -> str:
     return e.value
 
@@ -114,17 +118,13 @@ def _ts(t: float) -> float:
     return round(t, 6)
 
 
-def _serialize_list(items: tuple) -> list:
-    return [to_dict(i) if hasattr(i, "to_dict") else i for i in items]
-
-
 def to_dict(obj: Any) -> Any:
     if hasattr(obj, "to_dict"):
         return obj.to_dict()
     if isinstance(obj, Enum):
         return obj.value
     if isinstance(obj, (list, tuple)):
-        return [_serialize_list(obj) if False else to_dict(i) if hasattr(i, "to_dict") else (i.value if isinstance(i, Enum) else i) for i in obj]
+        return [to_dict(i) if hasattr(i, "to_dict") else (i.value if isinstance(i, Enum) else i) for i in obj]
     if isinstance(obj, dict):
         return {k: to_dict(v) for k, v in obj.items()}
     return obj
@@ -144,9 +144,11 @@ def _resolve_list(items: list, item_from: Any) -> tuple:
 # Identity & Profile
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True)
 class ActorIdentity:
     """Immutable identity for an actor in the society."""
+
     actor_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     actor_type: ActorType = ActorType.HUMAN
@@ -173,6 +175,7 @@ class ActorIdentity:
 @dataclass(frozen=True)
 class ActorCapability:
     """One capability an actor possesses, with proficiency level."""
+
     name: str = ""
     level: CapabilityLevel = CapabilityLevel.COMPETENT
     description: str = ""
@@ -199,6 +202,7 @@ class ActorCapability:
 @dataclass(frozen=True)
 class ActorProfile:
     """Full profile of an actor: identity, capabilities, goals, policies."""
+
     identity: ActorIdentity = field(default_factory=ActorIdentity)
     capabilities: tuple[ActorCapability, ...] = ()
     goals: tuple[str, ...] = ()
@@ -241,9 +245,11 @@ class ActorProfile:
 # Roles & Membership
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True)
 class ActorRole:
     """A role an actor plays within a society or sub-group."""
+
     role_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -273,6 +279,7 @@ class ActorRole:
 @dataclass(frozen=True)
 class ActorMembership:
     """An actor's membership in a society or group."""
+
     actor_id: str = ""
     society_id: str = ""
     role: ActorRole = field(default_factory=ActorRole)
@@ -306,6 +313,7 @@ class ActorMembership:
 # Relationships & Address
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True)
 class ActorRelationship:
     """A typed, directed relationship between two actors.
@@ -313,6 +321,7 @@ class ActorRelationship:
     Deprecated — see RelationshipType's docstring above. Retained for
     backward-compatible deserialization of already-persisted Society data.
     """
+
     source_actor_id: str = ""
     target_actor_id: str = ""
     relationship_type: RelationshipType = RelationshipType.PEER
@@ -334,7 +343,9 @@ class ActorRelationship:
         return cls(
             source_actor_id=d.get("source_actor_id", ""),
             target_actor_id=d.get("target_actor_id", ""),
-            relationship_type=RelationshipType(d["relationship_type"]) if "relationship_type" in d else RelationshipType.PEER,
+            relationship_type=RelationshipType(d["relationship_type"])
+            if "relationship_type" in d
+            else RelationshipType.PEER,
             strength=d.get("strength", 1.0),
             metadata=dict(d.get("metadata", {})),
         )
@@ -343,6 +354,7 @@ class ActorRelationship:
 @dataclass(frozen=True)
 class ActorAddress:
     """A contact or routing address for an actor. Protocol-agnostic."""
+
     address_id: str = field(default_factory=lambda: uuid4().hex)
     actor_id: str = ""
     address_type: str = ""
@@ -381,10 +393,23 @@ class ActorAddress:
 #: — documentation/discovery only, never enforced: society_type stays a free
 #: string so "Custom Society Types" needs zero code changes.
 STANDARD_SOCIETY_TYPES: tuple[str, ...] = (
-    "household", "company", "government", "school", "university", "hospital",
-    "manufacturing_plant", "retail_store", "sports_club", "religious_organization",
-    "military_unit", "research_lab", "open_source_project", "community_organization",
-    "apartment_association", "building_management", "shopping_mall_management",
+    "household",
+    "company",
+    "government",
+    "school",
+    "university",
+    "hospital",
+    "manufacturing_plant",
+    "retail_store",
+    "sports_club",
+    "religious_organization",
+    "military_unit",
+    "research_lab",
+    "open_source_project",
+    "community_organization",
+    "apartment_association",
+    "building_management",
+    "shopping_mall_management",
 )
 
 
@@ -398,6 +423,7 @@ class Society:
     purely organizational context (purpose/governance/identity/function),
     never a physical container and never assumed to be an actor's only
     affiliation."""
+
     society_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -445,10 +471,7 @@ class Society:
         return tuple(m for m in self.memberships if m.role.name == role_name and m.is_active)
 
     def relationships_for(self, actor_id: str) -> tuple[ActorRelationship, ...]:
-        return tuple(
-            r for r in self.relationships
-            if r.source_actor_id == actor_id or r.target_actor_id == actor_id
-        )
+        return tuple(r for r in self.relationships if r.source_actor_id == actor_id or r.target_actor_id == actor_id)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -498,12 +521,14 @@ class Society:
 # consistent with Country->City's exclusivity one level up the hierarchy.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True)
 class Team:
     """An immutable team of actors within one society. Holds no mutation
     logic itself; every change flows through SocietyRuntime's team methods,
     which replace it via `dataclasses.replace()` — the same pattern as
     `Society` above."""
+
     team_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""

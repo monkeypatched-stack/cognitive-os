@@ -27,6 +27,7 @@ Boot sequence (deterministic, ordered):
 
 Idempotency: boot() may only execute once. Repeated calls return the same kernel.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,9 +35,10 @@ import inspect
 import logging
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Callable
+from typing import Any
 
 from src.monkey_brain.kernel.resource_manager import ResourceManager
 from src.monkey_brain.kernel.scheduler import RuntimeDescriptor
@@ -45,6 +47,7 @@ logger = logging.getLogger("agentos.kernel")
 
 
 # ── Health Models ────────────────────────────────────────────────────────────
+
 
 class HealthState(StrEnum):
     HEALTHY = "healthy"
@@ -87,6 +90,7 @@ class RuntimeInfo:
 
 # ── Runtime Registry ─────────────────────────────────────────────────────────
 
+
 class RuntimeRegistry:
     """Kernel-owned production Runtime Registry.
 
@@ -96,9 +100,17 @@ class RuntimeRegistry:
     provenance, and shutdown metadata.
     """
 
-    _LIFECYCLE_STATES = frozenset({
-        "registered", "booting", "ready", "degraded", "draining", "stopped", "failed",
-    })
+    _LIFECYCLE_STATES = frozenset(
+        {
+            "registered",
+            "booting",
+            "ready",
+            "degraded",
+            "draining",
+            "stopped",
+            "failed",
+        }
+    )
     _HEALTH_STATES = frozenset({"healthy", "degraded", "unavailable", "unknown"})
 
     def __init__(self) -> None:
@@ -182,8 +194,7 @@ class RuntimeRegistry:
         for descriptor in self._descriptors.values():
             missing = set(descriptor.dependencies) - names
             if missing:
-                raise RuntimeError(
-                    f"runtime {descriptor.id!r} has missing dependencies: {sorted(missing)}")
+                raise RuntimeError(f"runtime {descriptor.id!r} has missing dependencies: {sorted(missing)}")
 
         visiting: set[str] = set()
         visited: set[str] = set()
@@ -319,6 +330,7 @@ class RuntimeSelector:
 
 # ── EventBus ─────────────────────────────────────────────────────────────────
 
+
 class EventBus:
     """Async pub/sub — defensive: failing subscriber never breaks publisher."""
 
@@ -340,6 +352,7 @@ class EventBus:
 
 # ── Boot Phases ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class BootPhase:
     name: str
@@ -350,13 +363,14 @@ class BootPhase:
 
 # ── Kernel ───────────────────────────────────────────────────────────────────
 
+
 class Kernel:
     """Deterministic, idempotent boot orchestrator.
 
     boot() executes exactly once. Subsequent calls return the existing instance.
     """
 
-    _instance: "Kernel | None" = None
+    _instance: Kernel | None = None
     _booted: bool = False
 
     def __init__(self) -> None:
@@ -379,7 +393,7 @@ class Kernel:
         self._broca_registered: bool = False
 
     @classmethod
-    async def boot(cls, app: Any) -> "Kernel":
+    async def boot(cls, app: Any) -> Kernel:
         """Boot the kernel exactly once. Returns existing instance on repeat calls."""
         if cls._booted and cls._instance is not None:
             logger.debug("Kernel already booted — returning existing instance")
@@ -411,11 +425,19 @@ class Kernel:
     # These are the network-dependent, optional subsystems — an unreachable
     # one (e.g. NATS/Neo4j/Elasticsearch/Influx behind data-routing or OQL)
     # must never wedge startup, which previously hung boot indefinitely.
-    _OPTIONAL_PHASES = frozenset({
-        "Providers", "Policy Control Plane", "Runtime Identity",
-        "SittingFace", "Graph Store", "Data Routing", "OQL Engine",
-        "CodeGen Runtime", "Hybrid Router",
-    })
+    _OPTIONAL_PHASES = frozenset(
+        {
+            "Providers",
+            "Policy Control Plane",
+            "Runtime Identity",
+            "SittingFace",
+            "Graph Store",
+            "Data Routing",
+            "OQL Engine",
+            "CodeGen Runtime",
+            "Hybrid Router",
+        }
+    )
 
     async def _boot_sequence(self, app: Any) -> None:
         """Execute the deterministic boot sequence."""
@@ -471,10 +493,14 @@ class Kernel:
                     phase.state = "skipped"
                     phase.error = detail
                     self._health[name.lower()] = ComponentHealth(
-                        name=name, state=HealthState.DEGRADED, message=detail,
+                        name=name,
+                        state=HealthState.DEGRADED,
+                        message=detail,
                     )
                     logger.warning(
-                        "Boot phase %r degraded (%s) — continuing without it", name, detail,
+                        "Boot phase %r degraded (%s) — continuing without it",
+                        name,
+                        detail,
                     )
                     continue
                 phase.state = "failed"
@@ -486,11 +512,13 @@ class Kernel:
         self.validate_architecture()
         self._print_boot_summary()
 
-        await self.event_bus.publish("kernel.boot.completed", {
-            "runtimes": self.registry.names(),
-            "duration_ms": (time.time() - self._boot_start) * 1000,
-        })
-
+        await self.event_bus.publish(
+            "kernel.boot.completed",
+            {
+                "runtimes": self.registry.names(),
+                "duration_ms": (time.time() - self._boot_start) * 1000,
+            },
+        )
 
     # 1. Load Configuration
     #
@@ -522,12 +550,14 @@ class Kernel:
 
     async def _phase_config(self, app: Any) -> None:
         from pathlib import Path
+
         from src.monkey_brain.api.bootstrap import load_dotenv
+
         load_dotenv(Path(__file__).parents[3] / ".env")
         from services.common.secrets import validate_hmac_secrets_from_env
+
         validate_hmac_secrets_from_env()
         self._health["config"] = ComponentHealth(name="config", state=HealthState.HEALTHY)
-
 
     # 2. Initialize External Agent Providers
     #
@@ -572,6 +602,7 @@ class Kernel:
         self.resource_manager.register(Mem0Resource())
 
         from src.monkey_brain.kernel.provider_registry import init_providers
+
         app.state._provider_registry = init_providers()
         self.agent_registry.attach_provider_registry(app.state._provider_registry)
         for provider in app.state._provider_registry.list_providers():
@@ -624,6 +655,7 @@ class Kernel:
 
     async def _phase_observability(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_lemon
+
         self.lemon = await init_lemon(app)
         app.state.lemon = self.lemon
         self._health["observability"] = ComponentHealth(name="observability", state=HealthState.HEALTHY)
@@ -655,16 +687,17 @@ class Kernel:
     # Result:
     # A fully initialized persistence layer providing unified access to all
     # runtime memory and storage services while abstracting the underlying
-    # database implementations. 
+    # database implementations.
 
     async def _phase_persistence(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_persistence
+
         self.persistence = await init_persistence(app, self.lemon)
         self._health["persistence"] = ComponentHealth(name="persistence", state=HealthState.HEALTHY)
 
+        from src.monkey_brain.kernel.resources.mem0 import Mem0Resource
         from src.monkey_brain.kernel.resources.mongo import MongoResource
         from src.monkey_brain.kernel.resources.redis import RedisResource
-        from src.monkey_brain.kernel.resources.mem0 import Mem0Resource
 
         adapters = getattr(self.persistence, "_adapters", {})
         if "mongodb" in adapters:
@@ -673,7 +706,6 @@ class Kernel:
             self.resource_manager.register(RedisResource(adapters["redis"]))
         if "mem0" in adapters:
             self.resource_manager.register(Mem0Resource(adapters["mem0"]))
-
 
     # 5. Initialize Wolverine Runtime (Execution Engine)
     #
@@ -704,9 +736,9 @@ class Kernel:
 
     async def _phase_wolverine(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_runtime
+
         app.state._wolverine = await init_runtime(app, self.persistence, self.lemon)
         self._health["wolverine"] = ComponentHealth(name="wolverine", state=HealthState.HEALTHY)
-
 
     # 6. Initialize External Agent Resolution
     #
@@ -737,17 +769,21 @@ class Kernel:
     # A unified agent discovery and execution layer capable of transparently
     # resolving local and external agents while supporting automatic registration
     # and fallback strategies.
-    
+
     # TODO: needs to inject the providers into the wolverine runtime need dependency inversion
 
     async def _phase_broca(self, app: Any) -> None:
         if self._broca_registered:
-            self._health["broca"] = ComponentHealth(name="broca", state=HealthState.HEALTHY, message="already registered")
+            self._health["broca"] = ComponentHealth(
+                name="broca", state=HealthState.HEALTHY, message="already registered"
+            )
             return
         from src.monkey_brain.api.bootstrap import init_broca
+
         await init_broca(app, app.state._wolverine)
         try:
             from broca.registry import get_registry
+
             self.agent_registry.attach_broca(get_registry())
         except Exception as exc:
             logger.debug("[kernel] Broca registry adapter unavailable: %s", exc)
@@ -777,14 +813,15 @@ class Kernel:
 
     async def _phase_providers(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_providers
+
         await init_providers(app, app.state._wolverine)
         self._health["providers"] = ComponentHealth(name="providers", state=HealthState.HEALTHY)
 
         from src.monkey_brain.kernel.resources.ollama import OllamaResource
         from src.monkey_brain.kernel.resources.openclaw import OpenClawResource
+
         self.resource_manager.register(OllamaResource())
         self.resource_manager.register(OpenClawResource())
-
 
     # 7. Initialize the Policy Control Plane (PCP)
     #
@@ -816,6 +853,7 @@ class Kernel:
 
     async def _phase_pcp(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_pcp
+
         app.state._pcp = await init_pcp(app, self.persistence)
         self._health["pcp"] = ComponentHealth(
             name="pcp",
@@ -823,8 +861,8 @@ class Kernel:
         )
 
         from src.monkey_brain.kernel.resources.nats import NatsResource
-        self.resource_manager.register(NatsResource(app.state._pcp))
 
+        self.resource_manager.register(NatsResource(app.state._pcp))
 
     # 8. Initialize the Runtime Identity Layer
     #
@@ -861,12 +899,11 @@ class Kernel:
     # A fully initialized identity layer that enables trusted, authenticated,
     # and policy-driven communication across the MonkeyBrain ecosystem.
 
-
     async def _phase_identity(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_runtime_identity
+
         await init_runtime_identity(app.state._wolverine)
         self._health["identity"] = ComponentHealth(name="identity", state=HealthState.HEALTHY)
-
 
     # 9. Initialize the Learning Policy Engine
     #
@@ -880,7 +917,7 @@ class Kernel:
     # The Learning Policy Engine maintains the runtime's knowledge of past
     # experiences, updating policies based on observed outcomes and rewards.
     # It enables continuous optimization by balancing exploration of new
-    # strategies with exploitation of previously learned behavior. it uses 
+    # strategies with exploitation of previously learned behavior. it uses
     # bellman policy for storing transient values
     #
     # Learning Components:
@@ -907,6 +944,7 @@ class Kernel:
 
     async def _phase_policy(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_policy
+
         app.state._policy = await init_policy(app, self.persistence, self.lemon)
         self._health["policy"] = ComponentHealth(name="policy", state=HealthState.HEALTHY)
 
@@ -941,10 +979,10 @@ class Kernel:
 
     async def _phase_learning(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_learning
+
         app.state._learning = await init_learning(app, self.lemon)
         self._health["learning"] = ComponentHealth(name="learning", state=HealthState.HEALTHY)
 
- 
     # 11. Initialize the Observer
     #
     # Purpose:
@@ -974,9 +1012,9 @@ class Kernel:
 
     async def _phase_observer(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_observer
+
         app.state._observer = await init_observer(app, self.lemon)
         self._health["observer"] = ComponentHealth(name="observer", state=HealthState.HEALTHY)
-
 
     # 12. Initialize SittingFace Knowledge Packs
     #
@@ -1000,7 +1038,7 @@ class Kernel:
     # - Load world knowledge and domain rules
     # - Register embeddings and semantic indexes
     # - Validate compatibility and version dependencies
-    # - Manage and complie soma charts / EATAS charts 
+    # - Manage and complie soma charts / EATAS charts
     #
     # Result:
     # A fully initialized semantic knowledge layer, enabling the runtime to
@@ -1009,6 +1047,7 @@ class Kernel:
 
     async def _phase_sittingface(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_sittingface
+
         await init_sittingface(app, app.state._wolverine, self.lemon)
         compiler = getattr(app.state, "somatic_compiler", None)
         self._health["sittingface"] = ComponentHealth(
@@ -1018,6 +1057,7 @@ class Kernel:
         )
 
         from src.monkey_brain.kernel.resources.sittingface import SittingFaceResource
+
         self.resource_manager.register(SittingFaceResource(app))
 
     # 13. Initialize the Execution Graph
@@ -1047,7 +1087,7 @@ class Kernel:
     # - Provide execution history for learning and optimization
     # - Initiate the capabilities bus to get capabilities and build the graph
     # - Initiate the Agent bus to get the agents and add them to the graph
-    # - Discover Agents and capabilities that are available 
+    # - Discover Agents and capabilities that are available
     #
     # Result:
     # A fully initialized Execution Graph capable of representing, tracking, and
@@ -1056,9 +1096,9 @@ class Kernel:
 
     async def _phase_execution_graph(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_execution_graph
+
         app.state._execution_graph = await init_execution_graph(app, app.state._wolverine, self.lemon)
         self._health["execution_graph"] = ComponentHealth(name="execution_graph", state=HealthState.HEALTHY)
-
 
     # 14. Initialize the Graph Store
     #
@@ -1091,10 +1131,13 @@ class Kernel:
 
     async def _phase_graph_store(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_graph_store
+
         app.state._graph_store = await init_graph_store(app, app.state._wolverine, app.state._execution_graph)
         self._health["graph_store"] = ComponentHealth(
             name="graph_store",
-            state=HealthState.HEALTHY if app.state._graph_store and app.state._graph_store.is_connected() else HealthState.DEGRADED,
+            state=HealthState.HEALTHY
+            if app.state._graph_store and app.state._graph_store.is_connected()
+            else HealthState.DEGRADED,
         )
 
         # Neo4jResource used to be registered here, wrapping app.state._graph_store
@@ -1165,6 +1208,7 @@ class Kernel:
 
     async def _phase_data_routing(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_data_routing
+
         app.state._data_routing = await init_data_routing(app, self.lemon)
         self._health["data_routing"] = ComponentHealth(
             name="data_routing",
@@ -1203,6 +1247,7 @@ class Kernel:
 
     async def _phase_oql(self, app: Any) -> None:
         from src.monkey_brain.api.bootstrap import init_oql
+
         app.state._oql = await init_oql(app, self.lemon)
         self._health["oql"] = ComponentHealth(
             name="oql",
@@ -1215,8 +1260,8 @@ class Kernel:
     # Initialize the Process Manager, the runtime subsystem responsible for the
     # lifecycle management of all cognitive processes. It creates, schedules,
     # monitors, suspends, resumes, and terminates processes executing within the
-    # MonkeyBrain runtime. all cognitive process ie actors are manages and scheduled 
-    # by this process manager 
+    # MonkeyBrain runtime. all cognitive process ie actors are manages and scheduled
+    # by this process manager
     #
     # Architectural Role:
     # The Process Manager is the operating system layer for cognitive execution.
@@ -1240,8 +1285,8 @@ class Kernel:
     # and resource management across the MonkeyBrain runtime.
 
     async def _phase_process_manager(self, app: Any) -> None:
-        from src.monkey_brain.kernel.process.manager import ProcessManager
         from src.monkey_brain.kernel.process.checkpoint import MongoCheckpointStore
+        from src.monkey_brain.kernel.process.manager import ProcessManager
 
         checkpoint_store = None
         mongo_client = self._find_mongo_client(app)
@@ -1296,8 +1341,8 @@ class Kernel:
     async def _phase_audit_identity(self, app: Any) -> None:
         """Wire audit log to durable storage and initialize runtime identity."""
         from src.monkey_brain.kernel.audit import get_audit_log
-        from src.monkey_brain.kernel.storage import AppendOnlyLog
         from src.monkey_brain.kernel.identity import create_identity
+        from src.monkey_brain.kernel.storage import AppendOnlyLog
 
         # Initialize runtime identity
         identity = create_identity()
@@ -1306,14 +1351,15 @@ class Kernel:
         # Wire audit log to durable append-only store
         audit = get_audit_log()
 
-        #TODO: Change to elastic search
+        # TODO: Change to elastic search
         store = AppendOnlyLog(path=os.path.expanduser("~/.monkeybrain/audit"))
         audit.set_store(store)
 
         # Record boot
         audit.record(
             runtime_id=identity.runtime_id,
-            event_type="system", action="boot",
+            event_type="system",
+            action="boot",
             details={"runtime_type": identity.runtime_type, "owner": identity.owner},
         )
 
@@ -1356,8 +1402,8 @@ class Kernel:
     async def _phase_cognitive(self, app: Any) -> None:
 
         from src.monkey_brain.kernel.cognitive_runtime import LegacyCognitiveRuntime
-        from src.monkey_brain.kernel.semantic_memory import SemanticMemory
         from src.monkey_brain.kernel.graph_manager import GraphManager
+        from src.monkey_brain.kernel.semantic_memory import SemanticMemory
 
         # load agents and actors from charts
         semantic_memory = SemanticMemory()
@@ -1366,11 +1412,11 @@ class Kernel:
         # initiate the graph manager for execution graphs generated in realtime
         graph_manager = GraphManager()
         cognitive = await LegacyCognitiveRuntime.boot(
-            app, 
-            lemon=self.lemon, 
-            persistence=self.persistence, 
+            app,
+            lemon=self.lemon,
+            persistence=self.persistence,
             event_bus=self.event_bus,
-            semantic_memory=semantic_memory, 
+            semantic_memory=semantic_memory,
             graph_manager=graph_manager,
         )
         self.registry.register("cognitive", cognitive)
@@ -1408,8 +1454,12 @@ class Kernel:
 
     async def _phase_simulation(self, app: Any) -> None:
         from src.monkey_brain.kernel.simulation_runtime import SimulationRuntime
+
         simulation = await SimulationRuntime.boot(
-            app, lemon=self.lemon, persistence=self.persistence, event_bus=self.event_bus,
+            app,
+            lemon=self.lemon,
+            persistence=self.persistence,
+            event_bus=self.event_bus,
         )
         self.registry.register("simulation", simulation)
         self._health["simulation"] = ComponentHealth(name="simulation", state=HealthState.HEALTHY)
@@ -1447,8 +1497,12 @@ class Kernel:
 
     async def _phase_comparator(self, app: Any) -> None:
         from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
+
         comparator = await ComparatorRuntime.boot(
-            app, lemon=self.lemon, persistence=self.persistence, event_bus=self.event_bus,
+            app,
+            lemon=self.lemon,
+            persistence=self.persistence,
+            event_bus=self.event_bus,
         )
         self.registry.register("comparator", comparator)
         self._health["comparator"] = ComponentHealth(name="comparator", state=HealthState.HEALTHY)
@@ -1483,8 +1537,8 @@ class Kernel:
     # intelligent reasoning over the Semantic Cognitive World Model.
 
     async def _phase_planetary(self, app: Any) -> None:
-        from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
         from src.monkey_brain.kernel.society.domain import Society
+        from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
         planetary = PlanetaryRuntime(Society(name="Default Society"))
 
@@ -1502,6 +1556,7 @@ class Kernel:
         # does -- this is the one place that real instance is reachable
         # without one.
         from src.monkey_brain.api.routes.payments import set_default_planetary_runtime
+
         set_default_planetary_runtime(planetary)
         self._health["planetary"] = ComponentHealth(name="planetary", state=HealthState.HEALTHY)
 
@@ -1530,8 +1585,10 @@ class Kernel:
         queue_batch_size = int(os.getenv("ACTOR_RECONCILE_QUEUE_BATCH_SIZE", "50"))
         queue_concurrency = int(os.getenv("ACTOR_RECONCILE_QUEUE_CONCURRENCY", "10"))
         planetary.start_actor_lifecycle_reconciliation(
-            interval_seconds=lifecycle_interval, queue_interval_seconds=queue_interval,
-            queue_batch_size=queue_batch_size, queue_concurrency=queue_concurrency,
+            interval_seconds=lifecycle_interval,
+            queue_interval_seconds=queue_interval,
+            queue_batch_size=queue_batch_size,
+            queue_concurrency=queue_concurrency,
         )
 
     # 23. Initialize the Code Generation Runtime
@@ -1566,10 +1623,15 @@ class Kernel:
 
     async def _phase_codegen(self, app: Any) -> None:
         from src.monkey_brain.kernel.codegen_runtime import CodeGenRuntime
+
         cognitive = self.registry.get("cognitive")
         codegen = await CodeGenRuntime.boot(
-            app, lemon=self.lemon, persistence=self.persistence, event_bus=self.event_bus,
-            process_manager=self.process_manager, wolverine=cognitive.wolverine if cognitive else None,
+            app,
+            lemon=self.lemon,
+            persistence=self.persistence,
+            event_bus=self.event_bus,
+            process_manager=self.process_manager,
+            wolverine=cognitive.wolverine if cognitive else None,
         )
         self.registry.register("codegen", codegen)
         self._health["codegen"] = ComponentHealth(name="codegen", state=HealthState.HEALTHY)
@@ -1608,16 +1670,17 @@ class Kernel:
         """Initialize HybridRouter for unified query processing."""
         from src.hybrid import HybridRouter
         from src.llm.llm_provider import LLMProviderFactory
-        from src.monkey_brain.kernel.pipeline.orchestrator import PipelineOrchestrator
         from src.monkey_brain.kernel.pipeline.compiler import RequestCompiler
-        from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime as PipelineCognitiveRuntime
+        from src.monkey_brain.kernel.pipeline.learning.integration import build_learning_integrated_runtime
+        from src.monkey_brain.kernel.pipeline.orchestrator import PipelineOrchestrator
 
         try:
-
-            # create the cognitive pipeline 
+            # create the cognitive pipeline — LearningIntegratedPolicy layers the
+            # Step 10 Reward->Belief->World pipeline onto the Learn stage; without
+            # it this runtime only ran the default hypothesis-only _learn.
             pipeline = PipelineOrchestrator(
                 compiler=RequestCompiler(),
-                runtime=PipelineCognitiveRuntime(event_bus=self.event_bus),
+                runtime=build_learning_integrated_runtime(event_bus=self.event_bus),
             )
 
             # get the llm provider
@@ -1626,12 +1689,12 @@ class Kernel:
             # Get knowledge base from SittingFace (SomaticCompiler)
             knowledge_base = getattr(app.state, "somatic_compiler", None)
 
-            # initiate the router 
+            # initiate the router
             router = HybridRouter(
                 pipeline_orchestrator=pipeline,
                 knowledge_base=knowledge_base,
                 llm_provider=llm_provider,
-                session_timeout_minutes=30
+                session_timeout_minutes=30,
             )
             app.state.hybrid_router = router
             self._health["hybrid_router"] = ComponentHealth(
@@ -1666,9 +1729,7 @@ class Kernel:
             self.registry.set_health(name, health)
             # Lifecycle is registry metadata; keep it synchronized with the
             # existing boot health result without changing runtime behavior.
-            self.registry.set_lifecycle(
-                name, "ready" if health.ok else "degraded"
-            )
+            self.registry.set_lifecycle(name, "ready" if health.ok else "degraded")
 
     def validate_architecture(self) -> dict[str, Any]:
         """Validate Kernel-owned architectural invariants.
@@ -1750,6 +1811,7 @@ class Kernel:
         broca_count = 0
         try:
             from broca.registry import get_registry
+
             broca_count = len(get_registry().list_agents())
         except Exception:
             logger.debug("_print_boot_summary: suppressed exception", exc_info=True)
@@ -1847,12 +1909,30 @@ class Kernel:
         # which does a raw dict lookup with no lifecycle check, so a
         # "stopped" runtime is still returned as if healthy.
         for attr in (
-            "kernel", "runtime_registry", "agent_registry", "capability_registry",
-            "runtime_selector", "_provider_registry", "lemon", "_wolverine", "_pcp",
-            "_policy", "_learning", "_observer", "_execution_graph", "_graph_store",
-            "_data_routing", "_oql", "process_manager", "runtime_identity",
-            "planetary_runtime", "hybrid_router", "cognitive_runtime",
-            "simulation_runtime", "comparator_runtime", "codegen_runtime",
+            "kernel",
+            "runtime_registry",
+            "agent_registry",
+            "capability_registry",
+            "runtime_selector",
+            "_provider_registry",
+            "lemon",
+            "_wolverine",
+            "_pcp",
+            "_policy",
+            "_learning",
+            "_observer",
+            "_execution_graph",
+            "_graph_store",
+            "_data_routing",
+            "_oql",
+            "process_manager",
+            "runtime_identity",
+            "planetary_runtime",
+            "hybrid_router",
+            "cognitive_runtime",
+            "simulation_runtime",
+            "comparator_runtime",
+            "codegen_runtime",
         ):
             if hasattr(app.state, attr):
                 setattr(app.state, attr, None)
