@@ -60,6 +60,7 @@ SOURCE_DIR = Path(__file__).resolve().parent
 
 # ── Service Definitions ────────────────────────────────────────────────────────
 
+
 @dataclass
 class DBService:
     name: str
@@ -75,47 +76,72 @@ class DBService:
 
 SERVICES: list[DBService] = [
     DBService(
-        name="mongodb", default_port=27017,
-        env_url_var="MONGODB_URL", default_url="mongodb://localhost:27017",
-        package_brew="mongodb-community", package_apt="mongosh",
-        service_name_brew="mongodb-community", service_name_apt="mongod",
+        name="mongodb",
+        default_port=27017,
+        env_url_var="MONGODB_URL",
+        default_url="mongodb://localhost:27017",
+        package_brew="mongodb-community",
+        package_apt="mongosh",
+        service_name_brew="mongodb-community",
+        service_name_apt="mongod",
     ),
     DBService(
-        name="redis", default_port=6379,
-        env_url_var="REDIS_URL", default_url="redis://localhost:6379",
-        package_brew="redis", package_apt="redis-server",
-        service_name_brew="redis", service_name_apt="redis-server",
+        name="redis",
+        default_port=6379,
+        env_url_var="REDIS_URL",
+        default_url="redis://localhost:6379",
+        package_brew="redis",
+        package_apt="redis-server",
+        service_name_brew="redis",
+        service_name_apt="redis-server",
     ),
     DBService(
-        name="neo4j", default_port=7687,
-        env_url_var="NEO4J_URI", default_url="bolt://localhost:7687",
-        package_brew="neo4j", package_apt="neo4j",
-        service_name_brew="neo4j", service_name_apt="neo4j",
+        name="neo4j",
+        default_port=7687,
+        env_url_var="NEO4J_URI",
+        default_url="bolt://localhost:7687",
+        package_brew="neo4j",
+        package_apt="neo4j",
+        service_name_brew="neo4j",
+        service_name_apt="neo4j",
         optional=True,
     ),
     DBService(
-        name="influxdb", default_port=8181,
-        env_url_var="INFLUXDB_URL", default_url="http://localhost:8181",
-        package_brew="influxdb3", package_apt="influxdb3",
-        service_name_brew="influxdb3", service_name_apt="influxdb3",
+        name="influxdb",
+        default_port=8181,
+        env_url_var="INFLUXDB_URL",
+        default_url="http://localhost:8181",
+        package_brew="influxdb3",
+        package_apt="influxdb3",
+        service_name_brew="influxdb3",
+        service_name_apt="influxdb3",
     ),
     DBService(
-        name="elasticsearch", default_port=9200,
-        env_url_var="AUDIT_ELASTICSEARCH_URL", default_url="http://localhost:9200",
-        package_brew="elasticsearch", package_apt="elasticsearch",
-        service_name_brew="elasticsearch-full", service_name_apt="elasticsearch",
+        name="elasticsearch",
+        default_port=9200,
+        env_url_var="AUDIT_ELASTICSEARCH_URL",
+        default_url="http://localhost:9200",
+        package_brew="elasticsearch",
+        package_apt="elasticsearch",
+        service_name_brew="elasticsearch-full",
+        service_name_apt="elasticsearch",
         optional=True,
     ),
     DBService(
-        name="nats", default_port=4222,
-        env_url_var="NATS_URL", default_url="nats://localhost:4222",
-        package_brew="nats-server", package_apt="nats-server",
-        service_name_brew="nats-server", service_name_apt="nats-server",
+        name="nats",
+        default_port=4222,
+        env_url_var="NATS_URL",
+        default_url="nats://localhost:4222",
+        package_brew="nats-server",
+        package_apt="nats-server",
+        service_name_brew="nats-server",
+        service_name_apt="nats-server",
     ),
 ]
 
 
 # ── Console ────────────────────────────────────────────────────────────────────
+
 
 class C:
     R = "\033[0m"
@@ -149,13 +175,16 @@ class C:
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
 
+
 def port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def run(cmd: list[str], *, check: bool = True, capture: bool = True, env: dict | None = None) -> subprocess.CompletedProcess:
+def run(
+    cmd: list[str], *, check: bool = True, capture: bool = True, env: dict | None = None
+) -> subprocess.CompletedProcess:
     merged_env = {**os.environ, **(env or {})}
     return subprocess.run(cmd, check=check, capture_output=capture, text=True, env=merged_env)
 
@@ -220,6 +249,7 @@ def load_secrets() -> dict:
 
 # ── Service Detection ─────────────────────────────────────────────────────────
 
+
 def detect_running_services() -> dict[str, bool]:
     result = {}
     for svc in SERVICES:
@@ -232,6 +262,7 @@ def is_service_running(svc: DBService) -> bool:
 
 
 # ── Package Manager ────────────────────────────────────────────────────────────
+
 
 def ensure_brew() -> None:
     if not shutil.which("brew"):
@@ -316,6 +347,7 @@ def stop_service(svc: DBService) -> None:
 
 # ── Installation Steps ────────────────────────────────────────────────────────
 
+
 def step_check_python() -> None:
     v = sys.version_info[:2]
     if v < (3, 11):
@@ -350,7 +382,18 @@ def step_install_deps() -> None:
     uv_bin = shutil.which("uv")
     if uv_bin:
         C.info("Using uv for fast installs")
-        run([uv_bin, "pip", "install", "--python", str(VENV_DIR / "bin" / "python"), "-r", str(SOURCE_DIR / "requirements.txt")], check=False)
+        run(
+            [
+                uv_bin,
+                "pip",
+                "install",
+                "--python",
+                str(VENV_DIR / "bin" / "python"),
+                "-r",
+                str(SOURCE_DIR / "requirements.txt"),
+            ],
+            check=False,
+        )
     else:
         pip = str(VENV_DIR / "bin" / "pip")
         run([pip, "install", "--upgrade", "pip"], check=False)
@@ -359,11 +402,28 @@ def step_install_deps() -> None:
             run([pip, "install", "-r", str(req_file)])
         else:
             pkgs = [
-                "fastapi", "uvicorn[standard]", "motor", "pydantic", "pydantic-settings",
-                "pymongo", "python-jose[cryptography]", "redis[asyncio]", "neo4j",
-                "nats-py", "influxdb-client", "paho-mqtt", "python-multipart", "bcrypt",
-                "boto3", "httpx", "mem0ai", "PyYAML", "spacy",
-                "httpx[http2]", "elasticsearch[async]", "aiohttp",
+                "fastapi",
+                "uvicorn[standard]",
+                "motor",
+                "pydantic",
+                "pydantic-settings",
+                "pymongo",
+                "python-jose[cryptography]",
+                "redis[asyncio]",
+                "neo4j",
+                "nats-py",
+                "influxdb-client",
+                "paho-mqtt",
+                "python-multipart",
+                "bcrypt",
+                "boto3",
+                "httpx",
+                "mem0ai",
+                "PyYAML",
+                "spacy",
+                "httpx[http2]",
+                "elasticsearch[async]",
+                "aiohttp",
             ]
             run([pip, "install", *pkgs])
     C.ok("Dependencies installed")
@@ -424,8 +484,18 @@ def step_create_config(args: argparse.Namespace) -> None:
 
     db_config["mongodb"] = {"url": mongo_url, "database": args.db_name, "port": args.mongo_port}
     db_config["redis"] = {"url": redis_url, "port": args.redis_port}
-    db_config["neo4j"] = {"uri": neo4j_uri, "user": args.neo4j_user, "password": args.neo4j_password, "port": args.neo4j_port}
-    db_config["influxdb"] = {"url": influx_url, "org": args.influxdb_org, "bucket": args.influxdb_bucket, "port": args.influxdb_port}
+    db_config["neo4j"] = {
+        "uri": neo4j_uri,
+        "user": args.neo4j_user,
+        "password": args.neo4j_password,
+        "port": args.neo4j_port,
+    }
+    db_config["influxdb"] = {
+        "url": influx_url,
+        "org": args.influxdb_org,
+        "bucket": args.influxdb_bucket,
+        "port": args.influxdb_port,
+    }
     db_config["elasticsearch"] = {"url": es_url, "port": args.elasticsearch_port}
     db_config["nats"] = {"url": nats_url, "port": args.nats_port}
 
@@ -484,6 +554,7 @@ def step_init_db() -> None:
 
     try:
         from pymongo import MongoClient
+
         client = MongoClient(mongo_url, serverSelectionTimeoutMS=3000)
         client.admin.command("ping")
         db = client[db_name]
@@ -503,25 +574,30 @@ def step_create_scripts() -> None:
     BIN_DIR.mkdir(parents=True, exist_ok=True)
 
     start_script = BIN_DIR / "monkeybrain"
-    start_script.write_text(textwrap.dedent(f"""\
+    start_script.write_text(
+        textwrap.dedent(f"""\
         #!/bin/bash
         cd "{SOURCE_DIR}"
-        exec "{VENV_DIR / 'bin' / 'python'}" main.py "$@"
-    """))
+        exec "{VENV_DIR / "bin" / "python"}" main.py "$@"
+    """)
+    )
     start_script.chmod(0o755)
 
     status_script = BIN_DIR / "monkeybrain-status"
-    status_script.write_text(textwrap.dedent(f"""\
+    status_script.write_text(
+        textwrap.dedent(f"""\
         #!/bin/bash
         cd "{SOURCE_DIR}"
-        exec "{VENV_DIR / 'bin' / 'python'}" install_agentos.py status "$@"
-    """))
+        exec "{VENV_DIR / "bin" / "python"}" install_agentos.py status "$@"
+    """)
+    )
     status_script.chmod(0o755)
 
     C.ok(f"CLI scripts created in {BIN_DIR}")
 
 
 # ── Commands ───────────────────────────────────────────────────────────────────
+
 
 def cmd_install(args: argparse.Namespace) -> int:
     print(f"""
@@ -737,10 +813,12 @@ def cmd_plan(args: argparse.Namespace) -> int:
     import urllib.error
 
     url = f"http://localhost:{args.port}/api/v1/agentos/plan"
-    payload = json.dumps({
-        "question": args.question,
-        "target": args.target,
-    }).encode("utf-8")
+    payload = json.dumps(
+        {
+            "question": args.question,
+            "target": args.target,
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         url,
@@ -799,7 +877,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
     C.info("Execution order:")
     for i, batch in enumerate(execution_order):
         names = [id_to_name.get(nid, nid) for nid in batch]
-        print(f"  Step {i+1}: {' | '.join(names)}")
+        print(f"  Step {i + 1}: {' | '.join(names)}")
     print()
 
     intent_ir = data.get("intent_ir")
@@ -822,10 +900,12 @@ def cmd_act(args: argparse.Namespace) -> int:
     # 1. Plan
     C.info("Planning...")
     plan_url = f"{base_url}/api/v1/agentos/plan"
-    plan_payload = json.dumps({
-        "question": args.question,
-        "target": "execute",
-    }).encode("utf-8")
+    plan_payload = json.dumps(
+        {
+            "question": args.question,
+            "target": "execute",
+        }
+    ).encode("utf-8")
 
     try:
         req = urllib.request.Request(
@@ -882,59 +962,6 @@ def cmd_act(args: argparse.Namespace) -> int:
 
     return 0
 
-    nodes = data.get("nodes") or []
-    edges = data.get("edges") or []
-    execution_order = data.get("execution_order") or []
-    intent_ir = data.get("intent_ir")
-
-    C.ok(f"Plan: {data.get('run_id', '?')}")
-    print(f"  Question: {data.get('question', '?')[:80]}")
-    print(f"  Workload: {data.get('workload_id') or '(none)'}")
-    print()
-
-    if not nodes:
-        C.warn("Planner returned no nodes — graph is empty.")
-        return 0
-
-    id_to_name = {n["id"]: n.get("name") or n.get("agent") or n["id"] for n in nodes}
-
-    C.info("Nodes:")
-    for n in nodes:
-        nid = n["id"]
-        name = n.get("name") or n.get("agent") or nid
-        print(f"  {nid:>8}  {name}")
-    print()
-
-    C.info("Edges (dependency → must wait for):")
-    if edges:
-        for e in edges:
-            src = id_to_name.get(e["from"], e["from"])
-            dst = id_to_name.get(e["to"], e["to"])
-            print(f"  {e['from']:>8} ({src})  →  {e['to']:>8} ({dst})")
-    else:
-        print("  (none — all nodes are independent)")
-    print()
-
-    C.info("Execution order:")
-    for i, batch in enumerate(execution_order):
-        names = [id_to_name.get(nid, nid) for nid in batch]
-        print(f"  Step {i+1}: {' | '.join(names)}")
-    print()
-
-    if intent_ir:
-        C.info("IntentIR:")
-        print(f"  intent_type: {intent_ir.get('intent_type', '?')}")
-        print(f"  confidence:  {intent_ir.get('confidence', '?')}")
-        print(f"  run_id:      {intent_ir.get('run_id', '?')}")
-
-    return 0
-
-    try:
-        subprocess.run(["tail", "-f", str(log_file)])
-    except KeyboardInterrupt:
-        pass
-    return 0
-
 
 def cmd_discover(args: argparse.Namespace) -> int:
     """Discover: plan, execute, or chat with an agent.
@@ -952,6 +979,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
 
     def _show_observability():
         """Fetch and display the cognitive dashboard."""
+
         def _gauge(gauges, prefix):
             for k, v in gauges.items():
                 if k.startswith(prefix):
@@ -1066,9 +1094,9 @@ def cmd_discover(args: argparse.Namespace) -> int:
         for i, batch in enumerate(order):
             if isinstance(batch, list):
                 names = [id_to_name.get(nid, nid) for nid in batch]
-                print(f"    Step {i+1}: {' | '.join(names)}")
+                print(f"    Step {i + 1}: {' | '.join(names)}")
             else:
-                print(f"    Step {i+1}: {batch}")
+                print(f"    Step {i + 1}: {batch}")
         print()
 
         # ── Mutations ──
@@ -1180,9 +1208,17 @@ def cmd_discover(args: argparse.Namespace) -> int:
 
         try:
             subprocess.Popen(
-                [sys.executable, "-m", "src.monkey_brain.dashboard.app",
-                 "--host", "0.0.0.0", "--port", str(dash_port),
-                 "--api", base_url],
+                [
+                    sys.executable,
+                    "-m",
+                    "src.monkey_brain.dashboard.app",
+                    "--host",
+                    "0.0.0.0",
+                    "--port",
+                    str(dash_port),
+                    "--api",
+                    base_url,
+                ],
                 cwd=os.path.join(os.path.dirname(__file__), "..", ".."),
             )
             C.ok(f"Dashboard launched: {dash_url}")
@@ -1190,7 +1226,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
             C.fail(f"Dashboard launch failed: {e}")
 
     # --simulate: simulate via simulation runtime
-    if getattr(args, 'simulate', False):
+    if getattr(args, "simulate", False):
         print(f"Planning: {args.question}")
 
         plan_url = f"{base_url}/api/v1/agentos/plan"
@@ -1210,7 +1246,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
             return 1
 
         graph = plan_data.get("graph", {})
-        print(f"  Plan: graph_id={graph.get('graph_id','?')}, nodes={len(graph.get('nodes',[]))}")
+        print(f"  Plan: graph_id={graph.get('graph_id', '?')}, nodes={len(graph.get('nodes', []))}")
 
         print("Simulating...")
         sim_url = f"{base_url}/api/v1/agentos/simulate"
@@ -1279,16 +1315,16 @@ def cmd_discover(args: argparse.Namespace) -> int:
             for i, batch in enumerate(execution_order):
                 if isinstance(batch, list):
                     names = [id_to_name.get(nid, nid) for nid in batch]
-                    print(f"  Step {i+1}: {' | '.join(names)}")
+                    print(f"  Step {i + 1}: {' | '.join(names)}")
                 else:
-                    print(f"  Step {i+1}: {batch}")
+                    print(f"  Step {i + 1}: {batch}")
             print()
 
-        if getattr(args, 'observe', False):
+        if getattr(args, "observe", False):
             _show_observability()
-        if getattr(args, 'dashboard', False):
+        if getattr(args, "dashboard", False):
             _show_dashboard()
-        if getattr(args, 'log', False):
+        if getattr(args, "log", False):
             _show_logs()
 
         return 0
@@ -1325,11 +1361,11 @@ def cmd_discover(args: argparse.Namespace) -> int:
         print(f"  Success: {data.get('success', False)}")
         print(f"  Latency: {data.get('elapsed_ms', 0):.0f}ms")
 
-        if getattr(args, 'observe', False):
+        if getattr(args, "observe", False):
             _show_observability()
-        if getattr(args, 'dashboard', False):
+        if getattr(args, "dashboard", False):
             _show_dashboard()
-        if getattr(args, 'log', False):
+        if getattr(args, "log", False):
             _show_logs()
 
         return 0
@@ -1338,10 +1374,12 @@ def cmd_discover(args: argparse.Namespace) -> int:
     if not args.execute:
         print(f"Planning: {args.question}")
         plan_url = f"{base_url}/api/v1/agentos/plan"
-        plan_payload = json.dumps({
-            "question": args.question,
-            "target": "execute",
-        }).encode("utf-8")
+        plan_payload = json.dumps(
+            {
+                "question": args.question,
+                "target": "execute",
+            }
+        ).encode("utf-8")
 
         try:
             req = urllib.request.Request(
@@ -1384,13 +1422,13 @@ def cmd_discover(args: argparse.Namespace) -> int:
         print(f"  Edges: {len(edges)}")
         for i, batch in enumerate(order):
             names = [id_to_name.get(nid, nid) for nid in batch]
-            print(f"  Step {i+1}: {' | '.join(names)}")
+            print(f"  Step {i + 1}: {' | '.join(names)}")
 
-        if getattr(args, 'observe', False):
+        if getattr(args, "observe", False):
             _show_observability()
-        if getattr(args, 'dashboard', False):
+        if getattr(args, "dashboard", False):
             _show_dashboard()
-        if getattr(args, 'log', False):
+        if getattr(args, "log", False):
             _show_logs()
 
         return 0
@@ -1398,10 +1436,12 @@ def cmd_discover(args: argparse.Namespace) -> int:
     # --execute: plan and execute
     print(f"Planning: {args.question}")
     plan_url = f"{base_url}/api/v1/agentos/plan"
-    plan_payload = json.dumps({
-        "question": args.question,
-        "target": "execute",
-    }).encode("utf-8")
+    plan_payload = json.dumps(
+        {
+            "question": args.question,
+            "target": "execute",
+        }
+    ).encode("utf-8")
 
     try:
         req = urllib.request.Request(
@@ -1444,7 +1484,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
     print(f"  Edges: {len(edges)}")
     for i, batch in enumerate(order):
         names = [id_to_name.get(nid, nid) for nid in batch]
-        print(f"  Step {i+1}: {' | '.join(names)}")
+        print(f"  Step {i + 1}: {' | '.join(names)}")
 
     # Execute
     print("\nExecuting...")
@@ -1473,17 +1513,18 @@ def cmd_discover(args: argparse.Namespace) -> int:
     print(f"  Latency: {exec_data.get('elapsed_ms', 0):.0f}ms")
     print(f"  LLM: {exec_data.get('llm_answered', False)}")
 
-    if getattr(args, 'observe', False):
+    if getattr(args, "observe", False):
         _show_observability()
-    if getattr(args, 'dashboard', False):
+    if getattr(args, "dashboard", False):
         _show_dashboard()
-    if getattr(args, 'log', False):
+    if getattr(args, "log", False):
         _show_logs()
 
     return 0
 
 
 # ── CLI Parser ─────────────────────────────────────────────────────────────────
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -1518,12 +1559,22 @@ def build_parser() -> argparse.ArgumentParser:
     db.add_argument("--neo4j-port", type=int, default=7687, help="Neo4j Bolt port (default: 7687)")
     db.add_argument("--neo4j-uri", type=str, default=None, help="Neo4j full URI")
     db.add_argument("--neo4j-user", type=str, default="neo4j", help="Neo4j username (default: neo4j)")
-    db.add_argument("--neo4j-password", type=str, default=os.getenv("NEO4J_PASSWORD", ""), help="Neo4j password (env: NEO4J_PASSWORD)")
+    db.add_argument(
+        "--neo4j-password",
+        type=str,
+        default=os.getenv("NEO4J_PASSWORD", ""),
+        help="Neo4j password (env: NEO4J_PASSWORD)",
+    )
     db.add_argument("--influxdb-port", type=int, default=8181, help="InfluxDB port (default: 8181)")
     db.add_argument("--influxdb-url", type=str, default=None, help="InfluxDB full URL")
     db.add_argument("--influxdb-org", type=str, default="indus", help="InfluxDB org (default: indus)")
     db.add_argument("--influxdb-bucket", type=str, default="events", help="InfluxDB bucket (default: events)")
-    db.add_argument("--influxdb-token", type=str, default=os.getenv("INFLUXDB_TOKEN", ""), help="InfluxDB token (env: INFLUXDB_TOKEN)")
+    db.add_argument(
+        "--influxdb-token",
+        type=str,
+        default=os.getenv("INFLUXDB_TOKEN", ""),
+        help="InfluxDB token (env: INFLUXDB_TOKEN)",
+    )
     db.add_argument("--elasticsearch-port", type=int, default=9200, help="Elasticsearch port (default: 9200)")
     db.add_argument("--elasticsearch-url", type=str, default=None, help="Elasticsearch full URL")
     db.add_argument("--nats-port", type=int, default=4222, help="NATS port (default: 4222)")
@@ -1547,7 +1598,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     plan_p = sub.add_parser("plan", help="Generate an execution graph for a question")
     plan_p.add_argument("question", help="The question to plan")
-    plan_p.add_argument("--target", default="execute", choices=["execute", "simulate", "compare"], help="Runtime target (default: execute)")
+    plan_p.add_argument(
+        "--target",
+        default="execute",
+        choices=["execute", "simulate", "compare"],
+        help="Runtime target (default: execute)",
+    )
     plan_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
     plan_p.add_argument("--json", action="store_true", help="Output raw JSON instead of formatted display")
 
@@ -1573,7 +1629,9 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_sub = knowledge_p.add_subparsers(dest="knowledge_command", help="Knowledge command")
 
     export_p = knowledge_sub.add_parser("export", help="Export knowledge bundle to file")
-    export_p.add_argument("--output", "-o", type=str, default=None, help="Output file path (default: knowledge_export_<timestamp>.json)")
+    export_p.add_argument(
+        "--output", "-o", type=str, default=None, help="Output file path (default: knowledge_export_<timestamp>.json)"
+    )
     export_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
     export_p.add_argument("--json", action="store_true", help="Output raw JSON")
 
@@ -1581,9 +1639,13 @@ def build_parser() -> argparse.ArgumentParser:
     import_p.add_argument("file", help="JSON file to import")
     import_p.add_argument("--origin", type=str, default="cli-import", help="Origin label for import")
     import_p.add_argument("--domain", type=str, default="default", help="Knowledge domain")
-    import_p.add_argument("--strategy", type=str, default="skip",
-                          choices=["skip", "higher", "local", "remote", "average"],
-                          help="Conflict resolution strategy (default: skip)")
+    import_p.add_argument(
+        "--strategy",
+        type=str,
+        default="skip",
+        choices=["skip", "higher", "local", "remote", "average"],
+        help="Conflict resolution strategy (default: skip)",
+    )
     import_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
     import_p.add_argument("--json", action="store_true", help="Output raw JSON")
     import_p.add_argument("--verbose", "-v", action="store_true", help="Show conflict details")
@@ -1597,6 +1659,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 # ── Knowledge CLI ────────────────────────────────────────────────────────────
 
+
 def cmd_knowledge_export(args: argparse.Namespace) -> int:
     """Export knowledge from the runtime to a JSON file."""
     import urllib.request
@@ -1606,7 +1669,8 @@ def cmd_knowledge_export(args: argparse.Namespace) -> int:
     payload = json.dumps({}).encode("utf-8")
 
     req = urllib.request.Request(
-        url, data=payload,
+        url,
+        data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
@@ -1662,15 +1726,18 @@ def cmd_knowledge_import(args: argparse.Namespace) -> int:
         return 1
 
     url = f"http://localhost:{args.port}/api/v1/agentos/knowledge/import"
-    payload = json.dumps({
-        "bundle": bundle,
-        "origin": args.origin or "cli-import",
-        "domain": args.domain or "default",
-        "merge_strategy": args.strategy,
-    }).encode("utf-8")
+    payload = json.dumps(
+        {
+            "bundle": bundle,
+            "origin": args.origin or "cli-import",
+            "domain": args.domain or "default",
+            "merge_strategy": args.strategy,
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
-        url, data=payload,
+        url,
+        data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
@@ -1748,95 +1815,6 @@ def cmd_knowledge(args: argparse.Namespace) -> int:
         C.fail(f"Unknown knowledge command: {sub}")
         return 1
     return handler(args)
-
-    sub = parser.add_subparsers(dest="command", help="Command to run")
-
-    db_group = argparse.ArgumentParser(add_help=False)
-    db = db_group.add_argument_group("Database configuration")
-    db.add_argument("--mongo-port", type=int, default=27017, help="MongoDB port (default: 27017)")
-    db.add_argument("--mongo-url", type=str, default=None, help="MongoDB full URL")
-    db.add_argument("--db-name", type=str, default="demo", help="MongoDB database name (default: demo)")
-    db.add_argument("--redis-port", type=int, default=6379, help="Redis port (default: 6379)")
-    db.add_argument("--redis-url", type=str, default=None, help="Redis full URL")
-    db.add_argument("--neo4j-port", type=int, default=7687, help="Neo4j Bolt port (default: 7687)")
-    db.add_argument("--neo4j-uri", type=str, default=None, help="Neo4j full URI")
-    db.add_argument("--neo4j-user", type=str, default="neo4j", help="Neo4j username (default: neo4j)")
-    # Credentials come from the environment — never a source-code default.
-    db.add_argument("--neo4j-password", type=str, default=os.getenv("NEO4J_PASSWORD", ""), help="Neo4j password (env: NEO4J_PASSWORD)")
-    db.add_argument("--influxdb-port", type=int, default=8181, help="InfluxDB port (default: 8181)")
-    db.add_argument("--influxdb-url", type=str, default=None, help="InfluxDB full URL")
-    db.add_argument("--influxdb-org", type=str, default="indus", help="InfluxDB org (default: indus)")
-    db.add_argument("--influxdb-bucket", type=str, default="events", help="InfluxDB bucket (default: events)")
-    db.add_argument("--influxdb-token", type=str, default=os.getenv("INFLUXDB_TOKEN", ""), help="InfluxDB token (env: INFLUXDB_TOKEN)")
-    db.add_argument("--elasticsearch-port", type=int, default=9200, help="Elasticsearch port (default: 9200)")
-    db.add_argument("--elasticsearch-url", type=str, default=None, help="Elasticsearch full URL")
-    db.add_argument("--nats-port", type=int, default=4222, help="NATS port (default: 4222)")
-    db.add_argument("--nats-url", type=str, default=None, help="NATS full URL")
-    db.add_argument("--port", type=int, default=8031, help="MonkeyBrain API port (default: 8031)")
-
-    install_p = sub.add_parser("install", parents=[db_group], help="Full installation")
-    install_p.add_argument("--auto-install", action="store_true", help="Auto-install missing database services")
-    install_p.add_argument("--skip", nargs="*", default=[], help="Services to skip (e.g. neo4j elasticsearch)")
-
-    start_p = sub.add_parser("start", parents=[db_group], help="Start all services")
-    start_p.add_argument("--skip", nargs="*", default=[], help="Services to skip")
-
-    sub.add_parser("stop", help="Stop all services")
-    sub.add_parser("status", help="Show status of all services")
-
-    sub.add_parser("configure", parents=[db_group], help="Reconfigure database connections")
-
-    sub.add_parser("seed", help="Seed domain data")
-    sub.add_parser("logs", help="Tail service logs")
-
-    plan_p = sub.add_parser("plan", help="Generate an execution graph for a question")
-    plan_p.add_argument("question", help="The question to plan")
-    plan_p.add_argument("--target", default="execute", choices=["execute", "simulate", "compare"], help="Runtime target (default: execute)")
-    plan_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
-    plan_p.add_argument("--json", action="store_true", help="Output raw JSON instead of formatted display")
-
-    act_p = sub.add_parser("act", help="Plan and execute a question end-to-end")
-    act_p.add_argument("question", help="The question to plan and execute")
-    act_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
-    act_p.add_argument("--json", action="store_true", help="Output raw JSON instead of formatted display")
-
-    discover_p = sub.add_parser("discover", help="Discover: plan, execute, or chat with an agent")
-    discover_p.add_argument("question", help="The question to discover")
-    discover_p.add_argument("--spec", action="store_true", help="Plan only (show the execution graph)")
-    discover_p.add_argument("--execute", action="store_true", help="Plan and execute end-to-end")
-    discover_p.add_argument("--act", action="store_true", help="Execute directly via capability classification")
-    discover_p.add_argument("--simulate", action="store_true", help="Simulate via simulation runtime")
-    discover_p.add_argument("--observe", action="store_true", help="Show Lemon observability traces after operation")
-    discover_p.add_argument("--dashboard", action="store_true", help="Generate interactive Plotly HTML dashboard")
-    discover_p.add_argument("--log", action="store_true", help="Show server logs after operation")
-    discover_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
-    discover_p.add_argument("--json", action="store_true", help="Output raw JSON")
-
-    # Knowledge subcommand group
-    knowledge_p = sub.add_parser("knowledge", help="Knowledge export/import/version")
-    knowledge_sub = knowledge_p.add_subparsers(dest="knowledge_command", help="Knowledge command")
-
-    export_p = knowledge_sub.add_parser("export", help="Export knowledge bundle to file")
-    export_p.add_argument("--output", "-o", type=str, default=None, help="Output file path (default: knowledge_export_<timestamp>.json)")
-    export_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
-    export_p.add_argument("--json", action="store_true", help="Output raw JSON")
-
-    import_p = knowledge_sub.add_parser("import", help="Import knowledge bundle from file")
-    import_p.add_argument("file", help="JSON file to import")
-    import_p.add_argument("--origin", type=str, default="cli-import", help="Origin label for import")
-    import_p.add_argument("--domain", type=str, default="default", help="Knowledge domain")
-    import_p.add_argument("--strategy", type=str, default="skip",
-                          choices=["skip", "higher", "local", "remote", "average"],
-                          help="Conflict resolution strategy (default: skip)")
-    import_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
-    import_p.add_argument("--json", action="store_true", help="Output raw JSON")
-    import_p.add_argument("--verbose", "-v", action="store_true", help="Show conflict details")
-
-    version_p = knowledge_sub.add_parser("version", help="Check knowledge schema version")
-    version_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
-    version_p.add_argument("--json", action="store_true", help="Output raw JSON")
-
-    return parser
 
 
 def main() -> int:

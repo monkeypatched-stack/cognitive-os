@@ -5,6 +5,7 @@ LearningResult) — no CognitiveState, no mocking. The runtime-wired half
 (the Compile-Φ stage override) is covered in test_learning_integration.py's
 companion assertions, added alongside this file.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,13 +13,20 @@ import json
 import pytest
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningObservation, LearningOutcome, LearningResult,
-    LearningSignal, Provenance,
+    LearningExperience,
+    LearningObservation,
+    LearningOutcome,
+    LearningResult,
+    LearningSignal,
+    Provenance,
 )
 from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
 from src.monkey_brain.kernel.pipeline.learning.policies import ReinforcementLearningPolicy
 from src.monkey_brain.kernel.pipeline.learning.phi import (
-    PhiArtifact, PhiCompiler, compile_phi, phi_to_dict,
+    PhiArtifact,
+    PhiCompiler,
+    compile_phi,
+    phi_to_dict,
 )
 
 
@@ -27,8 +35,11 @@ def _milk_experience() -> LearningExperience:
     outcome = LearningOutcome(goal_achieved=True, cost=0.0, duration_seconds=360.0)
     provenance = Provenance(actor_id="alice", tenant_id="acme", run_id="run-001")
     return LearningExperience(
-        goal="acquire_milk", outcome=outcome, observations=(obs,),
-        provenance=provenance, metadata={"goal_name": "acquire_milk"},
+        goal="acquire_milk",
+        outcome=outcome,
+        observations=(obs,),
+        provenance=provenance,
+        metadata={"goal_name": "acquire_milk"},
     )
 
 
@@ -36,18 +47,21 @@ def _milk_experience() -> LearningExperience:
 # Acceptance-criteria scenario
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestAcceptanceScenario:
     def test_compiles_the_milk_scenario_into_a_phi_artifact(self):
         """'Φ Artifact: Structured summary of the cognitive cycle, ready
         for persistence, sharing, or future prediction.' from Step 10's
         acceptance criteria, chained through the real reward+policy engines."""
         experience = _milk_experience()
-        result = ReinforcementLearningPolicy(reward_engine=ExperienceRewardEngine(duration_budget_seconds=900.0)).learn(experience)
+        result = ReinforcementLearningPolicy(reward_engine=ExperienceRewardEngine(duration_budget_seconds=900.0)).learn(
+            experience
+        )
 
         artifact = compile_phi(experience, result)
 
         assert isinstance(artifact, PhiArtifact)
-        assert artifact.goal_signature == "acquire_milk"
+        assert artifact.goal_signature == "acme::acquire_milk"
         assert "Achieved" in artifact.outcome_summary
         assert artifact.reward == pytest.approx(0.92)
         assert artifact.belief_updated is True
@@ -55,7 +69,9 @@ class TestAcceptanceScenario:
 
     def test_top_signal_summary_names_the_reinforced_relationship(self):
         experience = _milk_experience()
-        result = ReinforcementLearningPolicy(reward_engine=ExperienceRewardEngine(duration_budget_seconds=900.0)).learn(experience)
+        result = ReinforcementLearningPolicy(reward_engine=ExperienceRewardEngine(duration_budget_seconds=900.0)).learn(
+            experience
+        )
 
         artifact = compile_phi(experience, result)
 
@@ -66,26 +82,41 @@ class TestAcceptanceScenario:
 # goal_signature — reuses capture.py's metadata convention
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestGoalSignature:
     def test_reads_goal_name_from_metadata_when_present(self):
         experience = LearningExperience(goal="some_object", metadata={"goal_name": "acquire_milk"})
         artifact = compile_phi(experience, LearningResult())
-        assert artifact.goal_signature == "acquire_milk"
+        assert artifact.goal_signature == "default::acquire_milk"
 
     def test_falls_back_to_goal_string_when_no_metadata(self):
         experience = LearningExperience(goal="raw_goal_string")
         artifact = compile_phi(experience, LearningResult())
-        assert artifact.goal_signature == "raw_goal_string"
+        assert artifact.goal_signature == "default::raw_goal_string"
 
     def test_falls_back_to_unknown_when_goal_is_none(self):
         experience = LearningExperience(goal=None)
         artifact = compile_phi(experience, LearningResult())
-        assert artifact.goal_signature == "unknown_goal"
+        assert artifact.goal_signature == "default::unknown_goal"
+
+    def test_scopes_goal_signature_by_tenant(self):
+        """Two tenants pursuing a goal with the same name must not collide
+        in CapabilityPromotionTracker's streaks — see domain.py's
+        scoped_goal_signature docstring."""
+        acme = LearningExperience(
+            goal="g", metadata={"goal_name": "acquire_milk"}, provenance=Provenance(tenant_id="acme")
+        )
+        globex = LearningExperience(
+            goal="g", metadata={"goal_name": "acquire_milk"}, provenance=Provenance(tenant_id="globex")
+        )
+        assert compile_phi(acme, LearningResult()).goal_signature == "acme::acquire_milk"
+        assert compile_phi(globex, LearningResult()).goal_signature == "globex::acquire_milk"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # outcome_summary — reflects success/partial/failure
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestOutcomeSummary:
     def test_success_mentions_achieved(self):
@@ -111,6 +142,7 @@ class TestOutcomeSummary:
 # ═══════════════════════════════════════════════════════════════════════════
 # top_signal_summary
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestTopSignalSummary:
     def test_no_signals_yields_empty_summary(self):
@@ -141,6 +173,7 @@ class TestTopSignalSummary:
 # ═══════════════════════════════════════════════════════════════════════════
 # Field pass-through
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFieldPassthrough:
     def test_experience_id_prefers_result_over_experience(self):
@@ -181,6 +214,7 @@ class TestFieldPassthrough:
 # Serialization
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPhiToDict:
     def test_json_serializable(self):
         experience = _milk_experience()
@@ -194,9 +228,19 @@ class TestPhiToDict:
         artifact = compile_phi(LearningExperience(), LearningResult())
         d = phi_to_dict(artifact)
         for key in (
-            "phi_id", "experience_id", "goal_signature", "outcome_summary", "reward",
-            "confidence", "belief_updated", "world_updated", "signal_count",
-            "top_signal_summary", "provenance", "compiled_at", "metadata",
+            "phi_id",
+            "experience_id",
+            "goal_signature",
+            "outcome_summary",
+            "reward",
+            "confidence",
+            "belief_updated",
+            "world_updated",
+            "signal_count",
+            "top_signal_summary",
+            "provenance",
+            "compiled_at",
+            "metadata",
         ):
             assert key in d
 
@@ -211,25 +255,31 @@ class TestPhiToDict:
 # PhiArtifact — immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPhiArtifactImmutability:
     def test_frozen(self):
         from dataclasses import FrozenInstanceError
+
         artifact = PhiArtifact()
         with pytest.raises(FrozenInstanceError):
             artifact.reward = 1.0
 
     def test_phi_ids_are_unique(self):
-        assert PhiCompiler().compile(LearningExperience(), LearningResult()).phi_id != \
-               PhiCompiler().compile(LearningExperience(), LearningResult()).phi_id
+        assert (
+            PhiCompiler().compile(LearningExperience(), LearningResult()).phi_id
+            != PhiCompiler().compile(LearningExperience(), LearningResult()).phi_id
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -243,12 +293,14 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_runtime_coupling(self):
         import src.monkey_brain.kernel.pipeline.learning.phi as mod
+
         imports = " ".join(_imported_modules(mod))
         for forbidden in ("belief_runtime", "belief_state", "execution_state", "action_executor"):
             assert forbidden not in imports, f"phi.py must not import: {forbidden}"
 
     def test_depends_only_on_learning_domain(self):
         import src.monkey_brain.kernel.pipeline.learning.phi as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

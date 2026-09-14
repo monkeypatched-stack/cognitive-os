@@ -32,6 +32,7 @@ Do not modify ExecutionEngine (execution.py) or CognitiveRuntime
 step's test file, the same discipline every Step 8/9 step before an
 explicit integration step followed.
 """
+
 from __future__ import annotations
 
 import time
@@ -47,6 +48,7 @@ class LearningEvent:
     log; LearningSignal (below) is the derived, forward-looking distillation
     of events into something a learning algorithm can act on.
     """
+
     event_id: str = field(default_factory=lambda: uuid4().hex)
     event_type: str = ""
     description: str = ""
@@ -60,6 +62,7 @@ class LearningObservation:
     input shape, parallel to belief_state.Observation/Fact but scoped to
     what Step 10.4 (belief learning) and Step 10.5 (world evolution) consume.
     """
+
     entity: str = ""
     attribute: str = ""
     value: Any = None
@@ -75,6 +78,7 @@ class LearningSignal:
     conclusion itself: Steps 10.3-10.5 (reward/belief/world engines) consume
     signals; this module only describes their shape.
     """
+
     signal_id: str = field(default_factory=lambda: uuid4().hex)
     kind: str = ""
     """e.g. "reward" | "belief" | "world" | "policy" — which downstream
@@ -96,6 +100,7 @@ class LearningOutcome:
     full execution result (kept as Any on LearningExperience separately for
     anyone who needs the raw data).
     """
+
     goal_achieved: bool = False
     partial: bool = False
     cost: float = 0.0
@@ -111,6 +116,7 @@ class Provenance:
     than a bare source string because Step 10.4 explicitly needs
     "provenance tracking" as a capability, not just a label.
     """
+
     actor_id: str = ""
     tenant_id: str = "default"
     run_id: str = ""
@@ -119,11 +125,38 @@ class Provenance:
     recorded_at: float = field(default_factory=time.time)
 
 
+def scoped_goal_signature(goal_name: str, tenant_id: str = "") -> str:
+    """Tenant-scope a goal signature. CapabilityPromotionTracker
+    (capability_promotion.py) keys promotion streaks by this string alone,
+    with no other tenant check anywhere in that path — two tenants whose
+    actors happen to pursue a goal with the same name would otherwise
+    share one promotion streak, and an operator could activate a
+    candidate whose verified recipe was built from a different tenant's
+    plan. actor_id is deliberately NOT included: promotion is meant to
+    generalize a verified pattern across actors within one tenant (see
+    CapabilityPromotionTracker's own docstring, "actors within a society
+    tick concurrently")."""
+    return f"{tenant_id or 'default'}::{goal_name}"
+
+
+def experience_tenant_id(experience: Any) -> str:
+    """Best-effort `.provenance.tenant_id` off something that might not
+    fully be a LearningExperience (capability_promotion.py's
+    extract_recipe_from_experience takes `experience: Any`) -- a shared
+    accessor so this getattr chain isn't retyped slightly differently at
+    each call site. A real LearningExperience's `provenance` is never
+    actually None (it's a default_factory field, so phi.py's
+    _goal_signature can use this too) -- the getattr chain here only
+    guards a non-LearningExperience caller."""
+    return getattr(getattr(experience, "provenance", None), "tenant_id", "") or ""
+
+
 @dataclass(frozen=True)
 class LearningExperience:
     """One complete, immutable record of a cognitive cycle, ready to learn
     from. The central type this whole model exists to produce (Step 10.2).
     """
+
     experience_id: str = field(default_factory=lambda: uuid4().hex)
     goal: Any = None
     plan: Any = None
@@ -145,6 +178,7 @@ class LearningPolicy:
     docstring for why this isn't yet the behavioral Protocol Step 10.6
     builds.
     """
+
     name: str = "default"
     strategy: str = "reinforcement"
     """e.g. "reinforcement" | "supervised" | "bayesian" | "rule_based" |
@@ -161,6 +195,7 @@ class LearningContext:
     execution_runtime.domain.ExecutionContext — each stage has its own scope,
     not a shared grab-bag.
     """
+
     experience: LearningExperience = field(default_factory=LearningExperience)
     policy: LearningPolicy = field(default_factory=LearningPolicy)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -172,6 +207,7 @@ class LearningResult:
     output: the reward, which signals were applied, whether beliefs/world
     were updated, and why.
     """
+
     experience_id: str = ""
     reward: float = 0.0
     signals_applied: tuple[LearningSignal, ...] = ()

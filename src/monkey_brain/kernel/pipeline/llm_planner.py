@@ -562,8 +562,16 @@ class LLMPlanner:
         # of a verified recipe. Learning never activates; see
         # capability_promotion.activate_promoted_capability().
         from src.monkey_brain.kernel.pipeline.learning.capability_promotion import try_resolve_promoted_plan
+        from src.monkey_brain.kernel.pipeline.learning.domain import scoped_goal_signature
 
-        promoted_plan = try_resolve_promoted_plan(resolved_goal.name)
+        # Must match learning/phi.py's _goal_signature exactly (same
+        # scoped_goal_signature call) — that's the key CapabilityPromotionTracker
+        # actually promoted candidates under. tenant_id read the same way
+        # capture.py's Provenance does: state.belief.tenant_id, stashed here as
+        # context.metadata["_legacy_belief"].
+        legacy_belief = context.metadata.get("_legacy_belief")
+        tenant_id = getattr(legacy_belief, "tenant_id", "") or "default"
+        promoted_plan = try_resolve_promoted_plan(scoped_goal_signature(resolved_goal.name, tenant_id))
         if promoted_plan is not None:
             if goal_id and not promoted_plan.metadata.get("goal_id"):
                 promoted_plan = Plan(
@@ -575,8 +583,7 @@ class LLMPlanner:
                 )
             return promoted_plan
 
-        belief = context.metadata.get("_legacy_belief")
-        facts = list(getattr(belief, "facts", ())) if belief is not None else []
+        facts = list(getattr(legacy_belief, "facts", ())) if legacy_belief is not None else []
 
         # Performance analysis instrumentation only (measurement, not a
         # behavior change) -- separates prompt-construction/LLM-call/parse

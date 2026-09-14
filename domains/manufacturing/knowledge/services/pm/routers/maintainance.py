@@ -151,10 +151,9 @@ async def list_logs_by_machine(
     rows = _query_influx_maintenance()
     logs = [_influx_to_maintenance_log(row) for row in rows if row.get("machine_id") == machine_id]
     return logs
-    return await crud.get_by_machine(db, machine_id)
 
 @router.get("/by-equipment/{equipment_id}", response_model=list[MaintenanceLogResponse])
-async def list_logs_by_machine(
+async def list_logs_by_equipment(
     equipment_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-maintenance")),

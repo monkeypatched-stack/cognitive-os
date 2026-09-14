@@ -105,8 +105,14 @@ services:
 
   opa:
     image: openpolicyagent/opa:latest
+    # Host port 8182, not 8181: influxdb already claims host 8181 above —
+    # binding both there fails `docker-compose up` with "port is already
+    # allocated". Internal traffic (OPA_URL=http://opa:8181, k8s
+    # configmap, docs) all addresses the container port via the opa
+    # service name, not this host mapping, so remapping the host side
+    # only doesn't affect anything that talks to OPA.
     ports:
-      - "8181:8181"
+      - "8182:8181"
     # Filesystem bundle (opa/policies/*.rego) loaded directly at startup — no
     # remote bundle service or extra container needed. OPA's `bundles:` polling
     # config requires an HTTP(S)/OCI service for the resource, so a purely

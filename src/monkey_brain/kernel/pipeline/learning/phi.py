@@ -17,6 +17,7 @@ captured experience (Step 10.2), so `goal_signature` reads it back instead
 of re-deriving a goal key from scratch — keeping the two steps' contracts
 consistent.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -26,13 +27,18 @@ from typing import Any
 from uuid import uuid4
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningResult, Provenance,
+    LearningExperience,
+    LearningResult,
+    Provenance,
+    experience_tenant_id,
+    scoped_goal_signature,
 )
 
 
 @dataclass(frozen=True)
 class PhiArtifact:
     """A compact, fully-serializable summary of one cognitive cycle."""
+
     phi_id: str = field(default_factory=lambda: uuid4().hex)
     experience_id: str = ""
     goal_signature: str = ""
@@ -50,10 +56,10 @@ class PhiArtifact:
 
 def _goal_signature(experience: LearningExperience) -> str:
     signature = experience.metadata.get("goal_name")
-    if signature:
-        return str(signature)
-    goal = experience.goal
-    return str(getattr(goal, "name", None) or getattr(goal, "description", None) or goal or "unknown_goal")
+    if not signature:
+        goal = experience.goal
+        signature = str(getattr(goal, "name", None) or getattr(goal, "description", None) or goal or "unknown_goal")
+    return scoped_goal_signature(str(signature), experience_tenant_id(experience))
 
 
 def _outcome_summary(experience: LearningExperience, reward: float) -> str:
