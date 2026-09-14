@@ -3,6 +3,7 @@
 Responsibility: Query and list actor states.
 Depends on: MongoDB database
 """
+
 from __future__ import annotations
 
 import logging
@@ -155,10 +156,13 @@ class ActorStateRepository(RepositoryInterface):
             db = self._db.get_db()
             collection = db[self._collection_name]
 
-            exists = collection.count_documents(
-                {"_id": f"{tenant_id}:{actor_id}"},
-                limit=1,
-            ) > 0
+            exists = (
+                collection.count_documents(
+                    {"_id": f"{tenant_id}:{actor_id}"},
+                    limit=1,
+                )
+                > 0
+            )
 
             return exists
 

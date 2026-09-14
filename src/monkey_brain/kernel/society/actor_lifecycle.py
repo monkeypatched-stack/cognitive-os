@@ -32,6 +32,7 @@ actor's lease (PlanetaryRuntime.acquire_actor_lease) is currently held —
 a single, already-existing, already-correct source of truth, not a
 second one.
 """
+
 from __future__ import annotations
 
 import time
@@ -44,6 +45,7 @@ class ActorDesiredState(Enum):
     (PlanetaryRuntime.set_actor_desired_state), independent of whether the
     actor is currently resident in any process's memory — the CognitiveOS
     analog of a Kubernetes Pod/Deployment spec."""
+
     RUNNING = "running"
     SUSPENDED = "suspended"
     TERMINATED = "terminated"
@@ -54,6 +56,7 @@ class LifecycleEventType(Enum):
     observes — published to the Context Stream (ContextEventType.
     ACTOR_LIFECYCLE) and to the durable lifecycle history (TimelineStore,
     via audit_trail.record_decision_event — reused, not a new store)."""
+
     ACTOR_CREATED = "actor_created"
     ACTOR_STARTING = "actor_starting"
     ACTOR_READY = "actor_ready"
@@ -88,6 +91,7 @@ class LifecycleEventType(Enum):
 class LifecycleEvent:
     """One lifecycle transition, in the shape the Context Stream and
     lifecycle-history query both use."""
+
     actor_id: str
     event_type: LifecycleEventType
     previous_state: str = ""
@@ -104,6 +108,7 @@ class ObservedActorState:
     durable registry record (PlanetaryRuntime.locate_actor, correct
     regardless of which node the actor currently lives on) with this
     process's own local residency, when known."""
+
     actor_id: str
     exists: bool
     """False = no registry record and not resident anywhere this process
@@ -141,6 +146,7 @@ class ReconciliationResult:
     """What one reconcile(actor_id) call decided and did — returned to
     the caller (API route, test, reconcile_all()) and folded into
     PlanetaryCycleResult-style metrics, never silently swallowed."""
+
     actor_id: str
     desired_state: str
     observed_before: str

@@ -13,6 +13,7 @@ items in the same box (same hard-requirement tier as the cold-chain
 rider requirement on the delivery side); items are first-fit packed
 into as few boxes as it takes, capped at box_capacity units each.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.logistics import LogisticsCapability, pack_order

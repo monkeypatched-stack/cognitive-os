@@ -1,4 +1,5 @@
 """Governance evaluates OPA fail-closed unless explicit insecure-dev mode."""
+
 from __future__ import annotations
 
 import pytest
@@ -25,7 +26,12 @@ async def test_opa_denial_is_surfaced_as_a_real_governance_decision(monkeypatch)
         assert policy_path == "agentos/governance"
         assert input_data["runtime_id"] == "mallory"
         assert input_data["action"] == "execute"
-        return {"allowed": False, "obligations": [], "reason": "runtime_blocked", "source": "opa"}
+        return {
+            "allowed": False,
+            "obligations": [],
+            "reason": "runtime_blocked",
+            "source": "opa",
+        }
 
     monkeypatch.setattr("services.common.opa.evaluate_full", fake_evaluate_full)
 
@@ -58,8 +64,12 @@ def test_audit_decisions_records_both_allow_and_deny(monkeypatch):
     monkeypatch.setenv("OPA_URL", "http://opa.internal:8181")
 
     async def fake_evaluate_full(policy_path, input_data, *, default_allow=False, **kwargs):
-        return {"allowed": input_data["runtime_id"] != "mallory", "obligations": [],
-                "reason": "" if input_data["runtime_id"] != "mallory" else "runtime_blocked", "source": "opa"}
+        return {
+            "allowed": input_data["runtime_id"] != "mallory",
+            "obligations": [],
+            "reason": ("" if input_data["runtime_id"] != "mallory" else "runtime_blocked"),
+            "source": "opa",
+        }
 
     monkeypatch.setattr("services.common.opa.evaluate_full", fake_evaluate_full)
 

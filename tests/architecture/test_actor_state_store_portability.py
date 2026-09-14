@@ -6,6 +6,7 @@ identical PersistedActorState round-trips through either one -- an
 actor's checkpoint is portable between a cloud node and an edge node
 without the runtime or cognitive loop caring which is backing it.
 """
+
 from __future__ import annotations
 
 import time
@@ -15,17 +16,29 @@ import pytest
 from src.monkey_brain.kernel.edge.actor_state_store import EdgeActorStateStore
 from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
 from src.monkey_brain.kernel.pipeline.protocols import ActorStateStoreProtocol
-from src.monkey_brain.persistence.actor_state_store import ActorStateStore, PersistedActorState
+from src.monkey_brain.persistence.actor_state_store import (
+    ActorStateStore,
+    PersistedActorState,
+)
 
 
 def _sample_state(actor_id: str = "actor-1", tenant_id: str = "tenant-1") -> PersistedActorState:
     return PersistedActorState(
-        actor_id=actor_id, tenant_id=tenant_id,
-        belief_state=b'{"goal": "buy milk"}', bellman_policy=b"", phi_compiled=b"",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        belief_state=b'{"goal": "buy milk"}',
+        bellman_policy=b"",
+        phi_compiled=b"",
         memory_kv={"last_question": "is milk in stock?"},
-        last_updated="2026-09-06T00:00:00Z", version=3, is_active=True,
-        cycle_count=7, last_cycle=time.time(), world_snapshot=b"", world_version=2,
-        last_model_provider="anthropic", last_model_name="claude-sonnet-5",
+        last_updated="2026-09-06T00:00:00Z",
+        version=3,
+        is_active=True,
+        cycle_count=7,
+        last_cycle=time.time(),
+        world_snapshot=b"",
+        world_version=2,
+        last_model_provider="anthropic",
+        last_model_name="claude-sonnet-5",
     )
 
 

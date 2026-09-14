@@ -6,6 +6,7 @@ loads a workload spec from etass/workloads/ and compiles it.
 Run:
   pytest tests/test_spec_compiler.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,22 +28,27 @@ WORKLOADS_DIR = ROOT / "etass" / "workloads"
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def compiler():
     from broca.agents.prompt_compiler import PromptCompilerAgent
+
     return PromptCompilerAgent()
 
 
 def _spec(name: str):
     from etass.specification import ETASSSpec
+
     return ETASSSpec.from_yaml(WORKLOADS_DIR / f"{name}.yaml")
 
 
 def _compile(compiler, spec):
     """Synchronous wrapper — runs the async compiler in a new event loop."""
+
     async def _run():
         result = await compiler.handle({"spec": spec})
         return result.payload["prompt_ir"]
+
     return asyncio.run(_run())
 
 
@@ -50,12 +56,13 @@ def _compile(compiler, spec):
 # ETASSSpec — schema and reasoning strategy
 # ---------------------------------------------------------------------------
 
+
 class TestETASSSpec:
     def test_self_healing_loads(self):
         spec = _spec("self_healing")
         assert spec.workload == "self_healing"
         assert spec.domain == "software_engineering"
-        assert spec.reasoning == "reflection"   # default for self_healing
+        assert spec.reasoning == "reflection"  # default for self_healing
 
     def test_batch_release_loads(self):
         spec = _spec("batch_release")
@@ -82,6 +89,7 @@ class TestETASSSpec:
 
     def test_invalid_reasoning_raises(self):
         from etass.specification import ETASSSpec
+
         with pytest.raises(ValueError, match="Unknown reasoning strategy"):
             ETASSSpec(workload="test", goal="test", reasoning="magic_thinking")
 

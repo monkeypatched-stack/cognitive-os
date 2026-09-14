@@ -13,7 +13,6 @@ from services.auth.helpers import nats_store
 from services.common.data_transformation import RAW_INTEGRATION_SUBJECT
 from services.common.ontology_registry import load_integration_adapter
 
-
 EXTERNAL_INGESTION_AUDIT_COLLECTION = "external_ingestion_audits"
 IngestionMode = Literal["spark_mini_batch", "kafka_realtime", "flink_realtime", "batch"]
 
@@ -28,14 +27,21 @@ def _payload_hash(payload: dict[str, Any]) -> str:
 
 
 def _source_object_names(adapter: dict[str, Any]) -> set[str]:
-    return {str(mapping.get("source_object")) for mapping in adapter.get("mappings") or [] if mapping.get("source_object")}
+    return {
+        str(mapping.get("source_object"))
+        for mapping in adapter.get("mappings") or []
+        if mapping.get("source_object")
+    }
 
 
 def validate_ingestion_mapping(adapter_id: str, source_object: str) -> dict[str, Any]:
     try:
         adapter = load_integration_adapter(adapter_id)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Unknown integration adapter '{adapter_id}'.") from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown integration adapter '{adapter_id}'.",
+        ) from exc
     source_objects = _source_object_names(adapter)
     if source_object not in source_objects:
         raise HTTPException(
@@ -49,16 +55,24 @@ def _normalize_records(records: Any) -> list[dict[str, Any]]:
     if isinstance(records, dict):
         records = [records]
     if not isinstance(records, list) or not records:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Ingestion payload requires at least one record.")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Ingestion payload requires at least one record.",
+        )
     normalized: list[dict[str, Any]] = []
     for index, record in enumerate(records):
         if not isinstance(record, dict):
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Record at index {index} must be a JSON object.")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Record at index {index} must be a JSON object.",
+            )
         normalized.append(record)
     return normalized
 
 
-def _ingestion_source(mode: IngestionMode, source: dict[str, Any] | None) -> dict[str, Any]:
+def _ingestion_source(
+    mode: IngestionMode, source: dict[str, Any] | None
+) -> dict[str, Any]:
     details = dict(source or {})
     details.setdefault("mode", mode)
     if mode == "spark_mini_batch":
@@ -132,10 +146,18 @@ async def publish_external_ingestion_records(
     errors: list[dict[str, Any]] = []
     for event in events:
         try:
-            await nats_store.publish_event(nats_store._event_bytes(event), subject=RAW_INTEGRATION_SUBJECT)
+            await nats_store.publish_event(
+                nats_store._event_bytes(event), subject=RAW_INTEGRATION_SUBJECT
+            )
             published += 1
         except Exception as exc:
-            errors.append({"event_id": event["event_id"], "record_index": event["record_index"], "error": str(exc)})
+            errors.append(
+                {
+                    "event_id": event["event_id"],
+                    "record_index": event["record_index"],
+                    "error": str(exc),
+                }
+            )
 
     audit = {
         "ingestion_batch_id": ingestion_batch_id,

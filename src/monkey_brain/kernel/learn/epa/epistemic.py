@@ -25,6 +25,7 @@ where:
     V = External validation — verified by independent sources
     Sim = Simulation success — historically accurate predictions
 """
+
 from __future__ import annotations
 
 import math
@@ -38,22 +39,25 @@ class KnowledgeConfidence:
 
     Each dimension ∈ [0, 1].  Composite confidence is a weighted geometric mean.
     """
-    provenance: float = 0.5          # source reliability
-    semantic_consistency: float = 0.5 # internal coherence
-    freshness: float = 0.5           # temporal relevance
-    completeness: float = 0.5        # domain coverage
-    validation: float = 0.5          # external verification
+
+    provenance: float = 0.5  # source reliability
+    semantic_consistency: float = 0.5  # internal coherence
+    freshness: float = 0.5  # temporal relevance
+    completeness: float = 0.5  # domain coverage
+    validation: float = 0.5  # external verification
     simulation_success: float = 0.5  # historical accuracy
 
     # Weight vector — how much each dimension matters
-    _weights: dict[str, float] = field(default_factory=lambda: {
-        "provenance": 0.25,
-        "semantic_consistency": 0.20,
-        "freshness": 0.15,
-        "completeness": 0.15,
-        "validation": 0.15,
-        "simulation_success": 0.10,
-    })
+    _weights: dict[str, float] = field(
+        default_factory=lambda: {
+            "provenance": 0.25,
+            "semantic_consistency": 0.20,
+            "freshness": 0.15,
+            "completeness": 0.15,
+            "validation": 0.15,
+            "simulation_success": 0.10,
+        }
+    )
 
     @property
     def composite(self) -> float:
@@ -71,8 +75,7 @@ class KnowledgeConfidence:
             "validation": max(self.validation, 1e-9),
             "simulation_success": max(self.simulation_success, 1e-9),
         }
-        log_sum = sum(w * math.log(d) for dim, d in dims.items()
-                      if (w := self._weights.get(dim, 0.1)) > 0)
+        log_sum = sum(w * math.log(d) for dim, d in dims.items() if (w := self._weights.get(dim, 0.1)) > 0)
         return math.exp(log_sum)
 
     @property
@@ -166,9 +169,10 @@ class BeliefState:
     This is the Bayesian filtering formulation.
     Beliefs are updated by evidence, not by assertion.
     """
-    knowledge: dict[str, Any] = field(default_factory=dict)       # K_t
+
+    knowledge: dict[str, Any] = field(default_factory=dict)  # K_t
     confidence: KnowledgeConfidence = field(default_factory=KnowledgeConfidence)  # C_t
-    uncertainty: dict[str, float] = field(default_factory=dict)   # U_t — per-dimension uncertainty
+    uncertainty: dict[str, float] = field(default_factory=dict)  # U_t — per-dimension uncertainty
 
     @property
     def composite_confidence(self) -> float:
@@ -219,10 +223,11 @@ class GoalState:
     A robot navigating to charge behaves differently from one inspecting equipment,
     even when S_t is identical.
     """
+
     goal: str = ""
     sub_goals: list[str] = field(default_factory=list)
     priority: float = 0.5
-    deadline_steps: int = -1       # -1 = no deadline
+    deadline_steps: int = -1  # -1 = no deadline
     constraints: list[str] = field(default_factory=list)
     success_criteria: dict[str, Any] = field(default_factory=dict)
 
@@ -232,8 +237,10 @@ class GoalState:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "goal": self.goal, "sub_goals": self.sub_goals,
-            "priority": self.priority, "constraints": self.constraints,
+            "goal": self.goal,
+            "sub_goals": self.sub_goals,
+            "priority": self.priority,
+            "constraints": self.constraints,
         }
 
     @classmethod
@@ -267,11 +274,12 @@ class EpistemicState:
 
     Conditioned on G_t (active goal).
     """
-    world: dict[str, Any] = field(default_factory=dict)           # S_t
-    belief: BeliefState = field(default_factory=BeliefState)      # B_t = (K, C, U)
-    affordances: list[str] = field(default_factory=list)          # A_t — available actions
-    mesh: dict[str, Any] = field(default_factory=dict)            # M_t — agent organization
-    goal: GoalState = field(default_factory=GoalState)            # G_t — active intent
+
+    world: dict[str, Any] = field(default_factory=dict)  # S_t
+    belief: BeliefState = field(default_factory=BeliefState)  # B_t = (K, C, U)
+    affordances: list[str] = field(default_factory=list)  # A_t — available actions
+    mesh: dict[str, Any] = field(default_factory=dict)  # M_t — agent organization
+    goal: GoalState = field(default_factory=GoalState)  # G_t — active intent
 
     # Convenience accessors
     @property
@@ -342,7 +350,13 @@ class EpistemicState:
             knowledge={**self.belief.knowledge, **(knowledge_gained or {})},
             confidence=self.belief.confidence.replace(
                 "simulation_success",
-                max(0.0, min(1.0, self.belief.confidence.simulation_success + confidence_delta)),
+                max(
+                    0.0,
+                    min(
+                        1.0,
+                        self.belief.confidence.simulation_success + confidence_delta,
+                    ),
+                ),
             ),
             uncertainty=dict(self.belief.uncertainty),
         )
@@ -387,6 +401,7 @@ class EpistemicTransition:
 
     Carries both world-state and epistemic-state through the transition.
     """
+
     state: dict[str, Any] = field(default_factory=dict)
     epistemic: EpistemicState = field(default_factory=EpistemicState)
     action: str = ""
@@ -429,8 +444,7 @@ def _state_distance(s1: dict, s2: dict) -> float:
     return 1.0 - (matches / len(all_keys))
 
 
-def knowledge_loss(predicted_state: dict, actual_state: dict,
-                   epistemic: EpistemicState) -> float:
+def knowledge_loss(predicted_state: dict, actual_state: dict, epistemic: EpistemicState) -> float:
     """Compute knowledge loss from prediction error and epistemic confidence.
 
     L_knowledge = g(1-P, 1-F, 1-C, 1-V) * world_error
@@ -447,7 +461,11 @@ def knowledge_loss(predicted_state: dict, actual_state: dict,
     return min(1.0, world_error * (2.0 - k_conf))
 
 
-def total_loss(world_loss: float, knowledge_loss_val: float,
-               world_weight: float = 0.6, knowledge_weight: float = 0.4) -> float:
+def total_loss(
+    world_loss: float,
+    knowledge_loss_val: float,
+    world_weight: float = 0.6,
+    knowledge_weight: float = 0.4,
+) -> float:
     """Combined loss: L_total = w_world * L_world + w_knowledge * L_knowledge."""
     return world_weight * world_loss + knowledge_weight * knowledge_loss_val

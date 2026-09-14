@@ -16,6 +16,7 @@ Provider loading:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
 from typing import Any, Protocol, runtime_checkable
@@ -111,13 +112,16 @@ class BrocaAgentRegistry:
         _providers = None
         try:
             import os
-            _path = os.path.join(os.path.dirname(__file__), '..', '..', '..')
+
+            _path = os.path.join(os.path.dirname(__file__), "..", "..", "..")
             if _path not in sys.path:
                 sys.path.insert(0, _path)
             from src.monkey_brain.kernel.provider_registry import init_providers
+
             _providers = init_providers()
             if not any(p.get("agents") for p in _providers.list_providers()):
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
                     try:
                         exe.submit(lambda: asyncio.run(_providers.discover_from_providers())).result(timeout=10)
@@ -127,12 +131,14 @@ class BrocaAgentRegistry:
             agent_info = _providers.find_agent(step_type)
             if agent_info:
                 from broca.agents.provider_proxy import ProviderProxyAgent
+
                 provider_name = agent_info.get("provider", "unknown")
                 return ProviderProxyAgent(agent_info, provider_name)
             # Fuzzy match — find closest agent name
             agent_info = self._fuzzy_find_provider_agent(_providers, step_type)
             if agent_info:
                 from broca.agents.provider_proxy import ProviderProxyAgent
+
                 provider_name = agent_info.get("provider", "unknown")
                 return ProviderProxyAgent(agent_info, provider_name)
         except Exception:
@@ -180,16 +186,24 @@ class BrocaAgentRegistry:
         """
         import asyncio
         from cerebellum.capabilities.agent.nanda import NANDACapability
+
         cap = NANDACapability()
         if not cap._available:
             return None
 
         async def _query():
-            result = await cap.execute({"operation": "discover", "agent_type": step_type, "capability": step_type})
+            result = await cap.execute(
+                {
+                    "operation": "discover",
+                    "agent_type": step_type,
+                    "capability": step_type,
+                }
+            )
             agents = result.get("agents", [])
             if not agents:
                 return None
             from broca.agents.nanda import NANDAProxyAgent
+
             return NANDAProxyAgent(agents[0])
 
         try:
@@ -299,6 +313,7 @@ def register_etass_agents(runtime=None) -> list[str]:
         FactoryAgent,
         EventAgent,
     )
+
     # Compliance agents — real classes with the exact agent_type strings
     # build_sdlc_graph()'s Implementation-stage compliance fan-out expects
     # (compliance_soc2/compliance_gdpr/compliance_iso27001/...), but nothing
@@ -307,19 +322,10 @@ def register_etass_agents(runtime=None) -> list[str]:
     # loader — so __init_subclass__'s auto-register never fired for them,
     # and every SDLC run's Implementation stage failed with "no Broca agent
     # registered for capability 'compliance_soc2'".
-    from broca.agents.ddd.compliance import (
-        GDPRAgent,
-        ISO27001Agent,
-        SOC2Agent,
-        FDAAgent,
-        GxPAgent,
-        IEC61508Agent,
-        ISO10218Agent,
-    )
 
     etass_agents = [
-        PromptCompilerAgent(runtime=runtime),    # canonical ETASS — compiles all prompts
-        NANDAAgent(runtime=runtime),             # NANDA provider — discover + route remote agents
+        PromptCompilerAgent(runtime=runtime),  # canonical ETASS — compiles all prompts
+        NANDAAgent(runtime=runtime),  # NANDA provider — discover + route remote agents
         CingulateAgent(runtime=runtime),
         MotorCortexAgent(runtime=runtime),
         SourceControlAgent(runtime=runtime),
@@ -381,6 +387,7 @@ def register_etass_agents(runtime=None) -> list[str]:
 
     # ── Domain-specific agents (auto-imported) ────────────────────────────────
     from broca.agents.domains import ALL_DOMAIN_AGENTS
+
     domain_agents = [cls(runtime=runtime) for cls in ALL_DOMAIN_AGENTS]
 
     registry = get_registry()
@@ -388,5 +395,10 @@ def register_etass_agents(runtime=None) -> list[str]:
     for agent in etass_agents + ddd_agents + domain_agents:
         registry.register(agent)
 
-    logger.info("[broca] registered %d ETASS + %d DDD + %d Domain agents", len(etass_agents), len(ddd_agents), len(domain_agents))
+    logger.info(
+        "[broca] registered %d ETASS + %d DDD + %d Domain agents",
+        len(etass_agents),
+        len(ddd_agents),
+        len(domain_agents),
+    )
     return [a.agent_type for a in etass_agents + ddd_agents + domain_agents]

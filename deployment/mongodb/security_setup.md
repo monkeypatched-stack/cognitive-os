@@ -142,18 +142,17 @@ collection.find({"actor_id": actor_id})  # Missing tenant_id
 def test_cross_tenant_access_blocked():
     """Verify tenant isolation."""
     # Document in org_alpha
-    collection.insert_one({
-        "_id": "org_alpha:alice:state",
-        "tenant_id": "org_alpha",
-        "actor_id": "alice",
-        "data": "secret"
-    })
+    collection.insert_one(
+        {"_id": "org_alpha:alice:state", "tenant_id": "org_alpha", "actor_id": "alice", "data": "secret"}
+    )
 
     # Query from org_beta context
-    result = collection.find_one({
-        "tenant_id": "org_beta",  # Different tenant
-        "actor_id": "alice"
-    })
+    result = collection.find_one(
+        {
+            "tenant_id": "org_beta",  # Different tenant
+            "actor_id": "alice",
+        }
+    )
 
     assert result is None  # Should not find it
 ```
@@ -175,10 +174,7 @@ Monitor queries by tenant:
 ```python
 def get_tenant_query_stats(tenant_id):
     """Get query statistics per tenant."""
-    return collection.aggregate([
-        {"$match": {"tenant_id": tenant_id}},
-        {"$count": "total_documents"}
-    ])
+    return collection.aggregate([{"$match": {"tenant_id": tenant_id}}, {"$count": "total_documents"}])
 ```
 
 ## Backup and Disaster Recovery
@@ -227,13 +223,15 @@ Log all data access:
 def log_data_access(tenant_id, actor_id, action):
     """Log data access for audit trail."""
     audit_log = db.audit_log
-    audit_log.insert_one({
-        "timestamp": datetime.now().isoformat(),
-        "tenant_id": tenant_id,
-        "actor_id": actor_id,
-        "action": action,
-        "source": "application"
-    })
+    audit_log.insert_one(
+        {
+            "timestamp": datetime.now().isoformat(),
+            "tenant_id": tenant_id,
+            "actor_id": actor_id,
+            "action": action,
+            "source": "application",
+        }
+    )
 ```
 
 ## Troubleshooting
@@ -246,7 +244,7 @@ from pymongo import MongoClient
 
 try:
     client = MongoClient(connection_string, serverSelectionTimeoutMS=5000)
-    client.admin.command('ping')
+    client.admin.command("ping")
     print("✓ Connected to MongoDB")
 except Exception as e:
     print(f"✗ Connection failed: {e}")

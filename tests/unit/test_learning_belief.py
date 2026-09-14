@@ -5,29 +5,39 @@ CognitiveState, no BeliefState, no mocking. BeliefLearner.learn() wraps it
 against a full LearningExperience, folding "belief" LearningSignals back in
 without mutating the original (frozen dataclass replace).
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningObservation, LearningOutcome,
+    LearningExperience,
+    LearningObservation,
+    LearningOutcome,
 )
 from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
 from src.monkey_brain.kernel.pipeline.learning.belief_learning import (
-    BeliefLearner, BeliefUpdate, apply_belief_learning, derive_belief_updates,
+    BeliefLearner,
+    BeliefUpdate,
+    apply_belief_learning,
+    derive_belief_updates,
 )
 
 
 def _store_a_observation(confidence: float = 0.9) -> LearningObservation:
     return LearningObservation(
-        entity="Store A", attribute="stocks_whole_milk", value=True,
-        confidence=confidence, source="execution_outcome",
+        entity="Store A",
+        attribute="stocks_whole_milk",
+        value=True,
+        confidence=confidence,
+        source="execution_outcome",
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Acceptance-criteria scenario
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAcceptanceScenario:
     def test_successful_purchase_increases_confidence_store_a_stocks_milk(self):
@@ -62,6 +72,7 @@ class TestAcceptanceScenario:
 # ═══════════════════════════════════════════════════════════════════════════
 # derive_belief_updates — directionality
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDeriveBeliefUpdatesDirectionality:
     def test_high_reward_reinforces_toward_one(self):
@@ -107,7 +118,10 @@ class TestDeriveBeliefUpdatesDirectionality:
         updates = derive_belief_updates((obs1, obs2), reward=0.9)
         assert len(updates) == 2
         entities_attrs = {(u.entity, u.attribute) for u in updates}
-        assert entities_attrs == {("Store A", "stocks_whole_milk"), ("Store A", "open_late")}
+        assert entities_attrs == {
+            ("Store A", "stocks_whole_milk"),
+            ("Store A", "open_late"),
+        }
 
     def test_higher_learning_rate_produces_bigger_delta(self):
         obs = _store_a_observation(confidence=0.5)
@@ -120,6 +134,7 @@ class TestDeriveBeliefUpdatesDirectionality:
 # BeliefLearner — operates on LearningExperience, preserves immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBeliefLearner:
     def test_original_experience_is_untouched(self):
         obs = _store_a_observation()
@@ -131,6 +146,7 @@ class TestBeliefLearner:
 
     def test_signals_are_appended_not_replaced(self):
         from src.monkey_brain.kernel.pipeline.learning.domain import LearningSignal
+
         existing = LearningSignal(kind="reward", subject="goal")
         obs = _store_a_observation()
         experience = LearningExperience(observations=(obs,), reward=0.9, signals=(existing,))
@@ -179,9 +195,11 @@ class TestBeliefLearner:
 # BeliefUpdate — immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBeliefUpdateImmutability:
     def test_frozen(self):
         from dataclasses import FrozenInstanceError
+
         update = BeliefUpdate()
         with pytest.raises(FrozenInstanceError):
             update.new_confidence = 1.0
@@ -191,9 +209,11 @@ class TestBeliefUpdateImmutability:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -209,12 +229,19 @@ class TestOwnershipBoundary:
         """Belief Learning computes what the update *would be*; applying it
         to the real BeliefState is Step 10.7's job, not this one's."""
         import src.monkey_brain.kernel.pipeline.learning.belief_learning as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "belief_state", "execution_state", "action_executor"):
+        for forbidden in (
+            "belief_runtime",
+            "belief_state",
+            "execution_state",
+            "action_executor",
+        ):
             assert forbidden not in imports, f"belief_learning.py must not import: {forbidden}"
 
     def test_depends_only_on_learning_domain(self):
         import src.monkey_brain.kernel.pipeline.learning.belief_learning as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

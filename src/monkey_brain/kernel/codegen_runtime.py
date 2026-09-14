@@ -42,6 +42,7 @@ must not be duplicated:
      CodeGenRuntime.boot() calls it again defensively, so it also works
      standalone (e.g. in tests) without a full Kernel boot.
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,7 +66,14 @@ _REPO = Path(__file__).parents[3]
 # the `compliance_domains` context key — not every generated service is
 # medical/robotics, so they're not run unconditionally.
 _DEFAULT_COMPLIANCE_DOMAINS = ("soc2", "gdpr", "iso27001")
-_DDD_CONSTRUCT_AGENTS = ("domain", "aggregate", "entity", "value_object", "repository", "policy")
+_DDD_CONSTRUCT_AGENTS = (
+    "domain",
+    "aggregate",
+    "entity",
+    "value_object",
+    "repository",
+    "policy",
+)
 
 
 def _ensure_broca_on_path() -> None:
@@ -86,10 +94,21 @@ def _slugify_question(question: str, max_words: int = 4) -> str:
     surfaces why the node failed).
     """
     words = re.findall(r"[a-z0-9]+", question.lower())
-    stopwords = {"a", "an", "the", "build", "me", "that", "to", "for", "with", "of", "and"}
+    stopwords = {
+        "a",
+        "an",
+        "the",
+        "build",
+        "me",
+        "that",
+        "to",
+        "for",
+        "with",
+        "of",
+        "and",
+    }
     kept = [w for w in words if w not in stopwords][:max_words]
     return "-".join(kept) or "service"
-
 
 
 # capability_name -> Lemon counter name, emitted once per successful dispatch.
@@ -119,7 +138,12 @@ class BrocaCapabilityBus:
     CapabilityBus.
     """
 
-    def __init__(self, registry: Any = None, base_context: dict[str, Any] | None = None, lemon: Any = None) -> None:
+    def __init__(
+        self,
+        registry: Any = None,
+        base_context: dict[str, Any] | None = None,
+        lemon: Any = None,
+    ) -> None:
         self._registry = registry
         self._base_context = base_context or {}
         self._lemon = lemon
@@ -131,7 +155,11 @@ class BrocaCapabilityBus:
         registry = self._registry or get_registry()
         agent = registry.discover(capability_name)
         if agent is None:
-            return _BusResult(success=False, output={}, error=f"no Broca agent registered for capability {capability_name!r}")
+            return _BusResult(
+                success=False,
+                output={},
+                error=f"no Broca agent registered for capability {capability_name!r}",
+            )
 
         context = {**self._base_context, **(args or {})}
         try:
@@ -214,6 +242,7 @@ class CodeGenRuntime:
         _ensure_broca_on_path()
         try:
             from broca.registry import register_etass_agents
+
             registered = register_etass_agents(runtime=wolverine)
             logger.info("CodeGenRuntime boot: %d Broca agents registered", len(registered))
         except Exception as exc:
@@ -225,8 +254,14 @@ class CodeGenRuntime:
         # itself) keeps the "sdlc.*" metric names scoped to CodeGenRuntime,
         # since approval gates are a concept only its SDLC graphs use today.
         if event_bus is not None and lemon is not None:
-            event_bus.subscribe("process.approval_requested", lambda payload: lemon.counter("sdlc.approvals_required"))
-            event_bus.subscribe("process.approval_granted", lambda payload: lemon.counter("sdlc.approvals_received"))
+            event_bus.subscribe(
+                "process.approval_requested",
+                lambda payload: lemon.counter("sdlc.approvals_required"),
+            )
+            event_bus.subscribe(
+                "process.approval_granted",
+                lambda payload: lemon.counter("sdlc.approvals_received"),
+            )
 
         app.state.codegen_runtime = rt
         global _booted_instance
@@ -258,12 +293,24 @@ class CodeGenRuntime:
         lemon: Any = None,
         store: bool = True,
     ) -> IntentIR | None:
-        from src.monkey_brain.kernel.plan.goals.compile import compile_intent as _compile
+        from src.monkey_brain.kernel.plan.goals.compile import (
+            compile_intent as _compile,
+        )
 
-        ir = await _compile(question, target="codegen", run_id=run_id, lemon=lemon or self.lemon, store=store)
+        ir = await _compile(
+            question,
+            target="codegen",
+            run_id=run_id,
+            lemon=lemon or self.lemon,
+            store=store,
+        )
         await self._publish(
             "intent.compiled" if ir is not None else "intent.compile_failed",
-            {"run_id": run_id, "target": "codegen", "intent_type": ir.intent_type if ir else None},
+            {
+                "run_id": run_id,
+                "target": "codegen",
+                "intent_type": ir.intent_type if ir else None,
+            },
         )
         return ir
 
@@ -296,7 +343,14 @@ class CodeGenRuntime:
         graph = ExecutionGraph()
 
         def add(node_id: str, capability: str, *deps: str) -> str:
-            graph.add_node(GraphNode(id=node_id, type="step", label=node_id, props={"capability": capability, "question": question}))
+            graph.add_node(
+                GraphNode(
+                    id=node_id,
+                    type="step",
+                    label=node_id,
+                    props={"capability": capability, "question": question},
+                )
+            )
             for dep in deps:
                 graph.add_edge(GraphEdge(src=dep, dst=node_id, rel="depends_on"))
             return node_id
@@ -311,7 +365,11 @@ class CodeGenRuntime:
 
         ddd_nodes = [add(f"sdlc:implementation:ddd_{name}", name, service_gen) for name in _DDD_CONSTRUCT_AGENTS]
         compliance_nodes = [
-            add(f"sdlc:implementation:compliance_{domain}", f"compliance_{domain}", service_gen)
+            add(
+                f"sdlc:implementation:compliance_{domain}",
+                f"compliance_{domain}",
+                service_gen,
+            )
             for domain in domains
         ]
         implementation_fanout = [service_gen, *ddd_nodes, *compliance_nodes]
@@ -360,7 +418,10 @@ class CodeGenRuntime:
             "question": question,
             "include_release": include_release,
         }
-        from src.monkey_brain.kernel.pipeline.graph_execution import normalize_execution_graph
+        from src.monkey_brain.kernel.pipeline.graph_execution import (
+            normalize_execution_graph,
+        )
+
         return normalize_execution_graph(graph)
 
     # ------------------------------------------------------------------
@@ -394,12 +455,23 @@ class CodeGenRuntime:
         run_id = intent_ir.run_id
 
         context = ExecutionContext.create(
-            run_id=run_id, execution_mode=ExecutionMode.EXECUTE, intent_ir=intent_ir, user_id=user_id,
+            run_id=run_id,
+            execution_mode=ExecutionMode.EXECUTE,
+            intent_ir=intent_ir,
+            user_id=user_id,
         )
-        graph = self.build_sdlc_graph(question, compliance_domains=compliance_domains, include_release=include_release)
+        graph = self.build_sdlc_graph(
+            question,
+            compliance_domains=compliance_domains,
+            include_release=include_release,
+        )
         service_slug = extra_context.pop("service_slug", None) or _slugify_question(question)
         bus = BrocaCapabilityBus(
-            base_context={"question": question, "service_slug": service_slug, **extra_context},
+            base_context={
+                "question": question,
+                "service_slug": service_slug,
+                **extra_context,
+            },
             lemon=self.lemon,
         )
 
@@ -407,7 +479,11 @@ class CodeGenRuntime:
         rpcb = pm.get_process(run_id)
         if rpcb is None:
             rpcb = await pm.create_process(
-                context, graph=graph, target="codegen", capability_bus=bus, execution_mode=execution_mode,
+                context,
+                graph=graph,
+                target="codegen",
+                capability_bus=bus,
+                execution_mode=execution_mode,
             )
         await pm.start_process(run_id)
         return run_id
@@ -462,9 +538,12 @@ class CodeGenRuntime:
         progress instead of blocking for the whole pipeline.
         """
         run_id = await self.start_run(
-            intent_ir, mongo_client,
-            user_id=user_id, compliance_domains=compliance_domains,
-            execution_mode=execution_mode, **extra_context,
+            intent_ir,
+            mongo_client,
+            user_id=user_id,
+            compliance_domains=compliance_domains,
+            execution_mode=execution_mode,
+            **extra_context,
         )
         return await self.tick_until_settled(run_id, max_ticks=max_ticks)
 
@@ -474,7 +553,10 @@ class CodeGenRuntime:
         """
         ir = await self.compile_intent(question, store=True)
         if ir is None:
-            return {"error": "could not compile intent for SDLC pipeline", "run_id": None}
+            return {
+                "error": "could not compile intent for SDLC pipeline",
+                "run_id": None,
+            }
         return await self.run(ir, mongo_client, **kwargs)
 
     # ------------------------------------------------------------------

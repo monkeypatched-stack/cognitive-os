@@ -41,6 +41,7 @@ Configuration (env vars, K8s-friendly):
                       (sync/world-update calls are no-ops if unset)
     EDGE_PORT       — local listen port, default 8041
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,7 +70,12 @@ async def _boot() -> None:
     if not ACTOR_ID:
         raise RuntimeError("EDGE_ACTOR_ID is required to boot an edge server")
     _actor = EdgeActor(actor_id=ACTOR_ID, node_id=NODE_ID or ACTOR_ID)
-    logger.info("Edge server booted: actor_id=%s node_id=%s cloud_url=%s", ACTOR_ID, NODE_ID, CLOUD_URL or "(none — offline mode)")
+    logger.info(
+        "Edge server booted: actor_id=%s node_id=%s cloud_url=%s",
+        ACTOR_ID,
+        NODE_ID,
+        CLOUD_URL or "(none — offline mode)",
+    )
 
 
 def _require_actor() -> EdgeActor:
@@ -79,6 +85,7 @@ def _require_actor() -> EdgeActor:
 
 
 # ── Health (mirrors the main deployment's /live, /ready convention) ────────
+
 
 @app.get("/live")
 async def live() -> dict:
@@ -91,6 +98,7 @@ async def ready() -> dict:
 
 
 # ── Local cognitive operations ──────────────────────────────────────────────
+
 
 class ObserveRequest(BaseModel):
     src: str
@@ -135,6 +143,7 @@ async def summary() -> dict:
 
 # ── Cloud sync ───────────────────────────────────────────────────────────────
 
+
 @app.post("/sync")
 async def sync_to_cloud() -> dict[str, Any]:
     """Push this edge actor's local observations/policy to the cloud
@@ -145,8 +154,13 @@ async def sync_to_cloud() -> dict[str, Any]:
     actor = _require_actor()
     payload = actor.sync_to_cloud()
     if not CLOUD_URL:
-        return {"success": False, "reason": "EDGE_CLOUD_URL not configured — offline mode", "payload": payload}
+        return {
+            "success": False,
+            "reason": "EDGE_CLOUD_URL not configured — offline mode",
+            "payload": payload,
+        }
     import httpx
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(f"{CLOUD_URL}/api/v1/agentos/edge/{actor.actor_id}/sync", json=payload)
         resp.raise_for_status()
@@ -160,8 +174,12 @@ async def pull_world_update() -> dict[str, Any]:
     this actor's own local belief."""
     actor = _require_actor()
     if not CLOUD_URL:
-        return {"success": False, "reason": "EDGE_CLOUD_URL not configured — offline mode"}
+        return {
+            "success": False,
+            "reason": "EDGE_CLOUD_URL not configured — offline mode",
+        }
     import httpx
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(f"{CLOUD_URL}/api/v1/agentos/edge/{actor.actor_id}/world-update")
         resp.raise_for_status()

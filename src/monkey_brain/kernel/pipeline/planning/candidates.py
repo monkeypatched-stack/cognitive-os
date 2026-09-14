@@ -8,14 +8,23 @@ Do not score yet — this step only enumerates. Every generated PlanCandidate
 has score=None (Step 8.6 scores them) and Plan.confidence stays 0.0 (unset).
 No coupling to CognitiveRuntime or ExecutionEngine.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
-from src.monkey_brain.kernel.pipeline.planning.domain import Goal, Plan, PlanCandidate, PlanStep
-from src.monkey_brain.kernel.pipeline.planning.operators import OperatorTemplate, OPERATOR_TEMPLATES
+from src.monkey_brain.kernel.pipeline.planning.domain import (
+    Goal,
+    Plan,
+    PlanCandidate,
+    PlanStep,
+)
+from src.monkey_brain.kernel.pipeline.planning.operators import (
+    OperatorTemplate,
+    OPERATOR_TEMPLATES,
+)
 
 
 @dataclass(frozen=True)
@@ -23,6 +32,7 @@ class OperatorCall:
     """One operator invocation within a PlanStrategy: which template to use
     (a key into an operator template registry, e.g. OPERATOR_TEMPLATES from
     Step 8.2) and the parameters to build() it with."""
+
     operator_name: str = ""
     params: dict[str, Any] = field(default_factory=dict)
     description: str = ""
@@ -33,6 +43,7 @@ class OperatorCall:
 @dataclass(frozen=True)
 class PlanStrategy:
     """One alternative way to achieve a goal: a named, ordered operator sequence."""
+
     strategy_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -42,6 +53,7 @@ class PlanStrategy:
 @dataclass(frozen=True)
 class GenerationRule:
     """Declares the alternative strategies available for a goal, matched by name."""
+
     goal_name: str = ""
     strategies: tuple[PlanStrategy, ...] = ()
 
@@ -60,8 +72,13 @@ DEFAULT_GENERATION_RULES: dict[str, GenerationRule] = {
                 description="Walk to the nearest store and buy milk",
                 operator_calls=(
                     OperatorCall(
-                        operator_name="Navigate", description="Walk to the store",
-                        params={"destination": "store", "estimated_cost": 0.05, "estimated_duration": 1200.0},
+                        operator_name="Navigate",
+                        description="Walk to the store",
+                        params={
+                            "destination": "store",
+                            "estimated_cost": 0.05,
+                            "estimated_duration": 1200.0,
+                        },
                     ),
                     OperatorCall(
                         operator_name="AcquireItem",
@@ -74,8 +91,13 @@ DEFAULT_GENERATION_RULES: dict[str, GenerationRule] = {
                 description="Drive to the nearest store and buy milk",
                 operator_calls=(
                     OperatorCall(
-                        operator_name="Navigate", description="Drive to the store",
-                        params={"destination": "store", "estimated_cost": 0.15, "estimated_duration": 300.0},
+                        operator_name="Navigate",
+                        description="Drive to the store",
+                        params={
+                            "destination": "store",
+                            "estimated_cost": 0.15,
+                            "estimated_duration": 300.0,
+                        },
                     ),
                     OperatorCall(
                         operator_name="AcquireItem",
@@ -89,13 +111,20 @@ DEFAULT_GENERATION_RULES: dict[str, GenerationRule] = {
                 operator_calls=(
                     OperatorCall(
                         operator_name="ReserveResource",
-                        params={"resource": "delivery_slot", "estimated_cost": 0.3, "estimated_duration": 60.0},
+                        params={
+                            "resource": "delivery_slot",
+                            "estimated_cost": 0.3,
+                            "estimated_duration": 60.0,
+                        },
                     ),
                     OperatorCall(
                         operator_name="AcquireItem",
                         params={
-                            "item": "milk", "quantity": 2, "unit": "L",
-                            "estimated_cost": 0.25, "estimated_duration": 3600.0,
+                            "item": "milk",
+                            "quantity": 2,
+                            "unit": "L",
+                            "estimated_cost": 0.25,
+                            "estimated_duration": 3600.0,
                         },
                     ),
                 ),
@@ -114,9 +143,7 @@ class CandidateGenerator:
         rules: dict[str, GenerationRule] | None = None,
         operator_templates: dict[str, OperatorTemplate] | None = None,
     ) -> None:
-        self._rules: dict[str, GenerationRule] = (
-            dict(rules) if rules is not None else dict(DEFAULT_GENERATION_RULES)
-        )
+        self._rules: dict[str, GenerationRule] = dict(rules) if rules is not None else dict(DEFAULT_GENERATION_RULES)
         self._operator_templates: dict[str, OperatorTemplate] = (
             dict(operator_templates) if operator_templates is not None else dict(OPERATOR_TEMPLATES)
         )
@@ -147,15 +174,17 @@ class CandidateGenerator:
             if template is None:
                 continue  # unresolvable operator reference — skip, don't invent one
             operator = template.build(**call.params)
-            steps.append(PlanStep(
-                sequence=sequence,
-                operator=operator,
-                description=call.description or operator.description,
-                preconditions=operator.preconditions,
-                expected_outcome=operator.effects[0] if operator.effects else "",
-                estimated_cost=operator.estimated_cost,
-                estimated_duration=operator.estimated_duration,
-            ))
+            steps.append(
+                PlanStep(
+                    sequence=sequence,
+                    operator=operator,
+                    description=call.description or operator.description,
+                    preconditions=operator.preconditions,
+                    expected_outcome=operator.effects[0] if operator.effects else "",
+                    estimated_cost=operator.estimated_cost,
+                    estimated_duration=operator.estimated_duration,
+                )
+            )
             total_cost += operator.estimated_cost
             total_duration += operator.estimated_duration
 
@@ -164,6 +193,9 @@ class CandidateGenerator:
             steps=tuple(steps),
             estimated_cost=total_cost,
             estimated_duration=total_duration,
-            metadata={"strategy": strategy.name, "strategy_description": strategy.description},
+            metadata={
+                "strategy": strategy.name,
+                "strategy_description": strategy.description,
+            },
         )
         return PlanCandidate(plan=plan)  # score stays None — not scored yet (Step 8.6)

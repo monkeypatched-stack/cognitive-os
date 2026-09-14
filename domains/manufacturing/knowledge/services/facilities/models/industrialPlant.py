@@ -2,8 +2,9 @@ from datetime import datetime, timezone
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, model_validator, EmailStr
 
-
-PlantStatus = Literal["Active", "Reduced Capacity", "Shutdown", "Maintenance", "Decommissioned"]
+PlantStatus = Literal[
+    "Active", "Reduced Capacity", "Shutdown", "Maintenance", "Decommissioned"
+]
 Timezone = Literal["UTC", "CET", "IST", "EST", "PST", "JST", "CST", "GST", "AEST"]
 PlantType = Literal[
     "Production",
@@ -25,7 +26,9 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
+
 # ── Sub-models ────────────────────────────────────────────────────────────────
+
 
 class GeoCoordinates(BaseModel):
     latitude: float = Field(..., ge=-90.0, le=90.0)
@@ -63,11 +66,14 @@ class UtilityInfo(BaseModel):
 
 # ── Core model ────────────────────────────────────────────────────────────────
 
+
 class IndustrialPlant(BaseModel):
     # Identity
     id: str
     name: str
-    plant_code: Optional[str] = Field(None, description="Internal short code e.g. PLT-001")
+    plant_code: Optional[str] = Field(
+        None, description="Internal short code e.g. PLT-001"
+    )
     type: PlantType
 
     # Location
@@ -79,8 +85,12 @@ class IndustrialPlant(BaseModel):
 
     # Operations
     status: PlantStatus
-    capacity_utilization: int = Field(..., ge=0, le=100, description="Current utilization %")
-    total_area_sqm: Optional[float] = Field(None, ge=0, description="Total floor area in m²")
+    capacity_utilization: int = Field(
+        ..., ge=0, le=100, description="Current utilization %"
+    )
+    total_area_sqm: Optional[float] = Field(
+        None, ge=0, description="Total floor area in m²"
+    )
     employee_count: Optional[int] = Field(None, ge=0)
     established_year: Optional[int] = Field(None, ge=1800, le=2100)
 
@@ -115,11 +125,14 @@ class IndustrialPlant(BaseModel):
         if self.status == "Shutdown" and self.capacity_utilization > 0:
             raise ValueError("capacity_utilization must be 0 when status is 'Shutdown'")
         if self.status == "Reduced Capacity" and self.capacity_utilization >= 100:
-            raise ValueError("capacity_utilization must be < 100 when status is 'Reduced Capacity'")
+            raise ValueError(
+                "capacity_utilization must be < 100 when status is 'Reduced Capacity'"
+            )
         return self
 
 
 # ── Request / Response schemas ────────────────────────────────────────────────
+
 
 class IndustrialPlantCreate(IndustrialPlant):
     pass

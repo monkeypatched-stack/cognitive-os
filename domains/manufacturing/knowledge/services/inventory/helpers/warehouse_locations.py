@@ -32,7 +32,6 @@ from services.inventory.models.warehouse_location_models import (
     ZoneUpdate,
 )
 
-
 LEVELS = {
     "lots": ("warehouse_lots", "lot_id", Lot, LotCreate, LotUpdate),
     "zones": ("warehouse_zones", "zone_id", Zone, ZoneCreate, ZoneUpdate),
@@ -89,7 +88,9 @@ async def get_all(
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, level: str, record_id: str) -> Optional[dict]:
+async def get_by_id(
+    db: AsyncIOMotorDatabase, level: str, record_id: str
+) -> Optional[dict]:
     collection, id_field, _, _, _ = _level_config(level)
     return _serialize(await db[collection].find_one({id_field: record_id}))
 
@@ -166,12 +167,16 @@ async def get_location_for_bin(
     )
 
 
-async def get_tree_for_lot(db: AsyncIOMotorDatabase, lot_id: str) -> Optional[LocationTree]:
+async def get_tree_for_lot(
+    db: AsyncIOMotorDatabase, lot_id: str
+) -> Optional[LocationTree]:
     lot_doc = await get_by_id(db, "lots", lot_id)
     if not lot_doc:
         return None
 
-    zone_docs, _ = await get_all(db, "zones", page=1, page_size=10_000, query={"lot_id": lot_id})
+    zone_docs, _ = await get_all(
+        db, "zones", page=1, page_size=10_000, query={"lot_id": lot_id}
+    )
     area_docs, _ = await get_all(db, "areas", page=1, page_size=10_000)
     aisle_docs, _ = await get_all(db, "aisles", page=1, page_size=10_000)
     rack_docs, _ = await get_all(db, "racks", page=1, page_size=10_000)
@@ -202,7 +207,10 @@ async def get_tree_for_lot(db: AsyncIOMotorDatabase, lot_id: str) -> Optional[Lo
                 racks = [
                     RackTree(
                         rack=Rack(**rack_doc),
-                        bins=[Bin(**bin_doc) for bin_doc in bins_by_rack.get(rack_doc["rack_id"], [])],
+                        bins=[
+                            Bin(**bin_doc)
+                            for bin_doc in bins_by_rack.get(rack_doc["rack_id"], [])
+                        ],
                     )
                     for rack_doc in racks_by_aisle.get(aisle_doc["aisle_id"], [])
                 ]

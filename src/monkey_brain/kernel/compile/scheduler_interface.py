@@ -7,6 +7,7 @@ All schedulers implement SchedulerInterface, allowing runtime to switch
 between strategies (resource-aware, topology selection, graph traversal, process management)
 without changing caller code.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -17,6 +18,7 @@ from dataclasses import dataclass
 @dataclass
 class ScheduleRequest:
     """Request to schedule work."""
+
     request_id: str
     request_type: str  # "task" | "reasoning" | "graph" | "process"
     payload: dict[str, Any]
@@ -28,6 +30,7 @@ class ScheduleRequest:
 @dataclass
 class ScheduleResult:
     """Result of scheduling."""
+
     request_id: str
     assigned_to: str  # runtime_id | topology | node_id | worker_id
     status: str  # "scheduled" | "pending" | "failed"

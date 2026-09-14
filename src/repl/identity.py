@@ -1,10 +1,12 @@
 """Identity management."""
+
 from __future__ import annotations
 
 
 import typer
 
 from repl._helpers import _auth_url
+
 
 def identity_create(
     username: str = typer.Argument(..., help="Username"),
@@ -51,7 +53,6 @@ def identity_create(
             typer.echo(r.text)
 
 
-
 def identity_list(
     department: str = typer.Option("", "--department", "-d", help="Filter by department"),
     team: str = typer.Option("", "--team", "-t", help="Filter by team"),
@@ -84,12 +85,11 @@ def identity_list(
         if not isinstance(items, list):
             items = items.get("items", items.get("users", [items]))
         typer.echo(f"  {'USERNAME':<20s} {'EMAIL':<30s} {'DEPARTMENT'}")
-        typer.echo(f"  {'-'*20} {'-'*30} {'-'*20}")
+        typer.echo(f"  {'-' * 20} {'-' * 30} {'-' * 20}")
         for u in items:
-            typer.echo(f"  {u.get('username','?'):<20s} {u.get('email','?'):<30s} {u.get('department','')}")
+            typer.echo(f"  {u.get('username', '?'):<20s} {u.get('email', '?'):<30s} {u.get('department', '')}")
     except Exception:
         typer.echo(r.text)
-
 
 
 def identity_delete(
@@ -116,4 +116,3 @@ def identity_delete(
 # ===========================================================================
 # policy sub-commands  (chmod / chown)
 # ===========================================================================
-

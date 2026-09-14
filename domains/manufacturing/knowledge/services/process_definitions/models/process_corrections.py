@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from services.process_definitions.models.process_definition_common import ActionType
 
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -29,19 +30,20 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 # CorrectiveAction
 # ---------------------------------------------------------------------------
 
+
 class CorrectiveAction(BaseModel):
-    id:                               str           = Field(..., min_length=1)
-    name:                             str           = Field(..., min_length=1)
-    description:                      str           = Field(...)
-    action_type:                      ActionType    = Field(default=ActionType.MANUAL)
-    command:                          Optional[str] = None
-    applies_to_postchecks:            List[str]     = Field(default_factory=list)
-    escalation_contact:               Optional[str] = None
-    max_attempts:                     int           = Field(default=1, ge=1)
+    id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    description: str = Field(...)
+    action_type: ActionType = Field(default=ActionType.MANUAL)
+    command: Optional[str] = None
+    applies_to_postchecks: List[str] = Field(default_factory=list)
+    escalation_contact: Optional[str] = None
+    max_attempts: int = Field(default=1, ge=1)
     expected_resolution_time_minutes: Optional[int] = None
-    notes:                            Optional[str] = None
-    created_at:                       datetime      = Field(default_factory=utc_now)
-    updated_at:                       datetime      = Field(default_factory=utc_now)
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -57,16 +59,16 @@ class CorrectiveActionCreate(CorrectiveAction):
 
 
 class CorrectiveActionUpdate(BaseModel):
-    name:                             Optional[str]        = None
-    description:                      Optional[str]        = None
-    action_type:                      Optional[ActionType] = None
-    command:                          Optional[str]        = None
-    applies_to_postchecks:            Optional[List[str]]  = None
-    escalation_contact:               Optional[str]        = None
-    max_attempts:                     Optional[int]        = Field(None, ge=1)
-    expected_resolution_time_minutes: Optional[int]        = None
-    notes:                            Optional[str]        = None
-    updated_at:                       datetime             = Field(default_factory=utc_now)
+    name: Optional[str] = None
+    description: Optional[str] = None
+    action_type: Optional[ActionType] = None
+    command: Optional[str] = None
+    applies_to_postchecks: Optional[List[str]] = None
+    escalation_contact: Optional[str] = None
+    max_attempts: Optional[int] = Field(None, ge=1)
+    expected_resolution_time_minutes: Optional[int] = None
+    notes: Optional[str] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class CorrectiveActionResponse(CorrectiveAction):
@@ -78,14 +80,15 @@ class CorrectiveActionResponse(CorrectiveAction):
 # CorrectiveActions (collection)
 # ---------------------------------------------------------------------------
 
+
 class CorrectiveActions(BaseModel):
-    id:               str                    = Field(..., min_length=1)
-    process_definition_id:      str                    = Field(..., min_length=1)
-    process_step_id: str                    = Field(..., min_length=1)
-    description:      Optional[str]          = None
-    actions:          List[CorrectiveAction] = Field(default_factory=list)
-    created_at:       datetime               = Field(default_factory=utc_now)
-    updated_at:       datetime               = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    process_definition_id: str = Field(..., min_length=1)
+    process_step_id: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    actions: List[CorrectiveAction] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -101,9 +104,9 @@ class CorrectiveActionsCreate(CorrectiveActions):
 
 
 class CorrectiveActionsUpdate(BaseModel):
-    description: Optional[str]                    = None
-    actions:     Optional[List[CorrectiveAction]] = None
-    updated_at:  datetime                         = Field(default_factory=utc_now)
+    description: Optional[str] = None
+    actions: Optional[List[CorrectiveAction]] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class CorrectiveActionsResponse(CorrectiveActions):
@@ -112,7 +115,7 @@ class CorrectiveActionsResponse(CorrectiveActions):
 
 
 class PaginatedCorrectiveActionsResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[CorrectiveActionsResponse]
+    results: list[CorrectiveActionsResponse]

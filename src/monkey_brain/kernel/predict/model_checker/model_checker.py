@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from src.monkey_brain.kernel.predict.model_checker.base import ISolver, SolverClass, SolverResult
+from src.monkey_brain.kernel.predict.model_checker.base import (
+    ISolver,
+    SolverClass,
+    SolverResult,
+)
 
 
 class ModelCheckerSolver(ISolver):
     """Model checking solver for formal verification."""
+
     name = "model_checker"
     solver_class = SolverClass.MODEL_CHECKER
 
@@ -29,9 +34,13 @@ class ModelCheckerSolver(ISolver):
 
         verified = len(violations) == 0
         return SolverResult(
-            solver_name=self.name, solver_class=self.solver_class,
-            solution={"verified": verified, "violations": violations,
-                      "counterexample": violations[0] if violations else None},
+            solver_name=self.name,
+            solver_class=self.solver_class,
+            solution={
+                "verified": verified,
+                "violations": violations,
+                "counterexample": violations[0] if violations else None,
+            },
             confidence=0.95 if verified else 0.7,
             proof=f"Model check: {'passed' if verified else f'{len(violations)} violations'}",
             counterexamples=violations,

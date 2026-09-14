@@ -51,7 +51,7 @@ class ConnectionRetryPolicy:
 
     def get_delay(self, attempt: int) -> float:
         """Get delay for retry attempt (exponential backoff)."""
-        delay = self.initial_delay_sec * (self.backoff_multiplier ** attempt)
+        delay = self.initial_delay_sec * (self.backoff_multiplier**attempt)
         return min(delay, self.max_delay_sec)
 
 
@@ -136,12 +136,14 @@ def retry_on_connection_error(
         raise last_exc or ConnectionError(f"{func.__name__} failed after retries")
 
     if asyncio.iscoroutinefunction(func):
+
         @wraps(func)
         async def wrapped_async(*args: Any, **kwargs: Any) -> T:
             return await async_wrapper(*args, **kwargs)
 
         return wrapped_async  # type: ignore
     else:
+
         @wraps(func)
         def wrapped_sync(*args: Any, **kwargs: Any) -> T:
             return sync_wrapper(*args, **kwargs)
@@ -212,7 +214,7 @@ class HealthCheckTracker:
     def should_check_health(self) -> bool:
         """Return True if enough time has passed since last check."""
         interval = min(
-            self.initial_check_interval * (2 ** self.check_failures),
+            self.initial_check_interval * (2**self.check_failures),
             self.max_interval,
         )
         return (time.time() - self.last_check_time) > interval
@@ -233,7 +235,7 @@ class HealthCheckTracker:
     def get_backoff_interval(self) -> float:
         """Get current backoff interval."""
         return min(
-            self.initial_check_interval * (2 ** self.check_failures),
+            self.initial_check_interval * (2**self.check_failures),
             self.max_interval,
         )
 

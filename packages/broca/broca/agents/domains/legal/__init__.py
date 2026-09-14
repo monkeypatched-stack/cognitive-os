@@ -1,4 +1,5 @@
 """Legal agents — Contract, Clause, Litigation, LegalResearch, DocumentReview, IP, Privacy, Regulatory."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class ContractAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "draft"), "contract": context.get("contract", {}), "parties": context.get("parties", [])}
+        return {
+            "operation": context.get("operation", "draft"),
+            "contract": context.get("contract", {}),
+            "parties": context.get("parties", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"contract.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"contract.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"contract.{decision['operation']}", "success": True}
@@ -30,13 +38,24 @@ class ClauseAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "extract"), "document": context.get("document", ""), "clause_type": context.get("clause_type", "")}
+        return {
+            "operation": context.get("operation", "extract"),
+            "document": context.get("document", ""),
+            "clause_type": context.get("clause_type", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"clause.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"clause.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"clause.{decision['operation']}", "success": True, "clauses": []}
+        return {
+            "action": f"clause.{decision['operation']}",
+            "success": True,
+            "clauses": [],
+        }
 
 
 class LitigationAgent(BaseDDDAgent):
@@ -46,10 +65,17 @@ class LitigationAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"case_id": context.get("case_id", ""), "operation": context.get("operation", "status"), "deadline": context.get("deadline", "")}
+        return {
+            "case_id": context.get("case_id", ""),
+            "operation": context.get("operation", "status"),
+            "deadline": context.get("deadline", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"litigation.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"litigation.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"litigation.{decision['operation']}", "success": True}
@@ -63,7 +89,11 @@ class LegalResearchAgent(BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"query": context.get("query", ""), "jurisdiction": context.get("jurisdiction", ""), "date_range": context.get("date_range", "")}
+        return {
+            "query": context.get("query", ""),
+            "jurisdiction": context.get("jurisdiction", ""),
+            "date_range": context.get("date_range", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         return {"action": "legal_research.search", "results_count": 0, "relevance": 0.0}
@@ -80,13 +110,21 @@ class DocumentReviewAgent(BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"document": context.get("document", ""), "review_type": context.get("review_type", "compliance"), "checklist": context.get("checklist", [])}
+        return {
+            "document": context.get("document", ""),
+            "review_type": context.get("review_type", "compliance"),
+            "checklist": context.get("checklist", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         return {"action": "document_review.assess", "compliant": True, "issues": []}
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "document_review.assess", "compliant": decision.get("compliant", True), "issues": decision.get("issues", [])}
+        return {
+            "action": "document_review.assess",
+            "compliant": decision.get("compliant", True),
+            "issues": decision.get("issues", []),
+        }
 
 
 class IPAgent(BaseDDDAgent):
@@ -96,10 +134,17 @@ class IPAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "search"), "ip_type": context.get("ip_type", "patent"), "query": context.get("query", "")}
+        return {
+            "operation": context.get("operation", "search"),
+            "ip_type": context.get("ip_type", "patent"),
+            "query": context.get("query", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"ip.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"ip.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"ip.{decision['operation']}", "success": True}
@@ -113,13 +158,24 @@ class PrivacyAgent(BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"data_subject": context.get("data_subject", ""), "operation": context.get("operation", "assess"), "data_types": context.get("data_types", [])}
+        return {
+            "data_subject": context.get("data_subject", ""),
+            "operation": context.get("operation", "assess"),
+            "data_types": context.get("data_types", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"privacy.{perception['operation']}", "compliant": True}
+        return {
+            "operation": perception["operation"],
+            "action": f"privacy.{perception['operation']}",
+            "compliant": True,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"privacy.{decision['operation']}", "compliant": decision.get("compliant", True)}
+        return {
+            "action": f"privacy.{decision['operation']}",
+            "compliant": decision.get("compliant", True),
+        }
 
 
 class RegulatoryAgent(BaseDDDAgent):
@@ -130,10 +186,21 @@ class RegulatoryAgent(BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"regulation": context.get("regulation", ""), "jurisdiction": context.get("jurisdiction", ""), "operation": context.get("operation", "check")}
+        return {
+            "regulation": context.get("regulation", ""),
+            "jurisdiction": context.get("jurisdiction", ""),
+            "operation": context.get("operation", "check"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"regulatory.{perception['operation']}", "compliant": True}
+        return {
+            "operation": perception["operation"],
+            "action": f"regulatory.{perception['operation']}",
+            "compliant": True,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"regulatory.{decision['operation']}", "compliant": decision.get("compliant", True)}
+        return {
+            "action": f"regulatory.{decision['operation']}",
+            "compliant": decision.get("compliant", True),
+        }

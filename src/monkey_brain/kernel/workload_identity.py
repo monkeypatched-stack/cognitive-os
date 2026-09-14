@@ -31,6 +31,7 @@ calls it directly):
   3. None -- no workload identity available. Callers MUST treat this as
      "unauthenticated," never fall back to a self-asserted agent_id/name.
 """
+
 from __future__ import annotations
 
 import logging
@@ -124,7 +125,7 @@ class WorkloadIdentity:
         without the trust domain, when a caller has already separately
         verified the trust domain matches."""
         prefix = f"spiffe://{self.trust_domain}"
-        return self.spiffe_id[len(prefix):] if self.spiffe_id.startswith(prefix) else self.spiffe_id
+        return self.spiffe_id[len(prefix) :] if self.spiffe_id.startswith(prefix) else self.spiffe_id
 
 
 class WorkloadIdentityProvider:

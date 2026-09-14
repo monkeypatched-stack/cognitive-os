@@ -29,6 +29,7 @@ In-memory dict-backed — delegations are few and lightweight per actor, so
 no pluggable-backend machinery (unlike kernel/timeline/store.py's
 TimelineStore) is needed here.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -57,11 +58,17 @@ class Delegation:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "delegation_id": self.delegation_id, "membership_id": self.membership_id,
-            "delegate_actor_id": self.delegate_actor_id, "permissions": list(self.permissions),
-            "valid_from": self.valid_from, "valid_until": self.valid_until,
-            "constraints": dict(self.constraints), "reason": self.reason,
-            "revoked": self.revoked, "revoked_at": self.revoked_at, "created_at": self.created_at,
+            "delegation_id": self.delegation_id,
+            "membership_id": self.membership_id,
+            "delegate_actor_id": self.delegate_actor_id,
+            "permissions": list(self.permissions),
+            "valid_from": self.valid_from,
+            "valid_until": self.valid_until,
+            "constraints": dict(self.constraints),
+            "reason": self.reason,
+            "revoked": self.revoked,
+            "revoked_at": self.revoked_at,
+            "created_at": self.created_at,
         }
 
 
@@ -77,18 +84,28 @@ class DelegationRegistry:
         self._delegations: dict[str, Delegation] = {}
 
     def grant(
-        self, membership_id: str, delegate_actor_id: str, permissions: tuple[str, ...],
-        valid_until: float | None = None, constraints: dict[str, Any] | None = None, reason: str = "",
+        self,
+        membership_id: str,
+        delegate_actor_id: str,
+        permissions: tuple[str, ...],
+        valid_until: float | None = None,
+        constraints: dict[str, Any] | None = None,
+        reason: str = "",
     ) -> Delegation:
         delegation = Delegation(
-            membership_id=membership_id, delegate_actor_id=delegate_actor_id,
-            permissions=tuple(permissions), valid_until=valid_until,
-            constraints=dict(constraints or {}), reason=reason,
+            membership_id=membership_id,
+            delegate_actor_id=delegate_actor_id,
+            permissions=tuple(permissions),
+            valid_until=valid_until,
+            constraints=dict(constraints or {}),
+            reason=reason,
         )
         self._delegations[delegation.delegation_id] = delegation
         if self._membership_registry is not None:
             self._membership_registry.record_event(
-                membership_id, "delegation_granted", delegation_id=delegation.delegation_id,
+                membership_id,
+                "delegation_granted",
+                delegation_id=delegation.delegation_id,
             )
         return delegation
 
@@ -97,12 +114,17 @@ class DelegationRegistry:
         if delegation is None or delegation.revoked:
             return False
         revoked = dataclasses.replace(
-            delegation, revoked=True, revoked_at=time.time(), reason=reason or delegation.reason,
+            delegation,
+            revoked=True,
+            revoked_at=time.time(),
+            reason=reason or delegation.reason,
         )
         self._delegations[delegation_id] = revoked
         if self._membership_registry is not None:
             self._membership_registry.record_event(
-                delegation.membership_id, "delegation_revoked", delegation_id=delegation_id,
+                delegation.membership_id,
+                "delegation_revoked",
+                delegation_id=delegation_id,
             )
         return True
 

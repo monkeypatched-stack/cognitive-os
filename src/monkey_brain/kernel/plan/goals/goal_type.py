@@ -35,19 +35,90 @@ from src.monkey_brain.kernel.plan.goals.goal import GoalType
 
 # Ordered by specificity within a type; phrases are matched as phrases, not tokens.
 _KEYWORDS: dict[GoalType, tuple[str, ...]] = {
-    GoalType.DELETE: ("delete", "remove", "drop", "clear", "purge", "uninstall", "revoke"),
-    GoalType.UPDATE: ("update", "edit", "modify", "change", "rename", "set", "mark",
-                      "complete", "finish", "close", "assign", "approve", "enable", "disable",
-                      "migrate", "patch", "fix"),
-    GoalType.CREATE: ("create", "build", "add", "new", "write", "draft", "generate",
-                      "compose", "make", "implement", "scaffold", "deploy", "install",
-                      "register", "schedule"),
-    GoalType.ANALYZE: ("analyze", "analyse", "analysis", "summarize", "summarise", "summary",
-                       "explain", "review", "evaluate", "assess", "diagnose", "why"),
+    GoalType.DELETE: (
+        "delete",
+        "remove",
+        "drop",
+        "clear",
+        "purge",
+        "uninstall",
+        "revoke",
+    ),
+    GoalType.UPDATE: (
+        "update",
+        "edit",
+        "modify",
+        "change",
+        "rename",
+        "set",
+        "mark",
+        "complete",
+        "finish",
+        "close",
+        "assign",
+        "approve",
+        "enable",
+        "disable",
+        "migrate",
+        "patch",
+        "fix",
+    ),
+    GoalType.CREATE: (
+        "create",
+        "build",
+        "add",
+        "new",
+        "write",
+        "draft",
+        "generate",
+        "compose",
+        "make",
+        "implement",
+        "scaffold",
+        "deploy",
+        "install",
+        "register",
+        "schedule",
+    ),
+    GoalType.ANALYZE: (
+        "analyze",
+        "analyse",
+        "analysis",
+        "summarize",
+        "summarise",
+        "summary",
+        "explain",
+        "review",
+        "evaluate",
+        "assess",
+        "diagnose",
+        "why",
+    ),
     GoalType.AGGREGATE: ("how many", "count", "total", "sum", "average", "aggregate"),
-    GoalType.SEARCH: ("search", "find", "look up", "lookup", "locate", "which", "where"),
-    GoalType.QUERY: ("get", "show", "list", "read", "fetch", "what", "when", "who",
-                     "status", "is", "are", "does", "do"),
+    GoalType.SEARCH: (
+        "search",
+        "find",
+        "look up",
+        "lookup",
+        "locate",
+        "which",
+        "where",
+    ),
+    GoalType.QUERY: (
+        "get",
+        "show",
+        "list",
+        "read",
+        "fetch",
+        "what",
+        "when",
+        "who",
+        "status",
+        "is",
+        "are",
+        "does",
+        "do",
+    ),
 }
 
 # A keyword only counts as a whole word (or whole phrase) — "set" must not fire on "asset",
@@ -76,11 +147,17 @@ def classify_goal_type(question: str) -> tuple[GoalType, float]:
     if not text:
         return GoalType.QUERY, UNMATCHED_CONFIDENCE
 
-    severity = {GoalType.DELETE: 0, GoalType.UPDATE: 1, GoalType.CREATE: 2,
-                GoalType.ANALYZE: 3, GoalType.AGGREGATE: 4, GoalType.SEARCH: 5,
-                GoalType.QUERY: 6}
+    severity = {
+        GoalType.DELETE: 0,
+        GoalType.UPDATE: 1,
+        GoalType.CREATE: 2,
+        GoalType.ANALYZE: 3,
+        GoalType.AGGREGATE: 4,
+        GoalType.SEARCH: 5,
+        GoalType.QUERY: 6,
+    }
 
-    best: tuple[int, int, GoalType] | None = None       # (position, severity, type)
+    best: tuple[int, int, GoalType] | None = None  # (position, severity, type)
     for goal_type, _word, pattern in _PATTERNS:
         m = pattern.search(text)
         if m is None:
@@ -120,6 +197,10 @@ def describe(goal_type: GoalType, confidence: float) -> str:
 
 
 __all__: Iterable[str] = (
-    "classify_goal_type", "is_mutating", "mutating_verbs", "describe",
-    "MATCHED_CONFIDENCE", "UNMATCHED_CONFIDENCE",
+    "classify_goal_type",
+    "is_mutating",
+    "mutating_verbs",
+    "describe",
+    "MATCHED_CONFIDENCE",
+    "UNMATCHED_CONFIDENCE",
 )

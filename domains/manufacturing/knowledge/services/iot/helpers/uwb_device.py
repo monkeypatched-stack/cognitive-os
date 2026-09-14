@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 
 from services.iot.models.uwb_device import UWBDeviceCreate, UWBDeviceUpdate
 
-
 COLLECTION = "uwb_devices"
 
 
@@ -50,16 +49,24 @@ async def get_by_id(db: AsyncIOMotorDatabase, device_id: str) -> Optional[dict]:
     return _serialize(await db[COLLECTION].find_one({"id": device_id}))
 
 
-async def get_by_mac_address(db: AsyncIOMotorDatabase, mac_address: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"mac_address": mac_address.strip().upper()}))
+async def get_by_mac_address(
+    db: AsyncIOMotorDatabase, mac_address: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"mac_address": mac_address.strip().upper()})
+    )
 
 
-async def get_by_serial_number(db: AsyncIOMotorDatabase, serial_number: str) -> Optional[dict]:
+async def get_by_serial_number(
+    db: AsyncIOMotorDatabase, serial_number: str
+) -> Optional[dict]:
     return _serialize(await db[COLLECTION].find_one({"serial_number": serial_number}))
 
 
 async def get_by_anchor_id(db: AsyncIOMotorDatabase, anchor_id: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"anchor_config.anchor_id": anchor_id}))
+    return _serialize(
+        await db[COLLECTION].find_one({"anchor_config.anchor_id": anchor_id})
+    )
 
 
 async def get_by_active(db: AsyncIOMotorDatabase, active: bool) -> list[dict]:
@@ -78,7 +85,9 @@ async def create(db: AsyncIOMotorDatabase, data: UWBDeviceCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, device_id: str, data: UWBDeviceUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, device_id: str, data: UWBDeviceUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, device_id)

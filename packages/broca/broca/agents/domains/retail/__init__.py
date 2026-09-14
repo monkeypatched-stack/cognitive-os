@@ -1,4 +1,5 @@
 """Retail agents — POS, Loyalty, Store, Shelf, Replenishment."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,14 +15,26 @@ class POSAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "transact"), "store_id": context.get("store_id", ""), "items": context.get("items", [])}
+        return {
+            "operation": context.get("operation", "transact"),
+            "store_id": context.get("store_id", ""),
+            "items": context.get("items", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         total = sum(i.get("price", 0) * i.get("qty", 1) for i in perception.get("items", []))
-        return {"operation": perception["operation"], "action": f"pos.{perception['operation']}", "total": total}
+        return {
+            "operation": perception["operation"],
+            "action": f"pos.{perception['operation']}",
+            "total": total,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"pos.{decision['operation']}", "success": True, "total": decision.get("total", 0)}
+        return {
+            "action": f"pos.{decision['operation']}",
+            "success": True,
+            "total": decision.get("total", 0),
+        }
 
 
 class LoyaltyAgent(BaseDDDAgent):
@@ -31,10 +44,17 @@ class LoyaltyAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "earn"), "customer_id": context.get("customer_id", ""), "points": context.get("points", 0)}
+        return {
+            "operation": context.get("operation", "earn"),
+            "customer_id": context.get("customer_id", ""),
+            "points": context.get("points", 0),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"loyalty.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"loyalty.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"loyalty.{decision['operation']}", "success": True}
@@ -47,10 +67,16 @@ class StoreAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"store_id": context.get("store_id", ""), "operation": context.get("operation", "status")}
+        return {
+            "store_id": context.get("store_id", ""),
+            "operation": context.get("operation", "status"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"store.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"store.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"store.{decision['operation']}", "success": True}
@@ -63,13 +89,21 @@ class ShelfAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"shelf_id": context.get("shelf_id", ""), "products": context.get("products", []), "planogram": context.get("planogram", {})}
+        return {
+            "shelf_id": context.get("shelf_id", ""),
+            "products": context.get("products", []),
+            "planogram": context.get("planogram", {}),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         return {"action": "shelf.audit", "compliant": True, "out_of_stock": []}
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "shelf.audit", "compliant": decision.get("compliant", True), "out_of_stock": decision.get("out_of_stock", [])}
+        return {
+            "action": "shelf.audit",
+            "compliant": decision.get("compliant", True),
+            "out_of_stock": decision.get("out_of_stock", []),
+        }
 
 
 class ReplenishmentAgent(BaseDDDAgent):
@@ -79,10 +113,18 @@ class ReplenishmentAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"store_id": context.get("store_id", ""), "products": context.get("products", []), "forecast": context.get("forecast", {})}
+        return {
+            "store_id": context.get("store_id", ""),
+            "products": context.get("products", []),
+            "forecast": context.get("forecast", {}),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         return {"action": "replenishment.calculate", "orders": []}
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "replenishment.calculate", "success": True, "orders": decision.get("orders", [])}
+        return {
+            "action": "replenishment.calculate",
+            "success": True,
+            "orders": decision.get("orders", []),
+        }

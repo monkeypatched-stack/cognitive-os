@@ -14,6 +14,7 @@ Actors subscribe to the Context Stream to know WHEN the world changed,
 but they do NOT receive world updates directly. Instead, they re-observe
 the world on their next cognitive cycle.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,6 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Callable
-
 
 logger = logging.getLogger("agentos.context_stream")
 
@@ -39,6 +39,7 @@ class EventType(Enum):
 @dataclass
 class ContextEvent:
     """A single real-time world change event."""
+
     timestamp: float
     entity: str
     attribute: str
@@ -54,6 +55,7 @@ class ContextEvent:
 @dataclass
 class WorldVersion:
     """Immutable snapshot of world state at a point in time."""
+
     version: int
     timestamp: float
     transition_count: int
@@ -89,8 +91,11 @@ class ContextStream:
     def version(self) -> int:
         return self._version
 
-    def subscribe(self, callback: Callable[[ContextEvent, WorldVersion], None],
-                  tenant_id: str | None = None) -> None:
+    def subscribe(
+        self,
+        callback: Callable[[ContextEvent, WorldVersion], None],
+        tenant_id: str | None = None,
+    ) -> None:
         """Register a subscriber for world change notifications.
 
         Args:
@@ -106,15 +111,16 @@ class ContextStream:
                 self._tenant_subscribers[tenant_id] = []
             self._tenant_subscribers[tenant_id].append(callback)
 
-    def unsubscribe(self, callback: Callable[[ContextEvent, WorldVersion], None],
-                    tenant_id: str | None = None) -> None:
+    def unsubscribe(
+        self,
+        callback: Callable[[ContextEvent, WorldVersion], None],
+        tenant_id: str | None = None,
+    ) -> None:
         """Unregister a subscriber."""
         if tenant_id is None:
             self._subscribers = [s for s in self._subscribers if s is not callback]
         elif tenant_id in self._tenant_subscribers:
-            self._tenant_subscribers[tenant_id] = [
-                s for s in self._tenant_subscribers[tenant_id] if s is not callback
-            ]
+            self._tenant_subscribers[tenant_id] = [s for s in self._tenant_subscribers[tenant_id] if s is not callback]
 
     def publish(self, event: ContextEvent) -> WorldVersion:
         """Publish a context event. Updates the world and notifies subscribers.
@@ -130,17 +136,17 @@ class ContextStream:
         version = WorldVersion(
             version=self._version,
             timestamp=time.time(),
-            transition_count=self._world.nnz() if hasattr(self._world, 'nnz') else 0,
-            state_count=len(self._world.states()) if hasattr(self._world, 'states') else 0,
+            transition_count=self._world.nnz() if hasattr(self._world, "nnz") else 0,
+            state_count=(len(self._world.states()) if hasattr(self._world, "states") else 0),
             checksum=f"v{self._version}",
         )
         self._version_history.append(version)
 
         # Keep histories bounded
         if len(self._event_history) > self._max_history:
-            self._event_history = self._event_history[-self._max_history:]
+            self._event_history = self._event_history[-self._max_history :]
         if len(self._version_history) > self._max_history:
-            self._version_history = self._version_history[-self._max_history:]
+            self._version_history = self._version_history[-self._max_history :]
 
         # P0: Notify global subscribers (receive all events)
         for subscriber in self._subscribers:
@@ -155,12 +161,21 @@ class ContextStream:
                 try:
                     subscriber(event, version)
                 except Exception as e:
-                    logger.error("[context_stream] tenant subscriber error (tenant=%s): %s",
-                                 event.tenant_id, e)
+                    logger.error(
+                        "[context_stream] tenant subscriber error (tenant=%s): %s",
+                        event.tenant_id,
+                        e,
+                    )
 
-        logger.debug("[context_stream] v%d: %s.%s = %s (from %s, tenant=%s)",
-                     self._version, event.entity, event.attribute,
-                     event.current_value, event.source, event.tenant_id)
+        logger.debug(
+            "[context_stream] v%d: %s.%s = %s (from %s, tenant=%s)",
+            self._version,
+            event.entity,
+            event.attribute,
+            event.current_value,
+            event.source,
+            event.tenant_id,
+        )
         return version
 
     def _apply_to_world(self, event: ContextEvent) -> None:
@@ -169,28 +184,33 @@ class ContextStream:
             src, dst = event.entity, event.attribute
             domain = event.metadata.get("domain", "default")
             weight = float(event.current_value) if event.current_value is not None else 1.0
-            if hasattr(self._world, 'observe'):
+            if hasattr(self._world, "observe"):
                 self._world.observe(src, dst, domain=domain, weight=weight)
 
         elif event.event_type == EventType.TRANSITION_REMOVE:
             src, dst = event.entity, event.attribute
-            if hasattr(self._world, 'remove'):
+            if hasattr(self._world, "remove"):
                 self._world.remove(src, dst)
 
         elif event.event_type == EventType.STATE_CHANGE:
-            if hasattr(self._world, 'update_entity'):
+            if hasattr(self._world, "update_entity"):
                 self._world.update_entity(event.entity, **{event.attribute: event.current_value})
 
         elif event.event_type == EventType.ENTITY_ADD:
             from src.monkey_brain.kernel.compile.entity import EntityType
+
             entity_type = EntityType(event.metadata.get("entity_type", "entity"))
             domain = event.metadata.get("domain", "default")
-            if hasattr(self._world, '_add_entity'):
-                self._world._add_entity(event.entity, entity_type, domain,
-                                        **{event.attribute: event.current_value})
+            if hasattr(self._world, "_add_entity"):
+                self._world._add_entity(
+                    event.entity,
+                    entity_type,
+                    domain,
+                    **{event.attribute: event.current_value},
+                )
 
         elif event.event_type == EventType.ENTITY_REMOVE:
-            if hasattr(self._world, '_entity_meta'):
+            if hasattr(self._world, "_entity_meta"):
                 i = self._world._tensor._state_index.get(event.entity) if self._world._tensor else None
                 if i is not None:
                     self._world._entity_meta.pop(i, None)
@@ -204,8 +224,13 @@ class ContextStream:
     def get_version(self) -> WorldVersion:
         if self._version_history:
             return self._version_history[-1]
-        return WorldVersion(version=0, timestamp=time.time(), transition_count=0,
-                            state_count=0, checksum="v0")
+        return WorldVersion(
+            version=0,
+            timestamp=time.time(),
+            transition_count=0,
+            state_count=0,
+            checksum="v0",
+        )
 
     def recent_events(self, limit: int = 10) -> list[ContextEvent]:
         return self._event_history[-limit:]
@@ -221,14 +246,24 @@ class ContextStream:
         """Save context stream state."""
         import json
         import os
+
         os.makedirs(path, exist_ok=True)
         data = {
             "version": self._version,
-            "events": [{"timestamp": e.timestamp, "entity": e.entity, "attribute": e.attribute,
-                         "previous_value": e.previous_value, "current_value": e.current_value,
-                         "source": e.source, "confidence": e.confidence,
-                         "event_type": e.event_type.name, "metadata": e.metadata}
-                        for e in self._event_history[-1000:]],
+            "events": [
+                {
+                    "timestamp": e.timestamp,
+                    "entity": e.entity,
+                    "attribute": e.attribute,
+                    "previous_value": e.previous_value,
+                    "current_value": e.current_value,
+                    "source": e.source,
+                    "confidence": e.confidence,
+                    "event_type": e.event_type.name,
+                    "metadata": e.metadata,
+                }
+                for e in self._event_history[-1000:]
+            ],
         }
         with open(os.path.join(path, "context_stream.json"), "w") as f:
             json.dump(data, f, indent=2)
@@ -237,6 +272,7 @@ class ContextStream:
         """Load context stream state."""
         import json
         import os
+
         stream_path = os.path.join(path, "context_stream.json")
         if not os.path.exists(stream_path):
             return

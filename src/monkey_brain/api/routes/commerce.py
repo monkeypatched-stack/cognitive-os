@@ -32,6 +32,7 @@ POST   /inventory/confirm           — commit a held reservation
 POST   /inventory/backorder         — queue a claim for out-of-stock stock
 POST   /inventory/fulfill-backorders — fulfill queued claims after a restock
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,12 +42,29 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import authorize_acting_for, require_permission
 from src.monkey_brain.api.gateway_models import (
-    BrowseProductsResponse, CartItemAddRequest, CartResponse, CouponApplyRequest,
-    InventoryActionResponse, InventoryBackorderRequest, InventoryConfirmRequest,
-    InventoryFulfillBackordersRequest, InventoryReserveRequest, MerchantCreateRequest,
-    MerchantResponse, OrganizationUpdateRequest, PantryItemCreateRequest, PantryItemResponse,
-    ProductCreateRequest, ProductResponse, ProductUpdateRequest, PromotionCreateRequest,
-    ReviewCreateRequest, RiderCreateRequest, RiderResponse, WalletCreateRequest, WalletResponse,
+    BrowseProductsResponse,
+    CartItemAddRequest,
+    CartResponse,
+    CouponApplyRequest,
+    InventoryActionResponse,
+    InventoryBackorderRequest,
+    InventoryConfirmRequest,
+    InventoryFulfillBackordersRequest,
+    InventoryReserveRequest,
+    MerchantCreateRequest,
+    MerchantResponse,
+    OrganizationUpdateRequest,
+    PantryItemCreateRequest,
+    PantryItemResponse,
+    ProductCreateRequest,
+    ProductResponse,
+    ProductUpdateRequest,
+    PromotionCreateRequest,
+    ReviewCreateRequest,
+    RiderCreateRequest,
+    RiderResponse,
+    WalletCreateRequest,
+    WalletResponse,
 )
 from src.monkey_brain.api.idempotency import idempotent
 
@@ -89,15 +107,22 @@ def _publish_catalog_event(request: Request, domain_event: str, description: str
     pr = _get_planetary_runtime(request)
     if pr is None:
         return
-    from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
-    pr.context_stream.publish(ContextEvent(
-        event_type=ContextEventType.WORLD_UPDATE,
-        description=description,
-        payload={**payload, "domain_event": domain_event},
-    ))
+    from src.monkey_brain.kernel.society.context_stream import (
+        ContextEvent,
+        ContextEventType,
+    )
+
+    pr.context_stream.publish(
+        ContextEvent(
+            event_type=ContextEventType.WORLD_UPDATE,
+            description=description,
+            payload={**payload, "domain_event": domain_event},
+        )
+    )
 
 
 # ── Merchants ───────────────────────────────────────────────────────────
+
 
 @router.post("/merchants", tags=["Commerce"], response_model=MerchantResponse)
 @idempotent("merchants.create")
@@ -135,7 +160,9 @@ async def list_merchants(
     from src.monkey_brain.kernel.knowledge_graph import EntityType
 
     kg = _kg(request)
-    return [{"store_id": e.entity_id, "name": e.name, **e.attributes} for e in kg.entities_by_type(EntityType.ORGANIZATION)]
+    return [
+        {"store_id": e.entity_id, "name": e.name, **e.attributes} for e in kg.entities_by_type(EntityType.ORGANIZATION)
+    ]
 
 
 @router.get("/merchants/{store_id}", tags=["Commerce"])
@@ -176,12 +203,17 @@ async def update_organization_route(
     updates = body.model_dump()
     org_name = updates.get("name") or getattr(_kg(request).get_entity(org_id), "name", None) or org_id
     result = _result(update_organization(_kg(request), org_id, **updates))
-    _publish_catalog_event(request, "OrganizationUpdated", f"{org_name} updated",
-                            {"org_id": org_id, "updates": updates})
+    _publish_catalog_event(
+        request,
+        "OrganizationUpdated",
+        f"{org_name} updated",
+        {"org_id": org_id, "updates": updates},
+    )
     return result
 
 
 # ── Pantry (household inventory) ───────────────────────────────────────
+
 
 @router.post("/pantry", tags=["Commerce"], response_model=PantryItemResponse)
 @idempotent("pantry.create")
@@ -196,18 +228,26 @@ async def create_pantry_item(
     from src.monkey_brain.kernel.domains.grocery import add_pantry_item
     from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
 
-    attrs = {k: v for k, v in body.model_dump().items()
-             if k not in ("name", "quantity", "owner_id", "household_members")}
+    attrs = {
+        k: v for k, v in body.model_dump().items() if k not in ("name", "quantity", "owner_id", "household_members")
+    }
     # Same class of fix as POST /merchants above -- add_pantry_item()
     # writes via kg.add_entity(), operator-driven, not an agent action.
     with privileged_infrastructure(reason="POST /pantry: operator seeding a pantry item, not an agent action"):
-        return _result(add_pantry_item(
-            _kg(request), body.name, body.quantity,
-            owner_id=body.owner_id, household_members=body.household_members, **attrs,
-        ))
+        return _result(
+            add_pantry_item(
+                _kg(request),
+                body.name,
+                body.quantity,
+                owner_id=body.owner_id,
+                household_members=body.household_members,
+                **attrs,
+            )
+        )
 
 
 # ── Riders ──────────────────────────────────────────────────────────────
+
 
 @router.post("/riders", tags=["Commerce"], response_model=RiderResponse)
 @idempotent("riders.create")
@@ -239,6 +279,7 @@ async def create_rider(
 
 # ── Wallets ─────────────────────────────────────────────────────────────
 
+
 @router.post("/wallets", tags=["Commerce"], response_model=WalletResponse)
 @idempotent("wallets.create")
 async def create_wallet(
@@ -255,17 +296,25 @@ async def create_wallet(
 
     name = body.name or f"{body.owner}'s Wallet"
     wallet_id = body.wallet_id or f"wallet_{uuid.uuid4().hex}"
-    extra = {k: v for k, v in body.model_dump().items()
-             if k not in ("owner", "name", "account_type", "balance", "wallet_id")}
+    extra = {
+        k: v for k, v in body.model_dump().items() if k not in ("owner", "name", "account_type", "balance", "wallet_id")
+    }
 
     kg = _kg(request)
     # Same class of fix as POST /merchants above -- direct kg.add_entity(),
     # operator-driven wallet provisioning, not an agent action.
     with privileged_infrastructure(reason="POST /wallets: operator provisioning a wallet, not an agent action"):
-        kg.add_entity(wallet_id, EntityType.ACCOUNT, name, {
-            "account_type": body.account_type, "balance": body.balance, "owner": body.owner,
-            **extra,
-        })
+        kg.add_entity(
+            wallet_id,
+            EntityType.ACCOUNT,
+            name,
+            {
+                "account_type": body.account_type,
+                "balance": body.balance,
+                "owner": body.owner,
+                **extra,
+            },
+        )
     entity = kg.get_entity(wallet_id)
     return {"success": True, "wallet_id": wallet_id, **entity.attributes}
 
@@ -317,7 +366,10 @@ async def topup_wallet(
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="body.amount must be a real number")
     if amount <= 0:
-        raise HTTPException(status_code=400, detail="body.amount must be positive — use a real debit/refund flow to reduce a balance")
+        raise HTTPException(
+            status_code=400,
+            detail="body.amount must be positive — use a real debit/refund flow to reduce a balance",
+        )
 
     kg = _kg(request)
     wallet = kg.get_entity(wallet_id)
@@ -325,9 +377,17 @@ async def topup_wallet(
         raise HTTPException(status_code=404, detail=f"no such wallet {wallet_id!r}")
     balance_before = wallet.attributes.get("balance", 0)
     if not _cas_adjust_balance(kg, wallet_id, amount):
-        raise HTTPException(status_code=409, detail="topup failed: too much contention on wallet, please retry")
+        raise HTTPException(
+            status_code=409,
+            detail="topup failed: too much contention on wallet, please retry",
+        )
     balance_after = round(balance_before + amount, 2)
-    return {"success": True, "wallet_id": wallet_id, "balance_before": balance_before, "balance_after": balance_after}
+    return {
+        "success": True,
+        "wallet_id": wallet_id,
+        "balance_before": balance_before,
+        "balance_after": balance_after,
+    }
 
 
 @router.delete("/wallets/{wallet_id}", tags=["Commerce"])
@@ -370,7 +430,11 @@ async def get_actor_wallet(
 
     for entity in _kg(request).entities_by_type(EntityType.ACCOUNT):
         if entity.attributes.get("owner") == actor_id:
-            return {"wallet_id": entity.entity_id, "name": entity.name, **entity.attributes}
+            return {
+                "wallet_id": entity.entity_id,
+                "name": entity.name,
+                **entity.attributes,
+            }
     raise HTTPException(status_code=404, detail=f"no wallet found for actor {actor_id!r}")
 
 
@@ -395,13 +459,11 @@ async def delete_actor_orders(
     from src.monkey_brain.kernel.knowledge_graph import EntityType
 
     kg = _kg(request)
-    order_ids = [
-        e.entity_id for e in kg.entities_by_type(EntityType.EVENT)
-        if e.attributes.get("buyer_id") == actor_id
-    ]
+    order_ids = [e.entity_id for e in kg.entities_by_type(EntityType.EVENT) if e.attributes.get("buyer_id") == actor_id]
     order_id_set = set(order_ids)
     shipment_ids = [
-        e.entity_id for e in kg.entities
+        e.entity_id
+        for e in kg.entities
         if e.attributes.get("shipment") is True and e.attributes.get("order_id") in order_id_set
     ]
     for shipment_id in shipment_ids:
@@ -409,13 +471,17 @@ async def delete_actor_orders(
     for order_id in order_ids:
         kg.remove_entity(order_id)
     return {
-        "success": True, "actor_id": actor_id,
-        "orders_removed": len(order_ids), "order_ids": order_ids,
-        "shipments_removed": len(shipment_ids), "shipment_ids": shipment_ids,
+        "success": True,
+        "actor_id": actor_id,
+        "orders_removed": len(order_ids),
+        "order_ids": order_ids,
+        "shipments_removed": len(shipment_ids),
+        "shipment_ids": shipment_ids,
     }
 
 
 # ── Products ────────────────────────────────────────────────────────────
+
 
 @router.post("/products", tags=["Commerce"], response_model=ProductResponse)
 @idempotent("products.create")
@@ -427,22 +493,35 @@ async def create_product(
     from src.monkey_brain.kernel.domains.commerce import list_product
     from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
 
-    attrs = {k: v for k, v in body.model_dump().items()
-             if k not in ("store_id", "merchant_id", "name", "price", "quantity")}
+    attrs = {
+        k: v for k, v in body.model_dump().items() if k not in ("store_id", "merchant_id", "name", "price", "quantity")
+    }
     # Same class of fix as POST /merchants above -- list_product() writes
     # via kg.add_entity(), operator-driven catalog management, not an
     # agent action.
     with privileged_infrastructure(reason="POST /products: operator listing a product, not an agent action"):
-        result = _result(list_product(
-            _kg(request), body.store_id, body.merchant_id, body.name, body.price, body.quantity, **attrs,
-        ))
+        result = _result(
+            list_product(
+                _kg(request),
+                body.store_id,
+                body.merchant_id,
+                body.name,
+                body.price,
+                body.quantity,
+                **attrs,
+            )
+        )
     # Product name only — the raw id is still real data in the payload for
     # anything that needs it (e.g. ProductSelection's grounding-membership
     # check), but a human/LLM reading this event's description doesn't
     # need a UUID to know what happened; the name alone is what a person
     # would actually say ("Whole Milk listed"), not "product_83ea... listed."
-    _publish_catalog_event(request, "ProductListed", f"{body.name} listed",
-                            {"product_id": result.get("product_id"), "store_id": body.store_id})
+    _publish_catalog_event(
+        request,
+        "ProductListed",
+        f"{body.name} listed",
+        {"product_id": result.get("product_id"), "store_id": body.store_id},
+    )
     return result
 
 
@@ -455,7 +534,10 @@ async def browse_products(
     """Browse the whole catalog, or search it by keyword — the same
     open_products()/search_products the domain layer already uses
     (MB-3002), just reachable over HTTP now."""
-    from src.monkey_brain.kernel.domains.commerce import CommerceCapability, CommerceCapabilityBus
+    from src.monkey_brain.kernel.domains.commerce import (
+        CommerceCapability,
+        CommerceCapabilityBus,
+    )
 
     kg = _kg(request)
     bus = CommerceCapabilityBus([CommerceCapability()])
@@ -465,8 +547,13 @@ async def browse_products(
     return {
         "success": True,
         "products": [
-            {"id": p.entity_id, "name": p.name, "price": p.attributes.get("price"),
-             "quantity": p.attributes.get("quantity"), "store_id": p.attributes.get("store_id")}
+            {
+                "id": p.entity_id,
+                "name": p.name,
+                "price": p.attributes.get("price"),
+                "quantity": p.attributes.get("quantity"),
+                "store_id": p.attributes.get("store_id"),
+            }
             for p in products
         ],
     }
@@ -501,8 +588,12 @@ async def update_product_route(
     updates = {k: v for k, v in body.model_dump().items() if k != "merchant_id"}
     product_name = updates.get("name") or getattr(_kg(request).get_entity(product_id), "name", None) or product_id
     result = _result(update_product(_kg(request), product_id, body.merchant_id, **updates))
-    _publish_catalog_event(request, "ProductUpdated", f"{product_name} updated",
-                            {"product_id": product_id, "updates": updates})
+    _publish_catalog_event(
+        request,
+        "ProductUpdated",
+        f"{product_name} updated",
+        {"product_id": product_id, "updates": updates},
+    )
     return result
 
 
@@ -518,8 +609,12 @@ async def delete_product(
 
     product_name = getattr(_kg(request).get_entity(product_id), "name", None) or product_id
     result = _result(remove_product(_kg(request), product_id, merchant_id))
-    _publish_catalog_event(request, "ProductDelisted", f"{product_name} delisted",
-                            {"product_id": product_id})
+    _publish_catalog_event(
+        request,
+        "ProductDelisted",
+        f"{product_name} delisted",
+        {"product_id": product_id},
+    )
     return result
 
 
@@ -533,10 +628,16 @@ async def create_promotion_route(
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.domains.commerce import create_promotion
 
-    return _result(create_promotion(
-        _kg(request), product_id, body.merchant_id, body.sale_price,
-        starts_at=body.starts_at, ends_at=body.ends_at,
-    ))
+    return _result(
+        create_promotion(
+            _kg(request),
+            product_id,
+            body.merchant_id,
+            body.sale_price,
+            starts_at=body.starts_at,
+            ends_at=body.ends_at,
+        )
+    )
 
 
 @router.post("/products/{product_id}/reviews", tags=["Commerce"])
@@ -553,6 +654,7 @@ async def create_review(
 
 
 # ── Cart ────────────────────────────────────────────────────────────────
+
 
 @router.post("/cart/{actor_id}/items", tags=["Commerce"], response_model=CartResponse)
 @idempotent("cart.add_item")
@@ -603,6 +705,7 @@ async def apply_coupon_route(
 
 # ── Inventory ───────────────────────────────────────────────────────────
 
+
 @router.post("/inventory/reserve", tags=["Commerce"], response_model=InventoryActionResponse)
 @idempotent("inventory.reserve")
 async def reserve_inventory(
@@ -617,7 +720,11 @@ async def reserve_inventory(
     # perm-manage-actors, with no self-or-behalf check.
     await authorize_acting_for(request, user_id, body.actor_id)
     ok, message = try_reserve(
-        _kg(request), body.product_id, body.actor_id, body.qty, hold_seconds=body.hold_seconds,
+        _kg(request),
+        body.product_id,
+        body.actor_id,
+        body.qty,
+        hold_seconds=body.hold_seconds,
     )
     if not ok:
         raise HTTPException(status_code=409, detail=message)
@@ -649,10 +756,17 @@ async def backorder_inventory(
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.domains.grocery import place_backorder
 
-    return {"success": True, **place_backorder(_kg(request), body.product_id, body.actor_id, body.qty)}
+    return {
+        "success": True,
+        **place_backorder(_kg(request), body.product_id, body.actor_id, body.qty),
+    }
 
 
-@router.post("/inventory/fulfill-backorders", tags=["Commerce"], response_model=InventoryActionResponse)
+@router.post(
+    "/inventory/fulfill-backorders",
+    tags=["Commerce"],
+    response_model=InventoryActionResponse,
+)
 @idempotent("inventory.fulfill_backorders")
 async def fulfill_backorders_route(
     body: InventoryFulfillBackordersRequest,

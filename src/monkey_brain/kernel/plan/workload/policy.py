@@ -16,5 +16,6 @@ def get_policy() -> "BellmanPolicy":
     global _policy_singleton
     if _policy_singleton is None:
         from src.monkey_brain.kernel.fix.policy.policy import BellmanPolicy
+
         _policy_singleton = BellmanPolicy()
     return _policy_singleton

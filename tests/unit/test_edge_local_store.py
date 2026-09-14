@@ -1,5 +1,6 @@
 """EdgeLocalStore + freshness classification (kernel/edge/local_store.py,
 kernel/edge/freshness.py)."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -61,10 +62,13 @@ class TestReadWrite:
 class TestBatchedReadWrite:
     def test_put_many_then_get_many_round_trips(self, store):
         prov = CacheProvenance(source="neo4j:kg", expires_at=time.time() + 60)
-        store.put_many("world_projection", {
-            "product:milk": ({"price": 3.99}, prov),
-            "product:bread": ({"price": 2.50}, prov),
-        })
+        store.put_many(
+            "world_projection",
+            {
+                "product:milk": ({"price": 3.99}, prov),
+                "product:bread": ({"price": 2.50}, prov),
+            },
+        )
         result = store.get_many("world_projection", ["product:milk", "product:bread", "product:missing"])
         assert set(result.keys()) == {"product:milk", "product:bread"}
         assert result["product:milk"].value == {"price": 3.99}
@@ -104,23 +108,35 @@ class TestExpirationAndFreshness:
         assert classify_freshness(prov) == Freshness.FRESH
 
     def test_requires_authority_has_no_grace_window(self):
-        prov = CacheProvenance(source="x", expires_at=time.time() - 1, freshness_requirement="requires_authority")
+        prov = CacheProvenance(
+            source="x",
+            expires_at=time.time() - 1,
+            freshness_requirement="requires_authority",
+        )
         assert classify_freshness(prov) == Freshness.STALE_MUST_REFRESH
 
     def test_requires_world_state_has_a_grace_window(self):
         prov = CacheProvenance(
-            source="x", expires_at=time.time() - 10, freshness_requirement="requires_world_state",
+            source="x",
+            expires_at=time.time() - 10,
+            freshness_requirement="requires_world_state",
         )
         assert classify_freshness(prov) == Freshness.STALE_BUT_USABLE
 
     def test_requires_world_state_past_grace_window_must_refresh(self):
         prov = CacheProvenance(
-            source="x", expires_at=time.time() - 10_000, freshness_requirement="requires_world_state",
+            source="x",
+            expires_at=time.time() - 10_000,
+            freshness_requirement="requires_world_state",
         )
         assert classify_freshness(prov) == Freshness.STALE_MUST_REFRESH
 
     def test_safe_offline_never_expires(self):
-        prov = CacheProvenance(source="x", expires_at=time.time() - 999999, freshness_requirement="safe_offline")
+        prov = CacheProvenance(
+            source="x",
+            expires_at=time.time() - 999999,
+            freshness_requirement="safe_offline",
+        )
         assert classify_freshness(prov) == Freshness.FRESH
 
     def test_revoked_epoch_overrides_unexpired_timestamp(self):

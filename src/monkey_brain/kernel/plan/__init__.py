@@ -1,4 +1,5 @@
 """Plan phase — Intent → Goal → Workload → ExecutionGraph → Validate."""
+
 from __future__ import annotations
 
 import logging
@@ -85,10 +86,7 @@ def validate_graph(graph: Any) -> GraphValidation:
             result.warnings.append(f"graph is large ({n} nodes) — may be slow")
 
         # Check each non-root node has at least one dep
-        roots = [
-            node for node in nodes
-            if not any(e.rel == "depends_on" for e in graph.incoming(node.id))
-        ]
+        roots = [node for node in nodes if not any(e.rel == "depends_on" for e in graph.incoming(node.id))]
         if not roots:
             result.valid = False
             result.errors.append("no root nodes found — graph may be a pure cycle")
@@ -126,7 +124,10 @@ def select_workload(
     try:
         workload = policy.select_workload(goal, state)
     except Exception:
-        logger.debug("select_workload: policy selection failed, falling back to goal composition", exc_info=True)
+        logger.debug(
+            "select_workload: policy selection failed, falling back to goal composition",
+            exc_info=True,
+        )
 
     # Fall back: compose a minimal single-step workload from the goal
     if workload is None:
@@ -157,34 +158,38 @@ def build_graph(workload: Any) -> "ExecutionGraph":
     """
     graph = getattr(workload, "graph", None)
     if graph is None:
-        raise ValueError(
-            "build_graph requires workload.graph to already contain the planner-built ExecutionGraph"
-        )
+        raise ValueError("build_graph requires workload.graph to already contain the planner-built ExecutionGraph")
     return graph
 
 
 # ── internals ──────────────────────────────────────────────────────────────
 
+
 def _attach_dag(workload: Any) -> None:
     from src.monkey_brain.kernel.execute.runtime.dag import build_execution_dag
+
     if getattr(workload, "dag", None) is None:
         workload.dag = build_execution_dag(workload)
 
 
 def _compose_from_goal(goal: Any) -> Any:
     from src.monkey_brain.kernel.plan.workload.workload import Workload, WorkloadStep
+
     goal_name = getattr(goal, "name", "unknown")
     return Workload(
-        steps=[WorkloadStep(
-            step_id=f"{goal_name}-step-0",
-            capability_name=goal_name,
-            inputs=[],
-            outputs=["answer"],
-        )],
+        steps=[
+            WorkloadStep(
+                step_id=f"{goal_name}-step-0",
+                capability_name=goal_name,
+                inputs=[],
+                outputs=["answer"],
+            )
+        ],
         metadata={"goal": goal_name, "composed": True},
     )
 
 
 def _get_policy() -> Any:
     from src.monkey_brain.kernel.plan.workload.policy import get_policy
+
     return get_policy()

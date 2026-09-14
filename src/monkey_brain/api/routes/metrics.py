@@ -3,6 +3,7 @@
 Exposes /metrics in OpenMetrics text format for Prometheus scraping.
 Metrics are collected from Lemon (observability) and process-level counters.
 """
+
 from __future__ import annotations
 
 import logging

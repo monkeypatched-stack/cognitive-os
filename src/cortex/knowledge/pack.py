@@ -16,13 +16,15 @@ from typing import Any
 
 from cortex.knowledge.confidence import ConfidenceVector
 from cortex.knowledge.interface import (
-    MODALITIES, EdgeType, default_confidence_for,
+    MODALITIES,
+    EdgeType,
+    default_confidence_for,
 )
-
 
 # ---------------------------------------------------------------------------
 # KnowledgeNode — concrete IKnowledge for any modality
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class KnowledgeNode:
@@ -32,6 +34,7 @@ class KnowledgeNode:
     the `modality` field determines how confidence is initialised and
     how the node is fused during evidence updates.
     """
+
     id: str
     modality: str = "fact"
     ontology: str = ""
@@ -39,17 +42,21 @@ class KnowledgeNode:
     provenance: str = ""
     timestamp: str = ""
     dependencies: list[str] = field(default_factory=list)
-    content: str = ""     # text, URI, hash, or summary
+    content: str = ""  # text, URI, hash, or summary
     metadata: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.modality not in MODALITIES:
             self.modality = "fact"
         # If confidence was not explicitly set, apply the modality profile
-        if all(v == 1.0 for v in (
-            self.confidence.provenance, self.confidence.semantic,
-            self.confidence.empirical,
-        )):
+        if all(
+            v == 1.0
+            for v in (
+                self.confidence.provenance,
+                self.confidence.semantic,
+                self.confidence.empirical,
+            )
+        ):
             self.confidence = default_confidence_for(self.modality)
 
     # ── IKnowledge interface ─────────────────────────────────────────────────
@@ -77,21 +84,36 @@ class KnowledgeNode:
         if not claim or not self.content:
             return 0.0
         negation_patterns = {
-            "not", "no", "never", "cannot", "must not", "prohibited",
-            "denied", "rejected", "failed", "invalid", "false",
+            "not",
+            "no",
+            "never",
+            "cannot",
+            "must not",
+            "prohibited",
+            "denied",
+            "rejected",
+            "failed",
+            "invalid",
+            "false",
         }
         claim_terms = set(re.findall(r"\b\w{3,}\b", claim.lower()))
         content_lower = self.content.lower()
         negations_in_content = sum(1 for n in negation_patterns if n in content_lower)
         overlap = len(claim_terms & set(re.findall(r"\b\w{3,}\b", content_lower))) / max(len(claim_terms), 1)
         if negations_in_content > 0 and overlap > 0.2:
-            return round(min(1.0, overlap * negations_in_content * 0.3) * self.confidence.scalar(), 4)
+            return round(
+                min(1.0, overlap * negations_in_content * 0.3) * self.confidence.scalar(),
+                4,
+            )
         return 0.0
 
     def simulates(self, scenario: str) -> dict[str, Any]:
         """Simulate the scenario — only meaningful for simulator/world_model nodes."""
         if self.modality not in ("simulator", "world_model"):
-            return {"supported": False, "reason": f"{self.modality} nodes cannot simulate"}
+            return {
+                "supported": False,
+                "reason": f"{self.modality} nodes cannot simulate",
+            }
         return {
             "supported": True,
             "node_id": self.id,
@@ -139,6 +161,7 @@ class KnowledgeNode:
 # KnowledgePack — the typed multimodal knowledge graph
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class KnowledgePack:
     """A typed, multimodal knowledge graph.
@@ -160,9 +183,10 @@ class KnowledgePack:
     ├── Code / Tests
     └── Provenance / Evidence
     """
+
     id: str = ""
     name: str = ""
-    ontology_domain: str = ""   # e.g. "manufacturing", "software", "finance"
+    ontology_domain: str = ""  # e.g. "manufacturing", "software", "finance"
     nodes: dict[str, KnowledgeNode] = field(default_factory=dict)
     # edges: {source_id: [(target_id, edge_type), ...]}
     edges: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
@@ -205,12 +229,7 @@ class KnowledgePack:
 
     def contradicting_pairs(self) -> list[tuple[str, str]]:
         """Return all (source, target) pairs linked by CONTRADICTS edges."""
-        return [
-            (src, tgt)
-            for src, adj in self.edges.items()
-            for tgt, etype in adj
-            if etype == EdgeType.CONTRADICTS
-        ]
+        return [(src, tgt) for src, adj in self.edges.items() for tgt, etype in adj if etype == EdgeType.CONTRADICTS]
 
     def transitive_dependencies(self, node_id: str) -> set[str]:
         """BFS: all nodes that node_id transitively depends on."""
@@ -249,10 +268,7 @@ class KnowledgePack:
             "name": self.name,
             "ontology_domain": self.ontology_domain,
             "nodes": {nid: n.to_dict() for nid, n in self.nodes.items()},
-            "edges": {
-                src: [{"target": tgt, "type": etype} for tgt, etype in adj]
-                for src, adj in self.edges.items()
-            },
+            "edges": {src: [{"target": tgt, "type": etype} for tgt, etype in adj] for src, adj in self.edges.items()},
             "fused_confidence": self.fused_confidence().to_dict(),
             "knowledge_loss": self.knowledge_loss(),
         }

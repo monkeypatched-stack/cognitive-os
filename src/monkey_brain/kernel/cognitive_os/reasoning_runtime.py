@@ -20,6 +20,7 @@ for backward compatibility (tests import these dataclasses and call these
 methods directly on a CognitiveOS instance with no engine/pipeline
 involved at all).
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,6 +36,7 @@ logger = logging.getLogger("agentos.cognitive_os.reasoning_runtime")
 @dataclass
 class GoalEvaluation:
     """Result of evaluating a goal against current beliefs and capabilities."""
+
     goal_type_id: str
     achievable: bool
     blockers: tuple[str, ...] = ()
@@ -46,6 +48,7 @@ class GoalEvaluation:
 @dataclass
 class CapabilityMatch:
     """Result of matching a capability to a goal."""
+
     capability_type_id: str
     goal_type_id: str
     proficiency: float = 0.0
@@ -56,6 +59,7 @@ class CapabilityMatch:
 @dataclass
 class ResourceCheck:
     """Result of checking if a resource is available."""
+
     resource_type_id: str
     available: bool
     quantity: float = 0.0
@@ -66,6 +70,7 @@ class ResourceCheck:
 @dataclass
 class DecisionSynthesis:
     """Result of synthesizing ontology types into a decision."""
+
     selected_goal: str | None = None
     selected_capabilities: tuple[str, ...] = ()
     required_resources: tuple[str, ...] = ()
@@ -106,10 +111,10 @@ class DecisionEngine:
             return []
 
         results = []
-        goal_states = getattr(self._actor, 'goal_states', [])
-        beliefs = getattr(self._actor, 'beliefs', [])
-        capabilities = getattr(self._actor, 'capabilities', [])
-        resources = getattr(self._actor, 'resources', [])
+        goal_states = getattr(self._actor, "goal_states", [])
+        beliefs = getattr(self._actor, "beliefs", [])
+        capabilities = getattr(self._actor, "capabilities", [])
+        resources = getattr(self._actor, "resources", [])
 
         for goal in goal_states:
             if not goal.active:
@@ -135,14 +140,16 @@ class DecisionEngine:
             if not beliefs:
                 blockers.append("no_beliefs")
 
-            results.append(GoalEvaluation(
-                goal_type_id=goal.goal_type_id,
-                achievable=len(blockers) == 0,
-                blockers=tuple(blockers),
-                required_capabilities=tuple(req_caps),
-                required_resources=tuple(req_resources),
-                confidence=confidence,
-            ))
+            results.append(
+                GoalEvaluation(
+                    goal_type_id=goal.goal_type_id,
+                    achievable=len(blockers) == 0,
+                    blockers=tuple(blockers),
+                    required_capabilities=tuple(req_caps),
+                    required_resources=tuple(req_resources),
+                    confidence=confidence,
+                )
+            )
 
         return results
 
@@ -151,16 +158,19 @@ class DecisionEngine:
         required = _GOAL_CAPABILITY_MAP.get(goal_type_id, [])
         matches = []
         for cap_type in required:
-            available = any(c.capability_type_id == cap_type and c.available
-                           for c in capabilities)
-            proficiency = max((c.proficiency for c in capabilities
-                             if c.capability_type_id == cap_type), default=0.0)
-            matches.append(CapabilityMatch(
-                capability_type_id=cap_type,
-                goal_type_id=goal_type_id,
-                proficiency=proficiency,
-                available=available,
-            ))
+            available = any(c.capability_type_id == cap_type and c.available for c in capabilities)
+            proficiency = max(
+                (c.proficiency for c in capabilities if c.capability_type_id == cap_type),
+                default=0.0,
+            )
+            matches.append(
+                CapabilityMatch(
+                    capability_type_id=cap_type,
+                    goal_type_id=goal_type_id,
+                    proficiency=proficiency,
+                    available=available,
+                )
+            )
         return matches
 
     def match_capabilities(self) -> list[CapabilityMatch]:
@@ -168,8 +178,8 @@ class DecisionEngine:
         if self._actor is None:
             return []
 
-        goals = getattr(self._actor, 'goal_states', [])
-        capabilities = getattr(self._actor, 'capabilities', [])
+        goals = getattr(self._actor, "goal_states", [])
+        capabilities = getattr(self._actor, "capabilities", [])
 
         matches = []
         for goal in goals:
@@ -185,19 +195,21 @@ class DecisionEngine:
         if required is None:
             required = {}
 
-        resources = getattr(self._actor, 'resources', [])
+        resources = getattr(self._actor, "resources", [])
         results = []
 
         for res_type, req_qty in required.items():
             available = sum(r.quantity for r in resources if r.resource_type_id == res_type)
             deficit = max(0.0, req_qty - available)
-            results.append(ResourceCheck(
-                resource_type_id=res_type,
-                available=available >= req_qty,
-                quantity=available,
-                required=req_qty,
-                deficit=deficit,
-            ))
+            results.append(
+                ResourceCheck(
+                    resource_type_id=res_type,
+                    available=available >= req_qty,
+                    quantity=available,
+                    required=req_qty,
+                    deficit=deficit,
+                )
+            )
 
         return results
 
@@ -217,19 +229,26 @@ class DecisionEngine:
                 confidence=0.0,
             )
 
-        best_goal = min(achievable, key=lambda g: (
-            -g.confidence,
-            getattr(self._actor, '_goal_states', [])[0].priority
-            if getattr(self._actor, '_goal_states', []) else 50,
-        ))
+        best_goal = min(
+            achievable,
+            key=lambda g: (
+                -g.confidence,
+                (
+                    getattr(self._actor, "_goal_states", [])[0].priority
+                    if getattr(self._actor, "_goal_states", [])
+                    else 50
+                ),
+            ),
+        )
 
-        needed_caps = [m.capability_type_id for m in cap_matches
-                       if m.goal_type_id == best_goal.goal_type_id and m.available]
+        needed_caps = [
+            m.capability_type_id for m in cap_matches if m.goal_type_id == best_goal.goal_type_id and m.available
+        ]
 
         trust_actions = []
-        affiliations = getattr(self._actor, '_affiliations', [])
+        affiliations = getattr(self._actor, "_affiliations", [])
         if affiliations:
-            for aff in getattr(affiliations, '_affiliations', {}).values():
+            for aff in getattr(affiliations, "_affiliations", {}).values():
                 trust = affiliations.get_trust(aff.target_id)
                 if trust < 0.5:
                     trust_actions.append(f"build_trust:{aff.target_id}")
@@ -295,7 +314,10 @@ class ReasoningRuntime:
         """The real, tick-integrated CounterfactualEngine — constructed
         lazily since it needs the transition model, which may be updated
         across ticks."""
-        from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualEngine
+        from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+            CounterfactualEngine,
+        )
+
         return CounterfactualEngine(self.prediction)
 
     async def reason(self, state: CognitiveState) -> CognitiveState:
@@ -318,7 +340,7 @@ class ReasoningRuntime:
         if believe_index is None:
             return await run_stages(state, self._stages)
 
-        state = await run_stages(state, self._stages[:believe_index + 1])
+        state = await run_stages(state, self._stages[: believe_index + 1])
         actor_id = getattr(self._actor, "entity_id", None) or getattr(self._actor, "id", None)
         goal = state.belief.goal
         goal_text = f"{goal.name} {goal.description}".strip()
@@ -328,4 +350,4 @@ class ReasoningRuntime:
                 state.belief.metadata["activated_societies"] = result
             except Exception as e:
                 logger.error("Society activation failed for actor %s: %s", actor_id, e)
-        return await run_stages(state, self._stages[believe_index + 1:])
+        return await run_stages(state, self._stages[believe_index + 1 :])

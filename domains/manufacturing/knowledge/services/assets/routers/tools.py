@@ -18,6 +18,7 @@ from services.assets.models.tools import (
 
 router = APIRouter()
 
+
 @router.get("", response_model=PaginatedToolResponse)
 @router.get("/", response_model=PaginatedToolResponse, include_in_schema=False)
 async def list_tools(
@@ -65,14 +66,21 @@ async def get_tool(
 
 
 @router.post("", response_model=ToolRecord, status_code=status.HTTP_201_CREATED)
-@router.post("/", response_model=ToolRecord, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post(
+    "/",
+    response_model=ToolRecord,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 async def create_tool(
     data: ToolCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-create-tools")),
 ):
     if await crud.get_by_id(db, data.tool_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Team '{data.tool_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"Team '{data.tool_id}' already exists"
+        )
     return await crud.create(db, data)
 
 

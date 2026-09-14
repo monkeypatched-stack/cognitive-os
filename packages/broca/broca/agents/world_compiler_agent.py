@@ -9,6 +9,7 @@ The World Compiler:
 - Enforces governance rules and policies
 - Produces a validated ExecutionGraph
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,13 +63,15 @@ class WorldCompilerAgent(BaseETASSAgent):
             # Score candidate based on agent trust and feasibility
             is_valid, trust_score = await self.score_candidate(graph, goal_ir)
 
-            scored_candidates.append({
-                "graph": graph,
-                "execution_graph": execution_graph,
-                "execution_graph_id": cand.get("execution_graph_id"),
-                "is_valid": is_valid,
-                "trust_score": trust_score,  # NEW: trust-based ranking
-            })
+            scored_candidates.append(
+                {
+                    "graph": graph,
+                    "execution_graph": execution_graph,
+                    "execution_graph_id": cand.get("execution_graph_id"),
+                    "is_valid": is_valid,
+                    "trust_score": trust_score,  # NEW: trust-based ranking
+                }
+            )
 
         if not scored_candidates:
             self._reward(False, 0.0)
@@ -88,7 +91,8 @@ class WorldCompilerAgent(BaseETASSAgent):
 
         logger.info(
             "[world_compiler] Ranked %d candidates by trust: best=%.2f",
-            len(scored_candidates), scored_candidates[0]["trust_score"] if scored_candidates else 0.0
+            len(scored_candidates),
+            scored_candidates[0]["trust_score"] if scored_candidates else 0.0,
         )
 
         self._reward(True, 0.8)
@@ -111,7 +115,7 @@ class WorldCompilerAgent(BaseETASSAgent):
             observations=[
                 f"World Compiler: ranked {len(scored_candidates)} candidates by trust",
                 f"Top candidate trust: {scored_candidates[0]['trust_score']:.2f}",
-                f"Execution IR ready for Runtime",
+                "Execution IR ready for Runtime",
             ],
         )
 
@@ -173,7 +177,9 @@ class WorldCompilerAgent(BaseETASSAgent):
         if validation_issues:
             logger.warning(
                 "[world_compiler] Graph has %d validation issue(s), trust_score=%.2f: %s",
-                len(validation_issues), trust_score, "; ".join(validation_issues)
+                len(validation_issues),
+                trust_score,
+                "; ".join(validation_issues),
             )
 
         return is_valid, trust_score
@@ -204,7 +210,11 @@ class WorldCompilerAgent(BaseETASSAgent):
                     validation_errors.append(
                         f"Agent '{agent_name}' not in trust network (no edge from {local_runtime})"
                     )
-                    logger.warning("[world_compiler] Agent '%s' not trusted by %s", agent_name, local_runtime)
+                    logger.warning(
+                        "[world_compiler] Agent '%s' not trusted by %s",
+                        agent_name,
+                        local_runtime,
+                    )
                     continue
 
                 # Check if trust score meets threshold
@@ -214,25 +224,23 @@ class WorldCompilerAgent(BaseETASSAgent):
                     )
                     logger.warning(
                         "[world_compiler] Agent '%s' trust below threshold: %.2f < %.2f",
-                        agent_name, edge.trust_score, self._trust_threshold
+                        agent_name,
+                        edge.trust_score,
+                        self._trust_threshold,
                     )
                     continue
 
                 # Check if permission to share/execute graphs is granted
                 if Perm.SHARE_EXECUTION_GRAPHS not in edge.permissions:
-                    validation_errors.append(
-                        f"Agent '{agent_name}' does not have SHARE_EXECUTION_GRAPHS permission"
-                    )
+                    validation_errors.append(f"Agent '{agent_name}' does not have SHARE_EXECUTION_GRAPHS permission")
                     logger.warning(
                         "[world_compiler] Agent '%s' lacks SHARE_EXECUTION_GRAPHS permission",
-                        agent_name
+                        agent_name,
                     )
 
                 # Check if edge is active (not revoked/expired)
                 if not edge.is_active:
-                    validation_errors.append(
-                        f"Agent '{agent_name}' trust edge is inactive (revoked or expired)"
-                    )
+                    validation_errors.append(f"Agent '{agent_name}' trust edge is inactive (revoked or expired)")
                     logger.warning("[world_compiler] Agent '%s' trust edge inactive", agent_name)
         else:
             # No trust network: just verify agent names exist
@@ -252,11 +260,15 @@ class WorldCompilerAgent(BaseETASSAgent):
         if validation_errors:
             logger.warning(
                 "[world_compiler] Graph validation failed with %d error(s):\n%s",
-                len(validation_errors), "\n".join(f"  - {e}" for e in validation_errors)
+                len(validation_errors),
+                "\n".join(f"  - {e}" for e in validation_errors),
             )
             return False
 
-        logger.info("[world_compiler] Graph passed validation (agents=%d, trust_ok=True)", len(nodes))
+        logger.info(
+            "[world_compiler] Graph passed validation (agents=%d, trust_ok=True)",
+            len(nodes),
+        )
         return True
 
     def record_agent_outcome(self, agent_name: str, success: bool, latency_ms: float = 0.0) -> float:

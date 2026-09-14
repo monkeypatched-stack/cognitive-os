@@ -12,11 +12,7 @@ from services.process_definitions.node_services.models import (
 
 def node_type_from_record(node: dict) -> str | None:
     metadata = node.get("metadata") if isinstance(node.get("metadata"), dict) else {}
-    return (
-        node.get("node_type")
-        or metadata.get("nodeType")
-        or metadata.get("type")
-    )
+    return node.get("node_type") or metadata.get("nodeType") or metadata.get("type")
 
 
 def inject_payload(config: dict, payload: dict[str, Any]) -> Any:
@@ -55,7 +51,9 @@ async def execute_common_node(
             "topic": config.get("topic") or payload.get("topic"),
             "payload": inject_payload(config, payload),
         }
-        return NodeExecutionResult(True, None, {"status": "injected", "message": message})
+        return NodeExecutionResult(
+            True, None, {"status": "injected", "message": message}
+        )
     if node_type == "debug":
         if config.get("active") is False:
             return NodeExecutionResult(True, None, {"status": "disabled"})
@@ -65,12 +63,28 @@ async def execute_common_node(
         elif output == "message":
             debug_value = payload.get("message", payload)
         else:
-            debug_value = nested_value(payload, str(config_value(config, "property", "payload")))
-        return NodeExecutionResult(True, None, {"status": "debugged", "value": debug_value})
+            debug_value = nested_value(
+                payload, str(config_value(config, "property", "payload"))
+            )
+        return NodeExecutionResult(
+            True, None, {"status": "debugged", "value": debug_value}
+        )
     if node_type == "comment":
-        return NodeExecutionResult(True, None, {"status": "comment", "text": config.get("text") or node.get("title") or node.get("name") or ""})
+        return NodeExecutionResult(
+            True,
+            None,
+            {
+                "status": "comment",
+                "text": config.get("text")
+                or node.get("title")
+                or node.get("name")
+                or "",
+            },
+        )
     if node_type in {"junction", "subflow"}:
-        return NodeExecutionResult(True, None, {"status": "passed", "node_type": node_type, "message": payload})
+        return NodeExecutionResult(
+            True, None, {"status": "passed", "node_type": node_type, "message": payload}
+        )
     if node_type in {"catch", "status", "complete", "link in"}:
         return NodeExecutionResult(
             True,
@@ -87,9 +101,26 @@ async def execute_common_node(
         linked = []
         if layout:
             for candidate in layout.get("nodes", []):
-                candidate_config = candidate.get("config") if isinstance(candidate.get("config"), dict) else {}
+                candidate_config = (
+                    candidate.get("config")
+                    if isinstance(candidate.get("config"), dict)
+                    else {}
+                )
                 candidate_type = node_type_from_record(candidate)
-                if candidate_type == "link in" and str(candidate_config.get("link_id") or "") == link_id:
+                if (
+                    candidate_type == "link in"
+                    and str(candidate_config.get("link_id") or "") == link_id
+                ):
                     linked.append(candidate.get("node_id"))
-        return NodeExecutionResult(True, None, {"status": "linked", "node_type": node_type, "link_id": link_id, "target_node_ids": linked, "payload": payload})
+        return NodeExecutionResult(
+            True,
+            None,
+            {
+                "status": "linked",
+                "node_type": node_type,
+                "link_id": link_id,
+                "target_node_ids": linked,
+                "payload": payload,
+            },
+        )
     return NodeExecutionResult(True, None, {"status": "queued"})

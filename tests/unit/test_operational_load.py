@@ -2,6 +2,7 @@
 
 Benchmark latency, throughput, and memory at various actor counts.
 """
+
 from __future__ import annotations
 
 import os
@@ -19,16 +20,23 @@ os.environ["RATE_LIMIT_BURST"] = "200000"
 def client():
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
 
 def _create_actor(client, name, goal):
-    r = client.post("/api/v1/agentos/actors", json={
-        "name": name, "actor_type": "robot", "goals": [goal],
-    })
+    r = client.post(
+        "/api/v1/agentos/actors",
+        json={
+            "name": name,
+            "actor_type": "robot",
+            "goals": [goal],
+        },
+    )
     assert r.status_code == 200
     return r.json()["actor_id"]
 
@@ -40,19 +48,29 @@ class TestLoadActorTick:
         actors = [_create_actor(client, f"Load-{n_actors}-{i}", f"task_{i}") for i in range(n_actors)]
 
         # Warm up
-        for aid in actors[:min(3, n_actors)]:
-            client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-                "start": "a", "goal": "b", "reward": 1.0,
-            })
+        for aid in actors[: min(3, n_actors)]:
+            client.post(
+                f"/api/v1/agentos/actors/{aid}/tick",
+                json={
+                    "start": "a",
+                    "goal": "b",
+                    "reward": 1.0,
+                },
+            )
 
         # Measure
         latencies = []
         for _ in range(n_ticks):
             for aid in actors:
                 start = time.time()
-                r = client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-                    "start": "a", "goal": "b", "reward": 1.0,
-                })
+                r = client.post(
+                    f"/api/v1/agentos/actors/{aid}/tick",
+                    json={
+                        "start": "a",
+                        "goal": "b",
+                        "reward": 1.0,
+                    },
+                )
                 latencies.append((time.time() - start) * 1000)
                 assert r.status_code == 200
 
@@ -69,20 +87,26 @@ class TestLoadActorTick:
 
     def test_10_actors(self, client):
         result = self._measure_tick_latency(client, 10)
-        print(f"\n  10 actors: P50={result['p50']:.1f}ms P95={result['p95']:.1f}ms "
-              f"P99={result['p99']:.1f}ms throughput={result['throughput']:.0f}/s")
+        print(
+            f"\n  10 actors: P50={result['p50']:.1f}ms P95={result['p95']:.1f}ms "
+            f"P99={result['p99']:.1f}ms throughput={result['throughput']:.0f}/s"
+        )
         assert result["p99"] < 50, f"P99 {result['p99']:.1f}ms exceeds 50ms"
 
     def test_50_actors(self, client):
         result = self._measure_tick_latency(client, 50)
-        print(f"\n  50 actors: P50={result['p50']:.1f}ms P95={result['p95']:.1f}ms "
-              f"P99={result['p99']:.1f}ms throughput={result['throughput']:.0f}/s")
+        print(
+            f"\n  50 actors: P50={result['p50']:.1f}ms P95={result['p95']:.1f}ms "
+            f"P99={result['p99']:.1f}ms throughput={result['throughput']:.0f}/s"
+        )
         assert result["p99"] < 100, f"P99 {result['p99']:.1f}ms exceeds 100ms"
 
     def test_100_actors(self, client):
         result = self._measure_tick_latency(client, 100)
-        print(f"\n  100 actors: P50={result['p50']:.1f}ms P95={result['p95']:.1f}ms "
-              f"P99={result['p99']:.1f}ms throughput={result['throughput']:.0f}/s")
+        print(
+            f"\n  100 actors: P50={result['p50']:.1f}ms P95={result['p95']:.1f}ms "
+            f"P99={result['p99']:.1f}ms throughput={result['throughput']:.0f}/s"
+        )
         assert result["p99"] < 200, f"P99 {result['p99']:.1f}ms exceeds 200ms"
 
 
@@ -133,9 +157,14 @@ class TestLoadMemoryGrowth:
 
         for i in range(100):
             aid = _create_actor(client, f"MemLoad-{i}", f"task_{i}")
-            client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-                "start": "a", "goal": "b", "reward": 1.0,
-            })
+            client.post(
+                f"/api/v1/agentos/actors/{aid}/tick",
+                json={
+                    "start": "a",
+                    "goal": "b",
+                    "reward": 1.0,
+                },
+            )
 
         snap2 = tracemalloc.take_snapshot()
         tracemalloc.stop()

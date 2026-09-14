@@ -63,8 +63,13 @@ class PackingInstructionApprovalStep(BaseModel):
     @model_validator(mode="after")
     def normalize_and_validate(self) -> "PackingInstructionApprovalStep":
         self.approved_at = ensure_utc(self.approved_at)
-        if self.status == PackingInstructionApprovalStatus.APPROVED and not self.signature_id:
-            raise ValueError("approved packing instruction approval steps must include signature_id.")
+        if (
+            self.status == PackingInstructionApprovalStatus.APPROVED
+            and not self.signature_id
+        ):
+            raise ValueError(
+                "approved packing instruction approval steps must include signature_id."
+            )
         return self
 
     model_config = {"use_enum_values": True}
@@ -111,22 +116,45 @@ class PackingInstruction(BaseModel):
         self.created_at = ensure_utc(self.created_at) or utc_now()
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
 
-        if self.effective_to and self.effective_from and self.effective_to < self.effective_from:
+        if (
+            self.effective_to
+            and self.effective_from
+            and self.effective_to < self.effective_from
+        ):
             raise ValueError("effective_to cannot be before effective_from.")
-        if self.status in {PackingInstructionStatus.APPROVED, PackingInstructionStatus.EFFECTIVE}:
+        if self.status in {
+            PackingInstructionStatus.APPROVED,
+            PackingInstructionStatus.EFFECTIVE,
+        }:
             if not self.approved_by or not self.approved_at:
-                raise ValueError("approved/effective packing instructions must include approved_by and approved_at.")
+                raise ValueError(
+                    "approved/effective packing instructions must include approved_by and approved_at."
+                )
             if not self.steps:
-                raise ValueError("approved/effective packing instructions must include steps.")
+                raise ValueError(
+                    "approved/effective packing instructions must include steps."
+                )
             if not self.approval_chain:
-                raise ValueError("approved/effective packing instructions must include a named approval_chain.")
+                raise ValueError(
+                    "approved/effective packing instructions must include a named approval_chain."
+                )
             if not self.approval_chain_resolved:
-                raise ValueError("approved/effective packing instructions must have approval_chain_resolved set.")
-            unresolved = [step.stage for step in self.approval_chain if step.status != PackingInstructionApprovalStatus.APPROVED]
+                raise ValueError(
+                    "approved/effective packing instructions must have approval_chain_resolved set."
+                )
+            unresolved = [
+                step.stage
+                for step in self.approval_chain
+                if step.status != PackingInstructionApprovalStatus.APPROVED
+            ]
             if unresolved:
-                raise ValueError(f"approved/effective packing instructions have unresolved approvals: {', '.join(unresolved)}.")
+                raise ValueError(
+                    f"approved/effective packing instructions have unresolved approvals: {', '.join(unresolved)}."
+                )
             if not self.signature_ids:
-                raise ValueError("approved/effective packing instructions must include signature_ids.")
+                raise ValueError(
+                    "approved/effective packing instructions must include signature_ids."
+                )
         return self
 
     model_config = {"use_enum_values": True}

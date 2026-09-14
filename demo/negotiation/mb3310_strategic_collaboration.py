@@ -11,6 +11,7 @@ itself, it only relays each real answer forward).
 Usage:
     python3 demo/negotiation/mb3310_strategic_collaboration.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -38,8 +39,11 @@ def main() -> int:
 
             section("Hop 1 — Customer -> Inventory Robot")
             steps, actions = force_round(
-                c, customer_id, "Customer", "AskActor",
-                f'You need the {TRACKED_PRODUCT_NAME} {deadline}. Ask the Inventory Robot if it is in '
+                c,
+                customer_id,
+                "Customer",
+                "AskActor",
+                f"You need the {TRACKED_PRODUCT_NAME} {deadline}. Ask the Inventory Robot if it is in "
                 f'stock. Use parameters {{"target_actor": "Inventory Robot", "question": "I need the '
                 f'{TRACKED_PRODUCT_NAME} {deadline} — is it in stock?"}}.',
             )
@@ -51,8 +55,11 @@ def main() -> int:
             section("Hop 2 — Inventory Robot -> Warehouse Worker")
             hop1_answer = (hop1.get("answer", "") if hop1 else "")[:150]
             steps, actions = force_round(
-                c, inventory_id, "Inventory Robot", "AskActor",
-                f'A customer needs the {TRACKED_PRODUCT_NAME} {deadline}. Ask the Warehouse Worker if '
+                c,
+                inventory_id,
+                "Inventory Robot",
+                "AskActor",
+                f"A customer needs the {TRACKED_PRODUCT_NAME} {deadline}. Ask the Warehouse Worker if "
                 f'they can pack it in time. Use parameters {{"target_actor": "Warehouse Worker", '
                 f'"question": "Can you pack the {TRACKED_PRODUCT_NAME} in time for delivery {deadline}?"}}.',
                 extra_context=f'You told the customer: "{hop1_answer}"',
@@ -65,7 +72,10 @@ def main() -> int:
             section("Hop 3 — Warehouse Worker -> Driver")
             hop2_answer = (hop2.get("answer", "") if hop2 else "")[:150]
             steps, actions = force_round(
-                c, warehouse_id, "Warehouse Worker", "AskActor",
+                c,
+                warehouse_id,
+                "Warehouse Worker",
+                "AskActor",
                 f'Ask the Driver whether they can deliver {deadline}. Use parameters {{"target_actor": '
                 f'"Driver", "question": "Can you deliver the {TRACKED_PRODUCT_NAME} {deadline}?"}}.',
                 extra_context=f'You told the Inventory Robot: "{hop2_answer}"',
@@ -78,8 +88,11 @@ def main() -> int:
             section("Hop 4 — Driver -> Support Agent")
             hop3_answer = (hop3.get("answer", "") if hop3 else "")[:150]
             steps, actions = force_round(
-                c, driver_id, "Driver", "AskActor",
-                f'Ask the Support Agent to confirm the overall plan to the customer, including payment. '
+                c,
+                driver_id,
+                "Driver",
+                "AskActor",
+                f"Ask the Support Agent to confirm the overall plan to the customer, including payment. "
                 f'Use parameters {{"target_actor": "Support Agent", "question": "Can you confirm the '
                 f'plan (including payment) for delivering the {TRACKED_PRODUCT_NAME} {deadline}?"}}.',
                 extra_context=f'You told the Warehouse Worker: "{hop3_answer}"',
@@ -91,13 +104,26 @@ def main() -> int:
 
             section("Verification")
             checks = [
-                ("Customer's tight-deadline request carried in real natural language", bool(hop1)),
-                ("Inventory Robot contributed a real stock assessment", bool(hop1 and hop1.get("answer"))),
-                ("Warehouse Worker contributed a real packing feasibility assessment",
-                 bool(hop2 and hop2.get("answer"))),
-                ("Driver contributed a real delivery feasibility assessment", bool(hop3 and hop3.get("answer"))),
-                ("Support Agent produced a real final plan (emerged from the chain, not centralized)",
-                 bool(hop4 and hop4.get("answer"))),
+                (
+                    "Customer's tight-deadline request carried in real natural language",
+                    bool(hop1),
+                ),
+                (
+                    "Inventory Robot contributed a real stock assessment",
+                    bool(hop1 and hop1.get("answer")),
+                ),
+                (
+                    "Warehouse Worker contributed a real packing feasibility assessment",
+                    bool(hop2 and hop2.get("answer")),
+                ),
+                (
+                    "Driver contributed a real delivery feasibility assessment",
+                    bool(hop3 and hop3.get("answer")),
+                ),
+                (
+                    "Support Agent produced a real final plan (emerged from the chain, not centralized)",
+                    bool(hop4 and hop4.get("answer")),
+                ),
             ]
             all_pass = True
             for label, ok in checks:

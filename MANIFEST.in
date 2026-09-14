@@ -1,6 +1,6 @@
 include README.md
-include requirements.txt
 include pyproject.toml
+include uv.lock
 include install_agentos.py
 include main.py
 include .env.example

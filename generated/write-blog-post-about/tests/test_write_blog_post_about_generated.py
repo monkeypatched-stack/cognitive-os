@@ -1,7 +1,6 @@
 import pytest
 from time import sleep
 
-
 # Placeholder for blog post content - replace with actual generated content
 blog_post_content = """
 # Understanding AI: A Beginner's Guide
@@ -28,7 +27,6 @@ This blog post collects your email address for future communication only. We adh
 """
 
 
-
 def test_ai_definitions():
     assert "AI" in blog_post_content
     assert "Machine Learning" in blog_post_content
@@ -45,6 +43,7 @@ def test_ethical_considerations():
     assert "biases in data" in blog_post_content
     assert "responsible AI practices" in blog_post_content
 
+
 def test_reading_level():
     # This is a placeholder - actual reading level assessment would require NLP tools.
     # This check simply verifies that the content exists, to simulate basic review.
@@ -53,8 +52,11 @@ def test_reading_level():
 
 def test_response_time():
     # Simulate response time with sleep
-    sleep(0.5)  # Simulate a short response delay (adjust as needed). This is a placeholder and does not guarantee real-world performance
-    assert True # Replace with an actual measurement using a dedicated tool for response time analysis
+    sleep(
+        0.5
+    )  # Simulate a short response delay (adjust as needed). This is a placeholder and does not guarantee real-world performance
+    assert True  # Replace with an actual measurement using a dedicated tool for response time analysis
+
 
 def test_data_privacy():
     assert "GDPR" in blog_post_content

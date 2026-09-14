@@ -56,10 +56,7 @@ class CapabilityGraph:
 
     def available(self, world_state: dict[str, Any]) -> list[str]:
         """Names of capabilities whose preconditions are satisfied in world_state."""
-        return [
-            name for name, desc in self._descriptors.items()
-            if self._preconditions_pass(desc, world_state)
-        ]
+        return [name for name, desc in self._descriptors.items() if self._preconditions_pass(desc, world_state)]
 
     def _preconditions_pass(self, desc: CapabilityDescriptor, ws: dict[str, Any]) -> bool:
         return all(self._eval(pred, ws) for pred in desc.preconditions)
@@ -71,12 +68,18 @@ class CapabilityGraph:
                 lv = self._resolve(lhs.strip(), ws)
                 rv = self._coerce(rhs.strip())
                 try:
-                    if op == "==":  return lv == rv
-                    if op == "!=":  return lv != rv
-                    if op == ">":   return lv > rv   # type: ignore[operator]
-                    if op == ">=":  return lv >= rv  # type: ignore[operator]
-                    if op == "<":   return lv < rv   # type: ignore[operator]
-                    if op == "<=":  return lv <= rv  # type: ignore[operator]
+                    if op == "==":
+                        return lv == rv
+                    if op == "!=":
+                        return lv != rv
+                    if op == ">":
+                        return lv > rv  # type: ignore[operator]
+                    if op == ">=":
+                        return lv >= rv  # type: ignore[operator]
+                    if op == "<":
+                        return lv < rv  # type: ignore[operator]
+                    if op == "<=":
+                        return lv <= rv  # type: ignore[operator]
                 except Exception:
                     return True
         return True
@@ -93,12 +96,18 @@ class CapabilityGraph:
 
     @staticmethod
     def _coerce(v: str) -> Any:
-        if v.lower() in ("true", "yes"): return True
-        if v.lower() in ("false", "no"): return False
-        try: return int(v)
-        except ValueError: pass
-        try: return float(v)
-        except ValueError: pass
+        if v.lower() in ("true", "yes"):
+            return True
+        if v.lower() in ("false", "no"):
+            return False
+        try:
+            return int(v)
+        except ValueError:
+            pass
+        try:
+            return float(v)
+        except ValueError:
+            pass
         return v.strip("'\"")
 
     # ── Reachability ──────────────────────────────────────────────────────────
@@ -120,9 +129,7 @@ class CapabilityGraph:
         visited.discard(from_name)
         return visited
 
-    def path_to(
-        self, target: str, *, world_state: dict[str, Any], max_depth: int = 10
-    ) -> list[str] | None:
+    def path_to(self, target: str, *, world_state: dict[str, Any], max_depth: int = 10) -> list[str] | None:
         """BFS: shortest capability sequence that makes target available.
 
         Returns [] if target is already available, None if unreachable.
@@ -154,27 +161,32 @@ class CapabilityGraph:
 
     # ── ΔA (L_affordance feed) ────────────────────────────────────────────────
 
-    def delta_affordance(
-        self, capability: str, current_available: set[str]
-    ) -> tuple[set[str], set[str]]:
+    def delta_affordance(self, capability: str, current_available: set[str]) -> tuple[set[str], set[str]]:
         """(gained, lost) if capability is executed from current_available."""
         desc = self._descriptors.get(capability)
         if not desc:
             return set(), set()
         gained = set(desc.enables) - current_available
-        lost   = set(desc.disables) & current_available
+        lost = set(desc.disables) & current_available
         return gained, lost
 
     def l_affordance_error(
         self,
-        predicted_gained: set[str], predicted_lost: set[str],
-        actual_gained: set[str],    actual_lost: set[str],
+        predicted_gained: set[str],
+        predicted_lost: set[str],
+        actual_gained: set[str],
+        actual_lost: set[str],
     ) -> float:
         """Jaccard distance on affordance change sets. 0.0=perfect, 1.0=wrong."""
+
         def jac(a: set, b: set) -> float:
             u = a | b
             return 0.0 if not u else 1.0 - len(a & b) / len(u)
-        return round((jac(predicted_gained, actual_gained) + jac(predicted_lost, actual_lost)) / 2, 4)
+
+        return round(
+            (jac(predicted_gained, actual_gained) + jac(predicted_lost, actual_lost)) / 2,
+            4,
+        )
 
     # ── Action model bridge (cortex simulation bridge) ────────────────────────
 
@@ -187,7 +199,12 @@ class CapabilityGraph:
         for desc in self._descriptors.values():
             verb = self._verb(desc.name)
             if verb not in model:
-                model[verb] = {"req": set(), "next": set(), "gain": set(), "lose": set()}
+                model[verb] = {
+                    "req": set(),
+                    "next": set(),
+                    "gain": set(),
+                    "lose": set(),
+                }
             e = model[verb]
             e["req"].update(self._to_states(desc.requires))
             e["next"].update(self._to_states(desc.produces))
@@ -218,11 +235,12 @@ class CapabilityGraph:
     # ── Introspection ─────────────────────────────────────────────────────────
 
     def summary(self) -> dict[str, Any]:
-        total_edges = sum(
-            len(d.enables) + len(d.disables) for d in self._descriptors.values()
-        )
-        return {"nodes": len(self._descriptors), "edges": total_edges,
-                "capabilities": list(self._descriptors.keys())}
+        total_edges = sum(len(d.enables) + len(d.disables) for d in self._descriptors.values())
+        return {
+            "nodes": len(self._descriptors),
+            "edges": total_edges,
+            "capabilities": list(self._descriptors.keys()),
+        }
 
 
 # ---------------------------------------------------------------------------

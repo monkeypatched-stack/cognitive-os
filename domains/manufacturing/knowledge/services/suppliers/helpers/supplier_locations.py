@@ -3,7 +3,10 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.suppliers.models.supplier_locations import SupplierLocationCreate, SupplierLocationUpdate
+from services.suppliers.models.supplier_locations import (
+    SupplierLocationCreate,
+    SupplierLocationUpdate,
+)
 
 COLLECTION = "supplier_locations"
 
@@ -16,7 +19,9 @@ def _serialize(doc: Optional[dict]) -> Optional[dict]:
     return doc
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -43,7 +48,9 @@ async def create(db: AsyncIOMotorDatabase, data: SupplierLocationCreate) -> dict
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, location_id: str, data: SupplierLocationUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, location_id: str, data: SupplierLocationUpdate
+) -> Optional[dict]:
     fields = data.model_dump(exclude_unset=True)
     if not fields:
         return await get_by_id(db, location_id)

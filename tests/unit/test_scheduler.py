@@ -1,9 +1,10 @@
 """Tests for CapabilityScheduler."""
+
 import sys
 import os
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

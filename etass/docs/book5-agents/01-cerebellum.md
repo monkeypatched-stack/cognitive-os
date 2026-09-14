@@ -448,45 +448,43 @@ technologySelection:
 ```python
 def estimate_resources(component: Component) -> ResourceEstimate:
     """Estimate resources required for a component."""
-    
+
     # Base estimation
     base = BASE_RESOURCES[component.type]
-    
+
     # Scale by complexity
     complexity_factor = calculate_complexity(component)
-    
+
     # Adjust for environment
     env_factor = ENVIRONMENT_FACTORS[component.environment]
-    
+
     # Apply constraints
     constrained = apply_constraints(base * complexity_factor * env_factor)
-    
+
     return ResourceEstimate(
-        cpu=constrained.cpu,
-        memory=constrained.memory,
-        storage=constrained.storage,
-        network=constrained.network
+        cpu=constrained.cpu, memory=constrained.memory, storage=constrained.storage, network=constrained.network
     )
+
 
 def calculate_complexity(component: Component) -> float:
     """Calculate component complexity score."""
     score = 1.0
-    
+
     # Add for each integration
     score += 0.2 * len(component.integrations)
-    
+
     # Add for data complexity
     if component.dataComplexity == "high":
         score += 0.5
     elif component.dataComplexity == "medium":
         score += 0.3
-    
+
     # Add for business logic complexity
     if component.logicComplexity == "high":
         score += 0.4
     elif component.logicComplexity == "medium":
         score += 0.2
-    
+
     return min(2.0, score)  # Cap at 2x
 ```
 

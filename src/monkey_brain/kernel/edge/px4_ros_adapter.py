@@ -21,6 +21,7 @@ after landing) via subscriptions to vehicle_status and
 vehicle_local_position before returning success -- "success" now means PX4
 told us so, not that a ROS message was published.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -50,15 +51,21 @@ class Px4RosExecutionAdapter:
             import rclpy
             from rclpy.executors import SingleThreadedExecutor
             from rclpy.node import Node
-            from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+            from rclpy.qos import (
+                DurabilityPolicy,
+                HistoryPolicy,
+                QoSProfile,
+                ReliabilityPolicy,
+            )
             from px4_msgs.msg import (
-                OffboardControlMode, TrajectorySetpoint, VehicleCommand,
-                VehicleLocalPosition, VehicleStatus,
+                OffboardControlMode,
+                TrajectorySetpoint,
+                VehicleCommand,
+                VehicleLocalPosition,
+                VehicleStatus,
             )
         except ImportError as exc:
-            raise RosUnavailableError(
-                "Px4RosExecutionAdapter requires ROS 2 rclpy and px4_msgs"
-            ) from exc
+            raise RosUnavailableError("Px4RosExecutionAdapter requires ROS 2 rclpy and px4_msgs") from exc
 
         self.actor_id = actor_id
         self.namespace = namespace.strip("/")
@@ -97,10 +104,16 @@ class Px4RosExecutionAdapter:
         self._latest_status: Any = None
         self._latest_local_position: Any = None
         self._node.create_subscription(
-            VehicleStatus, f"{prefix_out}/vehicle_status_v4", self._on_status, px4_qos,
+            VehicleStatus,
+            f"{prefix_out}/vehicle_status_v4",
+            self._on_status,
+            px4_qos,
         )
         self._node.create_subscription(
-            VehicleLocalPosition, f"{prefix_out}/vehicle_local_position_v1", self._on_local_position, px4_qos,
+            VehicleLocalPosition,
+            f"{prefix_out}/vehicle_local_position_v1",
+            self._on_local_position,
+            px4_qos,
         )
 
         # Continuous setpoint streaming: PX4 requires OffboardControlMode +
@@ -246,9 +259,10 @@ class Px4RosExecutionAdapter:
                     status = self._latest_status
                     self._stop_streaming()
                     return {
-                        **result, "success": False,
+                        **result,
+                        "success": False,
                         "error": f"PX4 did not report ARMED within {_ARM_TIMEOUT_S}s "
-                                 f"(last arming_state={getattr(status, 'arming_state', None)})",
+                        f"(last arming_state={getattr(status, 'arming_state', None)})",
                     }
                 return {**result, "success": True}
 
@@ -260,9 +274,10 @@ class Px4RosExecutionAdapter:
                 if not reached:
                     pos = self._latest_local_position
                     return {
-                        **result, "success": False,
+                        **result,
+                        "success": False,
                         "error": f"did not reach takeoff altitude {height_m}m within {_TAKEOFF_TIMEOUT_S}s "
-                                 f"(last z={getattr(pos, 'z', None)})",
+                        f"(last z={getattr(pos, 'z', None)})",
                     }
                 return {**result, "success": True, "altitude_m": height_m}
 
@@ -275,9 +290,10 @@ class Px4RosExecutionAdapter:
                 if not reached:
                     pos = self._latest_local_position
                     return {
-                        **result, "success": False,
+                        **result,
+                        "success": False,
                         "error": f"did not reach waypoint ({x},{y}) within {_WAYPOINT_TIMEOUT_S}s "
-                                 f"(last position=({getattr(pos, 'x', None)},{getattr(pos, 'y', None)}))",
+                        f"(last position=({getattr(pos, 'x', None)},{getattr(pos, 'y', None)}))",
                     }
                 return {**result, "success": True, "x": x, "y": y}
 
@@ -295,14 +311,19 @@ class Px4RosExecutionAdapter:
                 if not disarmed:
                     status = self._latest_status
                     return {
-                        **result, "success": False,
+                        **result,
+                        "success": False,
                         "error": f"PX4 did not disarm after landing within {_LAND_TIMEOUT_S}s "
-                                 f"(last arming_state={getattr(status, 'arming_state', None)})",
+                        f"(last arming_state={getattr(status, 'arming_state', None)})",
                     }
                 return {**result, "success": True}
 
             else:
-                return {**result, "success": False, "error": f"unsupported PX4 capability: {capability}"}
+                return {
+                    **result,
+                    "success": False,
+                    "error": f"unsupported PX4 capability: {capability}",
+                }
 
         return await loop.run_in_executor(None, publish)
 

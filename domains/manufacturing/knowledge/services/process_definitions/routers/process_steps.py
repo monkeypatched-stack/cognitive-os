@@ -24,6 +24,7 @@ bearer_scheme = HTTPBearer()
 
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedProcessStepsResponse)
 async def list_process_steps(
     page: int = Query(1, ge=1),
@@ -41,7 +42,10 @@ async def list_process_steps(
     )
 
 
-@router.get("/by-process_definition/{process_definition_id}", response_model=ProcessStepsResponse)
+@router.get(
+    "/by-process_definition/{process_definition_id}",
+    response_model=ProcessStepsResponse,
+)
 async def get_process_steps_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -73,7 +77,9 @@ async def get_process_steps(
     return record
 
 
-@router.post("/", response_model=ProcessStepsResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=ProcessStepsResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_process_steps(
     data: ProcessStepsCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -119,7 +125,10 @@ async def delete_process_steps(
         )
 
 
-@router.delete("/by-process_definition/{process_definition_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/by-process_definition/{process_definition_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_process_steps_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -134,6 +143,7 @@ async def delete_process_steps_by_process_definition(
 
 
 # ── Individual steps — nested under /{steps_id}/steps ────────────────────────
+
 
 @router.get("/{steps_id}/steps/{step_id}", response_model=ProcessStepResponse)
 async def get_step(
@@ -152,7 +162,10 @@ async def get_step(
     return step
 
 
-@router.get("/{steps_id}/steps/by-status/{status_value}", response_model=list[ProcessStepResponse])
+@router.get(
+    "/{steps_id}/steps/by-status/{status_value}",
+    response_model=list[ProcessStepResponse],
+)
 async def list_steps_by_status(
     steps_id: str,
     status_value: str,
@@ -163,7 +176,10 @@ async def list_steps_by_status(
     return await crud.get_steps_by_status(db, steps_id, status_value)
 
 
-@router.get("/{steps_id}/steps/by-action-type/{action_type}", response_model=list[ProcessStepResponse])
+@router.get(
+    "/{steps_id}/steps/by-action-type/{action_type}",
+    response_model=list[ProcessStepResponse],
+)
 async def list_steps_by_action_type(
     steps_id: str,
     action_type: str,
@@ -174,7 +190,11 @@ async def list_steps_by_action_type(
     return await crud.get_steps_by_action_type(db, steps_id, action_type)
 
 
-@router.post("/{steps_id}/steps", response_model=ProcessStepsResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{steps_id}/steps",
+    response_model=ProcessStepsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_step(
     steps_id: str,
     data: ProcessStepCreate,

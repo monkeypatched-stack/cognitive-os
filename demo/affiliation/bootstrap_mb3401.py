@@ -9,6 +9,7 @@ never from co-location. Support Agent holds two real Affiliations
 The Customer has NO affiliation reaching the Warehouse Worker directly —
 that gap is the point of this scenario.
 """
+
 from __future__ import annotations
 
 import sys
@@ -16,7 +17,16 @@ from typing import Any
 
 import httpx
 
-from _common import ApiError, affiliate, call, client, create_actor, create_geo, host_society, verify_world
+from _common import (
+    ApiError,
+    affiliate,
+    call,
+    client,
+    create_actor,
+    create_geo,
+    host_society,
+    verify_world,
+)
 
 CUSTOMER_SUPPORT = "customer_support"
 WAREHOUSE_TEAM = "warehouse_team"
@@ -39,8 +49,15 @@ def build_geography(c: httpx.Client) -> dict[str, str]:
         building = create_geo(c, "building", f"{label} Building", street)
         space = create_geo(c, "space", f"{label} Floor", building)
         spaces[key] = space
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, **spaces}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        **spaces,
+    }
 
 
 def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
@@ -53,7 +70,12 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
         for key, space_key, name, description in (
             ("customer", "customer_home", "Customer Society", "Customers"),
             ("support", "support_center", "Support Society", "Support agents"),
-            ("warehouse", "warehouse_a", "Warehouse Society", "Warehouse A floor operations"),
+            (
+                "warehouse",
+                "warehouse_a",
+                "Warehouse Society",
+                "Warehouse A floor operations",
+            ),
         ):
             society_id = call(c, "POST", "/societies", json={"name": name, "description": description})["society_id"]
             host_society(c, spaces[space_key], society_id)
@@ -70,8 +92,12 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
         affiliate(c, actors["Warehouse Worker"], WAREHOUSE_TEAM)
 
         verification = verify_world(c)
-        return {"spaces": spaces, "societies": societies, "actors": actors,
-                "verification": verification}
+        return {
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "verification": verification,
+        }
     finally:
         if owns_client:
             c.close()

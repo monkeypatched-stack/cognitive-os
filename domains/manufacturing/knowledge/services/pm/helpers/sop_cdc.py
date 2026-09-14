@@ -99,7 +99,12 @@ def _build_steps_from_sop(sop: dict, pd_id: str) -> dict:
         if isinstance(item, str):
             processed.append(_build_process_step(item, i, pd_id))
         elif isinstance(item, dict):
-            text = item.get("command") or item.get("description") or item.get("name") or f"Step {i + 1}"
+            text = (
+                item.get("command")
+                or item.get("description")
+                or item.get("name")
+                or f"Step {i + 1}"
+            )
             step = _build_process_step(text, i, pd_id)
             step.update({k: v for k, v in item.items() if k in step})
             processed.append(step)
@@ -174,7 +179,9 @@ def _build_pd_from_sop(sop: dict) -> dict:
 # ─── CDC: SOP → Process Definition ───────────────────────────────────────────
 
 
-async def sync_sop_to_process_definition(db: AsyncIOMotorDatabase, sop: dict) -> dict | None:
+async def sync_sop_to_process_definition(
+    db: AsyncIOMotorDatabase, sop: dict
+) -> dict | None:
     """
     After a SOP is created or updated, upsert the corresponding
     process_definition record so the process-definition pages stay current.
@@ -195,10 +202,14 @@ async def sync_sop_to_process_definition(db: AsyncIOMotorDatabase, sop: dict) ->
             {"process_definition_id": pd_id},
             {"$set": pd_doc},
         )
-        logger.info("CDC: updated process_definition %s from SOP %s", pd_id, sop.get("id"))
+        logger.info(
+            "CDC: updated process_definition %s from SOP %s", pd_id, sop.get("id")
+        )
     else:
         await db[PD_COLLECTION].insert_one(pd_doc)
-        logger.info("CDC: created process_definition %s from SOP %s", pd_id, sop.get("id"))
+        logger.info(
+            "CDC: created process_definition %s from SOP %s", pd_id, sop.get("id")
+        )
 
     return pd_doc
 
@@ -231,14 +242,18 @@ async def apply_approved_change_control_to_sop(
     now = _utc_now()
     results: list[dict] = []
 
-    proposed_nodes = await db["gxp_proposed_changes"].find(
-        {
-            "change_control_id": cc_id,
-            "status": {"$in": ["Pending Approval", "Approved"]},
-            "archived": {"$ne": True},
-        },
-        {"_id": 0},
-    ).to_list(length=500)
+    proposed_nodes = (
+        await db["gxp_proposed_changes"]
+        .find(
+            {
+                "change_control_id": cc_id,
+                "status": {"$in": ["Pending Approval", "Approved"]},
+                "archived": {"$ne": True},
+            },
+            {"_id": 0},
+        )
+        .to_list(length=500)
+    )
 
     affected_sops = change_control.get("affected_sops", [])
     affected_entities = change_control.get("affected_entities", [])
@@ -272,7 +287,13 @@ async def apply_approved_change_control_to_sop(
             if field in pending and pending[field] is not None:
                 set_fields[field] = pending[field]
 
-        for sub_doc_key in ("process_definition", "prechecks", "postchecks", "constraints", "corrective_actions"):
+        for sub_doc_key in (
+            "process_definition",
+            "prechecks",
+            "postchecks",
+            "constraints",
+            "corrective_actions",
+        ):
             if sub_doc_key in pending and isinstance(pending[sub_doc_key], dict):
                 merged = {**(sop.get(sub_doc_key) or {}), **pending[sub_doc_key]}
                 set_fields[sub_doc_key] = merged
@@ -305,20 +326,26 @@ async def apply_approved_change_control_to_sop(
             },
         )
 
-        updated_sop = await db[SOP_COLLECTION].find_one({"id": target_sop_id}, {"_id": 0})
+        updated_sop = await db[SOP_COLLECTION].find_one(
+            {"id": target_sop_id}, {"_id": 0}
+        )
         if updated_sop:
             await sync_sop_to_process_definition(db, updated_sop)
 
-        results.append({
-            "proposed_change_id": node.get("proposed_change_id"),
-            "sop_id": target_sop_id,
-            "applied_values": list(pending.keys()),
-            "effective_at": now.isoformat(),
-        })
+        results.append(
+            {
+                "proposed_change_id": node.get("proposed_change_id"),
+                "sop_id": target_sop_id,
+                "applied_values": list(pending.keys()),
+                "effective_at": now.isoformat(),
+            }
+        )
 
         logger.info(
             "CDC: applied change_control %s to SOP %s (proposed_change %s)",
-            cc_id, target_sop_id, node.get("proposed_change_id"),
+            cc_id,
+            target_sop_id,
+            node.get("proposed_change_id"),
         )
 
     return results

@@ -44,6 +44,7 @@ itself fails for any reason, this degrades to exactly today's behavior:
 UNSCHEDULABLE is reported and the actor waits for an operator, never a
 crash, never a fabricated placement.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,7 +57,9 @@ logger = logging.getLogger("agentos.society.kubernetes_provisioner")
 
 _ACTOR_DEPLOYMENT_TEMPLATE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))),
-    "deploy", "k8s", "actor-deployment.yaml",
+    "deploy",
+    "k8s",
+    "actor-deployment.yaml",
 )
 """Resolves to <repo_root>/deploy/k8s/actor-deployment.yaml from this
 file's own location (src/monkey_brain/kernel/society/) — reused as-is,
@@ -66,27 +69,33 @@ somewhere else."""
 
 
 def provisioning_enabled() -> bool:
-    return os.getenv("KUBERNETES_PROVISIONING_ENABLED", "false").lower() not in ("false", "0", "no")
+    return os.getenv("KUBERNETES_PROVISIONING_ENABLED", "false").lower() not in (
+        "false",
+        "0",
+        "no",
+    )
 
 
-_PROVISIONABLE_REASONS = frozenset({
-    "no healthy nodes registered",
-    # Actors default to edge: this repo's actor-deployment.yaml is a
-    # ONE-ACTOR-PER-POD template (ACTOR_NODE_CAPACITY=1, one ACTOR_ID
-    # substituted per apply) — every already-provisioned actor Pod
-    # therefore ALWAYS reports zero available capacity for placing any
-    # OTHER actor, by design, not as a symptom of real exhaustion needing
-    # an operator's scaling decision. So "no healthy node has available
-    # capacity" (ActorScheduler._summarize_no_candidate_reason's default
-    # message, no other requirement set) means exactly the same thing
-    # "no healthy nodes registered" does for a totally empty registry:
-    # this specific actor has no dedicated Pod of its own yet. A generic
-    # capability/node_class mismatch still produces a DIFFERENT, more
-    # specific reason string ("no healthy node satisfies: ...") and is
-    # deliberately still excluded below — provisioning a generic Pod
-    # cannot satisfy a requirement it was never templated to meet.
-    "no healthy node has available capacity",
-})
+_PROVISIONABLE_REASONS = frozenset(
+    {
+        "no healthy nodes registered",
+        # Actors default to edge: this repo's actor-deployment.yaml is a
+        # ONE-ACTOR-PER-POD template (ACTOR_NODE_CAPACITY=1, one ACTOR_ID
+        # substituted per apply) — every already-provisioned actor Pod
+        # therefore ALWAYS reports zero available capacity for placing any
+        # OTHER actor, by design, not as a symptom of real exhaustion needing
+        # an operator's scaling decision. So "no healthy node has available
+        # capacity" (ActorScheduler._summarize_no_candidate_reason's default
+        # message, no other requirement set) means exactly the same thing
+        # "no healthy nodes registered" does for a totally empty registry:
+        # this specific actor has no dedicated Pod of its own yet. A generic
+        # capability/node_class mismatch still produces a DIFFERENT, more
+        # specific reason string ("no healthy node satisfies: ...") and is
+        # deliberately still excluded below — provisioning a generic Pod
+        # cannot satisfy a requirement it was never templated to meet.
+        "no healthy node has available capacity",
+    }
+)
 
 
 def should_provision(unschedulable_reason: str) -> bool:
@@ -113,8 +122,13 @@ class KubernetesProvisioner:
     def __init__(self, planetary: Any) -> None:
         self._planetary = planetary
 
-    def provision(self, actor_id: str, *, node_class: str = "cloud",
-                  namespace: str = "monkeybrain") -> bool:
+    def provision(
+        self,
+        actor_id: str,
+        *,
+        node_class: str = "cloud",
+        namespace: str = "monkeybrain",
+    ) -> bool:
         """Renders and applies the canonical per-actor template for
         actor_id. Returns True only on a real, successful `kubectl
         apply`. Never raises — every failure mode (kubectl missing, no
@@ -124,36 +138,55 @@ class KubernetesProvisioner:
         UNSCHEDULABLE remains UNSCHEDULABLE, reconciliation retries on
         its normal cadence, nothing is fabricated."""
         if shutil.which("kubectl") is None:
-            logger.debug("KubernetesProvisioner: kubectl not on PATH, skipping (actor_id=%s)", actor_id)
+            logger.debug(
+                "KubernetesProvisioner: kubectl not on PATH, skipping (actor_id=%s)",
+                actor_id,
+            )
             return False
         template_path = os.getenv("ACTOR_DEPLOYMENT_TEMPLATE_PATH", _ACTOR_DEPLOYMENT_TEMPLATE_PATH)
         try:
             with open(template_path, "r") as f:
                 template = f.read()
         except OSError as exc:
-            logger.warning("KubernetesProvisioner: could not read template %r: %s", template_path, exc)
+            logger.warning(
+                "KubernetesProvisioner: could not read template %r: %s",
+                template_path,
+                exc,
+            )
             return False
 
         artifact_version = getattr(self._planetary, "_artifact_version", "") or "latest"
         rendered = (
-            template
-            .replace("${ACTOR_ID}", actor_id)
+            template.replace("${ACTOR_ID}", actor_id)
             .replace("${ACTOR_NODE_CLASS}", node_class)
             .replace("${ACTOR_ARTIFACT_VERSION}", artifact_version)
         )
         try:
             result = subprocess.run(
                 ["kubectl", "apply", "-n", namespace, "-f", "-"],
-                input=rendered, capture_output=True, text=True, timeout=30,
+                input=rendered,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
         except (subprocess.SubprocessError, OSError) as exc:
-            logger.warning("KubernetesProvisioner: kubectl apply failed to run for %s: %s", actor_id, exc)
+            logger.warning(
+                "KubernetesProvisioner: kubectl apply failed to run for %s: %s",
+                actor_id,
+                exc,
+            )
             return False
         if result.returncode != 0:
             logger.warning(
                 "KubernetesProvisioner: kubectl apply rejected for %s (exit %d): %s",
-                actor_id, result.returncode, result.stderr.strip(),
+                actor_id,
+                result.returncode,
+                result.stderr.strip(),
             )
             return False
-        logger.info("KubernetesProvisioner: provisioned Pod for actor_id=%s (%s)", actor_id, result.stdout.strip())
+        logger.info(
+            "KubernetesProvisioner: provisioned Pod for actor_id=%s (%s)",
+            actor_id,
+            result.stdout.strip(),
+        )
         return True

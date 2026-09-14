@@ -10,7 +10,6 @@ import asyncio
 import httpx
 from typing import Any
 
-
 BASE_URL = "http://localhost:8031/api/v1/agentos"
 ROOT_URL = "http://localhost:8031"
 
@@ -18,10 +17,7 @@ ROOT_URL = "http://localhost:8031"
 async def execute_goal(actor_id: str, goal: str) -> dict[str, Any]:
     """Execute a goal for an actor and return the execution result."""
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{BASE_URL}/execute",
-            json={"actor_id": actor_id, "goal": goal}
-        )
+        response = await client.post(f"{BASE_URL}/execute", json={"actor_id": actor_id, "goal": goal})
         response.raise_for_status()
         return response.json()
 
@@ -29,6 +25,7 @@ async def execute_goal(actor_id: str, goal: str) -> dict[str, Any]:
 def get_actor_state(actor_id: str) -> dict[str, Any]:
     """Get the current cognitive state of an actor."""
     import requests
+
     response = requests.get(f"{BASE_URL}/actors/{actor_id}/state")
     response.raise_for_status()
     return response.json()
@@ -40,7 +37,7 @@ class TestAdaptiveGroundingMode:
     def test_subtest_a_shared_state_mode(self):
         """
         SUBTEST A — SHARED-STATE MODE
-        
+
         Goal: "Buy 1 liter of whole milk."
         World: All information is shared/observable (public prices, inventory, etc.)
         Expected: SHARED grounding mode, no unnecessary negotiation
@@ -48,27 +45,26 @@ class TestAdaptiveGroundingMode:
         # TODO: This test requires a properly configured world state
         # For now, we verify the concept by checking the API exists
         import requests
+
         response = requests.get(f"{BASE_URL}/health")
         response.raise_for_status()
         assert response.json()["status"] == "healthy"
-        
+
         # Verify the execute endpoint exists
-        response = requests.post(
-            f"{BASE_URL}/execute",
-            json={"actor_id": "test_actor", "goal": "test goal"}
-        )
+        response = requests.post(f"{BASE_URL}/execute", json={"actor_id": "test_actor", "goal": "test goal"})
         # May fail due to missing actor, but endpoint should exist
         assert response.status_code in [200, 404]  # 404 expected if actor doesn't exist
 
     def test_subtest_b_actor_local_state_mode(self):
         """
         SUBTEST B — ACTOR-LOCAL-STATE MODE
-        
+
         Goal: "Buy 1 liter of whole milk for the best price possible."
         World: Private constraints exist (buyer max price, store min price)
         Expected: ACTOR_LOCAL grounding mode with negotiation
         """
         import requests
+
         response = requests.get(f"{BASE_URL}/health")
         response.raise_for_status()
         assert response.json()["status"] == "healthy"
@@ -104,7 +100,7 @@ class TestAdaptiveGroundingMode:
 def run_mb0016_test() -> dict[str, Any]:
     """
     Run MB-0016 Adaptive Grounding Mode test.
-    
+
     Returns test results in the required table format.
     """
     results = {
@@ -119,15 +115,16 @@ def run_mb0016_test() -> dict[str, Any]:
         "learning_recorded": "NOT_TESTED",
         "adaptive_mode_selection": "NOT_TESTED",
     }
-    
+
     try:
         import requests
+
         response = requests.get(f"{ROOT_URL}/health")
         response.raise_for_status()
         results["api_health"] = "OK"
     except Exception as e:
         results["api_health"] = f"FAILED: {e}"
-    
+
     return results
 
 
@@ -139,7 +136,7 @@ if __name__ == "__main__":
     print("-" * 40)
     for key, value in results.items():
         print(f"{key}: {value}")
-    
+
     print("\n" + "=" * 60)
     print("NOTE: Full test implementation requires:")
     print("  1. Test world state configuration")

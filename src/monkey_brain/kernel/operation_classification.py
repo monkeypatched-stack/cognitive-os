@@ -3,6 +3,7 @@
 Unknown operations are security-critical. Agents cannot declare an
 operation non-critical if its name/effect looks mutating.
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -18,22 +19,72 @@ class OperationClass(str, Enum):
 
 
 _MUTATING_MARKERS = (
-    "insert", "update", "delete", "replace", "drop", "create", "commit",
-    "mutate", "write", "execute", "invoke", "payment", "pay_",
-    "refund", "capture", "webhook", "grant", "revoke", "approve", "deny",
-    "policy", "opa", "mfa", "credential", "session", "role", "permission",
-    "transition", "actor.tick", "tool.", "send_", "world.", "shipment",
-    "fulfill", "orders.",
+    "insert",
+    "update",
+    "delete",
+    "replace",
+    "drop",
+    "create",
+    "commit",
+    "mutate",
+    "write",
+    "execute",
+    "invoke",
+    "payment",
+    "pay_",
+    "refund",
+    "capture",
+    "webhook",
+    "grant",
+    "revoke",
+    "approve",
+    "deny",
+    "policy",
+    "opa",
+    "mfa",
+    "credential",
+    "session",
+    "role",
+    "permission",
+    "transition",
+    "actor.tick",
+    "tool.",
+    "send_",
+    "world.",
+    "shipment",
+    "fulfill",
+    "orders.",
 )
 
 _READ_MARKERS = (
-    "get_", "list_", "query", "observe", "lookup", "search", "retrieve",
-    "find_", "read_", "status", "health", "metrics", "describe",
+    "get_",
+    "list_",
+    "query",
+    "observe",
+    "lookup",
+    "search",
+    "retrieve",
+    "find_",
+    "read_",
+    "status",
+    "health",
+    "metrics",
+    "describe",
 )
 
 _PROPOSAL_MARKERS = (
-    "plan", "predict", "simulate", "rank", "score", "embed", "reason",
-    "propose", "jepa", "forecast", "candidate", "classify",
+    "plan",
+    "predict",
+    "simulate",
+    "rank",
+    "score",
+    "embed",
+    "reason",
+    "propose",
+    "jepa",
+    "forecast",
+    "candidate",
+    "classify",
 )
 
 
@@ -47,7 +98,10 @@ def classify_operation(name: str, *, declared: OperationClass | None = None) -> 
     key = (name or "").strip().lower()
     if declared is OperationClass.PRIVILEGED_INFRA:
         return OperationClass.PRIVILEGED_INFRA
-    if declared in (OperationClass.READ_ONLY, OperationClass.PROPOSAL_ONLY) and _looks_mutating(key):
+    if declared in (
+        OperationClass.READ_ONLY,
+        OperationClass.PROPOSAL_ONLY,
+    ) and _looks_mutating(key):
         return OperationClass.SECURITY_CRITICAL
     if declared is OperationClass.SECURITY_CRITICAL:
         return OperationClass.SECURITY_CRITICAL

@@ -1,8 +1,10 @@
 """fuzzy_match predicates."""
 
+
 async def fuzzy_match_question_answer(client, question, force=False):
     """Generate fuzzy match answer."""
     return None
+
 
 def is_fuzzy_match_question(question):
     """Check if question is about fuzzy match."""

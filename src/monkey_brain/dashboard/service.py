@@ -9,6 +9,7 @@ The service reads from:
 
 No data is computed here — it is read and organized.
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,10 +17,23 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.monkey_brain.dashboard.models import (
-    DashboardModel, PlanningSection, ExecutionSection, SimulationSection,
-    LearningSection, Mutation, BellmanSection, ConsensusSection,
-    GraphView, GraphNodeState, GraphEdge, ComponentHealth, HealthSection,
-    MetricsSection, ObservabilitySection, TimelineEntry, SolverResult,
+    DashboardModel,
+    PlanningSection,
+    ExecutionSection,
+    SimulationSection,
+    LearningSection,
+    Mutation,
+    BellmanSection,
+    ConsensusSection,
+    GraphView,
+    GraphNodeState,
+    GraphEdge,
+    ComponentHealth,
+    HealthSection,
+    MetricsSection,
+    ObservabilitySection,
+    TimelineEntry,
+    SolverResult,
 )
 
 logger = logging.getLogger("agentos.dashboard")
@@ -113,19 +127,23 @@ class DashboardService:
 
         node_states = []
         for n in nodes:
-            node_states.append(GraphNodeState(
-                node_id=n.get("id", ""),
-                agent=n.get("agent", n.get("name", "")),
-                state=n.get("state", "pending"),
-            ))
+            node_states.append(
+                GraphNodeState(
+                    node_id=n.get("id", ""),
+                    agent=n.get("agent", n.get("name", "")),
+                    state=n.get("state", "pending"),
+                )
+            )
 
         graph_edges = []
         for e in edges:
-            graph_edges.append(GraphEdge(
-                src=e.get("from", ""),
-                dst=e.get("to", ""),
-                rel=e.get("type", "depends_on"),
-            ))
+            graph_edges.append(
+                GraphEdge(
+                    src=e.get("from", ""),
+                    dst=e.get("to", ""),
+                    rel=e.get("type", "depends_on"),
+                )
+            )
 
         depth = max(len(order), 1) if order else 0
 
@@ -178,12 +196,14 @@ class DashboardService:
 
         solver_results = []
         for sc in solver_contributions:
-            solver_results.append(SolverResult(
-                solver_name=sc.get("solver", ""),
-                prediction=sc.get("predicted_state", {}),
-                confidence=sc.get("confidence", 0.0),
-                execution_time_ms=sc.get("latency_ms", 0.0),
-            ))
+            solver_results.append(
+                SolverResult(
+                    solver_name=sc.get("solver", ""),
+                    prediction=sc.get("predicted_state", {}),
+                    confidence=sc.get("confidence", 0.0),
+                    execution_time_ms=sc.get("latency_ms", 0.0),
+                )
+            )
 
         return SimulationSection(
             active_solvers=[s.get("solver", "") for s in solver_contributions],
@@ -199,6 +219,7 @@ class DashboardService:
     def _build_learning(self, store: Any) -> LearningSection:
         try:
             from src.monkey_brain.kernel.graph_manager import GraphManager
+
             gm = GraphManager()
             gm.load()
             q_values = list(gm.q_table.snapshot().values())
@@ -220,6 +241,7 @@ class DashboardService:
     def _build_bellman(self, store: Any) -> BellmanSection:
         try:
             from src.monkey_brain.kernel.graph_manager import GraphManager
+
             gm = GraphManager()
             gm.load()
             q_values = gm.q_table.snapshot()
@@ -247,16 +269,18 @@ class DashboardService:
                 continue
             snap = stored.graph_snapshot or {}
             target = stored.target
-            mutations.append(Mutation(
-                timestamp=snap.get("metadata", {}).get("timestamp", ""),
-                runtime=target,
-                actor="planner" if target == "execute" else "simulator",
-                node="",
-                operation="ExecutionGraph Created" if target == "execute" else "SimulationGraph Created",
-                before="",
-                after=snap.get("graph_id", ""),
-                reason=f"Graph stored for {target}",
-            ))
+            mutations.append(
+                Mutation(
+                    timestamp=snap.get("metadata", {}).get("timestamp", ""),
+                    runtime=target,
+                    actor="planner" if target == "execute" else "simulator",
+                    node="",
+                    operation=("ExecutionGraph Created" if target == "execute" else "SimulationGraph Created"),
+                    before="",
+                    after=snap.get("graph_id", ""),
+                    reason=f"Graph stored for {target}",
+                )
+            )
         return mutations
 
     def _build_timeline(self, store: Any) -> list[TimelineEntry]:
@@ -267,12 +291,14 @@ class DashboardService:
                 continue
             snap = stored.graph_snapshot or {}
             target = stored.target
-            entries.append(TimelineEntry(
-                timestamp=snap.get("metadata", {}).get("timestamp", ""),
-                phase=target,
-                event=f"{target} graph created",
-                details=f"graph_id={snap.get('graph_id', '')}",
-            ))
+            entries.append(
+                TimelineEntry(
+                    timestamp=snap.get("metadata", {}).get("timestamp", ""),
+                    phase=target,
+                    event=f"{target} graph created",
+                    details=f"graph_id={snap.get('graph_id', '')}",
+                )
+            )
         return entries
 
     def _build_health(self, lemon: Any) -> HealthSection:
@@ -280,10 +306,12 @@ class DashboardService:
         checks = health.get("checks", {})
         components = []
         for name, status in checks.items():
-            components.append(ComponentHealth(
-                name=name,
-                status=status.get("status", "unknown") if isinstance(status, dict) else str(status),
-            ))
+            components.append(
+                ComponentHealth(
+                    name=name,
+                    status=(status.get("status", "unknown") if isinstance(status, dict) else str(status)),
+                )
+            )
         overall = health.get("overall", "unknown")
         return HealthSection(components=components, overall_status=overall)
 

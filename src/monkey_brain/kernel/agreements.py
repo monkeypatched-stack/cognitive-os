@@ -3,6 +3,7 @@
 No knowledge flows between runtimes without an active agreement.
 Agreements are signed, versioned, and auditable.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,14 +36,15 @@ class Agreement:
         signed_by:        which runtime signed
         signature:        cryptographic signature
     """
+
     agreement_id: str = field(default_factory=lambda: str(uuid4()))
     participants: list[str] = field(default_factory=list)
     knowledge_permissions: set[str] = field(default_factory=set)
     capability_permissions: set[str] = field(default_factory=set)
     policy_scope: set[str] = field(default_factory=set)
     policy_inheritance: bool = True
-    duration: float = 0.0          # seconds, 0 = indefinite
-    renewal: str = "manual"        # manual | auto | never
+    duration: float = 0.0  # seconds, 0 = indefinite
+    renewal: str = "manual"  # manual | auto | never
     revoked: bool = False
     revoked_at: float = 0.0
     revoked_by: str = ""
@@ -121,8 +123,7 @@ class AgreementStore:
 
     def active_for(self, runtime_id: str) -> list[Agreement]:
         ids = self._by_participant.get(runtime_id, [])
-        return [self._agreements[aid] for aid in ids
-                if aid in self._agreements and self._agreements[aid].is_active]
+        return [self._agreements[aid] for aid in ids if aid in self._agreements and self._agreements[aid].is_active]
 
     def covers_knowledge(self, runtime_a: str, runtime_b: str, kind: str) -> Agreement | None:
         """Find an active agreement between A and B that covers this knowledge kind."""

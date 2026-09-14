@@ -25,9 +25,16 @@ def _serialize(doc: dict) -> dict:
 
 def _sop_process_definition_id(record: dict) -> str:
     process_definition = record.get("process_definition")
-    if isinstance(process_definition, dict) and process_definition.get("process_definition_id"):
+    if isinstance(process_definition, dict) and process_definition.get(
+        "process_definition_id"
+    ):
         return str(process_definition["process_definition_id"])
-    for section_name in ("prechecks", "postchecks", "constraints", "corrective_actions"):
+    for section_name in (
+        "prechecks",
+        "postchecks",
+        "constraints",
+        "corrective_actions",
+    ):
         section = record.get(section_name)
         if isinstance(section, dict):
             value = section.get("process_definition_id") or section.get("workflow_id")
@@ -36,10 +43,16 @@ def _sop_process_definition_id(record: dict) -> str:
     return f"PROC-{record.get('id') or 'SOP'}"
 
 
-def _normalize_section(section: object, process_definition_id: str, section_id: str) -> dict:
+def _normalize_section(
+    section: object, process_definition_id: str, section_id: str
+) -> dict:
     normalized = dict(section) if isinstance(section, dict) else {}
     normalized.setdefault("id", section_id)
-    normalized["process_definition_id"] = str(normalized.get("process_definition_id") or normalized.get("workflow_id") or process_definition_id)
+    normalized["process_definition_id"] = str(
+        normalized.get("process_definition_id")
+        or normalized.get("workflow_id")
+        or process_definition_id
+    )
     return normalized
 
 
@@ -74,18 +87,31 @@ def _normalize_sop_record(doc: Optional[dict]) -> Optional[dict]:
 
     process_definition = record.get("process_definition")
     if not isinstance(process_definition, dict):
-        process_definition = record.get("processDefinition") if isinstance(record.get("processDefinition"), dict) else {}
+        process_definition = (
+            record.get("processDefinition")
+            if isinstance(record.get("processDefinition"), dict)
+            else {}
+        )
     process_definition = dict(process_definition)
     process_definition.setdefault("process_definition_id", process_definition_id)
     process_definition.setdefault("name", record.get("title") or process_definition_id)
-    process_definition.setdefault("description", record.get("purpose") or record.get("scope") or "")
+    process_definition.setdefault(
+        "description", record.get("purpose") or record.get("scope") or ""
+    )
     process_definition.setdefault("version", record.get("version") or "1.0.0")
     process_definition.setdefault("owner", record.get("authored_by"))
     process_definition.setdefault("tags", record.get("tags") or [])
     process_definition.setdefault("status", "pending")
     if process_definition.get("status") == "active":
         process_definition["status"] = "completed"
-    elif process_definition.get("status") not in {"pending", "in_progress", "completed", "failed", "skipped", "blocked"}:
+    elif process_definition.get("status") not in {
+        "pending",
+        "in_progress",
+        "completed",
+        "failed",
+        "skipped",
+        "blocked",
+    }:
         process_definition["status"] = "pending"
     process_definition.setdefault("approval_status", "draft")
     process_definition.setdefault("ipc_checkpoints", [])
@@ -102,18 +128,36 @@ def _normalize_sop_record(doc: Optional[dict]) -> Optional[dict]:
     )
     record["process_definition"] = process_definition
 
-    record["prechecks"] = _normalize_section(record.get("prechecks"), process_definition_id, f"PRE-{sop_id}")
-    record["postchecks"] = _normalize_section(record.get("postchecks"), process_definition_id, f"POST-{sop_id}")
-    record["constraints"] = _normalize_section(record.get("constraints"), process_definition_id, f"CON-{sop_id}")
+    record["prechecks"] = _normalize_section(
+        record.get("prechecks"), process_definition_id, f"PRE-{sop_id}"
+    )
+    record["postchecks"] = _normalize_section(
+        record.get("postchecks"), process_definition_id, f"POST-{sop_id}"
+    )
+    record["constraints"] = _normalize_section(
+        record.get("constraints"), process_definition_id, f"CON-{sop_id}"
+    )
     constraints = record["constraints"].get("constraints")
     if isinstance(constraints, list):
         record["constraints"]["constraints"] = [
-            {**item, "process_definition_id": str(item.get("process_definition_id") or item.get("workflow_id") or process_definition_id)}
-            if isinstance(item, dict) else item
+            (
+                {
+                    **item,
+                    "process_definition_id": str(
+                        item.get("process_definition_id")
+                        or item.get("workflow_id")
+                        or process_definition_id
+                    ),
+                }
+                if isinstance(item, dict)
+                else item
+            )
             for item in constraints
         ]
 
-    record["corrective_actions"] = _normalize_section(record.get("corrective_actions"), process_definition_id, f"CA-{sop_id}")
+    record["corrective_actions"] = _normalize_section(
+        record.get("corrective_actions"), process_definition_id, f"CA-{sop_id}"
+    )
     record["corrective_actions"]["process_step_id"] = str(
         record["corrective_actions"].get("process_step_id")
         or record["corrective_actions"].get("workflow_step_id")
@@ -127,6 +171,7 @@ def _normalize_sop_record(doc: Optional[dict]) -> Optional[dict]:
 # Read
 # ---------------------------------------------------------------------------
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -135,12 +180,7 @@ async def get_all(
     """Return a paginated list of all SOPs and the total count."""
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
-    cursor = (
-        db[COLLECTION]
-        .find(query)
-        .skip((page - 1) * page_size)
-        .limit(page_size)
-    )
+    cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_normalize_sop_record(d) async for d in cursor], total
 
 
@@ -160,7 +200,9 @@ async def get_by_process_definition_id(
     """Fetch the SOP that wraps a given process_definition."""
     if not process_definition_id:
         return None
-    doc = await db[COLLECTION].find_one({"process_definition.process_definition_id": process_definition_id})
+    doc = await db[COLLECTION].find_one(
+        {"process_definition.process_definition_id": process_definition_id}
+    )
     return _normalize_sop_record(doc) if doc else None
 
 
@@ -206,12 +248,7 @@ async def get_by_version(
     """Return paginated SOPs that match a specific version string."""
     query = {"version": version}
     total = await db[COLLECTION].count_documents(query)
-    cursor = (
-        db[COLLECTION]
-        .find(query)
-        .skip((page - 1) * page_size)
-        .limit(page_size)
-    )
+    cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_normalize_sop_record(d) async for d in cursor], total
 
 
@@ -277,7 +314,9 @@ async def search(
     limit: int = 20,
 ) -> list[dict]:
     """Search SOP records by free text across SOP and embedded process sections."""
-    terms = [term for term in re.findall(r"[A-Za-z0-9_-]+", query or "") if len(term) >= 3][:10]
+    terms = [
+        term for term in re.findall(r"[A-Za-z0-9_-]+", query or "") if len(term) >= 3
+    ][:10]
     if not terms:
         return []
     regex = "|".join(re.escape(term) for term in terms)
@@ -335,7 +374,16 @@ def _dedupe(values: list[str | None]) -> list[str]:
 
 
 def _record_id(record: dict) -> str | None:
-    for key in ("id", "sop_id", "document_id", "entity_id", "stage_id", "workstation_id", "machine_id", "equipment_id"):
+    for key in (
+        "id",
+        "sop_id",
+        "document_id",
+        "entity_id",
+        "stage_id",
+        "workstation_id",
+        "machine_id",
+        "equipment_id",
+    ):
         value = _text_value(record.get(key))
         if value:
             return value
@@ -343,13 +391,19 @@ def _record_id(record: dict) -> str | None:
 
 
 async def _lookup_stage_ids_for_sop(db: AsyncIOMotorDatabase, sop: dict) -> list[str]:
-    process_definition = sop.get("process_definition") if isinstance(sop.get("process_definition"), dict) else {}
+    process_definition = (
+        sop.get("process_definition")
+        if isinstance(sop.get("process_definition"), dict)
+        else {}
+    )
     stage_ids = [
         _text_value(sop.get("stage_id")),
         _text_value(process_definition.get("stage_id")),
     ]
 
-    workstation_id = _text_value(sop.get("workstation_id") or process_definition.get("workstation_id"))
+    workstation_id = _text_value(
+        sop.get("workstation_id") or process_definition.get("workstation_id")
+    )
     if workstation_id:
         workstation = await db["workstations"].find_one(
             {
@@ -421,14 +475,17 @@ async def _material_flow_graph(
             if not source_stage_id or not target_stage_id:
                 continue
             direction = "downstream" if source_stage_id in frontier else "upstream"
-            connected_stage_id = target_stage_id if direction == "downstream" else source_stage_id
+            connected_stage_id = (
+                target_stage_id if direction == "downstream" else source_stage_id
+            )
             if direction == "downstream" and not include_downstream:
                 continue
             if direction == "upstream" and not include_upstream:
                 continue
 
             key = (
-                _text_value(flow.get("flow_id") or flow.get("id")) or f"{source_stage_id}->{target_stage_id}",
+                _text_value(flow.get("flow_id") or flow.get("id"))
+                or f"{source_stage_id}->{target_stage_id}",
                 source_stage_id,
                 target_stage_id,
             )
@@ -463,34 +520,70 @@ async def _linked_sops_for_stages(
     if not stage_ids:
         return []
 
-    workstations = await db["workstations"].find(
-        {"stage_id": {"$in": stage_ids}},
-        {"_id": 0, "id": 1, "workstation_id": 1},
-    ).to_list(length=500)
-    workstation_ids = _dedupe([_text_value(item.get("id") or item.get("workstation_id")) for item in workstations])
+    workstations = (
+        await db["workstations"]
+        .find(
+            {"stage_id": {"$in": stage_ids}},
+            {"_id": 0, "id": 1, "workstation_id": 1},
+        )
+        .to_list(length=500)
+    )
+    workstation_ids = _dedupe(
+        [
+            _text_value(item.get("id") or item.get("workstation_id"))
+            for item in workstations
+        ]
+    )
 
-    machines = await db["pharmaceutical_machines"].find(
-        {"stage_id": {"$in": stage_ids}},
-        {"_id": 0, "id": 1, "machine_id": 1},
-    ).to_list(length=500)
-    machine_ids = _dedupe([_text_value(item.get("id") or item.get("machine_id")) for item in machines])
+    machines = (
+        await db["pharmaceutical_machines"]
+        .find(
+            {"stage_id": {"$in": stage_ids}},
+            {"_id": 0, "id": 1, "machine_id": 1},
+        )
+        .to_list(length=500)
+    )
+    machine_ids = _dedupe(
+        [_text_value(item.get("id") or item.get("machine_id")) for item in machines]
+    )
 
-    equipment = await db["pharmaceutical_equipment"].find(
-        {"stage_id": {"$in": stage_ids}},
-        {"_id": 0, "id": 1, "equipment_id": 1},
-    ).to_list(length=500)
-    equipment_ids = _dedupe([_text_value(item.get("id") or item.get("equipment_id")) for item in equipment])
+    equipment = (
+        await db["pharmaceutical_equipment"]
+        .find(
+            {"stage_id": {"$in": stage_ids}},
+            {"_id": 0, "id": 1, "equipment_id": 1},
+        )
+        .to_list(length=500)
+    )
+    equipment_ids = _dedupe(
+        [_text_value(item.get("id") or item.get("equipment_id")) for item in equipment]
+    )
 
     clauses: list[dict] = [
         {"stage_id": {"$in": stage_ids}},
         {"process_definition.stage_id": {"$in": stage_ids}},
     ]
     if workstation_ids:
-        clauses.extend([{"workstation_id": {"$in": workstation_ids}}, {"process_definition.workstation_id": {"$in": workstation_ids}}])
+        clauses.extend(
+            [
+                {"workstation_id": {"$in": workstation_ids}},
+                {"process_definition.workstation_id": {"$in": workstation_ids}},
+            ]
+        )
     if machine_ids:
-        clauses.extend([{"machine_id": {"$in": machine_ids}}, {"process_definition.machine_id": {"$in": machine_ids}}])
+        clauses.extend(
+            [
+                {"machine_id": {"$in": machine_ids}},
+                {"process_definition.machine_id": {"$in": machine_ids}},
+            ]
+        )
     if equipment_ids:
-        clauses.extend([{"equipment_id": {"$in": equipment_ids}}, {"process_definition.equipment_id": {"$in": equipment_ids}}])
+        clauses.extend(
+            [
+                {"equipment_id": {"$in": equipment_ids}},
+                {"process_definition.equipment_id": {"$in": equipment_ids}},
+            ]
+        )
 
     cursor = db[COLLECTION].find({"$or": clauses}, {"_id": 0, "embedding": 0})
     linked: list[dict] = []
@@ -512,7 +605,9 @@ def _changed_fields(proposed_values: dict) -> list[str]:
 
 
 def _relationship_path(sop: dict, flows: list[dict]) -> list[dict]:
-    sop_stage_id = _text_value(sop.get("stage_id") or (sop.get("process_definition") or {}).get("stage_id"))
+    sop_stage_id = _text_value(
+        sop.get("stage_id") or (sop.get("process_definition") or {}).get("stage_id")
+    )
     if not sop_stage_id:
         return []
     return [
@@ -524,11 +619,14 @@ def _relationship_path(sop: dict, flows: list[dict]) -> list[dict]:
             "depth": flow.get("depth"),
         }
         for flow in flows
-        if flow.get("source_stage_id") == sop_stage_id or flow.get("target_stage_id") == sop_stage_id
+        if flow.get("source_stage_id") == sop_stage_id
+        or flow.get("target_stage_id") == sop_stage_id
     ]
 
 
-def _impact_review_values(source_sop: dict, impacted_sop: dict, proposed_values: dict, flows: list[dict]) -> dict:
+def _impact_review_values(
+    source_sop: dict, impacted_sop: dict, proposed_values: dict, flows: list[dict]
+) -> dict:
     now = utc_now()
     source_sop_id = _record_id(source_sop)
     impacted_sop_id = _record_id(impacted_sop)
@@ -600,8 +698,16 @@ def _change_effects(
     upstream_stage_ids = _stage_ids_for_direction(flows, "upstream")
     proposed_text = _proposed_change_text(proposed_values).lower()
     proposed = dict(proposed_values or {})
-    constraints = proposed.get("constraints") if isinstance(proposed.get("constraints"), dict) else {}
-    postchecks = proposed.get("postchecks") if isinstance(proposed.get("postchecks"), dict) else {}
+    constraints = (
+        proposed.get("constraints")
+        if isinstance(proposed.get("constraints"), dict)
+        else {}
+    )
+    postchecks = (
+        proposed.get("postchecks")
+        if isinstance(proposed.get("postchecks"), dict)
+        else {}
+    )
 
     release_gate = bool(
         constraints.get("quality_hold_required")
@@ -636,7 +742,11 @@ def _change_effects(
             {
                 "effect": "Turns exceptions into formal quality events.",
                 "what_changes": "Alarms, quantity mismatches, or identity exceptions require deviation/CAPA review instead of simple operator acknowledgement.",
-                "affected_records": ["deviation_records", "capa_records", "quality_refs"],
+                "affected_records": [
+                    "deviation_records",
+                    "capa_records",
+                    "quality_refs",
+                ],
             }
         )
     if postcheck_tightened:
@@ -644,7 +754,11 @@ def _change_effects(
             {
                 "effect": "Increases closeout evidence requirements.",
                 "what_changes": "Operators and supervisors must capture stronger postcheck evidence before handoff.",
-                "affected_records": ["document_metadata", "work_orders", "part11_audit_trail"],
+                "affected_records": [
+                    "document_metadata",
+                    "work_orders",
+                    "part11_audit_trail",
+                ],
             }
         )
 
@@ -660,8 +774,14 @@ def _change_effects(
     risk_effects = [
         {
             "risk": "Quality escape risk",
-            "direction": "decreases" if release_gate or deviation_required else "unchanged",
-            "reason": "The changed SOP requires QA disposition before downstream material movement." if release_gate else "No new QA gate was detected.",
+            "direction": (
+                "decreases" if release_gate or deviation_required else "unchanged"
+            ),
+            "reason": (
+                "The changed SOP requires QA disposition before downstream material movement."
+                if release_gate
+                else "No new QA gate was detected."
+            ),
         },
         {
             "risk": "Cycle time / queue time",
@@ -670,7 +790,11 @@ def _change_effects(
         },
         {
             "risk": "Documentation burden",
-            "direction": "increases" if postcheck_tightened or deviation_required else "unchanged",
+            "direction": (
+                "increases"
+                if postcheck_tightened or deviation_required
+                else "unchanged"
+            ),
             "reason": "More evidence, signatures, and quality-event links are required.",
         },
     ]
@@ -687,14 +811,22 @@ def _change_effects(
             "area": "ProcessDefinition",
             "change": "Add or update the workflow gate that evaluates the new postcheck before material release.",
             "why": "The simulator and live workflow need an executable gate, otherwise downstream stages can still start from the old workflow.",
-            "target_records": ["process-definitions", "process_definition_postchecks", "process_constraints"],
+            "target_records": [
+                "process-definitions",
+                "process_definition_postchecks",
+                "process_constraints",
+            ],
             "approval_required": True,
         },
         {
             "area": "Audit and evidence",
             "change": "Require evidence capture, e-signature, and audit entries for the new decision point.",
             "why": "The desired result depends on proving who reviewed the exception, when, and on what evidence.",
-            "target_records": ["document_metadata", "node_reference_links", "part11_audit_trail"],
+            "target_records": [
+                "document_metadata",
+                "node_reference_links",
+                "part11_audit_trail",
+            ],
             "approval_required": False,
         },
     ]
@@ -710,7 +842,11 @@ def _change_effects(
                     {
                         _record_id(sop)
                         for sop in linked_sops
-                        if _text_value(sop.get("stage_id") or (sop.get("process_definition") or {}).get("stage_id")) in downstream_stage_ids
+                        if _text_value(
+                            sop.get("stage_id")
+                            or (sop.get("process_definition") or {}).get("stage_id")
+                        )
+                        in downstream_stage_ids
                     }
                 ),
                 "approval_required": True,
@@ -728,7 +864,11 @@ def _change_effects(
                     {
                         _record_id(sop)
                         for sop in linked_sops
-                        if _text_value(sop.get("stage_id") or (sop.get("process_definition") or {}).get("stage_id")) in upstream_stage_ids
+                        if _text_value(
+                            sop.get("stage_id")
+                            or (sop.get("process_definition") or {}).get("stage_id")
+                        )
+                        in upstream_stage_ids
                     }
                 ),
                 "approval_required": True,
@@ -740,7 +880,12 @@ def _change_effects(
                 "area": "Quality workflows",
                 "change": "Link deviation/CAPA creation, QA disposition, and effectiveness checks to the SOP exception path.",
                 "why": "This turns the desired quality behavior into enforceable records and follow-up actions.",
-                "target_records": ["deviation_records", "capa_records", "quality_refs", "corrective_actions"],
+                "target_records": [
+                    "deviation_records",
+                    "capa_records",
+                    "quality_refs",
+                    "corrective_actions",
+                ],
                 "approval_required": True,
             }
         )
@@ -759,7 +904,10 @@ def _change_effects(
             "area": "Simulation",
             "change": "Rerun positive and negative simulations after the SOP/process changes are staged.",
             "why": "Positive run proves compliant material can still flow; negative run proves exceptions stop downstream release.",
-            "target_records": ["world_model_simulation_runs", "world_model_simulation_audits"],
+            "target_records": [
+                "world_model_simulation_runs",
+                "world_model_simulation_audits",
+            ],
             "approval_required": False,
         }
     )
@@ -790,7 +938,9 @@ def _change_effects(
         "records_and_workflows_affected": {
             "linked_sops_requiring_review": len(linked_sops),
             "required_change_actions": len(required_changes),
-            "approval_required": bool(required_changes or release_gate or deviation_required),
+            "approval_required": bool(
+                required_changes or release_gate or deviation_required
+            ),
             "audit_required": True,
             "collections": [
                 "sops",
@@ -812,7 +962,12 @@ def _change_effects(
     }
 
 
-def _sop_graph(source_sop: dict, source_stage_ids: list[str], flows: list[dict], linked_sops: list[dict]) -> dict:
+def _sop_graph(
+    source_sop: dict,
+    source_stage_ids: list[str],
+    flows: list[dict],
+    linked_sops: list[dict],
+) -> dict:
     nodes: list[dict] = []
     edges: list[dict] = []
     seen_nodes: set[tuple[str, str]] = set()
@@ -830,7 +985,15 @@ def _sop_graph(source_sop: dict, source_stage_ids: list[str], flows: list[dict],
     add_node("sop", source_sop_id, title=source_sop.get("title"), role="source")
     for stage_id in source_stage_ids:
         add_node("stage", stage_id, role="source_stage")
-        edges.append({"type": "HAS_SOP", "source_type": "stage", "source_id": stage_id, "target_type": "sop", "target_id": source_sop_id})
+        edges.append(
+            {
+                "type": "HAS_SOP",
+                "source_type": "stage",
+                "source_id": stage_id,
+                "target_type": "sop",
+                "target_id": source_sop_id,
+            }
+        )
 
     for flow in flows:
         source_stage_id = flow.get("source_stage_id")
@@ -851,13 +1014,39 @@ def _sop_graph(source_sop: dict, source_stage_ids: list[str], flows: list[dict],
 
     for sop in linked_sops:
         sop_id = _record_id(sop)
-        stage_id = _text_value(sop.get("stage_id") or (sop.get("process_definition") or {}).get("stage_id"))
+        stage_id = _text_value(
+            sop.get("stage_id") or (sop.get("process_definition") or {}).get("stage_id")
+        )
         add_node("sop", sop_id, title=sop.get("title"), role="impacted")
         if stage_id:
             add_node("stage", stage_id)
-            edges.append({"type": "HAS_SOP", "source_type": "stage", "source_id": stage_id, "target_type": "sop", "target_id": sop_id})
-        edges.append({"type": "SOP_CHANGE_IMPACTS", "source_type": "sop", "source_id": source_sop_id, "target_type": "sop", "target_id": sop_id})
-        edges.append({"type": "REQUIRES_REVIEW", "source_type": "sop", "source_id": sop_id, "target_type": "change", "target_id": source_sop_id})
+            edges.append(
+                {
+                    "type": "HAS_SOP",
+                    "source_type": "stage",
+                    "source_id": stage_id,
+                    "target_type": "sop",
+                    "target_id": sop_id,
+                }
+            )
+        edges.append(
+            {
+                "type": "SOP_CHANGE_IMPACTS",
+                "source_type": "sop",
+                "source_id": source_sop_id,
+                "target_type": "sop",
+                "target_id": sop_id,
+            }
+        )
+        edges.append(
+            {
+                "type": "REQUIRES_REVIEW",
+                "source_type": "sop",
+                "source_id": sop_id,
+                "target_type": "change",
+                "target_id": source_sop_id,
+            }
+        )
 
     return {"nodes": nodes, "edges": edges}
 
@@ -885,7 +1074,9 @@ async def analyze_sop_change_impact(
         include_downstream=include_downstream,
         max_depth=max_depth,
     )
-    linked_sops = await _linked_sops_for_stages(db, connected_stage_ids, source_sop_id=source_sop_id)
+    linked_sops = await _linked_sops_for_stages(
+        db, connected_stage_ids, source_sop_id=source_sop_id
+    )
     required_changes = [
         {
             "collection": COLLECTION,
@@ -893,12 +1084,20 @@ async def analyze_sop_change_impact(
             "entity_name": sop.get("title") or _record_id(sop),
             "reason": change_reason,
             "impact_type": "material_flow_linked_sop_review",
-            "proposed_values": _impact_review_values(source_sop, sop, proposed_values, production_connections),
+            "proposed_values": _impact_review_values(
+                source_sop, sop, proposed_values, production_connections
+            ),
         }
         for sop in linked_sops
         if _record_id(sop)
     ]
-    effects = _change_effects(source_sop, proposed_values, production_connections, linked_sops, required_changes)
+    effects = _change_effects(
+        source_sop,
+        proposed_values,
+        production_connections,
+        linked_sops,
+        required_changes,
+    )
     return {
         "source_sop": source_sop,
         "source_change": {
@@ -914,14 +1113,18 @@ async def analyze_sop_change_impact(
             {
                 "id": _record_id(sop),
                 "title": sop.get("title"),
-                "stage_id": sop.get("stage_id") or (sop.get("process_definition") or {}).get("stage_id"),
-                "workstation_id": sop.get("workstation_id") or (sop.get("process_definition") or {}).get("workstation_id"),
+                "stage_id": sop.get("stage_id")
+                or (sop.get("process_definition") or {}).get("stage_id"),
+                "workstation_id": sop.get("workstation_id")
+                or (sop.get("process_definition") or {}).get("workstation_id"),
                 "relationship_path": _relationship_path(sop, production_connections),
             }
             for sop in linked_sops
         ],
         "required_changes": required_changes,
-        "sop_graph": _sop_graph(source_sop, source_stage_ids, production_connections, linked_sops),
+        "sop_graph": _sop_graph(
+            source_sop, source_stage_ids, production_connections, linked_sops
+        ),
     }
 
 
@@ -934,8 +1137,13 @@ async def create_sop_change_control(
     risk_score: int | None = 45,
     approval_chain: list[dict] | None = None,
 ) -> dict:
-    from services.auth.routers.auth import _build_change_control_record, _create_proposed_change_nodes
-    from services.common.approval_chains import create_approval_tracking_and_notifications
+    from services.auth.routers.auth import (
+        _build_change_control_record,
+        _create_proposed_change_nodes,
+    )
+    from services.common.approval_chains import (
+        create_approval_tracking_and_notifications,
+    )
 
     source_change = impact.get("source_change") or {}
     required_changes = impact.get("required_changes") or []
@@ -991,21 +1199,27 @@ async def create_sop_change_control(
             {
                 "$set": {
                     "proposed_change_nodes": proposed_nodes,
-                    "proposed_change_node_ids": [node.get("proposed_change_id") for node in proposed_nodes],
+                    "proposed_change_node_ids": [
+                        node.get("proposed_change_id") for node in proposed_nodes
+                    ],
                     "live_node_touched": False,
                     "updated_at": utc_now(),
                 }
             },
         )
         record["proposed_change_nodes"] = proposed_nodes
-        record["proposed_change_node_ids"] = [node.get("proposed_change_id") for node in proposed_nodes]
+        record["proposed_change_node_ids"] = [
+            node.get("proposed_change_id") for node in proposed_nodes
+        ]
         record["live_node_touched"] = False
 
     approval_tokens = await create_approval_tracking_and_notifications(
         db,
         source_collection=CHANGE_CONTROL_COLLECTION,
         source_id=record["change_control_id"],
-        source_title=record.get("title") or record.get("change_control_number") or record["change_control_id"],
+        source_title=record.get("title")
+        or record.get("change_control_number")
+        or record["change_control_id"],
         chain=record["approval_chain"],
         current_user_id=current_user.get("user_id") or current_user.get("sub"),
     )
@@ -1016,6 +1230,7 @@ async def create_sop_change_control(
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create(
     db: AsyncIOMotorDatabase,

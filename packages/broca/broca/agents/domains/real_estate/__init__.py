@@ -1,4 +1,5 @@
 """Real Estate agents — Property, Lease, Tenant, Mortgage, Facility."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class PropertyAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "search"), "property_id": context.get("property_id", ""), "criteria": context.get("criteria", {})}
+        return {
+            "operation": context.get("operation", "search"),
+            "property_id": context.get("property_id", ""),
+            "criteria": context.get("criteria", {}),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"property.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"property.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"property.{decision['operation']}", "success": True}
@@ -30,10 +38,17 @@ class LeaseAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "query"), "lease_id": context.get("lease_id", ""), "property_id": context.get("property_id", "")}
+        return {
+            "operation": context.get("operation", "query"),
+            "lease_id": context.get("lease_id", ""),
+            "property_id": context.get("property_id", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"lease.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"lease.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"lease.{decision['operation']}", "success": True}
@@ -46,10 +61,17 @@ class TenantAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "query"), "tenant_id": context.get("tenant_id", ""), "property_id": context.get("property_id", "")}
+        return {
+            "operation": context.get("operation", "query"),
+            "tenant_id": context.get("tenant_id", ""),
+            "property_id": context.get("property_id", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"tenant.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"tenant.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"tenant.{decision['operation']}", "success": True}
@@ -62,13 +84,24 @@ class MortgageAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "apply"), "applicant": context.get("applicant", {}), "property_value": context.get("property_value", 0)}
+        return {
+            "operation": context.get("operation", "apply"),
+            "applicant": context.get("applicant", {}),
+            "property_value": context.get("property_value", 0),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"mortgage.{perception['operation']}", "approved": True}
+        return {
+            "operation": perception["operation"],
+            "action": f"mortgage.{perception['operation']}",
+            "approved": True,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"mortgage.{decision['operation']}", "success": decision.get("approved", False)}
+        return {
+            "action": f"mortgage.{decision['operation']}",
+            "success": decision.get("approved", False),
+        }
 
 
 class FacilityAgent(BaseDDDAgent):
@@ -78,10 +111,16 @@ class FacilityAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"facility_id": context.get("facility_id", ""), "operation": context.get("operation", "status")}
+        return {
+            "facility_id": context.get("facility_id", ""),
+            "operation": context.get("operation", "status"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"facility.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"facility.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"facility.{decision['operation']}", "success": True}

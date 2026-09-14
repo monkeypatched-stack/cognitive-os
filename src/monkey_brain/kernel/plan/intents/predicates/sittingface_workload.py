@@ -24,7 +24,7 @@ from pathlib import Path
 
 logger = logging.getLogger("agentos.sittingface_workload")
 
-_REPO    = Path("/Users/prashunjaveri/Code/monkeypatched")
+_REPO = Path("/Users/prashunjaveri/Code/monkeypatched")
 _GEN_DIR = Path("/Users/prashunjaveri/Code/generated/monkeypatched")
 _SRC_DIR = _REPO / "src"
 
@@ -79,18 +79,25 @@ async def _run_etass_workload(question: str, service_slug: str) -> tuple[str, li
     plans_dir = Path.home() / ".monkeybrain" / "plans"
     plans_dir.mkdir(parents=True, exist_ok=True)
     import time
+
     ts = time.strftime("%Y%m%d_%H%M%S")
     plan_path = plans_dir / f"{service_slug}_{ts}.yaml"
     plan_path.write_text(yaml.dump(plan, default_flow_style=False, allow_unicode=True))
-    logger.info("[sittingface] plan saved → %s (%d steps)", plan_path, len(plan.get("steps", [])))
+    logger.info(
+        "[sittingface] plan saved → %s (%d steps)",
+        plan_path,
+        len(plan.get("steps", [])),
+    )
 
     # 3. Execute plan
     executor = ExecutorAgent()
-    exec_result = await executor.handle({
-        "plan_file": str(plan_path),
-        "auto_fix": True,
-        "continue_on_error": True,
-    })
+    exec_result = await executor.handle(
+        {
+            "plan_file": str(plan_path),
+            "auto_fix": True,
+            "continue_on_error": True,
+        }
+    )
     ep = _payload(exec_result)
     steps = ep.get("steps", [])
     steps_ok = sum(1 for s in steps if s.get("status") == "ok")
@@ -116,13 +123,14 @@ def _compute_diff(src_dir: Path, gen_dir: Path) -> tuple[int, int, int]:
         for f in gen_dir.rglob("*.py"):
             if f.name != "__init__.py":
                 gen_files[str(f.relative_to(gen_dir))] = f.read_text()
-    both  = set(src_files) & set(gen_files)
+    both = set(src_files) & set(gen_files)
     match = sum(
-        1 for f in both
+        1
+        for f in both
         if difflib.SequenceMatcher(None, src_files[f].splitlines(), gen_files[f].splitlines()).ratio() > 0.9
     )
     diff_count = len(both) - match
-    only_src   = len(set(src_files) - set(gen_files))
+    only_src = len(set(src_files) - set(gen_files))
     return len(src_files), len(gen_files), diff_count + only_src
 
 
@@ -141,9 +149,10 @@ async def sittingface_workload_question_answer(client, question, force=False):
     # Disabled: sittingface codegen overwrites source files on every request
     if _SITTINGFACE_DISABLED:
         return (
-            "SittingFace workload is disabled (SITTINGFACE_DISABLED=1). "
-            "Set SITTINGFACE_DISABLED=0 to re-enable.",
-            [], [], False,
+            "SittingFace workload is disabled (SITTINGFACE_DISABLED=1). Set SITTINGFACE_DISABLED=0 to re-enable.",
+            [],
+            [],
+            False,
         )
 
     # Early-exit: already stable
@@ -153,14 +162,17 @@ async def sittingface_workload_question_answer(client, question, force=False):
             logger.info("[sittingface] stable (%d files match) — skipping", _src_n)
             return (
                 f"Code is stable. {_src_n} files match generated/ exactly — no workload run needed.",
-                [], [], False,
+                [],
+                [],
+                False,
             )
 
     try:
         from src.monkey_brain.api.main import app
+
         cognitive_runtime = getattr(getattr(app, "state", None), "cognitive_runtime", None)
-        policy   = getattr(getattr(app, "state", None), "policy",   None)
-        lemon    = getattr(getattr(app, "state", None), "lemon",    None)
+        policy = getattr(getattr(app, "state", None), "policy", None)
+        lemon = getattr(getattr(app, "state", None), "lemon", None)
 
         from src.monkey_brain.kernel.execute.provider.llm_explorer import LLMExplorer
         from src.monkey_brain.kernel.execute.runtime.state import ExecutionState
@@ -170,7 +182,12 @@ async def sittingface_workload_question_answer(client, question, force=False):
             explorer.set_lemon(lemon)
 
         # Step 1: LLMExplorer generates candidate workloads (agent-based steps)
-        context = {"question": question, "goal": "Run the ETASS cognitive OS workload", "chart_name": "monkeypatched", "chart_version": "0.1.0"}
+        context = {
+            "question": question,
+            "goal": "Run the ETASS cognitive OS workload",
+            "chart_name": "monkeypatched",
+            "chart_version": "0.1.0",
+        }
         candidates = explorer.generate_candidates(question, "sittingface_workload", context)
 
         # Step 2: BellmanPolicy selects the best candidate
@@ -195,7 +212,10 @@ async def sittingface_workload_question_answer(client, question, force=False):
         run_id = f"sittingface-{uuid4().hex[:8]}"
         intent_ir = build_intent_ir(
             intent={"intent": "sittingface_workload", "confidence": 1.0},
-            goal={"name": "Run the ETASS cognitive OS workload", "goal_type": "execute"},
+            goal={
+                "name": "Run the ETASS cognitive OS workload",
+                "goal_type": "execute",
+            },
             run_id=run_id,
             question=question,
             group="sittingface",
@@ -210,13 +230,15 @@ async def sittingface_workload_question_answer(client, question, force=False):
         # Step 4: Convert workload steps to plan_steps format
         plan_steps = []
         for step in selected.steps:
-            plan_steps.append({
-                "step_id": step.step_id,
-                "capability_name": step.capability_name,
-                "agent_name": step.agent_name,
-                "dependencies": step.dependencies,
-                "metadata": step.metadata,
-            })
+            plan_steps.append(
+                {
+                    "step_id": step.step_id,
+                    "capability_name": step.capability_name,
+                    "agent_name": step.agent_name,
+                    "dependencies": step.dependencies,
+                    "metadata": step.metadata,
+                }
+            )
 
         # Step 5: Execute via intent path (GoalExecutor.execute_context)
         answer, semantic_hits, graph_paths, llm_answered = await cognitive_runtime.execute_cognitive_workload(
@@ -229,14 +251,17 @@ async def sittingface_workload_question_answer(client, question, force=False):
         if policy:
             try:
                 from src.monkey_brain.kernel.fix.policy.transition import Transition
+
                 reward = 1.0 if llm_answered else 0.2
-                policy.update(Transition(
-                    state=state.to_dict(),
-                    action=selected.workload_id,
-                    reward=reward,
-                    next_state={"answer": answer, "llm_answered": llm_answered},
-                    done=True,
-                ))
+                policy.update(
+                    Transition(
+                        state=state.to_dict(),
+                        action=selected.workload_id,
+                        reward=reward,
+                        next_state={"answer": answer, "llm_answered": llm_answered},
+                        done=True,
+                    )
+                )
             except Exception as e:
                 logger.debug("[sittingface] policy update failed: %s", e)
 
@@ -250,15 +275,32 @@ async def sittingface_workload_question_answer(client, question, force=False):
 def is_sittingface_workload_question(question):
     """Check if question is about the SittingFace / ETASS workload."""
     q = question.lower()
-    if any(w in q for w in [
-        "sitting face", "sittingface", "somatic workload",
-        "run the workload", "execute workload", "soma workload",
-        "full loop", "generate code from charts",
-        "etass", "load specification", "soma charts", "compile specification",
-        "cingulate", "coding runtime", "chart evolution", "specification-driven",
-        "engineering lifecycle", "governance review", "load the soma",
-        "run the full workload", "full workload",
-    ]):
+    if any(
+        w in q
+        for w in [
+            "sitting face",
+            "sittingface",
+            "somatic workload",
+            "run the workload",
+            "execute workload",
+            "soma workload",
+            "full loop",
+            "generate code from charts",
+            "etass",
+            "load specification",
+            "soma charts",
+            "compile specification",
+            "cingulate",
+            "coding runtime",
+            "chart evolution",
+            "specification-driven",
+            "engineering lifecycle",
+            "governance review",
+            "load the soma",
+            "run the full workload",
+            "full workload",
+        ]
+    ):
         return True
     # Also match build-service intents
     return _extract_service_slug(question) is not None

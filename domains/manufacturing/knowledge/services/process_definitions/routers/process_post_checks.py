@@ -26,6 +26,7 @@ bearer_scheme = HTTPBearer()
 
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
+
 @router.get("/process_definition", response_model=PaginatedProcessPostchecksResponse)
 async def list_process_definition_postchecks(
     page: int = Query(1, ge=1),
@@ -45,7 +46,11 @@ async def list_process_definition_postchecks(
 
 # ── Filtered reads ────────────────────────────────────────────────────────────
 
-@router.get("/process_definition/by-process_definition/{process_definition_id}", response_model=ProcessPostchecksResponse)
+
+@router.get(
+    "/process_definition/by-process_definition/{process_definition_id}",
+    response_model=ProcessPostchecksResponse,
+)
 async def get_process_definition_postchecks_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -61,7 +66,10 @@ async def get_process_definition_postchecks_by_process_definition(
     return record
 
 
-@router.get("/process_definition/{postchecks_id}/conditions/by-severity/{severity}", response_model=list[PostCheckConditionResponse])
+@router.get(
+    "/process_definition/{postchecks_id}/conditions/by-severity/{severity}",
+    response_model=list[PostCheckConditionResponse],
+)
 async def list_process_definition_conditions_by_severity(
     postchecks_id: str,
     severity: str,
@@ -72,7 +80,10 @@ async def list_process_definition_conditions_by_severity(
     return await crud.get_conditions_by_severity(db, postchecks_id, severity)
 
 
-@router.get("/process_definition/{postchecks_id}/conditions/mandatory", response_model=list[PostCheckConditionResponse])
+@router.get(
+    "/process_definition/{postchecks_id}/conditions/mandatory",
+    response_model=list[PostCheckConditionResponse],
+)
 async def list_mandatory_process_definition_conditions(
     postchecks_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -82,7 +93,10 @@ async def list_mandatory_process_definition_conditions(
     return await crud.get_mandatory_conditions(db, postchecks_id)
 
 
-@router.get("/process_definition/{postchecks_id}/conditions/by-corrective-action/{corrective_action_id}", response_model=list[PostCheckConditionResponse])
+@router.get(
+    "/process_definition/{postchecks_id}/conditions/by-corrective-action/{corrective_action_id}",
+    response_model=list[PostCheckConditionResponse],
+)
 async def list_process_definition_conditions_by_corrective_action(
     postchecks_id: str,
     corrective_action_id: str,
@@ -90,12 +104,17 @@ async def list_process_definition_conditions_by_corrective_action(
     _: dict = Depends(get_current_user),
 ):
     """Return all conditions that link to the given corrective action ID."""
-    return await crud.get_conditions_by_corrective_action(db, postchecks_id, corrective_action_id)
+    return await crud.get_conditions_by_corrective_action(
+        db, postchecks_id, corrective_action_id
+    )
 
 
 # ── Single record ─────────────────────────────────────────────────────────────
 
-@router.get("/process_definition/{postchecks_id}", response_model=ProcessPostchecksResponse)
+
+@router.get(
+    "/process_definition/{postchecks_id}", response_model=ProcessPostchecksResponse
+)
 async def get_process_definition_postchecks(
     postchecks_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -113,7 +132,12 @@ async def get_process_definition_postchecks(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/process_definition", response_model=ProcessPostchecksResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/process_definition",
+    response_model=ProcessPostchecksResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_process_definition_postchecks(
     data: ProcessPostchecksCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -130,7 +154,10 @@ async def create_process_definition_postchecks(
 
 # ── Update ────────────────────────────────────────────────────────────────────
 
-@router.patch("/process_definition/{postchecks_id}", response_model=ProcessPostchecksResponse)
+
+@router.patch(
+    "/process_definition/{postchecks_id}", response_model=ProcessPostchecksResponse
+)
 async def update_process_definition_postchecks(
     postchecks_id: str,
     data: ProcessPostchecksUpdate,
@@ -149,7 +176,12 @@ async def update_process_definition_postchecks(
 
 # ── Condition mutations ───────────────────────────────────────────────────────
 
-@router.post("/process_definition/{postchecks_id}/conditions", response_model=ProcessPostchecksResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/process_definition/{postchecks_id}/conditions",
+    response_model=ProcessPostchecksResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_process_definition_condition(
     postchecks_id: str,
     data: PostCheckConditionCreate,
@@ -166,7 +198,10 @@ async def add_process_definition_condition(
     return updated
 
 
-@router.patch("/process_definition/{postchecks_id}/conditions/{condition_id}", response_model=ProcessPostchecksResponse)
+@router.patch(
+    "/process_definition/{postchecks_id}/conditions/{condition_id}",
+    response_model=ProcessPostchecksResponse,
+)
 async def update_process_definition_condition(
     postchecks_id: str,
     condition_id: str,
@@ -184,7 +219,10 @@ async def update_process_definition_condition(
     return updated
 
 
-@router.post("/process_definition/{postchecks_id}/conditions/{condition_id}/corrective-actions/{corrective_action_id}", response_model=ProcessPostchecksResponse)
+@router.post(
+    "/process_definition/{postchecks_id}/conditions/{condition_id}/corrective-actions/{corrective_action_id}",
+    response_model=ProcessPostchecksResponse,
+)
 async def link_process_definition_corrective_action(
     postchecks_id: str,
     condition_id: str,
@@ -193,7 +231,9 @@ async def link_process_definition_corrective_action(
     _: dict = Depends(require_permission("perm-update-postchecks")),
 ):
     """Add a corrective action ID to a condition's links_to_corrective_action_ids array."""
-    updated = await crud.link_corrective_action(db, postchecks_id, condition_id, corrective_action_id)
+    updated = await crud.link_corrective_action(
+        db, postchecks_id, condition_id, corrective_action_id
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -202,7 +242,10 @@ async def link_process_definition_corrective_action(
     return updated
 
 
-@router.delete("/process_definition/{postchecks_id}/conditions/{condition_id}/corrective-actions/{corrective_action_id}", response_model=ProcessPostchecksResponse)
+@router.delete(
+    "/process_definition/{postchecks_id}/conditions/{condition_id}/corrective-actions/{corrective_action_id}",
+    response_model=ProcessPostchecksResponse,
+)
 async def unlink_process_definition_corrective_action(
     postchecks_id: str,
     condition_id: str,
@@ -211,7 +254,9 @@ async def unlink_process_definition_corrective_action(
     _: dict = Depends(require_permission("perm-update-postchecks")),
 ):
     """Remove a corrective action ID from a condition's links_to_corrective_action_ids array."""
-    updated = await crud.unlink_corrective_action(db, postchecks_id, condition_id, corrective_action_id)
+    updated = await crud.unlink_corrective_action(
+        db, postchecks_id, condition_id, corrective_action_id
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -220,7 +265,10 @@ async def unlink_process_definition_corrective_action(
     return updated
 
 
-@router.delete("/process_definition/{postchecks_id}/conditions/{condition_id}", response_model=ProcessPostchecksResponse)
+@router.delete(
+    "/process_definition/{postchecks_id}/conditions/{condition_id}",
+    response_model=ProcessPostchecksResponse,
+)
 async def remove_process_definition_condition(
     postchecks_id: str,
     condition_id: str,
@@ -239,7 +287,11 @@ async def remove_process_definition_condition(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
-@router.delete("/process_definition/by-process_definition/{process_definition_id}", status_code=status.HTTP_204_NO_CONTENT)
+
+@router.delete(
+    "/process_definition/by-process_definition/{process_definition_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_process_definition_postchecks_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -253,7 +305,9 @@ async def delete_process_definition_postchecks_by_process_definition(
         )
 
 
-@router.delete("/process_definition/{postchecks_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/process_definition/{postchecks_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_process_definition_postchecks(
     postchecks_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -273,6 +327,7 @@ async def delete_process_definition_postchecks(
 
 # ── Filtered reads ────────────────────────────────────────────────────────────
 
+
 @router.get("/steps/by-step/{step_id}", response_model=ProcessStepPostchecksResponse)
 async def get_step_postchecks_by_step(
     step_id: str,
@@ -289,17 +344,25 @@ async def get_step_postchecks_by_step(
     return record
 
 
-@router.get("/steps/by-process_definition/{process_definition_id}", response_model=list[ProcessStepPostchecksResponse])
+@router.get(
+    "/steps/by-process_definition/{process_definition_id}",
+    response_model=list[ProcessStepPostchecksResponse],
+)
 async def list_step_postchecks_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
     """Return all step-level postchecks containers that share the given process_definition_id."""
-    return await crud.get_step_postchecks_by_process_definition_id(db, process_definition_id)
+    return await crud.get_step_postchecks_by_process_definition_id(
+        db, process_definition_id
+    )
 
 
-@router.get("/steps/{postchecks_id}/conditions/by-severity/{severity}", response_model=list[PostCheckConditionResponse])
+@router.get(
+    "/steps/{postchecks_id}/conditions/by-severity/{severity}",
+    response_model=list[PostCheckConditionResponse],
+)
 async def list_step_conditions_by_severity(
     postchecks_id: str,
     severity: str,
@@ -310,7 +373,10 @@ async def list_step_conditions_by_severity(
     return await crud.get_step_conditions_by_severity(db, postchecks_id, severity)
 
 
-@router.get("/steps/{postchecks_id}/conditions/by-corrective-action/{corrective_action_id}", response_model=list[PostCheckConditionResponse])
+@router.get(
+    "/steps/{postchecks_id}/conditions/by-corrective-action/{corrective_action_id}",
+    response_model=list[PostCheckConditionResponse],
+)
 async def list_step_conditions_by_corrective_action(
     postchecks_id: str,
     corrective_action_id: str,
@@ -318,10 +384,13 @@ async def list_step_conditions_by_corrective_action(
     _: dict = Depends(get_current_user),
 ):
     """Return step-level conditions that link to the given corrective action ID."""
-    return await crud.get_step_conditions_by_corrective_action(db, postchecks_id, corrective_action_id)
+    return await crud.get_step_conditions_by_corrective_action(
+        db, postchecks_id, corrective_action_id
+    )
 
 
 # ── Single record ─────────────────────────────────────────────────────────────
+
 
 @router.get("/steps/{postchecks_id}", response_model=ProcessStepPostchecksResponse)
 async def get_step_postchecks(
@@ -341,7 +410,12 @@ async def get_step_postchecks(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/steps", response_model=ProcessStepPostchecksResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/steps",
+    response_model=ProcessStepPostchecksResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_step_postchecks(
     data: ProcessStepPostchecksCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -357,6 +431,7 @@ async def create_step_postchecks(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/steps/{postchecks_id}", response_model=ProcessStepPostchecksResponse)
 async def update_step_postchecks(
@@ -377,7 +452,12 @@ async def update_step_postchecks(
 
 # ── Condition mutations ───────────────────────────────────────────────────────
 
-@router.post("/steps/{postchecks_id}/conditions", response_model=ProcessStepPostchecksResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/steps/{postchecks_id}/conditions",
+    response_model=ProcessStepPostchecksResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_step_condition(
     postchecks_id: str,
     data: PostCheckConditionCreate,
@@ -394,7 +474,10 @@ async def add_step_condition(
     return updated
 
 
-@router.patch("/steps/{postchecks_id}/conditions/{condition_id}", response_model=ProcessStepPostchecksResponse)
+@router.patch(
+    "/steps/{postchecks_id}/conditions/{condition_id}",
+    response_model=ProcessStepPostchecksResponse,
+)
 async def update_step_condition(
     postchecks_id: str,
     condition_id: str,
@@ -412,7 +495,10 @@ async def update_step_condition(
     return updated
 
 
-@router.post("/steps/{postchecks_id}/conditions/{condition_id}/corrective-actions/{corrective_action_id}", response_model=ProcessStepPostchecksResponse)
+@router.post(
+    "/steps/{postchecks_id}/conditions/{condition_id}/corrective-actions/{corrective_action_id}",
+    response_model=ProcessStepPostchecksResponse,
+)
 async def link_step_corrective_action(
     postchecks_id: str,
     condition_id: str,
@@ -421,7 +507,9 @@ async def link_step_corrective_action(
     _: dict = Depends(require_permission("perm-update-postchecks")),
 ):
     """Add a corrective action ID to a step condition's links_to_corrective_action_ids array."""
-    updated = await crud.link_step_corrective_action(db, postchecks_id, condition_id, corrective_action_id)
+    updated = await crud.link_step_corrective_action(
+        db, postchecks_id, condition_id, corrective_action_id
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -430,7 +518,10 @@ async def link_step_corrective_action(
     return updated
 
 
-@router.delete("/steps/{postchecks_id}/conditions/{condition_id}/corrective-actions/{corrective_action_id}", response_model=ProcessStepPostchecksResponse)
+@router.delete(
+    "/steps/{postchecks_id}/conditions/{condition_id}/corrective-actions/{corrective_action_id}",
+    response_model=ProcessStepPostchecksResponse,
+)
 async def unlink_step_corrective_action(
     postchecks_id: str,
     condition_id: str,
@@ -439,7 +530,9 @@ async def unlink_step_corrective_action(
     _: dict = Depends(require_permission("perm-update-postchecks")),
 ):
     """Remove a corrective action ID from a step condition's links_to_corrective_action_ids array."""
-    updated = await crud.unlink_step_corrective_action(db, postchecks_id, condition_id, corrective_action_id)
+    updated = await crud.unlink_step_corrective_action(
+        db, postchecks_id, condition_id, corrective_action_id
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -448,7 +541,10 @@ async def unlink_step_corrective_action(
     return updated
 
 
-@router.delete("/steps/{postchecks_id}/conditions/{condition_id}", response_model=ProcessStepPostchecksResponse)
+@router.delete(
+    "/steps/{postchecks_id}/conditions/{condition_id}",
+    response_model=ProcessStepPostchecksResponse,
+)
 async def remove_step_condition(
     postchecks_id: str,
     condition_id: str,
@@ -466,6 +562,7 @@ async def remove_step_condition(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/steps/by-step/{step_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_step_postchecks_by_step(

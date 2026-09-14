@@ -10,6 +10,7 @@ one is given. Only valid on a shipment that's actually "in_transit" —
 a delay reported before a shipment has even shipped, or after it's
 already delivered/lost (MB-3043), doesn't mean anything.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.logistics import (

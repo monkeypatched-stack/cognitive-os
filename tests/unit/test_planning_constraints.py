@@ -4,10 +4,16 @@ Validates each of the 7 named constraint evaluators individually, the
 ConstraintEngine's aggregation (hard vs. soft, unrecognized-kind handling),
 and validated_plan()'s immutability-preserving status update.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.pipeline.planning.domain import (
-    Goal, Plan, PlanStep, PlanningConstraint, PlanningOperator, ValidationStatus,
+    Goal,
+    Plan,
+    PlanStep,
+    PlanningConstraint,
+    PlanningOperator,
+    ValidationStatus,
 )
 from src.monkey_brain.kernel.pipeline.planning.constraints import (
     ConstraintCheckResult,
@@ -34,6 +40,7 @@ def _plan_with_operator(op: PlanningOperator, **plan_kwargs) -> Plan:
 # Budget
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBudgetConstraintEvaluator:
     def test_within_budget(self):
         plan = Plan(goal=Goal(name="x"), estimated_cost=0.3)
@@ -59,6 +66,7 @@ class TestBudgetConstraintEvaluator:
 # Time
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestTimeConstraintEvaluator:
     def test_within_time_limit(self):
         plan = Plan(goal=Goal(name="x"), estimated_duration=100.0)
@@ -77,6 +85,7 @@ class TestTimeConstraintEvaluator:
 # Policy
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPolicyConstraintEvaluator:
     def test_no_denied_operators_used(self):
         plan = _plan_with_operator(PlanningOperator(name="Navigate"))
@@ -94,6 +103,7 @@ class TestPolicyConstraintEvaluator:
 # ═══════════════════════════════════════════════════════════════════════════
 # Capability
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCapabilityConstraintEvaluator:
     def test_all_capabilities_available(self):
@@ -114,6 +124,7 @@ class TestCapabilityConstraintEvaluator:
 # ═══════════════════════════════════════════════════════════════════════════
 # Inventory
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestInventoryConstraintEvaluator:
     def test_sufficient_inventory(self):
@@ -141,6 +152,7 @@ class TestInventoryConstraintEvaluator:
 # Safety
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestSafetyConstraintEvaluator:
     def test_no_forbidden_effects(self):
         op = PlanningOperator(name="AcquireItem", effects=("milk_acquired",))
@@ -161,12 +173,16 @@ class TestSafetyConstraintEvaluator:
 # Permissions
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPermissionsConstraintEvaluator:
     def test_required_permissions_granted(self):
         plan = Plan(goal=Goal(name="x"))
         constraint = PlanningConstraint(
             kind="permissions",
-            parameters={"required_permissions": ["shop"], "granted_permissions": ["shop", "admin"]},
+            parameters={
+                "required_permissions": ["shop"],
+                "granted_permissions": ["shop", "admin"],
+            },
         )
         assert PermissionsConstraintEvaluator().evaluate(constraint, plan).satisfied is True
 
@@ -174,7 +190,10 @@ class TestPermissionsConstraintEvaluator:
         plan = Plan(goal=Goal(name="x"))
         constraint = PlanningConstraint(
             kind="permissions",
-            parameters={"required_permissions": ["shop", "admin"], "granted_permissions": ["shop"]},
+            parameters={
+                "required_permissions": ["shop", "admin"],
+                "granted_permissions": ["shop"],
+            },
         )
         result = PermissionsConstraintEvaluator().evaluate(constraint, plan)
         assert result.satisfied is False
@@ -185,14 +204,24 @@ class TestPermissionsConstraintEvaluator:
 # ConstraintEngine — aggregation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestConstraintEngine:
     def test_default_evaluators_cover_all_seven_kinds(self):
-        expected = {"budget", "time", "policy", "capability", "inventory", "safety", "permissions"}
+        expected = {
+            "budget",
+            "time",
+            "policy",
+            "capability",
+            "inventory",
+            "safety",
+            "permissions",
+        }
         assert set(DEFAULT_EVALUATORS.keys()) == expected
 
     def test_valid_plan_no_violations(self):
         plan = Plan(
-            goal=Goal(name="x"), estimated_cost=0.1,
+            goal=Goal(name="x"),
+            estimated_cost=0.1,
             constraints=(PlanningConstraint(kind="budget", parameters={"max_cost": 1.0}, hard=True),),
         )
         report = ConstraintEngine().validate(plan)
@@ -201,7 +230,8 @@ class TestConstraintEngine:
 
     def test_hard_failure_makes_plan_invalid(self):
         plan = Plan(
-            goal=Goal(name="x"), estimated_cost=5.0,
+            goal=Goal(name="x"),
+            estimated_cost=5.0,
             constraints=(PlanningConstraint(kind="budget", parameters={"max_cost": 1.0}, hard=True),),
         )
         report = ConstraintEngine().validate(plan)
@@ -210,7 +240,8 @@ class TestConstraintEngine:
 
     def test_soft_failure_is_a_warning_not_a_violation(self):
         plan = Plan(
-            goal=Goal(name="x"), estimated_cost=5.0,
+            goal=Goal(name="x"),
+            estimated_cost=5.0,
             constraints=(PlanningConstraint(kind="budget", parameters={"max_cost": 1.0}, hard=False),),
         )
         report = ConstraintEngine().validate(plan)
@@ -220,7 +251,9 @@ class TestConstraintEngine:
 
     def test_mixed_hard_and_soft_failures(self):
         plan = Plan(
-            goal=Goal(name="x"), estimated_cost=5.0, estimated_duration=900.0,
+            goal=Goal(name="x"),
+            estimated_cost=5.0,
+            estimated_duration=900.0,
             constraints=(
                 PlanningConstraint(kind="budget", parameters={"max_cost": 1.0}, hard=False),
                 PlanningConstraint(kind="time", parameters={"max_duration": 600.0}, hard=True),
@@ -249,12 +282,16 @@ class TestConstraintEngine:
     def test_custom_evaluator_registration(self):
         class AlwaysFails:
             kind = "custom"
+
             def evaluate(self, constraint, plan):
                 return ConstraintCheckResult(kind="custom", hard=constraint.hard, satisfied=False, message="nope")
 
         engine = ConstraintEngine(evaluators={})
         engine.register_evaluator(AlwaysFails())
-        plan = Plan(goal=Goal(name="x"), constraints=(PlanningConstraint(kind="custom", hard=True),))
+        plan = Plan(
+            goal=Goal(name="x"),
+            constraints=(PlanningConstraint(kind="custom", hard=True),),
+        )
 
         report = engine.validate(plan)
         assert report.valid is False
@@ -268,10 +305,12 @@ class TestConstraintEngine:
 # validated_plan — immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestValidatedPlan:
     def test_returns_new_plan_with_valid_status(self):
         plan = Plan(
-            goal=Goal(name="x"), estimated_cost=0.1,
+            goal=Goal(name="x"),
+            estimated_cost=0.1,
             constraints=(PlanningConstraint(kind="budget", parameters={"max_cost": 1.0}, hard=True),),
         )
         assert plan.validation_status == ValidationStatus.UNVALIDATED
@@ -285,7 +324,8 @@ class TestValidatedPlan:
 
     def test_returns_new_plan_with_invalid_status(self):
         plan = Plan(
-            goal=Goal(name="x"), estimated_cost=5.0,
+            goal=Goal(name="x"),
+            estimated_cost=5.0,
             constraints=(PlanningConstraint(kind="budget", parameters={"max_cost": 1.0}, hard=True),),
         )
 
@@ -299,10 +339,12 @@ class TestValidatedPlan:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_runtime_or_execution_imports(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.planning.constraints as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

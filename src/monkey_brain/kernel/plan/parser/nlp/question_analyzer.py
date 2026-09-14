@@ -21,11 +21,7 @@ def _normalize_phrase(text: str) -> str:
 
     doc = nlp(text)
 
-    tokens = [
-        token.text
-        for token in doc
-        if token.pos_ not in ("DET", "PRON")
-    ]
+    tokens = [token.text for token in doc if token.pos_ not in ("DET", "PRON")]
 
     return " ".join(tokens).strip()
 
@@ -62,24 +58,16 @@ def _deduplicate_and_rank(phrases: set[str]) -> list[str]:
     cleaned = list(set(cleaned))
 
     # Longest / richest phrases first
-    cleaned.sort(
-        key=lambda p: (
-            len(p.split()),
-            len(p)
-        ),
-        reverse=True
-    )
+    cleaned.sort(key=lambda p: (len(p.split()), len(p)), reverse=True)
 
     kept = []
 
     for candidate in cleaned:
-
         candidate_lower = candidate.lower()
 
         skip = False
 
         for existing in kept:
-
             existing_lower = existing.lower()
 
             # If candidate is mostly represented by a richer phrase
@@ -93,7 +81,7 @@ def _deduplicate_and_rank(phrases: set[str]) -> list[str]:
     return kept
 
 
-# Does question analysis and extracts rems for normalization 
+# Does question analysis and extracts rems for normalization
 def analyze_question(question: str):
 
     nlp = get_nlp()
@@ -105,7 +93,7 @@ def analyze_question(question: str):
         "filters": [],
         "projections": [],
         "noun_chunks": [],
-        "phrases": []
+        "phrases": [],
     }
 
     if nlp is None:
@@ -142,10 +130,7 @@ def analyze_question(question: str):
     # ----------------------------------------------------------
 
     for token in doc:
-        if (
-            token.dep_ in ("dobj", "attr", "pobj", "nsubj")
-            and token.lemma_.lower() not in _INTERROGATIVES
-        ):
+        if token.dep_ in ("dobj", "attr", "pobj", "nsubj") and token.lemma_.lower() not in _INTERROGATIVES:
             result["target"] = token.lemma_.lower()
             break
 
@@ -189,7 +174,6 @@ def analyze_prompt(prompt: str):
 
     # Noun chunks
     for chunk in doc.noun_chunks:
-
         phrase = _normalize_phrase(chunk.text)
 
         if phrase:
@@ -197,7 +181,6 @@ def analyze_prompt(prompt: str):
 
     # Named entities
     for ent in doc.ents:
-
         phrase = ent.text.strip()
 
         if phrase:

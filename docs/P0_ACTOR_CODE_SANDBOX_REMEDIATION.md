@@ -81,56 +81,53 @@ pytest tests/validation/test_p0_actor_code_sandbox.py -v -s
 from RestrictedPython import compile_restricted
 from RestrictedPython.Guards import safe_globals, guarded_inplacebinary_op
 
+
 def execute_actor_code_safely(actor_code: str, actor_context: dict) -> Any:
     """Execute actor code with RestrictedPython sandbox"""
-    
+
     # 1. Compile with restrictions
-    compiled = compile_restricted(
-        actor_code,
-        filename='<actor>',
-        mode='exec'
-    )
-    
+    compiled = compile_restricted(actor_code, filename="<actor>", mode="exec")
+
     if compiled.errors:
         raise ValueError(f"Code contains forbidden patterns: {compiled.errors}")
-    
+
     # 2. Create safe globals
     safe_builtins = {
         # Safe builtins only
-        'len': len,
-        'range': range,
-        'dict': dict,
-        'list': list,
-        'str': str,
-        'int': int,
-        'float': float,
-        'bool': bool,
-        'True': True,
-        'False': False,
-        'None': None,
+        "len": len,
+        "range": range,
+        "dict": dict,
+        "list": list,
+        "str": str,
+        "int": int,
+        "float": float,
+        "bool": bool,
+        "True": True,
+        "False": False,
+        "None": None,
         # Explicitly exclude dangerous builtins
-        '__import__': None,
-        'open': None,
-        'exec': None,
-        'eval': None,
+        "__import__": None,
+        "open": None,
+        "exec": None,
+        "eval": None,
     }
-    
+
     safe_env = {
-        '__builtins__': safe_builtins,
-        '__name__': 'actor_sandbox',
-        '__metaclass__': type,
-        '_print_': print,  # For print support
-        '_getattr_': getattr,
-        '_getiter_': iter,
-        '_iter_unpack_sequence_': iter,
+        "__builtins__": safe_builtins,
+        "__name__": "actor_sandbox",
+        "__metaclass__": type,
+        "_print_": print,  # For print support
+        "_getattr_": getattr,
+        "_getiter_": iter,
+        "_iter_unpack_sequence_": iter,
         # Actor context (belief, world model, etc.)
         **actor_context,
     }
-    
+
     # 3. Execute
     exec(compiled.code, safe_env)
-    
-    return safe_env.get('result')
+
+    return safe_env.get("result")
 ```
 
 **Installation:**
@@ -169,9 +166,10 @@ import subprocess
 import json
 import tempfile
 
+
 def execute_actor_code_in_sandbox(actor_code: str, actor_context: dict) -> Any:
     """Execute actor code in isolated subprocess with restricted modules"""
-    
+
     # 1. Create sandbox script
     sandbox_script = f"""
 import sys
@@ -199,12 +197,12 @@ try:
 except Exception as e:
     print(json.dumps({{'success': False, 'error': str(e)}}))
 """
-    
+
     # 2. Run in subprocess
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(sandbox_script)
         script_path = f.name
-    
+
     try:
         result = subprocess.run(
             [sys.executable, script_path],
@@ -212,15 +210,15 @@ except Exception as e:
             text=True,
             timeout=30.0,  # Kill after 30 seconds
         )
-        
+
         if result.returncode != 0:
             raise RuntimeError(f"Sandbox execution failed: {result.stderr}")
-        
+
         output = json.loads(result.stdout)
-        if not output['success']:
+        if not output["success"]:
             raise RuntimeError(f"Actor code error: {output['error']}")
-        
-        return output['result']
+
+        return output["result"]
     finally:
         os.unlink(script_path)
 ```
@@ -255,82 +253,95 @@ import ast
 import re
 
 FORBIDDEN_MODULES = {
-    'requests', 'urllib', 'socket', 'httpx', 'aiohttp',
-    'os', 'sys', 'subprocess', 'pathlib', 'glob',
-    'pymongo', 'psycopg2', 'mysql', 'sqlalchemy',
+    "requests",
+    "urllib",
+    "socket",
+    "httpx",
+    "aiohttp",
+    "os",
+    "sys",
+    "subprocess",
+    "pathlib",
+    "glob",
+    "pymongo",
+    "psycopg2",
+    "mysql",
+    "sqlalchemy",
 }
+
 
 def scan_actor_code_for_violations(actor_code: str) -> list[str]:
     """Scan actor code for forbidden imports/functions"""
     violations = []
-    
+
     # 1. Parse AST
     try:
         tree = ast.parse(actor_code)
     except SyntaxError as e:
         violations.append(f"Invalid Python syntax: {e}")
         return violations
-    
+
     # 2. Check imports
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                module = alias.name.split('.')[0]
+                module = alias.name.split(".")[0]
                 if module in FORBIDDEN_MODULES:
                     violations.append(f"Import of forbidden module: {module}")
-        
+
         elif isinstance(node, ast.ImportFrom):
             if node.module:
-                module = node.module.split('.')[0]
+                module = node.module.split(".")[0]
                 if module in FORBIDDEN_MODULES:
                     violations.append(f"Import of forbidden module: {module}")
-        
+
         elif isinstance(node, ast.Call):
             # Check for dangerous builtins (open, exec, eval)
             if isinstance(node.func, ast.Name):
-                if node.func.id in {'open', 'exec', 'eval', '__import__'}:
+                if node.func.id in {"open", "exec", "eval", "__import__"}:
                     violations.append(f"Forbidden builtin call: {node.func.id}")
-    
+
     # 3. Regex patterns for evasion attempts
     dangerous_patterns = [
-        r'__import__',
-        r'exec\s*\(',
-        r'eval\s*\(',
-        r'open\s*\(',
+        r"__import__",
+        r"exec\s*\(",
+        r"eval\s*\(",
+        r"open\s*\(",
     ]
-    
+
     for pattern in dangerous_patterns:
         if re.search(pattern, actor_code):
             violations.append(f"Forbidden pattern detected: {pattern}")
-    
+
     return violations
+
 
 def execute_actor_code_with_scanning(actor_code: str, actor_context: dict) -> Any:
     """Execute actor code with pre-execution scanning"""
-    
+
     # 1. Scan for violations
     violations = scan_actor_code_for_violations(actor_code)
     if violations:
         raise SecurityError(f"Code violates sandbox policy:\n" + "\n".join(violations))
-    
+
     # 2. Execute with standard restrictions
     safe_env = {
-        '__builtins__': {
+        "__builtins__": {
             # Safe builtins only
-            'len': len,
-            'range': range,
-            'sum': sum,
-            'sorted': sorted,
-            'print': print,
+            "len": len,
+            "range": range,
+            "sum": sum,
+            "sorted": sorted,
+            "print": print,
             # Explicitly exclude
-            'open': None,
-            '__import__': None,
+            "open": None,
+            "__import__": None,
         },
         **actor_context,
     }
-    
+
     exec(actor_code, safe_env)
-    return safe_env.get('result')
+    return safe_env.get("result")
 ```
 
 ---

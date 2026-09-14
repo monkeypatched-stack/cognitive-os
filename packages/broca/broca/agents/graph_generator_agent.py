@@ -9,6 +9,7 @@ The graph compiler owns its own validation. It takes a candidate graph from the
 LLM and produces either a valid executable DAG or a convergence failure.
 Nothing in between leaks out of the compiler.
 """
+
 from __future__ import annotations
 
 import json
@@ -54,6 +55,7 @@ class GraphValidationError(Exception):
     exception when _validate_order() or _topological_order() detects
     a violation.
     """
+
     code: str = ""
     message: str = ""
     detail: dict = field(default_factory=dict)
@@ -72,9 +74,7 @@ class PlannerConvergenceError(Exception):
         self.errors = errors
         self.attempts = attempts
         codes = ", ".join(e.code for e in errors)
-        super().__init__(
-            f"Graph validation failed after {attempts} attempt(s): {codes}"
-        )
+        super().__init__(f"Graph validation failed after {attempts} attempt(s): {codes}")
 
 
 # ── LLM providers ─────────────────────────────────────────────────────────
@@ -94,6 +94,7 @@ def _ollama_available() -> bool:
 def _claude_available() -> bool:
     try:
         import anthropic
+
         anthropic.Anthropic()
         return True
     except Exception:
@@ -107,12 +108,16 @@ class OllamaClient:
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import httpx
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
         async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{self.base_url}/api/chat", json={"model": self.model, "messages": messages, "stream": False})
+            resp = await client.post(
+                f"{self.base_url}/api/chat",
+                json={"model": self.model, "messages": messages, "stream": False},
+            )
             resp.raise_for_status()
             return resp.json()["message"]["content"]
 
@@ -127,11 +132,13 @@ class OpenRouterClient:
         self.model = model or self.DEFAULT_MODEL
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
         self.base_url = os.environ.get("OPENROUTER_API_BASE_URL") or os.environ.get(
-            "OPENROUTER_API_URL", "https://openrouter.ai/api/v1",
+            "OPENROUTER_API_URL",
+            "https://openrouter.ai/api/v1",
         )
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import httpx
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -144,7 +151,11 @@ class OpenRouterClient:
                     "HTTP-Referer": os.environ.get("APP_URL", "https://github.com/monkeypatched"),
                     "X-Title": os.environ.get("APP_NAME", "MonkeyBrain"),
                 },
-                json={"model": self.model, "messages": messages, "max_tokens": ClaudeClient.MAX_TOKENS},
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                    "max_tokens": ClaudeClient.MAX_TOKENS,
+                },
             )
             resp.raise_for_status()
             data = resp.json()
@@ -235,13 +246,17 @@ class GraphGeneratorAgent(BaseETASSAgent):
     def _select_provider(self):
         from ._llm_bridge import dev_bridge_client
         from ._llm_cache import maybe_cache
+
         bridge = dev_bridge_client("graph_generator")
         if bridge is not None:
             return maybe_cache(bridge, "graph_generator")
         if os.environ.get("SPEC_DISCOVERY_PROVIDER", "").lower() == "claude" and _claude_available():
             return maybe_cache(ClaudeClient(), "graph_generator")
         if _ollama_available():
-            return maybe_cache(OllamaClient(model=os.environ.get("OLLAMA_MODEL", "gemma3:latest")), "graph_generator")
+            return maybe_cache(
+                OllamaClient(model=os.environ.get("OLLAMA_MODEL", "gemma3:latest")),
+                "graph_generator",
+            )
         if _claude_available():
             return maybe_cache(ClaudeClient(), "graph_generator")
         return None
@@ -284,7 +299,7 @@ class GraphGeneratorAgent(BaseETASSAgent):
                 seen.add(agent)
                 planning_nodes.append(
                     {
-                        "id": f"node_{len(planning_nodes)+1}",
+                        "id": f"node_{len(planning_nodes) + 1}",
                         "agent": agent,
                     }
                 )
@@ -296,11 +311,13 @@ class GraphGeneratorAgent(BaseETASSAgent):
         candidates = []
         for i in range(CANDIDATE_COUNT):
             try:
-                dependency_edges = await self._infer_execution_dependencies(
-                    planning_nodes
-                )
+                dependency_edges = await self._infer_execution_dependencies(planning_nodes)
                 graph = await self._build_graph(
-                    agent_map, domain, dependency_edges, intent, planning_nodes,
+                    agent_map,
+                    domain,
+                    dependency_edges,
+                    intent,
+                    planning_nodes,
                 )
                 candidates.append(graph)
             except PlannerConvergenceError:
@@ -310,7 +327,12 @@ class GraphGeneratorAgent(BaseETASSAgent):
         if not candidates:
             self._reward(False, 0.0)
             raise PlannerConvergenceError(
-                errors=[GraphValidationError(code="NO_VALID_CANDIDATES", message="No valid graph candidates generated")],
+                errors=[
+                    GraphValidationError(
+                        code="NO_VALID_CANDIDATES",
+                        message="No valid graph candidates generated",
+                    )
+                ],
                 attempts=CANDIDATE_COUNT,
             )
 
@@ -329,8 +351,8 @@ class GraphGeneratorAgent(BaseETASSAgent):
                 ],
                 "agents": agents,
                 "agent_map": agent_map,
-                "node_count": len(candidates[0].graph_data.get("nodes", [])) if candidates else 0,
-                "edge_count": len(candidates[0].graph_data.get("edges", [])) if candidates else 0,
+                "node_count": (len(candidates[0].graph_data.get("nodes", [])) if candidates else 0),
+                "edge_count": (len(candidates[0].graph_data.get("edges", [])) if candidates else 0),
             },
             observations=[
                 f"Discovered {len(agents)} agents from intent",
@@ -340,7 +362,6 @@ class GraphGeneratorAgent(BaseETASSAgent):
 
     async def _impl_from_goal_ir(self, goal_ir, context: dict):
         """Generate execution graph from structured Goal IR (new pipeline path)."""
-        from .goal_ir import GoalIR
 
         spec = context.get("specification") or context.get("spec") or {}
         knowledge = context.get("knowledge") or {}
@@ -367,7 +388,7 @@ class GraphGeneratorAgent(BaseETASSAgent):
                 seen.add(agent)
                 planning_nodes.append(
                     {
-                        "id": f"node_{len(planning_nodes)+1}",
+                        "id": f"node_{len(planning_nodes) + 1}",
                         "agent": agent,
                     }
                 )
@@ -376,11 +397,13 @@ class GraphGeneratorAgent(BaseETASSAgent):
         candidates = []
         for i in range(CANDIDATE_COUNT):
             try:
-                dependency_edges = await self._infer_execution_dependencies(
-                    planning_nodes
-                )
+                dependency_edges = await self._infer_execution_dependencies(planning_nodes)
                 graph = await self._build_graph(
-                    agent_map, domain, dependency_edges, intent, planning_nodes,
+                    agent_map,
+                    domain,
+                    dependency_edges,
+                    intent,
+                    planning_nodes,
                 )
                 candidates.append(graph)
             except PlannerConvergenceError:
@@ -390,7 +413,12 @@ class GraphGeneratorAgent(BaseETASSAgent):
         if not candidates:
             self._reward(False, 0.0)
             raise PlannerConvergenceError(
-                errors=[GraphValidationError(code="NO_VALID_CANDIDATES", message="No valid graph candidates generated")],
+                errors=[
+                    GraphValidationError(
+                        code="NO_VALID_CANDIDATES",
+                        message="No valid graph candidates generated",
+                    )
+                ],
                 attempts=CANDIDATE_COUNT,
             )
 
@@ -408,8 +436,8 @@ class GraphGeneratorAgent(BaseETASSAgent):
                 ],
                 "agents": agents,
                 "agent_map": agent_map,
-                "node_count": len(candidates[0].graph_data.get("nodes", [])) if candidates else 0,
-                "edge_count": len(candidates[0].graph_data.get("edges", [])) if candidates else 0,
+                "node_count": (len(candidates[0].graph_data.get("nodes", [])) if candidates else 0),
+                "edge_count": (len(candidates[0].graph_data.get("edges", [])) if candidates else 0),
             },
             observations=[
                 f"GoalIR: {goal_ir.intent_type}/{goal_ir.domain}, {len(goal_ir.entities)} entities, {len(goal_ir.constraints)} constraints",
@@ -420,18 +448,27 @@ class GraphGeneratorAgent(BaseETASSAgent):
 
     async def _discover_agents_from_goal_ir(self, goal_ir, spec: dict, knowledge: dict | None = None) -> list[str]:
         """Discover agents using GoalIR entities and constraints."""
-        from .goal_ir import GoalIR
 
         # Build a richer prompt using GoalIR structure
-        entities_str = ", ".join(f"{e.name} ({e.entity_type})" for e in goal_ir.entities) if goal_ir.entities else "none specified"
-        constraints_str = ", ".join(f"{c.constraint_type}: {c.description}" for c in goal_ir.constraints) if goal_ir.constraints else "none"
-        relationships_str = ", ".join(f"{r.source} {r.relationship_type} {r.target}" for r in goal_ir.relationships) if goal_ir.relationships else "none"
+        entities_str = (
+            ", ".join(f"{e.name} ({e.entity_type})" for e in goal_ir.entities) if goal_ir.entities else "none specified"
+        )
+        constraints_str = (
+            ", ".join(f"{c.constraint_type}: {c.description}" for c in goal_ir.constraints)
+            if goal_ir.constraints
+            else "none"
+        )
+        relationships_str = (
+            ", ".join(f"{r.source} {r.relationship_type} {r.target}" for r in goal_ir.relationships)
+            if goal_ir.relationships
+            else "none"
+        )
 
         if self._llm is not None:
             try:
                 prompt = (
                     f"Identify the smallest reusable software agents required to satisfy this request:\n"
-                    f"\"{goal_ir.goal}\"\n\n"
+                    f'"{goal_ir.goal}"\n\n'
                     f"Intent type: {goal_ir.intent_type}\n"
                     f"Domain: {goal_ir.domain}\n"
                     f"Entities: {entities_str}\n"
@@ -469,10 +506,12 @@ class GraphGeneratorAgent(BaseETASSAgent):
     # ── Agent discovery ───────────────────────────────────────────────
 
     async def _discover_agents(
-        self, spec: dict, discovery: dict, intent: str, knowledge: dict | None = None,
+        self,
+        spec: dict,
+        discovery: dict,
+        intent: str,
+        knowledge: dict | None = None,
     ) -> list[str]:
-        goal = spec.get("goal", intent) or intent
-
         if self._llm is not None:
             try:
                 prompt = self._agent_discovery_prompt(spec, discovery, intent, knowledge)
@@ -517,7 +556,11 @@ class GraphGeneratorAgent(BaseETASSAgent):
         return "\n".join(bullets)
 
     def _agent_discovery_prompt(
-        self, spec: dict, discovery: dict, intent: str, knowledge: dict | None = None,
+        self,
+        spec: dict,
+        discovery: dict,
+        intent: str,
+        knowledge: dict | None = None,
     ) -> str:
         # `intent` is the user's RAW question. The planning guidance below used to be prepended
         # to the question by the /plan route and carried around as part of the "intent", which
@@ -530,14 +573,18 @@ class GraphGeneratorAgent(BaseETASSAgent):
         # knowledge already covers). Empty when nothing was retrieved, so the prompt is unchanged.
         summary = self._summarize_knowledge(knowledge)
         knowledge_block = (
-            "Known facts and prior context retrieved for this request. Use them to choose\n"
-            "agents that reuse what is already known, and do NOT invent agents for capabilities\n"
-            "the knowledge below already establishes:\n"
-            f"{summary}\n\n"
-        ) if summary else ""
+            (
+                "Known facts and prior context retrieved for this request. Use them to choose\n"
+                "agents that reuse what is already known, and do NOT invent agents for capabilities\n"
+                "the knowledge below already establishes:\n"
+                f"{summary}\n\n"
+            )
+            if summary
+            else ""
+        )
         return (
             "Identify the smallest reusable software agents required to satisfy this request:\n"
-            f"\"{intent}\"\n\n"
+            f'"{intent}"\n\n'
             f"Specification:\n{json.dumps(spec, indent=2)[:1000]}\n\n"
             f"{knowledge_block}"
             "Your task is NOT to solve the request. Decompose it into the smallest set of\n"
@@ -555,7 +602,7 @@ class GraphGeneratorAgent(BaseETASSAgent):
             "- Return ONLY a JSON array.\n"
             "- Do not explain your reasoning.\n\n"
             "Example output:\n"
-            "[\"ProjectAgent\", \"TaskAgent\", \"ReminderAgent\", \"NotificationAgent\", \"StorageAgent\"]\n\n"
+            '["ProjectAgent", "TaskAgent", "ReminderAgent", "NotificationAgent", "StorageAgent"]\n\n'
             "Output ONLY the JSON array."
         )
 
@@ -569,7 +616,7 @@ class GraphGeneratorAgent(BaseETASSAgent):
 
         if self._llm is not None:
             try:
-                prompt = f"Extract a single domain name from this intent: \"{goal}\". Output ONLY the domain name, nothing else. Example: \"build a todo app\" → \"Todo\""
+                prompt = f'Extract a single domain name from this intent: "{goal}". Output ONLY the domain name, nothing else. Example: "build a todo app" → "Todo"'
                 raw = await self._llm.generate(prompt, system="Output a single word or CamelCase name.")
                 domain = raw.strip().strip('"').strip("'")
                 if domain and len(domain) < 30:
@@ -579,7 +626,13 @@ class GraphGeneratorAgent(BaseETASSAgent):
 
         words = goal.split()
         for i, w in enumerate(words):
-            if w.lower() in ("build", "create", "make", "develop", "write") and i + 1 < len(words):
+            if w.lower() in (
+                "build",
+                "create",
+                "make",
+                "develop",
+                "write",
+            ) and i + 1 < len(words):
                 next_word = words[i + 1]
                 if next_word.lower() in ("a", "an", "the"):
                     if i + 2 < len(words):
@@ -659,10 +712,7 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
         try:
             response = await self._llm.generate(
                 prompt,
-                system=(
-                    "You are an expert software architect. "
-                    "Return ONLY a JSON array of dependency edges."
-                ),
+                system=("You are an expert software architect. Return ONLY a JSON array of dependency edges."),
             )
             m = re.search(r"\[.*\]", response, re.DOTALL)
             deps = json.loads(m.group(0)) if m else []
@@ -670,15 +720,11 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
             logger.warning("[graph_gen] LLM dependency inference failed: %s", e)
             return []
 
-        id_lookup = {
-            n["agent"]: n["id"]
-            for n in nodes
-        }
+        id_lookup = {n["agent"]: n["id"] for n in nodes}
 
         edges = []
 
         for dep in deps:
-
             src = id_lookup.get(dep.get("from"))
             dst = id_lookup.get(dep.get("to"))
 
@@ -733,7 +779,10 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
                 break
 
             repaired_edges = await self._repair_dependencies(
-                graph_data, last_errors, intent, planning_nodes,
+                graph_data,
+                last_errors,
+                intent,
+                planning_nodes,
             )
             graph_data = self._build_raw_graph(agent_map, domain, repaired_edges)
 
@@ -750,7 +799,8 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
 
         # 3. Compute execution order (raises on cycle)
         graph_data["execution_order"] = self._topological_order(
-            graph_data["nodes"], graph_data["edges"],
+            graph_data["nodes"],
+            graph_data["edges"],
         )
 
         # 4. Verify execution order matches graph
@@ -813,7 +863,7 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
                 seen.add(agent)
                 nodes.append(
                     {
-                        "id": f"node_{len(nodes)+1}",
+                        "id": f"node_{len(nodes) + 1}",
                         "name": agent,
                         "agent": agent,
                         "type": "execution",
@@ -832,10 +882,7 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
                 }
             )
 
-        id_lookup = {
-            node["agent"]: node["id"]
-            for node in nodes
-        }
+        id_lookup = {node["agent"]: node["id"] for node in nodes}
         node_ids = {node["id"] for node in nodes}
 
         edges = []
@@ -891,10 +938,12 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
         errors: list[GraphValidationError] = []
 
         if not nodes:
-            errors.append(GraphValidationError(
-                code="EMPTY_GRAPH",
-                message="Graph has no nodes",
-            ))
+            errors.append(
+                GraphValidationError(
+                    code="EMPTY_GRAPH",
+                    message="Graph has no nodes",
+                )
+            )
             return errors
 
         node_ids = [n["id"] for n in nodes]
@@ -908,11 +957,13 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
                 if nid in seen:
                     dupes.append(nid)
                 seen.add(nid)
-            errors.append(GraphValidationError(
-                code="DUPLICATE_NODE_ID",
-                message=f"Duplicate node IDs: {dupes}",
-                detail={"duplicate_ids": dupes},
-            ))
+            errors.append(
+                GraphValidationError(
+                    code="DUPLICATE_NODE_ID",
+                    message=f"Duplicate node IDs: {dupes}",
+                    detail={"duplicate_ids": dupes},
+                )
+            )
 
         # 2. All edges reference existing nodes
         bad_refs: list[dict] = []
@@ -922,11 +973,13 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
             if src not in node_id_set or dst not in node_id_set:
                 bad_refs.append(e)
         if bad_refs:
-            errors.append(GraphValidationError(
-                code="DANGLING_EDGE",
-                message=f"{len(bad_refs)} edge(s) reference non-existent nodes",
-                detail={"edges": bad_refs},
-            ))
+            errors.append(
+                GraphValidationError(
+                    code="DANGLING_EDGE",
+                    message=f"{len(bad_refs)} edge(s) reference non-existent nodes",
+                    detail={"edges": bad_refs},
+                )
+            )
 
         # 3. No duplicate edges
         edge_tuples = [(e.get("from", ""), e.get("to", "")) for e in edges]
@@ -938,20 +991,24 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
                 if key in seen_edges:
                     dupes_edges.append(e)
                 seen_edges.add(key)
-            errors.append(GraphValidationError(
-                code="DUPLICATE_EDGE",
-                message=f"{len(dupes_edges)} duplicate edge(s)",
-                detail={"edges": dupes_edges},
-            ))
+            errors.append(
+                GraphValidationError(
+                    code="DUPLICATE_EDGE",
+                    message=f"{len(dupes_edges)} duplicate edge(s)",
+                    detail={"edges": dupes_edges},
+                )
+            )
 
         # 4. No self-loops
         self_loops = [e for e in edges if e.get("from") == e.get("to")]
         if self_loops:
-            errors.append(GraphValidationError(
-                code="SELF_LOOP",
-                message=f"{len(self_loops)} self-loop(s) detected",
-                detail={"edges": self_loops},
-            ))
+            errors.append(
+                GraphValidationError(
+                    code="SELF_LOOP",
+                    message=f"{len(self_loops)} self-loop(s) detected",
+                    detail={"edges": self_loops},
+                )
+            )
 
         # 5. Graph is acyclic (DFS) — over EXECUTION edges only.
         #    A type="feedback" edge is control flow, not execution flow: it is a
@@ -1005,11 +1062,13 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
                         break
 
             if cycle_path:
-                errors.append(GraphValidationError(
-                    code="CYCLE_DETECTED",
-                    message=f"Graph contains a cycle: {' → '.join(cycle_path)} → {cycle_path[0]}",
-                    detail={"cycle": cycle_path},
-                ))
+                errors.append(
+                    GraphValidationError(
+                        code="CYCLE_DETECTED",
+                        message=f"Graph contains a cycle: {' → '.join(cycle_path)} → {cycle_path[0]}",
+                        detail={"cycle": cycle_path},
+                    )
+                )
 
         return errors
 
@@ -1107,18 +1166,13 @@ the previous agent's output (e.g. a compiler: Lexer -> Parser -> CodeGen). Do no
                 cycle_names = [id_to_agent.get(nid, nid) for nid in cycle]
                 viz = " → ".join(cycle_names) + f" → {cycle_names[0]}"
                 error_sections.append(
-                    f"Cycle detected:\n\n{viz}\n\n"
-                    "Remove the minimum number of edges necessary to produce a valid DAG."
+                    f"Cycle detected:\n\n{viz}\n\nRemove the minimum number of edges necessary to produce a valid DAG."
                 )
             elif err.code == "SELF_LOOP":
-                error_sections.append(
-                    f"Self-loop detected: {err.message}\n\n"
-                    "Remove the self-referencing edge."
-                )
+                error_sections.append(f"Self-loop detected: {err.message}\n\nRemove the self-referencing edge.")
             elif err.code == "DANGLING_EDGE":
                 error_sections.append(
-                    f"Invalid edge references: {err.message}\n\n"
-                    "Remove edges that reference non-existent agents."
+                    f"Invalid edge references: {err.message}\n\nRemove edges that reference non-existent agents."
                 )
             else:
                 error_sections.append(f"[{err.code}] {err.message}")
@@ -1132,7 +1186,7 @@ Current edges:
 
 {error_str}
 
-Agents: {', '.join(agent_names)}
+Agents: {", ".join(agent_names)}
 
 Rules:
 - Preserve every valid dependency.
@@ -1185,7 +1239,6 @@ Return ONLY a JSON array of corrected edges:
         execution order is never returned.
         """
         real_edges = _execution_edges(edges)
-        node_ids = {n["id"] for n in nodes}
         in_degree = {n["id"]: 0 for n in nodes}
         for e in real_edges:
             # Ignore edges to nodes that don't exist — _validate_graph reports those as

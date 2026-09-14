@@ -39,6 +39,7 @@ _KEYSTORE_HASH_KEY = "monkeybrain:keystore:keys"
 
 def _get_cipher():
     from cryptography.fernet import Fernet
+
     secret = os.getenv("KEYSTORE_SECRET")
     if not secret:
         raise RuntimeError(
@@ -59,6 +60,7 @@ def _make_redis_client() -> Any:
     gap those fixes closed elsewhere."""
     try:
         import redis as _redis
+
         url = os.getenv("REDIS_URL", "").strip()
         if not url:
             url = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/0"
@@ -120,15 +122,15 @@ class SecureKeystore:
         key_id = str(uuid4())
         encrypted = self._cipher.encrypt(api_key.encode()).decode()
         record: dict[str, Any] = {
-            "key_id":     key_id,
-            "user_id":    user_id,
-            "service":    service,
-            "key_name":   key_name,
-            "api_url":    api_url,
-            "config":     config or {},
+            "key_id": key_id,
+            "user_id": user_id,
+            "service": service,
+            "key_name": key_name,
+            "api_url": api_url,
+            "config": config or {},
             "_encrypted": encrypted,
             "created_at": datetime.now(UTC).isoformat(),
-            "is_active":  True,
+            "is_active": True,
         }
         self._store[key_id] = record
         self._persist(key_id, record)
@@ -167,7 +169,11 @@ class SecureKeystore:
     def get_config(self, service: str, user_id: str) -> dict[str, Any] | None:
         for record in self._store.values():
             if record["user_id"] == user_id and record["service"] == service and record["is_active"]:
-                return {"service": service, "api_url": record["api_url"], **record["config"]}
+                return {
+                    "service": service,
+                    "api_url": record["api_url"],
+                    **record["config"],
+                }
         return None
 
     def summary(self, user_id: str | None = None) -> dict[str, Any]:

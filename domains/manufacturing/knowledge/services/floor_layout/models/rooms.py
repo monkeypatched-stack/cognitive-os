@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field, model_validator
 
-
 RoomType = Literal[
     "Production",
     "Storage",
@@ -15,6 +14,7 @@ RoomType = Literal[
     "Other",
 ]
 
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -26,10 +26,11 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
+
 class Room(BaseModel):
-    room_id:     str            = Field(..., min_length=1)
-    floor_id:    str            = Field(..., min_length=1)
-    name:        str            = Field(..., min_length=1)
+    room_id: str = Field(..., min_length=1)
+    floor_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -45,7 +46,7 @@ class RoomCreate(Room):
 
 
 class RoomUpdate(BaseModel):
-    name:        str            = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
     updated_at: datetime = Field(default_factory=utc_now)
 
 
@@ -55,7 +56,7 @@ class RoomResponse(Room):
 
 
 class PaginatedRoomResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   List[RoomResponse]
+    results: List[RoomResponse]

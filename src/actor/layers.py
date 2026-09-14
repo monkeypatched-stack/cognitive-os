@@ -14,6 +14,7 @@ from uuid import uuid4
 @dataclass
 class Request:
     """#0: API REQUEST"""
+
     actor_id: str
     question: str
     run_id: str = field(default_factory=lambda: f"run_{uuid4().hex[:8]}")
@@ -22,6 +23,7 @@ class Request:
 @dataclass
 class Intent:
     """#1: INTENT - Intent Classification"""
+
     intent: dict
     confidence: float
     workload_id: str
@@ -30,6 +32,7 @@ class Intent:
 @dataclass
 class Goal:
     """#2: GOAL - Goal Resolution"""
+
     name: str
     description: str
     required_inputs: List[str]
@@ -42,6 +45,7 @@ class Goal:
 @dataclass
 class Entity:
     """Entity extracted from natural language"""
+
     name: str
     entity_type: str
     attributes: dict = field(default_factory=dict)
@@ -50,6 +54,7 @@ class Entity:
 @dataclass
 class Constraint:
     """Constraint extracted from natural language"""
+
     constraint_type: str
     value: Any
     description: str = ""
@@ -58,6 +63,7 @@ class Constraint:
 @dataclass
 class Relationship:
     """Relationship between entities"""
+
     source: str
     target: str
     relationship_type: str
@@ -67,6 +73,7 @@ class Relationship:
 @dataclass
 class GoalIR:
     """#4: GoalIR - Entities, Constraints, Relationships"""
+
     intent_type: str
     domain: str
     goal: str
@@ -79,6 +86,7 @@ class GoalIR:
 @dataclass
 class World:
     """#5: WORLD - Build/Load Transition Map"""
+
     transitions: int
     domains: List[str]
     states: List[str]
@@ -91,6 +99,7 @@ class World:
 @dataclass
 class ActorLayerMetrics:
     """#7: RUNTIME - Belief, Trust, Reward, Memory"""
+
     belief_version: int
     trust_score: float
     reward_weight: float
@@ -100,6 +109,7 @@ class ActorLayerMetrics:
 @dataclass
 class Explore:
     """#8: EXPLORE - Domain-aware, Learn, Build Φ"""
+
     observations_fused: int
     transitions_learned: int
     phi_entries: int
@@ -109,6 +119,7 @@ class Explore:
 @dataclass
 class Plan:
     """#9: PLAN - RuntimeConstraintEngine"""
+
     start_state: str
     goal_state: str
     plan: List[str]
@@ -120,6 +131,7 @@ class Plan:
 @dataclass
 class Execute:
     """#10: EXECUTE - Observe, Learn, Bellman, Φ, Predict"""
+
     executed_steps: int
     observed: List[tuple]
     bellman_updates: int
@@ -131,6 +143,7 @@ class Execute:
 @dataclass
 class Response:
     """#15: RESPONSE - Final Actor State + Final World State"""
+
     run_id: str
     actor_id: str
     question: str

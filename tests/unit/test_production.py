@@ -1,15 +1,17 @@
 """Production tests — identity, trust, storage, security, governance, audit."""
+
 from __future__ import annotations
 
 import pytest
 import time
 
-
 # ── Identity Tests ──────────────────────────────────────────────────────────
+
 
 class TestRuntimeIdentity:
     def test_create_identity(self):
         from src.monkey_brain.kernel.identity import create_identity
+
         id1 = create_identity("test-rt-1", runtime_type="enterprise", owner="acme")
         assert id1.is_valid
         assert id1.runtime_type == "enterprise"
@@ -17,7 +19,13 @@ class TestRuntimeIdentity:
         assert "PUBLIC KEY" in id1.public_key_pem
 
     def test_sign_and_verify(self):
-        from src.monkey_brain.kernel.identity import create_identity, sign_payload, verify_signed_payload, get_key_manager
+        from src.monkey_brain.kernel.identity import (
+            create_identity,
+            sign_payload,
+            verify_signed_payload,
+            get_key_manager,
+        )
+
         id1 = create_identity("signer-1")
         km = get_key_manager()
         key = km.get_or_create("signer-1")
@@ -28,7 +36,13 @@ class TestRuntimeIdentity:
         assert reason == "ok"
 
     def test_wrong_key_rejects(self):
-        from src.monkey_brain.kernel.identity import create_identity, sign_payload, verify_signed_payload, get_key_manager
+        from src.monkey_brain.kernel.identity import (
+            create_identity,
+            sign_payload,
+            verify_signed_payload,
+            get_key_manager,
+        )
+
         id1 = create_identity("signer-a")
         id2 = create_identity("signer-b")
         km = get_key_manager()
@@ -40,7 +54,13 @@ class TestRuntimeIdentity:
         assert reason == "signature_invalid"
 
     def test_tamper_detection(self):
-        from src.monkey_brain.kernel.identity import create_identity, sign_payload, verify_signed_payload, get_key_manager
+        from src.monkey_brain.kernel.identity import (
+            create_identity,
+            sign_payload,
+            verify_signed_payload,
+            get_key_manager,
+        )
+
         id1 = create_identity("tamper-test")
         km = get_key_manager()
         key = km.get_or_create("tamper-test")
@@ -51,7 +71,14 @@ class TestRuntimeIdentity:
         assert not valid
 
     def test_replay_protection(self):
-        from src.monkey_brain.kernel.identity import NonceStore, create_identity, sign_payload, verify_signed_payload, get_key_manager
+        from src.monkey_brain.kernel.identity import (
+            NonceStore,
+            create_identity,
+            sign_payload,
+            verify_signed_payload,
+            get_key_manager,
+        )
+
         id1 = create_identity("replay-test")
         km = get_key_manager()
         key = km.get_or_create("replay-test")
@@ -66,7 +93,13 @@ class TestRuntimeIdentity:
         assert reason == "replay_detected"
 
     def test_timestamp_expired(self):
-        from src.monkey_brain.kernel.identity import create_identity, sign_payload, verify_signed_payload, get_key_manager
+        from src.monkey_brain.kernel.identity import (
+            create_identity,
+            sign_payload,
+            verify_signed_payload,
+            get_key_manager,
+        )
+
         id1 = create_identity("expire-test")
         km = get_key_manager()
         key = km.get_or_create("expire-test")
@@ -80,9 +113,15 @@ class TestRuntimeIdentity:
 
 # ── Trust Tests ─────────────────────────────────────────────────────────────
 
+
 class TestTrustInfrastructure:
     def test_typed_relationship(self):
-        from src.monkey_brain.kernel.compile.trust import TrustNetwork, Relationship, Perm
+        from src.monkey_brain.kernel.compile.trust import (
+            TrustNetwork,
+            Relationship,
+            Perm,
+        )
+
         tn = TrustNetwork()
         tn.connect("rt-a", "rt-b", Relationship.ENTERPRISE_TO_GOVERNMENT, trust=0.6)
         assert tn.permits("rt-a", "rt-b", Perm.SHARE_EXECUTION_GRAPHS)
@@ -90,6 +129,7 @@ class TestTrustInfrastructure:
 
     def test_revocation(self):
         from src.monkey_brain.kernel.compile.trust import TrustNetwork, Relationship
+
         tn = TrustNetwork()
         tn.connect("rt-a", "rt-b", Relationship.COLLEAGUE)
         assert tn.edge("rt-a", "rt-b") is not None
@@ -99,7 +139,12 @@ class TestTrustInfrastructure:
         assert len(tn._revoked) == 1
 
     def test_permission_revocation(self):
-        from src.monkey_brain.kernel.compile.trust import TrustNetwork, Relationship, Perm
+        from src.monkey_brain.kernel.compile.trust import (
+            TrustNetwork,
+            Relationship,
+            Perm,
+        )
+
         tn = TrustNetwork()
         tn.connect("rt-a", "rt-b", Relationship.COLLEAGUE)
         assert tn.permits("rt-a", "rt-b", Perm.EXECUTE_JOINTLY)
@@ -109,6 +154,7 @@ class TestTrustInfrastructure:
 
     def test_reputation(self):
         from src.monkey_brain.kernel.compile.trust import TrustNetwork, Relationship
+
         tn = TrustNetwork()
         tn.connect("rt-a", "rt-b", Relationship.COLLEAGUE)
         rep = tn.update_reputation("rt-a", "rt-b", 0.1)
@@ -116,6 +162,7 @@ class TestTrustInfrastructure:
 
     def test_audit_trail(self):
         from src.monkey_brain.kernel.compile.trust import TrustNetwork, Relationship
+
         tn = TrustNetwork()
         tn.connect("rt-a", "rt-b", Relationship.FRIEND)
         tn.grant("rt-a", "rt-b", "custom.perm")
@@ -124,6 +171,7 @@ class TestTrustInfrastructure:
 
     def test_delegation_path(self):
         from src.monkey_brain.kernel.compile.trust import TrustNetwork, Relationship
+
         tn = TrustNetwork()
         tn.connect("gov", "region", Relationship.GOVERNMENT_TO_GOVERNMENT)
         tn.connect("region", "enterprise", Relationship.GOVERNMENT_TO_GOVERNMENT)
@@ -133,9 +181,11 @@ class TestTrustInfrastructure:
 
 # ── Agreement Tests ─────────────────────────────────────────────────────────
 
+
 class TestAgreements:
     def test_create_and_query(self):
         from src.monkey_brain.kernel.agreements import Agreement, AgreementStore
+
         store = AgreementStore()
         a = Agreement(participants=["a", "b"], knowledge_permissions={"graph"})
         store.register(a)
@@ -145,6 +195,7 @@ class TestAgreements:
 
     def test_revoke(self):
         from src.monkey_brain.kernel.agreements import Agreement, AgreementStore
+
         store = AgreementStore()
         a = Agreement(participants=["a", "b"])
         store.register(a)
@@ -153,18 +204,23 @@ class TestAgreements:
 
     def test_expiry(self):
         from src.monkey_brain.kernel.agreements import Agreement, AgreementStore
+
         store = AgreementStore()
         a = Agreement(participants=["a", "b"], duration=1)  # 1 second
-        import time; time.sleep(1.1)  # wait for expiry
+        import time
+
+        time.sleep(1.1)  # wait for expiry
         assert not a.is_active
         assert a.is_expired
 
 
 # ── Storage Tests ───────────────────────────────────────────────────────────
 
+
 class TestStorage:
     def test_append_and_query(self):
         from src.monkey_brain.kernel.storage import AppendOnlyLog
+
         log = AppendOnlyLog()
         log.append("tenant-1", "test.event", {"key": "value"})
         log.append("tenant-1", "other.event", {"key": "value2"})
@@ -174,6 +230,7 @@ class TestStorage:
 
     def test_revision_tracking(self):
         from src.monkey_brain.kernel.storage import AppendOnlyLog
+
         log = AppendOnlyLog()
         log.append("t1", "e1", {})
         log.append("t1", "e2", {})
@@ -181,6 +238,7 @@ class TestStorage:
 
     def test_tenant_isolation(self):
         from src.monkey_brain.kernel.storage import AppendOnlyLog
+
         log = AppendOnlyLog()
         log.append("t1", "e", {"v": 1})
         log.append("t2", "e", {"v": 2})
@@ -191,9 +249,11 @@ class TestStorage:
 
 # ── Security Tests ──────────────────────────────────────────────────────────
 
+
 class TestSecurity:
     def test_identifier_validation(self):
         from src.monkey_brain.kernel.security import validate_identifier
+
         assert validate_identifier("valid_name")[0]
         assert not validate_identifier("")[0]
         assert not validate_identifier("has spaces")[0]
@@ -201,18 +261,21 @@ class TestSecurity:
 
     def test_domain_validation(self):
         from src.monkey_brain.kernel.security import validate_domain
+
         assert validate_domain("manufacturing")[0]
         assert not validate_domain("")[0]
         assert not validate_domain("Has Capital")[0]
 
     def test_input_sanitization(self):
         from src.monkey_brain.kernel.security import sanitize_input
+
         assert sanitize_input("  hello  ") == "hello"
         with pytest.raises(ValueError):
             sanitize_input("<script>alert('xss')</script>")
 
     def test_rate_limiter(self):
         from src.monkey_brain.kernel.security import RateLimiter
+
         rl = RateLimiter(rate=2, burst=2)
         assert rl.allow("user-1")
         assert rl.allow("user-1")
@@ -220,6 +283,7 @@ class TestSecurity:
 
     def test_bounded_queue(self):
         from src.monkey_brain.kernel.security import BoundedQueue
+
         q = BoundedQueue(max_size=3)
         assert q.put("a")
         assert q.put("b")
@@ -230,6 +294,7 @@ class TestSecurity:
 
 
 # ── Governance Tests ────────────────────────────────────────────────────────
+
 
 class TestGovernance:
     """GovernanceEngine.evaluate() now delegates to real OPA
@@ -249,8 +314,12 @@ class TestGovernance:
         async def fake_evaluate_full(policy_path, input_data, *, default_allow=True):
             assert policy_path == "agentos/governance"
             deny = input_data["action"] == "export_classified"
-            return {"allowed": not deny, "obligations": [], "source": "opa",
-                    "reason": "charter denies action \"export_classified\"" if deny else ""}
+            return {
+                "allowed": not deny,
+                "obligations": [],
+                "source": "opa",
+                "reason": 'charter denies action "export_classified"' if deny else "",
+            }
 
         monkeypatch.setattr("services.common.opa.evaluate_full", fake_evaluate_full)
 
@@ -271,6 +340,7 @@ class TestGovernance:
         monkeypatch.delenv("OPA_URL", raising=False)
         monkeypatch.setenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "true")
         from src.monkey_brain.kernel.governance import GovernanceEngine
+
         engine = GovernanceEngine()
         result = await engine.evaluate("unknown-runtime", "anything")
         assert result["allowed"]
@@ -284,7 +354,12 @@ class TestGovernance:
         from src.monkey_brain.kernel.governance import GovernanceEngine
 
         async def fake_evaluate_full(policy_path, input_data, *, default_allow=True):
-            return {"allowed": False, "obligations": [], "reason": "runtime_blocked", "source": "opa"}
+            return {
+                "allowed": False,
+                "obligations": [],
+                "reason": "runtime_blocked",
+                "source": "opa",
+            }
 
         monkeypatch.setattr("services.common.opa.evaluate_full", fake_evaluate_full)
 
@@ -296,9 +371,11 @@ class TestGovernance:
 
 # ── Audit Tests ─────────────────────────────────────────────────────────────
 
+
 class TestAudit:
     def test_record_and_query(self):
         from src.monkey_brain.kernel.audit import AuditLog
+
         log = AuditLog()
         log.record("rt-1", "execute", "run_query", actor="user-1", outcome="success")
         entries = log.query("rt-1")
@@ -307,6 +384,7 @@ class TestAudit:
 
     def test_hash_chain_integrity(self):
         from src.monkey_brain.kernel.audit import AuditLog
+
         log = AuditLog()
         log.record("rt-1", "test", "a")
         log.record("rt-1", "test", "b")
@@ -316,6 +394,7 @@ class TestAudit:
 
     def test_tamper_breaks_chain(self):
         from src.monkey_brain.kernel.audit import AuditLog
+
         log = AuditLog()
         log.record("rt-1", "test", "a")
         log.record("rt-1", "test", "b")
@@ -328,10 +407,16 @@ class TestAudit:
 
 # ── Integration Test ────────────────────────────────────────────────────────
 
+
 class TestIntegration:
     def test_full_identity_trust_agreement_flow(self):
         """End-to-end: create identities, establish trust, make agreement, exchange."""
-        from src.monkey_brain.kernel.identity import create_identity, sign_payload, verify_signed_payload, get_key_manager
+        from src.monkey_brain.kernel.identity import (
+            create_identity,
+            sign_payload,
+            verify_signed_payload,
+            get_key_manager,
+        )
         from src.monkey_brain.kernel.compile.trust import TrustNetwork, Relationship
         from src.monkey_brain.kernel.agreements import Agreement, AgreementStore
 

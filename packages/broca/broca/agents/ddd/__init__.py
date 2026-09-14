@@ -6,6 +6,7 @@ Every DDD construct is an executable cognitive abstraction:
 Agents are registered via BrocaAgentRegistry — never imported directly
 into MonkeyBrain core (loose coupling).
 """
+
 from broca.agents.ddd._base_ddd import BaseDDDAgent
 from broca.agents.ddd.domain import DomainAgent
 from broca.agents.ddd.bounded_context import BoundedContextAgent

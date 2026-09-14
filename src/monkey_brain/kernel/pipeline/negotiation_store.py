@@ -7,6 +7,7 @@ transition-gate check, action_executor.py) opts a step into this state
 machine when TransitionGate.evaluate() returns requires_negotiation=True —
 ActionExecutor.execute() is the only caller that reads it.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,8 +38,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -74,26 +77,38 @@ class PendingNegotiation:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "execution_id": self.execution_id, "actor_id": self.actor_id,
-            "step_index": self.step_index, "capability": self.capability,
-            "action_id": self.action_id, "proposed_transition": self.proposed_transition,
-            "counterparties": self.counterparties, "reason": self.reason,
-            "correlation_id": self.correlation_id, "causation_id": self.causation_id,
-            "created_at": self.created_at, "decided": self.decided,
-            "decided_at": self.decided_at, "original_question": self.original_question,
+            "execution_id": self.execution_id,
+            "actor_id": self.actor_id,
+            "step_index": self.step_index,
+            "capability": self.capability,
+            "action_id": self.action_id,
+            "proposed_transition": self.proposed_transition,
+            "counterparties": self.counterparties,
+            "reason": self.reason,
+            "correlation_id": self.correlation_id,
+            "causation_id": self.causation_id,
+            "created_at": self.created_at,
+            "decided": self.decided,
+            "decided_at": self.decided_at,
+            "original_question": self.original_question,
         }
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "PendingNegotiation":
         return PendingNegotiation(
-            execution_id=d.get("execution_id", ""), actor_id=d.get("actor_id", ""),
-            step_index=int(d.get("step_index", -1)), capability=d.get("capability", ""),
+            execution_id=d.get("execution_id", ""),
+            actor_id=d.get("actor_id", ""),
+            step_index=int(d.get("step_index", -1)),
+            capability=d.get("capability", ""),
             action_id=d.get("action_id", ""),
             proposed_transition=dict(d.get("proposed_transition", {}) or {}),
             counterparties=list(d.get("counterparties", []) or []),
-            reason=d.get("reason", ""), correlation_id=d.get("correlation_id", ""),
-            causation_id=d.get("causation_id", ""), created_at=float(d.get("created_at", time.time())),
-            decided=d.get("decided"), decided_at=d.get("decided_at"),
+            reason=d.get("reason", ""),
+            correlation_id=d.get("correlation_id", ""),
+            causation_id=d.get("causation_id", ""),
+            created_at=float(d.get("created_at", time.time())),
+            decided=d.get("decided"),
+            decided_at=d.get("decided_at"),
             original_question=d.get("original_question", ""),
         )
 
@@ -103,10 +118,18 @@ def save_pending_negotiation(negotiation: PendingNegotiation) -> bool:
     if client is None or not negotiation.execution_id:
         return False
     try:
-        client.set(f"{_NEGOTIATION_KEY_PREFIX}{negotiation.execution_id}", json.dumps(negotiation.to_dict()))
+        client.set(
+            f"{_NEGOTIATION_KEY_PREFIX}{negotiation.execution_id}",
+            json.dumps(negotiation.to_dict()),
+        )
         return True
     except Exception as exc:
-        logger.warning("save_pending_negotiation(%s) failed: %s", negotiation.execution_id, exc, exc_info=True)
+        logger.warning(
+            "save_pending_negotiation(%s) failed: %s",
+            negotiation.execution_id,
+            exc,
+            exc_info=True,
+        )
         return False
 
 

@@ -365,9 +365,9 @@ class GeneratedWorkOrder:
             "created_at": self.created_at.isoformat(),
             "expected_completion": self.expected_completion.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat()
-            if self.completed_at
-            else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "total_time_hrs": (
                 (self.completed_at - self.started_at).total_seconds() / 3600
                 if self.started_at and self.completed_at
@@ -421,9 +421,9 @@ class GeneratedWorkOrder:
             "created_at": self.created_at.isoformat(),
             "expected_completion": self.expected_completion.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat()
-            if self.completed_at
-            else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "remarks": self.remarks,
             "attachments": self.attachments,
             "qc_checks_completed": self.qc_checks_completed,
@@ -639,9 +639,9 @@ class BatchWorkOrderAgent:
             "completed": completed,
             "rejected": rejected,
             "overdue": overdue,
-            "completion_rate": f"{(completed / total * 100):.1f}%"
-            if total > 0
-            else "N/A",
+            "completion_rate": (
+                f"{(completed / total * 100):.1f}%" if total > 0 else "N/A"
+            ),
         }
 
     def to_dict(self) -> Dict[str, Any]:

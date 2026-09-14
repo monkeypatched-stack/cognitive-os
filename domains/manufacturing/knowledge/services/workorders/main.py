@@ -7,21 +7,43 @@ from services.common.logging import configure_service_logging, install_request_l
 from services.common.tracing import install_route_tracing
 
 from services.common.db import close_db, connect_db
-from services.workorders.routers.area_room_usage_ledger import router as area_room_usage_ledger_router
-from services.workorders.routers.batch_execution_records import router as batch_execution_records_router
-from services.workorders.routers.batch_release_workflows import router as batch_release_workflows_router
-from services.workorders.routers.batch_step_executions import router as batch_step_executions_router
-from services.workorders.routers.equipment_usage_ledger import router as equipment_usage_ledger_router
-from services.workorders.routers.executed_bmr_records import router as executed_bmr_records_router
-from services.workorders.routers.executed_bpr_records import router as executed_bpr_records_router
-from services.workorders.routers.executed_instruction_evidence import router as executed_instruction_evidence_router
-from services.workorders.routers.ipc_result_records import router as ipc_result_records_router
-from services.workorders.routers.production_batches import router as production_batches_router
+from services.workorders.routers.area_room_usage_ledger import (
+    router as area_room_usage_ledger_router,
+)
+from services.workorders.routers.batch_execution_records import (
+    router as batch_execution_records_router,
+)
+from services.workorders.routers.batch_release_workflows import (
+    router as batch_release_workflows_router,
+)
+from services.workorders.routers.batch_step_executions import (
+    router as batch_step_executions_router,
+)
+from services.workorders.routers.equipment_usage_ledger import (
+    router as equipment_usage_ledger_router,
+)
+from services.workorders.routers.executed_bmr_records import (
+    router as executed_bmr_records_router,
+)
+from services.workorders.routers.executed_bpr_records import (
+    router as executed_bpr_records_router,
+)
+from services.workorders.routers.executed_instruction_evidence import (
+    router as executed_instruction_evidence_router,
+)
+from services.workorders.routers.ipc_result_records import (
+    router as ipc_result_records_router,
+)
+from services.workorders.routers.production_batches import (
+    router as production_batches_router,
+)
 from services.workorders.routers.work_orders import router as workorders_router
-from services.workorders.routers.yield_reconciliation_records import router as yield_reconciliation_records_router
-
+from services.workorders.routers.yield_reconciliation_records import (
+    router as yield_reconciliation_records_router,
+)
 
 logger = configure_service_logging("workorders")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,7 +63,9 @@ install_route_tracing(app, "workorders")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

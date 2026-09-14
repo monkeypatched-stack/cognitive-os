@@ -1,4 +1,5 @@
 """Tests for Conflict Resolution Layer."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,7 +8,9 @@ from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor
 from src.monkey_brain.kernel.compile.society import Actor, ActorNetwork
 from src.monkey_brain.kernel.compile.trust import Relationship
 from src.monkey_brain.kernel.compile.conflict_resolution import (
-    ConflictResolver, BeliefConflict, ResolutionStrategy
+    ConflictResolver,
+    BeliefConflict,
+    ResolutionStrategy,
 )
 
 
@@ -16,21 +19,33 @@ class TestBeliefConflict:
 
     def test_severity_zero_when_equal(self):
         conflict = BeliefConflict(
-            src="s1", dst="s2", domain="test",
-            actor_a="a", actor_b="b",
-            value_a=0.5, value_b=0.5,
-            confidence_a=0.8, confidence_b=0.7,
-            timestamp_a=1.0, timestamp_b=2.0,
+            src="s1",
+            dst="s2",
+            domain="test",
+            actor_a="a",
+            actor_b="b",
+            value_a=0.5,
+            value_b=0.5,
+            confidence_a=0.8,
+            confidence_b=0.7,
+            timestamp_a=1.0,
+            timestamp_b=2.0,
         )
         assert conflict.severity == 0.0
 
     def test_severity_scales_with_difference(self):
         conflict = BeliefConflict(
-            src="s1", dst="s2", domain="test",
-            actor_a="a", actor_b="b",
-            value_a=0.9, value_b=0.1,
-            confidence_a=0.8, confidence_b=0.7,
-            timestamp_a=1.0, timestamp_b=2.0,
+            src="s1",
+            dst="s2",
+            domain="test",
+            actor_a="a",
+            actor_b="b",
+            value_a=0.9,
+            value_b=0.1,
+            confidence_a=0.8,
+            confidence_b=0.7,
+            timestamp_a=1.0,
+            timestamp_b=2.0,
         )
         assert 0.0 < conflict.severity <= 1.0
 
@@ -61,11 +76,17 @@ class TestConflictResolver:
     def test_resolve_highest_confidence(self):
         """Resolve by highest confidence."""
         conflict = BeliefConflict(
-            src="s1", dst="s2", domain="test",
-            actor_a="alice", actor_b="bob",
-            value_a=0.9, value_b=0.3,
-            confidence_a=0.9, confidence_b=0.3,
-            timestamp_a=1.0, timestamp_b=2.0,
+            src="s1",
+            dst="s2",
+            domain="test",
+            actor_a="alice",
+            actor_b="bob",
+            value_a=0.9,
+            value_b=0.3,
+            confidence_a=0.9,
+            confidence_b=0.3,
+            timestamp_a=1.0,
+            timestamp_b=2.0,
         )
 
         resolver = ConflictResolver(ResolutionStrategy.HIGHEST_CONFIDENCE)
@@ -77,11 +98,17 @@ class TestConflictResolver:
     def test_resolve_most_recent(self):
         """Resolve by most recent observation."""
         conflict = BeliefConflict(
-            src="s1", dst="s2", domain="test",
-            actor_a="alice", actor_b="bob",
-            value_a=0.9, value_b=0.3,
-            confidence_a=0.8, confidence_b=0.7,
-            timestamp_a=1.0, timestamp_b=5.0,  # Bob more recent
+            src="s1",
+            dst="s2",
+            domain="test",
+            actor_a="alice",
+            actor_b="bob",
+            value_a=0.9,
+            value_b=0.3,
+            confidence_a=0.8,
+            confidence_b=0.7,
+            timestamp_a=1.0,
+            timestamp_b=5.0,  # Bob more recent
         )
 
         resolver = ConflictResolver(ResolutionStrategy.MOST_RECENT)
@@ -93,11 +120,17 @@ class TestConflictResolver:
     def test_resolve_trust_weighted(self):
         """Resolve weighted by trust score."""
         conflict = BeliefConflict(
-            src="s1", dst="s2", domain="test",
-            actor_a="alice", actor_b="bob",
-            value_a=0.9, value_b=0.3,
-            confidence_a=0.8, confidence_b=0.7,
-            timestamp_a=1.0, timestamp_b=2.0,
+            src="s1",
+            dst="s2",
+            domain="test",
+            actor_a="alice",
+            actor_b="bob",
+            value_a=0.9,
+            value_b=0.3,
+            confidence_a=0.8,
+            confidence_b=0.7,
+            timestamp_a=1.0,
+            timestamp_b=2.0,
             trust_score=0.8,  # High trust in alice
         )
 
@@ -112,11 +145,17 @@ class TestConflictResolver:
     def test_resolve_merge(self):
         """Resolve by averaging."""
         conflict = BeliefConflict(
-            src="s1", dst="s2", domain="test",
-            actor_a="alice", actor_b="bob",
-            value_a=0.9, value_b=0.3,
-            confidence_a=0.8, confidence_b=0.7,
-            timestamp_a=1.0, timestamp_b=2.0,
+            src="s1",
+            dst="s2",
+            domain="test",
+            actor_a="alice",
+            actor_b="bob",
+            value_a=0.9,
+            value_b=0.3,
+            confidence_a=0.8,
+            confidence_b=0.7,
+            timestamp_a=1.0,
+            timestamp_b=2.0,
         )
 
         resolver = ConflictResolver(ResolutionStrategy.MERGE)

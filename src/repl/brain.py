@@ -1,4 +1,5 @@
 """Brain commands."""
+
 from __future__ import annotations
 
 
@@ -14,8 +15,10 @@ def brain_validate(
 ):
     """Validate a MicroserviceSpec without generating code.  [make check]"""
     import json as _json
+
     if spec.startswith("@"):
         from pathlib import Path as _Path
+
         try:
             body = _json.loads(_Path(spec[1:]).read_text())
         except (FileNotFoundError, _json.JSONDecodeError) as e:
@@ -40,9 +43,14 @@ def brain_benchmark(
 ):
     """Run a full sim→query→loss Bellman cycle and report timing + loss.  [perf]"""
     import time as _time
+
     t0 = _time.perf_counter()
-    _brain_post("/api/v1/agentos/test-bellman-cycle", url or _brain_url(),
-                {"question": question}, json_output)
+    _brain_post(
+        "/api/v1/agentos/test-bellman-cycle",
+        url or _brain_url(),
+        {"question": question},
+        json_output,
+    )
     elapsed = _time.perf_counter() - t0
     if not json_output:
         typer.echo(f"\n  benchmark: {elapsed:.3f}s total")
@@ -58,23 +66,23 @@ def brain_memory(
     """Show loaded somatic charts, prompts, and knowledge packs.  [/proc/meminfo]"""
     import httpx, json as _json
     from pathlib import Path as _Path
+
     base = url or _brain_url()
 
     result: dict = {}
 
     try:
-        charts_r  = httpx.get(f"{base}/somatic/charts",   timeout=8)
-        prompts_r = httpx.get(f"{base}/somatic/prompts",  timeout=8)
-        caps_r    = httpx.get(f"{base}/somatic/capabilities", timeout=8)
-        result["charts"]       = charts_r.json()  if charts_r.status_code  == 200 else {}
-        result["prompts"]      = prompts_r.json() if prompts_r.status_code == 200 else {}
-        result["capabilities"] = caps_r.json()    if caps_r.status_code    == 200 else {}
+        charts_r = httpx.get(f"{base}/somatic/charts", timeout=8)
+        prompts_r = httpx.get(f"{base}/somatic/prompts", timeout=8)
+        caps_r = httpx.get(f"{base}/somatic/capabilities", timeout=8)
+        result["charts"] = charts_r.json() if charts_r.status_code == 200 else {}
+        result["prompts"] = prompts_r.json() if prompts_r.status_code == 200 else {}
+        result["capabilities"] = caps_r.json() if caps_r.status_code == 200 else {}
     except httpx.ConnectError:
         result["error"] = f"brain offline at {base}"
 
     kp_dir = _Path("/Users/prashunjaveri/Code/monkeypatched/somatic/knowledge_packs")
-    result["knowledge_packs"] = [p.stem for p in sorted(kp_dir.glob("*.yaml"))] \
-        if kp_dir.exists() else []
+    result["knowledge_packs"] = [p.stem for p in sorted(kp_dir.glob("*.yaml"))] if kp_dir.exists() else []
 
     if json_output:
         typer.echo(_json.dumps(result, indent=2))
@@ -124,15 +132,16 @@ def brain_identity(
 ):
     """Show prompt-pipeline identity — health, stability, and cooldown state.  [whoami / id]"""
     import httpx, json as _json
+
     base = url or _brain_url()
     try:
-        health_r    = httpx.get(f"{base}/api/v1/agentos/prompt/health",    timeout=8)
+        health_r = httpx.get(f"{base}/api/v1/agentos/prompt/health", timeout=8)
         stability_r = httpx.get(f"{base}/api/v1/agentos/prompt/stability", timeout=8)
     except httpx.ConnectError:
         typer.echo(f"  Cannot connect to MonkeyBrain at {base}.", err=True)
         raise typer.Exit(1)
     result = {
-        "health":    health_r.json()    if health_r.status_code    == 200 else {},
+        "health": health_r.json() if health_r.status_code == 200 else {},
         "stability": stability_r.json() if stability_r.status_code == 200 else {},
     }
     if json_output:
@@ -150,5 +159,3 @@ def brain_logs(
 ):
     """Show prompt-pipeline health log — errors and healing status.  [dmesg]"""
     _brain_get("/api/v1/agentos/prompt/health", url or _brain_url(), json_output)
-
-

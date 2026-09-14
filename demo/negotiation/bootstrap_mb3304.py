@@ -6,6 +6,7 @@ real patient (cost-weighted) preferences — so "priority" can emerge
 from genuine strategic self-selection (the patient customer's own real
 utility favors waiting), not just fixed request ordering.
 """
+
 from __future__ import annotations
 
 import sys
@@ -27,16 +28,34 @@ def build_geography(c: httpx.Client) -> dict[str, str]:
     street = create_geo(c, "street", "Market Street", city)
     building = create_geo(c, "building", "Marketplace Building", street)
     space = create_geo(c, "space", "Marketplace Floor", building)
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, "marketplace": space}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        "marketplace": space,
+    }
 
 
 def build_society(c: httpx.Client, spaces: dict[str, str]) -> dict[str, str]:
-    result = call(c, "POST", "/societies", json={
-        "name": "Marketplace Society", "description": "Customers with pending orders competing for real stock",
-    })
+    result = call(
+        c,
+        "POST",
+        "/societies",
+        json={
+            "name": "Marketplace Society",
+            "description": "Customers with pending orders competing for real stock",
+        },
+    )
     society_id = result["society_id"]
-    call(c, "POST", f"/planet/geo/{spaces['marketplace']}/host", json={"society_id": society_id})
+    call(
+        c,
+        "POST",
+        f"/planet/geo/{spaces['marketplace']}/host",
+        json={"society_id": society_id},
+    )
     return {"marketplace": society_id}
 
 
@@ -50,32 +69,61 @@ ACTOR_DEFS = (
 def build_actors(c: httpx.Client, societies: dict[str, str]) -> dict[str, str]:
     actors: dict[str, str] = {}
     for name, preferences, policy in ACTOR_DEFS:
-        result = call(c, "POST", "/actors", json={
-            "name": name, "actor_type": "human", "goals": ["browse_and_purchase"],
-            "society_id": societies["marketplace"],
-            "capabilities": [{"name": "general"}],
-            "metadata": {"strategy": {
-                "preferences": preferences, "resources": {}, "risk_tolerance": 0.5,
-                "negotiation_policy": policy,
-            }},
-        })
+        result = call(
+            c,
+            "POST",
+            "/actors",
+            json={
+                "name": name,
+                "actor_type": "human",
+                "goals": ["browse_and_purchase"],
+                "society_id": societies["marketplace"],
+                "capabilities": [{"name": "general"}],
+                "metadata": {
+                    "strategy": {
+                        "preferences": preferences,
+                        "resources": {},
+                        "risk_tolerance": 0.5,
+                        "negotiation_policy": policy,
+                    }
+                },
+            },
+        )
         actors[name] = result["actor_id"]
     return actors
 
 
 def build_commerce(c: httpx.Client) -> dict[str, Any]:
-    merchant = call(c, "POST", "/merchants", json={
-        "merchant_id": "merchant_bob", "store_name": "Bob's Electronics", "delivery_fee": 4.99,
-        "address": "742 Market Street, San Francisco, CA 94102",
-    })
+    merchant = call(
+        c,
+        "POST",
+        "/merchants",
+        json={
+            "merchant_id": "merchant_bob",
+            "store_name": "Bob's Electronics",
+            "delivery_fee": 4.99,
+            "address": "742 Market Street, San Francisco, CA 94102",
+        },
+    )
     store_id = merchant["store_id"]
-    product = call(c, "POST", "/products", json={
-        "store_id": store_id, "merchant_id": "merchant_bob",
-        "name": TRACKED_PRODUCT_NAME, "price": 59.99, "quantity": 1,
-    })
+    product = call(
+        c,
+        "POST",
+        "/products",
+        json={
+            "store_id": store_id,
+            "merchant_id": "merchant_bob",
+            "name": TRACKED_PRODUCT_NAME,
+            "price": 59.99,
+            "quantity": 1,
+        },
+    )
     product_id = product.get("product_id", product.get("id", ""))
-    return {"store_id": store_id, "merchant_id": "merchant_bob",
-            "products": {TRACKED_PRODUCT_NAME: product_id}}
+    return {
+        "store_id": store_id,
+        "merchant_id": "merchant_bob",
+        "products": {TRACKED_PRODUCT_NAME: product_id},
+    }
 
 
 def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
@@ -87,8 +135,13 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
         actors = build_actors(c, societies)
         commerce = build_commerce(c)
         verification = verify_world(c)
-        return {"spaces": spaces, "societies": societies, "actors": actors,
-                "commerce": commerce, "verification": verification}
+        return {
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "commerce": commerce,
+            "verification": verification,
+        }
     finally:
         if owns_client:
             c.close()

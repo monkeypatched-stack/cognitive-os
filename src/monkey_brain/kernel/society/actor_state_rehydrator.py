@@ -58,6 +58,7 @@ logger = logging.getLogger("agentos.society.actor_state_rehydrator")
 @dataclass
 class RehydrationResult:
     """Result of actor state rehydration attempt."""
+
     success: bool
     actors_scanned: int
     actors_rehydrated: int
@@ -76,14 +77,14 @@ class RehydrationResult:
 
 class ActorStateRehydrator:
     """Load persisted actor state from MongoDB and reconstruct in-memory actors.
-    
+
     Separated from PlanetaryRuntime for clarity and testability.
     Injected into runtime to avoid circular imports.
     """
 
     def __init__(self, planetary: Any) -> None:
         """Initialize rehydrator.
-        
+
         Args:
             planetary: PlanetaryRuntime instance for access to MongoDB, societies, etc.
         """
@@ -91,10 +92,10 @@ class ActorStateRehydrator:
 
     def rehydrate_from_mongodb(self) -> RehydrationResult:
         """Rehydrate all persisted actors from MongoDB into in-memory registry.
-        
+
         Scans MongoDB actor_state collection, reconstructs Actor objects in each
         SocietyRuntime, and restores persisted state (belief, desired_state, etc.).
-        
+
         Returns:
             RehydrationResult with rehydration statistics
         """
@@ -148,7 +149,10 @@ class ActorStateRehydrator:
                     actor_doc = {**durable_metadata, **actor_doc}
                 actor_id = actor_doc.get("actor_id", "")
                 if not actor_id:
-                    logger.warning("Skipping actor_state record with missing actor_id: %s", actor_doc.get("_id"))
+                    logger.warning(
+                        "Skipping actor_state record with missing actor_id: %s",
+                        actor_doc.get("_id"),
+                    )
                     continue
 
                 try:
@@ -162,7 +166,8 @@ class ActorStateRehydrator:
                 except Exception as exc:
                     logger.warning(
                         "Failed to rehydrate actor %s: %s",
-                        actor_id, exc,
+                        actor_id,
+                        exc,
                     )
                     result.errors.append((actor_id, str(exc)))
 
@@ -183,11 +188,11 @@ class ActorStateRehydrator:
 
     def _rehydrate_single_actor(self, actor_id: str, actor_doc: dict[str, Any]) -> bool:
         """Rehydrate a single actor from MongoDB document.
-        
+
         Args:
             actor_id: Actor ID
             actor_doc: Document from MongoDB actor_state collection
-            
+
         Returns:
             True if actor was rehydrated, False if skipped (already exists)
         """
@@ -232,15 +237,23 @@ class ActorStateRehydrator:
             persisted_status = actor_doc.get("status")
             if persisted_status:
                 from src.monkey_brain.kernel.society.domain import ActorStatus
+
                 try:
                     actor_runtime_state.status = ActorStatus(persisted_status)
                 except ValueError:
-                    logger.debug("Unknown persisted actor status %r for %s", persisted_status, actor_id)
+                    logger.debug(
+                        "Unknown persisted actor status %r for %s",
+                        persisted_status,
+                        actor_id,
+                    )
 
             # Restore belief state if available
             if actor_doc.get("belief_state"):
                 try:
-                    from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
+                    from src.monkey_brain.kernel.pipeline.belief_state import (
+                        BeliefState,
+                    )
+
                     belief_dict = json.loads(actor_doc["belief_state"])
                     belief_state = BeliefState.from_dict(belief_dict)
                     actor_runtime_state.belief_state = belief_state
@@ -250,13 +263,19 @@ class ActorStateRehydrator:
             # Restore affiliations if available
             if actor_doc.get("affiliations"):
                 try:
-                    from src.monkey_brain.kernel.affiliations.manager import AffiliationManager
+                    from src.monkey_brain.kernel.affiliations.manager import (
+                        AffiliationManager,
+                    )
+
                     restored_affiliations = AffiliationManager.from_dict(actor_doc["affiliations"])
                     actor_runtime = actor_runtime_state.actor_runtime
                     if actor_runtime and hasattr(actor_runtime, "affiliations"):
                         for aff in restored_affiliations.all():
                             actor_runtime.affiliations.add(aff)
-                        for target, level in restored_affiliations.trust_engine.all_trust("self").items():
+                        for (
+                            target,
+                            level,
+                        ) in restored_affiliations.trust_engine.all_trust("self").items():
                             actor_runtime.affiliations.trust_engine.set_trust("self", target, level)
                 except Exception as exc:
                     logger.debug("Could not restore affiliations for %s: %s", actor_id, exc)
@@ -265,10 +284,13 @@ class ActorStateRehydrator:
             persisted_desired_state = actor_doc.get("desired_state")
             if persisted_desired_state:
                 try:
-                    from src.monkey_brain.kernel.society.actor_lifecycle import ActorDesiredState
+                    from src.monkey_brain.kernel.society.actor_lifecycle import (
+                        ActorDesiredState,
+                    )
+
                     desired_value = persisted_desired_state.get("state", "RUNNING")
                     reason = persisted_desired_state.get("reason", "Rehydrated from persistent storage")
-                    
+
                     # Set desired state to restore the control-plane's intent
                     desired_enum = ActorDesiredState(desired_value) if isinstance(desired_value, str) else desired_value
                     self._planetary.set_actor_desired_state(
@@ -276,7 +298,7 @@ class ActorStateRehydrator:
                         desired_enum,
                         reason=reason,
                     )
-                    
+
                     # Immediately apply the desired state if it's not RUNNING
                     # (PAUSED, SUSPENDED, etc.). This ensures actors don't
                     # unexpectedly become active on restart if they were
@@ -285,7 +307,8 @@ class ActorStateRehydrator:
                         self._enforce_desired_state_immediately(actor_id, desired_enum, actor_runtime_state)
                         logger.info(
                             "Enforced desired state %s for rehydrated actor %s",
-                            desired_enum.value, actor_id,
+                            desired_enum.value,
+                            actor_id,
                         )
                 except Exception as exc:
                     logger.debug("Could not restore desired state for %s: %s", actor_id, exc)
@@ -297,62 +320,64 @@ class ActorStateRehydrator:
             logger.warning("Error rehydrating actor %s: %s", actor_id, exc)
             raise
 
-    def _enforce_desired_state_immediately(
-        self, actor_id: str, desired_state: Any, actor_runtime_state: Any
-    ) -> None:
+    def _enforce_desired_state_immediately(self, actor_id: str, desired_state: Any, actor_runtime_state: Any) -> None:
         """Immediately enforce desired state on rehydrated actor.
-        
+
         If an actor was PAUSED, SUSPENDED, etc., this applies that state
         immediately without waiting for the lifecycle controller's next
         reconciliation cycle. Ensures actors don't unexpectedly become
         active on restart if they were previously paused.
-        
+
         Args:
             actor_id: Actor ID
             desired_state: ActorDesiredState enum value
             actor_runtime_state: The in-memory actor runtime state to modify
         """
         try:
-            from src.monkey_brain.kernel.society.actor_lifecycle import ActorDesiredState, ActorStatus
-            
+            from src.monkey_brain.kernel.society.actor_lifecycle import (
+                ActorDesiredState,
+                ActorStatus,
+            )
+
             if desired_state == ActorDesiredState.PAUSED:
                 # Suspend the actor (prevent it from being scheduled/ticked)
                 if hasattr(actor_runtime_state, "status"):
                     actor_runtime_state.status = ActorStatus.SUSPENDED
                     logger.debug("Suspended rehydrated actor %s (was paused)", actor_id)
-                    
+
             elif desired_state == ActorDesiredState.SUSPENDED:
                 # Mark as suspended
                 if hasattr(actor_runtime_state, "status"):
                     actor_runtime_state.status = ActorStatus.SUSPENDED
                     logger.debug("Suspended rehydrated actor %s", actor_id)
-                    
+
             elif desired_state == ActorDesiredState.TERMINATED:
                 # Mark as terminated (won't be scheduled)
                 if hasattr(actor_runtime_state, "status"):
                     actor_runtime_state.status = ActorStatus.TERMINATED
                     logger.debug("Terminated rehydrated actor %s", actor_id)
-                    
+
         except Exception as exc:
             logger.warning("Could not immediately enforce desired state for %s: %s", actor_id, exc)
 
-    def _construct_actor_profile_from_mongodb(
-        self, actor_id: str, actor_doc: dict[str, Any]
-    ) -> Any | None:
+    def _construct_actor_profile_from_mongodb(self, actor_id: str, actor_doc: dict[str, Any]) -> Any | None:
         """Construct an ActorProfile from MongoDB actor_state document.
-        
+
         Extracts available metadata and reconstructs the profile structure
         that would normally be created by register_actor().
-        
+
         Args:
             actor_id: Actor ID
             actor_doc: Document from MongoDB actor_state collection
-            
+
         Returns:
             ActorProfile object, or None if unable to construct
         """
         try:
-            from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity
+            from src.monkey_brain.kernel.society.domain import (
+                ActorProfile,
+                ActorIdentity,
+            )
 
             # Extract core identity from MongoDB
             actor_type = actor_doc.get("actor_type", "unknown")
@@ -382,6 +407,7 @@ class ActorStateRehydrator:
         except Exception as exc:
             logger.error(
                 "Failed to construct actor profile for %s from MongoDB: %s",
-                actor_id, exc,
+                actor_id,
+                exc,
             )
             return None

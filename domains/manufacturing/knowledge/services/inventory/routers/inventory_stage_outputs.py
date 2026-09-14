@@ -33,7 +33,9 @@ async def list_final_product_outputs(
     return await crud.get_final_products(db)
 
 
-@router.get("/by-product/{product_id}", response_model=list[InventoryStageOutputResponse])
+@router.get(
+    "/by-product/{product_id}", response_model=list[InventoryStageOutputResponse]
+)
 async def list_inventory_stage_outputs_by_product(
     product_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -60,7 +62,10 @@ async def list_inventory_stage_outputs_by_stage(
     return await crud.get_by_stage_id(db, stage_id)
 
 
-@router.get("/by-workstation/{workstation_id}", response_model=list[InventoryStageOutputResponse])
+@router.get(
+    "/by-workstation/{workstation_id}",
+    response_model=list[InventoryStageOutputResponse],
+)
 async def list_inventory_stage_outputs_by_workstation(
     workstation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -84,7 +89,11 @@ async def get_inventory_stage_output(
     return record
 
 
-@router.post("/", response_model=InventoryStageOutputResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=InventoryStageOutputResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_inventory_stage_output(
     data: InventoryStageOutputCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

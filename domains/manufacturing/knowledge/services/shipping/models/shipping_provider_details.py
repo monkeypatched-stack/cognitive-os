@@ -4,15 +4,34 @@ from pydantic import BaseModel, Field
 
 
 class ShippingProviderDetails(BaseModel):
-    provider_id: str = Field(..., description="Unique identifier for the shipping provider")
-    provider_name: str = Field(..., description="Name of the shipping provider or carrier")
-    contact_number: Optional[str] = Field(None, description="Contact phone number for the shipping provider")
-    email_address: Optional[str] = Field(None, description="Email address of the shipping provider")
-    address: Optional[str] = Field(None, description="Physical address of the shipping provider")
-    service_areas: Optional[str] = Field(None, description="Geographic regions or areas serviced by the provider")
-    available_services: Optional[str] = Field(None, description="Details of shipping services offered, for example Air Freight or Express Delivery")
-    rating: Optional[float] = Field(None, description="Customer rating of the shipping provider out of 5")
-    website_url: Optional[str] = Field(None, description="Website URL of the shipping provider")
+    provider_id: str = Field(
+        ..., description="Unique identifier for the shipping provider"
+    )
+    provider_name: str = Field(
+        ..., description="Name of the shipping provider or carrier"
+    )
+    contact_number: Optional[str] = Field(
+        None, description="Contact phone number for the shipping provider"
+    )
+    email_address: Optional[str] = Field(
+        None, description="Email address of the shipping provider"
+    )
+    address: Optional[str] = Field(
+        None, description="Physical address of the shipping provider"
+    )
+    service_areas: Optional[str] = Field(
+        None, description="Geographic regions or areas serviced by the provider"
+    )
+    available_services: Optional[str] = Field(
+        None,
+        description="Details of shipping services offered, for example Air Freight or Express Delivery",
+    )
+    rating: Optional[float] = Field(
+        None, description="Customer rating of the shipping provider out of 5"
+    )
+    website_url: Optional[str] = Field(
+        None, description="Website URL of the shipping provider"
+    )
 
 
 class ShippingProviderDetailsCreate(ShippingProviderDetails):

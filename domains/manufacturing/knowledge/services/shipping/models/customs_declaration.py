@@ -23,7 +23,9 @@ class CustomsDeclarationType(str, Enum):
 
 class MoneyAmount(BaseModel):
     amount: Annotated[Decimal, Field(ge=0)]
-    currency: str = Field(default="USD", min_length=3, max_length=3, description="ISO 4217")
+    currency: str = Field(
+        default="USD", min_length=3, max_length=3, description="ISO 4217"
+    )
 
     model_config = {"str_strip_whitespace": True}
 
@@ -69,7 +71,9 @@ class CustomsDeclaration(BaseModel):
     incoterms: Optional[str] = Field(None, max_length=10)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     lines: list[CustomsLineItem] = Field(default_factory=list, min_length=1)
-    mrn: Optional[str] = Field(None, max_length=50, description="Movement Reference Number")
+    mrn: Optional[str] = Field(
+        None, max_length=50, description="Movement Reference Number"
+    )
     customs_cleared: bool = False
     clearance_date: Optional[date] = None
     broker_name: Optional[str] = Field(None, max_length=200)

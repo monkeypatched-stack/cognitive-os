@@ -11,6 +11,7 @@ contract suite. Testing a REAL RclpyRosExecutionAdapter under a
 malicious/replayed command remains UNTESTABLE here; see the final
 report.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -19,10 +20,13 @@ import pytest
 
 from src.monkey_brain.kernel.approval import reset_approval_store
 from src.monkey_brain.kernel.edge.ros_integration import (
-    FakeRosExecutionAdapter, RosExecutionAdapter, run_ros_action_if_governed,
+    FakeRosExecutionAdapter,
+    RosExecutionAdapter,
+    run_ros_action_if_governed,
 )
 from src.monkey_brain.kernel.security_boundary import (
-    SecurityBoundaryDenied, reset_governed_pipeline_for_tests,
+    SecurityBoundaryDenied,
+    reset_governed_pipeline_for_tests,
 )
 from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trusted_auth
 
@@ -37,7 +41,9 @@ def _reset():
 
 
 class TestDirectRosInvocationIsUnavailableToRealActorCode:
-    def test_the_adapter_alone_has_no_governance_so_direct_construction_is_the_actual_risk_surface(self):
+    def test_the_adapter_alone_has_no_governance_so_direct_construction_is_the_actual_risk_surface(
+        self,
+    ):
         """Honest structural finding matching Section 8's own framing:
         RosExecutionAdapter (the Protocol) has NO governance built in by
         design (its own docstring: "must not itself perform any
@@ -55,8 +61,9 @@ class TestDirectRosInvocationIsUnavailableToRealActorCode:
         for path in domains_dir.glob("*.py"):
             tree = ast.parse(path.read_text(), filename=str(path))
             for node in ast.walk(tree):
-                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                        and node.func.attr == "invoke"):
+                if not (
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "invoke"
+                ):
                     continue
                 # RosExecutionAdapter.invoke's specific contract shape
                 # (capability=..., parameters=...) -- narrower than any
@@ -73,22 +80,33 @@ class TestDirectRosInvocationIsUnavailableToRealActorCode:
 
     @pytest.mark.asyncio
     async def test_a_malicious_actor_without_authority_is_denied(self, monkeypatch):
-        bind_trusted_auth(TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id="malicious-actor",
-            principal_type="service", mfa_status="satisfied",
-        ))
+        bind_trusted_auth(
+            TrustedAuthEvidence(
+                authenticated=True,
+                token_valid=True,
+                principal_id="malicious-actor",
+                principal_type="service",
+                mfa_status="satisfied",
+            )
+        )
         monkeypatch.delenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", raising=False)
         monkeypatch.setenv("OPA_REQUIRED", "true")
 
         async def _deny(action, resource, extra, *, verified_delegation=None):
-            return {"allowed": False, "approval_mode": "DENY", "reason": "no authority over this robot"}
+            return {
+                "allowed": False,
+                "approval_mode": "DENY",
+                "reason": "no authority over this robot",
+            }
 
         monkeypatch.setattr("src.monkey_brain.kernel.security_boundary._authorize", _deny)
 
         adapter = FakeRosExecutionAdapter()
         with pytest.raises(SecurityBoundaryDenied):
             await run_ros_action_if_governed(
-                capability="SelfDestruct", resource="robot-arm-1", parameters={},
+                capability="SelfDestruct",
+                resource="robot-arm-1",
+                parameters={},
                 adapter=adapter,
             )
         assert adapter.calls == []
@@ -118,13 +136,19 @@ class TestStaleOrReplayedRosCommandsHaveNoProtectionOfTheirOwn:
         adapter = FakeRosExecutionAdapter()
 
         result1 = await run_ros_action_if_governed(
-            capability="MoveArm", resource="arm-1", parameters={"angle": 90}, adapter=adapter,
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 90},
+            adapter=adapter,
             local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
         )
         # A genuine replay: the exact same message, no idempotency
         # wrapper anywhere in between.
         result2 = await run_ros_action_if_governed(
-            capability="MoveArm", resource="arm-1", parameters={"angle": 90}, adapter=adapter,
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 90},
+            adapter=adapter,
             local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
         )
         assert result1["success"] is True

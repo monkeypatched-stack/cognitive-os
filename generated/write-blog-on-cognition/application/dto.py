@@ -1,8 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
+
 class ReferenceDTO(BaseModel):
     url: str = Field(...)
+
 
 class WriteBlogOnCognitionItemDTO(BaseModel):
     id: int = Field(...)

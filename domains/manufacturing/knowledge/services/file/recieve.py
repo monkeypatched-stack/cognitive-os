@@ -31,6 +31,7 @@ async def extract_text_from_pdf(message: str):
     except Exception as e:
         print("❌ Failed to extract PDF text:", e)
 
+
 async def receive_messages():
     print(f"🔌 Connecting to {WS_URL} ...")
 

@@ -14,6 +14,7 @@ kernel/domains/commerce.py::apply_coupon_to_cart() delegates the
 accept/reject decision entirely to validate_coupon() and only adds what
 that decision means for one cart's subtotal.
 """
+
 from __future__ import annotations
 
 import time
@@ -35,22 +36,54 @@ def _seed_catalog_and_coupons() -> KnowledgeGraph:
     kg = KnowledgeGraph()
     kg.add_entity(MILK, EntityType.ASSET, "Milk", {"price": 10.00, "store_id": STORE_ID})
 
-    kg.add_entity("coupon_save3", EntityType.OTHER, "SAVE3 coupon", {
-        "coupon": True, "code": "SAVE3", "store_id": STORE_ID, "discount_amount": 3.0,
-    })
-    kg.add_entity("coupon_10pct", EntityType.OTHER, "10PCT coupon", {
-        "coupon": True, "code": "10PCT", "discount_percent": 10,
-    })
-    kg.add_entity("coupon_expired", EntityType.OTHER, "EXPIRED coupon", {
-        "coupon": True, "code": "EXPIRED", "discount_amount": 5.0, "valid_until": time.time() - 3600,
-    })
-    kg.add_entity("coupon_otherstore", EntityType.OTHER, "OTHERSTORE coupon", {
-        "coupon": True, "code": "OTHERSTORE", "store_id": "store_2", "discount_amount": 1.0,
-    })
+    kg.add_entity(
+        "coupon_save3",
+        EntityType.OTHER,
+        "SAVE3 coupon",
+        {
+            "coupon": True,
+            "code": "SAVE3",
+            "store_id": STORE_ID,
+            "discount_amount": 3.0,
+        },
+    )
+    kg.add_entity(
+        "coupon_10pct",
+        EntityType.OTHER,
+        "10PCT coupon",
+        {
+            "coupon": True,
+            "code": "10PCT",
+            "discount_percent": 10,
+        },
+    )
+    kg.add_entity(
+        "coupon_expired",
+        EntityType.OTHER,
+        "EXPIRED coupon",
+        {
+            "coupon": True,
+            "code": "EXPIRED",
+            "discount_amount": 5.0,
+            "valid_until": time.time() - 3600,
+        },
+    )
+    kg.add_entity(
+        "coupon_otherstore",
+        EntityType.OTHER,
+        "OTHERSTORE coupon",
+        {
+            "coupon": True,
+            "code": "OTHERSTORE",
+            "store_id": "store_2",
+            "discount_amount": 1.0,
+        },
+    )
     return kg
 
 
 # ── Coupon accepted ──────────────────────────────────────────────────────
+
 
 def test_mb3009_valid_flat_discount_coupon_accepted():
     kg = _seed_catalog_and_coupons()
@@ -89,6 +122,7 @@ def test_mb3009_coupon_valid_for_any_store_when_unscoped():
 
 
 # ── Coupon rejected ──────────────────────────────────────────────────────
+
 
 def test_mb3009_nonexistent_coupon_rejected_as_forged():
     kg = _seed_catalog_and_coupons()

@@ -8,13 +8,18 @@ override extension point -- and, critically, that the untouched _predict
 stage's dependency on belief.hypotheses (populated by the ORIGINAL _learn)
 is preserved exactly, not silently dropped.
 """
+
 from __future__ import annotations
 
 import unittest.mock as mock
 
 import pytest
 
-from src.monkey_brain.kernel.pipeline.contracts import CompiledRequest, PipelineRequest, RuntimeContext
+from src.monkey_brain.kernel.pipeline.contracts import (
+    CompiledRequest,
+    PipelineRequest,
+    RuntimeContext,
+)
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
@@ -24,7 +29,8 @@ from src.monkey_brain.kernel.pipeline.planning import IntegratedPlanningEngine
 from src.monkey_brain.kernel.pipeline.execution_runtime import IntegratedExecutionEngine
 from src.monkey_brain.kernel.pipeline.learning.domain import LearningPolicy
 from src.monkey_brain.kernel.pipeline.learning.integration import (
-    LearningIntegratedPolicy, build_learning_integrated_runtime,
+    LearningIntegratedPolicy,
+    build_learning_integrated_runtime,
 )
 
 
@@ -33,9 +39,11 @@ def _make_compiled(question: str = "get 2 l of milk", goal_name: str = "acquire_
     ctx = mock.MagicMock()
     ctx.run_id = "run-001"
     return CompiledRequest(
-        request=request, intent={"intent": "shopping", "confidence": 0.9},
+        request=request,
+        intent={"intent": "shopping", "confidence": 0.9},
         goal={"name": goal_name, "description": "Get milk"},
-        intent_ir=mock.MagicMock(), goal_ir=mock.MagicMock(goal=question),
+        intent_ir=mock.MagicMock(),
+        goal_ir=mock.MagicMock(goal=question),
         execution_context=ctx,
     )
 
@@ -52,7 +60,12 @@ async def _run_cycle(runtime: CognitiveRuntime) -> CognitiveState:
     compiled = _make_compiled()
     context = _make_context()
     actor = Actor(actor_id="alice", tenant_id="acme")
-    state = CognitiveState(compiled=compiled, context=context, actor=actor, belief=BeliefState(actor_id="alice", tenant_id="acme"))
+    state = CognitiveState(
+        compiled=compiled,
+        context=context,
+        actor=actor,
+        belief=BeliefState(actor_id="alice", tenant_id="acme"),
+    )
     actor.start_reasoning()
     return await runtime._policy.execute(state)
 
@@ -60,6 +73,7 @@ async def _run_cycle(runtime: CognitiveRuntime) -> CognitiveState:
 # ═══════════════════════════════════════════════════════════════════════════
 # Backward compatibility — the original Learn stage contract is preserved
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBackwardCompatibility:
     @pytest.mark.asyncio
@@ -117,13 +131,21 @@ class TestBackwardCompatibility:
 # New learning pipeline is genuinely wired in
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNewLearningPipelineWiredIn:
     @pytest.mark.asyncio
     async def test_new_keys_added_to_state_learning(self):
         rt = build_learning_integrated_runtime()
         state = await _run_cycle(rt)
 
-        for key in ("experience_id", "reward", "belief_updated", "world_updated", "signals_applied", "learning_rationale"):
+        for key in (
+            "experience_id",
+            "reward",
+            "belief_updated",
+            "world_updated",
+            "signals_applied",
+            "learning_rationale",
+        ):
             assert key in state.learning
 
     @pytest.mark.asyncio
@@ -164,6 +186,7 @@ class TestNewLearningPipelineWiredIn:
 # Φ Compiler wired into the Compile-Φ stage (Step 10.8)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPhiCompilerWiredIn:
     @pytest.mark.asyncio
     async def test_baseline_runtime_keeps_the_phi_placeholder(self):
@@ -197,6 +220,7 @@ class TestPhiCompilerWiredIn:
     @pytest.mark.asyncio
     async def test_phi_is_directly_json_serializable(self):
         import json
+
         rt = build_learning_integrated_runtime()
         state = await _run_cycle(rt)
         json.dumps(state.phi)  # must not raise
@@ -227,6 +251,7 @@ class TestPhiCompilerWiredIn:
 # Composition with Step 8.7 / 9.7's integration points
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestComposesWithPlanningAndExecutionIntegration:
     @pytest.mark.asyncio
     async def test_three_way_composition(self):
@@ -249,6 +274,7 @@ class TestComposesWithPlanningAndExecutionIntegration:
 # LearningIntegratedPolicy — direct construction, no factory
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearningIntegratedPolicyDirect:
     def test_is_a_cognitive_policy(self):
         assert isinstance(LearningIntegratedPolicy(), CognitivePolicy)
@@ -267,8 +293,15 @@ class TestLearningIntegratedPolicyDirect:
         assert len(policy._stages) == 9
         stage_names = [name for name, _ in policy._stages]
         assert stage_names == [
-            "observe", "believe", "plan", "execute", "observe_outcome",
-            "learn", "compile_phi", "predict", "commit",
+            "observe",
+            "believe",
+            "plan",
+            "execute",
+            "observe_outcome",
+            "learn",
+            "compile_phi",
+            "predict",
+            "commit",
         ]
 
 
@@ -276,9 +309,11 @@ class TestLearningIntegratedPolicyDirect:
 # Ownership boundary — no modification, only import
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -295,6 +330,7 @@ class TestOwnershipBoundary:
         disk. If this ever fails, Step 10 modified a protected file."""
         import hashlib
         import src.monkey_brain.kernel.pipeline.belief_runtime as mod
+
         source = open(mod.__file__, "rb").read()
         # Presence of the 9-stage docstring is a stable anchor that the
         # file still describes the same unmodified lifecycle.
@@ -303,6 +339,7 @@ class TestOwnershipBoundary:
 
     def test_cognitive_policy_source_is_unmodified(self):
         import src.monkey_brain.kernel.pipeline.cognitive_policy as mod
+
         source = open(mod.__file__, "rb").read()
         assert b"class RecursivePlanningPolicy(CognitivePolicy):" in source
 
@@ -313,9 +350,7 @@ class TestOwnershipBoundary:
         import ast
         import inspect
         import src.monkey_brain.kernel.pipeline.learning.integration as mod
+
         tree = ast.parse(inspect.getsource(mod))
-        top_level_imports = [
-            node.module for node in tree.body
-            if isinstance(node, ast.ImportFrom)
-        ]
+        top_level_imports = [node.module for node in tree.body if isinstance(node, ast.ImportFrom)]
         assert not any(m and "belief_runtime" in m for m in top_level_imports)

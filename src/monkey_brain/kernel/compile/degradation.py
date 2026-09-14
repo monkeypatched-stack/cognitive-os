@@ -7,6 +7,7 @@ Strategy:
 - Optional features degrade independently
 - Fallback behaviors when primary unavailable
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ logger = logging.getLogger("agentos.degradation")
 
 class CapabilityState(Enum):
     """State of a capability."""
+
     AVAILABLE = "available"
     DEGRADED = "degraded"
     UNAVAILABLE = "unavailable"
@@ -27,6 +29,7 @@ class CapabilityState(Enum):
 @dataclass
 class CapabilityInfo:
     """Information about a capability."""
+
     name: str
     state: CapabilityState
     message: str = ""
@@ -47,8 +50,7 @@ class DegradationManager:
         self.fallback: dict[str, Callable] = {}
         self.failure_count: dict[str, int] = {}
 
-    def register_capability(self, name: str, primary: Callable,
-                           fallback: Optional[Callable] = None) -> None:
+    def register_capability(self, name: str, primary: Callable, fallback: Optional[Callable] = None) -> None:
         """Register a capability with optional fallback.
 
         Args:
@@ -66,8 +68,11 @@ class DegradationManager:
             self.fallback[name] = fallback
         self.failure_count[name] = 0
 
-        logger.info("[degradation] Registered capability: %s (fallback=%s)",
-                   name, fallback is not None)
+        logger.info(
+            "[degradation] Registered capability: %s (fallback=%s)",
+            name,
+            fallback is not None,
+        )
 
     def call(self, name: str, *args, **kwargs) -> Any:
         """Call a capability with automatic fallback.
@@ -98,8 +103,12 @@ class DegradationManager:
                 return result
             except Exception as exc:
                 self.failure_count[name] += 1
-                logger.warning("[degradation] %s failed (attempt %d): %s",
-                             name, self.failure_count[name], exc)
+                logger.warning(
+                    "[degradation] %s failed (attempt %d): %s",
+                    name,
+                    self.failure_count[name],
+                    exc,
+                )
                 info.state = CapabilityState.DEGRADED
                 info.message = str(exc)
 
@@ -115,10 +124,7 @@ class DegradationManager:
                 info.message = f"Primary and fallback failed: {exc}"
 
         # No fallback available
-        raise RuntimeError(
-            f"[degradation] Capability {name} unavailable. "
-            f"Message: {info.message}"
-        )
+        raise RuntimeError(f"[degradation] Capability {name} unavailable. Message: {info.message}")
 
     def status(self) -> dict[str, Any]:
         """Get degradation status of all capabilities."""
@@ -132,12 +138,9 @@ class DegradationManager:
                 }
                 for name, info in self.capabilities.items()
             },
-            "available_count": sum(1 for i in self.capabilities.values()
-                                 if i.state == CapabilityState.AVAILABLE),
-            "degraded_count": sum(1 for i in self.capabilities.values()
-                                if i.state == CapabilityState.DEGRADED),
-            "unavailable_count": sum(1 for i in self.capabilities.values()
-                                   if i.state == CapabilityState.UNAVAILABLE),
+            "available_count": sum(1 for i in self.capabilities.values() if i.state == CapabilityState.AVAILABLE),
+            "degraded_count": sum(1 for i in self.capabilities.values() if i.state == CapabilityState.DEGRADED),
+            "unavailable_count": sum(1 for i in self.capabilities.values() if i.state == CapabilityState.UNAVAILABLE),
         }
 
 

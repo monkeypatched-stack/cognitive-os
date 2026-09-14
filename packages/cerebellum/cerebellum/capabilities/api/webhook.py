@@ -34,25 +34,25 @@ def _is_safe_url(url: str) -> bool:
 
 class WebhookCapability(Capability):
     """Webhook integration capability."""
-    
+
     def __init__(self, url: str = "", secret: str = ""):
-        super().__init__(name='webhook')
+        super().__init__(name="webhook")
         self._url = url
         self._secret = secret
-    
+
     async def execute(self, state: dict[str, Any], **kwargs) -> dict[str, Any]:
         """Send webhook."""
         import httpx
-        
-        url = state.get('url', self._url)
+
+        url = state.get("url", self._url)
         if not _is_safe_url(url):
             return {"status_code": 0, "success": False, "error": "blocked: unsafe URL"}
-        payload = state.get('payload', {})
-        headers = state.get('headers', {'Content-Type': 'application/json'})
-        
+        payload = state.get("payload", {})
+        headers = state.get("headers", {"Content-Type": "application/json"})
+
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
             response = await client.post(url, json=payload, headers=headers)
             return {
-                'status_code': response.status_code,
-                'success': 200 <= response.status_code < 300,
+                "status_code": response.status_code,
+                "success": 200 <= response.status_code < 300,
             }

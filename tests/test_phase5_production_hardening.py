@@ -2,6 +2,7 @@
 
 Tests error recovery, monitoring, graceful degradation, and deployment readiness.
 """
+
 import pytest
 import time
 from unittest.mock import Mock, patch
@@ -12,7 +13,10 @@ class TestPhase5ErrorRecovery:
 
     def test_circuit_breaker_opens_after_failures(self):
         """Verify circuit breaker opens after threshold failures."""
-        from src.monkey_brain.kernel.compile.error_recovery import CircuitBreaker, CircuitBreakerConfig
+        from src.monkey_brain.kernel.compile.error_recovery import (
+            CircuitBreaker,
+            CircuitBreakerConfig,
+        )
 
         config = CircuitBreakerConfig(failure_threshold=3, recovery_timeout=1)
         breaker = CircuitBreaker("test", config)
@@ -36,7 +40,10 @@ class TestPhase5ErrorRecovery:
 
     def test_circuit_breaker_recovery(self):
         """Verify circuit breaker recovers after timeout."""
-        from src.monkey_brain.kernel.compile.error_recovery import CircuitBreaker, CircuitBreakerConfig
+        from src.monkey_brain.kernel.compile.error_recovery import (
+            CircuitBreaker,
+            CircuitBreakerConfig,
+        )
 
         config = CircuitBreakerConfig(failure_threshold=1, recovery_timeout=0.5, success_threshold=1)
         breaker = CircuitBreaker("test", config)
@@ -68,7 +75,10 @@ class TestPhase5ErrorRecovery:
 
     def test_retry_with_exponential_backoff(self):
         """Verify retry with exponential backoff."""
-        from src.monkey_brain.kernel.compile.error_recovery import RetryableFunction, RetryConfig
+        from src.monkey_brain.kernel.compile.error_recovery import (
+            RetryableFunction,
+            RetryConfig,
+        )
 
         config = RetryConfig(max_retries=2, initial_delay=0.01, max_delay=1.0, backoff_multiplier=2.0)
         attempt_count = 0
@@ -110,11 +120,16 @@ class TestPhase5Monitoring:
         assert "p95_ms" in stats["latency"]
         assert "p99_ms" in stats["latency"]
 
-        print(f"✓ Metrics collected: P50={stats['latency']['p50_ms']}, P95={stats['latency']['p95_ms']}, P99={stats['latency']['p99_ms']}")
+        print(
+            f"✓ Metrics collected: P50={stats['latency']['p50_ms']}, P95={stats['latency']['p95_ms']}, P99={stats['latency']['p99_ms']}"
+        )
 
     def test_health_checker_identifies_issues(self):
         """Verify health checker detects critical conditions."""
-        from src.monkey_brain.kernel.compile.metrics import MetricsCollector, HealthChecker
+        from src.monkey_brain.kernel.compile.metrics import (
+            MetricsCollector,
+            HealthChecker,
+        )
 
         checker = HealthChecker()
         collector = MetricsCollector("test_service")
@@ -180,7 +195,10 @@ class TestPhase5GracefulDegradation:
 
     def test_unavailable_when_both_fail(self):
         """Verify feature marked unavailable when both fail."""
-        from src.monkey_brain.kernel.compile.degradation import DegradationManager, CapabilityState
+        from src.monkey_brain.kernel.compile.degradation import (
+            DegradationManager,
+            CapabilityState,
+        )
 
         manager = DegradationManager()
 
@@ -202,7 +220,10 @@ class TestPhase5GracefulDegradation:
 
     def test_capability_recovery(self):
         """Verify capability recovers after fix."""
-        from src.monkey_brain.kernel.compile.degradation import DegradationManager, CapabilityState
+        from src.monkey_brain.kernel.compile.degradation import (
+            DegradationManager,
+            CapabilityState,
+        )
 
         manager = DegradationManager()
         call_count = 0
@@ -235,7 +256,9 @@ class TestPhase5DeploymentReadiness:
 
     def test_readiness_checks_run(self):
         """Verify readiness checks can be run."""
-        from src.monkey_brain.kernel.compile.deployment_readiness import DeploymentReadiness
+        from src.monkey_brain.kernel.compile.deployment_readiness import (
+            DeploymentReadiness,
+        )
 
         readiness = DeploymentReadiness()
 
@@ -256,7 +279,9 @@ class TestPhase5DeploymentReadiness:
 
     def test_production_ready_determination(self):
         """Verify production readiness determination."""
-        from src.monkey_brain.kernel.compile.deployment_readiness import DeploymentReadiness
+        from src.monkey_brain.kernel.compile.deployment_readiness import (
+            DeploymentReadiness,
+        )
 
         readiness = DeploymentReadiness()
 
@@ -280,6 +305,7 @@ class TestPhase5DeploymentReadiness:
 # ──────────────────────────────────────────────────────────────
 # PHASE 5 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase5Complete:
     """Verify Phase 5 production hardening is complete."""

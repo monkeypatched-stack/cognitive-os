@@ -2,6 +2,7 @@
 
 Tests that actor episodic memories (episodes, facts, history) persist across requests.
 """
+
 import pytest
 from unittest.mock import Mock, patch
 from datetime import datetime
@@ -12,7 +13,9 @@ class TestEpisodicMemoryStore:
 
     def test_episodic_memory_store_initialization(self):
         """EpisodicMemoryStore initializes for an actor."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store = EpisodicMemoryStore("alice", "org_alpha")
 
@@ -22,17 +25,14 @@ class TestEpisodicMemoryStore:
 
     def test_remember_and_recall_episode(self):
         """Actor can remember and recall episodes."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store = EpisodicMemoryStore("alice", "org_alpha")
 
         # Remember an episode
-        episode = {
-            "action": "move",
-            "from_state": "A",
-            "to_state": "B",
-            "reward": 0.8
-        }
+        episode = {"action": "move", "from_state": "A", "to_state": "B", "reward": 0.8}
         store.remember("episode_1", episode, "observation")
 
         # Recall the episode
@@ -41,7 +41,9 @@ class TestEpisodicMemoryStore:
 
     def test_remember_multiple_memories(self):
         """Actor can store multiple episodic memories."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store = EpisodicMemoryStore("alice", "org_alpha")
 
@@ -58,7 +60,9 @@ class TestEpisodicMemoryStore:
 
     def test_forget_episode(self):
         """Actor can forget specific episodes."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store = EpisodicMemoryStore("alice", "org_alpha")
 
@@ -73,7 +77,9 @@ class TestEpisodicMemoryStore:
 
     def test_clear_all_memories(self):
         """Actor can clear all episodic memories."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store = EpisodicMemoryStore("alice", "org_alpha")
 
@@ -87,7 +93,9 @@ class TestEpisodicMemoryStore:
 
     def test_memory_statistics(self):
         """Can get statistics about episodic memories."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store = EpisodicMemoryStore("alice", "org_alpha")
 
@@ -102,7 +110,9 @@ class TestEpisodicMemoryStore:
 
     def test_episodic_memory_per_actor_isolation(self):
         """Each actor has isolated episodic memory."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store_alice = EpisodicMemoryStore("alice", "org_alpha")
         store_bob = EpisodicMemoryStore("bob", "org_alpha")
@@ -115,7 +125,9 @@ class TestEpisodicMemoryStore:
 
     def test_episodic_memory_per_tenant_isolation(self):
         """Each tenant has isolated episodic memory."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store_alpha = EpisodicMemoryStore("alice", "org_alpha")
         store_beta = EpisodicMemoryStore("alice", "org_beta")
@@ -132,7 +144,9 @@ class TestMemoryEvolution:
 
     def test_episodic_memory_accumulates_over_cycles(self):
         """Episodic memories accumulate across multiple cycles."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         # Cycle 1
         store_c1 = EpisodicMemoryStore("alice", "org_alpha")
@@ -152,7 +166,9 @@ class TestMemoryEvolution:
 
     def test_memory_types_tracked(self):
         """Different memory types are tracked."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         store = EpisodicMemoryStore("alice", "org_alpha")
 
@@ -175,6 +191,7 @@ class TestMemoryEvolution:
 # ──────────────────────────────────────────────────────────────
 # PHASE 1 DELIVERABLE 1.4 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase1Deliverable14Complete:
     """Verify Episodic Memory Store integration is complete."""

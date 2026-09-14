@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StoredEvent:
     """A persisted context event with metadata."""
+
     event_id: str = field(default_factory=lambda: uuid4().hex)
     event_type: str = ""
     actor_id: str = ""
@@ -225,10 +226,12 @@ class ContextEventStore:
 
     def create_on_publish_callback(self, society_id: str) -> Callable[[], None]:
         """Create an on_publish callback for a SocietyContextStream."""
+
         def callback():
             # This will be called by SocietyContextStream after each publish
             # We'll handle the actual persistence in the async append method
             pass
+
         return callback
 
 

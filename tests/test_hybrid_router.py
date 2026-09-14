@@ -5,12 +5,7 @@ Tests different query types and verifies they are routed to correct handlers.
 
 import asyncio
 import pytest
-from src.hybrid import (
-    HybridRouter,
-    QueryTypeClassifier,
-    QueryType,
-    SessionManager
-)
+from src.hybrid import HybridRouter, QueryTypeClassifier, QueryType, SessionManager
 
 
 class TestQueryTypeClassifier:
@@ -25,7 +20,7 @@ class TestQueryTypeClassifier:
             "Book a flight to Tokyo",
             "Find a nearby coffee shop",
             "Order pizza with extra cheese",
-            "Hire a contractor to fix my roof"
+            "Hire a contractor to fix my roof",
         ]
 
         for query in action_queries:
@@ -43,7 +38,7 @@ class TestQueryTypeClassifier:
             "Who won the 2020 World Series?",
             "What's the population of Tokyo?",
             "List all restaurants nearby",
-            "Show me flights to Paris"
+            "Show me flights to Paris",
         ]
 
         for query in retrieval_queries:
@@ -61,7 +56,7 @@ class TestQueryTypeClassifier:
             "Explain quantum entanglement",
             "How would society change if gravity reversed?",
             "Compare socialism vs capitalism",
-            "What if we could time travel?"
+            "What if we could time travel?",
         ]
 
         for query in reasoning_queries:
@@ -79,7 +74,7 @@ class TestQueryTypeClassifier:
             "What's the weather right now?",
             "Show me live traffic conditions",
             "What is the current Bitcoin price?",
-            "Check real-time flight availability"
+            "Check real-time flight availability",
         ]
 
         for query in realtime_queries:
@@ -95,7 +90,11 @@ class TestQueryTypeClassifier:
         # Conversational queries require session context
         conversational_queries = [
             ("What is the capital of France?", None, QueryType.RETRIEVAL),  # No session
-            ("That sounds interesting", "session_123", QueryType.CONVERSATIONAL),  # With session
+            (
+                "That sounds interesting",
+                "session_123",
+                QueryType.CONVERSATIONAL,
+            ),  # With session
             ("Book it", "session_123", QueryType.CONVERSATIONAL),  # With session
         ]
 
@@ -189,6 +188,7 @@ class TestSessionManager:
 
         # Manually expire by manipulating time
         from datetime import datetime, timedelta
+
         session.last_updated = datetime.now() - timedelta(minutes=2)
 
         # Session should be expired and removed
@@ -215,10 +215,7 @@ class TestHybridRouter:
         """Verify action queries are routed to ActionHandler"""
         router = HybridRouter()
 
-        response = await router.process(
-            question="Get me 2 liters of milk",
-            actor_id="user_123"
-        )
+        response = await router.process(question="Get me 2 liters of milk", actor_id="user_123")
 
         assert response.status != "error"
         assert response.handler_type == "ActionHandler"
@@ -230,10 +227,7 @@ class TestHybridRouter:
         """Verify retrieval queries are routed to RetrievalHandler"""
         router = HybridRouter()
 
-        response = await router.process(
-            question="What is the capital of France?",
-            actor_id="user_123"
-        )
+        response = await router.process(question="What is the capital of France?", actor_id="user_123")
 
         assert response.status != "error"
         assert response.handler_type == "RetrievalHandler"
@@ -245,10 +239,7 @@ class TestHybridRouter:
         """Verify reasoning queries are routed to ReasoningHandler"""
         router = HybridRouter()
 
-        response = await router.process(
-            question="Why do people form social bonds?",
-            actor_id="user_123"
-        )
+        response = await router.process(question="Why do people form social bonds?", actor_id="user_123")
 
         assert response.status != "error"
         assert response.handler_type == "ReasoningHandler"
@@ -260,10 +251,7 @@ class TestHybridRouter:
         """Verify real-time queries are routed to RealtimeHandler"""
         router = HybridRouter()
 
-        response = await router.process(
-            question="What is the current stock price of Apple?",
-            actor_id="user_123"
-        )
+        response = await router.process(question="What is the current stock price of Apple?", actor_id="user_123")
 
         assert response.status != "error"
         assert response.handler_type == "RealtimeHandler"
@@ -276,19 +264,12 @@ class TestHybridRouter:
         router = HybridRouter()
 
         # First query (creates session)
-        response1 = await router.process(
-            question="What is the capital of France?",
-            actor_id="user_123"
-        )
+        response1 = await router.process(question="What is the capital of France?", actor_id="user_123")
 
         session_id = response1.session_id
 
         # Follow-up query (should be conversational with session)
-        response2 = await router.process(
-            question="Thank you",
-            actor_id="user_123",
-            session_id=session_id
-        )
+        response2 = await router.process(question="Thank you", actor_id="user_123", session_id=session_id)
 
         assert response2.session_id == session_id
 
@@ -303,7 +284,7 @@ class TestHybridRouter:
             "Get me milk",
             "What is the capital?",
             "Why is the sky blue?",
-            "Show me live weather"
+            "Show me live weather",
         ]
 
         for query in queries:
@@ -332,11 +313,7 @@ class TestHybridRouter:
         session_id = None
 
         for query, expected_type in turns:
-            response = await router.process(
-                question=query,
-                actor_id="user_123",
-                session_id=session_id
-            )
+            response = await router.process(question=query, actor_id="user_123", session_id=session_id)
 
             session_id = response.session_id
             # First query creates session, rest should use it
@@ -362,17 +339,19 @@ def test_query_classification_patterns():
 
     for query, expected_type in test_cases:
         result = classifier.classify(query)
-        print(f"  {query}: {result.query_type.value} "
-              f"(expected: {expected_type.value}, "
-              f"confidence: {result.confidence:.2f}, "
-              f"patterns: {result.matched_patterns})")
+        print(
+            f"  {query}: {result.query_type.value} "
+            f"(expected: {expected_type.value}, "
+            f"confidence: {result.confidence:.2f}, "
+            f"patterns: {result.matched_patterns})"
+        )
 
 
 if __name__ == "__main__":
     # Run simple synchronous tests
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("HYBRID ROUTER TESTS")
-    print("="*70)
+    print("=" * 70)
 
     print("\nTesting Query Classification:")
     print("-" * 70)
@@ -395,6 +374,6 @@ if __name__ == "__main__":
     session_tests.test_session_variables()
     session_tests.test_session_expiration()
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("ALL TESTS PASSED")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")

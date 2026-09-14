@@ -3,6 +3,7 @@
 Tests that PersistenceEvent/EventType provide the audit-trail framework for
 belief, policy, and operator changes.
 """
+
 import pytest
 from unittest.mock import Mock, patch
 
@@ -20,7 +21,7 @@ class TestPersistenceEventEmission:
             entity_id="alice",
             data={"actor_id": "alice", "belief_nnz": 10},
             source="pipeline.observe",
-            metadata={"stage": "layer_10"}
+            metadata={"stage": "layer_10"},
         )
 
         assert event.event_type == EventType.BELIEF_STATE_UPDATED
@@ -44,25 +45,31 @@ class TestPersistenceEventEmission:
         events = []
 
         # Cycle 1
-        events.append(PersistenceEvent(
-            event_type=EventType.BELIEF_STATE_UPDATED,
-            entity_id="alice",
-            data={"belief_nnz": 5}
-        ))
+        events.append(
+            PersistenceEvent(
+                event_type=EventType.BELIEF_STATE_UPDATED,
+                entity_id="alice",
+                data={"belief_nnz": 5},
+            )
+        )
 
         # Cycle 2
-        events.append(PersistenceEvent(
-            event_type=EventType.BELIEF_STATE_UPDATED,
-            entity_id="alice",
-            data={"belief_nnz": 10}  # Belief grew
-        ))
+        events.append(
+            PersistenceEvent(
+                event_type=EventType.BELIEF_STATE_UPDATED,
+                entity_id="alice",
+                data={"belief_nnz": 10},  # Belief grew
+            )
+        )
 
         # Cycle 3 (with policy update)
-        events.append(PersistenceEvent(
-            event_type=EventType.METRIC_RECORDED,
-            entity_id="alice",
-            data={"event": "policy_updated", "policy_size": 15}
-        ))
+        events.append(
+            PersistenceEvent(
+                event_type=EventType.METRIC_RECORDED,
+                entity_id="alice",
+                data={"event": "policy_updated", "policy_size": 15},
+            )
+        )
 
         assert len(events) == 3
         assert events[0].data["belief_nnz"] == 5
@@ -80,13 +87,13 @@ class TestAuditTrailIntegration:
         event_alice_alpha = PersistenceEvent(
             event_type=EventType.BELIEF_STATE_UPDATED,
             entity_id="alice",
-            data={"tenant": "org_alpha", "belief_nnz": 5}
+            data={"tenant": "org_alpha", "belief_nnz": 5},
         )
 
         event_bob_beta = PersistenceEvent(
             event_type=EventType.BELIEF_STATE_UPDATED,
             entity_id="bob",
-            data={"tenant": "org_beta", "belief_nnz": 10}
+            data={"tenant": "org_beta", "belief_nnz": 10},
         )
 
         # Events should be different
@@ -97,6 +104,7 @@ class TestAuditTrailIntegration:
 # ──────────────────────────────────────────────────────────────
 # PHASE 1 DELIVERABLE #2 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase1Deliverable2Complete:
     """Verify Persistence Events emission is complete."""
@@ -110,5 +118,5 @@ class TestPhase1Deliverable2Complete:
         assert EventType is not None
 
         # EventType should have epistemic events
-        assert hasattr(EventType, 'BELIEF_STATE_UPDATED')
-        assert hasattr(EventType, 'METRIC_RECORDED')
+        assert hasattr(EventType, "BELIEF_STATE_UPDATED")
+        assert hasattr(EventType, "METRIC_RECORDED")

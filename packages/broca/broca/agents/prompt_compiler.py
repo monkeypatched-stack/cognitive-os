@@ -15,14 +15,18 @@ The LLM never has to "guess" the architecture. The architecture is compiled into
 The prompt author writes only: workload, goal, domain, bounded_context, reasoning.
 Everything else is injected by the compiler.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from broca.agents._base import BaseETASSAgent
 
 logger = logging.getLogger("broca.agents.prompt_compiler")
+
+if TYPE_CHECKING:
+    from src.monkey_brain.kernel.execute.provider.prompt_ir import StructuredPromptIR
 
 # Domain role templates — injected based on spec.domain
 DOMAIN_ROLES: dict[str, str] = {
@@ -36,21 +40,19 @@ DOMAIN_ROLES: dict[str, str] = {
         "manufacturing domain. You understand work order lifecycle, batch release invariants, "
         "SOP compliance, change control governance, calibration records, and GMP regulations."
     ),
-    "default": (
-        "You are a domain expert agent. Apply your expertise to the stated goal."
-    ),
+    "default": ("You are a domain expert agent. Apply your expertise to the stated goal."),
 }
 
 # Aggregate semantics injected when aggregate is specified
 AGGREGATE_SEMANTICS: dict[str, str] = {
     # software engineering aggregates
-    "pull_request":  "PRs require at least 1 approval and passing CI before merge. You cannot approve your own PR.",
-    "test_suite":    "Coverage must not drop below threshold. No new failing tests without explicit waiver.",
-    "deployment":    "Cannot deploy to production without staging passing. Failing builds cannot be deployed.",
-    "pipeline":      "Pipeline stages are ordered. A failing stage blocks all downstream stages.",
+    "pull_request": "PRs require at least 1 approval and passing CI before merge. You cannot approve your own PR.",
+    "test_suite": "Coverage must not drop below threshold. No new failing tests without explicit waiver.",
+    "deployment": "Cannot deploy to production without staging passing. Failing builds cannot be deployed.",
+    "pipeline": "Pipeline stages are ordered. A failing stage blocks all downstream stages.",
     # manufacturing aggregates
-    "batch":         "Batches require QA sign-off before release. Yield must meet minimum threshold. Deviations require CAPA.",
-    "work_order":    "Work orders require assigned worker and equipment availability confirmation before starting.",
+    "batch": "Batches require QA sign-off before release. Yield must meet minimum threshold. Deviations require CAPA.",
+    "work_order": "Work orders require assigned worker and equipment availability confirmation before starting.",
     "change_control": "Production changes require risk assessment and validation protocol. Emergency changes require retrospective docs.",
     "calibration_record": "Calibration must be performed within schedule. Out-of-tolerance results require immediate investigation.",
 }
@@ -71,18 +73,19 @@ class PromptCompilerAgent(BaseETASSAgent):
         return await self._run(context, self._impl)
 
     async def _impl(self, context: dict[str, Any]):
-        from src.monkey_brain.kernel.execute.provider.prompt_ir import StructuredPromptIR, REASONING_PREAMBLES
 
         spec_data = context.get("spec")
         if spec_data is None:
             # Build a minimal spec from raw context
             from etass.specification import ETASSSpec
+
             spec = ETASSSpec.from_question(
                 question=context.get("goal", context.get("question", "")),
                 intent=context.get("workload", context.get("intent", "default")),
             )
         elif isinstance(spec_data, dict):
             from etass.specification import ETASSSpec
+
             spec = ETASSSpec.from_dict(spec_data)
         else:
             spec = spec_data  # already an ETASSSpec
@@ -98,7 +101,10 @@ class PromptCompilerAgent(BaseETASSAgent):
         external_block = ""
         retrieval_meta: dict = {}
         try:
-            from src.monkey_brain.kernel.knowledge.sittingface_retrieval import get_external_knowledge_retriever
+            from src.monkey_brain.kernel.knowledge.sittingface_retrieval import (
+                get_external_knowledge_retriever,
+            )
+
             report = await get_external_knowledge_retriever().retrieve(
                 spec.goal,
                 cycle_id=f"etass:{spec.workload}",
@@ -117,7 +123,10 @@ class PromptCompilerAgent(BaseETASSAgent):
         external_knowledge_block: str = "",
         retrieval_meta: dict | None = None,
     ) -> "StructuredPromptIR":
-        from src.monkey_brain.kernel.execute.provider.prompt_ir import StructuredPromptIR, REASONING_PREAMBLES
+        from src.monkey_brain.kernel.execute.provider.prompt_ir import (
+            StructuredPromptIR,
+            REASONING_PREAMBLES,
+        )
 
         role = self._resolve_role(spec)
         domain_ontology = self._resolve_domain_ontology(spec)
@@ -195,6 +204,7 @@ class PromptCompilerAgent(BaseETASSAgent):
         # Pull constitutions from the domain package if registered
         try:
             from domains.package import DomainRegistry
+
             pkg = DomainRegistry.instance().get(spec.domain)
             if pkg and pkg.policies:
                 lines.append("Domain Constitutions (from package):")
@@ -210,6 +220,7 @@ class PromptCompilerAgent(BaseETASSAgent):
         """List available agents from Broca registry, filtered by relevance."""
         try:
             from broca.registry import get_registry
+
             all_agents = get_registry().list_agents()
             # Show all — the model decides which to use
             lines = ["Available Agents (Broca Registry):"]
@@ -224,6 +235,7 @@ class PromptCompilerAgent(BaseETASSAgent):
         resolved = []
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
 
             # Map spec fields to DDD agent types
@@ -290,9 +302,19 @@ class PromptCompilerAgent(BaseETASSAgent):
         if agent_catalog:
             sections += ["", f"## {agent_catalog}"]
 
-        sections += ["", f"## Reasoning Strategy ({spec.reasoning})\n{reasoning_preamble}"]
+        sections += [
+            "",
+            f"## Reasoning Strategy ({spec.reasoning})\n{reasoning_preamble}",
+        ]
 
-        for block in (constraints_block, constitutions_block, policies_block, evidence_block, success_criteria_block, outputs_block):
+        for block in (
+            constraints_block,
+            constitutions_block,
+            policies_block,
+            evidence_block,
+            success_criteria_block,
+            outputs_block,
+        ):
             if block:
                 sections += ["", block]
 

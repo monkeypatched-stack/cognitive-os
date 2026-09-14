@@ -102,13 +102,7 @@ actor = {
 #### Belief State ✓
 ```python
 # Before restart:
-alice.belief_state = BeliefState({
-    "confidence": 0.95,
-    "knowledge": {
-        "physics": "intermediate",
-        "biology": "expert"
-    }
-})
+alice.belief_state = BeliefState({"confidence": 0.95, "knowledge": {"physics": "intermediate", "biology": "expert"}})
 
 # After restart: IDENTICAL
 # All accrued knowledge, confidence levels, memory state
@@ -254,6 +248,7 @@ async def start(self):
     # ...
     await self._init_persistence()
 
+
 # 2. _init_persistence()
 def _init_persistence(self):
     # a. Rebuild Redis index from MongoDB
@@ -262,25 +257,27 @@ def _init_persistence(self):
     if not result.success:
         logger.error("Index reconstruction failed, cannot proceed")
         raise RuntimeError("Redis index reconstruction failed")
-    
+
     # b. Rehydrate actors from MongoDB
     rehydrator = ActorStateRehydrator(self)
     rehydration_result = rehydrator.rehydrate_from_mongodb()
     if not rehydration_result.success:
         logger.warning("Actor rehydration failed: %s", rehydration_result.errors)
         # Continue anyway — actors can still be manually registered
-    
+
     # c. Enforce desired states on rehydrated actors
     if rehydration_result.actors_rehydrated > 0:
         from src.monkey_brain.kernel.society.actor_lifecycle_controller import (
             ActorLifecycleController,
         )
+
         controller = ActorLifecycleController(self)
         reconciliation_result = controller.reconcile_rehydrated_actors()
         logger.info("Desired state enforcement: %s", reconciliation_result)
-    
+
     # d. Load actors from Redis (this was existing behavior)
     await self._load_actors()
+
 
 # 3. Actors are now ready to operate
 await self._start_societies()
@@ -495,6 +492,7 @@ $ grep -i "Rehydrated actor" /var/log/agentosctl/runtime.log | head -20
 - **Option C (Debug):** Run rehydrator directly
   ```python
   from src.monkey_brain.kernel.society.actor_state_rehydrator import ActorStateRehydrator
+
   rehydrator = ActorStateRehydrator(planetary)
   result = rehydrator.rehydrate_from_mongodb()
   print(result.summary())

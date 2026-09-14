@@ -74,7 +74,9 @@ async def get_shift(
     return record
 
 
-@router.post("/", response_model=ShiftScheduleResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=ShiftScheduleResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_shift(
     data: ShiftScheduleCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

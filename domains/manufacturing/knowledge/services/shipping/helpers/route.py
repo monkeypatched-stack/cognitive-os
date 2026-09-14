@@ -34,7 +34,9 @@ def _prepare(value):
     return value
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -45,8 +47,12 @@ async def get_by_id(db: AsyncIOMotorDatabase, route_id: str) -> Optional[dict]:
     return _serialize(await db[COLLECTION].find_one({"id": route_id}))
 
 
-async def get_by_reference(db: AsyncIOMotorDatabase, route_reference: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"route_reference": route_reference}))
+async def get_by_reference(
+    db: AsyncIOMotorDatabase, route_reference: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"route_reference": route_reference})
+    )
 
 
 async def get_by_vehicle(db: AsyncIOMotorDatabase, vehicle_id: str) -> list[dict]:
@@ -59,7 +65,9 @@ async def get_by_carrier(db: AsyncIOMotorDatabase, carrier_id: str) -> list[dict
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_planned_date(db: AsyncIOMotorDatabase, planned_date: date) -> list[dict]:
+async def get_by_planned_date(
+    db: AsyncIOMotorDatabase, planned_date: date
+) -> list[dict]:
     cursor = db[COLLECTION].find({"planned_date": planned_date.isoformat()})
     return [_serialize(doc) async for doc in cursor]
 
@@ -75,7 +83,9 @@ async def create(db: AsyncIOMotorDatabase, data: RouteCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, route_id: str, data: RouteUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, route_id: str, data: RouteUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, route_id)

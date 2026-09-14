@@ -41,6 +41,7 @@ Audit-failure precedence (governance/decision.py has the full model):
     otherwise-permitted result more restrictive; it can never convert a
     denial into an allow.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -49,7 +50,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from governance.approval_artifact import ApprovalArtifactError, DiscoveryHandoff
-from governance.audit import DEFAULT_EVENT_LOG, GovernanceAuditError, record_governance_event
+from governance.audit import (
+    DEFAULT_EVENT_LOG,
+    GovernanceAuditError,
+    record_governance_event,
+)
 from governance.decision import GovernanceDecision, decide
 from governance.revision import compute_repository_revision
 from governance.store import ApprovalRecordStore
@@ -136,14 +141,29 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="python -m governance.cli")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    check = sub.add_parser("check", help="Validate an approval and print IMPLEMENTATION_AUTHORIZATION_CHECK")
+    check = sub.add_parser(
+        "check",
+        help="Validate an approval and print IMPLEMENTATION_AUTHORIZATION_CHECK",
+    )
     check.add_argument("--approval-id", required=True)
-    check.add_argument("--handoff", required=True, type=Path, help="Path to a DiscoveryHandoff JSON file")
-    check.add_argument("--approvals-dir", type=Path, default=None, help="Override the approval store directory")
     check.add_argument(
-        "--audit-log", type=Path, default=None,
+        "--handoff",
+        required=True,
+        type=Path,
+        help="Path to a DiscoveryHandoff JSON file",
+    )
+    check.add_argument(
+        "--approvals-dir",
+        type=Path,
+        default=None,
+        help="Override the approval store directory",
+    )
+    check.add_argument(
+        "--audit-log",
+        type=Path,
+        default=None,
         help="Override the governance event log path (default: <approvals-dir>/audit.jsonl, "
-             "or the package default if --approvals-dir is also unset)",
+        "or the package default if --approvals-dir is also unset)",
     )
     check.add_argument("--repo-root", type=Path, default=Path("."))
     check.add_argument("--require-git-provenance", action="store_true")
@@ -155,7 +175,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def _governance_event_details(
-    *, approval_id: str, handoff: DiscoveryHandoff, current_revision: str, result: ApprovalValidationResult,
+    *,
+    approval_id: str,
+    handoff: DiscoveryHandoff,
+    current_revision: str,
+    result: ApprovalValidationResult,
 ) -> dict:
     checks = {
         "schema_valid": result.schema_valid,
@@ -203,7 +227,10 @@ def _emit_blocking_governance_events(
     durably audited is a harder failure than an ordinary block.
     """
     details = _governance_event_details(
-        approval_id=approval_id, handoff=handoff, current_revision=current_revision, result=result,
+        approval_id=approval_id,
+        handoff=handoff,
+        current_revision=current_revision,
+        result=result,
     )
     record_governance_event("approval_validation_failed", details=dict(details), path=audit_log_path)
     record_governance_event("implementation_blocked_by_approval", details=dict(details), path=audit_log_path)
@@ -233,7 +260,10 @@ def _emit_authorized_governance_event(
     fail closed, never report success.
     """
     details = _governance_event_details(
-        approval_id=approval_id, handoff=handoff, current_revision=current_revision, result=result,
+        approval_id=approval_id,
+        handoff=handoff,
+        current_revision=current_revision,
+        result=result,
     )
     record_governance_event("approval_authorized", details=details, path=audit_log_path)
 
@@ -292,8 +322,10 @@ def main(argv: list[str] | None = None) -> int:
     if result.authorized:
         try:
             _emit_authorized_governance_event(
-                approval_id=args.approval_id, handoff=handoff,
-                current_revision=current_revision, result=result,
+                approval_id=args.approval_id,
+                handoff=handoff,
+                current_revision=current_revision,
+                result=result,
                 audit_log_path=audit_log_path,
             )
             audit_durable = True
@@ -303,8 +335,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         try:
             _emit_blocking_governance_events(
-                approval_id=args.approval_id, handoff=handoff,
-                current_revision=current_revision, result=result,
+                approval_id=args.approval_id,
+                handoff=handoff,
+                current_revision=current_revision,
+                result=result,
                 audit_log_path=audit_log_path,
             )
             audit_durable = True
@@ -318,8 +352,12 @@ def main(argv: list[str] | None = None) -> int:
     decision = decide(result, audit_durable=audit_durable)
 
     _print_authorization_check(
-        approval_id=args.approval_id, handoff=handoff,
-        current_revision=current_revision, now=now, result=result, decision=decision,
+        approval_id=args.approval_id,
+        handoff=handoff,
+        current_revision=current_revision,
+        now=now,
+        result=result,
+        decision=decision,
     )
 
     if decision.executable:
@@ -329,7 +367,10 @@ def main(argv: list[str] | None = None) -> int:
         # the governance layer's own observability, not only the
         # approval — never reported identically to a cleanly-audited
         # block, and never allowed to look like exit 0 (success).
-        print(f"error: governance audit could not be durably recorded: {audit_error}", file=sys.stderr)
+        print(
+            f"error: governance audit could not be durably recorded: {audit_error}",
+            file=sys.stderr,
+        )
         return 2
     return 1
 

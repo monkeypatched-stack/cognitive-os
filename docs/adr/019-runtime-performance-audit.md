@@ -378,13 +378,15 @@ inherit the same LLM-bound cost as regular ticks whenever it does fire
 ```python
 # Must load .env BEFORE importing model_backend.py (MODEL_BACKEND is
 # read at import time) -- see kernel/kernel.py's own boot sequence.
-from dotenv import load_dotenv; load_dotenv(".env")
+from dotenv import load_dotenv
+
+load_dotenv(".env")
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 import asyncio
 
 pr = PlanetaryRuntime()
-result = asyncio.run(pr._run_cycle())   # bypasses cycle()'s 300s wait_for cap
-report = pr._last_cycle_report          # CyclePerformanceReport
+result = asyncio.run(pr._run_cycle())  # bypasses cycle()'s 300s wait_for cap
+report = pr._last_cycle_report  # CyclePerformanceReport
 print(report.format_summary())
 for actor in report.actors:
     print(actor.format())

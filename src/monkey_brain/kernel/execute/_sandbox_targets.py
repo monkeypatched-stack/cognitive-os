@@ -4,6 +4,7 @@ With a thread-safe start method (forkserver/spawn) the sandbox target must be im
 qualified name (picklable) — closures and lambdas won't cross the process boundary. Keep this
 module stdlib-only so child startup stays fast.
 """
+
 from __future__ import annotations
 
 
@@ -20,5 +21,5 @@ def crash():
 
 
 def busy_loop():
-    while True:            # runaway — must be killed at the sandbox timeout
+    while True:  # runaway — must be killed at the sandbox timeout
         pass

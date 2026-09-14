@@ -16,6 +16,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedProductResponse)
 async def list_products(
     page: int = Query(1, ge=1),
@@ -33,6 +34,7 @@ async def list_products(
 
 
 # ── Filtered Queries ──────────────────────────────────────────────────────────
+
 
 @router.get("/by-sku/{sku}", response_model=ProductResponse)
 async def get_product_by_sku(
@@ -96,6 +98,7 @@ async def list_products_by_brand(
 
 # ── Get One ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(
     product_id: str,
@@ -112,6 +115,7 @@ async def get_product(
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
+
 
 @router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(
@@ -134,6 +138,7 @@ async def create_product(
 
 # ── Update ────────────────────────────────────────────────────────────────────
 
+
 @router.patch("/{product_id}", response_model=ProductResponse)
 async def update_product(
     product_id: str,
@@ -151,6 +156,7 @@ async def update_product(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product(

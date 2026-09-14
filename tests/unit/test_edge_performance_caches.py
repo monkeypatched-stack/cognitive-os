@@ -1,5 +1,6 @@
 """Edge performance caches: BoundedTTLCache primitive,
 VerifiedDelegationCache, CachedContextConstructionEngine."""
+
 from __future__ import annotations
 
 import time
@@ -70,7 +71,9 @@ class TestVerifiedDelegationCache:
             return issue_delegation(issuer="A", delegate="C", capabilities=("grocery.purchase",))
 
     def test_cache_hit_returns_equivalent_result(self, delegation):
-        from src.monkey_brain.kernel.edge.delegation_cache import VerifiedDelegationCache
+        from src.monkey_brain.kernel.edge.delegation_cache import (
+            VerifiedDelegationCache,
+        )
 
         cache = VerifiedDelegationCache()
         r1 = cache.verify(chain=(delegation,), authenticated_delegate="C")
@@ -80,7 +83,9 @@ class TestVerifiedDelegationCache:
         assert cache.stats()["hits"] == 1
 
     def test_wrong_delegate_is_not_served_from_cache(self, delegation):
-        from src.monkey_brain.kernel.edge.delegation_cache import VerifiedDelegationCache
+        from src.monkey_brain.kernel.edge.delegation_cache import (
+            VerifiedDelegationCache,
+        )
 
         cache = VerifiedDelegationCache()
         cache.verify(chain=(delegation,), authenticated_delegate="C")
@@ -88,7 +93,9 @@ class TestVerifiedDelegationCache:
         assert result.authorized is False
 
     def test_epoch_change_forces_reverification(self, delegation):
-        from src.monkey_brain.kernel.edge.delegation_cache import VerifiedDelegationCache
+        from src.monkey_brain.kernel.edge.delegation_cache import (
+            VerifiedDelegationCache,
+        )
 
         cache = VerifiedDelegationCache()
         cache.verify(chain=(delegation,), authenticated_delegate="C", current_authority_epoch=0)
@@ -97,7 +104,9 @@ class TestVerifiedDelegationCache:
         assert cache.stats()["misses"] == 2  # epoch bump forces a fresh verification, not a stale hit
 
     def test_invalidate_delegation_clears_cache(self, delegation):
-        from src.monkey_brain.kernel.edge.delegation_cache import VerifiedDelegationCache
+        from src.monkey_brain.kernel.edge.delegation_cache import (
+            VerifiedDelegationCache,
+        )
 
         cache = VerifiedDelegationCache()
         cache.verify(chain=(delegation,), authenticated_delegate="C")
@@ -124,8 +133,12 @@ class TestCachedContextConstructionEngine:
     @pytest.fixture()
     def wrapped(self, monkeypatch):
         monkeypatch.setenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "true")
-        from src.monkey_brain.kernel.edge.context_cache import CachedContextConstructionEngine
-        from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+        from src.monkey_brain.kernel.edge.context_cache import (
+            CachedContextConstructionEngine,
+        )
+        from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+            ContextConstructionEngine,
+        )
         from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
         engine = ContextConstructionEngine(planetary_runtime=PlanetaryRuntime())
@@ -135,31 +148,73 @@ class TestCachedContextConstructionEngine:
         from src.monkey_brain.kernel.pipeline.belief_state import Goal
 
         goal = Goal(name="g", description="check inventory")
-        _, hit = wrapped.build("actor-1", goal, world_state_version="v1", policy_version="p1", knowledge_version="k1")
+        _, hit = wrapped.build(
+            "actor-1",
+            goal,
+            world_state_version="v1",
+            policy_version="p1",
+            knowledge_version="k1",
+        )
         assert hit is False
 
     def test_repeated_build_with_same_versions_is_a_hit(self, wrapped):
         from src.monkey_brain.kernel.pipeline.belief_state import Goal
 
         goal = Goal(name="g", description="check inventory")
-        wrapped.build("actor-1", goal, world_state_version="v1", policy_version="p1", knowledge_version="k1")
-        _, hit = wrapped.build("actor-1", goal, world_state_version="v1", policy_version="p1", knowledge_version="k1")
+        wrapped.build(
+            "actor-1",
+            goal,
+            world_state_version="v1",
+            policy_version="p1",
+            knowledge_version="k1",
+        )
+        _, hit = wrapped.build(
+            "actor-1",
+            goal,
+            world_state_version="v1",
+            policy_version="p1",
+            knowledge_version="k1",
+        )
         assert hit is True
 
     def test_world_state_version_change_forces_rebuild(self, wrapped):
         from src.monkey_brain.kernel.pipeline.belief_state import Goal
 
         goal = Goal(name="g", description="check inventory")
-        wrapped.build("actor-1", goal, world_state_version="v1", policy_version="p1", knowledge_version="k1")
-        _, hit = wrapped.build("actor-1", goal, world_state_version="v2", policy_version="p1", knowledge_version="k1")
+        wrapped.build(
+            "actor-1",
+            goal,
+            world_state_version="v1",
+            policy_version="p1",
+            knowledge_version="k1",
+        )
+        _, hit = wrapped.build(
+            "actor-1",
+            goal,
+            world_state_version="v2",
+            policy_version="p1",
+            knowledge_version="k1",
+        )
         assert hit is False
 
     def test_policy_version_change_forces_rebuild(self, wrapped):
         from src.monkey_brain.kernel.pipeline.belief_state import Goal
 
         goal = Goal(name="g", description="check inventory")
-        wrapped.build("actor-1", goal, world_state_version="v1", policy_version="p1", knowledge_version="k1")
-        _, hit = wrapped.build("actor-1", goal, world_state_version="v1", policy_version="p2", knowledge_version="k1")
+        wrapped.build(
+            "actor-1",
+            goal,
+            world_state_version="v1",
+            policy_version="p1",
+            knowledge_version="k1",
+        )
+        _, hit = wrapped.build(
+            "actor-1",
+            goal,
+            world_state_version="v1",
+            policy_version="p2",
+            knowledge_version="k1",
+        )
         assert hit is False
 
     def test_different_goal_is_a_different_cache_key(self, wrapped):
@@ -167,6 +222,18 @@ class TestCachedContextConstructionEngine:
 
         goal1 = Goal(name="g1", description="check inventory for widgets")
         goal2 = Goal(name="g2", description="check inventory for gadgets")
-        wrapped.build("actor-1", goal1, world_state_version="v1", policy_version="p1", knowledge_version="k1")
-        _, hit = wrapped.build("actor-1", goal2, world_state_version="v1", policy_version="p1", knowledge_version="k1")
+        wrapped.build(
+            "actor-1",
+            goal1,
+            world_state_version="v1",
+            policy_version="p1",
+            knowledge_version="k1",
+        )
+        _, hit = wrapped.build(
+            "actor-1",
+            goal2,
+            world_state_version="v1",
+            policy_version="p1",
+            knowledge_version="k1",
+        )
         assert hit is False

@@ -8,6 +8,7 @@ Architecture:
     Receiver: ExchangeServer receives → KnowledgeExchange.deliver() → MergeQueue
     Flusher:  Background task calls MergeQueue.flush() periodically
 """
+
 # NOTE: deliberately NOT using `from __future__ import annotations`. FastAPI resolves the
 # route's parameter types from real annotation objects; stringified annotations of the
 # locally-defined Pydantic models fail to resolve and every request 422s.
@@ -25,7 +26,10 @@ import urllib.request
 import urllib.error
 
 from src.monkey_brain.kernel.compile.exchange import (
-    KnowledgeExchange, BeliefProposal, MergeQueue, is_shareable,
+    KnowledgeExchange,
+    BeliefProposal,
+    MergeQueue,
+    is_shareable,
 )
 from src.monkey_brain.kernel.compile.trust import TrustNetwork
 
@@ -63,7 +67,10 @@ def _exchange_auth_required() -> bool:
     """
     global _EXCHANGE_AUTH_DISABLED_WARNED
     required = os.getenv("AGENTOS_EXCHANGE_AUTH_REQUIRED", "true").strip().lower() not in (
-        "false", "0", "no", "off",
+        "false",
+        "0",
+        "no",
+        "off",
     )
     if not required and not _EXCHANGE_AUTH_DISABLED_WARNED:
         _EXCHANGE_AUTH_DISABLED_WARNED = True
@@ -90,20 +97,22 @@ def secure_mode_preflight(*, strict: bool | None = None) -> list:
     if not _require_mtls():
         issues.append("AGENTOS_REQUIRE_MTLS unset — plaintext transport permitted")
     if not os.getenv("AGENTOS_KEY_PASSWORD"):
-        issues.append("AGENTOS_KEY_PASSWORD unset — signing keys use an auto-generated local "
-                      "passphrase, not a managed secret (KMS/HSM)")
+        issues.append(
+            "AGENTOS_KEY_PASSWORD unset — signing keys use an auto-generated local "
+            "passphrase, not a managed secret (KMS/HSM)"
+        )
     for issue in issues:
         logger.warning("[secure-preflight] %s", issue)
     if strict and issues:
-        raise RuntimeError("AGENTOS_SECURE_MODE set but configuration is insecure: "
-                           + "; ".join(issues))
+        raise RuntimeError("AGENTOS_SECURE_MODE set but configuration is insecure: " + "; ".join(issues))
     if not issues:
         logger.info("[secure-preflight] all checks passed — secure posture")
     return issues
 
 
-def build_client_ssl_context(cert: str | None = None, key: str | None = None,
-                             ca: str | None = None) -> ssl.SSLContext | None:
+def build_client_ssl_context(
+    cert: str | None = None, key: str | None = None, ca: str | None = None
+) -> ssl.SSLContext | None:
     """Build a mutual-TLS client context: verify the server against `ca` AND present our
     own client certificate (mTLS) so the server can authenticate this runtime. Falls back
     to env (AGENTOS_TLS_CERT / _KEY / _CA). Returns None if no TLS material is configured.
@@ -116,21 +125,23 @@ def build_client_ssl_context(cert: str | None = None, key: str | None = None,
     ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=ca or None)
     ctx.check_hostname = True
     ctx.verify_mode = ssl.CERT_REQUIRED
-    ctx.load_cert_chain(certfile=cert, keyfile=key)     # our client identity (mTLS)
+    ctx.load_cert_chain(certfile=cert, keyfile=key)  # our client identity (mTLS)
     return ctx
 
 
-def build_server_ssl_context(cert: str | None = None, key: str | None = None,
-                             ca: str | None = None) -> ssl.SSLContext | None:
+def build_server_ssl_context(
+    cert: str | None = None, key: str | None = None, ca: str | None = None
+) -> ssl.SSLContext | None:
     """Build a server context that REQUIRES and verifies client certificates (mTLS) — pass
-    to uvicorn/hypercorn at the TLS edge so only runtimes with a CA-issued client cert connect."""
+    to uvicorn/hypercorn at the TLS edge so only runtimes with a CA-issued client cert connect.
+    """
     cert = cert or os.getenv("AGENTOS_TLS_CERT", "")
     key = key or os.getenv("AGENTOS_TLS_KEY", "")
     ca = ca or os.getenv("AGENTOS_TLS_CA", "")
     if not (cert and key):
         return None
     ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH, cafile=ca or None)
-    ctx.verify_mode = ssl.CERT_REQUIRED                 # reject clients without a valid cert
+    ctx.verify_mode = ssl.CERT_REQUIRED  # reject clients without a valid cert
     ctx.load_cert_chain(certfile=cert, keyfile=key)
     return ctx
 
@@ -161,17 +172,28 @@ class ExchangeClient:
         which constructed an ExchangeClient for exactly this purpose but
         never called it — MB cleanup finding).
         """
-        is_plaintext = url.startswith("http://") and not url.startswith("http://127.0.0.1") \
+        is_plaintext = (
+            url.startswith("http://")
+            and not url.startswith("http://127.0.0.1")
             and not url.startswith("http://localhost")
+        )
         if is_plaintext:
             if _require_mtls():
-                return {"status": "error", "reason": "mtls_required",
-                        "detail": "AGENTOS_REQUIRE_MTLS set but target is plaintext http"}
-            logger.warning("[exchange] sending to PLAINTEXT http %s — "
-                           "use https:// in production (payload is in cleartext)", url)
+                return {
+                    "status": "error",
+                    "reason": "mtls_required",
+                    "detail": "AGENTOS_REQUIRE_MTLS set but target is plaintext http",
+                }
+            logger.warning(
+                "[exchange] sending to PLAINTEXT http %s — use https:// in production (payload is in cleartext)",
+                url,
+            )
         elif _require_mtls() and self._ssl is None:
-            return {"status": "error", "reason": "mtls_required",
-                    "detail": "AGENTOS_REQUIRE_MTLS set but no client certificate configured"}
+            return {
+                "status": "error",
+                "reason": "mtls_required",
+                "detail": "AGENTOS_REQUIRE_MTLS set but no client certificate configured",
+            }
         payload = json.dumps(body).encode("utf-8")
 
         headers = {"Content-Type": "application/json"}
@@ -182,7 +204,10 @@ class ExchangeClient:
             if url.startswith("https://") or "127.0.0.1" in url or "localhost" in url:
                 headers["Authorization"] = f"Bearer {token}"
             else:
-                logger.warning("[exchange] withholding bearer token — target %s is plaintext http", url)
+                logger.warning(
+                    "[exchange] withholding bearer token — target %s is plaintext http",
+                    url,
+                )
         req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
 
         try:
@@ -192,32 +217,47 @@ class ExchangeClient:
         except urllib.error.HTTPError as e:
             body_text = e.read().decode("utf-8", errors="replace")
             logger.warning("[exchange] HTTP %d from %s: %s", e.code, url, body_text[:200])
-            return {"status": "error", "reason": f"http_{e.code}", "detail": body_text[:200]}
+            return {
+                "status": "error",
+                "reason": f"http_{e.code}",
+                "detail": body_text[:200],
+            }
         except Exception as e:
             logger.warning("[exchange] failed to reach %s: %s", url, e)
             return {"status": "error", "reason": "connection_failed", "detail": str(e)}
 
-    def send_proposal(self, proposal: BeliefProposal, target_url: str,
-                      recipient_tenant: str = "default") -> dict[str, Any]:
+    def send_proposal(
+        self,
+        proposal: BeliefProposal,
+        target_url: str,
+        recipient_tenant: str = "default",
+    ) -> dict[str, Any]:
         """Send a proposal to a remote runtime's exchange endpoint.
 
         Returns the remote's ExchangeResult as a dict.
         """
         url = f"{target_url.rstrip('/')}/api/v1/agentos/exchange/proposal"
-        return self.post_json(url, {
-            "proposal": {
-                "origin": proposal.origin,
-                "kind": proposal.kind,
-                "domain": proposal.domain,
-                "transitions": [list(t) for t in proposal.transitions],
-                "signature": proposal.signature,
-                "certificate": proposal.certificate,
+        return self.post_json(
+            url,
+            {
+                "proposal": {
+                    "origin": proposal.origin,
+                    "kind": proposal.kind,
+                    "domain": proposal.domain,
+                    "transitions": [list(t) for t in proposal.transitions],
+                    "signature": proposal.signature,
+                    "certificate": proposal.certificate,
+                },
+                "recipient_tenant": recipient_tenant,
             },
-            "recipient_tenant": recipient_tenant,
-        })
+        )
 
-    def send_batch(self, proposals: list[BeliefProposal], target_url: str,
-                   recipient_tenant: str = "default") -> list[dict[str, Any]]:
+    def send_batch(
+        self,
+        proposals: list[BeliefProposal],
+        target_url: str,
+        recipient_tenant: str = "default",
+    ) -> list[dict[str, Any]]:
         """Send multiple proposals to a remote runtime."""
         results = []
         for prop in proposals:
@@ -233,11 +273,16 @@ class ExchangeServer:
         app.include_router(exchange_server.router, prefix="/api/v1/agentos")
     """
 
-    def __init__(self, exchange: KnowledgeExchange, tenant_id: str = "default",
-                 ca: Any = None, cross_certs: Any = None) -> None:
+    def __init__(
+        self,
+        exchange: KnowledgeExchange,
+        tenant_id: str = "default",
+        ca: Any = None,
+        cross_certs: Any = None,
+    ) -> None:
         self._exchange = exchange
         self._tenant_id = tenant_id
-        self._ca = ca                     # when set, publishes a signed trust bundle
+        self._ca = ca  # when set, publishes a signed trust bundle
         self._cross = cross_certs
         self._received_count = 0
         self._accepted_count = 0
@@ -277,17 +322,21 @@ class ExchangeServer:
                 if not hmac.compare_digest(presented, expected):
                     self._rejected_count += 1
                     from fastapi import HTTPException
+
                     raise HTTPException(status_code=401, detail="unauthorized")
             elif _exchange_auth_required():
                 self._rejected_count += 1
                 from fastapi import HTTPException
+
                 raise HTTPException(
                     status_code=503,
                     detail="exchange transport not configured — set AGENTOS_EXCHANGE_TOKEN",
                 )
             else:
-                logger.warning("[exchange] receiving proposals UNAUTHENTICATED — set "
-                               "AGENTOS_EXCHANGE_TOKEN (and TLS) in production")
+                logger.warning(
+                    "[exchange] receiving proposals UNAUTHENTICATED — set "
+                    "AGENTOS_EXCHANGE_TOKEN (and TLS) in production"
+                )
 
             try:
                 p = body.proposal
@@ -311,11 +360,14 @@ class ExchangeServer:
             # The RECIPIENT is this runtime's tenant — NOT proposal.origin. Passing origin
             # would check the sender's relationship with itself and bypass trust governance.
             from src.monkey_brain.kernel.compile.world_tensor import get_world
+
             recipient = body.recipient_tenant or self._tenant_id
             recipient_belief = get_world(recipient)
 
             result = self._exchange.deliver(
-                proposal, recipient, recipient_belief,
+                proposal,
+                recipient,
+                recipient_belief,
             )
 
             if result.status == "accepted":
@@ -341,6 +393,7 @@ class ExchangeServer:
             }
 
         if self._ca is not None:
+
             @router.get("/trust/bundle")
             async def trust_bundle():
                 """Publish this authority's SIGNED trust bundle (aggregate CRL + cross-certs)
@@ -377,8 +430,14 @@ class BundleRefresher:
     its authority's key before it can touch the store.
     """
 
-    def __init__(self, store: Any, sources: list, *, interval: float = 300.0,
-                 client: "BundleClient | None" = None) -> None:
+    def __init__(
+        self,
+        store: Any,
+        sources: list,
+        *,
+        interval: float = 300.0,
+        client: "BundleClient | None" = None,
+    ) -> None:
         self._store = store
         self._sources = sources
         self._interval = interval
@@ -403,8 +462,11 @@ class BundleRefresher:
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True, name="bundle-refresher")
         self._thread.start()
-        logger.info("[trust] bundle refresher started (%d sources, interval=%.0fs)",
-                    len(self._sources), self._interval)
+        logger.info(
+            "[trust] bundle refresher started (%d sources, interval=%.0fs)",
+            len(self._sources),
+            self._interval,
+        )
 
     def stop(self) -> None:
         self._running = False
@@ -413,7 +475,7 @@ class BundleRefresher:
             self._thread = None
 
     def _run(self) -> None:
-        self.refresh_once()                            # prime immediately
+        self.refresh_once()  # prime immediately
         while self._running:
             time.sleep(self._interval)
             if not self._running:
@@ -438,16 +500,22 @@ def configure_exchange(network: "TrustNetwork | None" = None):
     store = os.getenv("AGENTOS_CA_STORE", "")
     if store:
         from src.monkey_brain.kernel.ca import CertificateAuthority
-        ca = CertificateAuthority(ca_id=os.getenv("AGENTOS_CA_ID", "authority:root"),
-                                  store_path=store)
+
+        ca = CertificateAuthority(ca_id=os.getenv("AGENTOS_CA_ID", "authority:root"), store_path=store)
         anchor = ca.ca_public_pem()
-        crl = ca.aggregate_crl                          # live CRL: whole-subtree revocations
+        crl = ca.aggregate_crl  # live CRL: whole-subtree revocations
         logger.info("[exchange] CA-backed identity enabled (store=%s)", store)
     else:
-        logger.warning("[exchange] no AGENTOS_CA_STORE — cross-host cert verification "
-                       "disabled (in-process identity only)")
-    ex = KnowledgeExchange(net, ca=ca, ca_public_pem=anchor, crl=crl,
-                           max_queue=int(os.getenv("EXCHANGE_MAX_QUEUE", "10000")))
+        logger.warning(
+            "[exchange] no AGENTOS_CA_STORE — cross-host cert verification disabled (in-process identity only)"
+        )
+    ex = KnowledgeExchange(
+        net,
+        ca=ca,
+        ca_public_pem=anchor,
+        crl=crl,
+        max_queue=int(os.getenv("EXCHANGE_MAX_QUEUE", "10000")),
+    )
     server = ExchangeServer(ex, tenant_id=os.getenv("AGENTOS_TENANT_ID", "default"), ca=ca)
     flusher = ExchangeFlusher(ex.queue, interval=float(os.getenv("EXCHANGE_FLUSH_INTERVAL", "5")))
     return ex, server, flusher
@@ -498,6 +566,7 @@ class ExchangeFlusher:
     def _flush(self) -> None:
         """Flush the queue — apply accepted proposals to the world tensor."""
         from src.monkey_brain.kernel.compile.world_tensor import get_tenant_world
+
         tw = get_tenant_world()
 
         def tenant_of(recipient: str) -> str:

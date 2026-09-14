@@ -7,6 +7,7 @@ Supports:
 - Regression tests
 - Performance tests
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,9 +20,8 @@ from enum import Enum
 from typing import Any, Callable
 from uuid import uuid4
 
-
-
 logger = logging.getLogger("plasticity.testing.runner")
+
 
 class TestType(str, Enum):
     UNIT = "unit"
@@ -44,7 +44,7 @@ class TestStatus(str, Enum):
 @dataclass
 class TestCase:
     """A single test case."""
-    
+
     test_id: str = field(default_factory=lambda: f"test-{uuid4().hex[:8]}")
     name: str = ""
     test_type: TestType = TestType.UNIT
@@ -60,7 +60,7 @@ class TestCase:
 @dataclass
 class TestResult:
     """Result of a single test."""
-    
+
     test_id: str = ""
     name: str = ""
     status: TestStatus = TestStatus.PENDING
@@ -74,7 +74,7 @@ class TestResult:
 @dataclass
 class TestSuiteResult:
     """Result of a test suite execution."""
-    
+
     suite_id: str = field(default_factory=lambda: f"suite-{uuid4().hex[:8]}")
     name: str = ""
     results: list[TestResult] = field(default_factory=list)
@@ -85,7 +85,7 @@ class TestSuiteResult:
     errors: int = 0
     total_latency_ms: float = 0.0
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    
+
     @property
     def pass_rate(self) -> float:
         return self.passed / self.total if self.total else 0.0
@@ -93,7 +93,7 @@ class TestSuiteResult:
 
 class TestRunner:
     """Executes tests and collects results.
-    
+
     Supports:
     - Unit tests
     - Integration tests
@@ -101,16 +101,16 @@ class TestRunner:
     - Regression tests
     - Performance tests
     """
-    
+
     def __init__(self):
         self._test_cases: list[TestCase] = []
         self._results: list[TestResult] = []
         self._suites: list[TestSuiteResult] = []
         self._lemon = None
-    
+
     def set_lemon(self, lemon) -> None:
         self._lemon = lemon
-    
+
     def register(
         self,
         name: str,
@@ -131,13 +131,13 @@ class TestRunner:
         )
         self._test_cases.append(test)
         return test.test_id
-    
+
     async def run(self, test: TestCase) -> TestResult:
         """Run a single test."""
         result = TestResult(test_id=test.test_id, name=test.name)
-        
+
         start = time.monotonic()
-        
+
         try:
             if test.function:
                 if asyncio.iscoroutinefunction(test.function):
@@ -145,41 +145,43 @@ class TestRunner:
                 else:
                     output = test.function(test.input_data)
                 result.output = output if isinstance(output, dict) else {"result": output}
-            
+
             result.status = TestStatus.PASSED
             result.latency_ms = (time.monotonic() - start) * 1000
-            
+
             # Validate expected output
             if test.expected_output:
                 for key, expected in test.expected_output.items():
                     actual = result.output.get(key)
                     passed = actual == expected
-                    result.assertions.append({
-                        "field": key,
-                        "expected": expected,
-                        "actual": actual,
-                        "passed": passed,
-                    })
+                    result.assertions.append(
+                        {
+                            "field": key,
+                            "expected": expected,
+                            "actual": actual,
+                            "passed": passed,
+                        }
+                    )
                     if not passed:
                         result.status = TestStatus.FAILED
-            
+
         except Exception as e:
             result.status = TestStatus.ERROR
             result.error = str(e)
             result.latency_ms = (time.monotonic() - start) * 1000
-        
+
         self._results.append(result)
-        
+
         if self._lemon:
             self._lemon.counter("testing.tests_run")
             self._lemon.counter(f"testing.tests_{result.status.value}")
-        
+
         return result
-    
+
     async def run_suite(self, name: str, tests: list[TestCase]) -> TestSuiteResult:
         """Run a suite of tests."""
         suite = TestSuiteResult(name=name)
-        
+
         for test in tests:
             result = await self.run(test)
             suite.results.append(result)
@@ -193,15 +195,15 @@ class TestRunner:
             elif result.status == TestStatus.ERROR:
                 suite.errors += 1
             suite.total_latency_ms += result.latency_ms
-        
+
         self._suites.append(suite)
         return suite
-    
+
     def get_results(self, status: TestStatus | None = None) -> list[TestResult]:
         if status:
             return [r for r in self._results if r.status == status]
         return list(self._results)
-    
+
     def summary(self) -> dict:
         return {
             "total_tests": len(self._test_cases),

@@ -18,12 +18,14 @@ logger = logging.getLogger("agentos")
 # Environment
 # ---------------------------------------------------------------------------
 
+
 def load_dotenv(env_file: Path) -> None:
     """Load .env file into os.environ without overwriting existing vars."""
     if not env_file.exists():
         return
     try:
         from dotenv import load_dotenv as _load
+
         _load(env_file, override=False)
     except ImportError:
         for line in env_file.read_text().splitlines():
@@ -47,7 +49,9 @@ def _env_url_or_warn(name: str, default: str) -> str:
         logger.warning(
             "%s is unset — defaulting to %r. If this is a real deployment, "
             "set %s explicitly (even to this value) to confirm it's intentional.",
-            name, default, name,
+            name,
+            default,
+            name,
         )
         return default
     return value
@@ -56,6 +60,7 @@ def _env_url_or_warn(name: str, default: str) -> str:
 # ---------------------------------------------------------------------------
 # Required subsystems
 # ---------------------------------------------------------------------------
+
 
 async def init_lemon(app: Any) -> Any:
     from src.introspection.lemon import Lemon, set_lemon
@@ -69,9 +74,13 @@ async def init_lemon(app: Any) -> Any:
         lemon.info("Lemon connected to Elasticsearch", component="bootstrap")
         # Redacted: an ES URL conventionally embeds credentials (https://user:pass@host:9200).
         from src.monkey_brain.persistence.client_options import redact_url
+
         logger.info("Lemon connected to Elasticsearch: %s", redact_url(es_url))
     except Exception as exc:
-        logger.warning("Lemon Elasticsearch connection failed (metrics will be in-memory only): %s", exc)
+        logger.warning(
+            "Lemon Elasticsearch connection failed (metrics will be in-memory only): %s",
+            exc,
+        )
 
     lemon.info("Lemon initialized", component="bootstrap")
     logger.info("Lemon initialized")
@@ -86,10 +95,12 @@ async def init_persistence(app: Any, lemon: Any) -> Any:
 
     pm = PersistenceManager()
     pm.set_lemon(lemon)
-    pm.register_adapter(MongoDBAdapter(
-        url=_env_url_or_warn("MONGODB_URL", "mongodb://localhost:27017"),
-        database=os.getenv("DB_NAME", "agentos"),
-    ))
+    pm.register_adapter(
+        MongoDBAdapter(
+            url=_env_url_or_warn("MONGODB_URL", "mongodb://localhost:27017"),
+            database=os.getenv("DB_NAME", "agentos"),
+        )
+    )
     pm.register_adapter(RedisAdapter(url=_env_url_or_warn("REDIS_URL", "redis://localhost:6379")))
     pm.register_adapter(Mem0Adapter())
 
@@ -107,6 +118,7 @@ async def init_persistence(app: Any, lemon: Any) -> Any:
 
     try:
         from src.monkey_brain.memory.persistence_integration import register_manager
+
         register_manager(pm, lemon)
     except Exception as exc:
         logger.warning("persistence_integration.register_manager failed: %s", exc)
@@ -134,9 +146,11 @@ async def init_runtime(app: Any, pm: Any, lemon: Any) -> Any:
 # Optional subsystems — failures are logged, not raised
 # ---------------------------------------------------------------------------
 
+
 async def init_providers(app: Any, runtime: Any) -> None:
     try:
         from cerebellum.providers import load_all_providers
+
         names = load_all_providers(runtime)
         logger.info("Providers loaded: %s", names)
     except Exception as exc:
@@ -190,13 +204,14 @@ async def init_broca(app: Any, runtime: Any) -> None:
 async def init_pcp(app: Any, pm: Any) -> Any:
     try:
         from services.common.policy_control_plane import get_pcp
+
         # Find MongoDB adapter and get its database connection
         mongo_adapter = None
         for adapter in pm._adapters.values():
             if hasattr(adapter, "_db") and adapter._db is not None:
                 mongo_adapter = adapter
                 break
-        
+
         pcp_db = mongo_adapter._db if mongo_adapter else None
         pcp = await get_pcp(db=pcp_db)
         # pcp_db is a Motor AsyncIOMotorDatabase -- like pymongo, it raises
@@ -207,7 +222,10 @@ async def init_pcp(app: Any, pm: Any) -> Any:
         # surrounding try/except then discarded that already-initialized PCP
         # and returned None, reporting "Policy Control Plane skipped" for a
         # PCP that had, in fact, started fine.
-        logger.info("Policy Control Plane started (db=%s)", "connected" if pcp_db is not None else "none")
+        logger.info(
+            "Policy Control Plane started (db=%s)",
+            "connected" if pcp_db is not None else "none",
+        )
         return pcp
     except Exception as exc:
         logger.warning("Policy Control Plane skipped: %s", exc)
@@ -217,13 +235,15 @@ async def init_pcp(app: Any, pm: Any) -> Any:
 async def init_runtime_identity(runtime: Any) -> None:
     try:
         spiffe_id = os.getenv("SPIFFE_ID", "spiffe://monkeybrain/runtime/agentos")
-        runtime.set_runtime_identity({
-            "spiffe_id": spiffe_id,
-            "client_id": "runtime",
-            "agent_type": "runtime",
-            "scopes": ["execute:workload"],
-            "role_ids": [],
-        })
+        runtime.set_runtime_identity(
+            {
+                "spiffe_id": spiffe_id,
+                "client_id": "runtime",
+                "agent_type": "runtime",
+                "scopes": ["execute:workload"],
+                "role_ids": [],
+            }
+        )
         logger.info("Runtime identity set: %s", spiffe_id)
     except Exception as exc:
         logger.warning("Runtime identity skipped: %s", exc)
@@ -233,6 +253,7 @@ async def init_nanda(app: Any) -> None:
     _NANDA_DOMAINS = ("software_engineering", "manufacturing", "default")
     try:
         from cerebellum.capabilities.agent.nanda import NANDACapability
+
         nanda = NANDACapability()
         if not nanda._available:
             logger.info("NANDA not configured — skipping startup discovery")
@@ -253,7 +274,6 @@ async def init_nanda(app: Any) -> None:
         logger.info("NANDA startup discovery: %d remote agents registered", discovered)
     except Exception as exc:
         logger.warning("NANDA startup discovery skipped: %s", exc)
-    
 
     """
     Policy Lifecycle
@@ -276,6 +296,8 @@ async def init_nanda(app: Any) -> None:
     ├── policy.set_persistence_manager(pm) → save/load Q-values
     └── policy.set_lemon(lemon) → observability
     """
+
+
 async def init_policy(app: Any, pm: Any, lemon: Any) -> Any:
     from src.monkey_brain.kernel.fix.policy.policy import BellmanPolicy
 
@@ -290,9 +312,11 @@ async def init_policy(app: Any, pm: Any, lemon: Any) -> Any:
     logger.info("Policy initialized")
     return policy
 
+
 # ---------------------------------------------------------------------------
 # Initiate the observer for lemon
 # ---------------------------------------------------------------------------
+
 
 async def init_observer(app: Any, lemon: Any) -> Any:
     from src.monkey_brain.kernel.learn.observer.observer import Observer
@@ -349,6 +373,7 @@ async def init_sittingface(app: Any, runtime: Any, lemon: Any) -> None:
 
         try:
             from broca.registry import register_etass_agents
+
             register_etass_agents(runtime=runtime)
         except Exception as exc:
             logger.warning("Broca ETASS agent registration skipped: %s", exc)
@@ -358,26 +383,31 @@ async def init_sittingface(app: Any, runtime: Any, lemon: Any) -> None:
         # stubs return success unconditionally and query nothing.
         try:
             from domains.manufacturing.agents import register_manufacturing_agents
+
             register_manufacturing_agents(runtime=runtime)
         except Exception as exc:
             logger.warning("Manufacturing domain agent registration skipped: %s", exc)
 
         app.state.somatic_compiler = compiler
         try:
-            from src.monkey_brain.kernel.plan.intents.intent_registry import set_somatic_compiler
+            from src.monkey_brain.kernel.plan.intents.intent_registry import (
+                set_somatic_compiler,
+            )
+
             set_somatic_compiler(compiler)
         except Exception as exc:
             logger.warning("Intent registry soma bridge skipped: %s", exc)
         summary = compiler.summary()
         lemon.info(
-            "SittingFace bootstrap: %s charts, %s capabilities, %s prompts" % (
-                summary["total_charts"], len(cap_names), len(prompts)
-            ),
+            "SittingFace bootstrap: %s charts, %s capabilities, %s prompts"
+            % (summary["total_charts"], len(cap_names), len(prompts)),
             component="sittingface",
         )
         logger.info(
             "SittingFace: %d charts, %d capabilities, %d prompts",
-            summary["total_charts"], len(cap_names), len(prompts),
+            summary["total_charts"],
+            len(cap_names),
+            len(prompts),
         )
     except Exception as exc:
         logger.warning("SittingFace bootstrap skipped: %s", exc)
@@ -386,17 +416,21 @@ async def init_sittingface(app: Any, runtime: Any, lemon: Any) -> None:
 
 def _graph_node(node_id: str, node_type: str, label: str, props: dict | None = None):
     from src.monkey_brain.kernel.execute.graph import GraphNode
+
     return GraphNode(id=node_id, type=node_type, label=label, props=props or {})
 
 
 def _graph_edge(src: str, dst: str, rel: str):
     from src.monkey_brain.kernel.execute.graph import GraphEdge
+
     return GraphEdge(src=src, dst=dst, rel=rel)
 
 
 def _load_workloads(graph: Any) -> None:
     """Load workload templates and add Workload + Step nodes to the ExecutionGraph."""
-    from src.monkey_brain.kernel.fix.self_healing.workload import create_self_healing_workload
+    from src.monkey_brain.kernel.fix.self_healing.workload import (
+        create_self_healing_workload,
+    )
 
     workloads = [
         create_self_healing_workload(),
@@ -404,18 +438,32 @@ def _load_workloads(graph: Any) -> None:
 
     for wl in workloads:
         wid = f"workload:{wl.workload_id}"
-        graph.add_node(_graph_node(wid, "workload", wl.workload_id, {
-            "description": wl.metadata.get("description", ""),
-            "steps": len(wl.steps),
-        }))
+        graph.add_node(
+            _graph_node(
+                wid,
+                "workload",
+                wl.workload_id,
+                {
+                    "description": wl.metadata.get("description", ""),
+                    "steps": len(wl.steps),
+                },
+            )
+        )
 
         for step in wl.steps:
             sid = f"step:{step.step_id}"
-            graph.add_node(_graph_node(sid, "step", step.step_id, {
-                "capability": step.capability_name,
-                "inputs": step.inputs,
-                "outputs": step.outputs,
-            }))
+            graph.add_node(
+                _graph_node(
+                    sid,
+                    "step",
+                    step.step_id,
+                    {
+                        "capability": step.capability_name,
+                        "inputs": step.inputs,
+                        "outputs": step.outputs,
+                    },
+                )
+            )
             graph.add_edge(_graph_edge(wid, sid, "contains"))
 
             # Wire step dependencies (step depends_on dependency)
@@ -486,10 +534,14 @@ async def init_execution_graph(app: Any, runtime: Any, lemon: Any = None) -> Any
         try:
             from cerebellum.graph import get_global_graph
             from cerebellum.descriptor import CapabilityDescriptor
+
             cgraph = get_global_graph()
             for name in bus.list_capabilities():
                 cgraph.add(CapabilityDescriptor(name=name))
-            logger.info("Cerebellum CapabilityGraph populated: %d nodes", len(cgraph._descriptors))
+            logger.info(
+                "Cerebellum CapabilityGraph populated: %d nodes",
+                len(cgraph._descriptors),
+            )
         except Exception as exc:
             logger.debug("Cerebellum CapabilityGraph skip: %s", exc)
 
@@ -564,7 +616,14 @@ async def run_health_checks(app: Any, pm: Any, lemon: Any, runtime: Any = None, 
         lemon.health_check("policy", "healthy" if policy is not None else "degraded")
 
 
-async def shutdown(app: Any, pm: Any, lemon: Any, pcp: Any = None, graph_store: Any = None, semantic_graph: Any = None) -> None:
+async def shutdown(
+    app: Any,
+    pm: Any,
+    lemon: Any,
+    pcp: Any = None,
+    graph_store: Any = None,
+    semantic_graph: Any = None,
+) -> None:
     try:
         if pcp:
             await pcp.stop()
@@ -592,9 +651,14 @@ async def init_data_routing(app: Any, lemon: Any) -> Any:
     """Initialize data routing middleware with all available database adapters."""
     from src.monkey_brain.routing.middleware import DataRoutingMiddleware
     from src.monkey_brain.routing.adapters import (
-        PostgreSQLAdapter, MongoDBAdapter, Neo4jAdapter,
-        RedisAdapter, InfluxDBAdapter, ElasticsearchAdapter,
-        SQLiteAdapter, MySQLAdapter,
+        PostgreSQLAdapter,
+        MongoDBAdapter,
+        Neo4jAdapter,
+        RedisAdapter,
+        InfluxDBAdapter,
+        ElasticsearchAdapter,
+        SQLiteAdapter,
+        MySQLAdapter,
     )
 
     middleware = DataRoutingMiddleware()
@@ -631,17 +695,49 @@ async def init_oql(app: Any, lemon: Any) -> Any:
 
     # Register known entity types
     # TODO: need to figure how to do this better and generize this so that any data can be found
-    # we should have something like add table infact this whole data abstraction idea needs to be expanded 
+    # we should have something like add table infact this whole data abstraction idea needs to be expanded
     known_entities = {
-        "Customer", "Order", "Product", "Inventory", "Invoice",
-        "Payment", "Shipment", "Employee", "Account", "Transaction",
-        "Ticket", "Case", "Permit", "Claim", "Policy", "Quote",
-        "Proposal", "Campaign", "Lead", "Opportunity",
-        "Robot", "Fleet", "Mission", "Grid", "Asset",
-        "Patient", "Appointment", "Prescription", "Lab",
-        "Flight", "Crew", "Aircraft", "Vehicle",
-        "Site", "Equipment", "WorkOrder", "Batch",
-        "Contract", "Clause", "Loan", "Risk",
+        "Customer",
+        "Order",
+        "Product",
+        "Inventory",
+        "Invoice",
+        "Payment",
+        "Shipment",
+        "Employee",
+        "Account",
+        "Transaction",
+        "Ticket",
+        "Case",
+        "Permit",
+        "Claim",
+        "Policy",
+        "Quote",
+        "Proposal",
+        "Campaign",
+        "Lead",
+        "Opportunity",
+        "Robot",
+        "Fleet",
+        "Mission",
+        "Grid",
+        "Asset",
+        "Patient",
+        "Appointment",
+        "Prescription",
+        "Lab",
+        "Flight",
+        "Crew",
+        "Aircraft",
+        "Vehicle",
+        "Site",
+        "Equipment",
+        "WorkOrder",
+        "Batch",
+        "Contract",
+        "Clause",
+        "Loan",
+        "Risk",
     }
     for entity in known_entities:
         engine.register_entity(entity)

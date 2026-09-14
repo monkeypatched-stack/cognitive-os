@@ -184,9 +184,14 @@ Test limit: 10.24 MB for 100 actors
 
 for aid in actors:
     start = time.time()
-    r = client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-        "start": "a", "goal": "b", "reward": 1.0,
-    })
+    r = client.post(
+        f"/api/v1/agentos/actors/{aid}/tick",
+        json={
+            "start": "a",
+            "goal": "b",
+            "reward": 1.0,
+        },
+    )
     latencies.append((time.time() - start) * 1000)
 ```
 
@@ -345,9 +350,7 @@ for occupant_id in geog.occupants:
     await self._actor_ticker(occupant_id)  # 450s for 100 actors
 
 # Use:
-await asyncio.gather(
-    *[self._actor_ticker(oid) for oid in geog.occupants]
-)  # ~4.5s for 100 actors
+await asyncio.gather(*[self._actor_ticker(oid) for oid in geog.occupants])  # ~4.5s for 100 actors
 
 # Option C: Reduce per-actor latency
 # - Cache LLM outputs

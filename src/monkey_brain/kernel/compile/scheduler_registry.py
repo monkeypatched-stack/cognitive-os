@@ -2,6 +2,7 @@
 
 Phase 3.3: Runtime can switch between schedulers without changing caller code.
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,8 +67,7 @@ class SchedulerRegistry:
     def list_schedulers(self) -> dict[str, str]:
         """List all registered schedulers with their status."""
         return {
-            name: "active" if scheduler == self._active else "inactive"
-            for name, scheduler in self._schedulers.items()
+            name: "active" if scheduler == self._active else "inactive" for name, scheduler in self._schedulers.items()
         }
 
     async def schedule(self, request: ScheduleRequest) -> ScheduleResult:

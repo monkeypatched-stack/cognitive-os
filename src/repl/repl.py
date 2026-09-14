@@ -5,6 +5,7 @@ Each line typed is parsed and dispatched through the same Typer `app` used
 by the one-shot CLI, so every command (including the login gate) behaves
 identically here as it does from a normal shell invocation.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -109,10 +110,7 @@ def _kill_port(port: int, grace: float = _KILL_GRACE) -> None:
             time.sleep(0.2)
 
     if _still_alive():
-        print_error(
-            f"Process on port {port} did not fully exit — the new "
-            f"service may fail to bind this port."
-        )
+        print_error(f"Process on port {port} did not fully exit — the new service may fail to bind this port.")
     else:
         print_success(f"Stopped the process on port {port}.")
 
@@ -204,9 +202,7 @@ def _tail(path, n: int = 15) -> str:
         return ""
 
 
-def _wait_for_main_service(
-    service_proc: subprocess.Popen, timeout: float, log_path
-) -> tuple[bool, bool]:
+def _wait_for_main_service(service_proc: subprocess.Popen, timeout: float, log_path) -> tuple[bool, bool]:
     """Poll until auth+agentos are up, the process dies, or we time out.
     Returns (auth_ready, agentos_ready). Prints periodic progress and a
     log tail so a stall is visible instead of a silent spinner, and can
@@ -224,9 +220,7 @@ def _wait_for_main_service(
                     print_success("Services are up.")
                     break
                 if service_proc.poll() is not None:
-                    print_error(
-                        f"main.py exited early with code {service_proc.returncode}"
-                    )
+                    print_error(f"main.py exited early with code {service_proc.returncode}")
                     break
                 if time.time() >= next_update:
                     elapsed = int(time.time() - (deadline - timeout))
@@ -248,6 +242,7 @@ def _wait_for_main_service(
             print_info(f"Last lines of {log_path}:\n{tail}")
 
     return auth_ready, agentos_ready
+
 
 def _ensure_services_running(
     timeout: float = _SERVICES_TIMEOUT,
@@ -275,13 +270,11 @@ def _ensure_services_running(
         if not agentos_ready:
             missing.append(f"agentos:{_AGENTOS_PORT}")
 
-        print_error(
-            f"Services did not come up within {timeout:.0f}s "
-            f"(missing: {', '.join(missing)})"
-        )
+        print_error(f"Services did not come up within {timeout:.0f}s (missing: {', '.join(missing)})")
 
     nats_proc = _start_nats()
     return service_proc, nats_proc
+
 
 def _terminate(proc: Optional[subprocess.Popen], grace: float = 15.0) -> None:
     """Terminate a process we own, if it's still running."""
@@ -294,9 +287,7 @@ def _terminate(proc: Optional[subprocess.Popen], grace: float = 15.0) -> None:
         proc.kill()
 
 
-def _stop_services(
-    service_proc: Optional[subprocess.Popen], nats_proc: Optional[subprocess.Popen]
-) -> None:
+def _stop_services(service_proc: Optional[subprocess.Popen], nats_proc: Optional[subprocess.Popen]) -> None:
     _terminate(service_proc)
     _terminate(nats_proc)
 
@@ -361,6 +352,7 @@ def build_install_args(
         port=8031,
     )
 
+
 def install_cmd(
     auto_install: bool = typer.Option(False, "--auto-install"),
     skip_ollama: bool = typer.Option(False, "--skip-ollama"),
@@ -374,6 +366,7 @@ def install_cmd(
         )
     )
 
+
 def run_repl() -> None:
     from repl import app
 
@@ -381,10 +374,7 @@ def run_repl() -> None:
 
     rc = install_cmd()
     if rc != 0:
-        print_error(
-            "MonkeyBrain installation check failed. "
-            "Run 'monkeypatched install' to repair the installation."
-        )
+        print_error("MonkeyBrain installation check failed. Run 'monkeypatched install' to repair the installation.")
         return
 
     service_proc, nats_proc = _ensure_services_running()

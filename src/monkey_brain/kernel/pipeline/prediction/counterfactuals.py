@@ -26,6 +26,7 @@ actor's goal is Step 11.5/11.6's job (risk/utility/scenario evaluation).
 This step only reports what's directly true: which world facts diverge
 from baseline.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,9 +37,14 @@ from uuid import uuid4
 logger = logging.getLogger("agentos.pipeline.prediction.counterfactuals")
 
 from src.monkey_brain.kernel.pipeline.prediction.transitions import (
-    TransitionModel, TransitionPredictionEngine, WorldTransition,
+    TransitionModel,
+    TransitionPredictionEngine,
+    WorldTransition,
 )
-from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationEngine, SimulationTrajectory
+from src.monkey_brain.kernel.pipeline.prediction.simulation import (
+    SimulationEngine,
+    SimulationTrajectory,
+)
 
 UNSET = "<unset>"
 
@@ -50,6 +56,7 @@ class CounterfactualAssumption:
     model has registered. `category` groups assumptions the way Step
     11.4's own spec does: "availability", "inventory", "budget",
     "competition", or any other free-form label."""
+
     assumption_id: str = field(default_factory=lambda: uuid4().hex)
     description: str = ""
     category: str = ""
@@ -61,6 +68,7 @@ class CounterfactualAssumption:
 class CounterfactualBranch:
     """One simulated "what if" branch, diverging from a baseline
     trajectory under one assumption."""
+
     branch_id: str = field(default_factory=lambda: uuid4().hex)
     assumption: CounterfactualAssumption = field(default_factory=CounterfactualAssumption)
     trajectory: SimulationTrajectory = field(default_factory=SimulationTrajectory)
@@ -85,7 +93,11 @@ class CounterfactualEngine:
     transition knowledge and re-simulating, never mutating the baseline
     model or any shared state between branches."""
 
-    def __init__(self, base_model: TransitionModel | None = None, uncertainty_threshold: float = 0.4) -> None:
+    def __init__(
+        self,
+        base_model: TransitionModel | None = None,
+        uncertainty_threshold: float = 0.4,
+    ) -> None:
         self._base_model = base_model or TransitionModel()
         self._uncertainty_threshold = uncertainty_threshold
 
@@ -127,6 +139,7 @@ class CounterfactualEngine:
         # would silently replay the baseline with an empty divergence
         # instead of applying the assumption).
         from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
+
         # Widened (Goal-Key Contamination fix) to match simulation.py::
         # simulate()'s own widening -- plan.goal is standing-goal-name-
         # only, belief_state.goal.description carries the one-off
@@ -135,16 +148,23 @@ class CounterfactualEngine:
         belief_goal = getattr(belief_state, "goal", None)
         description = getattr(belief_goal, "description", "") or ""
         goal_key = canonicalize_goal(f"{plan_name} {description}".strip())
-        scoped_overrides = {(goal_key, action): transitions for action, transitions in assumption.transition_overrides.items()}
+        scoped_overrides = {
+            (goal_key, action): transitions for action, transitions in assumption.transition_overrides.items()
+        }
         counterfactual_model = TransitionModel(
-            known_transitions={**self._base_model.known_transitions, **scoped_overrides},
+            known_transitions={
+                **self._base_model.known_transitions,
+                **scoped_overrides,
+            },
         )
         try:
             trajectory = self._engine_for(counterfactual_model).simulate_plan(world_snapshot, belief_state, plan)
         except Exception as exc:
             logger.debug(
                 "CounterfactualEngine.branch: simulation failed for assumption %r (non-fatal): %s",
-                assumption.description or assumption.assumption_id, exc, exc_info=True,
+                assumption.description or assumption.assumption_id,
+                exc,
+                exc_info=True,
             )
             return CounterfactualBranch(assumption=assumption, error=str(exc) or exc.__class__.__name__)
 
@@ -152,8 +172,10 @@ class CounterfactualEngine:
         impact_summary = self._summarize_impact(assumption, divergence)
 
         return CounterfactualBranch(
-            assumption=assumption, trajectory=trajectory,
-            divergence=divergence, impact_summary=impact_summary,
+            assumption=assumption,
+            trajectory=trajectory,
+            divergence=divergence,
+            impact_summary=impact_summary,
         )
 
     def generate_branches(
@@ -173,7 +195,9 @@ class CounterfactualEngine:
     def _engine_for(self, model: TransitionModel) -> SimulationEngine:
         return SimulationEngine(TransitionPredictionEngine(model, self._uncertainty_threshold))
 
-    def _compute_divergence(self, baseline_state: dict[str, Any], counterfactual_state: dict[str, Any]) -> dict[str, Any]:
+    def _compute_divergence(
+        self, baseline_state: dict[str, Any], counterfactual_state: dict[str, Any]
+    ) -> dict[str, Any]:
         keys = set(baseline_state) | set(counterfactual_state)
         diff: dict[str, Any] = {}
         for key in keys:

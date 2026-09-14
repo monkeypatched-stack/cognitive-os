@@ -18,6 +18,7 @@ lifecycle (created -> in_transit -> delivered) — no skipping ahead, no
 moving backward, no re-applying the same transition twice — and
 get_shipment() to look up current status/history.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.logistics import (
@@ -64,7 +65,11 @@ def test_mb3019_shipment_advances_through_the_full_lifecycle():
     assert delivered["status"] == "delivered"
 
     final = get_shipment(kg, shipment_id)
-    assert [h["status"] for h in final["history"]] == ["created", "in_transit", "delivered"]
+    assert [h["status"] for h in final["history"]] == [
+        "created",
+        "in_transit",
+        "delivered",
+    ]
 
 
 def test_mb3019_cannot_mark_delivered_before_in_transit():

@@ -17,6 +17,7 @@ anywhere references decay_and_prune() at all -- this file closes that
 gap, proving the bound holds over a simulated long actor lifetime, not
 merely that the method exists.
 """
+
 from __future__ import annotations
 
 import time
@@ -33,7 +34,9 @@ from src.monkey_brain.kernel.pipeline.belief_state import (
 
 
 class TestBeliefGrowthStaysBoundedOverManyTicks:
-    def test_facts_hypotheses_observations_stay_bounded_after_1000_simulated_ticks(self):
+    def test_facts_hypotheses_observations_stay_bounded_after_1000_simulated_ticks(
+        self,
+    ):
         belief = BeliefState(actor_id="long-lived-actor")
 
         for tick in range(1000):
@@ -66,7 +69,10 @@ class TestBeliefGrowthStaysBoundedOverManyTicks:
     def test_an_old_low_confidence_fact_is_pruned(self):
         belief = BeliefState(actor_id="a")
         old_fact = Fact(
-            entity="e", attribute="a", value="stale", confidence=0.05,
+            entity="e",
+            attribute="a",
+            value="stale",
+            confidence=0.05,
             observed_at=time.time() - 100_000,
         )
         belief.facts.append(old_fact)
@@ -88,7 +94,15 @@ class TestBeliefGrowthStaysBoundedOverManyTicks:
 
     def test_returns_a_report_of_what_was_pruned(self):
         belief = BeliefState(actor_id="a")
-        belief.facts.append(Fact(entity="e", attribute="a", value=1, confidence=0.01, observed_at=time.time() - 100_000))
+        belief.facts.append(
+            Fact(
+                entity="e",
+                attribute="a",
+                value=1,
+                confidence=0.01,
+                observed_at=time.time() - 100_000,
+            )
+        )
 
         report = belief.decay_and_prune()
 

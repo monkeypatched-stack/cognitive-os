@@ -35,50 +35,51 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 # SOP
 # ---------------------------------------------------------------------------
 
+
 class SOP(BaseModel):
-    id:                 str                  = Field(..., min_length=1)
-    title:              str                  = Field(..., min_length=1)
-    purpose:            str                  = Field(...)
-    scope:              str                  = Field(...)
-    version:            str                  = Field(default="1.0.0")
-    effective_date:     Optional[datetime]   = None
-    review_date:        Optional[datetime]   = None
-    approved_by:        Optional[str]        = None
-    authored_by:        Optional[str]        = None
-    entity_id:          Optional[str]        = None
-    entity_name:        Optional[str]        = None
-    entity_type:        Optional[str]        = None
-    plant_id:           Optional[str]        = None
-    line_id:            Optional[str]        = None
-    stage_id:           Optional[str]        = None
-    workstation_id:     Optional[str]        = None
-    machine_id:         Optional[str]        = None
-    equipment_id:       Optional[str]        = None
+    id: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1)
+    purpose: str = Field(...)
+    scope: str = Field(...)
+    version: str = Field(default="1.0.0")
+    effective_date: Optional[datetime] = None
+    review_date: Optional[datetime] = None
+    approved_by: Optional[str] = None
+    authored_by: Optional[str] = None
+    entity_id: Optional[str] = None
+    entity_name: Optional[str] = None
+    entity_type: Optional[str] = None
+    plant_id: Optional[str] = None
+    line_id: Optional[str] = None
+    stage_id: Optional[str] = None
+    workstation_id: Optional[str] = None
+    machine_id: Optional[str] = None
+    equipment_id: Optional[str] = None
 
     # --- Core components ---
-    process_definition:           ProcessDefinition
-    prechecks:          ProcessPrechecks
-    postchecks:         ProcessPostchecks
-    constraints:        ProcessConstraints
+    process_definition: ProcessDefinition
+    prechecks: ProcessPrechecks
+    postchecks: ProcessPostchecks
+    constraints: ProcessConstraints
     corrective_actions: CorrectiveActions
 
     # --- Free-form annotations ---
-    notes:              Optional[str]        = None
-    remarks:            Optional[str]        = None
-    document_ids:        List[str]            = Field(default_factory=list)
-    references:         List[str]            = Field(default_factory=list)
-    tags:               List[str]            = Field(default_factory=list)
-    created_at:         datetime             = Field(default_factory=utc_now)
-    updated_at:         datetime             = Field(default_factory=utc_now)
+    notes: Optional[str] = None
+    remarks: Optional[str] = None
+    document_ids: List[str] = Field(default_factory=list)
+    references: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
     @model_validator(mode="after")
     def normalize_datetimes(self) -> "SOP":
-        self.created_at    = ensure_utc(self.created_at)
-        self.updated_at    = ensure_utc(self.updated_at)
+        self.created_at = ensure_utc(self.created_at)
+        self.updated_at = ensure_utc(self.updated_at)
         self.effective_date = ensure_utc(self.effective_date)
-        self.review_date   = ensure_utc(self.review_date)
+        self.review_date = ensure_utc(self.review_date)
         return self
 
 
@@ -87,34 +88,34 @@ class SOPCreate(SOP):
 
 
 class SOPUpdate(BaseModel):
-    title:              Optional[str]                = None
-    purpose:            Optional[str]                = None
-    scope:              Optional[str]                = None
-    version:            Optional[str]                = None
-    effective_date:     Optional[datetime]           = None
-    review_date:        Optional[datetime]           = None
-    approved_by:        Optional[str]                = None
-    authored_by:        Optional[str]                = None
-    entity_id:          Optional[str]                = None
-    entity_name:        Optional[str]                = None
-    entity_type:        Optional[str]                = None
-    plant_id:           Optional[str]                = None
-    line_id:            Optional[str]                = None
-    stage_id:           Optional[str]                = None
-    workstation_id:     Optional[str]                = None
-    machine_id:         Optional[str]                = None
-    equipment_id:       Optional[str]                = None
-    process_definition:           Optional[ProcessDefinition]           = None
-    prechecks:          Optional[ProcessPrechecks]  = None
-    postchecks:         Optional[ProcessPostchecks] = None
-    constraints:        Optional[ProcessConstraints] = None
-    corrective_actions: Optional[CorrectiveActions]  = None
-    notes:              Optional[str]                = None
-    remarks:            Optional[str]                = None
-    document_ids:        Optional[List[str]]          = None
-    references:         Optional[List[str]]          = None
-    tags:               Optional[List[str]]          = None
-    updated_at:         datetime                     = Field(default_factory=utc_now)
+    title: Optional[str] = None
+    purpose: Optional[str] = None
+    scope: Optional[str] = None
+    version: Optional[str] = None
+    effective_date: Optional[datetime] = None
+    review_date: Optional[datetime] = None
+    approved_by: Optional[str] = None
+    authored_by: Optional[str] = None
+    entity_id: Optional[str] = None
+    entity_name: Optional[str] = None
+    entity_type: Optional[str] = None
+    plant_id: Optional[str] = None
+    line_id: Optional[str] = None
+    stage_id: Optional[str] = None
+    workstation_id: Optional[str] = None
+    machine_id: Optional[str] = None
+    equipment_id: Optional[str] = None
+    process_definition: Optional[ProcessDefinition] = None
+    prechecks: Optional[ProcessPrechecks] = None
+    postchecks: Optional[ProcessPostchecks] = None
+    constraints: Optional[ProcessConstraints] = None
+    corrective_actions: Optional[CorrectiveActions] = None
+    notes: Optional[str] = None
+    remarks: Optional[str] = None
+    document_ids: Optional[List[str]] = None
+    references: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class SOPResponse(SOP):
@@ -123,20 +124,24 @@ class SOPResponse(SOP):
 
 
 class PaginatedSOPResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[SOPResponse]
+    results: list[SOPResponse]
 
 
 class SOPChangeImpactRequest(BaseModel):
     proposed_values: dict[str, Any] = Field(default_factory=dict)
-    change_reason: str = Field(default="SOP revision impact analysis", min_length=1, max_length=2000)
+    change_reason: str = Field(
+        default="SOP revision impact analysis", min_length=1, max_length=2000
+    )
     include_upstream: bool = True
     include_downstream: bool = True
     max_depth: int = Field(default=2, ge=1, le=5)
     create_change_control: bool = False
-    change_type: str = Field(default="Major", pattern=r"^(Major|Minor|Emergency|Temporary)$")
+    change_type: str = Field(
+        default="Major", pattern=r"^(Major|Minor|Emergency|Temporary)$"
+    )
     risk_score: int | None = Field(default=45, ge=1, le=125)
     approval_chain: list[dict[str, Any]] = Field(default_factory=list)
 

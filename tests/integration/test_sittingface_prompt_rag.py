@@ -1,4 +1,5 @@
 """End-to-end: SittingFace chart -> retrieval -> planning context -> LLM prompt."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -6,11 +7,12 @@ from typing import Any
 
 import pytest
 
-from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+    ContextConstructionEngine,
+)
 from src.monkey_brain.kernel.pipeline.belief_state import Goal
 from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-
 
 DISTINCT_FACT = "ETASS-UNIQUE-FACT-7f3a: SittingFace charts compile into runtime capabilities."
 
@@ -34,18 +36,21 @@ class _Compiler:
 
     def search(self, query: str) -> list[dict]:
         if "etass" in query.lower() or "sittingface" in query.lower():
-            return [{
-                "name": "etass-runtime",
-                "chart_type": "module",
-                "matched_in": ["name", "module.description"],
-                "source_path": "/somatic/charts/etass-runtime",
-            }]
+            return [
+                {
+                    "name": "etass-runtime",
+                    "chart_type": "module",
+                    "matched_in": ["name", "module.description"],
+                    "source_path": "/somatic/charts/etass-runtime",
+                }
+            ]
         return []
 
 
 @pytest.mark.asyncio
 async def test_sittingface_knowledge_reaches_final_llm_input(monkeypatch):
     from src.monkey_brain.kernel.plan.intents import intent_registry
+
     monkeypatch.setattr(intent_registry, "get_somatic_compiler", lambda: _Compiler())
 
     engine = ContextConstructionEngine(planetary_runtime=PlanetaryRuntime())

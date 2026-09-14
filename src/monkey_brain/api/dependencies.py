@@ -22,6 +22,7 @@ class RequestRejected(Exception):
     visible API change, not just a refactor. This type lets the shared
     LOGIC be extracted without touching any of those shapes.
     """
+
     def __init__(self, status_code: int, error_code: str, detail: str):
         self.status_code = status_code
         self.error_code = error_code
@@ -30,7 +31,10 @@ class RequestRejected(Exception):
 
 
 async def sanitize_and_check_governance(
-    question: str, user_id: str, action: str, extra_context: dict | None = None,
+    question: str,
+    user_id: str,
+    action: str,
+    extra_context: dict | None = None,
 ) -> str:
     """Shared input-sanitization + governance-check logic for /simulate,
     /compare, /execute, and /execute/stream (api/routes/predict.py,
@@ -41,6 +45,7 @@ async def sanitize_and_check_governance(
     question on success.
     """
     from src.monkey_brain.kernel.security import sanitize_input
+
     try:
         question = sanitize_input(question)
     except ValueError as e:
@@ -48,7 +53,11 @@ async def sanitize_and_check_governance(
 
     try:
         from src.monkey_brain.kernel.governance import get_governance_engine
-        from src.monkey_brain.kernel.trusted_auth import get_trusted_auth, strip_untrusted_security_signals
+        from src.monkey_brain.kernel.trusted_auth import (
+            get_trusted_auth,
+            strip_untrusted_security_signals,
+        )
+
         gov = get_governance_engine()
         trusted = get_trusted_auth().to_opa_auth()
         context = {"question": question[:200], "trusted_auth": trusted, "auth": trusted}
@@ -74,9 +83,13 @@ async def sanitize_and_check_governance(
 def record_request_audit(user_id: str, event_type: str, action: str, details: dict) -> None:
     """Shared audit-record logic — fail-closed for security-critical event types."""
     from src.monkey_brain.kernel.audit import get_audit_log
+
     get_audit_log().record(
-        runtime_id=user_id, event_type=event_type, action=action,
-        actor=user_id, details=details,
+        runtime_id=user_id,
+        event_type=event_type,
+        action=action,
+        actor=user_id,
+        details=details,
     )
 
 
@@ -89,11 +102,15 @@ def auth_required() -> bool:
     """
     global _AUTH_DISABLED_WARNED
     explicit_off = os.getenv("AGENTOS_AUTH_REQUIRED", "true").strip().lower() in (
-        "false", "0", "no", "off",
+        "false",
+        "0",
+        "no",
+        "off",
     )
     if not explicit_off:
         return True
     from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
     if not insecure_dev_mode():
         logger.error(
             "AGENTOS_AUTH_REQUIRED=false ignored without "
@@ -121,13 +138,20 @@ async def get_current_user(
         token = authorization[7:]
         api_key_valid = os.getenv("AGENTOS_API_KEY", "")
         if api_key_valid and token == api_key_valid:
-            from src.monkey_brain.kernel.trusted_auth import bind_trusted_auth, evidence_for_service
+            from src.monkey_brain.kernel.trusted_auth import (
+                bind_trusted_auth,
+                evidence_for_service,
+            )
+
             svc_user = os.getenv("AGENTOS_API_USER", "api-service")
             bind_trusted_auth(evidence_for_service(svc_user))
             return svc_user
         try:
             from services.common.agent_auth import get_current_principal
-            from src.monkey_brain.kernel.trusted_auth import bind_trusted_auth, evidence_from_jwt
+            from src.monkey_brain.kernel.trusted_auth import (
+                bind_trusted_auth,
+                evidence_from_jwt,
+            )
 
             class _FakeCreds:
                 credentials = token
@@ -210,23 +234,32 @@ async def _audit_auth_failure(permission: str, outcome: str, reason: str, subjec
     pattern_detected = False
     try:
         from services.common import audit_events
+
         await audit_events.emit(
-            "auth.denied", outcome,
+            "auth.denied",
+            outcome,
             {"sub": subject, "principal_type": "human"} if subject else None,
             metadata={"reason": reason, "permission": permission},
         )
         pattern_detected = _record_failure_and_check_pattern(subject)
         if pattern_detected:
             logger.warning(
-                "security.suspicious_pattern: subject=%r hit %d+ denied auth attempts "
-                "(reason=%r) within %.0fs", subject, _FAILURE_THRESHOLD, reason, _FAILURE_WINDOW_SECONDS,
+                "security.suspicious_pattern: subject=%r hit %d+ denied auth attempts (reason=%r) within %.0fs",
+                subject,
+                _FAILURE_THRESHOLD,
+                reason,
+                _FAILURE_WINDOW_SECONDS,
             )
             await audit_events.emit(
-                "security.suspicious_pattern", "detected",
+                "security.suspicious_pattern",
+                "detected",
                 {"sub": subject, "principal_type": "human"} if subject else None,
                 metadata={
-                    "pattern": "repeated_auth_denial", "reason": reason, "permission": permission,
-                    "threshold": _FAILURE_THRESHOLD, "window_seconds": _FAILURE_WINDOW_SECONDS,
+                    "pattern": "repeated_auth_denial",
+                    "reason": reason,
+                    "permission": permission,
+                    "threshold": _FAILURE_THRESHOLD,
+                    "window_seconds": _FAILURE_WINDOW_SECONDS,
                 },
             )
     except Exception:
@@ -240,9 +273,13 @@ async def _audit_auth_failure(permission: str, outcome: str, reason: str, subjec
     # as a pattern.
     try:
         from src.monkey_brain.kernel.pipeline.violation_store import record_violation
+
         record_violation(
-            subject=subject, permission=permission, reason=reason,
-            outcome=outcome, pattern_detected=pattern_detected,
+            subject=subject,
+            permission=permission,
+            reason=reason,
+            outcome=outcome,
+            pattern_detected=pattern_detected,
         )
     except Exception:
         logger.debug("violation persistence failed (non-fatal)", exc_info=True)
@@ -278,7 +315,11 @@ def _effective_delegated_permissions(request: Request, actor_id: str) -> frozens
                 permissions.update(registry.effective_delegated_permissions(actor_id))
         return frozenset(permissions)
     except Exception:
-        logger.debug("_effective_delegated_permissions(%s): suppressed exception", actor_id, exc_info=True)
+        logger.debug(
+            "_effective_delegated_permissions(%s): suppressed exception",
+            actor_id,
+            exc_info=True,
+        )
         return frozenset()
 
 
@@ -290,6 +331,7 @@ def require_permission(permission: str):
     the permission. Only when AGENTOS_AUTH_REQUIRED is explicitly set false does
     any caller with a valid identity pass, and X-User-ID alone authenticate.
     """
+
     async def _check(
         request: Request,
         x_user_id: str | None = Header(default=None, alias="X-User-ID"),
@@ -302,17 +344,24 @@ def require_permission(permission: str):
 
             api_key = os.getenv("AGENTOS_API_KEY", "")
             if api_key and token == api_key:
-                from src.monkey_brain.kernel.trusted_auth import bind_trusted_auth, evidence_for_service
+                from src.monkey_brain.kernel.trusted_auth import (
+                    bind_trusted_auth,
+                    evidence_for_service,
+                )
+
                 svc_user = os.getenv("AGENTOS_API_USER", "api-service")
                 bind_trusted_auth(evidence_for_service(svc_user))
                 return svc_user
 
             try:
                 from services.auth.helpers.tokens import decode_access_token
+
                 payload = decode_access_token(token)
                 from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
                 try:
                     from services.auth.helpers.revocation import is_jti_revoked
+
                     revoked = await is_jti_revoked(payload.get("jti"))
                 except Exception as exc:
                     if not insecure_dev_mode():
@@ -321,11 +370,15 @@ def require_permission(permission: str):
                     logger.warning("revocation check skipped (insecure-dev): %s", exc)
                     revoked = False
                 if revoked:
-                    await _audit_auth_failure(permission, "deny", "token_revoked", subject=payload.get("sub", ""))
+                    await _audit_auth_failure(
+                        permission,
+                        "deny",
+                        "token_revoked",
+                        subject=payload.get("sub", ""),
+                    )
                     raise HTTPException(status_code=401, detail="Token has been revoked")
                 granted = {
-                    p if isinstance(p, str) else p.get("permission_id", "")
-                    for p in payload.get("permissions", [])
+                    p if isinstance(p, str) else p.get("permission_id", "") for p in payload.get("permissions", [])
                 }
                 # Level 35: the route handler needs the REAL verified
                 # permission set (not just the single required one this
@@ -348,6 +401,7 @@ def require_permission(permission: str):
                     evidence_from_jwt,
                     mfa_allows_operation,
                 )
+
                 evidence = evidence_from_jwt(payload)
                 bind_trusted_auth(evidence)
                 request.state.trusted_auth = evidence
@@ -415,7 +469,10 @@ async def authorize_acting_for(request: Request, user_id: str, target_actor_id: 
     if ACT_ON_BEHALF_PERMISSION in granted:
         return
     await _audit_auth_failure(
-        ACT_ON_BEHALF_PERMISSION, "deny", "not_self_and_no_act_on_behalf_authority", subject=user_id,
+        ACT_ON_BEHALF_PERMISSION,
+        "deny",
+        "not_self_and_no_act_on_behalf_authority",
+        subject=user_id,
     )
     raise HTTPException(
         status_code=403,
@@ -454,6 +511,7 @@ def require_self_or_permission(permission: str, id_param: str = "actor_id"):
     self first, unconditionally allowed regardless of granted
     permissions, before falling back to the permission check for a
     caller who is not that actor (e.g. an operator/admin token)."""
+
     async def _check(
         request: Request,
         x_user_id: str | None = Header(default=None, alias="X-User-ID"),
@@ -467,17 +525,24 @@ def require_self_or_permission(permission: str, id_param: str = "actor_id"):
 
             api_key = os.getenv("AGENTOS_API_KEY", "")
             if api_key and token == api_key:
-                from src.monkey_brain.kernel.trusted_auth import bind_trusted_auth, evidence_for_service
+                from src.monkey_brain.kernel.trusted_auth import (
+                    bind_trusted_auth,
+                    evidence_for_service,
+                )
+
                 svc_user = os.getenv("AGENTOS_API_USER", "api-service")
                 bind_trusted_auth(evidence_for_service(svc_user))
                 return svc_user
 
             try:
                 from services.auth.helpers.tokens import decode_access_token
+
                 payload = decode_access_token(token)
                 from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
                 try:
                     from services.auth.helpers.revocation import is_jti_revoked
+
                     revoked = await is_jti_revoked(payload.get("jti"))
                 except Exception as exc:
                     if not insecure_dev_mode():
@@ -486,11 +551,15 @@ def require_self_or_permission(permission: str, id_param: str = "actor_id"):
                     logger.warning("revocation check skipped (insecure-dev): %s", exc)
                     revoked = False
                 if revoked:
-                    await _audit_auth_failure(permission, "deny", "token_revoked", subject=payload.get("sub", ""))
+                    await _audit_auth_failure(
+                        permission,
+                        "deny",
+                        "token_revoked",
+                        subject=payload.get("sub", ""),
+                    )
                     raise HTTPException(status_code=401, detail="Token has been revoked")
                 granted = {
-                    p if isinstance(p, str) else p.get("permission_id", "")
-                    for p in payload.get("permissions", [])
+                    p if isinstance(p, str) else p.get("permission_id", "") for p in payload.get("permissions", [])
                 }
                 request.state.jwt_permissions = granted
                 request.state.jwt_attributes = payload.get("attributes") or {}

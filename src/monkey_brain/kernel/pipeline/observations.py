@@ -13,6 +13,7 @@ The runtime owns the transformation between the two.
 
 The runtime must depend only on interfaces, never implementations.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ logger = logging.getLogger("agentos.pipeline.observations")
 @dataclass(frozen=True)
 class Provenance:
     """Where an observation came from and how it was produced."""
+
     source: str = "unknown"
     """Origin system (e.g. 'camera', 'sensor', 'llm', 'api', 'human')."""
     method: str = "unknown"
@@ -50,6 +52,7 @@ class Observation:
 
     Immutable — once created, never modified.
     """
+
     entity: str = ""
     """What was observed (e.g. 'milk', 'temperature', 'user_intent')."""
     attribute: str = ""
@@ -77,6 +80,7 @@ class ObservationSet:
     Created by an ObservationProvider. Consumed by BeliefFusion.
     The runtime never creates these — it only reads them.
     """
+
     observations: tuple[Observation, ...] = ()
     """All observations in this set."""
     actor_id: str = ""
@@ -190,53 +194,71 @@ class WorldPollingProvider:
                     # a specific KG implementation's types.
                     if getattr(entity, "entity_type", None) == "event":
                         continue
-                    observations.append(Observation(
-                        entity=entity.name or entity.entity_id,
-                        attribute="exists",
-                        value=True,
-                        confidence=entity.confidence,
-                        provenance=provenance,
-                    ))
-                    for attr, val in entity.attributes.items():
-                        observations.append(Observation(
+                    observations.append(
+                        Observation(
                             entity=entity.name or entity.entity_id,
-                            attribute=attr,
-                            value=val,
+                            attribute="exists",
+                            value=True,
                             confidence=entity.confidence,
                             provenance=provenance,
-                        ))
+                        )
+                    )
+                    for attr, val in entity.attributes.items():
+                        observations.append(
+                            Observation(
+                                entity=entity.name or entity.entity_id,
+                                attribute=attr,
+                                value=val,
+                                confidence=entity.confidence,
+                                provenance=provenance,
+                            )
+                        )
 
             if hasattr(world, "relationships"):
                 for rel in world.relationships():
-                    observations.append(Observation(
-                        entity=rel.source_id,
-                        attribute=f"relates_to:{rel.target_id}",
-                        value=rel.kind.value,
-                        confidence=rel.confidence,
-                        provenance=provenance,
-                    ))
+                    observations.append(
+                        Observation(
+                            entity=rel.source_id,
+                            attribute=f"relates_to:{rel.target_id}",
+                            value=rel.kind.value,
+                            confidence=rel.confidence,
+                            provenance=provenance,
+                        )
+                    )
 
             if hasattr(world, "events"):
                 for event in world.events(limit=10):
-                    observations.append(Observation(
-                        entity=event.entity_id or "world",
-                        attribute="event",
-                        value=event.description,
-                        confidence=event.confidence,
-                        provenance=provenance,
-                    ))
+                    observations.append(
+                        Observation(
+                            entity=event.entity_id or "world",
+                            attribute="event",
+                            value=event.description,
+                            confidence=event.confidence,
+                            provenance=provenance,
+                        )
+                    )
 
             if not observations and hasattr(world, "states"):
                 states = world.states()
-                observations.append(Observation(
-                    entity="world", attribute="state_count",
-                    value=len(states), confidence=0.95, provenance=provenance,
-                ))
+                observations.append(
+                    Observation(
+                        entity="world",
+                        attribute="state_count",
+                        value=len(states),
+                        confidence=0.95,
+                        provenance=provenance,
+                    )
+                )
                 if hasattr(world, "nnz"):
-                    observations.append(Observation(
-                        entity="world", attribute="transition_count",
-                        value=world.nnz(), confidence=0.95, provenance=provenance,
-                    ))
+                    observations.append(
+                        Observation(
+                            entity="world",
+                            attribute="transition_count",
+                            value=world.nnz(),
+                            confidence=0.95,
+                            provenance=provenance,
+                        )
+                    )
         except Exception:
             logger.debug("observe: suppressed exception", exc_info=True)
 
@@ -334,8 +356,7 @@ class BeliefFusion:
                 return fact
         return None
 
-    def _replace_fact(self, belief: Any, old_fact: Any, obs: Observation,
-                      new_confidence: float) -> None:
+    def _replace_fact(self, belief: Any, old_fact: Any, obs: Observation, new_confidence: float) -> None:
         """Replace an existing fact with an updated version."""
         # Remove old fact
         belief.facts = [f for f in belief.facts if f is not old_fact]

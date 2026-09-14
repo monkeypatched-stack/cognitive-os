@@ -36,14 +36,15 @@ _WINDOW = 500  # rolling-window size for all event lists
 # Intent layer
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class IntentEvent:
-    raw_text:          str
+    raw_text: str
     classified_intent: str
-    confidence:        float
-    goal_id:           str = ""
-    trace_id:          str = ""
-    timestamp:         str = field(default_factory=_now)
+    confidence: float
+    goal_id: str = ""
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -61,16 +62,17 @@ class IntentEvent:
 # Goal layer
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class GoalEvent:
-    goal_id:        str
-    goal_text:      str
-    status:         str  # formed | routed | executing | completed | failed | abandoned
+    goal_id: str
+    goal_text: str
+    status: str  # formed | routed | executing | completed | failed | abandoned
     parent_goal_id: str = ""
-    pipeline_id:    str = ""
-    latency_ms:     float = 0.0
-    trace_id:       str = ""
-    timestamp:      str = field(default_factory=_now)
+    pipeline_id: str = ""
+    latency_ms: float = 0.0
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -90,18 +92,19 @@ class GoalEvent:
 # Pipeline layer — per-step events + execution graph
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PipelineStepEvent:
-    pipeline_id:   str
-    step_name:     str
-    capability:    str
-    agent_type:    str = ""
-    status:        str = "ok"   # ok | error | skipped
-    latency_ms:    float = 0.0
-    tokens_used:   int = 0
-    error:         str = ""
-    trace_id:      str = ""
-    timestamp:     str = field(default_factory=_now)
+    pipeline_id: str
+    step_name: str
+    capability: str
+    agent_type: str = ""
+    status: str = "ok"  # ok | error | skipped
+    latency_ms: float = 0.0
+    tokens_used: int = 0
+    error: str = ""
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -121,11 +124,11 @@ class PipelineStepEvent:
 
 @dataclass
 class _GraphNode:
-    step_name:  str
+    step_name: str
     capability: str
     latency_ms: float
-    status:     str
-    tokens:     int
+    status: str
+    tokens: int
 
 
 class PipelineGraph:
@@ -202,16 +205,17 @@ class PipelineGraph:
 # Agent layer
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AgentReasonEvent:
-    agent_type:   str
-    perception:   dict[str, Any]
-    decision:     dict[str, Any]
-    latency_ms:   float
-    goal_id:      str = ""
-    pipeline_id:  str = ""
-    trace_id:     str = ""
-    timestamp:    str = field(default_factory=_now)
+    agent_type: str
+    perception: dict[str, Any]
+    decision: dict[str, Any]
+    latency_ms: float
+    goal_id: str = ""
+    pipeline_id: str = ""
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -232,12 +236,12 @@ class AgentReasonEvent:
 
 @dataclass
 class AgentReflectEvent:
-    agent_type:     str
-    reflection:     str
-    triggered_by:   str   # uncertainty | contradiction | failure | periodic
-    goal_id:        str = ""
-    trace_id:       str = ""
-    timestamp:      str = field(default_factory=_now)
+    agent_type: str
+    reflection: str
+    triggered_by: str  # uncertainty | contradiction | failure | periodic
+    goal_id: str = ""
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -254,14 +258,14 @@ class AgentReflectEvent:
 
 @dataclass
 class MemoryAccessEvent:
-    agent_type:   str
-    memory_type:  str   # short_term | long_term | episodic | working
-    operation:    str   # read | write | evict
-    key:          str
-    hit:          bool = True
-    latency_ms:   float = 0.0
-    trace_id:     str = ""
-    timestamp:    str = field(default_factory=_now)
+    agent_type: str
+    memory_type: str  # short_term | long_term | episodic | working
+    operation: str  # read | write | evict
+    key: str
+    hit: bool = True
+    latency_ms: float = 0.0
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -282,18 +286,20 @@ class MemoryAccessEvent:
 # World Model layer
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class WorldModelEvent:
     """Prediction vs actual observation. Drives drift detection."""
-    simulation_id:  str
-    entity:         str
-    predicted:      dict[str, Any]
-    actual:         dict[str, Any]
-    residual_vector: dict[str, float]   # {"latency_delta": ms, "token_error": int, "path_divergence": 0–1}
-    drift_score:    float               # 0–1; higher = more drift from expected world state
+
+    simulation_id: str
+    entity: str
+    predicted: dict[str, Any]
+    actual: dict[str, Any]
+    residual_vector: dict[str, float]  # {"latency_delta": ms, "token_error": int, "path_divergence": 0–1}
+    drift_score: float  # 0–1; higher = more drift from expected world state
     last_real_trace_timestamp: float = field(default_factory=time.time)
-    trace_id:       str = ""
-    timestamp:      str = field(default_factory=_now)
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     def calculate_regional_discount(self) -> float:
         """Discount for this entity region based on path divergence.
@@ -323,19 +329,21 @@ class WorldModelEvent:
 # Governance layer
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class GovernanceEvent:
     """A single policy evaluation — the atomic unit of governance observability."""
-    policy_path:      str
-    decision:         bool   # allow / deny
-    principal:        str    # sub / SPIFFE ID
-    trust_score:      float  # 0–1; derived from mTLS + reliability + audit history
-    obligations:      list[str]
+
+    policy_path: str
+    decision: bool  # allow / deny
+    principal: str  # sub / SPIFFE ID
+    trust_score: float  # 0–1; derived from mTLS + reliability + audit history
+    obligations: list[str]
     provenance_chain: list[str]  # ordered pipeline/step/agent trail
-    audit_ref:        str = ""   # links to AuditRecord.event_id
-    pipeline_id:      str = ""
-    trace_id:         str = ""
-    timestamp:        str = field(default_factory=_now)
+    audit_ref: str = ""  # links to AuditRecord.event_id
+    pipeline_id: str = ""
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -358,19 +366,21 @@ class GovernanceEvent:
 # Learning layer
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class LearningEvent:
     """A single Q-value update from the Bellman policy."""
-    capability:     str
-    state_key:      str
-    q_before:       float
-    q_after:        float
-    reward:         float
-    td_error:       float   # |q_after - q_before|; proxy for convergence rate
-    exploration:    bool    # True = random action taken; False = exploitation
-    episode:        int = 0
-    trace_id:       str = ""
-    timestamp:      str = field(default_factory=_now)
+
+    capability: str
+    state_key: str
+    q_before: float
+    q_after: float
+    reward: float
+    td_error: float  # |q_after - q_before|; proxy for convergence rate
+    exploration: bool  # True = random action taken; False = exploitation
+    episode: int = 0
+    trace_id: str = ""
+    timestamp: str = field(default_factory=_now)
 
     @property
     def converging(self) -> bool:
@@ -397,6 +407,7 @@ class LearningEvent:
 # SemanticEventStore — rolling window store for all event types
 # ---------------------------------------------------------------------------
 
+
 class SemanticEventStore:
     """Bounded rolling-window store for all semantic observability events.
 
@@ -406,16 +417,16 @@ class SemanticEventStore:
 
     def __init__(self, window: int = _WINDOW) -> None:
         self._window = window
-        self.intents:    deque[IntentEvent]     = deque(maxlen=window)
-        self.goals:      deque[GoalEvent]       = deque(maxlen=window)
-        self.steps:      deque[PipelineStepEvent] = deque(maxlen=window)
-        self.graphs:     dict[str, PipelineGraph] = {}  # pipeline_id → graph
-        self.reasoning:  deque[AgentReasonEvent]  = deque(maxlen=window)
-        self.reflections:deque[AgentReflectEvent] = deque(maxlen=window)
-        self.memory:     deque[MemoryAccessEvent] = deque(maxlen=window)
-        self.world:      deque[WorldModelEvent]   = deque(maxlen=window)
-        self.governance: deque[GovernanceEvent]   = deque(maxlen=window)
-        self.learning:   deque[LearningEvent]     = deque(maxlen=window)
+        self.intents: deque[IntentEvent] = deque(maxlen=window)
+        self.goals: deque[GoalEvent] = deque(maxlen=window)
+        self.steps: deque[PipelineStepEvent] = deque(maxlen=window)
+        self.graphs: dict[str, PipelineGraph] = {}  # pipeline_id → graph
+        self.reasoning: deque[AgentReasonEvent] = deque(maxlen=window)
+        self.reflections: deque[AgentReflectEvent] = deque(maxlen=window)
+        self.memory: deque[MemoryAccessEvent] = deque(maxlen=window)
+        self.world: deque[WorldModelEvent] = deque(maxlen=window)
+        self.governance: deque[GovernanceEvent] = deque(maxlen=window)
+        self.learning: deque[LearningEvent] = deque(maxlen=window)
 
     # Convenience: get/create graph for a pipeline
     def graph_for(self, pipeline_id: str, goal: str = "") -> PipelineGraph:
@@ -429,14 +440,14 @@ class SemanticEventStore:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "intents":     len(self.intents),
-            "goals":       len(self.goals),
-            "steps":       len(self.steps),
-            "graphs":      len(self.graphs),
-            "reasoning":   len(self.reasoning),
+            "intents": len(self.intents),
+            "goals": len(self.goals),
+            "steps": len(self.steps),
+            "graphs": len(self.graphs),
+            "reasoning": len(self.reasoning),
             "reflections": len(self.reflections),
-            "memory":      len(self.memory),
-            "world":       len(self.world),
-            "governance":  len(self.governance),
-            "learning":    len(self.learning),
+            "memory": len(self.memory),
+            "world": len(self.world),
+            "governance": len(self.governance),
+            "learning": len(self.learning),
         }

@@ -10,11 +10,21 @@ scripted reassignment.
 Usage:
     python3 demo/negotiation/mb3308_emergency_replanning.py
 """
+
 from __future__ import annotations
 
 import sys
 
-from _common import ApiError, banner, call, client, first_result, force_round, kv, section
+from _common import (
+    ApiError,
+    banner,
+    call,
+    client,
+    first_result,
+    force_round,
+    kv,
+    section,
+)
 from bootstrap_mb3308 import TRACKED_PRODUCT_NAME, bootstrap_world
 
 
@@ -32,10 +42,16 @@ def main() -> int:
             b_id = world["actors"]["Warehouse B Worker"]
 
             section("Inject Event: Warehouse A Fire (real evacuation)")
-            fire_result = call(c, "POST", "/events", json={
-                "type": "fire", "space_id": world["spaces"]["warehouse_a"],
-                "description": "Warehouse A Fire",
-            })
+            fire_result = call(
+                c,
+                "POST",
+                "/events",
+                json={
+                    "type": "fire",
+                    "space_id": world["spaces"]["warehouse_a"],
+                    "description": "Warehouse A Fire",
+                },
+            )
             evacuated = fire_result.get("evacuated") or []
             kv("Actors evacuated", len(evacuated))
             worker_a_evacuated = any(e.get("actor_id") == a_id for e in evacuated)
@@ -43,9 +59,12 @@ def main() -> int:
 
             section("Round 1 — Warehouse A Worker negotiates a handoff")
             steps, actions = force_round(
-                c, a_id, "Warehouse A Worker", "AskActor",
-                f'There has been a real fire at Warehouse A and you have been evacuated. There is a '
-                f'pending order for {TRACKED_PRODUCT_NAME} that Warehouse A can no longer fulfill. Ask '
+                c,
+                a_id,
+                "Warehouse A Worker",
+                "AskActor",
+                f"There has been a real fire at Warehouse A and you have been evacuated. There is a "
+                f"pending order for {TRACKED_PRODUCT_NAME} that Warehouse A can no longer fulfill. Ask "
                 f'Warehouse B to take it over. Use parameters {{"target_actor": "Warehouse B Worker", '
                 f'"question": "Warehouse A had a fire and I have been evacuated — can you take over '
                 f'fulfilling our pending {TRACKED_PRODUCT_NAME} order?"}}.',
@@ -62,10 +81,22 @@ def main() -> int:
 
             section("Verification")
             checks = [
-                ("Real fire evacuated Warehouse A Worker (not simulated)", worker_a_evacuated),
-                ("Warehouse A Worker renegotiated in real natural language (AskActor)", bool(handoff)),
-                ("Warehouse B Worker gave a real, substantive response", bool(handoff and handoff.get("answer"))),
-                ("A new equilibrium emerged (Warehouse B did not refuse outright)", new_equilibrium),
+                (
+                    "Real fire evacuated Warehouse A Worker (not simulated)",
+                    worker_a_evacuated,
+                ),
+                (
+                    "Warehouse A Worker renegotiated in real natural language (AskActor)",
+                    bool(handoff),
+                ),
+                (
+                    "Warehouse B Worker gave a real, substantive response",
+                    bool(handoff and handoff.get("answer")),
+                ),
+                (
+                    "A new equilibrium emerged (Warehouse B did not refuse outright)",
+                    new_equilibrium,
+                ),
             ]
             all_pass = True
             for label, ok in checks:

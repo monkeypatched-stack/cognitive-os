@@ -1,4 +1,5 @@
 """Software Engineering agents — Requirements, Architecture, Design, DomainModel, APIDesign, Service, Integration, Documentation."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class RequirementsAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "capture"), "requirement": context.get("requirement", {}), "priority": context.get("priority", "medium")}
+        return {
+            "operation": context.get("operation", "capture"),
+            "requirement": context.get("requirement", {}),
+            "priority": context.get("priority", "medium"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"se_requirements.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"se_requirements.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"se_requirements.{decision['Operation']}", "success": True}
@@ -30,10 +38,17 @@ class ArchitectureAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "design"), "system": context.get("system", ""), "constraints": context.get("constraints", {})}
+        return {
+            "operation": context.get("operation", "design"),
+            "system": context.get("system", ""),
+            "constraints": context.get("constraints", {}),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"architecture.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"architecture.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"architecture.{decision['Operation']}", "success": True}
@@ -46,10 +61,17 @@ class DesignAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "create"), "component": context.get("component", ""), "style": context.get("style", "modern")}
+        return {
+            "operation": context.get("operation", "create"),
+            "component": context.get("component", ""),
+            "style": context.get("style", "modern"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"design.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"design.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"design.{decision['Operation']}", "success": True}
@@ -62,10 +84,17 @@ class DomainModelAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"domain": context.get("domain", ""), "operation": context.get("operation", "model"), "entities": context.get("entities", [])}
+        return {
+            "domain": context.get("domain", ""),
+            "operation": context.get("operation", "model"),
+            "entities": context.get("entities", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"domain_model.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"domain_model.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"domain_model.{decision['Operation']}", "success": True}
@@ -78,10 +107,17 @@ class APIDesignAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "design"), "api_type": context.get("api_type", "rest"), "resources": context.get("resources", [])}
+        return {
+            "operation": context.get("operation", "design"),
+            "api_type": context.get("api_type", "rest"),
+            "resources": context.get("resources", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"api_design.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"api_design.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"api_design.{decision['Operation']}", "success": True}
@@ -94,10 +130,17 @@ class ServiceAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "design"), "service_name": context.get("service_name", ""), "boundaries": context.get("boundaries", {})}
+        return {
+            "operation": context.get("operation", "design"),
+            "service_name": context.get("service_name", ""),
+            "boundaries": context.get("boundaries", {}),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"se_service.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"se_service.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"se_service.{decision['Operation']}", "success": True}
@@ -110,10 +153,18 @@ class IntegrationAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "design"), "source_system": context.get("source_system", ""), "target_system": context.get("target_system", ""), "data_flow": context.get("data_flow", "")}
+        return {
+            "operation": context.get("operation", "design"),
+            "source_system": context.get("source_system", ""),
+            "target_system": context.get("target_system", ""),
+            "data_flow": context.get("data_flow", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"integration.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"integration.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"integration.{decision['Operation']}", "success": True}
@@ -126,10 +177,17 @@ class DocumentationAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "create"), "doc_type": context.get("doc_type", "api"), "subject": context.get("subject", "")}
+        return {
+            "operation": context.get("operation", "create"),
+            "doc_type": context.get("doc_type", "api"),
+            "subject": context.get("subject", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"documentation.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"documentation.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"documentation.{decision['Operation']}", "success": True}

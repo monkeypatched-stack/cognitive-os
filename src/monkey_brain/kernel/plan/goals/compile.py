@@ -7,6 +7,7 @@ IntentIR and which one /replay/{run_id} must dispatch back to. Extracted out
 of any single runtime so the three runtimes can share one compiler without
 depending on each other (they must run completely independently).
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,7 +39,11 @@ async def compile_intent(
     run_id = run_id or uuid4().hex
     normalized, intent, goal = create_goal(question, lemon=lemon, trace_id=run_id)
     if not intent or goal is None:
-        logger.info("run=%r compile_intent: no intent resolved for question (target=%s)", run_id, target)
+        logger.info(
+            "run=%r compile_intent: no intent resolved for question (target=%s)",
+            run_id,
+            target,
+        )
         return None
 
     ir = build_intent_ir(intent=intent, goal=goal, run_id=run_id, question=normalized)

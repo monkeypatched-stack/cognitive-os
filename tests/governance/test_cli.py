@@ -11,6 +11,7 @@ hash changing every time a governance artifact is written next to it.
 same repository, is handled separately by DEFAULT_EXCLUDE_PREFIXES in
 governance.revision — see test_revision.py.)
 """
+
 from __future__ import annotations
 
 import json
@@ -67,30 +68,56 @@ def approvals_dir(tmp_path):
 class TestCliCheck:
     def test_valid_approval_authorized_exit_zero(self, tmp_path, repo, approvals_dir, capsys):
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-cli-001", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-cli-001",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
 
-        code = main([
-            "check", "--approval-id", "APR-cli-001", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-            "--files", "src/foo.py", "--behaviors", "do the thing",
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-cli-001",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+                "--files",
+                "src/foo.py",
+                "--behaviors",
+                "do the thing",
+            ]
+        )
         out = capsys.readouterr().out
         assert code == 0
         assert "implementation_authorized: YES" in out
 
     def test_wrong_revision_blocks_exit_one(self, tmp_path, repo, approvals_dir, capsys):
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-cli-002", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-cli-002",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
 
@@ -98,10 +125,19 @@ class TestCliCheck:
         # the current revision string away from what was approved.
         (repo / "a.txt").write_text("changed after approval")
 
-        code = main([
-            "check", "--approval-id", "APR-cli-002", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-cli-002",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+            ]
+        )
         out = capsys.readouterr().out
         assert code == 1
         assert "implementation_authorized: NO" in out
@@ -109,52 +145,101 @@ class TestCliCheck:
 
     def test_out_of_scope_file_blocks_exit_one(self, tmp_path, repo, approvals_dir, capsys):
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-cli-003", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-cli-003",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
 
-        code = main([
-            "check", "--approval-id", "APR-cli-003", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-            "--files", "src/somewhere/else.py",
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-cli-003",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+                "--files",
+                "src/somewhere/else.py",
+            ]
+        )
         out = capsys.readouterr().out
         assert code == 1
         assert "scope_validation: FAIL" in out
 
     def test_missing_approval_blocks_exit_one(self, tmp_path, repo, approvals_dir, capsys):
         revision = compute_repository_revision(repo).as_string()
-        _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
 
-        code = main([
-            "check", "--approval-id", "APR-does-not-exist", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-does-not-exist",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+            ]
+        )
         out = capsys.readouterr().out
         assert code == 1
         assert "implementation_authorized: NO" in out
 
     def test_require_git_provenance_blocks_uncommitted_approval(self, tmp_path, repo, approvals_dir, capsys):
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-cli-004", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-cli-004",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         # Deliberately NOT committing the approval file anywhere.
 
-        code = main([
-            "check", "--approval-id", "APR-cli-004", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-            "--files", "src/foo.py", "--behaviors", "do the thing",
-            "--require-git-provenance",
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-cli-004",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+                "--files",
+                "src/foo.py",
+                "--behaviors",
+                "do the thing",
+                "--require-git-provenance",
+            ]
+        )
         out = capsys.readouterr().out
         assert code == 1
         assert "git_provenance_validation: FAIL" in out
@@ -167,12 +252,19 @@ class TestCliCheck:
         the immutable artifact is already bound to. This is the realistic
         arrangement (this package's own approvals/ dir lives in-repo)."""
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         approvals_dir = repo / "governance" / "approvals"
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-cli-005", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-cli-005",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
 
@@ -183,15 +275,31 @@ class TestCliCheck:
         # just not counted as part of "the reviewed code").
         assert compute_repository_revision(repo).as_string() == revision
         subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
-        subprocess.run(["git", "commit", "-q", "-m", "record approval APR-cli-005"], cwd=repo, check=True)
+        subprocess.run(
+            ["git", "commit", "-q", "-m", "record approval APR-cli-005"],
+            cwd=repo,
+            check=True,
+        )
         assert compute_repository_revision(repo).as_string() == revision
 
-        code = main([
-            "check", "--approval-id", "APR-cli-005", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-            "--files", "src/foo.py", "--behaviors", "do the thing",
-            "--require-git-provenance",
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-cli-005",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+                "--files",
+                "src/foo.py",
+                "--behaviors",
+                "do the thing",
+                "--require-git-provenance",
+            ]
+        )
         out = capsys.readouterr().out
         assert code == 0
         assert "git_provenance_validation: PASS" in out
@@ -200,10 +308,17 @@ class TestCliCheck:
     def test_invalid_handoff_file_exits_two(self, tmp_path, repo):
         bad_handoff = tmp_path / "bad.json"
         bad_handoff.write_text("not json at all")
-        code = main([
-            "check", "--approval-id", "APR-x", "--handoff", str(bad_handoff),
-            "--repo-root", str(repo),
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-x",
+                "--handoff",
+                str(bad_handoff),
+                "--repo-root",
+                str(repo),
+            ]
+        )
         assert code == 2
 
 
@@ -216,21 +331,39 @@ class TestGovernanceAuditWiring:
         from governance.audit import read_governance_events
 
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-audit-001", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-audit-001",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         audit_log = tmp_path / "audit.jsonl"
 
-        code = main([
-            "check", "--approval-id", "APR-audit-001", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-            "--audit-log", str(audit_log),
-            "--files", "src/somewhere/else.py",  # deliberately out of scope -> blocked
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-audit-001",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+                "--audit-log",
+                str(audit_log),
+                "--files",
+                "src/somewhere/else.py",  # deliberately out of scope -> blocked
+            ]
+        )
         assert code == 1
 
         events = read_governance_events(audit_log)
@@ -257,21 +390,41 @@ class TestGovernanceAuditWiring:
         from governance.audit import read_governance_events
 
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-audit-002", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-audit-002",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         audit_log = tmp_path / "audit.jsonl"
 
-        code = main([
-            "check", "--approval-id", "APR-audit-002", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-            "--audit-log", str(audit_log),
-            "--files", "src/foo.py", "--behaviors", "do the thing",
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-audit-002",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+                "--audit-log",
+                str(audit_log),
+                "--files",
+                "src/foo.py",
+                "--behaviors",
+                "do the thing",
+            ]
+        )
         assert code == 0
         events = read_governance_events(audit_log)
         assert [e["event_type"] for e in events] == ["approval_authorized"]
@@ -281,7 +434,12 @@ class TestGovernanceAuditWiring:
         assert len(events) == 1
 
     def test_audit_persistence_failure_does_not_produce_false_success(
-        self, tmp_path, repo, approvals_dir, capsys, monkeypatch,
+        self,
+        tmp_path,
+        repo,
+        approvals_dir,
+        capsys,
+        monkeypatch,
     ):
         """Gap 5 fail-closed requirement: if the governance audit for a
         blocking result cannot be durably recorded, the CLI must not
@@ -296,19 +454,36 @@ class TestGovernanceAuditWiring:
         monkeypatch.setattr(cli_module, "record_governance_event", _boom)
 
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-audit-003", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-audit-003",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
 
-        code = main([
-            "check", "--approval-id", "APR-audit-003", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-            "--files", "src/somewhere/else.py",  # out of scope -> blocked, then audit fails
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-audit-003",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+                "--files",
+                "src/somewhere/else.py",  # out of scope -> blocked, then audit fails
+            ]
+        )
         out = capsys.readouterr().out
         assert code == 2
         assert code != 0
@@ -324,7 +499,12 @@ class TestGovernanceAuditWiring:
         assert "AUDIT_PERSISTENCE_FAILED" in out
 
     def test_valid_approval_with_audit_failure_is_blocked_not_authorized(
-        self, tmp_path, repo, approvals_dir, capsys, monkeypatch,
+        self,
+        tmp_path,
+        repo,
+        approvals_dir,
+        capsys,
+        monkeypatch,
     ):
         """The critical row from the failure matrix (Section 17/18): an
         otherwise-VALID approval whose success-path audit write fails must
@@ -340,19 +520,38 @@ class TestGovernanceAuditWiring:
         monkeypatch.setattr(cli_module, "record_governance_event", _boom)
 
         revision = compute_repository_revision(repo).as_string()
-        handoff = _write_handoff(tmp_path / "handoff.json", repository_revision=revision, files=("src/foo.py",))
+        handoff = _write_handoff(
+            tmp_path / "handoff.json",
+            repository_revision=revision,
+            files=("src/foo.py",),
+        )
         store = ApprovalRecordStore(approvals_dir)
         artifact = create_artifact(
-            handoff=handoff, approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-audit-004", lifetime=timedelta(hours=24),
+            handoff=handoff,
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-audit-004",
+            lifetime=timedelta(hours=24),
         )
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
 
-        code = main([
-            "check", "--approval-id", "APR-audit-004", "--handoff", str(tmp_path / "handoff.json"),
-            "--approvals-dir", str(approvals_dir), "--repo-root", str(repo),
-            "--files", "src/foo.py", "--behaviors", "do the thing",  # in scope -> would otherwise be VALID
-        ])
+        code = main(
+            [
+                "check",
+                "--approval-id",
+                "APR-audit-004",
+                "--handoff",
+                str(tmp_path / "handoff.json"),
+                "--approvals-dir",
+                str(approvals_dir),
+                "--repo-root",
+                str(repo),
+                "--files",
+                "src/foo.py",
+                "--behaviors",
+                "do the thing",  # in scope -> would otherwise be VALID
+            ]
+        )
         out = capsys.readouterr().out
 
         assert code == 2

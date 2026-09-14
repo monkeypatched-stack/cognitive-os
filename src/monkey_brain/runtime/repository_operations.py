@@ -6,6 +6,7 @@ Instead they return operations that the runtime commits.
 The runtime simply commits the operations.
 It does not understand their contents.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ class RepositoryOperation:
 
     The runtime commits these without understanding their contents.
     """
+
     repository: str
     operation: OperationType
     payload: dict[str, Any] = field(default_factory=dict)
@@ -45,19 +47,38 @@ class RepositoryOperation:
 @dataclass
 class CreateOperation(RepositoryOperation):
     """Create operation."""
+
     def __init__(self, repository: str, payload: dict[str, Any], **kwargs):
-        super().__init__(repository=repository, operation=OperationType.CREATE, payload=payload, **kwargs)
+        super().__init__(
+            repository=repository,
+            operation=OperationType.CREATE,
+            payload=payload,
+            **kwargs,
+        )
 
 
 @dataclass
 class UpdateOperation(RepositoryOperation):
     """Update operation."""
+
     def __init__(self, repository: str, entity_id: str, payload: dict[str, Any], **kwargs):
-        super().__init__(repository=repository, operation=OperationType.UPDATE, entity_id=entity_id, payload=payload, **kwargs)
+        super().__init__(
+            repository=repository,
+            operation=OperationType.UPDATE,
+            entity_id=entity_id,
+            payload=payload,
+            **kwargs,
+        )
 
 
 @dataclass
 class DeleteOperation(RepositoryOperation):
     """Delete operation."""
+
     def __init__(self, repository: str, entity_id: str, **kwargs):
-        super().__init__(repository=repository, operation=OperationType.DELETE, entity_id=entity_id, **kwargs)
+        super().__init__(
+            repository=repository,
+            operation=OperationType.DELETE,
+            entity_id=entity_id,
+            **kwargs,
+        )

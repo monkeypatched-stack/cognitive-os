@@ -28,11 +28,16 @@ those exact numbers (which the task spec itself says not to do unless
 the exact delta is a documented algorithm guarantee, which it isn't
 here).
 """
+
 from __future__ import annotations
 
 from tests.e2e.cognitive_loop._boundary import (
-    actor_get, create_actor, family_society_id, prompt,
-    requires_live_backend, tick_result,
+    actor_get,
+    create_actor,
+    family_society_id,
+    prompt,
+    requires_live_backend,
+    tick_result,
 )
 
 QUESTION = "Buy 2 liters of whole milk."

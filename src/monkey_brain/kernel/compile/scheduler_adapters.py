@@ -3,6 +3,7 @@
 Phase 3.3: Adapters let each scheduler (Distributed, Reasoning, Graph, Process)
 work with the unified interface without changing their implementations.
 """
+
 from __future__ import annotations
 
 import logging
@@ -272,6 +273,6 @@ class ProcessSchedulerAdapter(SchedulerInterface):
 
     @property
     def queue_depth(self) -> int:
-        ready_count = len(self._scheduler._ready) if hasattr(self._scheduler, '_ready') else 0
-        waiting_count = len(self._scheduler._waiting) if hasattr(self._scheduler, '_waiting') else 0
+        ready_count = len(self._scheduler._ready) if hasattr(self._scheduler, "_ready") else 0
+        waiting_count = len(self._scheduler._waiting) if hasattr(self._scheduler, "_waiting") else 0
         return ready_count + waiting_count

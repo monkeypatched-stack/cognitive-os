@@ -40,16 +40,19 @@ def advisory(answer: str, *, grounded: bool) -> str:
     nothing was carried out and no system data was read.
     """
     provenance = (
-        "Answer drawn from retrieved context." if grounded
+        "Answer drawn from retrieved context."
+        if grounded
         else "Answer drawn from general knowledge, not from system data."
     )
-    return "\n".join([
-        f"  {_DIM}Advisory — no action was taken.{_RESET}",
-        "",
-        f"  {answer}",
-        "",
-        f"  {_DIM}{provenance}{_RESET}",
-    ])
+    return "\n".join(
+        [
+            f"  {_DIM}Advisory — no action was taken.{_RESET}",
+            "",
+            f"  {answer}",
+            "",
+            f"  {_DIM}{provenance}{_RESET}",
+        ]
+    )
 
 
 def state(label: str, value: str) -> str:

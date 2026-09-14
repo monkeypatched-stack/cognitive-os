@@ -172,8 +172,4 @@ class CapabilityAdapter(ABC):
         self.status = status
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"adapter_id={self.adapter_id!r}, "
-            f"status={self.status.value!r})"
-        )
+        return f"{self.__class__.__name__}(adapter_id={self.adapter_id!r}, status={self.status.value!r})"

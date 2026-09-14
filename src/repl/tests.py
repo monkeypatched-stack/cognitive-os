@@ -1,4 +1,5 @@
 """Test commands."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,16 +9,17 @@ import typer
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 _test_suites = {
-    "unit":           "tests/unit",
-    "e2e":            "tests/e2e",
-    "soma":           "tests/e2e/test_soma_compile.py",
-    "fault":          "tests/fault_injection",
-    "load":           "tests/load",
-    "stress":         "tests/stress",
-    "security":       "tests/security",
-    "chaos":          "tests/chaos",
-    "all":            "tests",
+    "unit": "tests/unit",
+    "e2e": "tests/e2e",
+    "soma": "tests/e2e/test_soma_compile.py",
+    "fault": "tests/fault_injection",
+    "load": "tests/load",
+    "stress": "tests/stress",
+    "security": "tests/security",
+    "chaos": "tests/chaos",
+    "all": "tests",
 }
+
 
 def test_cmd(
     suite: str = typer.Argument("unit", help=f"Test suite to run: {', '.join(_test_suites)}"),
@@ -40,12 +42,16 @@ def test_cmd(
     report_dir = Path.home() / ".monkeybrain" / "reports"
     report_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_txt  = report_dir / f"{suite}_{ts}.txt"
-    report_xml  = report_dir / f"{suite}_{ts}.xml"
+    report_txt = report_dir / f"{suite}_{ts}.txt"
+    report_xml = report_dir / f"{suite}_{ts}.xml"
 
     cmd = [
-        sys.executable, "-m", "pytest", path,
-        "-v", "--tb=short",
+        sys.executable,
+        "-m",
+        "pytest",
+        path,
+        "-v",
+        "--tb=short",
         f"--junit-xml={report_xml}",
     ]
     if verbose:
@@ -75,7 +81,6 @@ def test_cmd(
     raise typer.Exit(result.returncode)
 
 
-
 def test_report_cmd(
     suite: str = typer.Argument("", help="Filter by suite name (e.g. e2e, unit). Empty = latest of any suite."),
     last: int = typer.Option(1, "--last", "-n", help="Show the Nth most recent report (default: 1 = latest)"),
@@ -103,4 +108,3 @@ def test_report_cmd(
 # ===========================================================================
 # soma sub-commands  (delegate to soma.cli.main.app)
 # ===========================================================================
-

@@ -8,7 +8,6 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from services.common.compliance import sha256_hex
 
-
 REDUCED_STATE_COLLECTION = "event_reduced_state"
 REDUCER_AUDIT_COLLECTION = "event_reducer_audits"
 CANONICAL_SNAPSHOT_COLLECTION = "canonical_state_snapshots"
@@ -32,7 +31,11 @@ def _event_hash(event: dict[str, Any], subject: str | None) -> str:
 
 
 def _event_id(event: dict[str, Any], subject: str | None) -> str:
-    return str(event.get("event_id") or event.get("id") or f"event-{_event_hash(event, subject)[:24]}")
+    return str(
+        event.get("event_id")
+        or event.get("id")
+        or f"event-{_event_hash(event, subject)[:24]}"
+    )
 
 
 def _event_time(event: dict[str, Any]) -> Any:
@@ -45,9 +48,18 @@ def _event_time(event: dict[str, Any]) -> Any:
     )
 
 
-def _aggregate_parts(event: dict[str, Any], subject: str | None) -> tuple[str, str, str]:
-    event_type = str(event.get("event_type") or _compact_subject(subject).rsplit(".", 1)[-1])
-    collection = str(event.get("target_collection") or event.get("collection") or event.get("source_collection") or "")
+def _aggregate_parts(
+    event: dict[str, Any], subject: str | None
+) -> tuple[str, str, str]:
+    event_type = str(
+        event.get("event_type") or _compact_subject(subject).rsplit(".", 1)[-1]
+    )
+    collection = str(
+        event.get("target_collection")
+        or event.get("collection")
+        or event.get("source_collection")
+        or ""
+    )
     record_id = str(
         event.get("target_id")
         or event.get("record_id")
@@ -67,7 +79,9 @@ def _aggregate_parts(event: dict[str, Any], subject: str | None) -> tuple[str, s
             or ""
         )
     if not collection:
-        collection = str(event.get("target_entity") or event.get("source") or event_type)
+        collection = str(
+            event.get("target_entity") or event.get("source") or event_type
+        )
     if not record_id:
         record_id = _event_id(event, subject)
     return event_type, collection, record_id
@@ -77,7 +91,9 @@ def _state_from_event(event: dict[str, Any]) -> tuple[dict[str, Any], str]:
     operation = str(event.get("operation") or "").lower()
     if event.get("event_type") == "cdc-change":
         if operation == "delete":
-            before = event.get("before") if isinstance(event.get("before"), dict) else {}
+            before = (
+                event.get("before") if isinstance(event.get("before"), dict) else {}
+            )
             return {**before, "reducer_record_status": "deleted"}, "delete"
         after = event.get("after") if isinstance(event.get("after"), dict) else {}
         if after:
@@ -122,13 +138,21 @@ async def reduce_event_to_state(
     event_type, collection, record_id = _aggregate_parts(event, subject)
     aggregate_key = f"{collection}:{record_id}"
     event_hash = _event_hash(event, subject)
-    existing_audit = await db[REDUCER_AUDIT_COLLECTION].find_one({"event_hash": event_hash}, {"_id": 0})
+    existing_audit = await db[REDUCER_AUDIT_COLLECTION].find_one(
+        {"event_hash": event_hash}, {"_id": 0}
+    )
     if existing_audit:
         return {**existing_audit, "idempotent_replay": True}
 
     reduced_state, operation = _state_from_event(event)
-    prior = await db[REDUCED_STATE_COLLECTION].find_one({"aggregate_key": aggregate_key}, {"_id": 0})
-    previous_state = prior.get("state") if isinstance(prior, dict) and isinstance(prior.get("state"), dict) else {}
+    prior = await db[REDUCED_STATE_COLLECTION].find_one(
+        {"aggregate_key": aggregate_key}, {"_id": 0}
+    )
+    previous_state = (
+        prior.get("state")
+        if isinstance(prior, dict) and isinstance(prior.get("state"), dict)
+        else {}
+    )
     if operation == "delete":
         state = {**previous_state, **reduced_state}
     else:
@@ -171,7 +195,9 @@ async def reduce_event_to_state(
         },
         upsert=True,
     )
-    stored = await db[REDUCED_STATE_COLLECTION].find_one({"aggregate_key": aggregate_key}, {"_id": 0})
+    stored = await db[REDUCED_STATE_COLLECTION].find_one(
+        {"aggregate_key": aggregate_key}, {"_id": 0}
+    )
     audit = {
         "reducer_audit_id": f"event-reducer-audit-{uuid4().hex}",
         "event_id": _event_id(event, subject),
@@ -182,7 +208,9 @@ async def reduce_event_to_state(
         "collection": collection,
         "record_id": record_id,
         "operation": operation,
-        "previous_state_hash": prior.get("state_hash") if isinstance(prior, dict) else None,
+        "previous_state_hash": (
+            prior.get("state_hash") if isinstance(prior, dict) else None
+        ),
         "state_hash": state_hash,
         "snapshot_id": snapshot["snapshot_id"],
         "snapshot_hash": snapshot["snapshot_hash"],

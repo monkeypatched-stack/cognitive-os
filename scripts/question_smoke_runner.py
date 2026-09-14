@@ -12,7 +12,6 @@ from typing import Any
 
 import httpx
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_QUESTION_FILE = REPO_ROOT / "config" / "question_smoke_questions.json"
 DEFAULT_OUTPUT_FILE = REPO_ROOT / "question_smoke_results.json"
@@ -287,7 +286,7 @@ def run_api_questions(
                     answer=answer,
                     matched_expectation=matched_expectation,
                     response=payload,
-                    error=None if ok else _failure_reason(response.status_code, answer, expected),
+                    error=(None if ok else _failure_reason(response.status_code, answer, expected)),
                 )
             except Exception as exc:
                 if isinstance(exc, httpx.RequestError):
@@ -470,20 +469,51 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Expand selected questions to this count. Defaults to config defaults.target_count unless --no-expand is set.",
     )
-    parser.add_argument("--no-expand", action="store_true", help="Run only the curated questions from the JSON file.")
-    parser.add_argument("--limit", type=int, default=None, help="Run only the first N selected questions after expansion.")
+    parser.add_argument(
+        "--no-expand",
+        action="store_true",
+        help="Run only the curated questions from the JSON file.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Run only the first N selected questions after expansion.",
+    )
     parser.add_argument("--list", action="store_true", help="List questions and exit.")
     parser.add_argument("--mode", choices=("api", "browser"), default="api")
-    parser.add_argument("--base-url", default="http://localhost:8000", help="API base URL, usually Kong.")
+    parser.add_argument(
+        "--base-url",
+        default="http://localhost:8000",
+        help="API base URL, usually Kong.",
+    )
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--stop-on-failure", action="store_true")
     parser.add_argument("--api-key", help=f"Monkeypatched SDK API key. Sent as {SDK_API_KEY_HEADER}.")
-    parser.add_argument("--header", action="append", default=[], help=f"Extra API header, e.g. '{SDK_API_KEY_HEADER}: mpk_live_...'.")
-    parser.add_argument("--skip-api-preflight", action="store_true", help="Skip the API gateway health check before running.")
+    parser.add_argument(
+        "--header",
+        action="append",
+        default=[],
+        help=f"Extra API header, e.g. '{SDK_API_KEY_HEADER}: mpk_live_...'.",
+    )
+    parser.add_argument(
+        "--skip-api-preflight",
+        action="store_true",
+        help="Skip the API gateway health check before running.",
+    )
     parser.add_argument("--ui-url", default="http://localhost:3000", help="UI URL for browser mode.")
-    parser.add_argument("--input-selector", default="textarea[name='question'], textarea, input[name='question']")
-    parser.add_argument("--submit-selector", default="button[type='submit'], button:has-text('Ask'), button:has-text('Send')")
-    parser.add_argument("--answer-selector", default="[data-testid='answer'], .answer, .chat-message, [role='article']")
+    parser.add_argument(
+        "--input-selector",
+        default="textarea[name='question'], textarea, input[name='question']",
+    )
+    parser.add_argument(
+        "--submit-selector",
+        default="button[type='submit'], button:has-text('Ask'), button:has-text('Send')",
+    )
+    parser.add_argument(
+        "--answer-selector",
+        default="[data-testid='answer'], .answer, .chat-message, [role='article']",
+    )
     parser.add_argument("--headed", action="store_true", help="Show browser in browser mode.")
     return parser
 

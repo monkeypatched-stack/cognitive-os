@@ -26,10 +26,10 @@ from src.monkey_brain.kernel.execute.provider.llm_explorer import LLMExplorer
 
 class Xavier:
     """Simulation, Feedback & Learning Engine.
-    
+
     Xavier predicts, evaluates, learns, and optimizes.
     Xavier never executes capabilities directly.
-    
+
     Flow:
     1. LLM Explorer generates candidates (exploration)
     2. Simulator evaluates candidates
@@ -41,7 +41,7 @@ class Xavier:
     8. World Model updated
     9. Experience stored
     """
-    
+
     def __init__(
         self,
         policy: BellmanPolicy | None = None,
@@ -57,21 +57,21 @@ class Xavier:
         self.feedback_engine = FeedbackEngine()
         self.experience_store = ExperienceStore()
         self.llm_explorer = LLMExplorer()
-        
+
         # Dependencies
         self._policy = policy or BellmanPolicy()
         self._observer = observer or Observer()
         self._learning = learning or Learning()
         self._lemon = None
-    
+
     def set_lemon(self, lemon) -> None:
         self._lemon = lemon
         self.feedback_engine.set_lemon(lemon)
         self.llm_explorer.set_lemon(lemon)
         self._policy.set_lemon(lemon)
-    
+
     # --- Exploration (LLM generates candidates) ---
-    
+
     def explore(
         self,
         question: str,
@@ -80,10 +80,10 @@ class Xavier:
     ) -> list[dict[str, Any]]:
         """Generate candidate workflows using LLM (exploration)."""
         candidates = self.llm_explorer.generate_candidates(question, intent)
-        
+
         if self._lemon:
             self._lemon.counter("xavier.explorations")
-        
+
         return [
             {
                 "name": c.name,
@@ -94,9 +94,9 @@ class Xavier:
             }
             for c in candidates
         ]
-    
+
     # --- Simulation (evaluate without side effects) ---
-    
+
     def simulate(
         self,
         pipeline_id: str,
@@ -105,14 +105,14 @@ class Xavier:
     ) -> SimulationResult:
         """Simulate a pipeline execution (no side effects)."""
         result = self.simulator.simulate(pipeline_id, capabilities, state)
-        
+
         if self._lemon:
             self._lemon.counter("xavier.simulations")
-        
+
         return result
-    
+
     # --- Selection (Policy evaluates) ---
-    
+
     def select(
         self,
         candidates: list[dict[str, Any]],
@@ -120,7 +120,7 @@ class Xavier:
     ) -> dict[str, Any]:
         """Select best candidate using Policy (exploitation)."""
         from src.monkey_brain.kernel.pipeline import Pipeline, PipelineStep
-        
+
         pipelines = []
         for c in candidates:
             steps = [
@@ -128,15 +128,15 @@ class Xavier:
                 for s in c.get("steps", [])
             ]
             pipelines.append(Pipeline(steps=steps, metadata=c))
-        
+
         if not pipelines:
             return candidates[0] if candidates else {}
-        
+
         selected = self._policy.select(pipelines, state)
         return selected.metadata
-    
+
     # --- Evaluation (after execution) ---
-    
+
     def evaluate(
         self,
         question: str,
@@ -164,7 +164,7 @@ class Xavier:
             ground_truth=ground_truth,
             user_feedback=user_feedback,
         )
-        
+
         # Compute reward
         reward_result = self.reward_engine.compute(
             success=success,
@@ -176,7 +176,7 @@ class Xavier:
         )
         record.reward = reward_result.total_reward
         record.reward_components = reward_result.components
-        
+
         # Compute loss
         loss_result = self.loss_engine.compute(
             success=success,
@@ -188,10 +188,10 @@ class Xavier:
         )
         record.loss = loss_result.total_loss
         record.loss_components = loss_result.components
-        
+
         # Compute cost
         cost_result = self.cost_engine.estimate(latency_ms=latency_ms)
-        
+
         # Update world model
         self.world_model.update_pipeline(
             pipeline_id,
@@ -201,8 +201,10 @@ class Xavier:
             latency_ms=latency_ms,
         )
         for cap in capabilities:
-            self.world_model.update_capability(cap, success, latency_ms, cost_result.total_cost / len(capabilities))
-        
+            self.world_model.update_capability(
+                cap, success, latency_ms, cost_result.total_cost / len(capabilities)
+            )
+
         # Update policy
         if state and next_state:
             transition = Transition(
@@ -213,7 +215,7 @@ class Xavier:
                 done=True,
             )
             self._policy.update(transition)
-        
+
         # Store experience
         experience = Experience(
             state=state or {},
@@ -228,18 +230,18 @@ class Xavier:
             },
         )
         self.experience_store.store(experience)
-        
+
         # Emit telemetry
         if self._lemon:
             self._lemon.counter("xavier.executions_evaluated")
             self._lemon.histogram("xavier.reward", reward_result.total_reward)
             self._lemon.histogram("xavier.loss", loss_result.total_loss)
             self._lemon.histogram("xavier.cost", cost_result.total_cost)
-        
+
         return record
-    
+
     # --- Summary ---
-    
+
     def summary(self) -> dict:
         return {
             "world_model": self.world_model.summary(),

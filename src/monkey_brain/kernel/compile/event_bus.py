@@ -12,6 +12,7 @@ Events:
     prediction.ready    — Prediction completed on cloned world
     actor.acted         — Actor completed an action
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,6 +27,7 @@ logger = logging.getLogger("agentos.event_bus")
 @dataclass
 class Event:
     """An event published through the bus."""
+
     topic: str
     payload: dict
     timestamp: float = field(default_factory=time.time)
@@ -50,7 +52,7 @@ class EventBus:
         event = Event(topic=topic, payload=payload, source=source)
         self._event_log.append(event)
         if len(self._event_log) > self._max_log:
-            self._event_log = self._event_log[-self._max_log:]
+            self._event_log = self._event_log[-self._max_log :]
 
         failed_subscribers = []
 
@@ -76,9 +78,11 @@ class EventBus:
     def subscribe_pattern(self, pattern: str, callback: Callable[[Event], None]) -> None:
         """Subscribe to events matching a topic pattern (supports * wildcard)."""
         import fnmatch
+
         def pattern_matcher(event: Event) -> None:
             if fnmatch.fnmatch(event.topic, pattern):
                 callback(event)
+
         self._wildcard_subscribers.append(pattern_matcher)
 
     def subscribe(self, topic: str, callback: Callable[[Event], None]) -> None:
@@ -100,9 +104,17 @@ class EventBus:
         """Save event log to file."""
         import json
         import os
+
         os.makedirs(path, exist_ok=True)
-        data = [{"topic": e.topic, "payload": e.payload, "timestamp": e.timestamp, "source": e.source}
-                for e in self._event_log]
+        data = [
+            {
+                "topic": e.topic,
+                "payload": e.payload,
+                "timestamp": e.timestamp,
+                "source": e.source,
+            }
+            for e in self._event_log
+        ]
         with open(os.path.join(path, "event_log.json"), "w") as f:
             json.dump(data, f, indent=2)
 
@@ -110,11 +122,18 @@ class EventBus:
         """Load event log from file."""
         import json
         import os
+
         log_path = os.path.join(path, "event_log.json")
         if not os.path.exists(log_path):
             return
         with open(log_path) as f:
             data = json.load(f)
-        self._event_log = [Event(topic=d["topic"], payload=d["payload"],
-                                 timestamp=d["timestamp"], source=d["source"])
-                           for d in data]
+        self._event_log = [
+            Event(
+                topic=d["topic"],
+                payload=d["payload"],
+                timestamp=d["timestamp"],
+                source=d["source"],
+            )
+            for d in data
+        ]

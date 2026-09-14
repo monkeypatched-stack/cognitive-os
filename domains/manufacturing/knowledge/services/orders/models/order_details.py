@@ -15,10 +15,21 @@ class OrderDetailsModel(BaseModel):
         ...,
         description="Current status of the order, for example Pending, Shipped, Delivered, or Canceled",
     )
-    order_type: str = Field(..., description="Type of order, for example Standard, Rush, or Backorder")
-    priority_level: Optional[str] = Field(None, description="Priority level of the order, for example High, Medium, or Low")
-    shipping_method: Optional[str] = Field(None, description="Shipping method used for the order, for example Ground or Air Freight")
-    payment_method: str = Field(..., description="Method used to pay for the order, for example Credit Card or Bank Transfer")
+    order_type: str = Field(
+        ..., description="Type of order, for example Standard, Rush, or Backorder"
+    )
+    priority_level: Optional[str] = Field(
+        None,
+        description="Priority level of the order, for example High, Medium, or Low",
+    )
+    shipping_method: Optional[str] = Field(
+        None,
+        description="Shipping method used for the order, for example Ground or Air Freight",
+    )
+    payment_method: str = Field(
+        ...,
+        description="Method used to pay for the order, for example Credit Card or Bank Transfer",
+    )
 
 
 class OrderDetailsCreate(OrderDetailsModel):

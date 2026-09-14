@@ -19,6 +19,7 @@ logger = logging.getLogger("agentos.hybrid.query_classifier")
 
 class QueryType(str, Enum):
     """Query type enumeration"""
+
     ACTION = "action"
     RETRIEVAL = "retrieval"
     REASONING = "reasoning"
@@ -29,6 +30,7 @@ class QueryType(str, Enum):
 @dataclass
 class QueryClassification:
     """Result of query type classification"""
+
     query_type: QueryType
     confidence: float
     reasoning: str
@@ -40,34 +42,98 @@ class QueryTypeClassifier:
 
     # Action intent keywords
     ACTION_KEYWORDS = {
-        "get", "buy", "purchase", "order", "acquire", "book", "reserve",
-        "hire", "find", "search", "locate", "build", "create", "make",
-        "cook", "prepare", "schedule", "arrange", "plan", "organize",
-        "move", "transfer", "send", "deliver", "pick", "deliver"
+        "get",
+        "buy",
+        "purchase",
+        "order",
+        "acquire",
+        "book",
+        "reserve",
+        "hire",
+        "find",
+        "search",
+        "locate",
+        "build",
+        "create",
+        "make",
+        "cook",
+        "prepare",
+        "schedule",
+        "arrange",
+        "plan",
+        "organize",
+        "move",
+        "transfer",
+        "send",
+        "deliver",
+        "pick",
+        "deliver",
     }
 
     # Retrieval question keywords
     RETRIEVAL_KEYWORDS = {
-        "what", "who", "when", "where", "which", "list", "show", "tell",
-        "explain", "describe", "summarize", "count", "how many", "how much"
+        "what",
+        "who",
+        "when",
+        "where",
+        "which",
+        "list",
+        "show",
+        "tell",
+        "explain",
+        "describe",
+        "summarize",
+        "count",
+        "how many",
+        "how much",
     }
 
     # Reasoning question keywords
     REASONING_KEYWORDS = {
-        "why", "how", "explain", "compare", "contrast", "analyze",
-        "what if", "would", "should", "could", "think about", "discuss"
+        "why",
+        "how",
+        "explain",
+        "compare",
+        "contrast",
+        "analyze",
+        "what if",
+        "would",
+        "should",
+        "could",
+        "think about",
+        "discuss",
     }
 
     # Real-time data keywords
     REALTIME_KEYWORDS = {
-        "current", "now", "today", "live", "recent", "latest",
-        "real-time", "stock", "weather", "traffic", "status"
+        "current",
+        "now",
+        "today",
+        "live",
+        "recent",
+        "latest",
+        "real-time",
+        "stock",
+        "weather",
+        "traffic",
+        "status",
     }
 
     # Conversational markers
     CONVERSATIONAL_MARKERS = {
-        "that", "it", "them", "there", "also", "instead", "furthermore",
-        "agreed", "right", "okay", "thanks", "please", "sorry"
+        "that",
+        "it",
+        "them",
+        "there",
+        "also",
+        "instead",
+        "furthermore",
+        "agreed",
+        "right",
+        "okay",
+        "thanks",
+        "please",
+        "sorry",
     }
 
     def __init__(self, llm_provider: Optional[Any] = None, use_llm: bool = True):
@@ -173,7 +239,7 @@ class QueryTypeClassifier:
             response_text = await provider.complete(
                 system=system_prompt,
                 user_message=f"Classify this query: {question}",
-                max_tokens=200
+                max_tokens=200,
             )
 
             # Parse LLM response
@@ -200,7 +266,7 @@ class QueryTypeClassifier:
                 query_type=query_type,
                 confidence=confidence,
                 reasoning=reasoning,
-                matched_patterns=["llm"]
+                matched_patterns=["llm"],
             )
 
         except Exception as e:
@@ -217,8 +283,8 @@ class QueryTypeClassifier:
 
         # Try to extract JSON from text
         try:
-            start_idx = response_text.find('{')
-            end_idx = response_text.rfind('}') + 1
+            start_idx = response_text.find("{")
+            end_idx = response_text.rfind("}") + 1
 
             if start_idx >= 0 and end_idx > start_idx:
                 json_str = response_text[start_idx:end_idx]
@@ -246,7 +312,7 @@ class QueryTypeClassifier:
                 query_type=QueryType.ACTION,
                 confidence=0.9,
                 reasoning="Detected action-oriented intent",
-                matched_patterns=self._find_patterns(question_lower, self.ACTION_KEYWORDS)
+                matched_patterns=self._find_patterns(question_lower, self.ACTION_KEYWORDS),
             )
 
         # Check for real-time data keywords
@@ -255,7 +321,7 @@ class QueryTypeClassifier:
                 query_type=QueryType.REALTIME,
                 confidence=0.85,
                 reasoning="Detected real-time data keywords",
-                matched_patterns=self._find_patterns(question_lower, self.REALTIME_KEYWORDS)
+                matched_patterns=self._find_patterns(question_lower, self.REALTIME_KEYWORDS),
             )
 
         # Check for reasoning keywords
@@ -264,7 +330,7 @@ class QueryTypeClassifier:
                 query_type=QueryType.REASONING,
                 confidence=0.85,
                 reasoning="Detected reasoning/analysis intent",
-                matched_patterns=self._find_patterns(question_lower, self.REASONING_KEYWORDS)
+                matched_patterns=self._find_patterns(question_lower, self.REASONING_KEYWORDS),
             )
 
         # Check for retrieval keywords
@@ -273,7 +339,7 @@ class QueryTypeClassifier:
                 query_type=QueryType.RETRIEVAL,
                 confidence=0.85,
                 reasoning="Detected information retrieval intent",
-                matched_patterns=self._find_patterns(question_lower, self.RETRIEVAL_KEYWORDS)
+                matched_patterns=self._find_patterns(question_lower, self.RETRIEVAL_KEYWORDS),
             )
 
         # Check for conversational markers last (fallback - requires session)
@@ -282,7 +348,7 @@ class QueryTypeClassifier:
                 query_type=QueryType.CONVERSATIONAL,
                 confidence=0.9,
                 reasoning="Detected conversational markers in session context",
-                matched_patterns=self._find_patterns(question_lower, self.CONVERSATIONAL_MARKERS)
+                matched_patterns=self._find_patterns(question_lower, self.CONVERSATIONAL_MARKERS),
             )
 
         # Default to action for ambiguous cases
@@ -290,7 +356,7 @@ class QueryTypeClassifier:
             query_type=QueryType.ACTION,
             confidence=0.5,
             reasoning="No clear patterns matched, defaulting to action",
-            matched_patterns=[]
+            matched_patterns=[],
         )
 
     def _is_action(self, question: str) -> bool:
@@ -313,7 +379,15 @@ class QueryTypeClassifier:
     def _is_retrieval(self, question: str) -> bool:
         """Check if question is pure information retrieval"""
         # Check for retrieval keywords
-        retrieval_starts = ["what", "who", "when", "where", "which", "how many", "how much"]
+        retrieval_starts = [
+            "what",
+            "who",
+            "when",
+            "where",
+            "which",
+            "how many",
+            "how much",
+        ]
         if any(question.startswith(q) for q in retrieval_starts):
             return True
 
@@ -342,7 +416,14 @@ class QueryTypeClassifier:
             return True
 
         # Check for specific real-time data sources
-        realtime_entities = ["stock", "weather", "traffic", "price", "availability", "status"]
+        realtime_entities = [
+            "stock",
+            "weather",
+            "traffic",
+            "price",
+            "availability",
+            "status",
+        ]
         if any(entity in question for entity in realtime_entities):
             return True
 
@@ -380,6 +461,6 @@ class QueryTypeClassifier:
             QueryType.RETRIEVAL: "RetrievalHandler (knowledge base)",
             QueryType.REASONING: "ReasoningHandler (LLM chat)",
             QueryType.CONVERSATIONAL: "ConversationalHandler (session manager)",
-            QueryType.REALTIME: "RealtimeHandler (API fetcher)"
+            QueryType.REALTIME: "RealtimeHandler (API fetcher)",
         }
         return recommendations.get(classification.query_type, "ActionHandler")

@@ -24,6 +24,7 @@ PUT    /world/locations/{id}     — update location
 DELETE /world/locations/{id}     — delete location
 POST   /world/query              — query the world
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,17 +34,27 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    WorldResponse, WorldContextResponse, WorldBeliefsResponse,
-    WorldEntitiesResponse, WorldRelationshipsResponse,
-    WorldQueryRequest, WorldQueryResponse,
-    WorldEntityCreateRequest, WorldEntityUpdateRequest,
-    WorldRelationshipCreateRequest, WorldEventCreateRequest,
-    WorldResourceCreateRequest, WorldResourceUpdateRequest,
-    WorldLocationCreateRequest, WorldLocationUpdateRequest,
+    WorldResponse,
+    WorldContextResponse,
+    WorldBeliefsResponse,
+    WorldEntitiesResponse,
+    WorldRelationshipsResponse,
+    WorldQueryRequest,
+    WorldQueryResponse,
+    WorldEntityCreateRequest,
+    WorldEntityUpdateRequest,
+    WorldRelationshipCreateRequest,
+    WorldEventCreateRequest,
+    WorldResourceCreateRequest,
+    WorldResourceUpdateRequest,
+    WorldLocationCreateRequest,
+    WorldLocationUpdateRequest,
 )
 from src.monkey_brain.api.idempotency import idempotent
 from src.shared.api_protocols import (
-    WorldProtocol, BeliefStateProtocol, SerializableProtocol,
+    WorldProtocol,
+    BeliefStateProtocol,
+    SerializableProtocol,
     PlanetaryRuntimeProtocol,
 )
 
@@ -53,7 +64,9 @@ router = APIRouter()
 
 def _require_direct_world_mutation_allowed() -> None:
     """Block SharedWorld CRUD in production; those paths bypass TransitionGate."""
-    from src.monkey_brain.kernel.production_gates import block_direct_world_api_mutations
+    from src.monkey_brain.kernel.production_gates import (
+        block_direct_world_api_mutations,
+    )
 
     if block_direct_world_api_mutations():
         raise HTTPException(
@@ -67,6 +80,7 @@ def _require_direct_world_mutation_allowed() -> None:
 
 async def _commit_world(action: str, resource: str, effect):
     from src.monkey_brain.kernel.security_boundary import ensure_governed
+
     return await ensure_governed(action, resource, effect, skip_authz=True)
 
 
@@ -81,6 +95,7 @@ def _get_planetary_runtime(request: Request) -> Any:
 
 
 # ── Full World ──────────────────────────────────────────────────────────
+
 
 @router.get("/world", response_model=WorldResponse, tags=["World"])
 async def get_world(
@@ -105,6 +120,7 @@ async def get_world(
 
 
 # ── Context / Beliefs ──────────────────────────────────────────────────
+
 
 @router.get("/world/context", response_model=WorldContextResponse, tags=["World"])
 async def get_world_context(
@@ -146,6 +162,7 @@ async def get_world_beliefs(
 
 
 # ── Entities CRUD ───────────────────────────────────────────────────────
+
 
 @router.get("/world/entities", response_model=WorldEntitiesResponse, tags=["World"])
 async def get_world_entities(
@@ -192,6 +209,7 @@ async def create_world_entity(
         provenance=body.provenance or "api:world/entities",
         owner_society_id=body.owner_society_id,
     )
+
     async def _mutate():
         pr.add_world_entity(entity)
         return entity.to_dict()
@@ -229,9 +247,13 @@ async def update_world_entity(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     entity = await _commit_world(
-        "world.entity.update", entity_id,
+        "world.entity.update",
+        entity_id,
         lambda: pr.update_world_entity(
-            entity_id, state=body.state or None, owner_society_id=body.owner_society_id, **body.attributes,
+            entity_id,
+            state=body.state or None,
+            owner_society_id=body.owner_society_id,
+            **body.attributes,
         ),
     )
     if entity is None:
@@ -258,6 +280,7 @@ async def delete_world_entity(
 
 # ── Relationships CRUD ──────────────────────────────────────────────────
 
+
 @router.get("/world/relationships", response_model=WorldRelationshipsResponse, tags=["World"])
 async def get_world_relationships(
     request: Request,
@@ -282,7 +305,11 @@ async def create_world_relationship(
     pr = _get_planetary_runtime(request)
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
-    from src.monkey_brain.kernel.society.world import WorldRelationship, RelationshipKind
+    from src.monkey_brain.kernel.society.world import (
+        WorldRelationship,
+        RelationshipKind,
+    )
+
     kind_map = {k.value: k for k in RelationshipKind}
     rel = WorldRelationship(
         source_id=body.source_id,
@@ -291,7 +318,11 @@ async def create_world_relationship(
         attributes=body.attributes,
         confidence=body.confidence,
     )
-    await _commit_world("world.relationship.create", rel.relationship_id if hasattr(rel, "relationship_id") else "rel", lambda: pr.add_world_relationship(rel) or True)
+    await _commit_world(
+        "world.relationship.create",
+        rel.relationship_id if hasattr(rel, "relationship_id") else "rel",
+        lambda: pr.add_world_relationship(rel) or True,
+    )
     return rel.to_dict()
 
 
@@ -307,7 +338,8 @@ async def delete_world_relationship(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     removed = await _commit_world(
-        "world.relationship.delete", relationship_id,
+        "world.relationship.delete",
+        relationship_id,
         lambda: pr.remove_world_relationship(relationship_id),
     )
     if not removed:
@@ -316,6 +348,7 @@ async def delete_world_relationship(
 
 
 # ── Events CRUD ─────────────────────────────────────────────────────────
+
 
 @router.get("/world/events", tags=["World"])
 async def get_world_events(
@@ -343,6 +376,7 @@ async def create_world_event(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     from src.monkey_brain.kernel.society.world import WorldEvent, EventType
+
     type_map = {t.value: t for t in EventType}
     event = WorldEvent(
         event_type=type_map.get(body.event_type, EventType.STATE_CHANGE),
@@ -379,6 +413,7 @@ async def delete_world_event(
 
 # ── Resources CRUD ──────────────────────────────────────────────────────
 
+
 @router.get("/world/resources", tags=["World"])
 async def get_world_resources(
     request: Request,
@@ -404,6 +439,7 @@ async def create_world_resource(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     from src.monkey_brain.kernel.society.world import WorldResource
+
     resource = WorldResource(
         name=body.name,
         resource_type=body.resource_type,
@@ -412,7 +448,11 @@ async def create_world_resource(
         location_id=body.location_id,
         owner_id=body.owner_id,
     )
-    await _commit_world("world.resource.create", getattr(resource, "resource_id", "resource"), lambda: pr.add_world_resource(resource) or True)
+    await _commit_world(
+        "world.resource.create",
+        getattr(resource, "resource_id", "resource"),
+        lambda: pr.add_world_resource(resource) or True,
+    )
     return resource.to_dict()
 
 
@@ -463,7 +503,8 @@ async def delete_world_resource(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     removed = await _commit_world(
-        "world.resource.delete", resource_id,
+        "world.resource.delete",
+        resource_id,
         lambda: pr.remove_world_resource(resource_id),
     )
     if not removed:
@@ -472,6 +513,7 @@ async def delete_world_resource(
 
 
 # ── Locations CRUD ───────────────────────────────────────────────────────
+
 
 @router.get("/world/locations", tags=["World"])
 async def get_world_locations(
@@ -497,6 +539,7 @@ async def create_world_location(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     from src.monkey_brain.kernel.society.world import WorldLocation
+
     location = WorldLocation(
         name=body.name,
         address=body.address,
@@ -504,7 +547,11 @@ async def create_world_location(
         longitude=body.longitude,
         attributes=body.attributes,
     )
-    await _commit_world("world.location.create", getattr(location, "location_id", "location"), lambda: pr.add_world_location(location) or True)
+    await _commit_world(
+        "world.location.create",
+        getattr(location, "location_id", "location"),
+        lambda: pr.add_world_location(location) or True,
+    )
     return location.to_dict()
 
 
@@ -537,7 +584,8 @@ async def update_world_location(
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     updates = {k: v for k, v in body.dict().items() if v is not None}
     location = await _commit_world(
-        "world.location.update", location_id,
+        "world.location.update",
+        location_id,
         lambda: pr.update_world_location(location_id, **updates) if isinstance(pr, PlanetaryRuntimeProtocol) else None,
     )
     if location is None:
@@ -557,7 +605,8 @@ async def delete_world_location(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     removed = await _commit_world(
-        "world.location.delete", location_id,
+        "world.location.delete",
+        location_id,
         lambda: pr.remove_world_location(location_id) if isinstance(pr, PlanetaryRuntimeProtocol) else False,
     )
     if not removed:
@@ -566,6 +615,7 @@ async def delete_world_location(
 
 
 # ── Query ───────────────────────────────────────────────────────────────
+
 
 @router.post("/world/query", response_model=WorldQueryResponse, tags=["World"])
 @idempotent("world.query_world")
@@ -578,6 +628,7 @@ async def query_world(
     if pr is None:
         return WorldQueryResponse()
     from src.monkey_brain.kernel.society.world import WorldEntityType
+
     type_map = {t.value: t for t in WorldEntityType}
     entity_type_filter = body.filters.get("entity_type")
     if entity_type_filter:

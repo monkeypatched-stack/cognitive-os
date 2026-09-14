@@ -2,8 +2,10 @@ from datetime import datetime, timezone
 from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
 
 def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     if dt is None:
@@ -11,6 +13,7 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
 
 class EquipmentClass(BaseModel):
     id: str

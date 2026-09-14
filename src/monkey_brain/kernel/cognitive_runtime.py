@@ -68,6 +68,7 @@ api/routes/cognitive.py, operate on a different, separately-dead-in-
 production object, app.state.cognitive_architecture, which is never set
 outside tests). See docs/architecture-hierarchical-runtime.md.
 """
+
 from __future__ import annotations
 
 import logging
@@ -82,7 +83,10 @@ from src.monkey_brain.kernel.execute.orchestration.routing import (
 from src.monkey_brain.kernel.plan.goals.intent_ir import IntentIR
 from src.monkey_brain.kernel.execute.context import ExecutionContext
 from src.monkey_brain.kernel.execute.models import ExecutionMode
-from src.monkey_brain.kernel.compile.runtime_interface import CognitiveRuntimeInterface, SocietyRuntimeInterface
+from src.monkey_brain.kernel.compile.runtime_interface import (
+    CognitiveRuntimeInterface,
+    SocietyRuntimeInterface,
+)
 
 logger = logging.getLogger("agentos.cognitive_runtime")
 
@@ -92,6 +96,7 @@ _execution_graph: ContextVar[Any] = ContextVar("cognitive_runtime_execution_grap
 @dataclass(frozen=True)
 class _WorldLayer:
     """Metadata snapshot of the pipeline's world tensor at init time."""
+
     transitions: int = 0
     domains: list = field(default_factory=list)
     states: list = field(default_factory=list)
@@ -134,25 +139,41 @@ class LegacyCognitiveRuntime(CognitiveRuntimeInterface):
 
         Components are lightweight and lazy — heavy initialization happens in boot().
         """
-        from src.monkey_brain.kernel.cognitive_layers.intent_compiler import IntentCompiler
-        from src.monkey_brain.kernel.cognitive_layers.execution_coordinator import ExecutionCoordinator
-        from src.monkey_brain.kernel.cognitive_layers.runtime_monitor import RuntimeMonitor
-        from src.monkey_brain.kernel.cognitive_layers.runtime_bootstrap import RuntimeBootstrap
-        from src.monkey_brain.kernel.cognitive_layers.cognitive_loop import CognitiveLoop
-        from src.monkey_brain.kernel.cognitive_layers.knowledge_manager import KnowledgeManager
-        from src.monkey_brain.kernel.cognitive_layers.world_coordinator import WorldCoordinator
-        from src.monkey_brain.kernel.cognitive_layers.observation_pipeline import ObservationPipeline
+        from src.monkey_brain.kernel.cognitive_layers.intent_compiler import (
+            IntentCompiler,
+        )
+        from src.monkey_brain.kernel.cognitive_layers.execution_coordinator import (
+            ExecutionCoordinator,
+        )
+        from src.monkey_brain.kernel.cognitive_layers.runtime_monitor import (
+            RuntimeMonitor,
+        )
+        from src.monkey_brain.kernel.cognitive_layers.runtime_bootstrap import (
+            RuntimeBootstrap,
+        )
+        from src.monkey_brain.kernel.cognitive_layers.cognitive_loop import (
+            CognitiveLoop,
+        )
+        from src.monkey_brain.kernel.cognitive_layers.knowledge_manager import (
+            KnowledgeManager,
+        )
+        from src.monkey_brain.kernel.cognitive_layers.world_coordinator import (
+            WorldCoordinator,
+        )
+        from src.monkey_brain.kernel.cognitive_layers.observation_pipeline import (
+            ObservationPipeline,
+        )
         from src.monkey_brain.kernel.cognitive_layers.audit_service import AuditService
 
         # Focused components — each owns a single responsibility
-        self._intent_compiler = IntentCompiler()           # Layer 1: intent/goal → IntentIR
+        self._intent_compiler = IntentCompiler()  # Layer 1: intent/goal → IntentIR
         self._execution_coordinator = ExecutionCoordinator()  # Layer 3: execute workload
         self._monitor = RuntimeMonitor(name="CognitiveRuntime")  # Layer 4: health & observability
-        self._bootstrap = RuntimeBootstrap()               # Lifecycle: boot, shutdown
-        self._knowledge_manager = KnowledgeManager()       # Knowledge: explore, acquire, gap detection
-        self._world_coordinator = WorldCoordinator()       # World: Context Stream, mutations
-        self._observation_pipeline = ObservationPipeline() # Observations: sensor fusion, estimation
-        self._audit_service = AuditService()               # Audit: logging, governance, telemetry
+        self._bootstrap = RuntimeBootstrap()  # Lifecycle: boot, shutdown
+        self._knowledge_manager = KnowledgeManager()  # Knowledge: explore, acquire, gap detection
+        self._world_coordinator = WorldCoordinator()  # World: Context Stream, mutations
+        self._observation_pipeline = ObservationPipeline()  # Observations: sensor fusion, estimation
+        self._audit_service = AuditService()  # Audit: logging, governance, telemetry
 
         # Constructed on demand by CognitiveLoop
         self._cognitive_loop: CognitiveLoop | None = None
@@ -193,17 +214,23 @@ class LegacyCognitiveRuntime(CognitiveRuntimeInterface):
             if self._world_layer is not None:
                 return self._world_layer
             from src.monkey_brain.kernel.compile.world_tensor import get_world_tensor
+
             tensor = get_world_tensor()
             tensor._build_if_needed()
             self._world = _WorldView(tensor)
             self._world_layer = _WorldLayer(
-                transitions=tensor.nnz(), domains=tensor.domains(), states=tensor.states(),
+                transitions=tensor.nnz(),
+                domains=tensor.domains(),
+                states=tensor.states(),
             )
             return self._world_layer
 
     def _get_cognitive_loop(self) -> Any:
         """Lazy-construct the CognitiveLoop with current dependencies."""
-        from src.monkey_brain.kernel.cognitive_layers.cognitive_loop import CognitiveLoop
+        from src.monkey_brain.kernel.cognitive_layers.cognitive_loop import (
+            CognitiveLoop,
+        )
+
         if self._cognitive_loop is None:
             self._cognitive_loop = CognitiveLoop(
                 graph_manager=self.graph_manager,
@@ -272,7 +299,8 @@ class LegacyCognitiveRuntime(CognitiveRuntimeInterface):
         rt = cls()
 
         await rt._bootstrap.boot(
-            rt, app,
+            rt,
+            app,
             lemon=lemon,
             persistence=persistence,
             event_bus=event_bus,
@@ -317,7 +345,10 @@ class LegacyCognitiveRuntime(CognitiveRuntimeInterface):
         Pure compilation — no side effects on the world.
         """
         return await self._intent_compiler.compile_intent(
-            question, run_id=run_id, lemon=lemon, store=store,
+            question,
+            run_id=run_id,
+            lemon=lemon,
+            store=store,
         )
 
     def compile_intent_from_resolved(
@@ -334,8 +365,11 @@ class LegacyCognitiveRuntime(CognitiveRuntimeInterface):
         Skips classification when a caller already has an intent dict.
         """
         return self._intent_compiler.compile_from_resolved(
-            intent=intent, goal=goal, question=question,
-            run_id=run_id, store=store,
+            intent=intent,
+            goal=goal,
+            question=question,
+            run_id=run_id,
+            store=store,
         )
 
     def build_execution_runtime(
@@ -351,7 +385,10 @@ class LegacyCognitiveRuntime(CognitiveRuntimeInterface):
 
         Pure compilation — no execution, no world mutation.
         """
-        from src.monkey_brain.kernel.cognitive_layers.runtime_builder import RuntimeBuilder
+        from src.monkey_brain.kernel.cognitive_layers.runtime_builder import (
+            RuntimeBuilder,
+        )
+
         builder = RuntimeBuilder()
         return builder.build(
             intent_ir=intent_ir,
@@ -375,12 +412,11 @@ class LegacyCognitiveRuntime(CognitiveRuntimeInterface):
         execution mesh, and records graph observations.
         Returns (answer, semantic_hits, graph_paths, llm_answered).
         """
-        answer, semantic_hits, graph_paths, llm_answered = (
-            await self._execution_coordinator.execute_workload(
-                context, mongo_client,
-                execution_graph=self.execution_graph,
-                **kwargs,
-            )
+        answer, semantic_hits, graph_paths, llm_answered = await self._execution_coordinator.execute_workload(
+            context,
+            mongo_client,
+            execution_graph=self.execution_graph,
+            **kwargs,
         )
         await self._publish(
             "workload.executed",
@@ -440,6 +476,7 @@ class LegacyCognitiveRuntime(CognitiveRuntimeInterface):
         loop._semantic_memory = self.semantic_memory
         return await loop.run(question, mongo_client, **kwargs)
 
+
 def get_cognitive_runtime_instance() -> LegacyCognitiveRuntime:
     """Return the Kernel-booted cognitive runtime.
 
@@ -447,6 +484,7 @@ def get_cognitive_runtime_instance() -> LegacyCognitiveRuntime:
     longer creates an unconfigured production runtime.
     """
     from src.monkey_brain.kernel.kernel import Kernel
+
     kernel = Kernel._instance
     try:
         runtime = kernel.runtime_selector.select("cognitive") if kernel is not None else None

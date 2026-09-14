@@ -7,19 +7,22 @@ representation CognitiveRuntime.tick() actually reads/writes) via
 ActorStateStore, replacing this session's earlier local-JSON scheme that
 targeted the vestigial SparseTransitionTensor instead.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.persistence.actor_state_store import PersistedActorState
 
 
 def _register(pr: PlanetaryRuntime, name: str = "Alice"):
-    return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN))
-    )
+    return pr.register_actor(ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)))
 
 
 class _FakeActorStateStore:
@@ -68,9 +71,7 @@ class TestCheckpointRestoreRoundTrip:
 
             # Simulate a restart: wipe the actor's in-memory belief.
             fresh_cls = type(belief)
-            actor.restore_pipeline_belief(
-                fresh_cls(actor_id=belief.actor_id, tenant_id=belief.tenant_id)
-            )
+            actor.restore_pipeline_belief(fresh_cls(actor_id=belief.actor_id, tenant_id=belief.tenant_id))
             assert actor.pipeline_belief().facts == []
 
             restored = pr.restore_actor_belief(state.actor_id)

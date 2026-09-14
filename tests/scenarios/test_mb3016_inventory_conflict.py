@@ -16,9 +16,13 @@ reservation system) — fulfill_backorders() grants it by calling the SAME
 try_reserve() every other reservation goes through, strictly FIFO by
 placement time, whenever stock increases (a restock).
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.domains.commerce import CommerceCapability, CommerceCapabilityBus
+from src.monkey_brain.kernel.domains.commerce import (
+    CommerceCapability,
+    CommerceCapabilityBus,
+)
 from src.monkey_brain.kernel.domains.grocery import (
     confirm_reservation,
     fulfill_backorders,

@@ -1,4 +1,5 @@
 """RepositoryAgent — abstracts persistence; decides cache vs. store query."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -41,10 +42,23 @@ class RepositoryAgent(BaseDDDAgent):
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         op = perception.get("operation", "find")
         if op == "find" and perception.get("cache_hit"):
-            return {"action": "cache_hit", "query_key": perception["query_key"], "entity_type": perception["entity_type"]}
+            return {
+                "action": "cache_hit",
+                "query_key": perception["query_key"],
+                "entity_type": perception["entity_type"],
+            }
         if op == "save":
-            return {"action": "write", "query_key": perception["query_key"], "payload": perception.get("payload"), "entity_type": perception["entity_type"]}
-        return {"action": "db_query", "query_key": perception["query_key"], "entity_type": perception["entity_type"]}
+            return {
+                "action": "write",
+                "query_key": perception["query_key"],
+                "payload": perception.get("payload"),
+                "entity_type": perception["entity_type"],
+            }
+        return {
+            "action": "db_query",
+            "query_key": perception["query_key"],
+            "entity_type": perception["entity_type"],
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         action = decision.get("action")
@@ -52,16 +66,32 @@ class RepositoryAgent(BaseDDDAgent):
 
         if action == "cache_hit":
             self._hits += 1
-            return {"action": "cache_hit", "entity": self._cache.get(key), "hit_rate": self._hits / max(1, self._hits + self._misses)}
+            return {
+                "action": "cache_hit",
+                "entity": self._cache.get(key),
+                "hit_rate": self._hits / max(1, self._hits + self._misses),
+            }
 
         if action == "write":
             self._cache[key] = decision.get("payload")
-            return {"action": "written", "query_key": key, "entity_type": decision.get("entity_type")}
+            return {
+                "action": "written",
+                "query_key": key,
+                "entity_type": decision.get("entity_type"),
+            }
 
         self._misses += 1
-        return {"action": "db_queried", "query_key": key, "entity_type": decision.get("entity_type"), "hit_rate": self._hits / max(1, self._hits + self._misses)}
+        return {
+            "action": "db_queried",
+            "query_key": key,
+            "entity_type": decision.get("entity_type"),
+            "hit_rate": self._hits / max(1, self._hits + self._misses),
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         hit_rate = outcome.get("hit_rate", 0)
         if hit_rate < 0.3:
-            logger.debug("[repository] low cache hit rate: %.0f%% — consider cache warming", hit_rate * 100)
+            logger.debug(
+                "[repository] low cache hit rate: %.0f%% — consider cache warming",
+                hit_rate * 100,
+            )

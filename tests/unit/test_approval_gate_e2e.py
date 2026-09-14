@@ -51,7 +51,7 @@ class TestAutoApproveFlow:
     def setup_method(self):
         """Reset stores before each test."""
         from src.monkey_brain.kernel.approval import reset_approval_store
-        
+
         reset_approval_store()
         reset_operation_ledger_for_tests()
 
@@ -77,7 +77,10 @@ class TestAutoApproveFlow:
                 "requires_hitl": False,
             }
 
-        with patch("src.monkey_brain.kernel.security_boundary._authorize", side_effect=mock_authorize):
+        with patch(
+            "src.monkey_brain.kernel.security_boundary._authorize",
+            side_effect=mock_authorize,
+        ):
             with patch("src.monkey_brain.kernel.trusted_auth.get_trusted_auth") as mock_auth:
                 mock_auth.return_value = make_trusted_auth("user:test")
 
@@ -110,7 +113,10 @@ class TestAutoApproveFlow:
                 "requires_hitl": False,
             }
 
-        with patch("src.monkey_brain.kernel.security_boundary._authorize", side_effect=mock_authorize):
+        with patch(
+            "src.monkey_brain.kernel.security_boundary._authorize",
+            side_effect=mock_authorize,
+        ):
             with patch("src.monkey_brain.kernel.trusted_auth.get_trusted_auth") as mock_auth:
                 mock_auth.return_value = make_trusted_auth("user:test")
 
@@ -123,7 +129,7 @@ class TestAutoApproveFlow:
 
         store = get_approval_store()
         artifacts = store.get_for_operation(operation_id)
-        
+
         assert len(artifacts) == 1
         artifact = artifacts[0]
         assert artifact.approval_mode == ApprovalMode.AUTO_APPROVE
@@ -136,7 +142,7 @@ class TestHumanApprovalRequiredFlow:
     def setup_method(self):
         """Reset stores before each test."""
         from src.monkey_brain.kernel.approval import reset_approval_store
-        
+
         reset_approval_store()
         reset_operation_ledger_for_tests()
 
@@ -216,7 +222,7 @@ class TestHumanApprovalRequiredFlow:
 
         store = get_approval_store()
         artifacts = store.get_for_operation(operation_id)
-        
+
         assert len(artifacts) == 1
         artifact = artifacts[0]
         assert artifact.approval_mode == ApprovalMode.HUMAN_APPROVAL_REQUIRED
@@ -258,7 +264,7 @@ class TestHumanApprovalRequiredFlow:
 
         ledger = get_operation_ledger()
         op = ledger.get(operation_id)
-        
+
         assert op is not None
         assert op.state == SecurityOperationState.AWAITING_APPROVAL
 
@@ -269,7 +275,7 @@ class TestDenyFlow:
     def setup_method(self):
         """Reset stores before each test."""
         from src.monkey_brain.kernel.approval import reset_approval_store
-        
+
         reset_approval_store()
         reset_operation_ledger_for_tests()
 
@@ -347,7 +353,7 @@ class TestDenyFlow:
 
         store = get_approval_store()
         artifacts = store.get_for_operation(operation_id)
-        
+
         assert len(artifacts) == 1
         assert artifacts[0].approval_mode == ApprovalMode.DENY
 
@@ -358,7 +364,7 @@ class TestApprovalExecution:
     def setup_method(self):
         """Reset stores before each test."""
         from src.monkey_brain.kernel.approval import reset_approval_store
-        
+
         reset_approval_store()
         reset_operation_ledger_for_tests()
 
@@ -367,7 +373,7 @@ class TestApprovalExecution:
         """execute_with_approval() should validate artifact scope."""
         operation_id = new_operation_id()
         approval_id = f"appr_test_{int(time.time())}"
-        
+
         artifact = ApprovalArtifact(
             approval_id=approval_id,
             operation_id=operation_id,
@@ -380,10 +386,10 @@ class TestApprovalExecution:
             target_resource="account:123",
             expires_at=time.time() + 3600,
         )
-        
+
         store = get_approval_store()
         store.create(artifact)
-        
+
         async def mutate():
             return "should not execute"
 
@@ -403,7 +409,7 @@ class TestApprovalExecution:
         """execute_with_approval() should reject expired artifacts."""
         operation_id = new_operation_id()
         approval_id = f"appr_test_{int(time.time())}"
-        
+
         artifact = ApprovalArtifact(
             approval_id=approval_id,
             operation_id=operation_id,
@@ -416,10 +422,10 @@ class TestApprovalExecution:
             target_resource="account:123",
             expires_at=time.time() - 3600,  # Expired!
         )
-        
+
         store = get_approval_store()
         store.create(artifact)
-        
+
         async def mutate():
             return "should not execute"
 
@@ -439,7 +445,7 @@ class TestApprovalExecution:
         """execute_with_approval() should execute with valid artifact."""
         operation_id = new_operation_id()
         approval_id = f"appr_test_{int(time.time())}"
-        
+
         artifact = ApprovalArtifact(
             approval_id=approval_id,
             operation_id=operation_id,
@@ -452,12 +458,12 @@ class TestApprovalExecution:
             target_resource="account:123",
             expires_at=time.time() + 3600,
         )
-        
+
         store = get_approval_store()
         store.create(artifact)
-        
+
         mutation_called = False
-        
+
         async def mutate():
             nonlocal mutation_called
             mutation_called = True

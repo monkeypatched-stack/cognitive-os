@@ -7,6 +7,7 @@ Affiliation. Neither actor is affiliation-empty (so the router's
 same-society "no affiliations" fallback is never in play even by
 accident), and they are in different Societies besides.
 """
+
 from __future__ import annotations
 
 import sys
@@ -14,7 +15,16 @@ from typing import Any
 
 import httpx
 
-from _common import ApiError, affiliate, call, client, create_actor, create_geo, host_society, verify_world
+from _common import (
+    ApiError,
+    affiliate,
+    call,
+    client,
+    create_actor,
+    create_geo,
+    host_society,
+    verify_world,
+)
 
 CUSTOMER_SUPPORT = "customer_support"
 EXECUTIVE_TEAM = "executive_team"
@@ -29,12 +39,22 @@ def build_geography(c: httpx.Client) -> dict[str, str]:
     street = create_geo(c, "street", "Market Street", city)
 
     spaces = {}
-    for key, label in (("customer_home", "Customer Home"), ("executive_suite", "Executive Suite")):
+    for key, label in (
+        ("customer_home", "Customer Home"),
+        ("executive_suite", "Executive Suite"),
+    ):
         building = create_geo(c, "building", f"{label} Building", street)
         space = create_geo(c, "space", f"{label} Floor", building)
         spaces[key] = space
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, **spaces}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        **spaces,
+    }
 
 
 def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
@@ -60,8 +80,12 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
         affiliate(c, actors["CEO"], EXECUTIVE_TEAM)
 
         verification = verify_world(c)
-        return {"spaces": spaces, "societies": societies, "actors": actors,
-                "verification": verification}
+        return {
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "verification": verification,
+        }
     finally:
         if owns_client:
             c.close()

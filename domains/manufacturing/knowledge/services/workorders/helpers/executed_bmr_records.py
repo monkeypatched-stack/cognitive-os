@@ -10,7 +10,6 @@ from services.workorders.models.executed_bmr_records import (
     ExecutedBmrRecordUpdate,
 )
 
-
 COLLECTION = "executed_bmr_records"
 
 
@@ -40,7 +39,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -59,7 +60,9 @@ async def _attach_to_batch_record(db: AsyncIOMotorDatabase, record: dict) -> Non
         "bmr_template_id": record.get("bmr_template_id"),
         "bmr_template_document_id": record.get("bmr_template_document_id"),
         "template_revision": record.get("template_revision"),
-        "generated_from_approved_template": record.get("generated_from_approved_template"),
+        "generated_from_approved_template": record.get(
+            "generated_from_approved_template"
+        ),
         "status": record.get("status"),
         "executed_by": record.get("executed_by"),
         "executed_at": record.get("executed_at"),
@@ -78,18 +81,26 @@ async def _attach_to_batch_record(db: AsyncIOMotorDatabase, record: dict) -> Non
         {
             "$set": {
                 "metadata.executed_bmr_record_id": executed_bmr_record_id,
-                "metadata.executed_bmr_document_id": record.get("executed_bmr_document_id"),
+                "metadata.executed_bmr_document_id": record.get(
+                    "executed_bmr_document_id"
+                ),
                 "metadata.bmr_package.executed_bmr_record_id": executed_bmr_record_id,
-                "metadata.bmr_package.executed_bmr_document_id": record.get("executed_bmr_document_id"),
+                "metadata.bmr_package.executed_bmr_document_id": record.get(
+                    "executed_bmr_document_id"
+                ),
                 "metadata.bmr_package.executed_bmr_status": record.get("status"),
                 "metadata.bmr_package.executed_bmr": package_snapshot,
                 "metadata.batch_record_package.executed_bmr_record_id": executed_bmr_record_id,
-                "metadata.batch_record_package.executed_bmr_document_id": record.get("executed_bmr_document_id"),
+                "metadata.batch_record_package.executed_bmr_document_id": record.get(
+                    "executed_bmr_document_id"
+                ),
             },
             "$addToSet": {
                 "metadata.batch_record_package.executed_bmr_record_ids": executed_bmr_record_id,
                 "metadata.bmr_package.executed_bmr_record_ids": executed_bmr_record_id,
-                "evidence_document_ids": {"$each": record.get("evidence_document_ids") or []},
+                "evidence_document_ids": {
+                    "$each": record.get("evidence_document_ids") or []
+                },
             },
         },
     )
@@ -125,8 +136,12 @@ async def get_all(
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, executed_bmr_record_id: str) -> Optional[dict]:
-    doc = await db[COLLECTION].find_one({"executed_bmr_record_id": executed_bmr_record_id})
+async def get_by_id(
+    db: AsyncIOMotorDatabase, executed_bmr_record_id: str
+) -> Optional[dict]:
+    doc = await db[COLLECTION].find_one(
+        {"executed_bmr_record_id": executed_bmr_record_id}
+    )
     return _serialize(doc) if doc else None
 
 
@@ -146,7 +161,9 @@ async def update(
     if not fields:
         return await get_by_id(db, executed_bmr_record_id)
 
-    existing = await db[COLLECTION].find_one({"executed_bmr_record_id": executed_bmr_record_id})
+    existing = await db[COLLECTION].find_one(
+        {"executed_bmr_record_id": executed_bmr_record_id}
+    )
     if not existing:
         return None
     merged = _serialize(existing)
@@ -166,5 +183,7 @@ async def update(
 
 
 async def delete(db: AsyncIOMotorDatabase, executed_bmr_record_id: str) -> bool:
-    result = await db[COLLECTION].delete_one({"executed_bmr_record_id": executed_bmr_record_id})
+    result = await db[COLLECTION].delete_one(
+        {"executed_bmr_record_id": executed_bmr_record_id}
+    )
     return result.deleted_count == 1

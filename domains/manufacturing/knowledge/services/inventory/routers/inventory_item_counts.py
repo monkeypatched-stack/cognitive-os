@@ -43,7 +43,9 @@ async def list_inventory_item_counts_by_srn(
     return await crud.get_by_srn(db, srn)
 
 
-@router.get("/by-warehouse/{warehouse_id}", response_model=list[InventoryItemCountResponse])
+@router.get(
+    "/by-warehouse/{warehouse_id}", response_model=list[InventoryItemCountResponse]
+)
 async def list_inventory_item_counts_by_warehouse(
     warehouse_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -67,7 +69,9 @@ async def get_inventory_item_count(
     return record
 
 
-@router.post("/", response_model=InventoryItemCountResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=InventoryItemCountResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_inventory_item_count(
     data: InventoryItemCountCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

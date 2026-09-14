@@ -1,4 +1,5 @@
 """Base class for all Broca ETASS agents — extends Agent for runtime/policy/observer inheritance."""
+
 from __future__ import annotations
 import asyncio
 import logging
@@ -38,6 +39,7 @@ class BaseETASSAgent(Agent):
         ):
             try:
                 from broca.registry import _AUTOREGISTER_CLASSES
+
                 if cls not in _AUTOREGISTER_CLASSES:
                     _AUTOREGISTER_CLASSES.append(cls)
             except ImportError:
@@ -89,6 +91,7 @@ class BaseETASSAgent(Agent):
         # Try the Broca registry's stored runtime reference first (no app coupling)
         try:
             from broca.registry import get_registry
+
             reg = get_registry()
             stored = getattr(reg, "_runtime", None)
             if stored is not None:

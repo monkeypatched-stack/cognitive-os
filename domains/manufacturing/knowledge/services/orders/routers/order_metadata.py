@@ -13,6 +13,7 @@ from services.orders.models.order_metadata import (
 
 router = APIRouter()
 
+
 @router.get("/", response_model=PaginatedOrderMetadataResponse)
 async def list_order_metadata(
     page: int = Query(1, ge=1),
@@ -44,7 +45,9 @@ async def get_order_metadata(
     return record
 
 
-@router.post("/", response_model=OrderMetadataResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=OrderMetadataResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_order_metadata(
     data: OrderMetadataCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

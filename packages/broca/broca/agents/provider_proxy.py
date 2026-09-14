@@ -4,6 +4,7 @@ When an agent is not found locally, the registry checks providers (OpenClaw,
 n8n). If found, this proxy wraps the provider's agent info so the runtime
 can call handle() transparently.
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,15 +46,24 @@ class ProviderProxyAgent:
             elif self._provider_name == "n8n":
                 result = await self._handle_n8n(context)
             else:
-                result = {"error": f"Unknown provider: {self._provider_name}", "success": False}
+                result = {
+                    "error": f"Unknown provider: {self._provider_name}",
+                    "success": False,
+                }
                 self._last_reward = 0.1
         except Exception as exc:
-            logger.warning("[provider_proxy:%s] → %s failed: %s", self._agent_type, self._provider_name, exc)
+            logger.warning(
+                "[provider_proxy:%s] → %s failed: %s",
+                self._agent_type,
+                self._provider_name,
+                exc,
+            )
             self._last_reward = 0.1
             result = {"error": str(exc), "success": False}
 
         try:
             from src.monkey_brain.kernel.execute.runtime.outcome import AgentResult
+
             return AgentResult(
                 reward=self._last_reward,
                 payload=result.get("payload", result),
@@ -73,6 +83,7 @@ class ProviderProxyAgent:
         if api_url:
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.post(
                         f"{api_url}/agents/{self._agent_type}/tasks",
@@ -89,13 +100,18 @@ class ProviderProxyAgent:
         # Fallback to CLI
         try:
             proc = await asyncio.create_subprocess_exec(
-                "openclaw", "run", self._agent_type, "--input", str(context),
+                "openclaw",
+                "run",
+                self._agent_type,
+                "--input",
+                str(context),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
             if proc.returncode == 0:
                 import json
+
                 result = json.loads(stdout.decode())
                 self._last_reward = float(result.get("reward", 0.7))
                 return result
@@ -128,6 +144,7 @@ class ProviderProxyAgent:
         if n8n_url and webhook_path:
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.post(
                         f"{n8n_url}/webhook/{webhook_path}",

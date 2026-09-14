@@ -6,9 +6,14 @@ Benchmarks for Phase 8-12 components and integration.
 import asyncio
 import time
 from benchmarks.benchmark_framework import (
-    BenchmarkSuite, LatencyBenchmark, ThroughputBenchmark,
-    ScalabilityBenchmark, StressBenchmark, EnduranceBenchmark
+    BenchmarkSuite,
+    LatencyBenchmark,
+    ThroughputBenchmark,
+    ScalabilityBenchmark,
+    StressBenchmark,
+    EnduranceBenchmark,
 )
+
 
 # Phase 8: Autonomous Actors
 class Phase8Benchmarks:
@@ -84,7 +89,7 @@ class Phase9Benchmarks:
         subscriptions = []
 
         async def subscribe():
-            subscriptions.append({'event_type': 'test'})
+            subscriptions.append({"event_type": "test"})
 
         suite.add_latency_benchmark("Event Subscription", subscribe)
         suite.add_throughput_benchmark("Event Subscriptions/sec", subscribe)
@@ -145,7 +150,9 @@ class Phase11Benchmarks:
                 await asyncio.sleep(0.00001)
 
         suite.add_latency_benchmark("Capability Broadcast", broadcast_capability)
-        suite.add_throughput_benchmark("Capabilities Broadcast/sec", broadcast_capability)
+        suite.add_throughput_benchmark(
+            "Capabilities Broadcast/sec", broadcast_capability
+        )
 
         return suite
 
@@ -185,7 +192,7 @@ class Phase11Benchmarks:
 
         async def update_trust():
             # Update trust between two actors
-            trust_scores['actor1_actor2'] = 0.8
+            trust_scores["actor1_actor2"] = 0.8
 
         suite.add_latency_benchmark("Trust Update", update_trust)
         suite.add_throughput_benchmark("Trust Updates/sec", update_trust)
@@ -194,7 +201,7 @@ class Phase11Benchmarks:
         async def scale_test(relationship_count: int) -> float:
             start = time.time()
             for i in range(relationship_count):
-                trust_scores[f'a{i}_b{i}'] = 0.8
+                trust_scores[f"a{i}_b{i}"] = 0.8
             return (time.time() - start) * 1000
 
         suite.add_scalability_benchmark("Trust Relationship Scaling", scale_test)
@@ -306,7 +313,9 @@ class IntegrationBenchmarks:
             for _ in range(actor_count):
                 await asyncio.sleep(0.001)  # Per-actor coordination
 
-        suite.add_latency_benchmark(f"Multi-Actor Coordination ({actor_count})", coordinate_actors)
+        suite.add_latency_benchmark(
+            f"Multi-Actor Coordination ({actor_count})", coordinate_actors
+        )
         suite.add_throughput_benchmark("Coordination Operations/sec", coordinate_actors)
 
         # Scalability: different actor counts
@@ -340,7 +349,9 @@ class IntegrationBenchmarks:
         async def continuous_operation():
             await asyncio.sleep(0.001)
 
-        suite.add_endurance_benchmark("Endurance: Continuous Operation", continuous_operation)
+        suite.add_endurance_benchmark(
+            "Endurance: Continuous Operation", continuous_operation
+        )
 
         return suite
 

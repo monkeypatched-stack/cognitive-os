@@ -40,6 +40,7 @@ MB-3051/3052's own findings), so this deliberately doesn't fabricate an
 integration between them that doesn't exist; it chains what's real on
 each side.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import (
@@ -68,7 +69,11 @@ from src.monkey_brain.kernel.domains.logistics import (
     pack_order,
 )
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 MERCHANT_ID = "merchant_bob"
@@ -86,19 +91,44 @@ def test_mb3059_complete_customer_journey_executes_successfully():
 
     kg = KnowledgeGraph()
     store_id = onboard_merchant(
-        kg, MERCHANT_ID, "Bob's Store",
-        delivery_fee=4.99, address="200 W 23rd St, New York, NY",
-        has_autonomous_cart=True, robot_pick_minutes=4.0,
+        kg,
+        MERCHANT_ID,
+        "Bob's Store",
+        delivery_fee=4.99,
+        address="200 W 23rd St, New York, NY",
+        has_autonomous_cart=True,
+        robot_pick_minutes=4.0,
     )["store_id"]
     product_id = list_product(kg, store_id, MERCHANT_ID, "Oat Milk", price=4.5, quantity=10)["product_id"]
-    kg.add_entity("addr_home", EntityType.ADDRESS, "Home", {
-        "street": "123 Main St", "city": "New York", "state": "NY", "zip_code": "10001", "is_primary": True,
-    })
+    kg.add_entity(
+        "addr_home",
+        EntityType.ADDRESS,
+        "Home",
+        {
+            "street": "123 Main St",
+            "city": "New York",
+            "state": "NY",
+            "zip_code": "10001",
+            "is_primary": True,
+        },
+    )
     wallet_id = "wallet_alice"
-    kg.add_entity(wallet_id, EntityType.ACCOUNT, "Alice Wallet", {
-        "account_type": "debit", "balance": STARTING_BALANCE, "owner": actor_id,
-    })
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {"type": "payment_processor", "priority": 0})
+    kg.add_entity(
+        wallet_id,
+        EntityType.ACCOUNT,
+        "Alice Wallet",
+        {
+            "account_type": "debit",
+            "balance": STARTING_BALANCE,
+            "owner": actor_id,
+        },
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {"type": "payment_processor", "priority": 0},
+    )
 
     # ── Browse ────────────────────────────────────────────────────────
     catalog = open_products(kg)
@@ -119,22 +149,38 @@ def test_mb3059_complete_customer_journey_executes_successfully():
     assert cart.item_count == 2
 
     # ── Checkout ──────────────────────────────────────────────────────
-    cart_items = [{
-        "id": line.product_id, "name": line.name, "price": line.price, "qty": line.quantity,
-        "store_id": store_id, "store_name": "Bob's Store",
-    } for line in cart.lines]
-    order = OrderCreationCapability().handle({"context": {
-        "knowledge_graph": kg, "selected_product": cart_items, "actor_id": actor_id,
-        "question": "deliver my order",
-    }})
+    cart_items = [
+        {
+            "id": line.product_id,
+            "name": line.name,
+            "price": line.price,
+            "qty": line.quantity,
+            "store_id": store_id,
+            "store_name": "Bob's Store",
+        }
+        for line in cart.lines
+    ]
+    order = OrderCreationCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "selected_product": cart_items,
+                "actor_id": actor_id,
+                "question": "deliver my order",
+            }
+        }
+    )
     assert order["success"] is True, order
     order_id = order["order_id"]
     assert order["backordered"] == []
 
     # ── Payment ───────────────────────────────────────────────────────
     payment_context = {
-        "knowledge_graph": kg, "total": order["total"], "order": order,
-        "actor_id": actor_id, "selected_product": cart_items,
+        "knowledge_graph": kg,
+        "total": order["total"],
+        "order": order,
+        "actor_id": actor_id,
+        "selected_product": cart_items,
     }
     confirmation = PaymentConfirmationCapability().handle({"context": payment_context})
     assert confirmation["success"] is True, confirmation

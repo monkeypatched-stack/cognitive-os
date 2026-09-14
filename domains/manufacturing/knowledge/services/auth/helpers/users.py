@@ -2,9 +2,14 @@ from typing import Optional
 import bcrypt
 import re
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.auth.models.users import UserEntryCreate, UserEntryResponse, UserEntryUpdate
+from services.auth.models.users import (
+    UserEntryCreate,
+    UserEntryResponse,
+    UserEntryUpdate,
+)
 
 COLLECTION = "users"
+
 
 def _serialize(doc: dict) -> dict:
     doc = dict(doc)
@@ -13,6 +18,7 @@ def _serialize(doc: dict) -> dict:
 
 
 # ── Read ──────────────────────────────────────────────────────────────────────
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,
@@ -31,7 +37,9 @@ async def get_by_id(db: AsyncIOMotorDatabase, user_id: str) -> Optional[dict]:
     return _serialize(doc) if doc else None
 
 
-async def get_by_employee_id(db: AsyncIOMotorDatabase, employee_id: str) -> Optional[dict]:
+async def get_by_employee_id(
+    db: AsyncIOMotorDatabase, employee_id: str
+) -> Optional[dict]:
     doc = await db[COLLECTION].find_one({"employee_id": employee_id})
     return _serialize(doc) if doc else None
 
@@ -50,16 +58,20 @@ async def get_by_role(db: AsyncIOMotorDatabase, role_id: str) -> list[dict]:
     cursor = db[COLLECTION].find({"role_id": role_id})
     return [_serialize(d) async for d in cursor]
 
+
 async def get_by_email(db: AsyncIOMotorDatabase, email: str) -> list[dict]:
     normalized_email = email.strip().lower()
     cursor = db[COLLECTION].find({"email": normalized_email})
     return [_serialize(d) async for d in cursor]
 
+
 async def get_by_username(db: AsyncIOMotorDatabase, username: str):
     cursor = db[COLLECTION].find({"name": username})
     return [_serialize(d) async for d in cursor]
 
+
 # ── Create ────────────────────────────────────────────────────────────────────
+
 
 async def create(db: AsyncIOMotorDatabase, data: UserEntryCreate) -> dict:
     doc = data.model_dump()
@@ -69,7 +81,9 @@ async def create(db: AsyncIOMotorDatabase, data: UserEntryCreate) -> dict:
     await db[COLLECTION].insert_one(doc)
     return _serialize(doc)
 
+
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 async def update(
     db: AsyncIOMotorDatabase,
@@ -83,7 +97,11 @@ async def update(
     if password is None:
         fields.pop("password", None)
     else:
-        password_value = password.get_secret_value() if hasattr(password, "get_secret_value") else str(password)
+        password_value = (
+            password.get_secret_value()
+            if hasattr(password, "get_secret_value")
+            else str(password)
+        )
         validate_password_policy(password_value)
         fields["password"] = _hash(password_value)
     if not fields:
@@ -97,6 +115,7 @@ async def update(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 async def delete(db: AsyncIOMotorDatabase, user_id: str) -> bool:
     result = await db[COLLECTION].delete_one({"user_id": user_id})

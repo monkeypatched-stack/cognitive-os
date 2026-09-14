@@ -24,6 +24,7 @@ singleton reset, fake LLM backend) only mutates state inside the pytest
 process itself, which these HTTP-only tests never share with the
 separate live server process, so none of those need overriding.
 """
+
 from __future__ import annotations
 
 import pytest

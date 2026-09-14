@@ -195,9 +195,7 @@ for occupant_id in geog.occupants:
     await self._actor_ticker(occupant_id)
 
 # To parallel:
-await asyncio.gather(
-    *[self._actor_ticker(oid) for oid in geog.occupants]
-)
+await asyncio.gather(*[self._actor_ticker(oid) for oid in geog.occupants])
 ```
 
 **Impact:**

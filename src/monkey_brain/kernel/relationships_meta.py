@@ -16,6 +16,7 @@ Usage:
         social_connections=[SocialConnection(platform="linkedin", handle="alice")],
     )
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,8 +32,10 @@ logger = logging.getLogger("agentos.relationships_meta")
 # Enums
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class RoleType(str, Enum):
     """Role types."""
+
     OWNER = "owner"
     ADMIN = "admin"
     MODERATOR = "moderator"
@@ -45,6 +48,7 @@ class RoleType(str, Enum):
 
 class MembershipStatus(str, Enum):
     """Membership status."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     PENDING = "pending"
@@ -54,6 +58,7 @@ class MembershipStatus(str, Enum):
 
 class SocialPlatform(str, Enum):
     """Social platforms."""
+
     TWITTER = "twitter"
     LINKEDIN = "linkedin"
     GITHUB = "github"
@@ -71,9 +76,11 @@ class SocialPlatform(str, Enum):
 # Data Classes
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class Role:
     """A role within an organization or team."""
+
     role_type: RoleType = RoleType.MEMBER
     name: str = ""
     description: str = ""
@@ -106,6 +113,7 @@ class Role:
 @dataclass
 class Organization:
     """An organization membership."""
+
     org_id: str = ""
     name: str = ""
     domain: str = ""
@@ -154,6 +162,7 @@ class Organization:
 @dataclass
 class Team:
     """A team membership."""
+
     team_id: str = ""
     name: str = ""
     description: str = ""
@@ -199,6 +208,7 @@ class Team:
 @dataclass
 class SocialConnection:
     """A social connection/contact."""
+
     platform: SocialPlatform = SocialPlatform.OTHER
     handle: str = ""
     url: str = ""
@@ -249,6 +259,7 @@ class RelationshipMeta:
         contacts: List of general contact references
         metadata: Additional custom fields
     """
+
     organizations: list[Organization] = field(default_factory=list)
     teams: list[Team] = field(default_factory=list)
     social_connections: list[SocialConnection] = field(default_factory=list)
@@ -287,8 +298,7 @@ class RelationshipMeta:
         """Remove a social connection."""
         before = len(self.social_connections)
         self.social_connections = [
-            s for s in self.social_connections
-            if not (s.platform == platform and s.handle == handle)
+            s for s in self.social_connections if not (s.platform == platform and s.handle == handle)
         ]
         return len(self.social_connections) < before
 

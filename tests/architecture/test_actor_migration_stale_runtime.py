@@ -24,13 +24,19 @@ ActorLifecycleController._do_suspend() produces
 proving the real guard in tick_one_actor(), without depending on the
 separately-broken reconcile fixture.
 """
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
 
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorStatus, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorStatus,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 

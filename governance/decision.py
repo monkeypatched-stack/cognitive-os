@@ -25,6 +25,7 @@ The field exists so the model matches the conceptually distinct
 `approval_valid AND authorized AND audit_durable` shape even though, in
 THIS codebase, `authorized == approval_valid`.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

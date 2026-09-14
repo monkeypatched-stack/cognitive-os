@@ -70,6 +70,7 @@ these findings without checking the current source first):
 Correctness tests below always run in normal CI. Performance/benchmark
 tests are skipped unless `COGNITIVEOS_RUN_EDGE_BENCHMARKS=1` is set.
 """
+
 from __future__ import annotations
 
 import os
@@ -97,10 +98,12 @@ RUN_BENCHMARKS = os.environ.get("COGNITIVEOS_RUN_EDGE_BENCHMARKS", "") == "1"
 _MOSS_CONFIGURED = bool(os.environ.get("MOSS_PROJECT_ID")) and bool(os.environ.get("MOSS_PROJECT_KEY"))
 
 _skip_unless_benchmarks = pytest.mark.skipif(
-    not RUN_BENCHMARKS, reason="set COGNITIVEOS_RUN_EDGE_BENCHMARKS=1 to run edge hybrid performance benchmarks",
+    not RUN_BENCHMARKS,
+    reason="set COGNITIVEOS_RUN_EDGE_BENCHMARKS=1 to run edge hybrid performance benchmarks",
 )
 _skip_unless_moss = pytest.mark.skipif(
-    not _MOSS_CONFIGURED, reason="MOSS_PROJECT_ID/MOSS_PROJECT_KEY not set -- real Moss benchmark requires real credentials",
+    not _MOSS_CONFIGURED,
+    reason="MOSS_PROJECT_ID/MOSS_PROJECT_KEY not set -- real Moss benchmark requires real credentials",
 )
 
 
@@ -127,12 +130,21 @@ def _percentiles(samples_ms: list[float]) -> dict[str, float]:
     s = sorted(samples_ms)
     n = len(s)
     return {
-        "min": s[0], "max": s[-1], "mean": sum(s) / n,
-        "p50": s[n // 2], "p95": s[min(int(n * 0.95), n - 1)], "p99": s[min(int(n * 0.99), n - 1)],
+        "min": s[0],
+        "max": s[-1],
+        "mean": sum(s) / n,
+        "p50": s[n // 2],
+        "p95": s[min(int(n * 0.95), n - 1)],
+        "p99": s[min(int(n * 0.99), n - 1)],
     }
 
 
-def _assert_budget(name: str, stats: dict[str, float], *, fields: tuple[str, ...] = ("p50", "p95", "p99")) -> None:
+def _assert_budget(
+    name: str,
+    stats: dict[str, float],
+    *,
+    fields: tuple[str, ...] = ("p50", "p95", "p99"),
+) -> None:
     for field in fields:
         budget_ms = _budget(name, field)
         observed_ms = stats[field]
@@ -183,7 +195,11 @@ def _telemetry_document(i: int) -> dict[str, Any]:
         "plan_version": 1,
     }
     text = " ".join(f"{k}={v}" for k, v in fields.items())
-    return {"id": f"telemetry-{i}", "text": text, "metadata": {"kind": "telemetry_context"}}
+    return {
+        "id": f"telemetry-{i}",
+        "text": text,
+        "metadata": {"kind": "telemetry_context"},
+    }
 
 
 class _FakeConnectivityCheck:
@@ -203,11 +219,17 @@ async def _ros_execute_governed(adapter: FakeRosExecutionAdapter, capability: st
     run_ros_action_if_governed + FakeRosExecutionAdapter themselves, not
     OPA/network latency (a separate, already-measured concern)."""
     return await run_ros_action_if_governed(
-        capability=capability, resource=capability, parameters={},
+        capability=capability,
+        resource=capability,
+        parameters={},
         adapter=adapter,
         local_policy_decision={
-            "allowed": True, "approval_mode": "AUTO_APPROVE", "reason": "benchmark",
-            "policy_rule": "bench", "risk_level": "LOW", "source": "edge_local_governance",
+            "allowed": True,
+            "approval_mode": "AUTO_APPROVE",
+            "reason": "benchmark",
+            "policy_rule": "bench",
+            "risk_level": "LOW",
+            "source": "edge_local_governance",
         },
     )
 
@@ -222,12 +244,19 @@ def _hybrid_tick_sync_stage(store: EdgeLocalStore) -> dict[str, Any]:
     committed = None
     if plan is not None:
         committed = CommittedPlanRecord(
-            plan=plan, goal_hash=plan["goal_hash"], world_state_version=plan["world_state_version"],
-            policy_version=plan["policy_version"], committed_at=0.0,
+            plan=plan,
+            goal_hash=plan["goal_hash"],
+            world_state_version=plan["world_state_version"],
+            policy_version=plan["policy_version"],
+            committed_at=0.0,
         )
     decision = classify_reasoning_need(
-        goal="buy milk", goal_achieved=False, goal_hash="g1",
-        world_state_version="v1", policy_version="p1", committed_plan=committed,
+        goal="buy milk",
+        goal_achieved=False,
+        goal_hash="g1",
+        world_state_version="v1",
+        policy_version="p1",
+        committed_plan=committed,
     )
     return {"plan": plan, "decision": decision}
 
@@ -289,10 +318,17 @@ class TestCorrectness:
         adapter = FakeRosExecutionAdapter()
         with pytest.raises(Exception):
             await run_ros_action_if_governed(
-                capability="move_forward", resource="move_forward", parameters={}, adapter=adapter,
+                capability="move_forward",
+                resource="move_forward",
+                parameters={},
+                adapter=adapter,
                 local_policy_decision={
-                    "allowed": False, "approval_mode": "DENY", "reason": "benchmark deny",
-                    "policy_rule": "bench", "risk_level": "HIGH", "source": "edge_local_governance",
+                    "allowed": False,
+                    "approval_mode": "DENY",
+                    "reason": "benchmark deny",
+                    "policy_rule": "bench",
+                    "risk_level": "HIGH",
+                    "source": "edge_local_governance",
                 },
             )
         assert adapter.calls == [], "a DENY decision must never reach the adapter"
@@ -461,7 +497,10 @@ class TestHybridTickBenchmark:
             if moss is not None:
                 await moss.query("obstacle detected")
             result = _hybrid_tick_sync_stage(store)
-            if result["decision"].need in (ReasoningNeed.REUSE_EXISTING_PLAN, ReasoningNeed.LOCAL_RULE):
+            if result["decision"].need in (
+                ReasoningNeed.REUSE_EXISTING_PLAN,
+                ReasoningNeed.LOCAL_RULE,
+            ):
                 await _ros_execute_governed(adapter, "grocery.add_to_cart")
             return result
 

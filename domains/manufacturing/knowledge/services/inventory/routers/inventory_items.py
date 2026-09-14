@@ -66,7 +66,9 @@ async def get_inventory_item(
     return record
 
 
-@router.post("/", response_model=InventoryItemResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=InventoryItemResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_inventory_item(
     data: InventoryItemCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

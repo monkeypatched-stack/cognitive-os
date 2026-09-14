@@ -7,27 +7,61 @@ from pydantic import BaseModel, Field
 class SupplierPricingModel(BaseModel):
     supplier_id: str = Field(..., description="Unique identifier for the supplier.")
     item_id: str = Field(..., description="Unique identifier for the inventory item.")
-    location_id: str = Field(..., description="Unique identifier for the supplier's specific location.")
+    location_id: str = Field(
+        ..., description="Unique identifier for the supplier's specific location."
+    )
     item_name: str = Field(..., description="Name or description of the item.")
     unit_price: float = Field(..., description="Price per unit of the item.")
     currency: str = Field(..., description="Currency in which the price is quoted.")
-    pricing_tier: str = Field(..., description="Price category based on order volume, for example Bulk, Standard, or Wholesale.")
-    discount_rate: float = Field(..., description="Discount percentage for bulk purchases or special agreements.")
-    net_unit_price: float = Field(..., description="Final price per unit after applying any discounts.")
-    quantity_range: str = Field(..., description="Range of quantities applicable for the specific pricing tier.")
-    pricing_validity_start: datetime = Field(..., description="Start datetime for the validity of the quoted price.")
-    pricing_validity_end: datetime = Field(..., description="End datetime for the validity of the quoted price.")
-    price_adjustment_terms: str = Field(..., description="Terms for adjusting prices due to inflation, raw material costs, etc.")
+    pricing_tier: str = Field(
+        ...,
+        description="Price category based on order volume, for example Bulk, Standard, or Wholesale.",
+    )
+    discount_rate: float = Field(
+        ..., description="Discount percentage for bulk purchases or special agreements."
+    )
+    net_unit_price: float = Field(
+        ..., description="Final price per unit after applying any discounts."
+    )
+    quantity_range: str = Field(
+        ..., description="Range of quantities applicable for the specific pricing tier."
+    )
+    pricing_validity_start: datetime = Field(
+        ..., description="Start datetime for the validity of the quoted price."
+    )
+    pricing_validity_end: datetime = Field(
+        ..., description="End datetime for the validity of the quoted price."
+    )
+    price_adjustment_terms: str = Field(
+        ...,
+        description="Terms for adjusting prices due to inflation, raw material costs, etc.",
+    )
     tax_rate: float = Field(..., description="Applicable tax percentage for the item.")
     tax_amount: float = Field(..., description="Calculated tax amount per unit.")
     total_unit_cost: float = Field(..., description="Unit price including taxes.")
-    shipping_cost_per_unit: float = Field(..., description="Estimated or actual shipping cost per unit.")
-    total_landed_cost: float = Field(..., description="Total cost per unit including price, taxes, and shipping.")
-    payment_terms: str = Field(..., description="Terms of payment specific to pricing agreements, for example Net 30 or Advance Payment.")
-    minimum_order_quantity: int = Field(..., description="Minimum quantity required for purchase at the specified price.")
-    price_escalation_clause: Optional[str] = Field(None, description="Conditions under which price increases are allowed.")
-    currency_exchange_rate: Optional[float] = Field(None, description="Exchange rate if pricing is in a foreign currency.")
-    custom_pricing_notes: Optional[str] = Field(None, description="Additional notes or special agreements regarding pricing.")
+    shipping_cost_per_unit: float = Field(
+        ..., description="Estimated or actual shipping cost per unit."
+    )
+    total_landed_cost: float = Field(
+        ..., description="Total cost per unit including price, taxes, and shipping."
+    )
+    payment_terms: str = Field(
+        ...,
+        description="Terms of payment specific to pricing agreements, for example Net 30 or Advance Payment.",
+    )
+    minimum_order_quantity: int = Field(
+        ...,
+        description="Minimum quantity required for purchase at the specified price.",
+    )
+    price_escalation_clause: Optional[str] = Field(
+        None, description="Conditions under which price increases are allowed."
+    )
+    currency_exchange_rate: Optional[float] = Field(
+        None, description="Exchange rate if pricing is in a foreign currency."
+    )
+    custom_pricing_notes: Optional[str] = Field(
+        None, description="Additional notes or special agreements regarding pricing."
+    )
 
 
 class SupplierPricingCreate(SupplierPricingModel):

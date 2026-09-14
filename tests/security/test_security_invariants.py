@@ -2,6 +2,7 @@
 
 This suite MUST NOT enable COGNITIVEOS_ALLOW_INSECURE_DEV_MODE.
 """
+
 from __future__ import annotations
 
 import json
@@ -108,11 +109,13 @@ def _alice() -> TrustedAuthEvidence:
 
 class TestInvariant1AgentCannotEstablishAuthority:
     def test_strip_drops_privilege_keys(self):
-        cleaned = strip_untrusted_security_signals({
-            **AGENT_PRIVILEGE_PAYLOAD,
-            "question": "buy milk",
-            "nested": {"authorized": True, "ok": 1},
-        })
+        cleaned = strip_untrusted_security_signals(
+            {
+                **AGENT_PRIVILEGE_PAYLOAD,
+                "question": "buy milk",
+                "nested": {"authorized": True, "ok": 1},
+            }
+        )
         assert "authorized" not in cleaned
         assert "is_admin" not in cleaned
         assert "permissions" not in cleaned
@@ -146,7 +149,11 @@ class TestInvariant1AgentCannotEstablishAuthority:
 
         monkeypatch.setattr("services.common.opa.evaluate_full", fake_evaluate_full)
         bind_trusted_auth(unauthenticated_evidence())
-        from src.monkey_brain.api.dependencies import RequestRejected, sanitize_and_check_governance
+        from src.monkey_brain.api.dependencies import (
+            RequestRejected,
+            sanitize_and_check_governance,
+        )
+
         with pytest.raises(RequestRejected) as denied:
             await sanitize_and_check_governance(
                 "do a thing",
@@ -183,6 +190,7 @@ class TestInvariant5XUserIdNeverAuthenticatesProduction:
     @pytest.mark.asyncio
     async def test_x_user_id_only_denied(self):
         from src.monkey_brain.api.dependencies import get_current_user
+
         with pytest.raises(HTTPException) as exc:
             await get_current_user(x_user_id="somebody", authorization=None)
         assert exc.value.status_code == 401
@@ -190,6 +198,7 @@ class TestInvariant5XUserIdNeverAuthenticatesProduction:
     @pytest.mark.asyncio
     async def test_invalid_jwt_plus_x_user_id_denied(self):
         from src.monkey_brain.api.dependencies import get_current_user
+
         with pytest.raises(HTTPException) as exc:
             await get_current_user(
                 x_user_id="somebody",
@@ -224,7 +233,12 @@ class TestInvariant5XUserIdNeverAuthenticatesProduction:
         from src.monkey_brain.api.dependencies import get_current_user
 
         token = jwt.encode(
-            {"sub": "alice", "mfa_status": "satisfied", "permissions": ["*"], "jti": "x"},
+            {
+                "sub": "alice",
+                "mfa_status": "satisfied",
+                "permissions": ["*"],
+                "jti": "x",
+            },
             "forged-secret-that-is-not-the-real-one!!",
             algorithm="HS256",
         )
@@ -235,6 +249,7 @@ class TestInvariant5XUserIdNeverAuthenticatesProduction:
     @pytest.mark.asyncio
     async def test_missing_jwt_denied(self):
         from src.monkey_brain.api.dependencies import get_current_user
+
         with pytest.raises(HTTPException) as exc:
             await get_current_user(x_user_id=None, authorization=None)
         assert exc.value.status_code == 401
@@ -244,6 +259,7 @@ class TestInvariant5XUserIdNeverAuthenticatesProduction:
         monkeypatch.setenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "true")
         monkeypatch.setenv("AGENTOS_AUTH_REQUIRED", "false")
         from src.monkey_brain.api.dependencies import get_current_user
+
         user = await get_current_user(x_user_id="dev-user", authorization=None)
         assert user == "dev-user"
 
@@ -252,6 +268,7 @@ class TestInvariant4FailClosedInfrastructure:
     def test_auth_required_false_ignored_without_insecure_dev(self, monkeypatch):
         monkeypatch.setenv("AGENTOS_AUTH_REQUIRED", "false")
         from src.monkey_brain.api.dependencies import auth_required
+
         assert auth_required() is True
 
     def test_boot_rejects_auth_off_without_insecure_dev(self, monkeypatch):
@@ -274,6 +291,7 @@ class TestInvariant4FailClosedInfrastructure:
     @pytest.mark.asyncio
     async def test_opa_unset_denies_even_with_default_allow_true(self, monkeypatch):
         import cerebellum.capabilities.security.opa_client as m
+
         monkeypatch.setattr(m, "_OPA_URL", "")
         result = await m.evaluate_full("agentos/allow", {}, default_allow=True)
         assert result["allowed"] is False
@@ -285,14 +303,17 @@ class TestInvariant4FailClosedInfrastructure:
 
         class _Resp:
             status_code = 200
+
             def json(self):
                 return {"result": {"foo": "bar"}}
 
         class _Client:
             async def __aenter__(self):
                 return self
+
             async def __aexit__(self, *a):
                 return None
+
             async def post(self, *a, **k):
                 return _Resp()
 
@@ -305,7 +326,10 @@ class TestInvariant4FailClosedInfrastructure:
 class TestInvariant3And9AuditBeforeMutation:
     @pytest.mark.asyncio
     async def test_pipeline_order_and_intent_failure_blocks_mutation(
-        self, monkeypatch, working_idempotency, durable_audit,
+        self,
+        monkeypatch,
+        working_idempotency,
+        durable_audit,
     ):
         monkeypatch.setenv("OPA_URL", "http://opa.internal:8181")
 
@@ -332,14 +356,19 @@ class TestInvariant3And9AuditBeforeMutation:
 
         with pytest.raises(AuditPersistenceError):
             await run_governed_mutation(
-                action="execute", resource="orders", mutate=mutate,
+                action="execute",
+                resource="orders",
+                mutate=mutate,
             )
         assert mutations == []
         assert "MUTATION" not in pipeline_stages()
 
     @pytest.mark.asyncio
     async def test_success_records_canonical_order(
-        self, monkeypatch, working_idempotency, durable_audit,
+        self,
+        monkeypatch,
+        working_idempotency,
+        durable_audit,
     ):
         monkeypatch.setenv("OPA_URL", "http://opa.internal:8181")
 
@@ -355,7 +384,9 @@ class TestInvariant3And9AuditBeforeMutation:
             return "ok"
 
         result = await run_governed_mutation(
-            action="execute", resource="orders", mutate=mutate,
+            action="execute",
+            resource="orders",
+            mutate=mutate,
         )
         assert result == "ok"
         assert mutations == [1]
@@ -369,7 +400,10 @@ class TestInvariant3And9AuditBeforeMutation:
 
     @pytest.mark.asyncio
     async def test_mutation_failure_still_writes_audit_result(
-        self, monkeypatch, working_idempotency, durable_audit,
+        self,
+        monkeypatch,
+        working_idempotency,
+        durable_audit,
     ):
         monkeypatch.setenv("OPA_URL", "http://opa.internal:8181")
 
@@ -384,7 +418,9 @@ class TestInvariant3And9AuditBeforeMutation:
 
         with pytest.raises(RuntimeError, match="handler boom"):
             await run_governed_mutation(
-                action="execute", resource="orders", mutate=mutate,
+                action="execute",
+                resource="orders",
+                mutate=mutate,
             )
         results = [r for r in durable_audit.find() if str(r.get("action", "")).endswith(".result")]
         assert results
@@ -427,6 +463,7 @@ class TestInvariant8IdempotencyFailClosed:
 
     def test_redis_reserve_exception_fail_closed(self, monkeypatch):
         from src.monkey_brain.api.idempotency import _RedisIdempotencyBackend
+
         backend = _RedisIdempotencyBackend("redis://localhost:6379/0")
         client = MagicMock()
         client.set.side_effect = RuntimeError("lookup failed")
@@ -454,6 +491,7 @@ class TestInvariant8IdempotencyFailClosed:
         # Verify that real mechanism directly rather than depend on
         # whether Redis happens to be reachable in this environment.
         from src.monkey_brain.api.idempotency import _UnavailableIdempotencyBackend
+
         IdempotencyStore._instance = None
         store = IdempotencyStore.__new__(IdempotencyStore)
         store._backend = _UnavailableIdempotencyBackend()
@@ -468,8 +506,10 @@ class TestInvariant8IdempotencyFailClosed:
     async def test_lookup_exception_denies_mutation(self, monkeypatch, durable_audit):
         class Boom:
             unavailable = False
+
             def ping(self):
                 raise RuntimeError("lookup failed")
+
             def reserve(self, *a, **k):
                 raise RuntimeError("lookup failed")
 
@@ -498,17 +538,31 @@ class TestInvariant8IdempotencyFailClosed:
 
 class TestInvariant7RedisNotRegistryOfRecord:
     def test_stale_and_malformed_redis_ignored(self):
-        from src.monkey_brain.kernel.society.integration import ActorRegistryEntry, PlanetaryRuntime
+        from src.monkey_brain.kernel.society.integration import (
+            ActorRegistryEntry,
+            PlanetaryRuntime,
+        )
 
         mongo_entry = ActorRegistryEntry(
-            actor_id="a1", actor_type="human", name="alice",
-            society_id="s1", status="active", node_id="n1", updated_at=1.0,
+            actor_id="a1",
+            actor_type="human",
+            name="alice",
+            society_id="s1",
+            status="active",
+            node_id="n1",
+            updated_at=1.0,
         )
-        stale = json.dumps({
-            "actor_id": "a1", "actor_type": "human", "name": "evil-admin",
-            "society_id": "s-evil", "status": "active", "node_id": "attacker",
-            "updated_at": 99.0,
-        })
+        stale = json.dumps(
+            {
+                "actor_id": "a1",
+                "actor_type": "human",
+                "name": "evil-admin",
+                "society_id": "s-evil",
+                "status": "active",
+                "node_id": "attacker",
+                "updated_at": 99.0,
+            }
+        )
         redis = SimpleNamespace(
             hgetall=lambda k: {"a1": stale},
             hget=lambda k, i: stale if i == "a1" else None,
@@ -538,11 +592,17 @@ class TestInvariant7RedisNotRegistryOfRecord:
     def test_redis_only_phantom_is_not_authority(self):
         from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
-        phantom = json.dumps({
-            "actor_id": "ghost", "actor_type": "human", "name": "ghost",
-            "society_id": "s1", "status": "active", "node_id": "n1",
-            "updated_at": 1.0,
-        })
+        phantom = json.dumps(
+            {
+                "actor_id": "ghost",
+                "actor_type": "human",
+                "name": "ghost",
+                "society_id": "s1",
+                "status": "active",
+                "node_id": "n1",
+                "updated_at": 1.0,
+            }
+        )
         pr = SimpleNamespace(
             _redis=SimpleNamespace(
                 hgetall=lambda k: {"ghost": phantom},
@@ -569,10 +629,18 @@ class TestInvariant7RedisNotRegistryOfRecord:
 
 class TestInvariant10ArchitectureCheck:
     def test_no_trusted_auth_update_merges(self):
-        from scripts.check_architecture_conformance import _untrusted_security_authority_violations
+        from scripts.check_architecture_conformance import (
+            _untrusted_security_authority_violations,
+        )
+
         assert _untrusted_security_authority_violations() == []
 
     def test_pipeline_stage_names_are_stable(self):
         assert PIPELINE_STAGES == (
-            "AUTH", "AUTHZ", "IDEMPOTENCY", "AUDIT_INTENT", "MUTATION", "AUDIT_RESULT",
+            "AUTH",
+            "AUTHZ",
+            "IDEMPOTENCY",
+            "AUDIT_INTENT",
+            "MUTATION",
+            "AUDIT_RESULT",
         )

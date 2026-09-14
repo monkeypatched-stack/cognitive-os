@@ -17,7 +17,7 @@ import secrets
 from contextvars import ContextVar
 
 _trace_id_var: ContextVar[str] = ContextVar("trace_id", default="")
-_span_id_var:  ContextVar[str] = ContextVar("span_id",  default="")
+_span_id_var: ContextVar[str] = ContextVar("span_id", default="")
 
 
 def set_trace_id(trace_id: str) -> None:

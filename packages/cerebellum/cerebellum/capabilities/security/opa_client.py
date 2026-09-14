@@ -17,7 +17,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_OPA_URL     = os.getenv("OPA_URL", "").rstrip("/")
+_OPA_URL = os.getenv("OPA_URL", "").rstrip("/")
 _OPA_TIMEOUT = float(os.getenv("OPA_TIMEOUT_SECONDS", "2"))
 
 
@@ -51,19 +51,25 @@ async def evaluate_full(
     explicitly passes fail_closed_on_error=False for a specific,
     deliberately low-risk operation — no such caller exists today.
     """
-    url  = (opa_url or _OPA_URL).rstrip("/")
-    tmo  = timeout or _OPA_TIMEOUT
+    url = (opa_url or _OPA_URL).rstrip("/")
+    tmo = timeout or _OPA_TIMEOUT
 
     if not url:
         allow = default_allow
         try:
             from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
             if not insecure_dev_mode():
                 allow = False
         except Exception:
             requested = os.getenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "").strip().lower()
             production = os.getenv("COGNITIVEOS_PRODUCTION_MODE", "").strip().lower()
-            if requested not in ("true", "1", "yes", "on") or production in ("true", "1", "yes", "on"):
+            if requested not in ("true", "1", "yes", "on") or production in (
+                "true",
+                "1",
+                "yes",
+                "on",
+            ):
                 allow = False
         return {"allowed": allow, "obligations": [], "source": "skip"}
 
@@ -104,7 +110,12 @@ async def evaluate_full(
                     # Absent when a policy doesn't define them -- callers
                     # (GovernanceEngine.evaluate) already default sensibly
                     # in that case, so this is purely additive.
-                    for key in ("approval_mode", "risk_level", "policy_rule", "requires_hitl"):
+                    for key in (
+                        "approval_mode",
+                        "risk_level",
+                        "policy_rule",
+                        "requires_hitl",
+                    ):
                         if key in result:
                             out[key] = result[key]
                     return out
@@ -116,12 +127,16 @@ async def evaluate_full(
                 }
             logger.warning(
                 "OPA %d for %s — configured-but-unavailable, defaulting allow=%s",
-                r.status_code, policy_path, error_fallback,
+                r.status_code,
+                policy_path,
+                error_fallback,
             )
     except Exception as exc:
         logger.warning(
             "OPA unreachable (%s), configured-but-unavailable, allow=%s: %s",
-            policy_path, error_fallback, exc,
+            policy_path,
+            error_fallback,
+            exc,
         )
 
     return {"allowed": error_fallback, "obligations": [], "source": "fallback"}
@@ -137,7 +152,8 @@ async def evaluate(
     fail_closed_on_error: bool = True,
 ) -> bool:
     result = await evaluate_full(
-        policy_path, input_data,
+        policy_path,
+        input_data,
         default_allow=default_allow,
         opa_url=opa_url,
         timeout=timeout,

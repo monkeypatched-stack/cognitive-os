@@ -31,9 +31,7 @@ class BasicAuthHandler:
         self._header: str = self._encode()
 
     def _encode(self) -> str:
-        token = base64.b64encode(
-            f"{self.username}:{self.password}".encode("utf-8")
-        ).decode("ascii")
+        token = base64.b64encode(f"{self.username}:{self.password}".encode("utf-8")).decode("ascii")
         return f"Basic {token}"
 
     async def authenticate(self) -> Dict[str, Any]:

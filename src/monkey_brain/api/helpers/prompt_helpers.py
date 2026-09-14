@@ -19,11 +19,11 @@ logger = logging.getLogger("agentos.prompt")
 
 async def run_query(question: str, mongo_client: Any) -> dict[str, Any] | None:
     """Execute a query by first planning, then executing.
-    
+
     The proper flow is:
     1. /plan creates the workload (plan_steps)
     2. /execute runs the workload
-    
+
     For /prompt, we need to call /plan internally first.
     However, since we don't have access to the Request object here,
     we use the executor directly which will handle the planning.
@@ -31,27 +31,29 @@ async def run_query(question: str, mongo_client: Any) -> dict[str, Any] | None:
     try:
         # Use the executor which handles both planning and execution
         result = await get_executor().execute(
-            question, mongo_client,
+            question,
+            mongo_client,
             question_source=ExecutionMode.QUERY,
         )
         answer, semantic_hits, graph_paths, llm_answered = result
         return {
-            "question":      question,
-            "answer":        answer,
+            "question": question,
+            "answer": answer,
             "semantic_hits": semantic_hits,
-            "graph_paths":   graph_paths,
-            "citations":     [],
-            "llm_answered":  llm_answered,
+            "graph_paths": graph_paths,
+            "citations": [],
+            "llm_answered": llm_answered,
         }
     except Exception as e:
         logger.error("query failed: %s", e)
         return {"error": str(e)}
 
 
-async def run_simulate(question: str, context: dict | None, mongo_client: Any,
-                       intent: dict | None = None) -> SimulateResponse | None:
+async def run_simulate(
+    question: str, context: dict | None, mongo_client: Any, intent: dict | None = None
+) -> SimulateResponse | None:
     """Run simulation.
-    
+
     Builds IntentIR from the intent and runs the simulation pipeline.
     """
     try:
@@ -83,6 +85,7 @@ async def run_simulate(question: str, context: dict | None, mongo_client: Any,
 
         # Run simulation
         from src.monkey_brain.kernel.simulation_runtime import get_simulation_runtime
+
         runtime = get_simulation_runtime()
         result = await runtime.run(intent_ir, mongo_client)
 
@@ -94,8 +97,8 @@ async def run_simulate(question: str, context: dict | None, mongo_client: Any,
 
 def resolve_run_type(payload: PromptRequest) -> tuple[str, int]:
     """Resolve run_type and max_healing_attempts from payload, with meta taking priority."""
-    meta        = payload.meta or {}
-    run_type    = meta.get("run_type", payload.run_type) or "full"
+    meta = payload.meta or {}
+    run_type = meta.get("run_type", payload.run_type) or "full"
     max_healing = int(meta.get("max_healing_attempts", _MAX_HEALING_ATTEMPTS))
     valid_types = {"full", "healing", "stability", "codegen"}
     if run_type not in valid_types:
@@ -133,20 +136,15 @@ def validate_propagation_scope(payload: PromptRequest) -> tuple[str, str | None]
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"meta.propagation_scope must be one of "
-                f"{[m.value for m in PropagationScope]}, got {raw_scope!r}"
-            ),
+            detail=(f"meta.propagation_scope must be one of {[m.value for m in PropagationScope]}, got {raw_scope!r}"),
         )
 
     target_actor_id = meta.get("propagation_target_actor_id")
-    if scope is PropagationScope.POINT_TO_POINT and not (
-        isinstance(target_actor_id, str) and target_actor_id.strip()
-    ):
+    if scope is PropagationScope.POINT_TO_POINT and not (isinstance(target_actor_id, str) and target_actor_id.strip()):
         raise HTTPException(
             status_code=400,
             detail=(
-                'meta.propagation_target_actor_id is required (non-empty string) '
+                "meta.propagation_target_actor_id is required (non-empty string) "
                 'when meta.propagation_scope="POINT_TO_POINT"'
             ),
         )

@@ -16,6 +16,7 @@ assistance sources by choose_payment_source() when it can cover the
 total. No existing test exercised either capability with a real credit
 account before this one.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import (
@@ -32,32 +33,72 @@ CREDIT_ACCOUNT_ID = "acct_alice_credit"
 
 def _seed_world(credit_limit: float = 1000.0, existing_balance: float = 0.0) -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity(STORE_ID, EntityType.ORGANIZATION, "Key Food", {
-        "address": "200 W 23rd St, New York, NY", "delivery_fee": 4.99,
-    })
-    kg.add_entity("prod_milk", EntityType.ASSET, "Milk", {
-        "price": 3.99, "quantity": 10, "store_id": STORE_ID,
-    })
-    kg.add_entity(CREDIT_ACCOUNT_ID, EntityType.ACCOUNT, "Alice Credit Card", {
-        "account_type": "credit", "credit_limit": credit_limit,
-        "balance": existing_balance, "owner": ACTOR_ID,
-    })
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {
-        "type": "payment_processor", "priority": 0,
-    })
+    kg.add_entity(
+        STORE_ID,
+        EntityType.ORGANIZATION,
+        "Key Food",
+        {
+            "address": "200 W 23rd St, New York, NY",
+            "delivery_fee": 4.99,
+        },
+    )
+    kg.add_entity(
+        "prod_milk",
+        EntityType.ASSET,
+        "Milk",
+        {
+            "price": 3.99,
+            "quantity": 10,
+            "store_id": STORE_ID,
+        },
+    )
+    kg.add_entity(
+        CREDIT_ACCOUNT_ID,
+        EntityType.ACCOUNT,
+        "Alice Credit Card",
+        {
+            "account_type": "credit",
+            "credit_limit": credit_limit,
+            "balance": existing_balance,
+            "owner": ACTOR_ID,
+        },
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {
+            "type": "payment_processor",
+            "priority": 0,
+        },
+    )
     return kg
 
 
 def _cart() -> list[dict]:
-    return [{"id": "prod_milk", "name": "Milk", "price": 3.99, "qty": 2,
-             "store_id": STORE_ID, "store_name": "Key Food"}]
+    return [
+        {
+            "id": "prod_milk",
+            "name": "Milk",
+            "price": 3.99,
+            "qty": 2,
+            "store_id": STORE_ID,
+            "store_name": "Key Food",
+        }
+    ]
 
 
 def _place_order(kg: KnowledgeGraph) -> dict:
-    order = OrderCreationCapability().handle({"context": {
-        "knowledge_graph": kg, "selected_product": _cart(), "actor_id": ACTOR_ID,
-        "question": "deliver my order",
-    }})
+    order = OrderCreationCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "selected_product": _cart(),
+                "actor_id": ACTOR_ID,
+                "question": "deliver my order",
+            }
+        }
+    )
     assert order["success"] is True, order
     return order
 
@@ -66,8 +107,11 @@ def test_mb3012_credit_card_payment_approved():
     kg = _seed_world()
     order = _place_order(kg)
     context = {
-        "knowledge_graph": kg, "total": order["total"], "order": order,
-        "actor_id": ACTOR_ID, "selected_product": _cart(),
+        "knowledge_graph": kg,
+        "total": order["total"],
+        "order": order,
+        "actor_id": ACTOR_ID,
+        "selected_product": _cart(),
     }
 
     confirmation = PaymentConfirmationCapability().handle({"context": context})
@@ -99,8 +143,11 @@ def test_mb3012_credit_card_chosen_over_no_other_source():
     kg = _seed_world()
     order = _place_order(kg)
     context = {
-        "knowledge_graph": kg, "total": order["total"], "order": order,
-        "actor_id": ACTOR_ID, "selected_product": _cart(),
+        "knowledge_graph": kg,
+        "total": order["total"],
+        "order": order,
+        "actor_id": ACTOR_ID,
+        "selected_product": _cart(),
     }
     PaymentConfirmationCapability().handle({"context": context})
     assert context["chosen_payment_source"] == CREDIT_ACCOUNT_ID
@@ -113,8 +160,11 @@ def test_mb3012_credit_card_approved_with_existing_balance_within_limit():
     kg = _seed_world(credit_limit=1000.0, existing_balance=200.0)
     order = _place_order(kg)
     context = {
-        "knowledge_graph": kg, "total": order["total"], "order": order,
-        "actor_id": ACTOR_ID, "selected_product": _cart(),
+        "knowledge_graph": kg,
+        "total": order["total"],
+        "order": order,
+        "actor_id": ACTOR_ID,
+        "selected_product": _cart(),
     }
 
     confirmation = PaymentConfirmationCapability().handle({"context": context})

@@ -60,6 +60,7 @@ class VideoEmbedder(EmbeddingEmbedder):
     def _get_image_provider(self) -> EmbeddingEmbedder:
         if self._image_provider is None:
             from src.monkey_brain.kernel.plan.embedding.image import CLIPImageEmbedder
+
             self._image_provider = CLIPImageEmbedder()
         return self._image_provider
 
@@ -89,6 +90,7 @@ class VideoEmbedder(EmbeddingEmbedder):
     def _extract_frames(self, content: Any) -> list[np.ndarray]:
         try:
             import cv2
+
             path = str(content)
             cap = cv2.VideoCapture(path)
             if not cap.isOpened():

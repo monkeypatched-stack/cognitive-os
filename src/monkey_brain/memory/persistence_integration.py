@@ -27,6 +27,7 @@ def _get_adapter():
     if _adapter is None:
         try:
             from src.monkey_brain.persistence.mem0_adapter import Mem0Adapter
+
             _adapter = Mem0Adapter()
         except Exception as exc:
             logger.debug(f"Mem0Adapter not available: {exc}")
@@ -38,6 +39,7 @@ def _get_reducer():
     if _reducer is None:
         try:
             from src.monkey_brain.persistence.reducer import Reducer
+
             _reducer = Reducer()
         except Exception as exc:
             logger.debug(f"Reducer not available: {exc}")
@@ -51,6 +53,7 @@ def _get_manager():
     if _manager is None:
         try:
             from src.monkey_brain.persistence.manager import PersistenceManager
+
             pm = PersistenceManager()
             adapter = _get_adapter()
             if adapter:
@@ -142,6 +145,7 @@ async def load_mem0_state(mem0_id: str) -> dict[str, Any] | None:
             memory_str = str(raw)
 
         import json
+
         try:
             parsed = json.loads(memory_str)
             raw_state = parsed.get("state", parsed)

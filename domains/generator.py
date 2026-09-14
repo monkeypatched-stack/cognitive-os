@@ -34,6 +34,7 @@ logger = logging.getLogger("domains.generator")
 # ETASS Specification
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ETASSSpecification:
     """ETASS specification generated from business requirements."""
@@ -50,22 +51,26 @@ class ETASSSpecification:
 
     def to_yaml(self) -> str:
         """Serialize to YAML."""
-        return yaml.dump({
-            "goal": self.goal,
-            "domain": self.domain,
-            "bounded_context": self.bounded_context,
-            "reasoning": self.reasoning,
-            "constraints": self.constraints,
-            "evidence": self.evidence,
-            "success_criteria": self.success_criteria,
-            "policies": self.policies,
-            "constitutions": self.constitutions,
-        }, default_flow_style=False)
+        return yaml.dump(
+            {
+                "goal": self.goal,
+                "domain": self.domain,
+                "bounded_context": self.bounded_context,
+                "reasoning": self.reasoning,
+                "constraints": self.constraints,
+                "evidence": self.evidence,
+                "success_criteria": self.success_criteria,
+                "policies": self.policies,
+                "constitutions": self.constitutions,
+            },
+            default_flow_style=False,
+        )
 
 
 # ---------------------------------------------------------------------------
 # SOMA Chart
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SOMAChart:
@@ -82,21 +87,25 @@ class SOMAChart:
 
     def to_yaml(self) -> str:
         """Serialize to YAML."""
-        return yaml.dump({
-            "name": self.name,
-            "version": self.version,
-            "description": self.description,
-            "aggregates": self.aggregates,
-            "entities": self.entities,
-            "value_objects": self.value_objects,
-            "events": self.events,
-            "policies": self.policies,
-        }, default_flow_style=False)
+        return yaml.dump(
+            {
+                "name": self.name,
+                "version": self.version,
+                "description": self.description,
+                "aggregates": self.aggregates,
+                "entities": self.entities,
+                "value_objects": self.value_objects,
+                "events": self.events,
+                "policies": self.policies,
+            },
+            default_flow_style=False,
+        )
 
 
 # ---------------------------------------------------------------------------
 # DDD Domain Generator
 # ---------------------------------------------------------------------------
+
 
 class DDDDomainGenerator:
     """Generates domain packages from business requirements.
@@ -133,13 +142,19 @@ class DDDDomainGenerator:
         success_criteria = requirements.get("success_criteria", [])
 
         # 1. Generate SOMA chart
-        soma_chart = self._generate_soma_chart(name, description, capabilities, entities, events, policies)
+        soma_chart = self._generate_soma_chart(
+            name, description, capabilities, entities, events, policies
+        )
 
         # 2. Generate ETASS specification
-        etass_spec = self._generate_etass_spec(name, description, capabilities, policies, success_criteria)
+        etass_spec = self._generate_etass_spec(
+            name, description, capabilities, policies, success_criteria
+        )
 
         # 3. Generate domain package structure
-        domain_path = self._generate_domain_package(name, soma_chart, etass_spec, entities, events, policies)
+        domain_path = self._generate_domain_package(
+            name, soma_chart, etass_spec, entities, events, policies
+        )
 
         return {
             "soma_chart": soma_chart,
@@ -148,8 +163,15 @@ class DDDDomainGenerator:
             "name": name,
         }
 
-    def _generate_soma_chart(self, name: str, description: str, capabilities: list,
-                              entities: list, events: list, policies: list) -> SOMAChart:
+    def _generate_soma_chart(
+        self,
+        name: str,
+        description: str,
+        capabilities: list,
+        entities: list,
+        events: list,
+        policies: list,
+    ) -> SOMAChart:
         """Generate a SOMA chart from requirements."""
         chart = SOMAChart(
             name=name,
@@ -158,39 +180,55 @@ class DDDDomainGenerator:
 
         # Generate aggregates from capabilities
         for cap in capabilities:
-            chart.aggregates.append({
-                "name": cap.get("name", "unknown"),
-                "description": cap.get("description", ""),
-                "entities": cap.get("entities", []),
-            })
+            chart.aggregates.append(
+                {
+                    "name": cap.get("name", "unknown"),
+                    "description": cap.get("description", ""),
+                    "entities": cap.get("entities", []),
+                }
+            )
 
         # Generate entities
         for ent in entities:
-            chart.entities.append({
-                "name": ent.get("name", "unknown"),
-                "attributes": ent.get("attributes", []),
-                "lifecycle": ent.get("lifecycle", ["created", "active", "archived"]),
-            })
+            chart.entities.append(
+                {
+                    "name": ent.get("name", "unknown"),
+                    "attributes": ent.get("attributes", []),
+                    "lifecycle": ent.get(
+                        "lifecycle", ["created", "active", "archived"]
+                    ),
+                }
+            )
 
         # Generate events
         for evt in events:
-            chart.events.append({
-                "name": evt.get("name", "unknown"),
-                "trigger": evt.get("trigger", ""),
-                "payload": evt.get("payload", []),
-            })
+            chart.events.append(
+                {
+                    "name": evt.get("name", "unknown"),
+                    "trigger": evt.get("trigger", ""),
+                    "payload": evt.get("payload", []),
+                }
+            )
 
         # Generate policies
         for pol in policies:
-            chart.policies.append({
-                "name": pol.get("name", "unknown"),
-                "rules": pol.get("rules", []),
-            })
+            chart.policies.append(
+                {
+                    "name": pol.get("name", "unknown"),
+                    "rules": pol.get("rules", []),
+                }
+            )
 
         return chart
 
-    def _generate_etass_spec(self, name: str, description: str, capabilities: list,
-                              policies: list, success_criteria: list) -> ETASSSpecification:
+    def _generate_etass_spec(
+        self,
+        name: str,
+        description: str,
+        capabilities: list,
+        policies: list,
+        success_criteria: list,
+    ) -> ETASSSpecification:
         """Generate an ETASS specification from requirements."""
         # Derive goal from capabilities
         goal = f"Implement {name} domain with {len(capabilities)} capabilities"
@@ -217,9 +255,15 @@ class DDDDomainGenerator:
             constitutions=[p.get("name", "unknown") for p in policies],
         )
 
-    def _generate_domain_package(self, name: str, soma_chart: SOMAChart,
-                                  etass_spec: ETASSSpecification,
-                                  entities: list, events: list, policies: list) -> Path:
+    def _generate_domain_package(
+        self,
+        name: str,
+        soma_chart: SOMAChart,
+        etass_spec: ETASSSpecification,
+        entities: list,
+        events: list,
+        policies: list,
+    ) -> Path:
         """Generate domain package directory structure."""
         domain_path = self.output_dir / name
         domain_path.mkdir(parents=True, exist_ok=True)
@@ -248,7 +292,9 @@ class DDDDomainGenerator:
         evidence_path = domain_path / "evidence"
         evidence_path.mkdir(exist_ok=True)
         with open(evidence_path / "adapter.py", "w") as f:
-            f.write(f'"""Domain Evidence Adapter for {name}."""\n\n\nclass DomainEvidence:\n    def interpret(self, outcome, context):\n        return {{"domain": "{name}", "outcome": outcome}}\n\n    def validate(self, evidence):\n        return True\n')
+            f.write(
+                f'"""Domain Evidence Adapter for {name}."""\n\n\nclass DomainEvidence:\n    def interpret(self, outcome, context):\n        return {{"domain": "{name}", "outcome": outcome}}\n\n    def validate(self, evidence):\n        return True\n'
+            )
 
         # Create constitutions stub
         const_path = domain_path / "constitutions"
@@ -257,8 +303,18 @@ class DDDDomainGenerator:
             yaml.dump({"name": f"{name}_constitution", "rules": []}, f)
 
         # Create empty directories
-        for subdir in ["bounded_context", "aggregates", "entities", "value_objects",
-                        "events", "repositories", "services", "broca", "cerebellum", "workloads"]:
+        for subdir in [
+            "bounded_context",
+            "aggregates",
+            "entities",
+            "value_objects",
+            "events",
+            "repositories",
+            "services",
+            "broca",
+            "cerebellum",
+            "workloads",
+        ]:
             (domain_path / subdir).mkdir(exist_ok=True)
             (domain_path / subdir / "__init__.py").touch()
 

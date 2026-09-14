@@ -5,7 +5,10 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 from services.products.helpers.product_utils import _prepare, _serialize, _utc_now
-from services.inventory.models.inventory_responses import InventorySummary, InventorySummaryLocation
+from services.inventory.models.inventory_responses import (
+    InventorySummary,
+    InventorySummaryLocation,
+)
 from services.products.models.product_inventory import (
     ProductInventoryCreate,
     ProductInventoryRecord,
@@ -14,15 +17,16 @@ from services.products.models.product_inventory import (
 
 INVENTORY_COLLECTION = "product_inventory"
 
+
 def _compute_inventory(doc: dict) -> dict:
     record = ProductInventoryRecord(**doc)
     return _prepare(record.model_dump())
 
 
-
 # ─────────────────────────────
 # Inventory CRUD
 # ─────────────────────────────
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,
@@ -79,12 +83,18 @@ async def get_by_status(db: AsyncIOMotorDatabase, status_value: str) -> list[dic
 
 async def get_below_reorder(db: AsyncIOMotorDatabase) -> list[dict]:
     records, _ = await get_all(db, page=1, page_size=10000)
-    return [record for record in records if ProductInventoryRecord(**record).is_below_reorder]
+    return [
+        record
+        for record in records
+        if ProductInventoryRecord(**record).is_below_reorder
+    ]
 
 
 async def get_overstocked(db: AsyncIOMotorDatabase) -> list[dict]:
     records, _ = await get_all(db, page=1, page_size=10000)
-    return [record for record in records if ProductInventoryRecord(**record).is_overstocked]
+    return [
+        record for record in records if ProductInventoryRecord(**record).is_overstocked
+    ]
 
 
 async def get_expired(db: AsyncIOMotorDatabase) -> list[dict]:
@@ -116,7 +126,9 @@ async def get_inventory_summary(
     db: AsyncIOMotorDatabase,
     product_id: str,
 ) -> Optional[dict]:
-    records = [ProductInventoryRecord(**doc) for doc in await get_by_product(db, product_id)]
+    records = [
+        ProductInventoryRecord(**doc) for doc in await get_by_product(db, product_id)
+    ]
     if not records:
         return None
 
@@ -143,7 +155,9 @@ async def get_inventory_summary(
         if record.is_below_reorder and record.unit_cost is not None:
             reorder_quantity = record.reorder_quantity
             if reorder_quantity is None and record.reorder_point is not None:
-                reorder_quantity = max(record.reorder_point - record.quantity_available, 0)
+                reorder_quantity = max(
+                    record.reorder_point - record.quantity_available, 0
+                )
             if reorder_quantity:
                 estimated_reorder_value += reorder_quantity * record.unit_cost
                 has_reorder_value = True
@@ -159,7 +173,9 @@ async def get_inventory_summary(
         locations_count=len(records),
         locations=locations,
         is_below_reorder=any(record.is_below_reorder for record in records),
-        estimated_reorder_value=round(estimated_reorder_value, 2) if has_reorder_value else None,
+        estimated_reorder_value=(
+            round(estimated_reorder_value, 2) if has_reorder_value else None
+        ),
         currency=first.currency,
     )
     return summary.model_dump()
@@ -215,7 +231,5 @@ async def delete(
     db: AsyncIOMotorDatabase,
     inventory_id: str,
 ) -> bool:
-    result = await db[INVENTORY_COLLECTION].delete_one(
-        {"inventory_id": inventory_id}
-    )
+    result = await db[INVENTORY_COLLECTION].delete_one({"inventory_id": inventory_id})
     return result.deleted_count == 1

@@ -12,6 +12,7 @@ on any of them.
 Sections:
   - Ticket lifecycle (open -> escalated)
 """
+
 from __future__ import annotations
 
 import time
@@ -25,17 +26,28 @@ class SupportCapability(DomainCapability):
     name = "support"
 
     def __init__(self):
-        super().__init__({
-            "open_ticket": open_ticket,
-            "get_ticket": get_ticket,
-            "escalate_ticket": escalate_ticket,
-        })
+        super().__init__(
+            {
+                "open_ticket": open_ticket,
+                "get_ticket": get_ticket,
+                "escalate_ticket": escalate_ticket,
+            }
+        )
 
 
 # ── Ticket lifecycle ────────────────────────────────────────────────
 
-def open_ticket(kg, actor_id: str, subject: str, description: str = "", order_id: str | None = None,
-                 shipment_id: str | None = None, category: str = "general", now: float | None = None) -> dict:
+
+def open_ticket(
+    kg,
+    actor_id: str,
+    subject: str,
+    description: str = "",
+    order_id: str | None = None,
+    shipment_id: str | None = None,
+    category: str = "general",
+    now: float | None = None,
+) -> dict:
     """MB-3041 Customer Support: a customer opens a real, persisted
     support ticket — status "open", priority "normal" by default.
     order_id/shipment_id are optional, plain string references, never
@@ -51,19 +63,24 @@ def open_ticket(kg, actor_id: str, subject: str, description: str = "", order_id
 
     now = now if now is not None else time.time()
     ticket_id = f"ticket_{uuid.uuid4().hex}"
-    kg.add_entity(ticket_id, EntityType.OTHER, subject, {
-        "ticket": True,
-        "actor_id": actor_id,
-        "subject": subject,
-        "description": description,
-        "order_id": order_id,
-        "shipment_id": shipment_id,
-        "category": category,
-        "status": "open",
-        "priority": "normal",
-        "created_at": now,
-        "history": [{"status": "open", "at": now}],
-    })
+    kg.add_entity(
+        ticket_id,
+        EntityType.OTHER,
+        subject,
+        {
+            "ticket": True,
+            "actor_id": actor_id,
+            "subject": subject,
+            "description": description,
+            "order_id": order_id,
+            "shipment_id": shipment_id,
+            "category": category,
+            "status": "open",
+            "priority": "normal",
+            "created_at": now,
+            "history": [{"status": "open", "at": now}],
+        },
+    )
     return {"success": True, "ticket_id": ticket_id, "status": "open"}
 
 
@@ -72,13 +89,31 @@ def get_ticket(kg, ticket_id: str) -> dict:
     ticket = kg.get_entity(ticket_id) if kg is not None else None
     if ticket is None or not ticket.attributes.get("ticket"):
         return {"success": False, "error": f"ticket {ticket_id!r} not found"}
-    fields = ("actor_id", "subject", "description", "order_id", "shipment_id",
-              "category", "status", "priority", "history")
-    return {"success": True, "ticket_id": ticket_id, **{f: ticket.attributes.get(f) for f in fields}}
+    fields = (
+        "actor_id",
+        "subject",
+        "description",
+        "order_id",
+        "shipment_id",
+        "category",
+        "status",
+        "priority",
+        "history",
+    )
+    return {
+        "success": True,
+        "ticket_id": ticket_id,
+        **{f: ticket.attributes.get(f) for f in fields},
+    }
 
 
-def escalate_ticket(kg, ticket_id: str, escalated_by: str | None = None, reason: str = "",
-                     now: float | None = None) -> dict:
+def escalate_ticket(
+    kg,
+    ticket_id: str,
+    escalated_by: str | None = None,
+    reason: str = "",
+    now: float | None = None,
+) -> dict:
     """MB-3042 Ticket Escalation: advances an open ticket to
     "escalated" and raises its priority to "high". Only ever from
     "open" — a ticket that's already escalated (or, in the future,
@@ -100,15 +135,23 @@ def escalate_ticket(kg, ticket_id: str, escalated_by: str | None = None, reason:
 
     history = list(ticket.attributes.get("history", []))
     history.append({"status": "escalated", "at": now, "reason": reason})
-    kg.update_entity(ticket_id, attributes={
+    kg.update_entity(
+        ticket_id,
+        attributes={
+            "status": "escalated",
+            "priority": "high",
+            "escalated_by": escalated_by,
+            "escalated_at": now,
+            "escalation_reason": reason,
+            "history": history,
+        },
+    )
+    return {
+        "success": True,
+        "ticket_id": ticket_id,
         "status": "escalated",
         "priority": "high",
-        "escalated_by": escalated_by,
-        "escalated_at": now,
-        "escalation_reason": reason,
-        "history": history,
-    })
-    return {"success": True, "ticket_id": ticket_id, "status": "escalated", "priority": "high"}
+    }
 
 
 __all__ = ["SupportCapability", "open_ticket", "get_ticket", "escalate_ticket"]

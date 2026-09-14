@@ -10,7 +10,6 @@ from services.workorders.models.executed_instruction_evidence import (
     ExecutedInstructionEvidenceUpdate,
 )
 
-
 COLLECTION = "executed_instruction_evidence"
 
 
@@ -40,13 +39,17 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
 
 
-async def _attach_to_batch_step_and_record(db: AsyncIOMotorDatabase, record: dict) -> None:
+async def _attach_to_batch_step_and_record(
+    db: AsyncIOMotorDatabase, record: dict
+) -> None:
     evidence_id = record.get("executed_instruction_evidence_id")
     batch_step_execution_id = record.get("batch_step_execution_id")
     batch_execution_record_id = record.get("batch_execution_record_id")
@@ -67,7 +70,11 @@ async def _attach_to_batch_step_and_record(db: AsyncIOMotorDatabase, record: dic
             },
         )
     if batch_execution_record_id and evidence_id:
-        package_key = "metadata.bpr_package.executed_instruction_evidence_ids" if source_record_type == "BPR" else "metadata.bmr_package.executed_instruction_evidence_ids"
+        package_key = (
+            "metadata.bpr_package.executed_instruction_evidence_ids"
+            if source_record_type == "BPR"
+            else "metadata.bmr_package.executed_instruction_evidence_ids"
+        )
         await db.batch_production_execution_records.update_one(
             {"batch_execution_record_id": batch_execution_record_id},
             {
@@ -110,12 +117,18 @@ async def get_all(
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, executed_instruction_evidence_id: str) -> Optional[dict]:
-    doc = await db[COLLECTION].find_one({"executed_instruction_evidence_id": executed_instruction_evidence_id})
+async def get_by_id(
+    db: AsyncIOMotorDatabase, executed_instruction_evidence_id: str
+) -> Optional[dict]:
+    doc = await db[COLLECTION].find_one(
+        {"executed_instruction_evidence_id": executed_instruction_evidence_id}
+    )
     return _serialize(doc) if doc else None
 
 
-async def create(db: AsyncIOMotorDatabase, data: ExecutedInstructionEvidenceCreate) -> dict:
+async def create(
+    db: AsyncIOMotorDatabase, data: ExecutedInstructionEvidenceCreate
+) -> dict:
     doc = _prepare(data.model_dump())
     await db[COLLECTION].insert_one(doc)
     await _attach_to_batch_step_and_record(db, doc)
@@ -131,7 +144,9 @@ async def update(
     if not fields:
         return await get_by_id(db, executed_instruction_evidence_id)
 
-    existing = await db[COLLECTION].find_one({"executed_instruction_evidence_id": executed_instruction_evidence_id})
+    existing = await db[COLLECTION].find_one(
+        {"executed_instruction_evidence_id": executed_instruction_evidence_id}
+    )
     if not existing:
         return None
     merged = _serialize(existing)
@@ -150,6 +165,10 @@ async def update(
     return None
 
 
-async def delete(db: AsyncIOMotorDatabase, executed_instruction_evidence_id: str) -> bool:
-    result = await db[COLLECTION].delete_one({"executed_instruction_evidence_id": executed_instruction_evidence_id})
+async def delete(
+    db: AsyncIOMotorDatabase, executed_instruction_evidence_id: str
+) -> bool:
+    result = await db[COLLECTION].delete_one(
+        {"executed_instruction_evidence_id": executed_instruction_evidence_id}
+    )
     return result.deleted_count == 1

@@ -21,7 +21,7 @@ from plasticity.seed.seed_data import SeedConfig, SeedGenerator
 @dataclass
 class Scenario:
     """A complete test scenario."""
-    
+
     scenario_id: str = field(default_factory=lambda: f"scenario-{uuid4().hex[:8]}")
     name: str = ""
     description: str = ""
@@ -33,17 +33,17 @@ class Scenario:
 
 class ScenarioBuilder:
     """Builds complete test scenarios.
-    
+
     Generates deterministic datasets for:
     - Benchmarking
     - Development
     - Testing
     - Demonstrations
     """
-    
+
     def __init__(self):
         self._scenarios: dict[str, Scenario] = {}
-    
+
     def small_factory(self) -> Scenario:
         config = SeedConfig(
             plant_count=1,
@@ -55,7 +55,7 @@ class ScenarioBuilder:
             batches_per_line=5,
         )
         return self._build_scenario("small_factory", "Small Factory", config)
-    
+
     def medium_factory(self) -> Scenario:
         config = SeedConfig(
             plant_count=1,
@@ -67,7 +67,7 @@ class ScenarioBuilder:
             batches_per_line=15,
         )
         return self._build_scenario("medium_factory", "Medium Factory", config)
-    
+
     def enterprise_factory(self) -> Scenario:
         config = SeedConfig(
             plant_count=3,
@@ -79,29 +79,45 @@ class ScenarioBuilder:
             batches_per_line=50,
         )
         return self._build_scenario("enterprise_factory", "Enterprise Factory", config)
-    
+
     def failure_scenario(self) -> Scenario:
         scenario = self.medium_factory()
         scenario.name = "Failure Scenario"
         scenario.description = "Factory with equipment failures"
         scenario.events = [
-            {"type": "equipment_failure", "machine_id": "MCH-001", "severity": "critical"},
-            {"type": "batch_failure", "batch_id": "BAT-001", "reason": "quality_deviation"},
-            {"type": "maintenance_overdue", "machine_id": "MCH-003", "days_overdue": 30},
+            {
+                "type": "equipment_failure",
+                "machine_id": "MCH-001",
+                "severity": "critical",
+            },
+            {
+                "type": "batch_failure",
+                "batch_id": "BAT-001",
+                "reason": "quality_deviation",
+            },
+            {
+                "type": "maintenance_overdue",
+                "machine_id": "MCH-003",
+                "days_overdue": 30,
+            },
         ]
         return scenario
-    
+
     def maintenance_scenario(self) -> Scenario:
         scenario = self.medium_factory()
         scenario.name = "Maintenance Scenario"
         scenario.description = "Factory with maintenance activities"
         scenario.events = [
             {"type": "pm_scheduled", "machine_id": "MCH-001", "pm_type": "preventive"},
-            {"type": "calibration_due", "machine_id": "MCH-002", "due_date": "2026-07-01"},
+            {
+                "type": "calibration_due",
+                "machine_id": "MCH-002",
+                "due_date": "2026-07-01",
+            },
             {"type": "work_order_created", "type": "maintenance", "priority": "high"},
         ]
         return scenario
-    
+
     def quality_incident_scenario(self) -> Scenario:
         scenario = self.medium_factory()
         scenario.name = "Quality Incident"
@@ -112,11 +128,13 @@ class ScenarioBuilder:
             {"type": "oos_result", "test": "dissolution", "result": 78.5, "spec": 80.0},
         ]
         return scenario
-    
-    def _build_scenario(self, name: str, description: str, config: SeedConfig) -> Scenario:
+
+    def _build_scenario(
+        self, name: str, description: str, config: SeedConfig
+    ) -> Scenario:
         generator = SeedGenerator(config)
         data = generator.generate_full_hierarchy()
-        
+
         scenario = Scenario(
             name=name,
             description=description,
@@ -126,9 +144,9 @@ class ScenarioBuilder:
         )
         self._scenarios[scenario.scenario_id] = scenario
         return scenario
-    
+
     def get_scenario(self, scenario_id: str) -> Scenario | None:
         return self._scenarios.get(scenario_id)
-    
+
     def list_scenarios(self) -> list[Scenario]:
         return list(self._scenarios.values())

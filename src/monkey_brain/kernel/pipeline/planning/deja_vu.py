@@ -93,7 +93,10 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
         save_current_plan,
     )
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
-    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import decide, score_plan
+    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import (
+        decide,
+        score_plan,
+    )
 
     engine = getattr(pr, "context_engine", None)
     if engine is None:
@@ -175,7 +178,12 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
                     plan=plan_to_dict(new_plan),
                 )
                 save_current_plan(actor_id, goal_key, record)
-                logger.info("Deja Vu: replaced plan for actor %r goal %r (%s)", actor_id, goal_key, verdict.reason)
+                logger.info(
+                    "Deja Vu: replaced plan for actor %r goal %r (%s)",
+                    actor_id,
+                    goal_key,
+                    verdict.reason,
+                )
             else:
                 updated = dataclasses.replace(
                     current,
@@ -183,6 +191,11 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
                     last_kept_at=time.time(),
                 )
                 save_current_plan(actor_id, goal_key, updated)
-                logger.info("Deja Vu: kept plan for actor %r goal %r (%s)", actor_id, goal_key, verdict.reason)
+                logger.info(
+                    "Deja Vu: kept plan for actor %r goal %r (%s)",
+                    actor_id,
+                    goal_key,
+                    verdict.reason,
+                )
 
     return replayed

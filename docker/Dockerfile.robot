@@ -11,11 +11,11 @@
 # itself -- neither one alone can be a real drone actor's own container.
 #
 # Built FROM ros:jazzy-ros-base (Ubuntu 24.04, Python 3.12 -- matches
-# python:3.12-slim's version, so requirements.txt installs identically)
+# python:3.12-slim's version, so the locked dependency export installs identically)
 # rather than adding ROS onto the slim Debian base, since the ROS 2
 # apt packages and their ROS-specific build (px4_msgs via colcon) are
 # the harder, slower half to get right; layering the already-proven
-# CognitiveOS install (uv pip install -r requirements.txt, then COPY
+# CognitiveOS install (uv pip install from the uv.lock export, then COPY
 # the source tree) on top of it is comparatively simple.
 FROM ros:jazzy-ros-base
 
@@ -56,8 +56,9 @@ RUN . /opt/ros/jazzy/setup.sh && cd /opt/px4_ws && colcon build --packages-selec
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY requirements.txt .
-RUN uv pip install --system --break-system-packages -r requirements.txt
+COPY pyproject.toml uv.lock .
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.lock.txt && \
+    uv pip install --system --break-system-packages -r requirements.lock.txt
 
 COPY src/ ./src/
 COPY services/ ./services/

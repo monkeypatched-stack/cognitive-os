@@ -7,6 +7,7 @@ return defaults; mutation endpoints that need a runtime return 503.
 
 Auth is disabled for testing via AGENTOS_AUTH_REQUIRED=false.
 """
+
 from __future__ import annotations
 
 import os
@@ -20,12 +21,14 @@ os.environ["API_GATEWAY_REQUIRED"] = "false"
 @pytest.fixture(scope="module")
 def client():
     from src.monkey_brain.api.main import app as real_app
+
     return TestClient(real_app, raise_server_exceptions=False)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Planet
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPlanetEndpoints:
     def test_get_planet(self, client):
@@ -68,6 +71,7 @@ class TestPlanetEndpoints:
 # ═══════════════════════════════════════════════════════════════════════════
 # Societies
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSocietyEndpoints:
     def test_list_societies(self, client):
@@ -115,6 +119,7 @@ class TestSocietyEndpoints:
 # ═══════════════════════════════════════════════════════════════════════════
 # Actors
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestActorEndpoints:
     def test_list_actors(self, client):
@@ -179,6 +184,7 @@ class TestActorEndpoints:
 # Memberships
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestMembershipEndpoints:
     def test_list_memberships(self, client):
         r = client.get("/api/v1/agentos/memberships")
@@ -186,9 +192,13 @@ class TestMembershipEndpoints:
         assert isinstance(r.json(), list)
 
     def test_create_membership_no_society(self, client):
-        r = client.post("/api/v1/agentos/memberships", json={
-            "actor_id": "a1", "society_id": "nonexistent",
-        })
+        r = client.post(
+            "/api/v1/agentos/memberships",
+            json={
+                "actor_id": "a1",
+                "society_id": "nonexistent",
+            },
+        )
         assert r.status_code == 503
 
     def test_delete_membership_not_found(self, client):
@@ -211,15 +221,21 @@ class TestMembershipEndpoints:
 
     def test_create_list_delete_lifecycle(self, client):
         # Without a booted PlanetaryRuntime, create returns 503
-        create = client.post("/api/v1/agentos/memberships", json={
-            "actor_id": "a1", "society_id": "s1", "role": "worker",
-        })
+        create = client.post(
+            "/api/v1/agentos/memberships",
+            json={
+                "actor_id": "a1",
+                "society_id": "s1",
+                "role": "worker",
+            },
+        )
         assert create.status_code == 503  # no PlanetaryRuntime booted
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Runtime
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRuntimeEndpoints:
     def test_get_runtime(self, client):
@@ -265,6 +281,7 @@ class TestRuntimeEndpoints:
 # Simulation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestSimulationEndpoints:
     def test_simulate_no_runtime(self, client):
         # /simulate/run, not bare /simulate -- that path belongs to
@@ -293,6 +310,7 @@ class TestSimulationEndpoints:
 # Comparator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestComparatorEndpoints:
     def test_compare_no_runtime(self, client):
         # /compare/run, not bare /compare -- that path belongs to
@@ -318,15 +336,20 @@ class TestComparatorEndpoints:
 # Learning
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearningEndpoints:
     def test_learn_no_runtime(self, client):
         r = client.post("/api/v1/agentos/learn", json={"experience": {}})
         assert r.status_code in (200, 500)
 
     def test_learn_update(self, client):
-        r = client.post("/api/v1/agentos/learn/update", json={
-            "actor_id": "a1", "updates": {},
-        })
+        r = client.post(
+            "/api/v1/agentos/learn/update",
+            json={
+                "actor_id": "a1",
+                "updates": {},
+            },
+        )
         assert r.status_code == 200
         assert r.json()["status"] == "ok"
 
@@ -349,6 +372,7 @@ class TestLearningEndpoints:
 # ═══════════════════════════════════════════════════════════════════════════
 # World
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestWorldEndpoints:
     def test_get_world(self, client):
@@ -400,6 +424,7 @@ class TestWorldEndpoints:
 # Discovery
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDiscoveryEndpoints:
     def test_get_providers(self, client):
         r = client.get("/api/v1/agentos/providers")
@@ -432,6 +457,7 @@ class TestDiscoveryEndpoints:
 # ═══════════════════════════════════════════════════════════════════════════
 # Admin
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAdminEndpoints:
     def test_boot(self, client):
@@ -485,6 +511,7 @@ class TestAdminEndpoints:
 # ═══════════════════════════════════════════════════════════════════════════
 # Backward compatibility — existing endpoints still work
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBackwardCompatibility:
     def test_health_still_works(self, client):

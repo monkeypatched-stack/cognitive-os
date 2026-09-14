@@ -20,7 +20,7 @@ from uuid import uuid4
 @dataclass
 class PerformanceResult:
     """Result of a performance test."""
-    
+
     test_id: str = field(default_factory=lambda: f"perf-{uuid4().hex[:8]}")
     name: str = ""
     iterations: int = 0
@@ -39,21 +39,21 @@ class PerformanceResult:
 
 class PerformanceTester:
     """Benchmarks and performance testing.
-    
+
     Measures:
     - Throughput
     - Latency
     - Resource usage
     - Scalability
     """
-    
+
     def __init__(self):
         self._results: list[PerformanceResult] = []
         self._lemon = None
-    
+
     def set_lemon(self, lemon) -> None:
         self._lemon = lemon
-    
+
     async def benchmark(
         self,
         name: str,
@@ -63,7 +63,7 @@ class PerformanceTester:
     ) -> PerformanceResult:
         """Run a benchmark."""
         result = PerformanceResult(name=name, iterations=iterations)
-        
+
         # Warmup
         for _ in range(warmup):
             try:
@@ -73,11 +73,11 @@ class PerformanceTester:
                     fn()
             except Exception as e:
                 logger.debug("Exception caught: %s", e)
-        
+
         # Benchmark
         latencies = []
         errors = 0
-        
+
         start_total = time.monotonic()
         for _ in range(iterations):
             start = time.monotonic()
@@ -90,11 +90,11 @@ class PerformanceTester:
                 latencies.append(latency)
             except Exception:
                 errors += 1
-        
+
         result.total_time_ms = (time.monotonic() - start_total) * 1000
         result.errors = errors
         result.success_rate = (iterations - errors) / iterations if iterations else 0
-        
+
         if latencies:
             latencies.sort()
             result.avg_latency_ms = sum(latencies) / len(latencies)
@@ -104,26 +104,26 @@ class PerformanceTester:
             result.p95_latency_ms = latencies[int(len(latencies) * 0.95)]
             result.p99_latency_ms = latencies[int(len(latencies) * 0.99)]
             result.throughput = iterations / (result.total_time_ms / 1000) if result.total_time_ms > 0 else 0
-        
+
         self._results.append(result)
-        
+
         if self._lemon:
             self._lemon.counter("testing.benchmarks_run")
             self._lemon.histogram("testing.throughput", result.throughput)
             self._lemon.histogram("testing.latency_p50", result.p50_latency_ms)
-        
+
         return result
-    
+
     def get_results(self) -> list[PerformanceResult]:
         return list(self._results)
-    
+
     def summary(self) -> dict:
         if not self._results:
             return {"total": 0}
-        
+
         throughputs = [r.throughput for r in self._results]
         latencies = [r.avg_latency_ms for r in self._results]
-        
+
         return {
             "total": len(self._results),
             "avg_throughput": sum(throughputs) / len(throughputs),

@@ -11,6 +11,7 @@ gating it behind the same permission system as the real data routes
 would only break the shell's connection indicator for no security
 benefit.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -48,19 +49,30 @@ async def transaction_socket(websocket: WebSocket, transaction_id: str) -> None:
     TransactionEventHub TransactionCoordinator publishes to, so this
     works regardless of which request handled the /transactions POST
     that started the transaction."""
-    from src.monkey_brain.kernel.society.transaction_event_hub import get_transaction_event_hub
+    from src.monkey_brain.kernel.society.transaction_event_hub import (
+        get_transaction_event_hub,
+    )
 
     hub = get_transaction_event_hub()
     await websocket.accept()
     hub.subscribe(transaction_id, websocket)
     try:
-        await websocket.send_json({"type": "connected", "transaction_id": transaction_id, "timestamp": time.time()})
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "transaction_id": transaction_id,
+                "timestamp": time.time(),
+            }
+        )
         while True:
             # No client->server messages expected; just keep the socket
             # open until the client disconnects. receive_text() blocks
             # without busy-polling and raises WebSocketDisconnect on close.
             await websocket.receive_text()
     except WebSocketDisconnect:
-        logger.debug("transaction_socket: client disconnected (transaction_id=%r)", transaction_id)
+        logger.debug(
+            "transaction_socket: client disconnected (transaction_id=%r)",
+            transaction_id,
+        )
     finally:
         hub.unsubscribe(transaction_id, websocket)

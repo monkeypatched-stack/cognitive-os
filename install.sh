@@ -42,11 +42,11 @@ uv pip install --python "$PYTHON" \
     "$REPO_DIR/packages/soma-cli" \
     "$REPO_DIR/packages/sittingface"
 
-# Install services/ dependencies
+# Install services/ dependencies (from the locked, reproducible set)
 echo ""
 echo "Installing services/ dependencies..."
-uv pip install --python "$PYTHON" \
-    -r "$REPO_DIR/requirements.txt"
+uv export --frozen --no-dev --no-hashes --no-emit-project --project "$REPO_DIR" | \
+    uv pip install --python "$PYTHON" -r -
 
 # Install root package in editable mode
 echo ""

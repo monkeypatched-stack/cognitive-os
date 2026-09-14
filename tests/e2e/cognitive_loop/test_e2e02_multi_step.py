@@ -67,11 +67,16 @@ Predict/Decide gate in this environment (confirmed at design time:
 POST /actors -> first /prompt tick -> 6-step speculative plan, 0%
 confidence, rejected).
 """
+
 from __future__ import annotations
 
 from tests.e2e.cognitive_loop._boundary import (
-    actor_get, find_actor_id, first_failure_stage, prompt,
-    requires_live_backend, tick_result,
+    actor_get,
+    find_actor_id,
+    first_failure_stage,
+    prompt,
+    requires_live_backend,
+    tick_result,
 )
 
 QUESTION = (
@@ -98,12 +103,10 @@ QUESTION_VARIANTS = (
     "whole milk. Step two: select a dozen eggs. Keep them as two separate actions.",
     "Two separate grocery selections needed today: 2 liters of whole milk, and, "
     "as an unrelated second step, a dozen eggs.",
-    "Handle these one at a time, as two separate plan steps: first, 2 liters of "
-    "whole milk; second, a dozen eggs.",
+    "Handle these one at a time, as two separate plan steps: first, 2 liters of whole milk; second, a dozen eggs.",
     "Select 2 liters of whole milk as one step. Select a dozen eggs as another, "
     "separate step. Nothing else — no order, no checkout, no payment.",
-    "For my grocery list, make two independent selections: 2 liters of whole "
-    "milk, and separately, a dozen eggs.",
+    "For my grocery list, make two independent selections: 2 liters of whole milk, and separately, a dozen eggs.",
     "Two quick, independent picks: 2 liters of whole milk, and a dozen eggs.",
 )
 
@@ -143,7 +146,10 @@ def test_e2e02_multi_step_cognitive_loop():
     actions = tick["actions"]
 
     plans = actor_get(actor_id, "plans")["plans"]
-    matching_plan = next((p for p in plans if p.get("metadata", {}).get("execution_id") == execution_id), None)
+    matching_plan = next(
+        (p for p in plans if p.get("metadata", {}).get("execution_id") == execution_id),
+        None,
+    )
     assert matching_plan is not None, f"no persisted PLAN record tagged with execution_id={execution_id}"
     comparator_outcome = matching_plan.get("metadata", {}).get("comparator_outcome")
 
@@ -154,9 +160,7 @@ def test_e2e02_multi_step_cognitive_loop():
     assert len(steps) >= 2, f"expected a multi-step plan, got {len(steps)}: {steps}"
 
     # ── Compilation: A -> B (plan order preserved into dispatched actions) ──
-    assert len(actions) == len(steps), (
-        f"COMPILATION: {len(steps)} plan step(s) but {len(actions)} dispatched action(s)"
-    )
+    assert len(actions) == len(steps), f"COMPILATION: {len(steps)} plan step(s) but {len(actions)} dispatched action(s)"
     for i, action in enumerate(actions):
         assert action["action_id"] == f"{actor_id}_step_{i}", (
             f"COMPILATION: action[{i}] id {action['action_id']!r} does not encode "
@@ -184,9 +188,10 @@ def test_e2e02_multi_step_cognitive_loop():
     # the newly-discovered, separate _run_comparison gap this can't
     # itself fix; only refuses a bad value when one IS present. ────────
     if comparator_outcome is not None:
-        assert comparator_outcome in ("success", "unexpected_success"), (
-            f"COMPARATOR outcome for execution_id={execution_id} indicates a regression: {comparator_outcome!r}"
-        )
+        assert comparator_outcome in (
+            "success",
+            "unexpected_success",
+        ), f"COMPARATOR outcome for execution_id={execution_id} indicates a regression: {comparator_outcome!r}"
 
     # ── Learning receives evidence for both; Belief Update occurs ───────
     assert tick["learned"] is True

@@ -17,6 +17,7 @@ webhook) find its way back to the SAME paused execution: keyed by
 execution_id like its siblings, but also indexed by reservation_id, since
 a webhook arrives with the PSP's reservation_id and nothing else.
 """
+
 from __future__ import annotations
 
 import json
@@ -63,8 +64,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -117,32 +120,48 @@ class PendingPayment:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "execution_id": self.execution_id, "actor_id": self.actor_id,
-            "step_index": self.step_index, "capability": self.capability,
-            "action_id": self.action_id, "provider_name": self.provider_name,
-            "reservation_id": self.reservation_id, "payer_ref": self.payer_ref,
-            "amount": self.amount, "reserve_idempotency_key": self.reserve_idempotency_key,
-            "capture_idempotency_key": self.capture_idempotency_key, "status": self.status,
-            "reason": self.reason, "correlation_id": self.correlation_id,
-            "causation_id": self.causation_id, "created_at": self.created_at,
-            "decided": self.decided, "decided_at": self.decided_at,
+            "execution_id": self.execution_id,
+            "actor_id": self.actor_id,
+            "step_index": self.step_index,
+            "capability": self.capability,
+            "action_id": self.action_id,
+            "provider_name": self.provider_name,
+            "reservation_id": self.reservation_id,
+            "payer_ref": self.payer_ref,
+            "amount": self.amount,
+            "reserve_idempotency_key": self.reserve_idempotency_key,
+            "capture_idempotency_key": self.capture_idempotency_key,
+            "status": self.status,
+            "reason": self.reason,
+            "correlation_id": self.correlation_id,
+            "causation_id": self.causation_id,
+            "created_at": self.created_at,
+            "decided": self.decided,
+            "decided_at": self.decided_at,
             "original_question": self.original_question,
         }
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "PendingPayment":
         return PendingPayment(
-            execution_id=d.get("execution_id", ""), actor_id=d.get("actor_id", ""),
-            step_index=int(d.get("step_index", -1)), capability=d.get("capability", ""),
-            action_id=d.get("action_id", ""), provider_name=d.get("provider_name", ""),
-            reservation_id=d.get("reservation_id", ""), payer_ref=d.get("payer_ref", ""),
+            execution_id=d.get("execution_id", ""),
+            actor_id=d.get("actor_id", ""),
+            step_index=int(d.get("step_index", -1)),
+            capability=d.get("capability", ""),
+            action_id=d.get("action_id", ""),
+            provider_name=d.get("provider_name", ""),
+            reservation_id=d.get("reservation_id", ""),
+            payer_ref=d.get("payer_ref", ""),
             amount=float(d.get("amount", 0.0) or 0.0),
             reserve_idempotency_key=d.get("reserve_idempotency_key", ""),
             capture_idempotency_key=d.get("capture_idempotency_key", ""),
             status=d.get("status", ReservationStatus.RESERVED.value),
-            reason=d.get("reason", ""), correlation_id=d.get("correlation_id", ""),
-            causation_id=d.get("causation_id", ""), created_at=float(d.get("created_at", time.time())),
-            decided=d.get("decided"), decided_at=d.get("decided_at"),
+            reason=d.get("reason", ""),
+            correlation_id=d.get("correlation_id", ""),
+            causation_id=d.get("causation_id", ""),
+            created_at=float(d.get("created_at", time.time())),
+            decided=d.get("decided"),
+            decided_at=d.get("decided_at"),
             original_question=d.get("original_question", ""),
         )
 
@@ -162,12 +181,23 @@ def save_pending_payment(payment: PendingPayment) -> bool:
     if client is None or not payment.execution_id:
         return False
     try:
-        client.set(f"{_PAYMENT_KEY_PREFIX}{payment.execution_id}", json.dumps(payment.to_dict()))
+        client.set(
+            f"{_PAYMENT_KEY_PREFIX}{payment.execution_id}",
+            json.dumps(payment.to_dict()),
+        )
         if payment.reservation_id:
-            client.set(f"{_RESERVATION_INDEX_PREFIX}{payment.reservation_id}", payment.execution_id)
+            client.set(
+                f"{_RESERVATION_INDEX_PREFIX}{payment.reservation_id}",
+                payment.execution_id,
+            )
         return True
     except Exception as exc:
-        logger.warning("save_pending_payment(%s) failed: %s", payment.execution_id, exc, exc_info=True)
+        logger.warning(
+            "save_pending_payment(%s) failed: %s",
+            payment.execution_id,
+            exc,
+            exc_info=True,
+        )
         return False
 
 

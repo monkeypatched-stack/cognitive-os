@@ -10,7 +10,6 @@ from services.workorders.models.equipment_usage_ledger import (
     EquipmentUsageLedgerUpdate,
 )
 
-
 COLLECTION = "equipment_usage_ledger"
 
 
@@ -40,7 +39,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -48,22 +49,32 @@ def _prepare(doc: dict) -> dict:
 
 def _package_updates(record: dict) -> dict:
     usage_id = record.get("usage_id")
-    evidence_document_ids = [item for item in record.get("evidence_document_ids") or [] if item]
+    evidence_document_ids = [
+        item for item in record.get("evidence_document_ids") or [] if item
+    ]
     add_to_set: dict = {}
     if usage_id:
         add_to_set["equipment_usage_ids"] = usage_id
         add_to_set["metadata.required_equipment_usage_ids"] = usage_id
         add_to_set["metadata.batch_record_package.equipment_usage_ids"] = usage_id
-        add_to_set["metadata.batch_record_package.required_equipment_usage_ids"] = usage_id
+        add_to_set["metadata.batch_record_package.required_equipment_usage_ids"] = (
+            usage_id
+        )
         add_to_set["metadata.bmr_package.equipment_usage_ids"] = usage_id
         add_to_set["metadata.bmr_package.required_equipment_usage_ids"] = usage_id
         add_to_set["metadata.bpr_package.equipment_usage_ids"] = usage_id
         add_to_set["metadata.bpr_package.required_equipment_usage_ids"] = usage_id
     if evidence_document_ids:
         add_to_set["evidence_document_ids"] = {"$each": evidence_document_ids}
-        add_to_set["metadata.batch_record_package.equipment_usage_evidence_document_ids"] = {"$each": evidence_document_ids}
-        add_to_set["metadata.bmr_package.equipment_usage_evidence_document_ids"] = {"$each": evidence_document_ids}
-        add_to_set["metadata.bpr_package.equipment_usage_evidence_document_ids"] = {"$each": evidence_document_ids}
+        add_to_set[
+            "metadata.batch_record_package.equipment_usage_evidence_document_ids"
+        ] = {"$each": evidence_document_ids}
+        add_to_set["metadata.bmr_package.equipment_usage_evidence_document_ids"] = {
+            "$each": evidence_document_ids
+        }
+        add_to_set["metadata.bpr_package.equipment_usage_evidence_document_ids"] = {
+            "$each": evidence_document_ids
+        }
     return {"$addToSet": add_to_set} if add_to_set else {}
 
 
@@ -81,7 +92,9 @@ async def _attach_to_batch_record(db: AsyncIOMotorDatabase, record: dict) -> Non
 
 def _package_removals(record: dict) -> dict:
     usage_id = record.get("usage_id")
-    evidence_document_ids = [item for item in record.get("evidence_document_ids") or [] if item]
+    evidence_document_ids = [
+        item for item in record.get("evidence_document_ids") or [] if item
+    ]
     pull: dict = {}
     if usage_id:
         pull["equipment_usage_ids"] = usage_id
@@ -94,9 +107,15 @@ def _package_removals(record: dict) -> dict:
         pull["metadata.bpr_package.required_equipment_usage_ids"] = usage_id
     if evidence_document_ids:
         pull["evidence_document_ids"] = {"$in": evidence_document_ids}
-        pull["metadata.batch_record_package.equipment_usage_evidence_document_ids"] = {"$in": evidence_document_ids}
-        pull["metadata.bmr_package.equipment_usage_evidence_document_ids"] = {"$in": evidence_document_ids}
-        pull["metadata.bpr_package.equipment_usage_evidence_document_ids"] = {"$in": evidence_document_ids}
+        pull["metadata.batch_record_package.equipment_usage_evidence_document_ids"] = {
+            "$in": evidence_document_ids
+        }
+        pull["metadata.bmr_package.equipment_usage_evidence_document_ids"] = {
+            "$in": evidence_document_ids
+        }
+        pull["metadata.bpr_package.equipment_usage_evidence_document_ids"] = {
+            "$in": evidence_document_ids
+        }
     return {"$pull": pull} if pull else {}
 
 

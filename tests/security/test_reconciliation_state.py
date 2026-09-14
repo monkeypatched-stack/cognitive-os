@@ -21,6 +21,7 @@ policy invariants this file builds on.
 
 Insecure-dev is unset, matching the other policy test files.
 """
+
 from __future__ import annotations
 
 import threading
@@ -57,7 +58,11 @@ from src.monkey_brain.kernel.security_operation import (
     reconcile_operation,
     reset_operation_ledger_for_tests,
 )
-from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trusted_auth, unauthenticated_evidence
+from src.monkey_brain.kernel.trusted_auth import (
+    TrustedAuthEvidence,
+    bind_trusted_auth,
+    unauthenticated_evidence,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -70,7 +75,10 @@ def _secure(monkeypatch):
 
 
 def _durable_audit():
-    from src.monkey_brain.api.idempotency import IdempotencyStore, _InMemoryIdempotencyBackend
+    from src.monkey_brain.api.idempotency import (
+        IdempotencyStore,
+        _InMemoryIdempotencyBackend,
+    )
 
     IdempotencyStore._instance = None
     store = IdempotencyStore.__new__(IdempotencyStore)
@@ -82,10 +90,15 @@ def _durable_audit():
 
 
 def _principal():
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id="alice",
-        principal_type="human", mfa_status="satisfied",
-    ))
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id="alice",
+            principal_type="human",
+            mfa_status="satisfied",
+        )
+    )
 
 
 async def _allow(*a, **k):
@@ -104,11 +117,15 @@ async def _run_to_unknown(operation_id: str):
 
     with pytest.raises(UnknownOutcomeError):
         await run_governed_mutation(
-            action="orders.payment", resource="pay", mutate=times_out, operation_id=operation_id,
+            action="orders.payment",
+            resource="pay",
+            mutate=times_out,
+            operation_id=operation_id,
         )
 
 
 # ── UNKNOWN -> RECONCILIATION_REQUIRED (automatic, no privilege needed) ──
+
 
 class TestUnknownToReconciliationRequired:
     @pytest.mark.asyncio
@@ -129,6 +146,7 @@ class TestUnknownToReconciliationRequired:
 
 # ── Reconciliation success / failure / unresolved ────────────────────────
 
+
 class TestReconciliationOutcomes:
     @pytest.mark.asyncio
     async def test_reconciliation_success(self, opa_allow):
@@ -141,8 +159,10 @@ class TestReconciliationOutcomes:
             reconciliation_id = begin_reconciliation("op-recon-success")
             assert get_attempt_store().get(attempt.execution_attempt_id).state is ExecutionAttemptState.RECONCILING
             result = complete_reconciliation(
-                "op-recon-success", reconciliation_id,
-                confirmed="succeeded", evidence_source="razorpay_status_api",
+                "op-recon-success",
+                reconciliation_id,
+                confirmed="succeeded",
+                evidence_source="razorpay_status_api",
             )
         assert result.state is ExecutionAttemptState.SUCCEEDED
         assert get_operation_ledger().get("op-recon-success").state is SecurityOperationState.SUCCEEDED
@@ -156,8 +176,10 @@ class TestReconciliationOutcomes:
         with privileged_infrastructure("reconciliation worker"):
             reconciliation_id = begin_reconciliation("op-recon-failure")
             result = complete_reconciliation(
-                "op-recon-failure", reconciliation_id,
-                confirmed="failed", evidence_source="internal_transaction_record",
+                "op-recon-failure",
+                reconciliation_id,
+                confirmed="failed",
+                evidence_source="internal_transaction_record",
             )
         assert result.state is ExecutionAttemptState.FAILED
         assert result.evidence.get("evidence_source") == "internal_transaction_record"
@@ -172,8 +194,10 @@ class TestReconciliationOutcomes:
         with privileged_infrastructure("reconciliation worker"):
             reconciliation_id = begin_reconciliation("op-recon-unresolved")
             result = complete_reconciliation(
-                "op-recon-unresolved", reconciliation_id,
-                confirmed="unknown", evidence_source="provider_status_api_ambiguous",
+                "op-recon-unresolved",
+                reconciliation_id,
+                confirmed="unknown",
+                evidence_source="provider_status_api_ambiguous",
             )
         assert result.state is ExecutionAttemptState.RECONCILIATION_REQUIRED
         assert result.state is not ExecutionAttemptState.UNKNOWN
@@ -183,6 +207,7 @@ class TestReconciliationOutcomes:
 
 
 # ── Safe retry after reconciliation proves the effect absent ─────────────
+
 
 class TestSafeRetryAfterReconciliation:
     @pytest.mark.asyncio
@@ -194,8 +219,10 @@ class TestSafeRetryAfterReconciliation:
         with privileged_infrastructure("reconciliation worker"):
             reconciliation_id = begin_reconciliation("op-safe-retry")
             complete_reconciliation(
-                "op-safe-retry", reconciliation_id,
-                confirmed="failed", evidence_source="razorpay_status_api",
+                "op-safe-retry",
+                reconciliation_id,
+                confirmed="failed",
+                evidence_source="razorpay_status_api",
             )
             reconcile_operation("op-safe-retry", confirmed="failed")
 
@@ -215,6 +242,7 @@ class TestSafeRetryAfterReconciliation:
 
 
 # ── No blind retry for a non-idempotent effect ───────────────────────────
+
 
 class TestNoBlindRetry:
     @pytest.mark.asyncio
@@ -240,7 +268,8 @@ class TestNoBlindRetry:
         _principal()
         await _run_to_unknown("op-still-blocked")
 
-        async def would_run(): raise AssertionError("must never run")
+        async def would_run():
+            raise AssertionError("must never run")
 
         # Still RECONCILIATION_REQUIRED (nobody has claimed reconciliation yet).
         with pytest.raises(SecurityBoundaryDenied):
@@ -257,6 +286,7 @@ class TestNoBlindRetry:
 
 # ── No history rewriting ──────────────────────────────────────────────────
 
+
 class TestNoHistoryRewriting:
     @pytest.mark.asyncio
     async def test_attempt1_state_unchanged_after_attempt2_succeeds_via_reconciled_failure(self, opa_allow):
@@ -268,7 +298,10 @@ class TestNoHistoryRewriting:
         with privileged_infrastructure("reconciliation worker"):
             reconciliation_id = begin_reconciliation("op-history-1")
             complete_reconciliation(
-                "op-history-1", reconciliation_id, confirmed="failed", evidence_source="provider_status_api",
+                "op-history-1",
+                reconciliation_id,
+                confirmed="failed",
+                evidence_source="provider_status_api",
             )
             reconcile_operation("op-history-1", confirmed="failed")
 
@@ -309,6 +342,7 @@ class TestNoHistoryRewriting:
 
 # ── Concurrent reconciliation ─────────────────────────────────────────────
 
+
 class TestConcurrentReconciliation:
     @pytest.mark.asyncio
     async def test_two_workers_cannot_both_reconcile_independently(self, opa_allow):
@@ -343,6 +377,7 @@ class TestConcurrentReconciliation:
 
 # ── Reconciliation crash: lease expiry, stale write rejected ─────────────
 
+
 class TestReconciliationCrashRecovery:
     @pytest.mark.asyncio
     async def test_expired_lease_can_be_reclaimed_and_does_not_block_forever(self, opa_allow):
@@ -360,7 +395,10 @@ class TestReconciliationCrashRecovery:
 
         with privileged_infrastructure("worker B resolves"):
             result = complete_reconciliation(
-                "op-crash-recon", rid_b, confirmed="failed", evidence_source="provider_status_api",
+                "op-crash-recon",
+                rid_b,
+                confirmed="failed",
+                evidence_source="provider_status_api",
             )
         assert result.state is ExecutionAttemptState.FAILED
 
@@ -380,9 +418,15 @@ class TestReconciliationCrashRecovery:
         with privileged_infrastructure("worker B"):
             rid_b = begin_reconciliation("op-stale-write", lease_seconds=30)
 
-        with pytest.raises(StaleReconciliation), privileged_infrastructure("worker A late write"):
+        with (
+            pytest.raises(StaleReconciliation),
+            privileged_infrastructure("worker A late write"),
+        ):
             complete_reconciliation(
-                "op-stale-write", rid_a, confirmed="succeeded", evidence_source="fabricated",
+                "op-stale-write",
+                rid_a,
+                confirmed="succeeded",
+                evidence_source="fabricated",
             )
         # Still RECONCILING under worker B's (unaffected) claim.
         attempt = get_attempt_store().latest_for("op-stale-write")
@@ -391,7 +435,10 @@ class TestReconciliationCrashRecovery:
 
         with privileged_infrastructure("worker B resolves"):
             result = complete_reconciliation(
-                "op-stale-write", rid_b, confirmed="failed", evidence_source="provider_status_api",
+                "op-stale-write",
+                rid_b,
+                confirmed="failed",
+                evidence_source="provider_status_api",
             )
         assert result.state is ExecutionAttemptState.FAILED
 
@@ -410,12 +457,18 @@ class TestReconciliationCrashRecovery:
         with privileged_infrastructure("worker B"):
             rid_b = begin_reconciliation("op-stale-write-2", lease_seconds=30)
             complete_reconciliation(
-                "op-stale-write-2", rid_b, confirmed="failed", evidence_source="provider_status_api",
+                "op-stale-write-2",
+                rid_b,
+                confirmed="failed",
+                evidence_source="provider_status_api",
             )
 
         with pytest.raises(Exception), privileged_infrastructure("worker A late write"):
             complete_reconciliation(
-                "op-stale-write-2", rid_a, confirmed="succeeded", evidence_source="fabricated",
+                "op-stale-write-2",
+                rid_a,
+                confirmed="succeeded",
+                evidence_source="fabricated",
             )
         # Worker B's FAILED result stands, untouched by the late write.
         attempt = get_attempt_store().latest_for("op-stale-write-2")
@@ -423,6 +476,7 @@ class TestReconciliationCrashRecovery:
 
 
 # ── Agents cannot force reconciliation to succeed ────────────────────────
+
 
 class TestAgentCannotForceReconciliation:
     def test_record_reconciliation_result_requires_governed_context(self):
@@ -432,7 +486,10 @@ class TestAgentCannotForceReconciliation:
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.STARTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.UNKNOWN)
-            transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.RECONCILIATION_REQUIRED)
+            transition_attempt(
+                attempt.execution_attempt_id,
+                ExecutionAttemptState.RECONCILIATION_REQUIRED,
+            )
             reconciliation_id = claim_reconciliation(attempt.execution_attempt_id)
 
         # Outside any governed/privileged context — an agent-controlled
@@ -440,8 +497,15 @@ class TestAgentCannotForceReconciliation:
         # fabricated evidence.
         with pytest.raises(PermissionError):
             record_reconciliation_result(
-                attempt.execution_attempt_id, reconciliation_id, ExecutionAttemptState.SUCCEEDED,
-                evidence={"success": True, "mfa": "satisfied", "authorized": True, "provider_status": "captured"},
+                attempt.execution_attempt_id,
+                reconciliation_id,
+                ExecutionAttemptState.SUCCEEDED,
+                evidence={
+                    "success": True,
+                    "mfa": "satisfied",
+                    "authorized": True,
+                    "provider_status": "captured",
+                },
             )
         assert get_attempt_store().get(attempt.execution_attempt_id).state is ExecutionAttemptState.RECONCILING
 
@@ -452,7 +516,10 @@ class TestAgentCannotForceReconciliation:
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.STARTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.UNKNOWN)
-            transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.RECONCILIATION_REQUIRED)
+            transition_attempt(
+                attempt.execution_attempt_id,
+                ExecutionAttemptState.RECONCILIATION_REQUIRED,
+            )
 
         with pytest.raises(PermissionError):
             claim_reconciliation(attempt.execution_attempt_id)
@@ -474,13 +541,19 @@ class TestAgentCannotForceReconciliation:
         with privileged_infrastructure("reconciliation worker"):
             reconciliation_id = begin_reconciliation("op-recon-not-authz")
             complete_reconciliation(
-                "op-recon-not-authz", reconciliation_id,
-                confirmed="failed", evidence_source="provider_status_api",
+                "op-recon-not-authz",
+                reconciliation_id,
+                confirmed="failed",
+                evidence_source="provider_status_api",
             )
             reconcile_operation("op-recon-not-authz", confirmed="failed")
 
         async def deny(*a, **k):
-            return {"allowed": False, "reason": "policy revoked since attempt #1", "source": "opa"}
+            return {
+                "allowed": False,
+                "reason": "policy revoked since attempt #1",
+                "source": "opa",
+            }
 
         monkeypatch.setattr("services.common.opa.evaluate_full", deny)
 
@@ -497,6 +570,7 @@ class TestAgentCannotForceReconciliation:
 
 # ── Reconciliation does not create a new commitment ──────────────────────
 
+
 class TestReconciliationDoesNotCreateNewCommitment:
     @pytest.mark.asyncio
     async def test_one_commitment_throughout_full_reconciliation_and_retry_cycle(self, opa_allow):
@@ -507,7 +581,10 @@ class TestReconciliationDoesNotCreateNewCommitment:
         with privileged_infrastructure("reconciliation worker"):
             reconciliation_id = begin_reconciliation("op-one-commitment")
             complete_reconciliation(
-                "op-one-commitment", reconciliation_id, confirmed="failed", evidence_source="provider_status_api",
+                "op-one-commitment",
+                reconciliation_id,
+                confirmed="failed",
+                evidence_source="provider_status_api",
             )
             reconcile_operation("op-one-commitment", confirmed="failed")
 

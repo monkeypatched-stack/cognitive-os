@@ -8,12 +8,19 @@ import asyncio
 from datetime import datetime
 
 from src.monkey_brain.kernel.distributed.edge_device_coordinator import (
-    EdgeDevice, DeviceCluster, DeviceType, DistributedExecutionCoordinator,
-    DistributedActor, SyncStrategy
+    EdgeDevice,
+    DeviceCluster,
+    DeviceType,
+    DistributedExecutionCoordinator,
+    DistributedActor,
+    SyncStrategy,
 )
 from src.monkey_brain.kernel.distributed.gossip_protocol import (
-    TrustGossip, GossipNode, GossipProtocol, GossipStrategy,
-    GossipEnabledCoordinator
+    TrustGossip,
+    GossipNode,
+    GossipProtocol,
+    GossipStrategy,
+    GossipEnabledCoordinator,
 )
 
 
@@ -27,7 +34,7 @@ class TestEdgeDevice:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-site-1",
-            capacity=10
+            capacity=10,
         )
 
         assert device.device_id == "edge1"
@@ -41,7 +48,7 @@ class TestEdgeDevice:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=5
+            capacity=5,
         )
 
         success = device.register_actor("actor1")
@@ -55,7 +62,7 @@ class TestEdgeDevice:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=2
+            capacity=2,
         )
 
         device.register_actor("actor1")
@@ -72,7 +79,7 @@ class TestEdgeDevice:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
 
         device.register_actor("actor1")
@@ -88,10 +95,10 @@ class TestEdgeDevice:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
 
-        event = {'type': 'action', 'data': 'move'}
+        event = {"type": "action", "data": "move"}
         device.queue_event(event)
 
         assert len(device.pending_events) == 1
@@ -103,10 +110,10 @@ class TestEdgeDevice:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
 
-        device.queue_event({'type': 'test'})
+        device.queue_event({"type": "test"})
         device.mark_synced()
 
         assert len(device.pending_events) == 0
@@ -118,26 +125,20 @@ class TestDeviceCluster:
 
     def test_create_cluster(self):
         """Device cluster can be created"""
-        cluster = DeviceCluster(
-            cluster_id="cluster_us_west",
-            region="us-west"
-        )
+        cluster = DeviceCluster(cluster_id="cluster_us_west", region="us-west")
 
         assert cluster.region == "us-west"
 
     def test_add_device_to_cluster(self):
         """Device can join cluster"""
-        cluster = DeviceCluster(
-            cluster_id="cluster_us_west",
-            region="us-west"
-        )
+        cluster = DeviceCluster(cluster_id="cluster_us_west", region="us-west")
 
         device = EdgeDevice(
             device_id="edge1",
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
 
         cluster.add_device(device)
@@ -145,10 +146,7 @@ class TestDeviceCluster:
 
     def test_cluster_capacity(self):
         """Cluster reports total capacity"""
-        cluster = DeviceCluster(
-            cluster_id="cluster_us_west",
-            region="us-west"
-        )
+        cluster = DeviceCluster(cluster_id="cluster_us_west", region="us-west")
 
         for i in range(3):
             device = EdgeDevice(
@@ -156,7 +154,7 @@ class TestDeviceCluster:
                 device_type=DeviceType.EDGE,
                 region="us-west",
                 location=f"field-{i}",
-                capacity=10
+                capacity=10,
             )
             cluster.add_device(device)
 
@@ -182,7 +180,7 @@ class TestDistributedExecutionCoordinator:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
 
         coordinator.register_device(device)
@@ -197,7 +195,7 @@ class TestDistributedExecutionCoordinator:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
         coordinator.register_device(device)
 
@@ -214,7 +212,7 @@ class TestDistributedExecutionCoordinator:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
         coordinator.register_device(device)
 
@@ -230,7 +228,7 @@ class TestDistributedExecutionCoordinator:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
         coordinator.register_device(device)
         coordinator.place_actor_on_device("actor1", "edge1")
@@ -247,7 +245,7 @@ class TestDistributedExecutionCoordinator:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
         coordinator.register_device(device)
 
@@ -272,11 +270,11 @@ class TestDistributedExecutionCoordinator:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
         coordinator.register_device(device)
 
-        device.queue_event({'type': 'action'})
+        device.queue_event({"type": "action"})
         success = await coordinator.sync_device_to_central("edge1")
 
         assert success
@@ -291,13 +289,13 @@ class TestDistributedExecutionCoordinator:
             device_type=DeviceType.EDGE,
             region="us-west",
             location="field-1",
-            capacity=10
+            capacity=10,
         )
         coordinator.register_device(device)
 
         stats = coordinator.get_global_stats()
-        assert stats['total_devices'] == 1
-        assert stats['total_capacity'] == 10
+        assert stats["total_devices"] == 1
+        assert stats["total_capacity"] == 10
 
 
 class TestTrustGossip:
@@ -310,7 +308,7 @@ class TestTrustGossip:
             actor_b="actor2",
             trust_score=0.8,
             successful_interactions=5,
-            failed_interactions=1
+            failed_interactions=1,
         )
 
         assert gossip.trust_score == 0.8
@@ -324,7 +322,7 @@ class TestTrustGossip:
             trust_score=0.8,
             successful_interactions=5,
             failed_interactions=1,
-            ttl=3
+            ttl=3,
         )
 
         assert gossip.is_valid()
@@ -339,7 +337,7 @@ class TestTrustGossip:
             actor_b="actor2",
             trust_score=0.8,
             successful_interactions=5,
-            failed_interactions=1
+            failed_interactions=1,
         )
 
         age = gossip.age_seconds()
@@ -351,10 +349,7 @@ class TestGossipNode:
 
     def test_create_gossip_node(self):
         """Gossip node can be created"""
-        node = GossipNode(
-            node_id="node1",
-            region="us-west"
-        )
+        node = GossipNode(node_id="node1", region="us-west")
 
         assert node.node_id == "node1"
         assert len(node.peers) == 0
@@ -369,15 +364,10 @@ class TestGossipNode:
 
     def test_gossip_peer_selection(self):
         """Gossip peer selection respects strategy"""
-        node = GossipNode(
-            node_id="node1",
-            region="us-west",
-            strategy=GossipStrategy.FANOUT,
-            fanout=2
-        )
+        node = GossipNode(node_id="node1", region="us-west", strategy=GossipStrategy.FANOUT, fanout=2)
 
         for i in range(5):
-            node.add_peer(f"node{i+2}")
+            node.add_peer(f"node{i + 2}")
 
         peers = node.get_gossip_peers("node0")
         assert len(peers) <= 2
@@ -431,7 +421,7 @@ class TestGossipProtocol:
             actor_b="bob",
             trust_score=0.8,
             successful_interactions=5,
-            failed_interactions=0
+            failed_interactions=0,
         )
 
         await protocol.gossip_trust_update("node1", gossip)
@@ -447,8 +437,8 @@ class TestGossipProtocol:
         protocol.register_node(node)
 
         stats = protocol.get_gossip_stats()
-        assert stats['total_nodes'] == 1
-        assert stats['online_nodes'] == 1
+        assert stats["total_nodes"] == 1
+        assert stats["online_nodes"] == 1
 
     @pytest.mark.asyncio
     async def test_node_offline_handling(self):
@@ -491,21 +481,21 @@ class TestGossipEnabledCoordinator:
             node_id="node1",
             trust_score=0.8,
             successful=5,
-            failed=1
+            failed=1,
         )
 
         # Check trust stored
         trust_data = coordinator.get_trust_data("actor1", "actor2")
         assert trust_data is not None
-        assert trust_data['score'] == 0.8
+        assert trust_data["score"] == 0.8
 
     def test_gossip_stats(self):
         """Coordinator provides gossip statistics"""
         coordinator = GossipEnabledCoordinator()
 
         stats = coordinator.get_gossip_stats()
-        assert 'trust_relationships' in stats
-        assert 'hosted_actors' in stats
+        assert "trust_relationships" in stats
+        assert "hosted_actors" in stats
 
 
 class TestDistributedIntegration:
@@ -524,7 +514,7 @@ class TestDistributedIntegration:
                     device_type=DeviceType.EDGE,
                     region=region,
                     location=f"{region}-{i}",
-                    capacity=10
+                    capacity=10,
                 )
                 coordinator.register_device(device)
 
@@ -548,14 +538,14 @@ class TestDistributedIntegration:
                 node_id=f"node{i}",
                 region="us-west",
                 strategy=GossipStrategy.FANOUT,
-                fanout=2
+                fanout=2,
             )
             protocol.register_node(node)
             nodes.append(node)
 
         # Connect nodes in mesh
         for i in range(5):
-            for j in range(i+1, 5):
+            for j in range(i + 1, 5):
                 protocol.add_peer_relationship(f"node{i}", f"node{j}")
 
         # Start gossip from node0
@@ -564,7 +554,7 @@ class TestDistributedIntegration:
             actor_b="bob",
             trust_score=0.9,
             successful_interactions=10,
-            failed_interactions=0
+            failed_interactions=0,
         )
 
         await protocol.gossip_trust_update("node0", gossip)

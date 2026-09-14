@@ -4,6 +4,7 @@ This module is deliberately small and policy-oriented.  It adds a strategic
 stage around the existing planning/coordination pipeline; it does not replace
 planning or make routine single-actor requests pay a negotiation cost.
 """
+
 from __future__ import annotations
 
 import math
@@ -13,7 +14,6 @@ from typing import Any, Callable, Iterable, Mapping
 from uuid import uuid4
 
 from src.monkey_brain.kernel.compile import _obs
-
 
 UtilityFunction = Callable[["Strategy", Mapping[str, Any]], float]
 
@@ -95,14 +95,16 @@ class GameTheoryMetrics:
         return {
             "negotiations_started": self.negotiations_started,
             "negotiations_completed": completed,
-            "average_negotiation_time_ms": self.negotiation_time_ms / completed if completed else 0.0,
+            "average_negotiation_time_ms": (self.negotiation_time_ms / completed if completed else 0.0),
             "utility_evaluations": self.utility_evaluations,
             "strategies_considered": self.strategies_considered,
             "successful_agreements": self.successful_agreements,
             "failed_negotiations": self.failed_negotiations,
             "cooperative_decisions": self.cooperative_decisions,
             "competitive_decisions": self.competitive_decisions,
-            "average_actors_per_negotiation": self.actors_per_negotiation / self.negotiations_started if self.negotiations_started else 0.0,
+            "average_actors_per_negotiation": (
+                self.actors_per_negotiation / self.negotiations_started if self.negotiations_started else 0.0
+            ),
         }
 
 
@@ -115,22 +117,25 @@ class GameTheoryRuntime:
     pass, so later planning can consume them as ordinary world state.
     """
 
-    def __init__(self, *, world_state: dict[str, Any] | None = None,
-                 metric_sink: Any = None) -> None:
+    def __init__(self, *, world_state: dict[str, Any] | None = None, metric_sink: Any = None) -> None:
         self.world_state = world_state if world_state is not None else {}
         self.metric_sink = metric_sink
         self.metrics = GameTheoryMetrics()
         self._agreements: dict[str, NegotiationAgreement] = {}
 
     @staticmethod
-    def requires_strategic_reasoning(actor_ids: Iterable[str], *,
-                                     shared_resources: Iterable[str] = (),
-                                     interacting_objectives: bool = False) -> bool:
+    def requires_strategic_reasoning(
+        actor_ids: Iterable[str],
+        *,
+        shared_resources: Iterable[str] = (),
+        interacting_objectives: bool = False,
+    ) -> bool:
         actors = tuple(dict.fromkeys(actor_ids))
         return len(actors) > 1 and (bool(tuple(shared_resources)) or interacting_objectives)
 
-    def evaluate(self, profile: StrategyProfile, context: Mapping[str, Any] | None = None
-                 ) -> tuple[UtilityEvaluation, ...]:
+    def evaluate(
+        self, profile: StrategyProfile, context: Mapping[str, Any] | None = None
+    ) -> tuple[UtilityEvaluation, ...]:
         context = context or {}
         result: list[UtilityEvaluation] = []
         for strategy in profile.strategies:
@@ -156,9 +161,14 @@ class GameTheoryRuntime:
             raise ValueError(f"Actor {profile.actor_id} has no feasible strategy")
         return evaluations[0]
 
-    def negotiate(self, topic: str, profiles: Iterable[StrategyProfile], *,
-                  context: Mapping[str, Any] | None = None,
-                  messages: Iterable[NegotiationMessage] = ()) -> NegotiationAgreement:
+    def negotiate(
+        self,
+        topic: str,
+        profiles: Iterable[StrategyProfile],
+        *,
+        context: Mapping[str, Any] | None = None,
+        messages: Iterable[NegotiationMessage] = (),
+    ) -> NegotiationAgreement:
         started = time.perf_counter()
         profiles = tuple(profiles)
         if len(profiles) < 2:
@@ -169,8 +179,13 @@ class GameTheoryRuntime:
         candidates = {e.strategy.name: e.strategy for choices in evaluations.values() for e in choices if e.feasible}
         scored: list[tuple[float, Strategy, dict[str, float]]] = []
         for strategy in candidates.values():
-            utilities = {actor: next((e.utility for e in choices if e.strategy.name == strategy.name), -math.inf)
-                         for actor, choices in evaluations.items()}
+            utilities = {
+                actor: next(
+                    (e.utility for e in choices if e.strategy.name == strategy.name),
+                    -math.inf,
+                )
+                for actor, choices in evaluations.items()
+            }
             if all(math.isfinite(v) for v in utilities.values()):
                 scored.append((sum(utilities.values()), strategy, utilities))
         if not scored:
@@ -182,9 +197,7 @@ class GameTheoryRuntime:
         # pure aggregate-utility maximization; fall back to the latter,
         # explicitly, when no pure-strategy equilibrium exists among the
         # feasible candidates -- see is_nash_equilibrium().
-        equilibria = [
-            item for item in scored if self.is_nash_equilibrium(evaluations, item[1])
-        ]
+        equilibria = [item for item in scored if self.is_nash_equilibrium(evaluations, item[1])]
         pool = equilibria or scored
         equilibrium_found = bool(equilibria)
         _, chosen, utilities = max(pool, key=lambda item: (item[0], -len(item[1].name), item[1].name))
@@ -194,21 +207,29 @@ class GameTheoryRuntime:
         rationale = (
             "Selected an equilibrium-stable strategy: no participant has a "
             "jointly-feasible alternative it strictly prefers."
-            if equilibrium_found else
-            "No pure-strategy equilibrium existed among feasible candidates; "
+            if equilibrium_found
+            else "No pure-strategy equilibrium existed among feasible candidates; "
             "selected the strategy with the highest aggregate actor utility."
         )
         agreement = NegotiationAgreement(
-            topic=topic, participants=tuple(p.actor_id for p in profiles),
-            chosen_strategy=chosen, utilities=utilities, messages=tuple(messages),
-            cooperative=cooperative, competitive=competitive,
-            equilibrium=equilibrium_found, rationale=rationale,
+            topic=topic,
+            participants=tuple(p.actor_id for p in profiles),
+            chosen_strategy=chosen,
+            utilities=utilities,
+            messages=tuple(messages),
+            cooperative=cooperative,
+            competitive=competitive,
+            equilibrium=equilibrium_found,
+            rationale=rationale,
         )
         self._agreements[agreement.agreement_id] = agreement
         self.world_state.setdefault("negotiated_agreements", {})[agreement.agreement_id] = {
-            "topic": topic, "participants": list(agreement.participants),
-            "strategy": chosen.name, "utilities": dict(utilities),
-            "equilibrium": equilibrium_found, "rationale": agreement.rationale,
+            "topic": topic,
+            "participants": list(agreement.participants),
+            "strategy": chosen.name,
+            "utilities": dict(utilities),
+            "equilibrium": equilibrium_found,
+            "rationale": agreement.rationale,
         }
         self.metrics.negotiations_completed += 1
         self.metrics.successful_agreements += 1
@@ -224,7 +245,8 @@ class GameTheoryRuntime:
 
     @staticmethod
     def is_nash_equilibrium(
-        evaluations: Mapping[str, tuple["UtilityEvaluation", ...]], chosen_strategy: Strategy,
+        evaluations: Mapping[str, tuple["UtilityEvaluation", ...]],
+        chosen_strategy: Strategy,
     ) -> bool:
         """Best-response stability check over evaluate()'s own output: true
         iff no actor has a feasible strategy, among the ones it itself
@@ -241,7 +263,8 @@ class GameTheoryRuntime:
         """
         for actor_id, choices in evaluations.items():
             own_utility = next(
-                (e.utility for e in choices if e.strategy.name == chosen_strategy.name), None,
+                (e.utility for e in choices if e.strategy.name == chosen_strategy.name),
+                None,
             )
             if own_utility is None:
                 return False
@@ -257,8 +280,9 @@ class GameTheoryRuntime:
         return self.metrics.as_dict()
 
     @staticmethod
-    def _check_constraints(profile: StrategyProfile, strategy: Strategy,
-                           context: Mapping[str, Any]) -> tuple[bool, str]:
+    def _check_constraints(
+        profile: StrategyProfile, strategy: Strategy, context: Mapping[str, Any]
+    ) -> tuple[bool, str]:
         for resource, required in strategy.resource_requirements.items():
             available = context.get("resources", profile.resources).get(resource, 0)
             if available < required:
@@ -269,8 +293,7 @@ class GameTheoryRuntime:
         return True, ""
 
     @staticmethod
-    def _default_utility(profile: StrategyProfile, strategy: Strategy,
-                         context: Mapping[str, Any]) -> float:
+    def _default_utility(profile: StrategyProfile, strategy: Strategy, context: Mapping[str, Any]) -> float:
         score = 0.0
         values = {**strategy.attributes, **strategy.expected_outcome}
         for preference, weight in profile.preferences.items():
@@ -279,4 +302,3 @@ class GameTheoryRuntime:
         risk = float(profile.risk_profile.get("risk_aversion", 0.0))
         score -= risk * float(values.get("risk", 0.0) or 0.0)
         return score
-

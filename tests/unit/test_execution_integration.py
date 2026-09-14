@@ -15,6 +15,7 @@ real parameters (e.g. Navigate needs "destination"), can never receive them
 through this path today; the new pipeline's own validation correctly
 rejects the resulting incomplete step rather than crashing or guessing.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,16 +23,38 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.monkey_brain.kernel.pipeline.contracts import PipelineRequest, CompiledRequest, RuntimeContext
-from src.monkey_brain.kernel.pipeline.execution import Action, ExecutionResult as LegacyExecutionResult, ExecutionEngine
+from src.monkey_brain.kernel.pipeline.contracts import (
+    PipelineRequest,
+    CompiledRequest,
+    RuntimeContext,
+)
+from src.monkey_brain.kernel.pipeline.execution import (
+    Action,
+    ExecutionResult as LegacyExecutionResult,
+    ExecutionEngine,
+)
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.planning import IntegratedPlanningEngine
-from src.monkey_brain.kernel.pipeline.execution_runtime.integration import IntegratedExecutionEngine
-from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import ExecutionEnvironment
-from src.monkey_brain.kernel.pipeline.execution_runtime.retry import RecoveryPolicy, RecoveryAction
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry, ExecutionCapability
-from src.monkey_brain.kernel.pipeline.execution_runtime.domain import ExecutionOutcome, ExecutionStatus, ExecutionError
+from src.monkey_brain.kernel.pipeline.execution_runtime.integration import (
+    IntegratedExecutionEngine,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import (
+    ExecutionEnvironment,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.retry import (
+    RecoveryPolicy,
+    RecoveryAction,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+    ExecutionCapability,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
+    ExecutionOutcome,
+    ExecutionStatus,
+    ExecutionError,
+)
 
 
 def _make_compiled(question: str = "get 2 l of milk", goal_name: str = "acquire_milk") -> CompiledRequest:
@@ -60,6 +83,7 @@ def _make_context() -> RuntimeContext:
 # Protocol conformance
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExecutionEngineProtocolConformance:
     def test_satisfies_execution_engine_protocol(self):
         """execution.py's ExecutionEngine Protocol is not @runtime_checkable
@@ -82,6 +106,7 @@ class TestExecutionEngineProtocolConformance:
 # Empty actions
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestEmptyActions:
     def test_empty_actions_matches_action_executor_exactly(self):
         direct = asyncio.run(ActionExecutor().execute((), None))
@@ -93,14 +118,23 @@ class TestEmptyActions:
 # Backward compatibility — unrecognized capabilities fall back
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBackwardCompatibility:
     def test_unrecognized_capability_falls_back_to_action_executor(self):
         """LLMPlanner produces generic capability names
         ("process_milk", "achieve_goal") that Step 9.2's sample handlers
         don't know — the whole batch must fall back, not partially execute."""
         actions = (
-            Action(action_id="a1", capability="process_milk", parameters={"description": "x"}),
-            Action(action_id="a2", capability="achieve_goal", parameters={"description": "y"}),
+            Action(
+                action_id="a1",
+                capability="process_milk",
+                parameters={"description": "x"},
+            ),
+            Action(
+                action_id="a2",
+                capability="achieve_goal",
+                parameters={"description": "y"},
+            ),
         )
         result = asyncio.run(IntegratedExecutionEngine().execute(actions, None))
 
@@ -121,7 +155,11 @@ class TestBackwardCompatibility:
         """Even if some actions ARE recognized, a single unrecognized one
         must fall back the entire batch — no partial-new-pipeline execution."""
         actions = (
-            Action(action_id="a1", capability="Navigate", parameters={"destination": "store"}),
+            Action(
+                action_id="a1",
+                capability="Navigate",
+                parameters={"destination": "store"},
+            ),
             Action(action_id="a2", capability="totally_unknown_capability", parameters={}),
         )
         result = asyncio.run(IntegratedExecutionEngine().execute(actions, None))
@@ -136,13 +174,34 @@ class TestBackwardCompatibility:
 # New pipeline engages for recognized capabilities
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNewPipelineEngages:
     def test_full_acquire_milk_scenario_succeeds(self):
         actions = (
-            Action(action_id="s1", capability="Navigate", parameters={"destination": "store"}, expected_outcome="at_location"),
-            Action(action_id="s2", capability="QueryInventory", parameters={"item": "milk"}, expected_outcome="milk_availability_known"),
-            Action(action_id="s3", capability="AcquireItem", parameters={"item": "milk", "quantity": 2}, expected_outcome="milk_acquired"),
-            Action(action_id="s4", capability="Navigate", parameters={"destination": "home"}, expected_outcome="at_home"),
+            Action(
+                action_id="s1",
+                capability="Navigate",
+                parameters={"destination": "store"},
+                expected_outcome="at_location",
+            ),
+            Action(
+                action_id="s2",
+                capability="QueryInventory",
+                parameters={"item": "milk"},
+                expected_outcome="milk_availability_known",
+            ),
+            Action(
+                action_id="s3",
+                capability="AcquireItem",
+                parameters={"item": "milk", "quantity": 2},
+                expected_outcome="milk_acquired",
+            ),
+            Action(
+                action_id="s4",
+                capability="Navigate",
+                parameters={"destination": "home"},
+                expected_outcome="at_home",
+            ),
         )
         result = asyncio.run(IntegratedExecutionEngine().execute(actions, None))
 
@@ -154,7 +213,13 @@ class TestNewPipelineEngages:
             assert outcome.metadata["status"] == "succeeded"
 
     def test_action_ids_are_preserved(self):
-        actions = (Action(action_id="my-custom-id", capability="Navigate", parameters={"destination": "store"}),)
+        actions = (
+            Action(
+                action_id="my-custom-id",
+                capability="Navigate",
+                parameters={"destination": "store"},
+            ),
+        )
         result = asyncio.run(IntegratedExecutionEngine().execute(actions, None))
         assert result.actions[0].action_id == "my-custom-id"
 
@@ -178,6 +243,7 @@ class TestNewPipelineEngages:
 # Pre-flight resolution
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestResolutionGate:
     def test_missing_environment_capability_fails_before_executing(self):
         registry = ExecutionRegistry()
@@ -187,8 +253,10 @@ class TestResolutionGate:
         class SpyNavigate:
             operator_name = "Navigate"
             capability = ExecutionCapability(name="navigation")
+
             def validate(self, step):
                 return None
+
             def execute(self, step, context):
                 calls.append(step.step_id)
                 raise AssertionError("must not execute when resolution fails")
@@ -196,7 +264,13 @@ class TestResolutionGate:
         registry.register(SpyNavigate())
         engine = IntegratedExecutionEngine(registry=registry, environment=env)
 
-        actions = (Action(action_id="s1", capability="Navigate", parameters={"destination": "store"}),)
+        actions = (
+            Action(
+                action_id="s1",
+                capability="Navigate",
+                parameters={"destination": "store"},
+            ),
+        )
         result = asyncio.run(engine.execute(actions, None))
 
         assert result.goal_achieved is False
@@ -208,24 +282,36 @@ class TestResolutionGate:
 # Retry integration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRetryIntegration:
     def test_transient_failure_recovers_via_configured_retry_policy(self):
         """The Action itself carries no retry_policy (execution.py's Action
         predates Step 9's model) — retry policy is configured on the engine
         per-operator, same pattern as recovery policies."""
+
         class FlakyHandler:
             operator_name = "FlakyNav"
             capability = ExecutionCapability(name="flaky")
+
             def __init__(self):
                 self.calls = 0
+
             def validate(self, step):
                 return None
+
             def execute(self, step, context):
                 self.calls += 1
                 if self.calls < 2:
-                    return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.FAILED,
-                                             error=ExecutionError(step_id=step.step_id, code="X", retryable=True))
-                return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.SUCCEEDED, output={"ok": True})
+                    return ExecutionOutcome(
+                        step_id=step.step_id,
+                        status=ExecutionStatus.FAILED,
+                        error=ExecutionError(step_id=step.step_id, code="X", retryable=True),
+                    )
+                return ExecutionOutcome(
+                    step_id=step.step_id,
+                    status=ExecutionStatus.SUCCEEDED,
+                    output={"ok": True},
+                )
 
         registry = ExecutionRegistry()
         flaky = FlakyHandler()
@@ -250,6 +336,7 @@ class TestRetryIntegration:
 # ═══════════════════════════════════════════════════════════════════════════
 # End-to-end: real, unmodified CognitiveRuntime
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestEndToEndWithCognitiveRuntime:
     @pytest.mark.asyncio
@@ -293,8 +380,9 @@ class TestEndToEndWithCognitiveRuntime:
         assert result["outcome"]["failure_count"] == 2
         assert not any(a["success"] for a in result["actions"])
         # Never silently claims success despite missing data:
-        assert "missing required parameter" in result["actions"][0]["error"] or \
-               "skipped" in result["actions"][1]["error"]
+        assert (
+            "missing required parameter" in result["actions"][0]["error"] or "skipped" in result["actions"][1]["error"]
+        )
 
     @pytest.mark.asyncio
     async def test_default_action_executor_still_works_unchanged(self):
@@ -309,12 +397,14 @@ class TestEndToEndWithCognitiveRuntime:
 # Ownership boundary — verified by absence of modification, not import scanning
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_execution_engine_protocol_unchanged(self):
         """execution.py's Protocol signature must still match exactly what
         ActionExecutor and IntegratedExecutionEngine both implement — proof
         by construction that nothing needed to change there."""
         import inspect
+
         sig = inspect.signature(ExecutionEngine.execute)
         params = list(sig.parameters.keys())
         assert params == ["self", "actions", "context"]

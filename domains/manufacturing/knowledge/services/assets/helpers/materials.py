@@ -5,6 +5,7 @@ from services.assets.models.material import MaterialUsedCreate, MaterialUsedUpda
 
 COLLECTION = "materials_used"
 
+
 def _serialize(doc: dict) -> dict:
     doc = dict(doc)
     doc.pop("_id", None)
@@ -14,12 +15,17 @@ def _serialize(doc: dict) -> dict:
 def _prepare(doc: dict) -> dict:
     """Convert date → datetime so BSON can encode them."""
     return {
-        k: datetime(v.year, v.month, v.day) if isinstance(v, date) and not isinstance(v, datetime) else v
+        k: (
+            datetime(v.year, v.month, v.day)
+            if isinstance(v, date) and not isinstance(v, datetime)
+            else v
+        )
         for k, v in doc.items()
     }
 
 
 # ── Read ──────────────────────────────────────────────────────────────────────
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,
@@ -45,6 +51,7 @@ async def get_by_name(db: AsyncIOMotorDatabase, name: str) -> list[dict]:
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 async def create(db: AsyncIOMotorDatabase, data: MaterialUsedCreate) -> dict:
     doc = _prepare(data.model_dump())
     await db[COLLECTION].insert_one(doc)
@@ -52,6 +59,7 @@ async def create(db: AsyncIOMotorDatabase, data: MaterialUsedCreate) -> dict:
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 async def update(
     db: AsyncIOMotorDatabase,
@@ -70,6 +78,7 @@ async def update(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 async def delete(db: AsyncIOMotorDatabase, material_id: str) -> bool:
     result = await db[COLLECTION].delete_one({"material_id": material_id})

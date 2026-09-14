@@ -4,6 +4,7 @@ The simulator no longer treats solvers as competing question-answer engines.
 It starts from an execution graph, clones that graph for each solver, gathers
 solver contributions, and merges them into a single simulation graph.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,7 +15,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.monkey_brain.runtime.agent_middleware import load_knowledge_context, _identity_from_state
+from src.monkey_brain.runtime.agent_middleware import (
+    load_knowledge_context,
+    _identity_from_state,
+)
 
 logger = logging.getLogger("agentos.simulation_pipeline")
 
@@ -91,7 +95,7 @@ class SimulationResult:
             "capability_group": self.capability_group,
             "implementation": self.implementation,
             "predictions": [p.to_dict() for p in self.predictions],
-            "best_prediction": self.best_prediction.to_dict() if self.best_prediction else None,
+            "best_prediction": (self.best_prediction.to_dict() if self.best_prediction else None),
             "consensus": self.consensus.to_dict() if self.consensus else None,
             "grounding_score": self.grounding_score,
             "feasibility_verdict": self.feasibility_verdict,
@@ -159,8 +163,12 @@ class SimulationPipeline:
 
         # 8. Select the best prediction from the contributions based on confidence and agreement with the consensus.
         best = self._select_best(contributions, consensus)
-        answer = simulation_graph.get("metadata", {}).get("summary", {}).get("answer", f"Simulated execution for: {question}")
-   
+        answer = (
+            simulation_graph.get("metadata", {})
+            .get("summary", {})
+            .get("answer", f"Simulated execution for: {question}")
+        )
+
         # 9. check convergence: if any solver has confidence > 0.0, the simulation is considered successful; otherwise, log a warning and mark the simulation as unsuccessful.
         solved = any(c.confidence > 0.0 for c in contributions)
         if not solved:
@@ -180,7 +188,9 @@ class SimulationPipeline:
             best_prediction=best,
             consensus=consensus,
             grounding_score=consensus.confidence,
-            feasibility_verdict=simulation_graph.get("metadata", {}).get("summary", {}).get("feasibility_verdict", "unknown"),
+            feasibility_verdict=simulation_graph.get("metadata", {})
+            .get("summary", {})
+            .get("feasibility_verdict", "unknown"),
             metadata={
                 "latency_ms": (time.monotonic() - t0) * 1000,
                 "solver_count": len(contributions),
@@ -204,7 +214,11 @@ class SimulationPipeline:
                     timeout=SOLVER_TIMEOUT_SECONDS,
                 )
             except asyncio.TimeoutError:
-                logger.warning("[simulation] Solver %s timed out after %.1fs", solver.name, SOLVER_TIMEOUT_SECONDS)
+                logger.warning(
+                    "[simulation] Solver %s timed out after %.1fs",
+                    solver.name,
+                    SOLVER_TIMEOUT_SECONDS,
+                )
                 return SolverContribution(
                     solver_name=solver.name,
                     annotations={"error": "timeout"},
@@ -247,7 +261,6 @@ class SimulationPipeline:
         graph_scores: dict[str, float] = {}
         node_agreement: dict[str, int] = {}
         for contribution in accepted:
-
             # 1. Score each solver's annotations to weight their contribution to the consensus.
             #  The score is based on the solver's confidence and the presence of node and edge annotations.
             graph_scores[contribution.solver_name] = self._score_annotations(contribution.annotations, contribution)
@@ -263,11 +276,13 @@ class SimulationPipeline:
         disagreement_score = round(1.0 - consensus_score, 4)
         avg_confidence = sum(c.confidence for c in accepted) / max(len(accepted), 1)
 
-        # 3. Annotate the simulation graph with the merged contributions, node annotations, graph scores, and consensus score. The simulation graph represents 
+        # 3. Annotate the simulation graph with the merged contributions, node annotations, graph scores, and consensus score. The simulation graph represents
         # the predicted next state of the execution graph based on the solvers' contributions.
-        simulation_graph = self._annotate_graph(execution_graph, accepted, node_annotations, graph_scores, consensus_score)
+        simulation_graph = self._annotate_graph(
+            execution_graph, accepted, node_annotations, graph_scores, consensus_score
+        )
         simulation_graph["metadata"]["rejected_solvers"] = list(rejected)
-         
+
         # 4. Return a ConsensusResult object containing the simulation graph, participating solvers, rejected solvers, consensus score, disagreement score,
         #  and overall confidence. This result encapsulates the outcome of the simulation process and provides insights into the level of agreement among solvers.
         return ConsensusResult(
@@ -288,7 +303,7 @@ class SimulationPipeline:
         consensus_score: float,
     ) -> dict[str, Any]:
         from src.monkey_brain.kernel.models.graph import canonical_graph_envelope
-        
+
         # Create a canonical envelope of the execution graph to serve as the base for the simulation graph. This ensures that the simulation graph maintains the same structure and properties as the execution graph while allowing for the addition of solver contributions and annotations.
         simulation_graph = canonical_graph_envelope(execution_graph)
 
@@ -308,7 +323,7 @@ class SimulationPipeline:
         simulation_graph["metadata"]["disagreement_score"] = round(1.0 - consensus_score, 4)
         simulation_graph["metadata"]["node_annotations"] = node_annotations
         simulation_graph["metadata"]["solver_states"] = {c.solver_name: c.predicted_state for c in contributions}
-        
+
         # operations/events/artifacts/latency_ms are what ComparatorRuntime
         # diffs against the executed side (summary is its "expected" half) —
         # operations as the plan's agent names, matching the granularity the
@@ -321,13 +336,17 @@ class SimulationPipeline:
             if isinstance(n, dict) and (n.get("agent") or n.get("name") or n.get("id"))
         ]
 
-        # The summary section of the simulation graph metadata provides a concise overview of the simulation results, including the derived answer, 
-        # grounding score, feasibility verdict, predicted state, expected operations, and other relevant information. This summary is useful for quickly 
+        # The summary section of the simulation graph metadata provides a concise overview of the simulation results, including the derived answer,
+        # grounding score, feasibility verdict, predicted state, expected operations, and other relevant information. This summary is useful for quickly
         # assessing the outcome of the simulation and understanding the level of agreement among solvers.
         simulation_graph["metadata"]["summary"] = {
             "answer": self._derive_answer(contributions, execution_graph),
             "grounding_score": round(consensus_score, 3),
-            "feasibility_verdict": "feasible" if consensus_score >= 0.8 else "likely_feasible" if consensus_score >= 0.5 else "insufficient_data",
+            "feasibility_verdict": (
+                "feasible"
+                if consensus_score >= 0.8
+                else ("likely_feasible" if consensus_score >= 0.5 else "insufficient_data")
+            ),
             "predicted_state": self._merge_predicted_state(contributions, execution_graph),
             "operations": expected_operations,
             "events": [],
@@ -343,10 +362,18 @@ class SimulationPipeline:
             answer = contribution.predicted_state.get("answer")
             if answer:
                 return str(answer)
-        nodes = execution_graph.get("nodes", []) if isinstance(execution_graph, dict) else getattr(execution_graph, "nodes", [])
+        nodes = (
+            execution_graph.get("nodes", [])
+            if isinstance(execution_graph, dict)
+            else getattr(execution_graph, "nodes", [])
+        )
         return f"Simulated execution graph with {len(nodes)} nodes"
 
-    def _merge_predicted_state(self, contributions: list[SolverContribution], execution_graph: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _merge_predicted_state(
+        self,
+        contributions: list[SolverContribution],
+        execution_graph: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         # Canonical prediction that ComparatorRuntime can diff against the
         # executed side's comparable shape.  Solver-keyed internals are kept
         # under "solver_contributions" for inspection but never compared.
@@ -362,7 +389,9 @@ class SimulationPipeline:
             "answer": answer,
             "nodes_complete": total_nodes,
             "total_nodes": total_nodes,
-            "feasibility": "feasible" if avg_conf >= 0.8 else "likely_feasible" if avg_conf >= 0.5 else "insufficient_data",
+            "feasibility": (
+                "feasible" if avg_conf >= 0.8 else "likely_feasible" if avg_conf >= 0.5 else "insufficient_data"
+            ),
         }
 
     def _score_annotations(self, annotations: dict[str, Any], contribution: SolverContribution) -> float:
@@ -381,11 +410,18 @@ class SimulationPipeline:
     ) -> float:
         if not contributions:
             return 0.0
-        nodes = execution_graph.get("nodes", []) if isinstance(execution_graph, dict) else getattr(execution_graph, "nodes", [])
+        nodes = (
+            execution_graph.get("nodes", [])
+            if isinstance(execution_graph, dict)
+            else getattr(execution_graph, "nodes", [])
+        )
         annotation_coverage = min(len(node_annotations) / max(len(nodes), 1), 1.0) if nodes else 0.0
         solver_agreement = self._solver_agreement(graph_scores)
         predicted_state_agreement = self._predicted_state_agreement(contributions)
-        return min((annotation_coverage * 0.25) + (solver_agreement * 0.35) + (predicted_state_agreement * 0.4), 1.0)
+        return min(
+            (annotation_coverage * 0.25) + (solver_agreement * 0.35) + (predicted_state_agreement * 0.4),
+            1.0,
+        )
 
     def _solver_agreement(self, graph_scores: dict[str, float]) -> float:
         """Confidence-weighted solver agreement.
@@ -417,7 +453,7 @@ class SimulationPipeline:
             return 0.0
         weighted_matches = 0.0
         for idx, left in enumerate(contributions):
-            for right in contributions[idx + 1:]:
+            for right in contributions[idx + 1 :]:
                 weight = (left.confidence + right.confidence) / 2.0
                 if left.predicted_state == right.predicted_state:
                     weighted_matches += weight
@@ -434,7 +470,9 @@ class SimulationPipeline:
         avg = sum(c.confidence for c in contributions) / len(contributions)
         return abs(contribution.confidence - avg) > 0.45
 
-    def _select_best(self, contributions: list[SolverContribution], consensus: ConsensusResult) -> SolverContribution | None:
+    def _select_best(
+        self, contributions: list[SolverContribution], consensus: ConsensusResult
+    ) -> SolverContribution | None:
         if not contributions:
             return None
         # Rank only within the accepted pool — a rejected outlier must not
@@ -442,7 +480,10 @@ class SimulationPipeline:
         # empty (mirrors _build_consensus's degenerate-consensus fallback).
         pool = [c for c in contributions if c.solver_name in consensus.participating_solvers] or contributions
         canonical_score = consensus.consensus_score
-        return max(pool, key=lambda c: (1.0 - abs(c.confidence - canonical_score), c.confidence))
+        return max(
+            pool,
+            key=lambda c: (1.0 - abs(c.confidence - canonical_score), c.confidence),
+        )
 
 
 class LLMReasoningSolver:
@@ -457,14 +498,22 @@ class LLMReasoningSolver:
             generator = GraphGeneratorAgent()
             if generator._llm is None:
                 clone = self._annotate_graph(graph, {"answer": "LLM not available"}, 0.0, "No LLM available")
-                return SolverContribution(self.name, clone, {"answer": "LLM not available"}, 0.0, "No LLM available", (time.monotonic() - t0) * 1000)
+                return SolverContribution(
+                    self.name,
+                    clone,
+                    {"answer": "LLM not available"},
+                    0.0,
+                    "No LLM available",
+                    (time.monotonic() - t0) * 1000,
+                )
 
             # Sanitize graph to prevent prompt injection — only include safe fields
             safe_graph = {
                 "node_count": len(graph.get("nodes", [])),
                 "edge_count": len(graph.get("edges", [])),
-                "metadata": {k: v for k, v in graph.get("metadata", {}).items()
-                             if k in ("capability", "question", "goal_type")},
+                "metadata": {
+                    k: v for k, v in graph.get("metadata", {}).items() if k in ("capability", "question", "goal_type")
+                },
             }
             prompt = (
                 "Predict execution graph outcomes.\n"
@@ -480,17 +529,49 @@ class LLMReasoningSolver:
             if match:
                 try:
                     result = json.loads(match.group(0))
-                    clone = self._annotate_graph(graph, result, float(result.get("confidence", 0.7)), result.get("state_change", ""))
-                    return SolverContribution(self.name, clone, result, float(result.get("confidence", 0.7)), result.get("state_change", ""), (time.monotonic() - t0) * 1000)
+                    clone = self._annotate_graph(
+                        graph,
+                        result,
+                        float(result.get("confidence", 0.7)),
+                        result.get("state_change", ""),
+                    )
+                    return SolverContribution(
+                        self.name,
+                        clone,
+                        result,
+                        float(result.get("confidence", 0.7)),
+                        result.get("state_change", ""),
+                        (time.monotonic() - t0) * 1000,
+                    )
                 except json.JSONDecodeError:
                     logger.debug("solve: suppressed exception", exc_info=True)
             clone = self._annotate_graph(graph, {"answer": response[:500]}, 0.5, "Raw LLM response")
-            return SolverContribution(self.name, clone, {"answer": response[:500]}, 0.5, "Raw LLM response", (time.monotonic() - t0) * 1000)
+            return SolverContribution(
+                self.name,
+                clone,
+                {"answer": response[:500]},
+                0.5,
+                "Raw LLM response",
+                (time.monotonic() - t0) * 1000,
+            )
         except Exception as exc:
             clone = self._annotate_graph(graph, {"error": str(exc)}, 0.0, f"Error: {exc}")
-            return SolverContribution(self.name, clone, {"error": str(exc)}, 0.0, f"Error: {exc}", (time.monotonic() - t0) * 1000)
+            return SolverContribution(
+                self.name,
+                clone,
+                {"error": str(exc)},
+                0.0,
+                f"Error: {exc}",
+                (time.monotonic() - t0) * 1000,
+            )
 
-    def _annotate_graph(self, graph: dict[str, Any], prediction: dict[str, Any], confidence: float, reasoning: str) -> dict[str, Any]:
+    def _annotate_graph(
+        self,
+        graph: dict[str, Any],
+        prediction: dict[str, Any],
+        confidence: float,
+        reasoning: str,
+    ) -> dict[str, Any]:
         clone = copy.deepcopy(graph)
         clone.setdefault("metadata", {})
         clone["metadata"].setdefault("solver_predictions", {})
@@ -526,10 +607,28 @@ class KnowledgeBasedSolver:
             "sources": sources,
             "context_length": len(knowledge.get("context", "")),
         }
-        clone = self._annotate_graph(graph, predicted_state, confidence, f"Grounded in {len(sources)} knowledge packs")
-        return SolverContribution(self.name, clone, predicted_state, confidence, f"Grounded in {len(sources)} knowledge packs", (time.monotonic() - t0) * 1000)
+        clone = self._annotate_graph(
+            graph,
+            predicted_state,
+            confidence,
+            f"Grounded in {len(sources)} knowledge packs",
+        )
+        return SolverContribution(
+            self.name,
+            clone,
+            predicted_state,
+            confidence,
+            f"Grounded in {len(sources)} knowledge packs",
+            (time.monotonic() - t0) * 1000,
+        )
 
-    def _annotate_graph(self, graph: dict[str, Any], prediction: dict[str, Any], confidence: float, reasoning: str) -> dict[str, Any]:
+    def _annotate_graph(
+        self,
+        graph: dict[str, Any],
+        prediction: dict[str, Any],
+        confidence: float,
+        reasoning: str,
+    ) -> dict[str, Any]:
         clone = copy.deepcopy(graph)
         clone.setdefault("metadata", {})
         clone["metadata"].setdefault("solver_predictions", {})
@@ -551,19 +650,46 @@ class RuleBasedSolver:
             "task.list": {"answer": "Tasks will be listed", "confidence": 0.95},
             "blog.write": {"answer": "Blog post will be written", "confidence": 0.85},
             "blog.edit": {"answer": "Blog post will be edited", "confidence": 0.85},
-            "calendar.schedule": {"answer": "Event will be scheduled", "confidence": 0.8},
+            "calendar.schedule": {
+                "answer": "Event will be scheduled",
+                "confidence": 0.8,
+            },
             "email.send": {"answer": "Email will be sent", "confidence": 0.85},
-            "knowledge.search": {"answer": "Knowledge will be searched", "confidence": 0.9},
+            "knowledge.search": {
+                "answer": "Knowledge will be searched",
+                "confidence": 0.9,
+            },
         }
 
     async def solve(self, graph: dict[str, Any]) -> SolverContribution:
         t0 = time.monotonic()
         capability = graph.get("metadata", {}).get("capability", "unknown")
-        rule = self._rules.get(capability, {"answer": f"Action will be performed for {capability}", "confidence": 0.5})
-        clone = self._annotate_graph(graph, rule, float(rule["confidence"]), f"Rule-based prediction for {capability}")
-        return SolverContribution(self.name, clone, rule, float(rule["confidence"]), f"Rule-based prediction for {capability}", (time.monotonic() - t0) * 1000)
+        rule = self._rules.get(
+            capability,
+            {"answer": f"Action will be performed for {capability}", "confidence": 0.5},
+        )
+        clone = self._annotate_graph(
+            graph,
+            rule,
+            float(rule["confidence"]),
+            f"Rule-based prediction for {capability}",
+        )
+        return SolverContribution(
+            self.name,
+            clone,
+            rule,
+            float(rule["confidence"]),
+            f"Rule-based prediction for {capability}",
+            (time.monotonic() - t0) * 1000,
+        )
 
-    def _annotate_graph(self, graph: dict[str, Any], prediction: dict[str, Any], confidence: float, reasoning: str) -> dict[str, Any]:
+    def _annotate_graph(
+        self,
+        graph: dict[str, Any],
+        prediction: dict[str, Any],
+        confidence: float,
+        reasoning: str,
+    ) -> dict[str, Any]:
         clone = copy.deepcopy(graph)
         clone.setdefault("metadata", {})
         clone["metadata"].setdefault("solver_predictions", {})
@@ -580,6 +706,7 @@ class _GraphSolverAdapter:
         self.name = "graph_solver"
         try:
             from src.monkey_brain.kernel.predict.graph_solver.graph import GraphSolver
+
             self._solver = GraphSolver()
         except Exception as exc:
             logger.warning("[simulation] GraphSolver unavailable: %s", exc)
@@ -589,15 +716,35 @@ class _GraphSolverAdapter:
         t0 = time.monotonic()
         if self._solver is None:
             clone = self._annotate_graph(graph, {}, 0.0, "Not available")
-            return SolverContribution(self.name, clone, {}, 0.0, "Not available", (time.monotonic() - t0) * 1000)
+            return SolverContribution(
+                self.name,
+                clone,
+                {},
+                0.0,
+                "Not available",
+                (time.monotonic() - t0) * 1000,
+            )
         result = await self._solver.solve(graph)
         prediction = result.solution if hasattr(result, "solution") else {}
         confidence = result.confidence if hasattr(result, "confidence") else 0.5
         reasoning = result.proof if hasattr(result, "proof") else ""
         clone = self._annotate_graph(graph, prediction, confidence, reasoning)
-        return SolverContribution(self.name, clone, prediction, confidence, reasoning, (time.monotonic() - t0) * 1000)
+        return SolverContribution(
+            self.name,
+            clone,
+            prediction,
+            confidence,
+            reasoning,
+            (time.monotonic() - t0) * 1000,
+        )
 
-    def _annotate_graph(self, graph: dict[str, Any], prediction: dict[str, Any], confidence: float, reasoning: str) -> dict[str, Any]:
+    def _annotate_graph(
+        self,
+        graph: dict[str, Any],
+        prediction: dict[str, Any],
+        confidence: float,
+        reasoning: str,
+    ) -> dict[str, Any]:
         clone = copy.deepcopy(graph)
         clone.setdefault("metadata", {})
         clone["metadata"].setdefault("solver_predictions", {})
@@ -621,6 +768,7 @@ class _SATSolverAdapter(_GraphSolverAdapter):
         self.name = "sat_solver"
         try:
             from src.monkey_brain.kernel.predict.constraint.sat import SATSolver
+
             self._solver = SATSolver()
         except Exception as exc:
             logger.warning("[simulation] SATSolver unavailable: %s", exc)
@@ -631,7 +779,10 @@ class _ConstraintSolverAdapter(_GraphSolverAdapter):
     def __init__(self):
         self.name = "constraint_solver"
         try:
-            from src.monkey_brain.kernel.predict.constraint.constraint import ConstraintSolver
+            from src.monkey_brain.kernel.predict.constraint.constraint import (
+                ConstraintSolver,
+            )
+
             self._solver = ConstraintSolver()
         except Exception as exc:
             logger.warning("[simulation] ConstraintSolver unavailable: %s", exc)
@@ -642,7 +793,10 @@ class _RuleEngineSolverAdapter(_GraphSolverAdapter):
     def __init__(self):
         self.name = "rule_engine"
         try:
-            from src.monkey_brain.kernel.predict.constraint.rules import RuleEngineSolver
+            from src.monkey_brain.kernel.predict.constraint.rules import (
+                RuleEngineSolver,
+            )
+
             self._solver = RuleEngineSolver()
         except Exception as exc:
             logger.warning("[simulation] RuleEngineSolver unavailable: %s", exc)
@@ -653,7 +807,10 @@ class _ModelCheckerSolverAdapter(_GraphSolverAdapter):
     def __init__(self):
         self.name = "model_checker"
         try:
-            from src.monkey_brain.kernel.predict.model_checker.model_checker import ModelCheckerSolver
+            from src.monkey_brain.kernel.predict.model_checker.model_checker import (
+                ModelCheckerSolver,
+            )
+
             self._solver = ModelCheckerSolver()
         except Exception as exc:
             logger.warning("[simulation] ModelCheckerSolver unavailable: %s", exc)
@@ -664,7 +821,10 @@ class _OptimizerSolverAdapter(_GraphSolverAdapter):
     def __init__(self):
         self.name = "optimizer"
         try:
-            from src.monkey_brain.kernel.predict.optimizer.optimizer import OptimizerSolver
+            from src.monkey_brain.kernel.predict.optimizer.optimizer import (
+                OptimizerSolver,
+            )
+
             self._solver = OptimizerSolver()
         except Exception as exc:
             logger.warning("[simulation] OptimizerSolver unavailable: %s", exc)
@@ -675,7 +835,10 @@ class _MonteCarloSolverAdapter(_GraphSolverAdapter):
     def __init__(self):
         self.name = "monte_carlo"
         try:
-            from src.monkey_brain.kernel.predict.mcts.monte_carlo import MonteCarloSolver
+            from src.monkey_brain.kernel.predict.mcts.monte_carlo import (
+                MonteCarloSolver,
+            )
+
             self._solver = MonteCarloSolver()
         except Exception as exc:
             logger.warning("[simulation] MonteCarloSolver unavailable: %s", exc)
@@ -687,6 +850,7 @@ class _JEPAWorldModelAdapter(_GraphSolverAdapter):
         self.name = "jepa_world_model"
         try:
             from src.monkey_brain.kernel.predict.jepa.jepa import JEPAWorldModel
+
             self._solver = JEPAWorldModel()
         except Exception as exc:
             logger.warning("[simulation] JEPAWorldModel unavailable: %s", exc)

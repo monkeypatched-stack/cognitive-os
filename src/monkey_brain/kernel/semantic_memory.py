@@ -14,6 +14,7 @@ Architecture:
      ├─ knowledge items (multimodal)          ├─ experience replay buffer
      └─ similarity search                    └─ learning history
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -47,6 +48,7 @@ class EmbeddingStore:
 
         try:
             import httpx
+
             resp = httpx.get(f"{es_url}/_cluster/health", timeout=3)
             if resp.status_code == 200:
                 self._client = es_url
@@ -58,6 +60,7 @@ class EmbeddingStore:
 
         try:
             import httpx as _httpx
+
             resp = _httpx.get(f"{es_url}/{self.INDEX}", timeout=3)
             if resp.status_code == 404:
                 self._create_index(es_url)
@@ -67,6 +70,7 @@ class EmbeddingStore:
         # Check Ollama for embeddings
         try:
             import httpx as _httpx
+
             resp = _httpx.get("http://localhost:11434/api/tags", timeout=2)
             if resp.status_code == 200:
                 self._embedder = "ollama"
@@ -90,6 +94,7 @@ class EmbeddingStore:
         the mapping expecting real kNN indexing.
         """
         import httpx as _httpx
+
         mapping = {
             "mappings": {
                 "properties": {
@@ -127,6 +132,7 @@ class EmbeddingStore:
         if self._embedder == "ollama":
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=30) as client:
                     resp = await client.post(
                         "http://localhost:11434/api/embeddings",
@@ -161,6 +167,7 @@ class EmbeddingStore:
 
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=10) as client:
                 await client.put(
                     f"{self._client}/{self.INDEX}/_doc/{item_id}",
@@ -198,6 +205,7 @@ class EmbeddingStore:
 
         try:
             import httpx
+
             similarity_query = {
                 "size": limit,
                 "query": {
@@ -220,7 +228,8 @@ class EmbeddingStore:
                 if resp.status_code != 200:
                     logger.debug(
                         "[embedding_store] similarity search returned %d: %s",
-                        resp.status_code, resp.text[:300],
+                        resp.status_code,
+                        resp.text[:300],
                     )
                     return await self._fallback_search(query, limit)
                 data = resp.json()
@@ -236,6 +245,7 @@ class EmbeddingStore:
         docstring."""
         try:
             import httpx
+
             match_query = {
                 "size": limit,
                 "query": {"match": {"text": query}},
@@ -277,6 +287,7 @@ class ExperienceReplayBuffer:
 
     def sample(self, batch_size: int = 32) -> list[dict]:
         import random
+
         return random.sample(self._buffer, min(batch_size, len(self._buffer)))
 
     def __len__(self) -> int:
@@ -324,7 +335,10 @@ class SemanticMemory:
     async def initialize(self) -> None:
         """Initialize semantic memory: load charts, set up ES, restore from DB."""
         try:
-            from src.monkey_brain.kernel.plan.intents.intent_registry import get_somatic_compiler
+            from src.monkey_brain.kernel.plan.intents.intent_registry import (
+                get_somatic_compiler,
+            )
+
             self._compiler = get_somatic_compiler()
         except Exception:
             logger.debug("initialize: suppressed exception", exc_info=True)
@@ -335,8 +349,11 @@ class SemanticMemory:
             await self._index_charts()
 
         self._initialized = True
-        logger.info("[semantic_memory] Initialized (compiler=%s, es=%s)",
-                     self._compiler is not None, self._embeddings.available)
+        logger.info(
+            "[semantic_memory] Initialized (compiler=%s, es=%s)",
+            self._compiler is not None,
+            self._embeddings.available,
+        )
 
     async def _index_charts(self) -> None:
         """Index somatic chart knowledge as embeddings.
@@ -360,7 +377,11 @@ class SemanticMemory:
                 await self._embeddings.add(f"chart:{chart.name}", text, {"type": "chart", "name": chart.name})
             for inv in chart.values.get("invariants", []):
                 inv_text = f"Invariant: {inv.get('rule', '')} - {inv.get('statement', '')}"
-                await self._embeddings.add(f"invariant:{chart.name}:{inv.get('rule', '')}", inv_text, {"type": "invariant"})
+                await self._embeddings.add(
+                    f"invariant:{chart.name}:{inv.get('rule', '')}",
+                    inv_text,
+                    {"type": "invariant"},
+                )
 
     def _chart_to_text(self, chart: Any) -> str:
         parts = [f"Chart: {chart.name}"]
@@ -409,10 +430,15 @@ class SemanticMemory:
 
     def record_experience(self, state: str, action: str, reward: float, next_state: str) -> None:
         """Record experience for replay buffer."""
-        self._experience_buffer.add({
-            "state": state, "action": action, "reward": reward,
-            "next_state": next_state, "timestamp": time.time(),
-        })
+        self._experience_buffer.add(
+            {
+                "state": state,
+                "action": action,
+                "reward": reward,
+                "next_state": next_state,
+                "timestamp": time.time(),
+            }
+        )
 
     def sample_experiences(self, batch_size: int = 32) -> list[dict]:
         return self._experience_buffer.sample(batch_size)

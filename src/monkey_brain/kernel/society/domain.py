@@ -124,7 +124,7 @@ def to_dict(obj: Any) -> Any:
     if isinstance(obj, Enum):
         return obj.value
     if isinstance(obj, (list, tuple)):
-        return [to_dict(i) if hasattr(i, "to_dict") else (i.value if isinstance(i, Enum) else i) for i in obj]
+        return [(to_dict(i) if hasattr(i, "to_dict") else (i.value if isinstance(i, Enum) else i)) for i in obj]
     if isinstance(obj, dict):
         return {k: to_dict(v) for k, v in obj.items()}
     return obj
@@ -167,7 +167,7 @@ class ActorIdentity:
         return cls(
             actor_id=d.get("actor_id", uuid4().hex),
             name=d.get("name", ""),
-            actor_type=ActorType(d["actor_type"]) if "actor_type" in d else ActorType.HUMAN,
+            actor_type=(ActorType(d["actor_type"]) if "actor_type" in d else ActorType.HUMAN),
             description=d.get("description", ""),
         )
 
@@ -193,7 +193,7 @@ class ActorCapability:
     def from_dict(cls, d: dict[str, Any]) -> ActorCapability:
         return cls(
             name=d.get("name", ""),
-            level=CapabilityLevel(d["level"]) if "level" in d else CapabilityLevel.COMPETENT,
+            level=(CapabilityLevel(d["level"]) if "level" in d else CapabilityLevel.COMPETENT),
             description=d.get("description", ""),
             metadata=dict(d.get("metadata", {})),
         )
@@ -230,7 +230,7 @@ class ActorProfile:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> ActorProfile:
         return cls(
-            identity=ActorIdentity.from_dict(d["identity"]) if "identity" in d else ActorIdentity(),
+            identity=(ActorIdentity.from_dict(d["identity"]) if "identity" in d else ActorIdentity()),
             capabilities=tuple(ActorCapability.from_dict(c) for c in d.get("capabilities", [])),
             goals=tuple(d.get("goals", [])),
             policies=tuple(d.get("policies", [])),
@@ -343,9 +343,9 @@ class ActorRelationship:
         return cls(
             source_actor_id=d.get("source_actor_id", ""),
             target_actor_id=d.get("target_actor_id", ""),
-            relationship_type=RelationshipType(d["relationship_type"])
-            if "relationship_type" in d
-            else RelationshipType.PEER,
+            relationship_type=(
+                RelationshipType(d["relationship_type"]) if "relationship_type" in d else RelationshipType.PEER
+            ),
             strength=d.get("strength", 1.0),
             metadata=dict(d.get("metadata", {})),
         )

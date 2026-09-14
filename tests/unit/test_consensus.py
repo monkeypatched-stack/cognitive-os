@@ -1,20 +1,21 @@
 """Unit tests for the consensus gate — three correctness properties:
 
-  1. Low real_trace_fraction tiebreak labeling
-     When gate fails and the Q-table winner has real_trace_fraction < 0.5,
-     tiebreak_authority must be "synthetic_aggregate" and pipeline metadata
-     must contain the "synthetic-aggregate" label — NOT "real_data_privilege".
+1. Low real_trace_fraction tiebreak labeling
+   When gate fails and the Q-table winner has real_trace_fraction < 0.5,
+   tiebreak_authority must be "synthetic_aggregate" and pipeline metadata
+   must contain the "synthetic-aggregate" label — NOT "real_data_privilege".
 
-  2. Correlated-pair agreement rejection
-     When CorrelationTracker EMA for a pair exceeds 0.8, a 2/3 agreement
-     that involves only that correlated pair must be downgraded from
-     "partial" to "none" and downgrade_reason must be non-empty.
+2. Correlated-pair agreement rejection
+   When CorrelationTracker EMA for a pair exceeds 0.8, a 2/3 agreement
+   that involves only that correlated pair must be downgraded from
+   "partial" to "none" and downgrade_reason must be non-empty.
 
-  3. Escalation after threshold divergences
-     After DIVERGENCE_THRESHOLD gate failures for the same candidate key
-     within DIVERGENCE_WINDOW evaluations, escalation_triggered must be True
-     and divergence_count must equal the failure count.
+3. Escalation after threshold divergences
+   After DIVERGENCE_THRESHOLD gate failures for the same candidate key
+   within DIVERGENCE_WINDOW evaluations, escalation_triggered must be True
+   and divergence_count must equal the failure count.
 """
+
 from __future__ import annotations
 
 import sys
@@ -44,10 +45,10 @@ from src.monkey_brain.kernel.fix.policy.consensus import (
     _STRUCTURAL_CORRELATION_THRESHOLD,
 )
 
-
 # ── Minimal stubs ─────────────────────────────────────────────────────────────
 # These mirror the real dataclasses but carry no framework imports,
 # keeping the unit tests hermetic and fast.
+
 
 @dataclass
 class _FakeWorkload:
@@ -65,25 +66,25 @@ class _FakeCandidate:
 
 @dataclass
 class _FakeRanked:
-    workload:           _FakeWorkload
-    candidate:           _FakeCandidate
-    q_value:             float = 0.0
-    mc_value:            float = 0.0
-    mc_std:              float = 0.0
-    mc_ucb:              float = 0.0
-    llm_confidence:      float = 0.5
-    combined_score:      float = 0.0
-    rollouts_run:        int   = 0
+    workload: _FakeWorkload
+    candidate: _FakeCandidate
+    q_value: float = 0.0
+    mc_value: float = 0.0
+    mc_std: float = 0.0
+    mc_ucb: float = 0.0
+    llm_confidence: float = 0.5
+    combined_score: float = 0.0
+    rollouts_run: int = 0
     real_trace_fraction: float = 0.0
 
 
 def _make_ranked(
-    candidate_id:        str   = "cand-a",
-    name:                str   = "pipeline_a",
-    q_value:             float = 0.0,
-    mc_value:            float = 0.0,
-    llm_confidence:      float = 0.5,
-    combined_score:      float = 0.0,
+    candidate_id: str = "cand-a",
+    name: str = "pipeline_a",
+    q_value: float = 0.0,
+    mc_value: float = 0.0,
+    llm_confidence: float = 0.5,
+    combined_score: float = 0.0,
     real_trace_fraction: float = 0.0,
 ) -> _FakeRanked:
     return _FakeRanked(
@@ -99,6 +100,7 @@ def _make_ranked(
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _gate() -> ConsensusGate:
     return ConsensusGate()
 
@@ -110,7 +112,7 @@ def _gate_with_correlated_pair(pair: str = "q_mc") -> ConsensusGate:
     required = 20
     for _ in range(required):
         gate._correlation.update(
-            rho_q_mc=0.95  if pair == "q_mc"  else 0.0,
+            rho_q_mc=0.95 if pair == "q_mc" else 0.0,
             rho_q_llm=0.95 if pair == "q_llm" else 0.0,
             rho_mc_llm=0.95 if pair == "mc_llm" else 0.0,
         )
@@ -122,6 +124,7 @@ def _gate_with_correlated_pair(pair: str = "q_mc") -> ConsensusGate:
 
 
 # ── Spearman rho sanity tests ─────────────────────────────────────────────────
+
 
 class TestSpearmanRho:
     def test_identical_ranks_returns_one(self):
@@ -140,6 +143,7 @@ class TestSpearmanRho:
 
 # ── Test 1: Low real_trace_fraction tiebreak labeling ─────────────────────────
 
+
 class TestRealTraceFractionLabeling:
     """When gate fails and the Q-table winner has real_trace_fraction < threshold,
     tiebreak_authority must be "synthetic_aggregate", not "real_data_privilege"."""
@@ -153,19 +157,37 @@ class TestRealTraceFractionLabeling:
         # mc ranks: B=1 C=2 A=3  → top_by_mc = B
         # llm ranks: C=1 A=2 B=3 → top_by_llm = C
         return [
-            _make_ranked("cand-a", "pipeline_a", q_value=0.9, mc_value=0.1,
-                          llm_confidence=0.4, combined_score=0.5,
-                          real_trace_fraction=rtf_q_winner),
-            _make_ranked("cand-b", "pipeline_b", q_value=0.5, mc_value=0.9,
-                          llm_confidence=0.2, combined_score=0.5),
-            _make_ranked("cand-c", "pipeline_c", q_value=0.1, mc_value=0.5,
-                          llm_confidence=0.9, combined_score=0.5),
+            _make_ranked(
+                "cand-a",
+                "pipeline_a",
+                q_value=0.9,
+                mc_value=0.1,
+                llm_confidence=0.4,
+                combined_score=0.5,
+                real_trace_fraction=rtf_q_winner,
+            ),
+            _make_ranked(
+                "cand-b",
+                "pipeline_b",
+                q_value=0.5,
+                mc_value=0.9,
+                llm_confidence=0.2,
+                combined_score=0.5,
+            ),
+            _make_ranked(
+                "cand-c",
+                "pipeline_c",
+                q_value=0.1,
+                mc_value=0.5,
+                llm_confidence=0.9,
+                combined_score=0.5,
+            ),
         ]
 
     def test_low_rtf_produces_synthetic_aggregate_label(self):
-        gate    = _gate()
+        gate = _gate()
         ranking = self._make_no_agreement_ranking(rtf_q_winner=0.1)
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert result.agreement_level == "none"
         assert result.tiebreaker_used == "q_table"
@@ -177,37 +199,38 @@ class TestRealTraceFractionLabeling:
         assert meta.get("real_trace_fraction") < _REAL_TRACE_THRESHOLD
 
     def test_high_rtf_produces_real_data_privilege_label(self):
-        gate    = _gate()
+        gate = _gate()
         ranking = self._make_no_agreement_ranking(rtf_q_winner=0.9)
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert result.tiebreak_authority == "real_data_privilege"
         meta = result.recommended.workload.metadata.get("consensus", {})
         assert meta.get("tiebreak_authority") == "real_data_privilege"
 
     def test_zero_rtf_is_never_labelled_as_real_data(self):
-        gate    = _gate()
+        gate = _gate()
         ranking = self._make_no_agreement_ranking(rtf_q_winner=0.0)
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert result.tiebreak_authority != "real_data_privilege"
 
     def test_exactly_at_threshold_uses_real_data_privilege(self):
-        gate    = _gate()
+        gate = _gate()
         ranking = self._make_no_agreement_ranking(rtf_q_winner=_REAL_TRACE_THRESHOLD)
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert result.tiebreak_authority == "real_data_privilege"
 
     def test_just_below_threshold_uses_synthetic_aggregate(self):
-        gate    = _gate()
+        gate = _gate()
         ranking = self._make_no_agreement_ranking(rtf_q_winner=_REAL_TRACE_THRESHOLD - 0.01)
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert result.tiebreak_authority == "synthetic_aggregate"
 
 
 # ── Test 2: Correlated-pair agreement rejection ────────────────────────────────
+
 
 class TestCorrelatedPairDowngrade:
     """A 2/3 agreement between a structurally-correlated pair must be downgraded
@@ -216,58 +239,77 @@ class TestCorrelatedPairDowngrade:
     def _make_q_mc_agree_ranking(self) -> list[_FakeRanked]:
         """Q and MC agree on A; LLM prefers B."""
         return [
-            _make_ranked("cand-a", "pipeline_a",
-                          q_value=0.9, mc_value=0.9, llm_confidence=0.2,
-                          combined_score=0.6),
-            _make_ranked("cand-b", "pipeline_b",
-                          q_value=0.3, mc_value=0.3, llm_confidence=0.9,
-                          combined_score=0.4),
+            _make_ranked(
+                "cand-a",
+                "pipeline_a",
+                q_value=0.9,
+                mc_value=0.9,
+                llm_confidence=0.2,
+                combined_score=0.6,
+            ),
+            _make_ranked(
+                "cand-b",
+                "pipeline_b",
+                q_value=0.3,
+                mc_value=0.3,
+                llm_confidence=0.9,
+                combined_score=0.4,
+            ),
         ]
 
     def test_uncorrelated_pair_produces_partial(self):
-        gate    = _gate()          # fresh gate: no structural correlation yet
+        gate = _gate()  # fresh gate: no structural correlation yet
         ranking = self._make_q_mc_agree_ranking()
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert result.agreement_level == "partial"
         assert result.downgrade_reason == ""
 
     def test_correlated_q_mc_pair_downgraded_to_none(self):
-        gate    = _gate_with_correlated_pair("q_mc")
+        gate = _gate_with_correlated_pair("q_mc")
         ranking = self._make_q_mc_agree_ranking()
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert result.agreement_level == "none", (
-            "Expected 'none' after correlated-pair downgrade, "
-            f"got {result.agreement_level!r}"
+            f"Expected 'none' after correlated-pair downgrade, got {result.agreement_level!r}"
         )
         assert result.downgrade_reason != "", "downgrade_reason must be non-empty"
 
     def test_downgrade_reason_names_the_correlated_pair(self):
-        gate    = _gate_with_correlated_pair("q_mc")
+        gate = _gate_with_correlated_pair("q_mc")
         ranking = self._make_q_mc_agree_ranking()
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert "q" in result.downgrade_reason or "mc" in result.downgrade_reason
 
     def test_correlated_pair_is_flagged_in_structurally_correlated_pairs(self):
-        gate    = _gate_with_correlated_pair("q_mc")
+        gate = _gate_with_correlated_pair("q_mc")
         ranking = self._make_q_mc_agree_ranking()
-        result  = gate.evaluate(ranking)
+        result = gate.evaluate(ranking)
 
         assert "q_mc" in result.structurally_correlated_pairs
 
     def test_three_way_agreement_not_downgraded_by_correlation(self):
         """3/3 agreement can't be faked by a single correlated pair."""
-        gate    = _gate_with_correlated_pair("q_mc")
+        gate = _gate_with_correlated_pair("q_mc")
         # All three signals agree on A
         ranking = [
-            _make_ranked("cand-a", "pipeline_a",
-                          q_value=0.9, mc_value=0.9, llm_confidence=0.9,
-                          combined_score=0.9),
-            _make_ranked("cand-b", "pipeline_b",
-                          q_value=0.1, mc_value=0.1, llm_confidence=0.1,
-                          combined_score=0.1),
+            _make_ranked(
+                "cand-a",
+                "pipeline_a",
+                q_value=0.9,
+                mc_value=0.9,
+                llm_confidence=0.9,
+                combined_score=0.9,
+            ),
+            _make_ranked(
+                "cand-b",
+                "pipeline_b",
+                q_value=0.1,
+                mc_value=0.1,
+                llm_confidence=0.1,
+                combined_score=0.1,
+            ),
         ]
         result = gate.evaluate(ranking)
 
@@ -276,15 +318,25 @@ class TestCorrelatedPairDowngrade:
 
     def test_non_correlated_pair_agreement_not_downgraded(self):
         """If q_mc is correlated but mc_llm is not, mc&llm agreement should pass as partial."""
-        gate    = _gate_with_correlated_pair("q_mc")  # only q_mc is correlated
+        gate = _gate_with_correlated_pair("q_mc")  # only q_mc is correlated
         # mc and llm agree on A; Q prefers B
         ranking = [
-            _make_ranked("cand-a", "pipeline_a",
-                          q_value=0.1, mc_value=0.9, llm_confidence=0.9,
-                          combined_score=0.5),
-            _make_ranked("cand-b", "pipeline_b",
-                          q_value=0.9, mc_value=0.1, llm_confidence=0.1,
-                          combined_score=0.4),
+            _make_ranked(
+                "cand-a",
+                "pipeline_a",
+                q_value=0.1,
+                mc_value=0.9,
+                llm_confidence=0.9,
+                combined_score=0.5,
+            ),
+            _make_ranked(
+                "cand-b",
+                "pipeline_b",
+                q_value=0.9,
+                mc_value=0.1,
+                llm_confidence=0.1,
+                combined_score=0.4,
+            ),
         ]
         result = gate.evaluate(ranking)
 
@@ -293,6 +345,7 @@ class TestCorrelatedPairDowngrade:
 
 # ── Test 3: Escalation after threshold divergences ────────────────────────────
 
+
 class TestEscalation:
     """After DIVERGENCE_THRESHOLD gate failures for the same candidate key,
     escalation_triggered must be True."""
@@ -300,15 +353,30 @@ class TestEscalation:
     def _make_no_agreement_ranking(self, candidate_name: str = "sticky_pipeline") -> list[_FakeRanked]:
         """Three candidates in maximal disagreement (each signal picks a different one)."""
         return [
-            _make_ranked("cand-a", candidate_name,
-                          q_value=0.9, mc_value=0.1, llm_confidence=0.4,
-                          combined_score=0.5),
-            _make_ranked("cand-b", "other_b",
-                          q_value=0.5, mc_value=0.9, llm_confidence=0.2,
-                          combined_score=0.5),
-            _make_ranked("cand-c", "other_c",
-                          q_value=0.1, mc_value=0.5, llm_confidence=0.9,
-                          combined_score=0.5),
+            _make_ranked(
+                "cand-a",
+                candidate_name,
+                q_value=0.9,
+                mc_value=0.1,
+                llm_confidence=0.4,
+                combined_score=0.5,
+            ),
+            _make_ranked(
+                "cand-b",
+                "other_b",
+                q_value=0.5,
+                mc_value=0.9,
+                llm_confidence=0.2,
+                combined_score=0.5,
+            ),
+            _make_ranked(
+                "cand-c",
+                "other_c",
+                q_value=0.1,
+                mc_value=0.5,
+                llm_confidence=0.9,
+                combined_score=0.5,
+            ),
         ]
 
     def test_no_escalation_before_threshold(self):
@@ -325,8 +393,7 @@ class TestEscalation:
             result = gate.evaluate(self._make_no_agreement_ranking())
 
         assert result.escalation_triggered is True, (
-            f"Expected escalation after {_DIVERGENCE_THRESHOLD} failures, "
-            f"divergence_count={result.divergence_count}"
+            f"Expected escalation after {_DIVERGENCE_THRESHOLD} failures, divergence_count={result.divergence_count}"
         )
 
     def test_escalation_count_matches_failures(self):
@@ -345,9 +412,14 @@ class TestEscalation:
 
         # Strong agreement resets the window
         strong_ranking = [
-            _make_ranked("cand-a", "sticky_pipeline",
-                          q_value=0.9, mc_value=0.9, llm_confidence=0.9,
-                          combined_score=0.9),
+            _make_ranked(
+                "cand-a",
+                "sticky_pipeline",
+                q_value=0.9,
+                mc_value=0.9,
+                llm_confidence=0.9,
+                combined_score=0.9,
+            ),
         ]
         gate.evaluate(strong_ranking)
 
@@ -362,9 +434,18 @@ class TestEscalation:
             gate.evaluate(self._make_no_agreement_ranking())
 
         # Flush with a strong agreement
-        gate.evaluate([_make_ranked("cand-a", "sticky_pipeline",
-                                    q_value=0.9, mc_value=0.9, llm_confidence=0.9,
-                                    combined_score=0.9)])
+        gate.evaluate(
+            [
+                _make_ranked(
+                    "cand-a",
+                    "sticky_pipeline",
+                    q_value=0.9,
+                    mc_value=0.9,
+                    llm_confidence=0.9,
+                    combined_score=0.9,
+                )
+            ]
+        )
 
         # Should no longer escalate on the next failure
         result = gate.evaluate(self._make_no_agreement_ranking())
@@ -397,9 +478,18 @@ class TestEscalation:
 
         # Flood the window with strong-agreement results to push old failures out
         for _ in range(_DIVERGENCE_WINDOW):
-            gate.evaluate([_make_ranked("cand-a", "sticky_pipeline",
-                                        q_value=0.9, mc_value=0.9, llm_confidence=0.9,
-                                        combined_score=0.9)])
+            gate.evaluate(
+                [
+                    _make_ranked(
+                        "cand-a",
+                        "sticky_pipeline",
+                        q_value=0.9,
+                        mc_value=0.9,
+                        llm_confidence=0.9,
+                        combined_score=0.9,
+                    )
+                ]
+            )
 
         assert not gate._divergence.should_escalate("sticky_pipeline")
 
@@ -408,15 +498,30 @@ class TestEscalation:
 
         def _ranking_for(name: str) -> list[_FakeRanked]:
             return [
-                _make_ranked("cand-a", name,
-                              q_value=0.9, mc_value=0.1, llm_confidence=0.4,
-                              combined_score=0.5),
-                _make_ranked("cand-b", "other",
-                              q_value=0.1, mc_value=0.9, llm_confidence=0.9,
-                              combined_score=0.4),
-                _make_ranked("cand-c", "another",
-                              q_value=0.5, mc_value=0.5, llm_confidence=0.1,
-                              combined_score=0.3),
+                _make_ranked(
+                    "cand-a",
+                    name,
+                    q_value=0.9,
+                    mc_value=0.1,
+                    llm_confidence=0.4,
+                    combined_score=0.5,
+                ),
+                _make_ranked(
+                    "cand-b",
+                    "other",
+                    q_value=0.1,
+                    mc_value=0.9,
+                    llm_confidence=0.9,
+                    combined_score=0.4,
+                ),
+                _make_ranked(
+                    "cand-c",
+                    "another",
+                    q_value=0.5,
+                    mc_value=0.5,
+                    llm_confidence=0.1,
+                    combined_score=0.3,
+                ),
             ]
 
         # Drive pipeline_x to threshold
@@ -429,6 +534,7 @@ class TestEscalation:
 
 
 # ── ProvenanceTracker unit tests ───────────────────────────────────────────────
+
 
 class TestProvenanceTracker:
     def test_zero_fraction_for_unseen_key(self):
@@ -450,13 +556,14 @@ class TestProvenanceTracker:
         p = ProvenanceTracker()
         for _ in range(5):
             p.record_real("s1", "a1")  # fraction = 1.0
-        p.record_real("s2", "a2")     # fraction = 1.0
+        p.record_real("s2", "a2")  # fraction = 1.0
         s = p.summary()
         assert s["tracked_state_actions"] == 2
         assert s["grounded_above_threshold"] == 2
 
 
 # ── CorrelationTracker unit tests ─────────────────────────────────────────────
+
 
 class TestCorrelationTracker:
     def test_no_flags_before_min_observations(self):
@@ -492,6 +599,7 @@ class TestCorrelationTracker:
 
 
 # ── DivergenceTracker unit tests ──────────────────────────────────────────────
+
 
 class TestDivergenceTracker:
     def test_no_escalation_at_zero(self):

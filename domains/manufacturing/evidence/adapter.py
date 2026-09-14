@@ -24,10 +24,14 @@ class DomainEvidence:
             question = context.get("question", "")
             reward = outcome.reward
             agent_type = getattr(outcome, "agent_type", "")
-            observations = outcome.result.observations if hasattr(outcome, "result") else []
+            observations = (
+                outcome.result.observations if hasattr(outcome, "result") else []
+            )
             artifact_list = [
                 {"kind": a.kind, "name": a.name, "uri": a.uri}
-                for a in (outcome.result.artifacts if hasattr(outcome, "result") else [])
+                for a in (
+                    outcome.result.artifacts if hasattr(outcome, "result") else []
+                )
             ]
             answer = " ".join(observations)
         else:
@@ -80,16 +84,16 @@ class DomainEvidence:
     def _extract_entities(self, answer: str) -> dict[str, Any]:
         """Extract manufacturing entities from the answer."""
         entities = {}
-        wo_match = re.findall(r'WO-\w+', answer)
+        wo_match = re.findall(r"WO-\w+", answer)
         if wo_match:
             entities["work_order_ids"] = wo_match
-        batch_match = re.findall(r'BATCH-\w+', answer)
+        batch_match = re.findall(r"BATCH-\w+", answer)
         if batch_match:
             entities["batch_ids"] = batch_match
-        sop_match = re.findall(r'SOP-\w+', answer)
+        sop_match = re.findall(r"SOP-\w+", answer)
         if sop_match:
             entities["sop_ids"] = sop_match
-        cc_match = re.findall(r'CC-\w+', answer)
+        cc_match = re.findall(r"CC-\w+", answer)
         if cc_match:
             entities["change_control_ids"] = cc_match
         return entities

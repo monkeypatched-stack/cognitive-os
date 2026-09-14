@@ -24,6 +24,7 @@ The compiler injects the domain ontology, aggregate invariants,
 value semantics, available agents, and relevant constitutions automatically.
 The prompt author never writes any of that.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
@@ -43,28 +44,28 @@ REASONING_STRATEGIES = {
 
 WORKLOAD_REASONING_DEFAULTS: dict[str, str] = {
     # Engineering
-    "self_healing":         "reflection",
-    "chaos":                "graph_of_thought",
-    "sre":                  "chain_of_thought",
-    "architecture_review":  "debate",
-    "code_generation":      "chain_of_thought",
-    "governance_review":    "debate",
-    "test_generation":      "chain_of_thought",
-    "security_scan":        "chain_of_thought",
-    "performance":          "chain_of_thought",
-    "etass":                "chain_of_thought",
+    "self_healing": "reflection",
+    "chaos": "graph_of_thought",
+    "sre": "chain_of_thought",
+    "architecture_review": "debate",
+    "code_generation": "chain_of_thought",
+    "governance_review": "debate",
+    "test_generation": "chain_of_thought",
+    "security_scan": "chain_of_thought",
+    "performance": "chain_of_thought",
+    "etass": "chain_of_thought",
     # Source control / spec lifecycle
-    "source_control":       "chain_of_thought",
-    "spec_lifecycle":       "chain_of_thought",
-    "spec_sync":            "chain_of_thought",
-    "branch_strategy":      "debate",
-    "release":              "chain_of_thought",
+    "source_control": "chain_of_thought",
+    "spec_lifecycle": "chain_of_thought",
+    "spec_sync": "chain_of_thought",
+    "branch_strategy": "debate",
+    "release": "chain_of_thought",
     # Manufacturing
-    "batch_release":        "debate",
-    "work_order":           "chain_of_thought",
-    "change_control":       "debate",
+    "batch_release": "debate",
+    "work_order": "chain_of_thought",
+    "change_control": "debate",
     # Default
-    "default":              "chain_of_thought",
+    "default": "chain_of_thought",
 }
 
 
@@ -76,13 +77,13 @@ class ETASSSpec:
     a StructuredPromptIR ready for the model backend.
     """
 
-    workload: str                              # e.g. "self_healing", "code_generation"
-    goal: str                                  # the engineering objective
-    domain: str = "software_engineering"       # DDD domain
-    bounded_context: str = ""                  # DDD bounded context
-    aggregate: str = ""                        # DDD aggregate (optional)
-    entity: str = ""                           # DDD entity (optional)
-    value_object: str = ""                     # DDD value object (optional)
+    workload: str  # e.g. "self_healing", "code_generation"
+    goal: str  # the engineering objective
+    domain: str = "software_engineering"  # DDD domain
+    bounded_context: str = ""  # DDD bounded context
+    aggregate: str = ""  # DDD aggregate (optional)
+    entity: str = ""  # DDD entity (optional)
+    value_object: str = ""  # DDD value object (optional)
 
     # Reasoning strategy — defaults to workload-specific if not set
     reasoning: str = ""
@@ -100,13 +101,10 @@ class ETASSSpec:
 
     def __post_init__(self) -> None:
         if not self.reasoning:
-            self.reasoning = WORKLOAD_REASONING_DEFAULTS.get(
-                self.workload, WORKLOAD_REASONING_DEFAULTS["default"]
-            )
+            self.reasoning = WORKLOAD_REASONING_DEFAULTS.get(self.workload, WORKLOAD_REASONING_DEFAULTS["default"])
         if self.reasoning not in REASONING_STRATEGIES:
             raise ValueError(
-                f"Unknown reasoning strategy {self.reasoning!r}. "
-                f"Valid strategies: {sorted(REASONING_STRATEGIES)}"
+                f"Unknown reasoning strategy {self.reasoning!r}. Valid strategies: {sorted(REASONING_STRATEGIES)}"
             )
 
     # ------------------------------------------------------------------
@@ -131,4 +129,5 @@ class ETASSSpec:
 
     def to_dict(self) -> dict:
         from dataclasses import asdict
+
         return asdict(self)

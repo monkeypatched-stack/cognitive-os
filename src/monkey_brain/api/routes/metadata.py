@@ -4,6 +4,7 @@ GET /metadata/predicates  — list unique preconditions across capabilities
 GET /metadata/pipelines   — list available execution pipelines
 GET /metadata/workloads   — list workload capabilities
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,10 +45,12 @@ async def list_predicates(
     for desc in bus.list_capabilities():
         predicates.update(desc.preconditions)
 
-    return JSONResponse({
-        "predicates": sorted(predicates),
-        "total": len(predicates),
-    })
+    return JSONResponse(
+        {
+            "predicates": sorted(predicates),
+            "total": len(predicates),
+        }
+    )
 
 
 @router.get("/metadata/pipelines", tags=["Metadata"])
@@ -64,16 +67,20 @@ async def list_pipelines(
     pipelines = []
     for desc in bus.list_capabilities():
         if desc.effects.enable:
-            pipelines.append({
-                "name": desc.name,
-                "enables": desc.effects.enable,
-                "modality": desc.modality.value,
-            })
+            pipelines.append(
+                {
+                    "name": desc.name,
+                    "enables": desc.effects.enable,
+                    "modality": desc.modality.value,
+                }
+            )
 
-    return JSONResponse({
-        "pipelines": pipelines,
-        "total": len(pipelines),
-    })
+    return JSONResponse(
+        {
+            "pipelines": pipelines,
+            "total": len(pipelines),
+        }
+    )
 
 
 @router.get("/metadata/workloads", tags=["Metadata"])
@@ -90,14 +97,18 @@ async def list_workloads(
     workloads = []
     for desc in bus.list_capabilities():
         if any(kw in desc.name.lower() for kw in ("workload", "work_order", "batch", "pipeline")):
-            workloads.append({
-                "name": desc.name,
-                "modality": desc.modality.value,
-                "confidence": desc.confidence,
-                "preconditions": desc.preconditions,
-            })
+            workloads.append(
+                {
+                    "name": desc.name,
+                    "modality": desc.modality.value,
+                    "confidence": desc.confidence,
+                    "preconditions": desc.preconditions,
+                }
+            )
 
-    return JSONResponse({
-        "workloads": workloads,
-        "total": len(workloads),
-    })
+    return JSONResponse(
+        {
+            "workloads": workloads,
+            "total": len(workloads),
+        }
+    )

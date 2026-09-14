@@ -11,6 +11,7 @@ Required fields/methods:
 NOT part of this contract (architectural boundary):
     set_society_runtime() — forbidden in actor code
 """
+
 from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable

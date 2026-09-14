@@ -27,6 +27,7 @@ Per this repo's standing session convention, this file is written but not
 executed by the assistant. Run with:
     python -m pytest tests/unit/test_plan_hysteresis_goal_scoping.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -38,12 +39,17 @@ from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
 from src.monkey_brain.kernel.pipeline.actor import Actor
 from src.monkey_brain.kernel.pipeline.comparison.integration import (
-    ComparisonIntegratedPolicy, _run_decide,
+    ComparisonIntegratedPolicy,
+    _run_decide,
 )
-from src.monkey_brain.kernel.pipeline.planning.current_plan_store import CurrentPlanRecord, plan_to_dict
+from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+    CurrentPlanRecord,
+    plan_to_dict,
+)
 from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
 from src.monkey_brain.kernel.pipeline.prediction.transitions import (
-    TransitionModel, TransitionPredictionEngine,
+    TransitionModel,
+    TransitionPredictionEngine,
 )
 
 
@@ -51,12 +57,20 @@ def _plan(goal: str, *, steps: tuple[str, ...] = ("Payment",)) -> Plan:
     return Plan(
         goal=goal,
         steps=tuple(PlanStep(action=s, description=s) for s in steps),
-        cost=0.0, confidence=0.8, risk=0.0, planner="llm",
+        cost=0.0,
+        confidence=0.8,
+        risk=0.0,
+        planner="llm",
     )
 
 
 def _prediction_result(probability: float, expected_utility: float) -> dict:
-    return {"selected": {"probability": probability, "prediction": {"expected_utility": expected_utility}}}
+    return {
+        "selected": {
+            "probability": probability,
+            "prediction": {"expected_utility": expected_utility},
+        }
+    }
 
 
 def _state(*, plan: Plan | None, prediction_result: dict | None, belief_goal: str = "") -> CognitiveState:
@@ -79,9 +93,13 @@ def _record(goal: str, *, score: float, plan_id: str = "standing") -> CurrentPla
     # plan behavior, not just the decision metrics.
     standing_plan = _plan(goal)
     return CurrentPlanRecord(
-        plan_id=plan_id, actor_id="arjun", goal=goal,
-        steps=("Payment",), step_descriptions=("Pay",),
-        score=score, plan=plan_to_dict(standing_plan),
+        plan_id=plan_id,
+        actor_id="arjun",
+        goal=goal,
+        steps=("Payment",),
+        step_descriptions=("Pay",),
+        score=score,
+        plan=plan_to_dict(standing_plan),
     )
 
 
@@ -243,7 +261,10 @@ class TestFailureHistoryIsolation:
         model = TransitionModel()
         for _ in range(5):
             model = model.learn_from_execution(
-                "Payment", success=False, confidence=0.9, goal_key="buy groceries",
+                "Payment",
+                success=False,
+                confidence=0.9,
+                goal_key="buy groceries",
             )
         grocery_prob = model.known_transitions[("buy groceries", "Payment")][-1].probability
         assert grocery_prob < 0.3  # genuinely poisoned for groceries
@@ -332,7 +353,8 @@ class TestOriginalFailureReproduces:
         # Mirrors the real observed values: probability~1.15e-05,
         # expected_utility~-0.9999769900244257.
         policy._current_plans[grocery_key] = _record(
-            "find the best grocery deals", score=(0.5 * 1.15e-05 + 0.3 * -0.9999769900244257),
+            "find the best grocery deals",
+            score=(0.5 * 1.15e-05 + 0.3 * -0.9999769900244257),
         )
 
         pharmacy_plan = _plan("find the nearest pharmacy", steps=("LocateNearestStore", "Navigate"))
@@ -364,6 +386,7 @@ class TestOriginalFailureReproduces:
 # after observe_outcome) sets that flag from the real, just-executed
 # outcome so the NEXT tick's _run_decide can see it.
 # ──────────────────────────────────────────────────────────────
+
 
 def _outcome_state(*, goal_key: str, actions_executed: int, failure_count: int, goal_achieved: bool) -> CognitiveState:
     state = _state(plan=None, prediction_result=None)
@@ -425,7 +448,9 @@ class TestPlanOutcomeFeedback:
     its downstream effect on _run_decide above."""
 
     def test_failed_execution_marks_the_standing_plan_failed(self):
-        from src.monkey_brain.kernel.pipeline.comparison.integration import _record_plan_outcome_feedback
+        from src.monkey_brain.kernel.pipeline.comparison.integration import (
+            _record_plan_outcome_feedback,
+        )
 
         policy = ComparisonIntegratedPolicy()
         goal_key = canonicalize_goal("buy groceries")
@@ -437,12 +462,15 @@ class TestPlanOutcomeFeedback:
         assert policy._current_plans[goal_key].last_execution_failed is True
 
     def test_successful_execution_clears_a_previously_failed_flag(self):
-        from src.monkey_brain.kernel.pipeline.comparison.integration import _record_plan_outcome_feedback
+        from src.monkey_brain.kernel.pipeline.comparison.integration import (
+            _record_plan_outcome_feedback,
+        )
 
         policy = ComparisonIntegratedPolicy()
         goal_key = canonicalize_goal("buy groceries")
         policy._current_plans[goal_key] = replace(
-            _record("buy groceries", score=0.5), last_execution_failed=True,
+            _record("buy groceries", score=0.5),
+            last_execution_failed=True,
         )
         state = _outcome_state(goal_key=goal_key, actions_executed=6, failure_count=0, goal_achieved=True)
 
@@ -453,7 +481,9 @@ class TestPlanOutcomeFeedback:
     def test_zero_action_tick_does_not_mark_the_plan_failed(self):
         """A no-op tick (nothing executed) says nothing about whether
         the plan itself works -- must not be misread as a failure."""
-        from src.monkey_brain.kernel.pipeline.comparison.integration import _record_plan_outcome_feedback
+        from src.monkey_brain.kernel.pipeline.comparison.integration import (
+            _record_plan_outcome_feedback,
+        )
 
         policy = ComparisonIntegratedPolicy()
         goal_key = canonicalize_goal("buy groceries")
@@ -468,7 +498,9 @@ class TestPlanOutcomeFeedback:
         """A majority-failing episode (e.g. 1/6) is a real failure
         signal, not a pass — matches the exact live repro (cheese plan,
         1/6 success) that motivated this fix."""
-        from src.monkey_brain.kernel.pipeline.comparison.integration import _record_plan_outcome_feedback
+        from src.monkey_brain.kernel.pipeline.comparison.integration import (
+            _record_plan_outcome_feedback,
+        )
 
         policy = ComparisonIntegratedPolicy()
         goal_key = canonicalize_goal("buy groceries")

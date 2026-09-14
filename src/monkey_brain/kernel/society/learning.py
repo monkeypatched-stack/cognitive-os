@@ -8,6 +8,7 @@ Support:
 Actors keep independent beliefs.
 Learning may influence the shared world and future decisions.
 """
+
 from __future__ import annotations
 
 import json
@@ -32,6 +33,7 @@ class LearningType(Enum):
 @dataclass(frozen=True)
 class SharedExperience:
     """A learning experience shared by one actor that others can benefit from."""
+
     experience_id: str = field(default_factory=lambda: uuid4().hex)
     actor_id: str = ""
     learning_type: LearningType = LearningType.SHARED_EXPERIENCE
@@ -75,6 +77,7 @@ class SharedExperience:
 @dataclass(frozen=True)
 class CapabilityImprovement:
     """An improvement in an actor's capability derived from experience."""
+
     improvement_id: str = field(default_factory=lambda: uuid4().hex)
     actor_id: str = ""
     capability_name: str = ""
@@ -87,6 +90,7 @@ class CapabilityImprovement:
 @dataclass(frozen=True)
 class ReputationEntry:
     """A reputation record for an actor."""
+
     actor_id: str = ""
     score: float = 0.5
     """0.0 = worst reputation, 1.0 = best."""
@@ -98,6 +102,7 @@ class ReputationEntry:
 @dataclass(frozen=True)
 class CollectiveLearningResult:
     """Result of processing a shared experience across the society."""
+
     result_id: str = field(default_factory=lambda: uuid4().hex)
     experience_id: str = ""
     actors_influenced: tuple[str, ...] = ()
@@ -176,7 +181,7 @@ class CollectiveLearningEngine:
     def share_experience(self, experience: SharedExperience) -> CollectiveLearningResult:
         self._experiences.append(experience)
         if len(self._experiences) > self._max_experiences:
-            self._experiences = self._experiences[-self._max_experiences:]
+            self._experiences = self._experiences[-self._max_experiences :]
         self._update_reputation(experience)
         self._persist(experience)
         return self._process_experience(experience)
@@ -198,8 +203,9 @@ class CollectiveLearningEngine:
     def all_reputations(self) -> tuple[ReputationEntry, ...]:
         return tuple(self._reputations.values())
 
-    def experiences(self, *, actor_id: str | None = None,
-                    learning_type: LearningType | None = None) -> tuple[SharedExperience, ...]:
+    def experiences(
+        self, *, actor_id: str | None = None, learning_type: LearningType | None = None
+    ) -> tuple[SharedExperience, ...]:
         result = self._experiences
         if actor_id is not None:
             result = [e for e in result if e.actor_id == actor_id]

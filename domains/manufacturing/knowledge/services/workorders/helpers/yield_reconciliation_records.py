@@ -10,7 +10,6 @@ from services.workorders.models.yield_reconciliation_records import (
     YieldReconciliationRecordUpdate,
 )
 
-
 COLLECTION = "yield_reconciliation_records"
 
 
@@ -40,7 +39,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -70,14 +71,18 @@ async def _attach_to_batch_record(db: AsyncIOMotorDatabase, record: dict) -> Non
                     "disposition": record.get("disposition"),
                     "reviewed_by": record.get("reviewed_by"),
                     "reviewed_at": record.get("reviewed_at"),
-                    "planned_vs_actual_comparison": record.get("planned_vs_actual_comparison"),
+                    "planned_vs_actual_comparison": record.get(
+                        "planned_vs_actual_comparison"
+                    ),
                 }
             },
             "$addToSet": {
                 "metadata.batch_record_package.yield_reconciliation_record_ids": reconciliation_id,
                 "metadata.bmr_package.yield_reconciliation_record_ids": reconciliation_id,
                 "metadata.bpr_package.yield_reconciliation_record_ids": reconciliation_id,
-                "evidence_document_ids": {"$each": record.get("evidence_document_ids") or []},
+                "evidence_document_ids": {
+                    "$each": record.get("evidence_document_ids") or []
+                },
             },
         },
     )
@@ -113,12 +118,18 @@ async def get_all(
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, yield_reconciliation_id: str) -> Optional[dict]:
-    doc = await db[COLLECTION].find_one({"yield_reconciliation_id": yield_reconciliation_id})
+async def get_by_id(
+    db: AsyncIOMotorDatabase, yield_reconciliation_id: str
+) -> Optional[dict]:
+    doc = await db[COLLECTION].find_one(
+        {"yield_reconciliation_id": yield_reconciliation_id}
+    )
     return _serialize(doc) if doc else None
 
 
-async def create(db: AsyncIOMotorDatabase, data: YieldReconciliationRecordCreate) -> dict:
+async def create(
+    db: AsyncIOMotorDatabase, data: YieldReconciliationRecordCreate
+) -> dict:
     doc = _prepare(data.model_dump())
     await db[COLLECTION].insert_one(doc)
     # await _attach_to_batch_record(db, doc)  # Temporarily disabled
@@ -134,7 +145,9 @@ async def update(
     if not fields:
         return await get_by_id(db, yield_reconciliation_id)
 
-    existing = await db[COLLECTION].find_one({"yield_reconciliation_id": yield_reconciliation_id})
+    existing = await db[COLLECTION].find_one(
+        {"yield_reconciliation_id": yield_reconciliation_id}
+    )
     if not existing:
         return None
     merged = _serialize(existing)
@@ -154,5 +167,7 @@ async def update(
 
 
 async def delete(db: AsyncIOMotorDatabase, yield_reconciliation_id: str) -> bool:
-    result = await db[COLLECTION].delete_one({"yield_reconciliation_id": yield_reconciliation_id})
+    result = await db[COLLECTION].delete_one(
+        {"yield_reconciliation_id": yield_reconciliation_id}
+    )
     return result.deleted_count == 1

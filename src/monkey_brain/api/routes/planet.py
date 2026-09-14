@@ -6,6 +6,7 @@ GET /planet/societies    — list all registered societies
 GET /planet/actors       — list all actors across all societies
 GET /planet/statistics   — aggregate statistics
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -16,8 +17,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    PlanetResponse, PlanetStatusResponse, PlanetStatisticsResponse,
-    ActorResponse, SocietyResponse, GeoLocationLinkRequest, GeoFromAddressRequest,
+    PlanetResponse,
+    PlanetStatusResponse,
+    PlanetStatisticsResponse,
+    ActorResponse,
+    SocietyResponse,
+    GeoLocationLinkRequest,
+    GeoFromAddressRequest,
 )
 from src.monkey_brain.api.idempotency import idempotent
 
@@ -69,17 +75,20 @@ async def get_planet_societies(
     if pr is None:
         return []
     from src.monkey_brain.api.routes.societies import _society_actor_counts
+
     results = []
     for sr in pr.all_societies():
         actor_count, active_actors = _society_actor_counts(pr, sr.society.society_id)
-        results.append(SocietyResponse(
-            society_id=sr.society.society_id,
-            name=sr.society.name,
-            description=sr.society.description,
-            actor_count=actor_count,
-            active_actors=active_actors,
-            is_active=sr.is_active,
-        ))
+        results.append(
+            SocietyResponse(
+                society_id=sr.society.society_id,
+                name=sr.society.name,
+                description=sr.society.description,
+                actor_count=actor_count,
+                active_actors=active_actors,
+                is_active=sr.is_active,
+            )
+        )
     return results
 
 
@@ -97,20 +106,22 @@ async def get_planet_actors(
         if not sr.is_active:
             continue
         for state in sr.active_actors():
-            results.append(ActorResponse(
-                actor_id=state.actor_id,
-                name=state.profile.identity.name,
-                actor_type=state.profile.identity.actor_type.value,
-                description=state.profile.identity.description,
-                status=state.status.value,
-                cycle_count=state.cycle_count,
-                is_active=state.is_active,
-                societies=[society_id],
-                goals=list(state.profile.goals),
-                policies=list(state.profile.policies),
-                trust_level=state.profile.trust_level,
-                ownership=state.profile.ownership,
-            ))
+            results.append(
+                ActorResponse(
+                    actor_id=state.actor_id,
+                    name=state.profile.identity.name,
+                    actor_type=state.profile.identity.actor_type.value,
+                    description=state.profile.identity.description,
+                    status=state.status.value,
+                    cycle_count=state.cycle_count,
+                    is_active=state.is_active,
+                    societies=[society_id],
+                    goals=list(state.profile.goals),
+                    policies=list(state.profile.policies),
+                    trust_level=state.profile.trust_level,
+                    ownership=state.profile.ownership,
+                )
+            )
     return results
 
 
@@ -145,16 +156,16 @@ async def create_federation(
     pr = _get_planetary_runtime(request)
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
-    
+
     # Parse JSON body
     body = await request.json()
     name = body.get("name", "")
     description = body.get("description", "")
     member_society_ids = body.get("member_society_ids", [])
-    
+
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
-    
+
     federation = pr.create_federation(name, description, tuple(member_society_ids))
     return {
         "federation_id": federation.federation_id,
@@ -168,6 +179,7 @@ async def create_federation(
 # Planet -> Country -> City -> Society -> Team -> Actor. Containment tiers
 # only — no tick()/cycle() of their own, mirrored on the /planet/federations
 # route above.
+
 
 @router.post("/planet/countries", tags=["Planet"])
 @idempotent("planet.create_country")
@@ -200,6 +212,7 @@ async def list_countries(
     if pr is None:
         return []
     from src.monkey_brain.kernel.geography.entity import GeographicEntityType
+
     return [c.to_dict() for c in pr.geo_registry.all(GeographicEntityType.COUNTRY)]
 
 
@@ -239,6 +252,7 @@ async def list_cities(
     if pr is None:
         return []
     from src.monkey_brain.kernel.geography.entity import GeographicEntityType
+
     return [c.to_dict() for c in pr.geo_registry.all(GeographicEntityType.CITY)]
 
 
@@ -321,6 +335,7 @@ async def tick_country(
 # routes above (kept for backward compatibility). Societies HOST at any
 # tier — see /planet/geo/{entity_id}/host — they are never contained.
 
+
 @router.post("/planet/geo", tags=["Planet"])
 @idempotent("planet.create_geographic_entity")
 async def create_geographic_entity(
@@ -336,7 +351,10 @@ async def create_geographic_entity(
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
 
     from src.monkey_brain.kernel.geography.entity import (
-        GeographicEntityType, BuildingType, SpaceType, ROOT_ELIGIBLE,
+        GeographicEntityType,
+        BuildingType,
+        SpaceType,
+        ROOT_ELIGIBLE,
     )
 
     body = await request.json()
@@ -357,7 +375,10 @@ async def create_geographic_entity(
         try:
             type_kwargs["building_type"] = BuildingType(body["building_type"])
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"invalid building_type: {body['building_type']!r}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"invalid building_type: {body['building_type']!r}",
+            )
     if entity_type == GeographicEntityType.SPACE and body.get("space_type"):
         try:
             type_kwargs["space_type"] = SpaceType(body["space_type"])
@@ -375,10 +396,17 @@ async def create_geographic_entity(
     # restart, with nothing to persist it unless some unrelated LATER
     # geography mutation happened to trigger a save first.
     entity = pr.create_geographic_entity(
-        entity_type, name, parent_id or None, description, **type_kwargs,
+        entity_type,
+        name,
+        parent_id or None,
+        description,
+        **type_kwargs,
     )
     if entity is None:
-        raise HTTPException(status_code=404, detail=f"parent_id {parent_id} not found or invalid tier pairing")
+        raise HTTPException(
+            status_code=404,
+            detail=f"parent_id {parent_id} not found or invalid tier pairing",
+        )
     return entity.to_dict()
 
 
@@ -481,9 +509,15 @@ async def create_geo_from_address(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     building = pr.create_geo_from_address(
-        country=body.country, state=body.state, county=body.county, city=body.city,
-        street=body.street, building_name=body.building_name,
-        latitude=body.latitude, longitude=body.longitude, display_address=body.display_address,
+        country=body.country,
+        state=body.state,
+        county=body.county,
+        city=body.city,
+        street=body.street,
+        building_name=body.building_name,
+        latitude=body.latitude,
+        longitude=body.longitude,
+        display_address=body.display_address,
         attributes=body.attributes,
     )
     if building is None:
@@ -514,7 +548,7 @@ async def delete_geographic_entity(
         raise HTTPException(
             status_code=409,
             detail=f"{entity_id} cannot be deleted — it or a descendant currently hosts a Society; "
-                    "re-host it at a real location first",
+            "re-host it at a real location first",
         )
     return {"status": "deleted", "entity_id": entity_id, "removed_ids": list(removed)}
 
@@ -539,7 +573,10 @@ async def host_society_at_entity(
 
     entity = pr.host_society(entity_id, society_id)
     if entity is None:
-        raise HTTPException(status_code=404, detail=f"Entity {entity_id} or society {society_id} not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Entity {entity_id} or society {society_id} not found",
+        )
     return entity.to_dict()
 
 
@@ -559,7 +596,10 @@ async def unhost_society_at_entity(
 
     entity = pr.unhost_society(entity_id, society_id)
     if entity is None:
-        raise HTTPException(status_code=404, detail=f"Entity {entity_id} does not host society {society_id}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Entity {entity_id} does not host society {society_id}",
+        )
     return entity.to_dict()
 
 
@@ -651,7 +691,7 @@ async def create_interaction(
     pr = _get_planetary_runtime(request)
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
-    
+
     # Parse JSON body
     body = await request.json()
     initiator_id = body.get("initiator_id", "")
@@ -659,11 +699,12 @@ async def create_interaction(
     interaction_type = body.get("interaction_type", "request")
     topic = body.get("topic", "")
     proposal = body.get("proposal", None)
-    
+
     if not initiator_id:
         raise HTTPException(status_code=400, detail="initiator_id is required")
-    
+
     from src.monkey_brain.kernel.society.interaction import InteractionType
+
     type_map = {
         "request": InteractionType.REQUEST,
         "delegate": InteractionType.DELEGATE,
@@ -671,10 +712,8 @@ async def create_interaction(
         "negotiate": InteractionType.NEGOTIATE,
     }
     itype = type_map.get(interaction_type, InteractionType.REQUEST)
-    
-    interaction = pr.send_interaction(
-        itype, initiator_id, tuple(participant_ids), topic, proposal
-    )
+
+    interaction = pr.send_interaction(itype, initiator_id, tuple(participant_ids), topic, proposal)
     return {
         "interaction_id": interaction.interaction_id,
         "interaction_type": interaction.interaction_type.value,
@@ -696,7 +735,10 @@ async def planet_tick(
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     result = await pr.cycle()
     if result is None:
-        raise HTTPException(status_code=503, detail="Planetary cycle already running — try again shortly")
+        raise HTTPException(
+            status_code=503,
+            detail="Planetary cycle already running — try again shortly",
+        )
     return {
         "cycle_number": result.cycle_number,
         "actors_observed": result.actors_observed,
@@ -753,9 +795,7 @@ async def clear_context_events(
     cleared_in_memory = pr.context_stream.clear()
     redis_keys_deleted = 0
     if pr._redis is not None:
-        keys = [pr._CONTEXT_LIST_KEY] + [
-            f"{pr._CONTEXT_LIST_KEY}:{sr.society.society_id}" for sr in pr.all_societies()
-        ]
+        keys = [pr._CONTEXT_LIST_KEY] + [f"{pr._CONTEXT_LIST_KEY}:{sr.society.society_id}" for sr in pr.all_societies()]
         redis_keys_deleted = pr._redis.delete(*keys)
     return {
         "status": "cleared",
@@ -810,8 +850,10 @@ async def clear_memory(
     pr._memory_manager._by_actor.clear()
 
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     episodic_entities = [
-        e for e in pr._knowledge_graph.entities_by_type(EntityType.OTHER)
+        e
+        for e in pr._knowledge_graph.entities_by_type(EntityType.OTHER)
         if e.attributes.get("label") == "EpisodicTrace"
     ]
     graph_nodes_removed = 0
@@ -848,6 +890,7 @@ async def clear_executions(
 
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
     from src.monkey_brain.kernel.timeline.store import TimelineStore
+
     executions_cleared = TimelineStore().clear_kind(TimelineKind.EXECUTION)
 
     return {
@@ -896,20 +939,28 @@ async def report_world_perturbation(
             detail="entity_id, description, and a non-empty impact_attributes object are required",
         )
 
-    from src.monkey_brain.kernel.domains.grocery import ReportWorldPerturbationCapability
-    result = ReportWorldPerturbationCapability().handle({
-        "context": {
-            "knowledge_graph": pr.knowledge_graph, "planetary_runtime": pr,
-            "actor_id": user_id,
-        },
-        "parameters": {
-            "entity_id": entity_id, "description": description,
-            "impact_attributes": impact_attributes,
-        },
-    })
+    from src.monkey_brain.kernel.domains.grocery import (
+        ReportWorldPerturbationCapability,
+    )
+
+    result = ReportWorldPerturbationCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": pr.knowledge_graph,
+                "planetary_runtime": pr,
+                "actor_id": user_id,
+            },
+            "parameters": {
+                "entity_id": entity_id,
+                "description": description,
+                "impact_attributes": impact_attributes,
+            },
+        }
+    )
     if not result.get("success"):
         raise HTTPException(status_code=404, detail=result.get("error", "perturbation failed"))
 
     from src.monkey_brain.kernel.compile import _obs
+
     _obs.counter("context.external_events_processed")
     return result

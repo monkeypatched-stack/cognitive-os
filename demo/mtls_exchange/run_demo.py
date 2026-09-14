@@ -7,6 +7,7 @@
 
 Run:  python3 demo/mtls_exchange/run_demo.py
 """
+
 from __future__ import annotations
 
 import json
@@ -56,9 +57,9 @@ def _no_cert_rejected(port: int, ca: str) -> bool:
     try:
         req = urllib.request.Request(f"https://localhost:{port}/api/v1/agentos/exchange/stats")
         urllib.request.urlopen(req, context=ctx, timeout=5).read()
-        return False                   # got a response → mTLS NOT enforced
+        return False  # got a response → mTLS NOT enforced
     except Exception:
-        return True                    # rejected — mTLS enforced
+        return True  # rejected — mTLS enforced
 
 
 def main() -> int:
@@ -67,6 +68,7 @@ def main() -> int:
 
     sys.path.insert(0, str(HERE))
     import certs
+
     tls = certs.generate(os.path.join(demo, "tls"))
     port = _free_port()
 
@@ -82,13 +84,20 @@ def main() -> int:
         "DEMO_SENDER": "org:sender",
         "PORT": str(port),
         "TLS_CA": tls["ca"],
-        "TLS_SERVER_CERT": tls["server_cert"], "TLS_SERVER_KEY": tls["server_key"],
-        "TLS_CLIENT_CERT": tls["client_cert"], "TLS_CLIENT_KEY": tls["client_key"],
+        "TLS_SERVER_CERT": tls["server_cert"],
+        "TLS_SERVER_KEY": tls["server_key"],
+        "TLS_CLIENT_CERT": tls["client_cert"],
+        "TLS_CLIENT_KEY": tls["client_key"],
     }
 
     print(f"[demo] starting RECEIVER (mTLS) on https://localhost:{port} ...")
-    receiver = subprocess.Popen([sys.executable, str(HERE / "receiver.py")], env=env,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    receiver = subprocess.Popen(
+        [sys.executable, str(HERE / "receiver.py")],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     try:
         if not _wait_tls_ready(port, tls["ca"], tls["client_cert"], tls["client_key"]):
             print("[demo] FAIL: receiver did not become ready")
@@ -101,16 +110,22 @@ def main() -> int:
         print(f"[demo] client WITHOUT cert rejected by mTLS: {rejected}")
 
         print("[demo] running SENDER (publish + push over mTLS) ...")
-        sender = subprocess.run([sys.executable, str(HERE / "sender.py")], env=env,
-                                capture_output=True, text=True, timeout=30)
+        sender = subprocess.run(
+            [sys.executable, str(HERE / "sender.py")],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
         sys.stderr.write(sender.stderr)
         result_line = next((l for l in sender.stdout.splitlines() if l.startswith("RESULT:")), "")
-        result = json.loads(result_line[len("RESULT:"):]) if result_line else {}
+        result = json.loads(result_line[len("RESULT:") :]) if result_line else {}
         print(f"[demo] receiver response: {result}")
 
         ok = result.get("status") == "accepted" and rejected
-        print("\n[demo] " + ("PASS ✅  two runtimes exchanged a CA-signed proposal over live mTLS"
-                             if ok else "FAIL ❌"))
+        print(
+            "\n[demo] " + ("PASS ✅  two runtimes exchanged a CA-signed proposal over live mTLS" if ok else "FAIL ❌")
+        )
         return 0 if ok else 1
     finally:
         receiver.terminate()

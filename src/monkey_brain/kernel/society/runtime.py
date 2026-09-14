@@ -10,6 +10,7 @@ Each actor still owns:
 
 SocietyRuntime coordinates actors.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,17 +22,35 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Awaitable
 from uuid import uuid4
 
-from src.monkey_brain.kernel.society.domain import Society, ActorProfile, ActorStatus, Team
+from src.monkey_brain.kernel.society.domain import (
+    Society,
+    ActorProfile,
+    ActorStatus,
+    Team,
+)
 from src.monkey_brain.kernel.society.world import SharedWorld, WorldEvent, EventType
-from src.monkey_brain.kernel.society.observation import ObservationProvider, ActorObservation
+from src.monkey_brain.kernel.society.observation import (
+    ObservationProvider,
+    ActorObservation,
+)
 from src.monkey_brain.kernel.society.belief import BeliefState, BeliefFusion
-from src.monkey_brain.kernel.society.interaction import InteractionManager, Interaction, InteractionType
+from src.monkey_brain.kernel.society.interaction import (
+    InteractionManager,
+    Interaction,
+    InteractionType,
+)
 from src.monkey_brain.kernel.society.coordination import CoordinationEngine
 from src.monkey_brain.kernel.society.game_theory import GameTheoryRuntime
 from src.monkey_brain.kernel.society.communication import AffiliationCommunicationRouter
-from src.monkey_brain.kernel.society.context_stream import SocietyContextStream, ContextEvent, ContextEventType
+from src.monkey_brain.kernel.society.context_stream import (
+    SocietyContextStream,
+    ContextEvent,
+    ContextEventType,
+)
 from src.monkey_brain.kernel.society.learning import (
-    CollectiveLearningEngine, SharedExperience, CollectiveLearningResult,
+    CollectiveLearningEngine,
+    SharedExperience,
+    CollectiveLearningResult,
 )
 from src.monkey_brain.kernel.society.governance import SocietyGovernanceEngine
 from src.monkey_brain.kernel.society.actor_protocol import ActorProtocol
@@ -46,6 +65,7 @@ StageFn = Callable[[Any], Awaitable[Any]]
 @dataclass
 class ActorRuntimeState:
     """Runtime state for one actor in the society."""
+
     actor_id: str = ""
     profile: ActorProfile = field(default_factory=ActorProfile)
     status: ActorStatus = ActorStatus.REGISTERED
@@ -86,6 +106,7 @@ class ActorRuntimeState:
 @dataclass(frozen=True)
 class SocietyTickResult:
     """Result of one society tick (one round of actor coordination)."""
+
     tick_id: str = field(default_factory=lambda: uuid4().hex)
     tick_number: int = 0
     actors_ticked: int = 0
@@ -102,6 +123,7 @@ class TeamTickResult:
     via the same coordinated tick_one_actor() path SocietyRuntime.tick()
     uses for every active actor (belief fusion, context publication,
     world-event commit, status transitions)."""
+
     tick_id: str = field(default_factory=lambda: uuid4().hex)
     team_id: str = ""
     actors_ticked: tuple[str, ...] = ()
@@ -118,8 +140,11 @@ class SocietyRuntime:
     distribution.
     """
 
-    def __init__(self, society: Society | None = None,
-                 strategic_runtime: GameTheoryRuntime | None = None) -> None:
+    def __init__(
+        self,
+        society: Society | None = None,
+        strategic_runtime: GameTheoryRuntime | None = None,
+    ) -> None:
         self._society = society or Society(name="Default Society")
         # Set by PlanetaryRuntime._attach_society for a society it manages
         # (None for a standalone/test SocietyRuntime) — the only source of
@@ -144,7 +169,9 @@ class SocietyRuntime:
         self._game_theory = strategic_runtime or GameTheoryRuntime()
         self._coordination_engine = CoordinationEngine(self._game_theory)
         self._communication_router = AffiliationCommunicationRouter(
-            self.get_actor, self.active_actors, self.society.society_id,
+            self.get_actor,
+            self.active_actors,
+            self.society.society_id,
         )
         self._collective_learning = CollectiveLearningEngine(society_id=self._society.society_id)
         """Step 12.8: collective learning (shared experiences, reputation,
@@ -155,9 +182,14 @@ class SocietyRuntime:
         duplicate-state-holder lesson from Step 12.7's context_stream/
         interaction_manager fix."""
         self._governance = SocietyGovernanceEngine()
-        from src.monkey_brain.kernel.integrations import SharedResourceInventoryIntegration
+        from src.monkey_brain.kernel.integrations import (
+            SharedResourceInventoryIntegration,
+        )
+
         self._inventory_integration = SharedResourceInventoryIntegration(
-            self.shared_resources, self.update_shared_resources, self.record_coordination,
+            self.shared_resources,
+            self.update_shared_resources,
+            self.record_coordination,
         )
         """Step 12.10: same placement fix as collective_learning above —
         this was PlanetaryRuntime-only despite governing individual actors'
@@ -180,6 +212,7 @@ class SocietyRuntime:
         # executing cognition from inside publish().
         self._context_stream.subscribe(self._deliver_context_event)
         from src.monkey_brain.kernel.affiliations.trust import TrustEngine
+
         self._trust_network = TrustEngine()
         """Step 12.6: the canonical Context Stream — every Commit stage
         produces an append-only event here, closing the world's feedback
@@ -265,9 +298,12 @@ class SocietyRuntime:
 
     # ── Actor Registration ───────────────────────────────────────────────
 
-    def register_actor(self, profile: ActorProfile,
-                       cognitive_stages: dict[str, StageFn] | None = None,
-                       actor: Any = None) -> ActorRuntimeState:
+    def register_actor(
+        self,
+        profile: ActorProfile,
+        cognitive_stages: dict[str, StageFn] | None = None,
+        actor: Any = None,
+    ) -> ActorRuntimeState:
         """Register an actor with the society through ActorRuntime.
 
         - No actor provided: ActorRuntime creates the implementation actor
@@ -292,8 +328,13 @@ class SocietyRuntime:
             # in SocietyRuntime.
             entity_id = profile.identity.actor_id
             from src.monkey_brain.kernel.compile.cognitive_actor import CognitiveActor
+
             engine = None
-            if self._society_activation is not None or self._context_engine is not None or self._execution_engine is not None:
+            if (
+                self._society_activation is not None
+                or self._context_engine is not None
+                or self._execution_engine is not None
+            ):
                 # Society as Organizational Context refactor: thread the
                 # shared SocietyActivationEngine into this actor's cognitive
                 # engine so its ReasoningRuntime can select relevant
@@ -304,7 +345,10 @@ class SocietyRuntime:
                 # (falls through to CognitiveActor's own lazy bare-engine
                 # default) when this SocietyRuntime isn't managed by any
                 # PlanetaryRuntime — standalone/unit-test usage is unaffected.
-                from src.monkey_brain.kernel.pipeline.comparison.integration import build_comparison_integrated_runtime
+                from src.monkey_brain.kernel.pipeline.comparison.integration import (
+                    build_comparison_integrated_runtime,
+                )
+
                 # World Changes refactor: this branch previously left
                 # execution_engine unset, which defaults all the way down to
                 # ActionExecutor(capability_bus=None) — every action this
@@ -324,8 +368,10 @@ class SocietyRuntime:
                 # simply correct — one real capability bus for the whole
                 # PlanetaryRuntime, not a new one per actor.
                 from src.monkey_brain.kernel.pipeline.prediction.persistence import (
-                    load_transition_model, save_actor_meta,
+                    load_transition_model,
+                    save_actor_meta,
                 )
+
                 prior_transition_model = load_transition_model(entity_id)
                 # No eager Current Plan preload: it was a single actor-wide
                 # record, which is exactly the cross-goal contamination bug
@@ -336,7 +382,8 @@ class SocietyRuntime:
                 # single record to guess and preload here anymore.
                 save_actor_meta(entity_id, profile.identity.name)
                 engine = build_comparison_integrated_runtime(
-                    society_activation=self._society_activation, context_engine=self._context_engine,
+                    society_activation=self._society_activation,
+                    context_engine=self._context_engine,
                     execution_engine=self._execution_engine,
                     transition_model=prior_transition_model,
                 )
@@ -359,28 +406,33 @@ class SocietyRuntime:
             # would leak one actor's private commerce facts into another's
             # beliefs via plain world-polling.
             context_factory = (
-                (lambda question: {
-                    "knowledge_graph": self._knowledge_graph, "actor_id": entity_id,
-                    # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md):
-                    # CognitiveActor already constructs its OWN per-actor
-                    # KnowledgeGraph (self._knowledge_graph on that class,
-                    # KnowledgeGraph(person_id=entity_id)) but nothing ever
-                    # read it — every capability only ever saw the shared
-                    # graph above. Additive key: existing capabilities that
-                    # only read context["knowledge_graph"] are unaffected;
-                    # `actor` is resolved at CALL time (this lambda only
-                    # runs on a later tick), by which point the assignment
-                    # below has already completed.
-                    "actor_local_knowledge_graph": actor._knowledge_graph,
-                    "world": self._world, "question": question,
-                    "planetary_runtime": self._planetary_runtime,
-                    # HeartbeatCapability (kernel/domains/robot.py) reads
-                    # this -- None for every actor that isn't a robot
-                    # deployment (the normal case); `state` (defined below)
-                    # is resolved at CALL time, same as `actor` above.
-                    "ros_adapter": (state.cell.ros_adapter if getattr(state, "cell", None) is not None else None),
-                })
-                if self._knowledge_graph is not None else None
+                (
+                    lambda question: {
+                        "knowledge_graph": self._knowledge_graph,
+                        "actor_id": entity_id,
+                        # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md):
+                        # CognitiveActor already constructs its OWN per-actor
+                        # KnowledgeGraph (self._knowledge_graph on that class,
+                        # KnowledgeGraph(person_id=entity_id)) but nothing ever
+                        # read it — every capability only ever saw the shared
+                        # graph above. Additive key: existing capabilities that
+                        # only read context["knowledge_graph"] are unaffected;
+                        # `actor` is resolved at CALL time (this lambda only
+                        # runs on a later tick), by which point the assignment
+                        # below has already completed.
+                        "actor_local_knowledge_graph": actor._knowledge_graph,
+                        "world": self._world,
+                        "question": question,
+                        "planetary_runtime": self._planetary_runtime,
+                        # HeartbeatCapability (kernel/domains/robot.py) reads
+                        # this -- None for every actor that isn't a robot
+                        # deployment (the normal case); `state` (defined below)
+                        # is resolved at CALL time, same as `actor` above.
+                        "ros_adapter": (state.cell.ros_adapter if getattr(state, "cell", None) is not None else None),
+                    }
+                )
+                if self._knowledge_graph is not None
+                else None
             )
             actor = CognitiveActor(
                 entity_id=entity_id,
@@ -397,9 +449,9 @@ class SocietyRuntime:
                 f"— does not satisfy ActorProtocol"
             )
         else:
-            if profile.objective and hasattr(actor, '_objective'):
+            if profile.objective and hasattr(actor, "_objective"):
                 actor._objective = profile.objective
-            if profile.goals and hasattr(actor, 'set_goal'):
+            if profile.goals and hasattr(actor, "set_goal"):
                 actor.set_goal(profile.goals[0])
 
         # ActorRuntime is the sole owner of cognition and its supporting
@@ -417,6 +469,7 @@ class SocietyRuntime:
         # ActorRuntime.__init__ fallback: local_belief or SparseTransitionTensor())
         # for the rare non-CognitiveActor-family `actor`.
         from src.monkey_brain.kernel.compile.actor_runtime import ActorRuntime
+
         actor_runtime = ActorRuntime(
             profile.identity.actor_id,
             existing_actor=actor,
@@ -450,13 +503,16 @@ class SocietyRuntime:
             issuer = get_trusted_auth().principal_id or "society-runtime"
             credential = mint_actor_cell_identity(profile.identity.actor_id, issuer=issuer)
             state.cell = ActorCell(
-                actor_id=profile.identity.actor_id, identity=credential,
-                actor=actor, runtime_state=state,
+                actor_id=profile.identity.actor_id,
+                identity=credential,
+                actor=actor,
+                runtime_state=state,
             )
         except Exception:
             logger.debug(
                 "register_actor: ActorCell construction skipped for %s (non-fatal)",
-                profile.identity.actor_id, exc_info=True,
+                profile.identity.actor_id,
+                exc_info=True,
             )
 
         if self._membership_registry is not None:
@@ -469,9 +525,12 @@ class SocietyRuntime:
             # exists), so double-registration from both call sites is safe.
             self._membership_registry.add(profile.identity.actor_id, self.society.society_id, role="member")
 
-        logger.info("Registered actor: %s (%s) objective=%s (one OS per actor)",
-                     profile.identity.name, profile.identity.actor_type.value,
-                     profile.objective or "default")
+        logger.info(
+            "Registered actor: %s (%s) objective=%s (one OS per actor)",
+            profile.identity.name,
+            profile.identity.actor_type.value,
+            profile.objective or "default",
+        )
         return state
 
     def unregister_actor(self, actor_id: str) -> bool:
@@ -560,8 +619,7 @@ class SocietyRuntime:
 
     def actor_runtimes(self) -> tuple[Any, ...]:
         """Return managed ActorRuntime objects, never cognition internals."""
-        return tuple(state.actor_runtime for state in self._actors.values()
-                     if state.actor_runtime is not None)
+        return tuple(state.actor_runtime for state in self._actors.values() if state.actor_runtime is not None)
 
     # ── Teams ────────────────────────────────────────────────────────────
     # Planet -> Country -> City -> Society -> Team -> Actor. Team is a
@@ -592,9 +650,8 @@ class SocietyRuntime:
         this society, so an actor belongs to at most one team PER society
         (it may belong to one team in each of several societies)."""
         is_home_registered = self.get_actor(actor_id) is not None
-        is_org_member = (
-            self._membership_registry is not None
-            and self._membership_registry.is_member(actor_id, self.society.society_id)
+        is_org_member = self._membership_registry is not None and self._membership_registry.is_member(
+            actor_id, self.society.society_id
         )
         if not is_home_registered and not is_org_member:
             return None
@@ -616,7 +673,8 @@ class SocietyRuntime:
         if team is None:
             return None
         updated = dataclasses.replace(
-            team, member_actor_ids=tuple(a for a in team.member_actor_ids if a != actor_id),
+            team,
+            member_actor_ids=tuple(a for a in team.member_actor_ids if a != actor_id),
         )
         self._teams[team_id] = updated
         return updated
@@ -668,9 +726,14 @@ class SocietyRuntime:
 
     # ── Interaction Routing ──────────────────────────────────────────────
 
-    def route_interaction(self, interaction_type: InteractionType,
-                          initiator_id: str, participant_ids: tuple[str, ...],
-                          topic: str = "", proposal: Any = None) -> Interaction:
+    def route_interaction(
+        self,
+        interaction_type: InteractionType,
+        initiator_id: str,
+        participant_ids: tuple[str, ...],
+        topic: str = "",
+        proposal: Any = None,
+    ) -> Interaction:
         """Step 12.7 bugfix: this previously referenced an undefined name
         `Event` (there is no such class in this module — WorldEvent's type
         enum is EventType, imported above) and raised NameError on every
@@ -699,23 +762,30 @@ class SocietyRuntime:
         # stored on the Interaction object but never included in the
         # published event, so nothing could ever show what was actually
         # said, only that an interaction of some type occurred.
-        self._context_stream.publish(ContextEvent(
-            event_type=ContextEventType.INTERACTION, actor_id=initiator_id,
-            description=(
-                f"{initiator_id}: {topic}" if topic
-                else f"Interaction: {interaction_type.value} from {initiator_id}"
-            ),
-            payload={
-                "interaction_id": interaction.interaction_id, "participants": list(participant_ids),
-                "topic": topic, "proposal": proposal,
-            },
-            provenance="society:interaction",
-        ))
+        self._context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.INTERACTION,
+                actor_id=initiator_id,
+                description=(
+                    f"{initiator_id}: {topic}"
+                    if topic
+                    else f"Interaction: {interaction_type.value} from {initiator_id}"
+                ),
+                payload={
+                    "interaction_id": interaction.interaction_id,
+                    "participants": list(participant_ids),
+                    "topic": topic,
+                    "proposal": proposal,
+                },
+                provenance="society:interaction",
+            )
+        )
         self.record_coordination(f"interaction routed: {interaction_type.value} from {initiator_id}")
         return interaction
 
-    def respond_to_interaction(self, interaction_id: str, actor_id: str,
-                               accept: bool, message: str = "") -> Interaction | None:
+    def respond_to_interaction(
+        self, interaction_id: str, actor_id: str, accept: bool, message: str = ""
+    ) -> Interaction | None:
         """Step 12.7: the interaction lifecycle previously stopped at
         creation — InteractionManager.respond()/cast_vote()/complete()
         already existed but SocietyRuntime never exposed them, so an
@@ -723,36 +793,44 @@ class SocietyRuntime:
         voted on, or completed through the coordinator."""
         interaction = self._interaction_manager.respond(interaction_id, actor_id, accept, message)
         if interaction is not None:
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.INTERACTION, actor_id=actor_id,
-                description=f"Interaction {interaction_id} {'accepted' if accept else 'rejected'} by {actor_id}",
-                payload={"interaction_id": interaction_id, "accept": accept},
-                provenance="society:interaction",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.INTERACTION,
+                    actor_id=actor_id,
+                    description=f"Interaction {interaction_id} {'accepted' if accept else 'rejected'} by {actor_id}",
+                    payload={"interaction_id": interaction_id, "accept": accept},
+                    provenance="society:interaction",
+                )
+            )
             self.record_coordination(f"interaction {interaction_id} responded to by {actor_id}")
         return interaction
 
     def cast_vote(self, interaction_id: str, actor_id: str, vote: bool) -> Interaction | None:
         interaction = self._interaction_manager.cast_vote(interaction_id, actor_id, vote)
         if interaction is not None:
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.INTERACTION, actor_id=actor_id,
-                description=f"Vote cast on {interaction_id} by {actor_id}",
-                payload={"interaction_id": interaction_id, "vote": vote},
-                provenance="society:interaction",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.INTERACTION,
+                    actor_id=actor_id,
+                    description=f"Vote cast on {interaction_id} by {actor_id}",
+                    payload={"interaction_id": interaction_id, "vote": vote},
+                    provenance="society:interaction",
+                )
+            )
             self.record_coordination(f"vote cast on {interaction_id} by {actor_id}")
         return interaction
 
     def complete_interaction(self, interaction_id: str) -> Interaction | None:
         interaction = self._interaction_manager.complete(interaction_id)
         if interaction is not None:
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.INTERACTION,
-                description=f"Interaction {interaction_id} completed",
-                payload={"interaction_id": interaction_id},
-                provenance="society:interaction",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.INTERACTION,
+                    description=f"Interaction {interaction_id} completed",
+                    payload={"interaction_id": interaction_id},
+                    provenance="society:interaction",
+                )
+            )
             self.record_coordination(f"interaction {interaction_id} completed")
         return interaction
 
@@ -777,12 +855,18 @@ class SocietyRuntime:
 
     def share_experience(self, experience: SharedExperience) -> CollectiveLearningResult:
         result = self._collective_learning.share_experience(experience)
-        self._context_stream.publish(ContextEvent(
-            event_type=ContextEventType.LEARNING, actor_id=experience.actor_id,
-            description=f"Experience shared: {experience.description or experience.learning_type.value}",
-            payload={"experience_id": experience.experience_id, "outcome": experience.outcome},
-            provenance="society:learning",
-        ))
+        self._context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.LEARNING,
+                actor_id=experience.actor_id,
+                description=f"Experience shared: {experience.description or experience.learning_type.value}",
+                payload={
+                    "experience_id": experience.experience_id,
+                    "outcome": experience.outcome,
+                },
+                provenance="society:learning",
+            )
+        )
         self.record_coordination(f"experience shared by {experience.actor_id}: {experience.outcome}")
         return result
 
@@ -804,7 +888,8 @@ class SocietyRuntime:
         single actor's own goal. Society is frozen (immutable domain
         object) — replaced, not mutated in place."""
         self._society = dataclasses.replace(
-            self._society, shared_goals=self._society.shared_goals + (goal,),
+            self._society,
+            shared_goals=self._society.shared_goals + (goal,),
         )
 
     def shared_resources(self) -> dict[str, Any]:
@@ -828,14 +913,14 @@ class SocietyRuntime:
         """Inspect store inventory against its configured minimum level."""
         return self._inventory_integration.observe(item)
 
-    def replenish_inventory(self, item: str, quantity: float,
-                            supplier: str = "") -> dict[str, Any]:
+    def replenish_inventory(self, item: str, quantity: float, supplier: str = "") -> dict[str, Any]:
         """Apply a completed supplier replenishment to shared store stock."""
         return self._inventory_integration.apply_replenishment(item, quantity, supplier)
 
     def add_policy(self, policy: str) -> None:
         self._society = dataclasses.replace(
-            self._society, policies=self._society.policies + (policy,),
+            self._society,
+            policies=self._society.policies + (policy,),
         )
 
     def record_coordination(self, description: str) -> None:
@@ -896,12 +981,16 @@ class SocietyRuntime:
             try:
                 # fuse with current
                 actor_state.belief_state = self._belief_fusion.fuse(
-                    actor_id, observation, actor_state.belief_state,
+                    actor_id,
+                    observation,
+                    actor_state.belief_state,
                 )
-                logger.info("Belief fusion for %s: %d beliefs from %d entities",
-                           actor_id,
-                           len(actor_state.belief_state.beliefs) if actor_state.belief_state else 0,
-                           len(observation.entities))
+                logger.info(
+                    "Belief fusion for %s: %d beliefs from %d entities",
+                    actor_id,
+                    (len(actor_state.belief_state.beliefs) if actor_state.belief_state else 0),
+                    len(observation.entities),
+                )
             except Exception as e:
                 logger.error("Belief fusion failed for %s: %s", actor_id, e)
                 return None
@@ -944,19 +1033,34 @@ class SocietyRuntime:
 
     # ── Inter-Agent Messaging ─────────────────────────────────────────────
 
-    def send_message(self, from_actor: str, to_actor: str, msg_type: str,
-                     payload: dict[str, Any] | None = None,
-                     *, correlation_id: str = "") -> bool:
+    def send_message(
+        self,
+        from_actor: str,
+        to_actor: str,
+        msg_type: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        correlation_id: str = "",
+    ) -> bool:
         """Queue only affiliation/society-permitted actor communication."""
         decision = self._communication_router.resolve(
-            from_actor, to_actor, correlation_id=correlation_id,
+            from_actor,
+            to_actor,
+            correlation_id=correlation_id,
         )
         if not decision.allowed:
-            logger.warning("Communication denied %s -> %s: %s", from_actor, to_actor, decision.reason)
+            logger.warning(
+                "Communication denied %s -> %s: %s",
+                from_actor,
+                to_actor,
+                decision.reason,
+            )
             return False
         message = {
-            "from": from_actor, "to": to_actor,
-            "type": msg_type, "payload": payload or {},
+            "from": from_actor,
+            "to": to_actor,
+            "type": msg_type,
+            "payload": payload or {},
             "routing": {
                 "affiliation_id": decision.affiliation_id,
                 "society_id": decision.society_id,
@@ -980,10 +1084,15 @@ class SocietyRuntime:
         _obs.counter("communication.messages_routed")
         return True
 
-    def broadcast_message(self, from_actor: str, msg_type: str,
-                          payload: dict[str, Any] | None = None,
-                          affiliation_id: str = "",
-                          *, correlation_id: str = "") -> int:
+    def broadcast_message(
+        self,
+        from_actor: str,
+        msg_type: str,
+        payload: dict[str, Any] | None = None,
+        affiliation_id: str = "",
+        *,
+        correlation_id: str = "",
+    ) -> int:
         """Queue a message only for eligible affiliation participants."""
         # One broadcast() call is one logical operation — mint a single
         # correlation_id upfront (if the caller didn't supply one) so every
@@ -991,7 +1100,9 @@ class SocietyRuntime:
         # per-recipient resolve() self-minting its own.
         correlation_id = correlation_id or new_correlation_id()
         recipients = self._communication_router.eligible_recipients(
-            from_actor, affiliation_id=affiliation_id, correlation_id=correlation_id,
+            from_actor,
+            affiliation_id=affiliation_id,
+            correlation_id=correlation_id,
         )
         sent = sum(
             self.send_message(from_actor, recipient, msg_type, payload, correlation_id=correlation_id)
@@ -1003,7 +1114,8 @@ class SocietyRuntime:
 
     def eligible_recipients(self, actor_id: str, affiliation_id: str = "") -> tuple[str, ...]:
         return self._communication_router.eligible_recipients(
-            actor_id, affiliation_id=affiliation_id,
+            actor_id,
+            affiliation_id=affiliation_id,
         )
 
     def communication_audit(self) -> tuple[Any, ...]:
@@ -1043,12 +1155,18 @@ class SocietyRuntime:
             new_trust = affiliations.get_trust(to_actor)
         else:
             self._trust_network.update_from_outcome(
-                from_actor, to_actor, goal_achieved=success,
+                from_actor,
+                to_actor,
+                goal_achieved=success,
             )
             new_trust = self._trust_network.get_trust(from_actor, to_actor)
-        logger.debug("Trust updated: %s → %s: %.3f (%s)",
-                     from_actor, to_actor, new_trust,
-                     "success" if success else "failure")
+        logger.debug(
+            "Trust updated: %s → %s: %.3f (%s)",
+            from_actor,
+            to_actor,
+            new_trust,
+            "success" if success else "failure",
+        )
         return new_trust
 
     def _deliver_messages(self) -> int:
@@ -1086,11 +1204,15 @@ class SocietyRuntime:
             # write in this codebase mutates an immutable BeliefState.
             new_entry = BeliefEntry(
                 subject=claim,
-                hypotheses=(BeliefHypothesis(
-                    subject=claim, predicate="claims", confidence=trust,
-                    correlation_id=msg.get("correlation_id", ""),
-                    causation_id=msg.get("causation_id", ""),
-                ),),
+                hypotheses=(
+                    BeliefHypothesis(
+                        subject=claim,
+                        predicate="claims",
+                        confidence=trust,
+                        correlation_id=msg.get("correlation_id", ""),
+                        causation_id=msg.get("causation_id", ""),
+                    ),
+                ),
             )
             target.belief_state = dataclasses.replace(
                 target.belief_state,
@@ -1112,11 +1234,15 @@ class SocietyRuntime:
         self._message_queue.clear()
         return delivered
 
-    async def tick(self, *, target_actor_id: str | None = None,
-                   prompt_request: Any = None,
-                   broadcast_context: Any = None,
-                   exclude_actor_ids: frozenset[str] | None = None,
-                   single_actor_only: bool = False) -> SocietyTickResult:
+    async def tick(
+        self,
+        *,
+        target_actor_id: str | None = None,
+        prompt_request: Any = None,
+        broadcast_context: Any = None,
+        exclude_actor_ids: frozenset[str] | None = None,
+        single_actor_only: bool = False,
+    ) -> SocietyTickResult:
         """Execute one society tick: observe, update beliefs, deliver messages,
         and coordinate each active actor's complete execution.
 
@@ -1222,10 +1348,13 @@ class SocietyRuntime:
             actor_execution_result=actor_execution_result,
         )
 
-    async def _coordinate_actor(self, actor_state: ActorRuntimeState,
-                                observation: ActorObservation,
-                                prompt_request: Any = None) -> None:
-        """Coordinate one actor's complete cognitive cycle: tick() and publish/commit.  
+    async def _coordinate_actor(
+        self,
+        actor_state: ActorRuntimeState,
+        observation: ActorObservation,
+        prompt_request: Any = None,
+    ) -> None:
+        """Coordinate one actor's complete cognitive cycle: tick() and publish/commit.
         Called by tick_one_actor() after belief fusion."""
         if actor_state.actor_runtime is not None:
             try:
@@ -1240,7 +1369,7 @@ class SocietyRuntime:
                 # manage the actor state status transition from REGISTERED to INITIALIZED on first tick
                 if actor_state.status == ActorStatus.REGISTERED:
                     actor_state.status = ActorStatus.INITIALIZED
-                
+
                 # publish the tick events to the context stream and commit the experience and world events
                 self.record_coordination(f"actor {actor_state.actor_id} ticked")
 
@@ -1252,7 +1381,7 @@ class SocietyRuntime:
 
                 # commit the world events to the world
                 self._commit_world_events(actor_state, result)
-                
+
             except Exception as e:
                 logger.error("Actor %s tick failed: %s", actor_state.actor_id, e)
                 actor_state.last_tick_result = None
@@ -1267,7 +1396,10 @@ class SocietyRuntime:
 
     def _commit_experience(self, actor_state: ActorRuntimeState, result: Any) -> None:
         """Commit an experience from a successful tick to collective learning."""
-        from src.monkey_brain.kernel.society.learning import SharedExperience, LearningType
+        from src.monkey_brain.kernel.society.learning import (
+            SharedExperience,
+            LearningType,
+        )
 
         outcome = getattr(result, "outcome", None) or {}
         goal_achieved = outcome.get("goal_achieved", False)
@@ -1287,7 +1419,10 @@ class SocietyRuntime:
 
     def _commit_world_events(self, actor_state: ActorRuntimeState, result: Any) -> None:
         """Generate world events from a tick result."""
-        from src.monkey_brain.kernel.society.world import WorldEvent as SocietyWorldEvent, EventType as SocietyEventType
+        from src.monkey_brain.kernel.society.world import (
+            WorldEvent as SocietyWorldEvent,
+            EventType as SocietyEventType,
+        )
 
         outcome = getattr(result, "outcome", None) or {}
         actions = getattr(result, "actions", None) or []
@@ -1311,8 +1446,13 @@ class SocietyRuntime:
             # SecurityBoundaryDenied on EVERY actor's tick outside
             # insecure-dev-mode, aborting the tick entirely rather than
             # just failing to record its own outcome summary.
-            from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
-            with privileged_infrastructure(reason="_commit_world_events: recording the outcome of an already-governed tick, not a new mutation"):
+            from src.monkey_brain.kernel.security_boundary import (
+                privileged_infrastructure,
+            )
+
+            with privileged_infrastructure(
+                reason="_commit_world_events: recording the outcome of an already-governed tick, not a new mutation"
+            ):
                 self._world.record_event(event)
 
     def _publish_tick_events(self, actor_id: str, result: Any) -> None:
@@ -1320,42 +1460,57 @@ class SocietyRuntime:
         Duck-typed against result's attributes rather than importing
         _CognitiveTickResult, so any Actor Runtime implementation's tick()
         return value works here as long as it exposes the same shape."""
-        self._context_stream.publish(ContextEvent(
-            event_type=ContextEventType.OBSERVATION, actor_id=actor_id,
-            description="Actor observed the world",
-            payload=getattr(result, "observations", None),
-            provenance="society:tick",
-        ))
-        if getattr(result, "belief_updated", False):
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.BELIEF_UPDATE, actor_id=actor_id,
-                description="Actor beliefs updated",
+        self._context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.OBSERVATION,
+                actor_id=actor_id,
+                description="Actor observed the world",
+                payload=getattr(result, "observations", None),
                 provenance="society:tick",
-            ))
+            )
+        )
+        if getattr(result, "belief_updated", False):
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.BELIEF_UPDATE,
+                    actor_id=actor_id,
+                    description="Actor beliefs updated",
+                    provenance="society:tick",
+                )
+            )
         actions = getattr(result, "actions", None) or []
         if actions:
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.ACTION, actor_id=actor_id,
-                description=f"{len(actions)} action(s) executed",
-                payload=actions,
-                provenance="society:tick",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.ACTION,
+                    actor_id=actor_id,
+                    description=f"{len(actions)} action(s) executed",
+                    payload=actions,
+                    provenance="society:tick",
+                )
+            )
             for action in actions:
                 self._publish_message_interaction(actor_id, action)
         if getattr(result, "learned", False):
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.LEARNING, actor_id=actor_id,
-                description="Actor learned from this cycle",
-                provenance="society:tick",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.LEARNING,
+                    actor_id=actor_id,
+                    description="Actor learned from this cycle",
+                    provenance="society:tick",
+                )
+            )
         predicted = getattr(result, "predicted_outcome", None)
         if predicted:
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.PREDICTION, actor_id=actor_id,
-                description="Actor predicted a future outcome",
-                payload=predicted,
-                provenance="society:tick",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.PREDICTION,
+                    actor_id=actor_id,
+                    description="Actor predicted a future outcome",
+                    payload=predicted,
+                    provenance="society:tick",
+                )
+            )
 
     def _publish_message_interaction(self, actor_id: str, action: Any) -> None:
         """BroadcastToAffiliation/RespondToInquiry/RecordAgreement, used
@@ -1394,22 +1549,29 @@ class SocietyRuntime:
         message = result.get("message")
         answer = result.get("answer")
         if message:
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.INTERACTION, actor_id=actor_id,
-                description=f"{actor_id}: {message}",
-                payload={
-                    "from_actor_id": actor_id, "message": message,
-                    "participants": list(result.get("recipients") or ()),
-                },
-                provenance="society:tick",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.INTERACTION,
+                    actor_id=actor_id,
+                    description=f"{actor_id}: {message}",
+                    payload={
+                        "from_actor_id": actor_id,
+                        "message": message,
+                        "participants": list(result.get("recipients") or ()),
+                    },
+                    provenance="society:tick",
+                )
+            )
         elif answer:
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.INTERACTION, actor_id=actor_id,
-                description=f"{actor_id}: {answer}",
-                payload={"from_actor_id": actor_id, "answer": answer},
-                provenance="society:tick",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.INTERACTION,
+                    actor_id=actor_id,
+                    description=f"{actor_id}: {answer}",
+                    payload={"from_actor_id": actor_id, "answer": answer},
+                    provenance="society:tick",
+                )
+            )
 
     async def run_ticks(self, count: int) -> list[SocietyTickResult]:
         results = []

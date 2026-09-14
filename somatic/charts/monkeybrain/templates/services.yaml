@@ -23,7 +23,7 @@ spec:
       initContainers:
         - name: uv-install
           image: ghcr.io/astral-sh/uv:latest
-          command: ["uv", "pip", "install", "--system", "-r", "/app/requirements.txt"]
+          command: ["uv", "pip", "install", "--system", "-r", "/app/requirements.lock.txt"]
           volumeMounts:
             - name: app-code
               mountPath: /app

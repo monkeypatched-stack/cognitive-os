@@ -5,6 +5,7 @@ Plan → Action → ExecutionEngine → CapabilityBus → Outcome
 The runtime coordinates execution. It does not implement capabilities.
 The ExecutionEngine discovers and invokes capabilities via the CapabilityBus.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ class Action:
 
     Actions are immutable — they describe WHAT to do, not the result.
     """
+
     action_id: str = ""
     """Unique identifier for this action."""
     capability: str = ""
@@ -59,6 +61,7 @@ class ActionOutcome:
 
     Immutable — captures what happened, not what should happen.
     """
+
     action_id: str = ""
     """Which action produced this outcome."""
     success: bool = False
@@ -78,6 +81,7 @@ class ActionOutcome:
 @dataclass(frozen=True)
 class ExecutionResult:
     """Aggregated result of executing all actions in a plan."""
+
     actions: tuple[ActionOutcome, ...] = ()
     """Outcomes for each action executed."""
     success_count: int = 0

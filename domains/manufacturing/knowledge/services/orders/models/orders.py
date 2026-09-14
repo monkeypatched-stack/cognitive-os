@@ -38,7 +38,11 @@ class OrderCreate(BaseModel):
             ("payment", self.payment),
             ("metrics", self.metrics),
         ):
-            if payload is not None and payload.order_id and payload.order_id != order_id:
+            if (
+                payload is not None
+                and payload.order_id
+                and payload.order_id != order_id
+            ):
                 raise ValueError(f"{label}.order_id must match details.order_id")
         return self
 
@@ -48,6 +52,7 @@ class OrderUpdate(BaseModel):
     metadata: Optional[OrderMetadataUpdate] = None
     payment: Optional[OrderPaymentMetadataUpdate] = None
     metrics: Optional[CustomerOrderMetricsUpdate] = None
+
 
 class OrderResponse(BaseModel):
     order_id: str

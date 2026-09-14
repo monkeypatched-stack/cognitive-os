@@ -3,6 +3,7 @@
 Responsibility: Search and filter episodic memories.
 Depends on: MongoDB database, in-memory cache
 """
+
 from __future__ import annotations
 
 import logging
@@ -128,9 +129,7 @@ class MemoryQuerying(RepositoryInterface):
             try:
                 db = self._db.get_db()
                 collection = db[self._collection_name]
-                db_count = collection.count_documents(
-                    {"actor_id": self._actor_id}
-                )
+                db_count = collection.count_documents({"actor_id": self._actor_id})
                 count = max(count, db_count)  # Use larger count
             except Exception as e:
                 logger.warning("[memory_querying] Failed to count in DB: %s", e)

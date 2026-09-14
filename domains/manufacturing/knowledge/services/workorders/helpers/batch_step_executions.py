@@ -10,7 +10,6 @@ from services.workorders.models.batch_step_executions import (
     BatchStepExecutionUpdate,
 )
 
-
 COLLECTION = "batch_step_executions"
 
 
@@ -40,7 +39,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -51,7 +52,9 @@ async def _attach_to_batch_record(db: AsyncIOMotorDatabase, record: dict) -> Non
     step_execution_id = record.get("batch_step_execution_id")
     if not batch_execution_record_id or not step_execution_id:
         return
-    executed_instruction_evidence_ids = record.get("executed_instruction_evidence_ids") or []
+    executed_instruction_evidence_ids = (
+        record.get("executed_instruction_evidence_ids") or []
+    )
     await db.batch_production_execution_records.update_one(
         {"batch_execution_record_id": batch_execution_record_id},
         {
@@ -59,9 +62,15 @@ async def _attach_to_batch_record(db: AsyncIOMotorDatabase, record: dict) -> Non
                 "metadata.batch_record_package.batch_step_execution_ids": step_execution_id,
                 "metadata.bmr_package.batch_step_execution_ids": step_execution_id,
                 "metadata.bpr_package.batch_step_execution_ids": step_execution_id,
-                "metadata.batch_record_package.executed_instruction_evidence_ids": {"$each": executed_instruction_evidence_ids},
-                "metadata.bmr_package.executed_instruction_evidence_ids": {"$each": executed_instruction_evidence_ids},
-                "evidence_document_ids": {"$each": record.get("evidence_document_ids") or []},
+                "metadata.batch_record_package.executed_instruction_evidence_ids": {
+                    "$each": executed_instruction_evidence_ids
+                },
+                "metadata.bmr_package.executed_instruction_evidence_ids": {
+                    "$each": executed_instruction_evidence_ids
+                },
+                "evidence_document_ids": {
+                    "$each": record.get("evidence_document_ids") or []
+                },
             }
         },
     )
@@ -100,8 +109,12 @@ async def get_all(
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, batch_step_execution_id: str) -> Optional[dict]:
-    doc = await db[COLLECTION].find_one({"batch_step_execution_id": batch_step_execution_id})
+async def get_by_id(
+    db: AsyncIOMotorDatabase, batch_step_execution_id: str
+) -> Optional[dict]:
+    doc = await db[COLLECTION].find_one(
+        {"batch_step_execution_id": batch_step_execution_id}
+    )
     return _serialize(doc) if doc else None
 
 
@@ -121,7 +134,9 @@ async def update(
     if not fields:
         return await get_by_id(db, batch_step_execution_id)
 
-    existing = await db[COLLECTION].find_one({"batch_step_execution_id": batch_step_execution_id})
+    existing = await db[COLLECTION].find_one(
+        {"batch_step_execution_id": batch_step_execution_id}
+    )
     if not existing:
         return None
     merged = _serialize(existing)
@@ -141,5 +156,7 @@ async def update(
 
 
 async def delete(db: AsyncIOMotorDatabase, batch_step_execution_id: str) -> bool:
-    result = await db[COLLECTION].delete_one({"batch_step_execution_id": batch_step_execution_id})
+    result = await db[COLLECTION].delete_one(
+        {"batch_step_execution_id": batch_step_execution_id}
+    )
     return result.deleted_count == 1

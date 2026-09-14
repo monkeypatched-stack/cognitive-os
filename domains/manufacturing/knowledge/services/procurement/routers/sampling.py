@@ -31,11 +31,17 @@ async def list_sampling_plans(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-products")),
 ):
-    records, total = await crud.get_all_sampling_plans(db, page=page, page_size=page_size)
-    return PaginatedSamplingPlanResponse(total=total, page=page, page_size=page_size, results=records)
+    records, total = await crud.get_all_sampling_plans(
+        db, page=page, page_size=page_size
+    )
+    return PaginatedSamplingPlanResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
-@router.get("/plans/by-material/{material_code}", response_model=list[SamplingPlanResponse])
+@router.get(
+    "/plans/by-material/{material_code}", response_model=list[SamplingPlanResponse]
+)
 async def list_sampling_plans_by_material(
     material_code: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -44,7 +50,9 @@ async def list_sampling_plans_by_material(
     return await crud.get_sampling_plans_by_material(db, material_code)
 
 
-@router.get("/plans/by-supplier/{supplier_id}", response_model=list[SamplingPlanResponse])
+@router.get(
+    "/plans/by-supplier/{supplier_id}", response_model=list[SamplingPlanResponse]
+)
 async def list_sampling_plans_by_supplier(
     supplier_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -68,7 +76,9 @@ async def get_sampling_plan(
     return record
 
 
-@router.post("/plans", response_model=SamplingPlanResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/plans", response_model=SamplingPlanResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_sampling_plan(
     data: SamplingPlanCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -119,7 +129,9 @@ async def list_samples(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all_samples(db, page=page, page_size=page_size)
-    return PaginatedSampleResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedSampleResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/samples/by-gr/{gr_id}", response_model=list[SampleResponse])
@@ -155,7 +167,9 @@ async def get_sample(
     return record
 
 
-@router.post("/samples", response_model=SampleResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/samples", response_model=SampleResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_sample(
     data: SampleCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -221,7 +235,9 @@ async def list_resampling_records(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-products")),
 ):
-    records, total = await crud.get_all_resampling_records(db, page=page, page_size=page_size)
+    records, total = await crud.get_all_resampling_records(
+        db, page=page, page_size=page_size
+    )
     return PaginatedResamplingRecordResponse(
         total=total,
         page=page,
@@ -230,7 +246,10 @@ async def list_resampling_records(
     )
 
 
-@router.get("/resampling-records/by-original/{sample_id}", response_model=list[ResamplingRecordResponse])
+@router.get(
+    "/resampling-records/by-original/{sample_id}",
+    response_model=list[ResamplingRecordResponse],
+)
 async def list_resampling_records_by_original_sample(
     sample_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -239,7 +258,9 @@ async def list_resampling_records_by_original_sample(
     return await crud.get_resampling_records_by_original_sample(db, sample_id)
 
 
-@router.get("/resampling-records/{resample_id}", response_model=ResamplingRecordResponse)
+@router.get(
+    "/resampling-records/{resample_id}", response_model=ResamplingRecordResponse
+)
 async def get_resampling_record(
     resample_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -267,7 +288,9 @@ async def create_resampling_record(
     return await crud.create_resampling_record(db, data)
 
 
-@router.patch("/resampling-records/{resample_id}", response_model=ResamplingRecordResponse)
+@router.patch(
+    "/resampling-records/{resample_id}", response_model=ResamplingRecordResponse
+)
 async def update_resampling_record(
     resample_id: str,
     data: ResamplingRecordUpdate,
@@ -283,7 +306,9 @@ async def update_resampling_record(
     return updated
 
 
-@router.delete("/resampling-records/{resample_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/resampling-records/{resample_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_resampling_record(
     resample_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),

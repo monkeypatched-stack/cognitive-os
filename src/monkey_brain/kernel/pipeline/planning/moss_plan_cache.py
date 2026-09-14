@@ -34,6 +34,7 @@ Never raises: exactly like MossSemanticMemory.query(), any Moss failure
 "store skipped" rather than propagating — a cache is allowed to just not
 have an answer, never allowed to break planning.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -43,7 +44,10 @@ import os
 from typing import Any
 
 from src.monkey_brain.kernel.pipeline.belief_state import Plan
-from src.monkey_brain.kernel.pipeline.planning.current_plan_store import plan_from_dict, plan_to_dict
+from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+    plan_from_dict,
+    plan_to_dict,
+)
 
 logger = logging.getLogger("agentos.pipeline.planning.moss_plan_cache")
 
@@ -61,7 +65,13 @@ class MossPlanCache:
     same convention as MossSemanticMemory, for the same reason (never
     needs real credentials to unit-test)."""
 
-    def __init__(self, client: Any, *, index_name: str = DEFAULT_INDEX_NAME, score_threshold: float = DEFAULT_SCORE_THRESHOLD) -> None:
+    def __init__(
+        self,
+        client: Any,
+        *,
+        index_name: str = DEFAULT_INDEX_NAME,
+        score_threshold: float = DEFAULT_SCORE_THRESHOLD,
+    ) -> None:
         self._client = client
         self._index_name = index_name
         self._score_threshold = score_threshold
@@ -91,7 +101,10 @@ class MossPlanCache:
             session = await self._get_session()
             result = await session.query(self._doc_text(goal_name, facts_text), QueryOptions(top_k=1))
         except Exception:
-            logger.warning("MossPlanCache.get_similar_plan: Moss call failed, treating as a miss", exc_info=True)
+            logger.warning(
+                "MossPlanCache.get_similar_plan: Moss call failed, treating as a miss",
+                exc_info=True,
+            )
             return None
 
         docs = getattr(result, "docs", None) or []
@@ -102,7 +115,9 @@ class MossPlanCache:
         if score < self._score_threshold:
             logger.debug(
                 "[moss_plan_cache] best match for goal=%r scored %.3f, below threshold %.3f — miss",
-                goal_name, score, self._score_threshold,
+                goal_name,
+                score,
+                self._score_threshold,
             )
             return None
 
@@ -114,12 +129,18 @@ class MossPlanCache:
             plan_dict = json.loads(raw_plan) if isinstance(raw_plan, str) else raw_plan
             plan = plan_from_dict(plan_dict)
         except Exception:
-            logger.warning("[moss_plan_cache] cached plan for goal=%r failed to deserialize — treating as a miss", goal_name, exc_info=True)
+            logger.warning(
+                "[moss_plan_cache] cached plan for goal=%r failed to deserialize — treating as a miss",
+                goal_name,
+                exc_info=True,
+            )
             return None
 
         logger.info(
             "[moss_plan_cache] reusing plan for goal=%r (matched score=%.3f, cached goal=%r)",
-            goal_name, score, plan.goal,
+            goal_name,
+            score,
+            plan.goal,
         )
         return plan
 
@@ -140,7 +161,10 @@ class MossPlanCache:
             )
             await session.add_docs([doc])
         except Exception:
-            logger.warning("MossPlanCache.store_plan: Moss call failed, plan not cached", exc_info=True)
+            logger.warning(
+                "MossPlanCache.store_plan: Moss call failed, plan not cached",
+                exc_info=True,
+            )
 
 
 _default_cache: MossPlanCache | None = None

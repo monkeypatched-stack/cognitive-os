@@ -20,6 +20,7 @@ approver. What it DOES give you, which a free-text field alone does not:
 Use this as one more piece of evidence in a human review, not as a
 pass/fail gate on its own.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -58,8 +59,17 @@ def approval_git_provenance(approval_path: Path | str, *, repo_root: Path | str)
         raise GitProvenanceError(f"{approval_path!r} is not inside repo_root {root!r}") from exc
 
     result = subprocess.run(
-        ["git", "log", "-1", "--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%G?%x1f%GS", "--", rel],
-        cwd=str(root), capture_output=True, text=True,
+        [
+            "git",
+            "log",
+            "-1",
+            "--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%G?%x1f%GS",
+            "--",
+            rel,
+        ],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0 or not result.stdout.strip():
         return GitProvenance(committed=False)

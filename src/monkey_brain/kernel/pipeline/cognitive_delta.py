@@ -6,6 +6,7 @@ analytics, replication, event bus, simulation).
 
 This separates cognitive commitment from side effects.
 """
+
 from __future__ import annotations
 
 import time
@@ -20,6 +21,7 @@ class CognitiveDelta:
     Captures everything that changed during this reasoning cycle.
     Consumed by infrastructure for checkpoint, world update, replication, etc.
     """
+
     actor_id: str = ""
     tenant_id: str = ""
 

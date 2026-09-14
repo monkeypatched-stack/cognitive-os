@@ -1,6 +1,7 @@
 """Shared helpers for the monkeypatched CLI.
 
 Internal functions used by multiple command modules."""
+
 from __future__ import annotations
 
 import importlib.util as _ilu
@@ -36,8 +37,8 @@ _SESSION_FILE = _MB_HOME / "session.json"
 
 _SVC_PORTS: dict[str, int] = {
     # ── Active services ──────────────────────────────────────────────────────
-    "auth":               8010,
-    "agentos":            8031,
+    "auth": 8010,
+    "agentos": 8031,
     # ── Manufacturing domain services (disabled — knowledge-only) ────────────
     # "assets":             8011,
     # "customers":          8012,
@@ -249,9 +250,9 @@ def _broca(dotted: str):
         if full_key in sys.modules:
             return sys.modules[full_key]
         spec = _ilu.spec_from_file_location(
-            full_key, file_path,
-            submodule_search_locations=[str(file_path.parent)]
-            if file_path.name == "__init__.py" else None,
+            full_key,
+            file_path,
+            submodule_search_locations=([str(file_path.parent)] if file_path.name == "__init__.py" else None),
         )
         if spec is None:
             raise ImportError(f"broca: cannot find {file_path}")
@@ -288,9 +289,12 @@ def _broca(dotted: str):
     if not file_path.exists():
         # Try as a package __init__
         file_path = _BROCA_PKG / Path(*segments) / "__init__.py"
-    mod = _load(full_key, file_path, "broca." + ".".join(segments[:-1]) if len(segments) > 1 else "broca")
+    mod = _load(
+        full_key,
+        file_path,
+        "broca." + ".".join(segments[:-1]) if len(segments) > 1 else "broca",
+    )
     return getattr(mod, cls_name) if cls_name else mod
-
 
 
 def _payload(result) -> dict:
@@ -301,7 +305,6 @@ def _payload(result) -> dict:
     if isinstance(result, dict):
         return result.get("payload", result)
     return {}
-
 
 
 def _observations(result) -> list:
@@ -320,19 +323,25 @@ def _structural_checks(content: str, path: "Path") -> list[dict]:
     rules = []
 
     has_frontmatter = content.startswith("---")
-    rules.append({
-        "name": "has_yaml_frontmatter",
-        "passed": has_frontmatter,
-        "message": "Prompt file starts with YAML frontmatter block." if has_frontmatter
-                   else "Missing YAML frontmatter (---) at top of file.",
-        "severity": "high",
-    })
+    rules.append(
+        {
+            "name": "has_yaml_frontmatter",
+            "passed": has_frontmatter,
+            "message": (
+                "Prompt file starts with YAML frontmatter block."
+                if has_frontmatter
+                else "Missing YAML frontmatter (---) at top of file."
+            ),
+            "severity": "high",
+        }
+    )
 
     # Parse frontmatter
     front = {}
     if has_frontmatter:
         try:
             import yaml as _yaml
+
             end = content.find("\n---", 3)
             if end != -1:
                 front = _yaml.safe_load(content[3:end]) or {}
@@ -340,102 +349,138 @@ def _structural_checks(content: str, path: "Path") -> list[dict]:
             logger.debug("Exception caught: %s", e)
 
     has_constraints = bool(front.get("constraints"))
-    rules.append({
-        "name": "frontmatter_has_constraints",
-        "passed": has_constraints,
-        "message": f"{len(front.get('constraints', []))} constraint(s) declared." if has_constraints
-                   else "No constraints in frontmatter.",
-        "severity": "high",
-    })
+    rules.append(
+        {
+            "name": "frontmatter_has_constraints",
+            "passed": has_constraints,
+            "message": (
+                f"{len(front.get('constraints', []))} constraint(s) declared."
+                if has_constraints
+                else "No constraints in frontmatter."
+            ),
+            "severity": "high",
+        }
+    )
 
     has_review_gate = bool(front.get("review_gate"))
-    rules.append({
-        "name": "frontmatter_has_review_gate",
-        "passed": has_review_gate,
-        "message": "review_gate with approved/rejected outcomes present." if has_review_gate
-                   else "No review_gate in frontmatter.",
-        "severity": "high",
-    })
+    rules.append(
+        {
+            "name": "frontmatter_has_review_gate",
+            "passed": has_review_gate,
+            "message": (
+                "review_gate with approved/rejected outcomes present."
+                if has_review_gate
+                else "No review_gate in frontmatter."
+            ),
+            "severity": "high",
+        }
+    )
 
     if has_review_gate:
         rg = front.get("review_gate", {})
         # outcomes may be nested under an "outcomes" key or flat on the gate itself
         outcomes = rg.get("outcomes", rg)
         has_both_outcomes = bool(outcomes.get("approved")) and bool(outcomes.get("rejected"))
-        rules.append({
-            "name": "review_gate_has_both_outcomes",
-            "passed": has_both_outcomes,
-            "message": "review_gate defines both approved and rejected outcomes." if has_both_outcomes
-                       else "review_gate missing approved or rejected outcome.",
-            "severity": "medium",
-        })
+        rules.append(
+            {
+                "name": "review_gate_has_both_outcomes",
+                "passed": has_both_outcomes,
+                "message": (
+                    "review_gate defines both approved and rejected outcomes."
+                    if has_both_outcomes
+                    else "review_gate missing approved or rejected outcome."
+                ),
+                "severity": "medium",
+            }
+        )
 
     has_preamble = "## Preamble" in content
-    rules.append({
-        "name": "has_preamble_section",
-        "passed": has_preamble,
-        "message": "## Preamble section present." if has_preamble
-                   else "Missing ## Preamble section.",
-        "severity": "critical",
-    })
+    rules.append(
+        {
+            "name": "has_preamble_section",
+            "passed": has_preamble,
+            "message": ("## Preamble section present." if has_preamble else "Missing ## Preamble section."),
+            "severity": "critical",
+        }
+    )
 
     if has_preamble:
         preamble_text = content.split("## Preamble", 1)[1].split("##", 1)[0].strip()
         preamble_long = len(preamble_text) >= 80
-        rules.append({
-            "name": "preamble_is_substantive",
-            "passed": preamble_long,
-            "message": f"Preamble is {len(preamble_text)} chars." if preamble_long
-                       else f"Preamble too short ({len(preamble_text)} chars, min 80).",
-            "severity": "medium",
-        })
+        rules.append(
+            {
+                "name": "preamble_is_substantive",
+                "passed": preamble_long,
+                "message": (
+                    f"Preamble is {len(preamble_text)} chars."
+                    if preamble_long
+                    else f"Preamble too short ({len(preamble_text)} chars, min 80)."
+                ),
+                "severity": "medium",
+            }
+        )
 
     has_cot = "## Chain of Thought" in content
-    rules.append({
-        "name": "has_cot_section",
-        "passed": has_cot,
-        "message": "## Chain of Thought section present." if has_cot
-                   else "Missing ## Chain of Thought section.",
-        "severity": "critical",
-    })
+    rules.append(
+        {
+            "name": "has_cot_section",
+            "passed": has_cot,
+            "message": ("## Chain of Thought section present." if has_cot else "Missing ## Chain of Thought section."),
+            "severity": "critical",
+        }
+    )
 
     if has_cot:
         cot_text = content.split("## Chain of Thought", 1)[1]
         steps = re.findall(r"^###\s+\d+\.", cot_text, re.MULTILINE)
         step_count = len(steps)
         enough_steps = step_count >= 3
-        rules.append({
-            "name": "cot_has_enough_steps",
-            "passed": enough_steps,
-            "message": f"{step_count} numbered CoT steps." if enough_steps
-                       else f"Only {step_count} CoT step(s) — minimum 3 required.",
-            "severity": "high",
-        })
+        rules.append(
+            {
+                "name": "cot_has_enough_steps",
+                "passed": enough_steps,
+                "message": (
+                    f"{step_count} numbered CoT steps."
+                    if enough_steps
+                    else f"Only {step_count} CoT step(s) — minimum 3 required."
+                ),
+                "severity": "high",
+            }
+        )
 
         # Each step should have a body (text after the ### heading)
         step_blocks = re.split(r"^###\s+\d+\.", cot_text, flags=re.MULTILINE)[1:]
         empty_steps = [i + 1 for i, b in enumerate(step_blocks) if len(b.strip()) < 10]
-        rules.append({
-            "name": "cot_steps_have_descriptions",
-            "passed": not empty_steps,
-            "message": "All CoT steps have descriptions." if not empty_steps
-                       else f"Steps {empty_steps} have no/minimal description.",
-            "severity": "medium",
-        })
+        rules.append(
+            {
+                "name": "cot_steps_have_descriptions",
+                "passed": not empty_steps,
+                "message": (
+                    "All CoT steps have descriptions."
+                    if not empty_steps
+                    else f"Steps {empty_steps} have no/minimal description."
+                ),
+                "severity": "medium",
+            }
+        )
 
     constraints = front.get("constraints", [])
     if constraints:
         non_empty = all(isinstance(c, str) and c.strip() for c in constraints)
-        rules.append({
-            "name": "constraints_are_non_empty_strings",
-            "passed": non_empty,
-            "message": "All constraints are non-empty strings." if non_empty
-                       else "One or more constraints are empty or non-string.",
-            "severity": "medium",
-        })
+        rules.append(
+            {
+                "name": "constraints_are_non_empty_strings",
+                "passed": non_empty,
+                "message": (
+                    "All constraints are non-empty strings."
+                    if non_empty
+                    else "One or more constraints are empty or non-string."
+                ),
+                "severity": "medium",
+            }
+        )
 
     return rules
-
 
 
 def _run_cingulate_agent(content: str, repo_root: "Path") -> dict:
@@ -480,7 +525,7 @@ def _run_cingulate_agent(content: str, repo_root: "Path") -> dict:
             "compliant": payload.get("compliant", True),
             "score": payload.get("score"),
             "issues": evidence[0].get("issues", []) if evidence else [],
-            "recommendation": observations[0] if observations else payload.get("recommendation", ""),
+            "recommendation": (observations[0] if observations else payload.get("recommendation", "")),
             "strengths": payload.get("strengths", []),
             "raw": payload,
         }
@@ -488,10 +533,10 @@ def _run_cingulate_agent(content: str, repo_root: "Path") -> dict:
         return _cingulate_anthropic_fallback(content, caught=str(e))
 
 
-
 def _cingulate_anthropic_fallback(content: str, caught: str = "") -> dict:
     """Direct Anthropic call when CingulateAgent's model backend is unavailable."""
     import os, re, json as _json
+
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return {
             "agent": "CingulateAgent(skipped)",
@@ -503,6 +548,7 @@ def _cingulate_anthropic_fallback(content: str, caught: str = "") -> dict:
         }
     try:
         import anthropic
+
         client = anthropic.Anthropic()
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -511,17 +557,22 @@ def _cingulate_anthropic_fallback(content: str, caught: str = "") -> dict:
                 "You are the Cingulate constitutional reviewer for MonkeyBrain AgentOS. "
                 "Assess compiled prompt files for semantic quality. Reply JSON only."
             ),
-            messages=[{"role": "user", "content": (
-                "Review this compiled prompt for: preamble clarity, CoT logical order, "
-                "invariant testability, review gate alignment, and auth/observability coverage.\n\n"
-                f"{content[:5000]}\n\n"
-                'Reply JSON: {"compliant": true/false, "score": 0-100, '
-                '"issues": [{"severity": "critical|high|medium|low", "check": "...", "detail": "..."}], '
-                '"strengths": ["..."], "recommendation": "..."}'
-            )}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "Review this compiled prompt for: preamble clarity, CoT logical order, "
+                        "invariant testability, review gate alignment, and auth/observability coverage.\n\n"
+                        f"{content[:5000]}\n\n"
+                        'Reply JSON: {"compliant": true/false, "score": 0-100, '
+                        '"issues": [{"severity": "critical|high|medium|low", "check": "...", "detail": "..."}], '
+                        '"strengths": ["..."], "recommendation": "..."}'
+                    ),
+                }
+            ],
         )
         text = msg.content[0].text if msg.content else ""
-        m = re.search(r'\{.*\}', text, re.DOTALL)
+        m = re.search(r"\{.*\}", text, re.DOTALL)
         data = _json.loads(m.group(0)) if m else {}
         return {
             "agent": "CingulateAgent(anthropic-fallback)",
@@ -543,24 +594,23 @@ def _cingulate_anthropic_fallback(content: str, caught: str = "") -> dict:
         }
 
 
-
 def _emit_to_lemon(report_data: dict, repo_root: "Path") -> None:
     """Emit the compliance report to Lemon via observe_governance."""
     import sys
+
     sys.path.insert(0, str(repo_root / "src"))
     try:
         from introspection.lemon import Lemon
+
         lemon = Lemon()
 
         s = report_data["structural"]
         trust_score = round(s["score"] / 100.0, 3)
         decision = report_data["verdict"] == "APPROVED"
 
-        failed_checks = [
-            c["rule"] for c in s["checks"] if not c["passed"]
-        ]
+        failed_checks = [c["rule"] for c in s["checks"] if not c["passed"]]
         agent_issues = [
-            f"{i.get('severity','?')}: {i.get('check','?')}"
+            f"{i.get('severity', '?')}: {i.get('check', '?')}"
             for i in (report_data.get("agent_review") or {}).get("issues", [])
         ]
         obligations = failed_checks + agent_issues
@@ -571,13 +621,18 @@ def _emit_to_lemon(report_data: dict, repo_root: "Path") -> None:
             principal="CingulateAgent",
             obligations=obligations,
             trust_score=trust_score,
-            provenance_chain=["soma_compile", "cingulate_structural", "cingulate_agent"],
+            provenance_chain=[
+                "soma_compile",
+                "cingulate_structural",
+                "cingulate_agent",
+            ],
             audit_ref=report_data.get("report_id", ""),
             pipeline_id="soma_api_review",
         )
 
         # Also log the full JSON report as a structured info entry
         import json
+
         lemon.info(
             json.dumps(report_data),
             component="cingulate_review",
@@ -586,7 +641,6 @@ def _emit_to_lemon(report_data: dict, repo_root: "Path") -> None:
         )
     except Exception:
         pass  # Lemon unavailable in CLI context — non-fatal
-
 
 
 def _run_cingulate_review(
@@ -606,6 +660,7 @@ def _run_cingulate_review(
 
     try:
         from cingulate.governance.compliance import ComplianceEngine
+
         _has_compliance_engine = True
     except ImportError:
         _has_compliance_engine = False
@@ -634,8 +689,12 @@ def _run_cingulate_review(
             "failed": comp_report.failed_checks,
             "score": round(comp_report.compliance_score * 100, 1),
             "checks": [
-                {"rule": c.rule, "passed": c.passed,
-                 "severity": c.severity, "message": c.message}
+                {
+                    "rule": c.rule,
+                    "passed": c.passed,
+                    "severity": c.severity,
+                    "message": c.message,
+                }
                 for c in comp_report.checks
             ],
         }
@@ -646,8 +705,15 @@ def _run_cingulate_review(
             "passed": passed,
             "failed": len(rules) - passed,
             "score": round(passed / len(rules) * 100, 1) if rules else 0,
-            "checks": [{"rule": r["name"], "passed": r["passed"],
-                        "severity": r["severity"], "message": r["message"]} for r in rules],
+            "checks": [
+                {
+                    "rule": r["name"],
+                    "passed": r["passed"],
+                    "severity": r["severity"],
+                    "message": r["message"],
+                }
+                for r in rules
+            ],
         }
 
     # ── 2. CingulateAgent semantic gate ─────────────────────────────────────
@@ -658,14 +724,10 @@ def _run_cingulate_review(
 
     # ── 3. Determine verdict ─────────────────────────────────────────────────
     critical_structural = any(
-        not c["passed"] and c["severity"] == "critical"
-        for c in report_data["structural"]["checks"]
+        not c["passed"] and c["severity"] == "critical" for c in report_data["structural"]["checks"]
     )
     agent_compliant = agent_result.get("compliant", True)
-    critical_agent_issues = [
-        i for i in agent_result.get("issues", [])
-        if i.get("severity") == "critical"
-    ]
+    critical_agent_issues = [i for i in agent_result.get("issues", []) if i.get("severity") == "critical"]
 
     if critical_structural or critical_agent_issues:
         report_data["verdict"] = "REJECTED"
@@ -717,7 +779,7 @@ def _run_cingulate_review(
             typer.echo(f"  + {item}")
     if ar.get("issues"):
         for issue in ar["issues"]:
-            typer.echo(f"  ! [{issue.get('severity','?')}] {issue.get('check','?')}: {issue.get('detail','')}")
+            typer.echo(f"  ! [{issue.get('severity', '?')}] {issue.get('check', '?')}: {issue.get('detail', '')}")
     if ar.get("recommendation"):
         typer.echo(f"  Recommendation: {ar['recommendation']}")
     if ar.get("error"):
@@ -732,6 +794,7 @@ def _run_cingulate_review(
 
 def _auth_url() -> str:
     import os
+
     return os.environ.get("AUTH_SERVICE_URL", _AUTH_URL_DEFAULT)
 
 
@@ -739,14 +802,15 @@ def _load_jobs() -> list[dict]:
     if not _SCHEDULER_FILE.exists():
         return []
     import json as _json
+
     try:
         return _json.loads(_SCHEDULER_FILE.read_text())
     except Exception:
         return []
 
 
-
 def _save_jobs(jobs: list[dict]) -> None:
     import json as _json
+
     _SCHEDULER_FILE.parent.mkdir(parents=True, exist_ok=True)
     _SCHEDULER_FILE.write_text(_json.dumps(jobs, indent=2))

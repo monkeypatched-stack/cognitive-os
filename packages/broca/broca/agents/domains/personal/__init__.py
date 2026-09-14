@@ -1,4 +1,5 @@
 """Personal Productivity agents — Calendar, Email, Notes, Contact."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -28,7 +29,11 @@ class CalendarAgent(BaseDDDAgent):
         return {"operation": op, "conflicts": conflicts, "action": f"calendar.{op}"}
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"calendar.{decision['operation']}", "event": decision.get("event", {}), "conflicts_resolved": len(decision.get("conflicts", []))}
+        return {
+            "action": f"calendar.{decision['operation']}",
+            "event": decision.get("event", {}),
+            "conflicts_resolved": len(decision.get("conflicts", [])),
+        }
 
     def _check_conflicts(self, perception: dict[str, Any]) -> list:
         return []
@@ -41,13 +46,26 @@ class EmailAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "send"), "to": context.get("to", []), "subject": context.get("subject", ""), "body": context.get("body", "")}
+        return {
+            "operation": context.get("operation", "send"),
+            "to": context.get("to", []),
+            "subject": context.get("subject", ""),
+            "body": context.get("body", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"email.{perception['operation']}", "recipients": len(perception.get("to", []))}
+        return {
+            "operation": perception["operation"],
+            "action": f"email.{perception['operation']}",
+            "recipients": len(perception.get("to", [])),
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"email.{decision['operation']}", "sent": decision["operation"] == "send", "recipients": decision.get("recipients", 0)}
+        return {
+            "action": f"email.{decision['operation']}",
+            "sent": decision["operation"] == "send",
+            "recipients": decision.get("recipients", 0),
+        }
 
 
 class NotesAgent(BaseDDDAgent):
@@ -57,10 +75,18 @@ class NotesAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "create"), "content": context.get("content", ""), "tags": context.get("tags", []), "search_query": context.get("query", "")}
+        return {
+            "operation": context.get("operation", "create"),
+            "content": context.get("content", ""),
+            "tags": context.get("tags", []),
+            "search_query": context.get("query", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"notes.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"notes.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"notes.{decision['operation']}", "success": True}
@@ -73,10 +99,17 @@ class ContactAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "find"), "contact": context.get("contact", {}), "query": context.get("query", "")}
+        return {
+            "operation": context.get("operation", "find"),
+            "contact": context.get("contact", {}),
+            "query": context.get("query", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"contact.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"contact.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"contact.{decision['operation']}", "success": True}

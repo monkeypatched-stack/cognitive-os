@@ -1,4 +1,5 @@
 """Utility commands."""
+
 from __future__ import annotations
 
 import os
@@ -7,7 +8,13 @@ from pathlib import Path
 
 import typer
 
-from repl._helpers import _SVC_PORTS, _MB_HOME as _MB_DIR, _brain_url, _brain_post, logger
+from repl._helpers import (
+    _SVC_PORTS,
+    _MB_HOME as _MB_DIR,
+    _brain_url,
+    _brain_post,
+    logger,
+)
 from repl.theme import console, print_banner
 
 
@@ -33,6 +40,7 @@ def logs_cmd(
     if not log.exists():
         # fallback: delegate to install_agentos
         from install_agentos import main as install_main
+
         sys.argv = ["monkeybrain", "logs"] + ([service] if service else [])
         install_main()
         return
@@ -41,9 +49,11 @@ def logs_cmd(
     subprocess.run(cmd, capture_output=False)
 
 
-
 def mount_cmd(
-    source: str = typer.Argument("", help="Source to mount: 'charts', 'knowledge', 'model:<name>', or a somatic chart path"),
+    source: str = typer.Argument(
+        "",
+        help="Source to mount: 'charts', 'knowledge', 'model:<name>', or a somatic chart path",
+    ),
     mount_type: str = typer.Option("", "--type", "-t", help="Mount type: charts|knowledge|model"),
     url: str = typer.Option("", "--url", "-u", help="MonkeyBrain URL"),
     json_output: bool = typer.Option(False, "--json", help="Raw JSON output"),
@@ -98,9 +108,11 @@ def mount_cmd(
         )
 
     else:
-        typer.echo(f"  Unknown mount type: {effective_type}. Use charts|knowledge|model.", err=True)
+        typer.echo(
+            f"  Unknown mount type: {effective_type}. Use charts|knowledge|model.",
+            err=True,
+        )
         raise typer.Exit(1)
-
 
 
 def monitor_cmd(
@@ -133,7 +145,7 @@ def monitor_cmd(
         try:
             r = httpx.get(f"{base}/health", timeout=3)
             health = r.json()
-            lines.append(f"  BRAIN  status={health.get('status','?')}  health={health.get('health','?')}")
+            lines.append(f"  BRAIN  status={health.get('status', '?')}  health={health.get('health', '?')}")
         except Exception:
             lines.append("  BRAIN  status=unreachable")
 
@@ -149,7 +161,7 @@ def monitor_cmd(
 
         lines.append("")
         lines.append(f"  {'SERVICE':<22s} {'PORT':>6s}  STATUS")
-        lines.append(f"  {'-'*22} {'-'*6}  {'-'*6}")
+        lines.append(f"  {'-' * 22} {'-' * 6}  {'-' * 6}")
         return lines
 
     def _render_services() -> None:
@@ -169,6 +181,7 @@ def monitor_cmd(
         while True:
             # Clear screen
             import subprocess as _sp
+
             _sp.run(["clear"] if os.name != "nt" else ["cls"], check=False)
             print_banner()
             for line in _render():
@@ -177,7 +190,6 @@ def monitor_cmd(
             time.sleep(interval)
     except KeyboardInterrupt:
         typer.echo("\n  Monitor stopped.")
-
 
 
 def ls_cmd(
@@ -203,6 +215,7 @@ def ls_cmd(
         typer.echo("  ── Somatic Charts ───────────────────────────────────────")
         try:
             import httpx
+
             r = httpx.get(f"{base}/somatic/charts", timeout=5)
             if json_output:
                 typer.echo(r.text)
@@ -242,6 +255,7 @@ def ls_cmd(
         typer.echo("\n  ── Agents ───────────────────────────────────────────────")
         try:
             import httpx
+
             r = httpx.get(f"{base}/api/v1/agentos/agents", timeout=5)
             data = r.json() if r.status_code == 200 else []
             if isinstance(data, dict):
@@ -252,7 +266,7 @@ def ls_cmd(
                 agents = []
             for a in agents:
                 src = a.get("source", "local")
-                typer.echo(f"    [{src:>6s}]  {a.get('agent_type','?')}")
+                typer.echo(f"    [{src:>6s}]  {a.get('agent_type', '?')}")
             if not agents and json_output:
                 typer.echo(r.text)
         except Exception:
@@ -270,6 +284,7 @@ def serve_cmd(
 ):
     """Launch all MonkeyBrain microservices locally."""
     import subprocess
+
     cmd = [sys.executable, "main.py"]
     result = subprocess.run(cmd, capture_output=False)
     raise typer.Exit(result.returncode)
@@ -278,6 +293,7 @@ def serve_cmd(
 def clear_cmd():
     """Clear the terminal screen.  [like clear]"""
     import subprocess as _subprocess
+
     _subprocess.run(["clear"] if os.name != "nt" else ["cls"], check=False)
 
 
@@ -311,11 +327,11 @@ def start_cmd():
     print_info("Opened a new terminal with the monkeypatched shell.")
 
 
-
 def stop_cmd():
     """Stop all MonkeyBrain services and API processes."""
     import argparse
     from install_agentos import cmd_stop
+
     raise typer.Exit(cmd_stop(argparse.Namespace(skip=[])))
 
 
@@ -330,10 +346,13 @@ def restart_cmd():
     start_cmd()
 
 
-
 def uninstall_cmd(
-    all_: bool = typer.Option(False, "--all", help="Remove everything: MonkeyBrain install + all database services"),
-    yes:  bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt"),
+    all_: bool = typer.Option(
+        False,
+        "--all",
+        help="Remove everything: MonkeyBrain install + all database services",
+    ),
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt"),
 ):
     """Remove MonkeyBrain completely.
 
@@ -342,6 +361,6 @@ def uninstall_cmd(
     """
     import argparse
     from install_agentos import cmd_uninstall
+
     args = argparse.Namespace(yes=yes, purge=all_)
     raise typer.Exit(cmd_uninstall(args))
-

@@ -22,10 +22,14 @@ async def list_shipping_providers(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedShippingProviderDetailsResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedShippingProviderDetailsResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
-@router.get("/by-name/{provider_name}", response_model=list[ShippingProviderDetailsResponse])
+@router.get(
+    "/by-name/{provider_name}", response_model=list[ShippingProviderDetailsResponse]
+)
 async def list_shipping_providers_by_name(
     provider_name: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -42,18 +46,28 @@ async def get_shipping_provider(
 ):
     record = await crud.get_by_id(db, provider_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Shipping provider '{provider_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Shipping provider '{provider_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=ShippingProviderDetailsResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=ShippingProviderDetailsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_shipping_provider(
     data: ShippingProviderDetailsCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-create-products")),
 ):
     if await crud.get_by_id(db, data.provider_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Shipping provider '{data.provider_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Shipping provider '{data.provider_id}' already exists",
+        )
     return await crud.create(db, data)
 
 
@@ -66,7 +80,10 @@ async def update_shipping_provider(
 ):
     updated = await crud.update(db, provider_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Shipping provider '{provider_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Shipping provider '{provider_id}' not found",
+        )
     return updated
 
 
@@ -77,4 +94,7 @@ async def delete_shipping_provider(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, provider_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Shipping provider '{provider_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Shipping provider '{provider_id}' not found",
+        )

@@ -49,7 +49,9 @@ async def list_lots(
     _: dict = Depends(require_permission("perm-view-inventory")),
 ):
     query = {"warehouse_id": warehouse_id} if warehouse_id else None
-    records, total = await crud.get_all(db, "lots", page=page, page_size=page_size, query=query)
+    records, total = await crud.get_all(
+        db, "lots", page=page, page_size=page_size, query=query
+    )
     return _page(total, page, page_size, records, PaginatedLotResponse)
 
 
@@ -60,7 +62,10 @@ async def create_lot(
     _: dict = Depends(require_permission("perm-create-inventory")),
 ):
     if await crud.get_by_id(db, "lots", data.lot_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Lot '{data.lot_id}' already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Lot '{data.lot_id}' already exists",
+        )
     return await crud.create(db, "lots", data)
 
 
@@ -72,7 +77,9 @@ async def get_lot(
 ):
     record = await crud.get_by_id(db, "lots", lot_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lot '{lot_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Lot '{lot_id}' not found"
+        )
     return record
 
 
@@ -85,7 +92,9 @@ async def update_lot(
 ):
     record = await crud.update(db, "lots", lot_id, data)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lot '{lot_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Lot '{lot_id}' not found"
+        )
     return record
 
 
@@ -96,7 +105,9 @@ async def delete_lot(
     _: dict = Depends(require_permission("perm-delete-inventory")),
 ):
     if not await crud.delete(db, "lots", lot_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lot '{lot_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Lot '{lot_id}' not found"
+        )
 
 
 @router.get("/lots/{lot_id}/tree", response_model=LocationTree)
@@ -107,7 +118,9 @@ async def get_lot_tree(
 ):
     tree = await crud.get_tree_for_lot(db, lot_id)
     if not tree:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Lot '{lot_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Lot '{lot_id}' not found"
+        )
     return tree
 
 
@@ -120,7 +133,9 @@ async def list_zones(
     _: dict = Depends(require_permission("perm-view-inventory")),
 ):
     query = {"lot_id": lot_id} if lot_id else None
-    records, total = await crud.get_all(db, "zones", page=page, page_size=page_size, query=query)
+    records, total = await crud.get_all(
+        db, "zones", page=page, page_size=page_size, query=query
+    )
     return _page(total, page, page_size, records, PaginatedZoneResponse)
 
 
@@ -131,7 +146,10 @@ async def create_zone(
     _: dict = Depends(require_permission("perm-create-inventory")),
 ):
     if await crud.get_by_id(db, "zones", data.zone_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Zone '{data.zone_id}' already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Zone '{data.zone_id}' already exists",
+        )
     return await crud.create(db, "zones", data)
 
 
@@ -143,7 +161,9 @@ async def get_zone(
 ):
     record = await crud.get_by_id(db, "zones", zone_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Zone '{zone_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Zone '{zone_id}' not found"
+        )
     return record
 
 
@@ -156,7 +176,9 @@ async def update_zone(
 ):
     record = await crud.update(db, "zones", zone_id, data)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Zone '{zone_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Zone '{zone_id}' not found"
+        )
     return record
 
 
@@ -167,7 +189,9 @@ async def delete_zone(
     _: dict = Depends(require_permission("perm-delete-inventory")),
 ):
     if not await crud.delete(db, "zones", zone_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Zone '{zone_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Zone '{zone_id}' not found"
+        )
 
 
 @router.get("/areas", response_model=PaginatedAreaResponse)
@@ -179,7 +203,9 @@ async def list_areas(
     _: dict = Depends(require_permission("perm-view-inventory")),
 ):
     query = {"zone_id": zone_id} if zone_id else None
-    records, total = await crud.get_all(db, "areas", page=page, page_size=page_size, query=query)
+    records, total = await crud.get_all(
+        db, "areas", page=page, page_size=page_size, query=query
+    )
     return _page(total, page, page_size, records, PaginatedAreaResponse)
 
 
@@ -190,7 +216,10 @@ async def create_area(
     _: dict = Depends(require_permission("perm-create-inventory")),
 ):
     if await crud.get_by_id(db, "areas", data.area_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Area '{data.area_id}' already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Area '{data.area_id}' already exists",
+        )
     return await crud.create(db, "areas", data)
 
 
@@ -202,7 +231,9 @@ async def get_area(
 ):
     record = await crud.get_by_id(db, "areas", area_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Area '{area_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Area '{area_id}' not found"
+        )
     return record
 
 
@@ -215,7 +246,9 @@ async def update_area(
 ):
     record = await crud.update(db, "areas", area_id, data)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Area '{area_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Area '{area_id}' not found"
+        )
     return record
 
 
@@ -226,7 +259,9 @@ async def delete_area(
     _: dict = Depends(require_permission("perm-delete-inventory")),
 ):
     if not await crud.delete(db, "areas", area_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Area '{area_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Area '{area_id}' not found"
+        )
 
 
 @router.get("/aisles", response_model=PaginatedAisleResponse)
@@ -238,7 +273,9 @@ async def list_aisles(
     _: dict = Depends(require_permission("perm-view-inventory")),
 ):
     query = {"area_id": area_id} if area_id else None
-    records, total = await crud.get_all(db, "aisles", page=page, page_size=page_size, query=query)
+    records, total = await crud.get_all(
+        db, "aisles", page=page, page_size=page_size, query=query
+    )
     return _page(total, page, page_size, records, PaginatedAisleResponse)
 
 
@@ -249,7 +286,10 @@ async def create_aisle(
     _: dict = Depends(require_permission("perm-create-inventory")),
 ):
     if await crud.get_by_id(db, "aisles", data.aisle_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Aisle '{data.aisle_id}' already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Aisle '{data.aisle_id}' already exists",
+        )
     return await crud.create(db, "aisles", data)
 
 
@@ -261,7 +301,10 @@ async def get_aisle(
 ):
     record = await crud.get_by_id(db, "aisles", aisle_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Aisle '{aisle_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Aisle '{aisle_id}' not found",
+        )
     return record
 
 
@@ -274,7 +317,10 @@ async def update_aisle(
 ):
     record = await crud.update(db, "aisles", aisle_id, data)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Aisle '{aisle_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Aisle '{aisle_id}' not found",
+        )
     return record
 
 
@@ -285,7 +331,10 @@ async def delete_aisle(
     _: dict = Depends(require_permission("perm-delete-inventory")),
 ):
     if not await crud.delete(db, "aisles", aisle_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Aisle '{aisle_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Aisle '{aisle_id}' not found",
+        )
 
 
 @router.get("/racks", response_model=PaginatedRackResponse)
@@ -297,7 +346,9 @@ async def list_racks(
     _: dict = Depends(require_permission("perm-view-inventory")),
 ):
     query = {"aisle_id": aisle_id} if aisle_id else None
-    records, total = await crud.get_all(db, "racks", page=page, page_size=page_size, query=query)
+    records, total = await crud.get_all(
+        db, "racks", page=page, page_size=page_size, query=query
+    )
     return _page(total, page, page_size, records, PaginatedRackResponse)
 
 
@@ -308,7 +359,10 @@ async def create_rack(
     _: dict = Depends(require_permission("perm-create-inventory")),
 ):
     if await crud.get_by_id(db, "racks", data.rack_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Rack '{data.rack_id}' already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Rack '{data.rack_id}' already exists",
+        )
     return await crud.create(db, "racks", data)
 
 
@@ -320,7 +374,9 @@ async def get_rack(
 ):
     record = await crud.get_by_id(db, "racks", rack_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rack '{rack_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Rack '{rack_id}' not found"
+        )
     return record
 
 
@@ -333,7 +389,9 @@ async def update_rack(
 ):
     record = await crud.update(db, "racks", rack_id, data)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rack '{rack_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Rack '{rack_id}' not found"
+        )
     return record
 
 
@@ -344,7 +402,9 @@ async def delete_rack(
     _: dict = Depends(require_permission("perm-delete-inventory")),
 ):
     if not await crud.delete(db, "racks", rack_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Rack '{rack_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Rack '{rack_id}' not found"
+        )
 
 
 @router.get("/bins", response_model=PaginatedBinResponse)
@@ -364,7 +424,9 @@ async def list_bins(
         query["status"] = status_value
     if is_occupied is not None:
         query["is_occupied"] = is_occupied
-    records, total = await crud.get_all(db, "bins", page=page, page_size=page_size, query=query)
+    records, total = await crud.get_all(
+        db, "bins", page=page, page_size=page_size, query=query
+    )
     return _page(total, page, page_size, records, PaginatedBinResponse)
 
 
@@ -375,7 +437,10 @@ async def create_bin(
     _: dict = Depends(require_permission("perm-create-inventory")),
 ):
     if await crud.get_by_id(db, "bins", data.bin_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Bin '{data.bin_id}' already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Bin '{data.bin_id}' already exists",
+        )
     return await crud.create(db, "bins", data)
 
 
@@ -387,7 +452,9 @@ async def get_bin(
 ):
     record = await crud.get_by_id(db, "bins", bin_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Bin '{bin_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Bin '{bin_id}' not found"
+        )
     return record
 
 
@@ -400,7 +467,9 @@ async def update_bin(
 ):
     record = await crud.update(db, "bins", bin_id, data)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Bin '{bin_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Bin '{bin_id}' not found"
+        )
     return record
 
 
@@ -411,7 +480,9 @@ async def delete_bin(
     _: dict = Depends(require_permission("perm-delete-inventory")),
 ):
     if not await crud.delete(db, "bins", bin_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Bin '{bin_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Bin '{bin_id}' not found"
+        )
 
 
 @router.get("/bins/{bin_id}/location", response_model=WarehouseLocation)
@@ -422,5 +493,8 @@ async def get_bin_location(
 ):
     location = await crud.get_location_for_bin(db, bin_id)
     if not location:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Location for bin '{bin_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location for bin '{bin_id}' not found",
+        )
     return location

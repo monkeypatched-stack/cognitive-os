@@ -15,6 +15,7 @@ This constraint keeps the orchestrator permanently thin.
 The runtime receives only semantic objects (CompiledRequest, RuntimeContext).
 Never transport data (question strings, HTTP requests, JSON).
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,11 +76,13 @@ class PipelineOrchestrator:
 
         # 1. Compile
         compiled, compile_ms = await self._compile(request)
-        trace.append(PipelineTraceEntry(
-            step="compile",
-            status="ok" if compiled is not None else "failed",
-            duration_ms=compile_ms,
-        ))
+        trace.append(
+            PipelineTraceEntry(
+                step="compile",
+                status="ok" if compiled is not None else "failed",
+                duration_ms=compile_ms,
+            )
+        )
         if compiled is None:
             return self._error_response(request, trace, start, compile_ms)
 
@@ -89,11 +92,13 @@ class PipelineOrchestrator:
 
         # 3. Delegate to runtime (compiled + context + actor, never raw question)
         exec_result, exec_ms = await self._execute(compiled, runtime_ctx, actor)
-        trace.append(PipelineTraceEntry(
-            step="execute",
-            status="ok" if exec_result is not None else "failed",
-            duration_ms=exec_ms,
-        ))
+        trace.append(
+            PipelineTraceEntry(
+                step="execute",
+                status="ok" if exec_result is not None else "failed",
+                duration_ms=exec_ms,
+            )
+        )
 
         # 4. Build response
         return self._build_response(compiled, exec_result, trace, start)
@@ -199,11 +204,20 @@ class PipelineOrchestrator:
                 execution_id=self._exec_id(compiled),
                 trace=tuple(trace),
                 metrics={"total_ms": round(total_ms, 2)},
-                errors=(PipelineError(code="EXECUTION_FAILED", message="Runtime failed", step="execute"),),
+                errors=(
+                    PipelineError(
+                        code="EXECUTION_FAILED",
+                        message="Runtime failed",
+                        step="execute",
+                    ),
+                ),
             )
 
         return self._response_builder.build(
-            exec_result, compiled, trace=tuple(trace), start_time=start,
+            exec_result,
+            compiled,
+            trace=tuple(trace),
+            start_time=start,
         )
 
     def _exec_id(self, compiled: Any) -> str:

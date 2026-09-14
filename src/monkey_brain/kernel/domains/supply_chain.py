@@ -14,6 +14,7 @@ chain walk, and a direct comparison found they'd actually disagreed for
 years on two edge cases (see `supply_chain_status`'s docstring). Both
 callers now share one real implementation.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -27,12 +28,14 @@ class SupplyChainCapability(DomainCapability):
     name = "supply_chain"
 
     def __init__(self):
-        super().__init__({
-            "trace_supply_chain": trace_supply_chain,
-            "supply_chain_ok": supply_chain_ok,
-            "shortage_options": shortage_options,
-            "route_to_available_warehouse": route_to_available_warehouse,
-        })
+        super().__init__(
+            {
+                "trace_supply_chain": trace_supply_chain,
+                "supply_chain_ok": supply_chain_ok,
+                "shortage_options": shortage_options,
+                "route_to_available_warehouse": route_to_available_warehouse,
+            }
+        )
 
 
 def supply_chain_status(all_orgs: dict, store_id: str) -> dict:
@@ -69,7 +72,14 @@ def supply_chain_status(all_orgs: dict, store_id: str) -> dict:
     modeled suppliers/factories at all).
     """
     store = all_orgs.get(store_id)
-    result = {"warehouse": None, "trucks": [], "supplier": None, "factory": None, "broken_links": [], "ok": True}
+    result = {
+        "warehouse": None,
+        "trucks": [],
+        "supplier": None,
+        "factory": None,
+        "broken_links": [],
+        "ok": True,
+    }
     if store is None:
         return result
     warehouse_id = store.attributes.get("warehouse_id")
@@ -84,23 +94,45 @@ def supply_chain_status(all_orgs: dict, store_id: str) -> dict:
 
     w_status = warehouse.attributes.get("status", "operational")
     w_robot_status = warehouse.attributes.get("robot_status", "operational")
-    result["warehouse"] = {"id": warehouse_id, "name": warehouse.name, "status": w_status, "robot_status": w_robot_status}
+    result["warehouse"] = {
+        "id": warehouse_id,
+        "name": warehouse.name,
+        "status": w_status,
+        "robot_status": w_robot_status,
+    }
     if w_status != "operational":
         result["broken_links"].append("warehouse")
     if w_robot_status != "operational":
         result["broken_links"].append("warehouse_robot")
 
-    trucks = [e for e in all_orgs.values() if e.attributes.get("type") == "truck"
-              and e.attributes.get("assigned_warehouse_id") == warehouse_id]
-    result["trucks"] = [{"id": t.entity_id, "name": t.name, "status": t.attributes.get("status", "operational")} for t in trucks]
-    if not any(t.attributes.get("status", "operational") == "operational" for t in trucks):
+    trucks = [
+        e
+        for e in all_orgs.values()
+        if e.attributes.get("type") == "truck"
+        and e.attributes.get("assigned_warehouse_id") == warehouse_id
+    ]
+    result["trucks"] = [
+        {
+            "id": t.entity_id,
+            "name": t.name,
+            "status": t.attributes.get("status", "operational"),
+        }
+        for t in trucks
+    ]
+    if not any(
+        t.attributes.get("status", "operational") == "operational" for t in trucks
+    ):
         result["broken_links"].append("trucks")
 
     supplier_id = warehouse.attributes.get("supplied_by")
     supplier = all_orgs.get(supplier_id) if supplier_id else None
     if supplier is not None:
         s_status = supplier.attributes.get("status", "operational")
-        result["supplier"] = {"id": supplier_id, "name": supplier.name, "status": s_status}
+        result["supplier"] = {
+            "id": supplier_id,
+            "name": supplier.name,
+            "status": s_status,
+        }
         if s_status != "operational":
             result["broken_links"].append("supplier")
 
@@ -108,7 +140,11 @@ def supply_chain_status(all_orgs: dict, store_id: str) -> dict:
         factory = all_orgs.get(factory_id) if factory_id else None
         if factory is not None:
             f_status = factory.attributes.get("status", "operational")
-            result["factory"] = {"id": factory_id, "name": factory.name, "status": f_status}
+            result["factory"] = {
+                "id": factory_id,
+                "name": factory.name,
+                "status": f_status,
+            }
             if f_status != "operational":
                 result["broken_links"].append("factory")
 
@@ -138,6 +174,7 @@ def route_to_available_warehouse(kg, store_id: str) -> dict:
     to route — success trivially, "routed": "none".
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     all_orgs = {e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)}
     store = all_orgs.get(store_id)
     if store is None:
@@ -152,9 +189,14 @@ def route_to_available_warehouse(kg, store_id: str) -> dict:
 
     for backup_id in store.attributes.get("backup_warehouse_ids", []):
         backup = all_orgs.get(backup_id)
-        if backup is not None and backup.attributes.get("status", "operational") == "operational":
+        if (
+            backup is not None
+            and backup.attributes.get("status", "operational") == "operational"
+        ):
             return {
-                "success": True, "warehouse_id": backup_id, "routed": "backup",
+                "success": True,
+                "warehouse_id": backup_id,
+                "routed": "backup",
                 "reason": f"primary warehouse {primary_id!r} unavailable",
             }
 
@@ -164,8 +206,11 @@ def route_to_available_warehouse(kg, store_id: str) -> dict:
     }
 
 
-def shortage_options(item: str, store_offers: list[dict[str, Any]],
-                     substitutions: list[str] | None = None) -> dict[str, Any]:
+def shortage_options(
+    item: str,
+    store_offers: list[dict[str, Any]],
+    substitutions: list[str] | None = None,
+) -> dict[str, Any]:
     """Return grounded options for an unavailable item.
 
     This is an observation builder, not a selection policy. The LLM planner
@@ -196,12 +241,21 @@ def trace_supply_chain(kg, store_id: str) -> dict:
     logic that could silently drift from it.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
-    all_orgs = {e.entity_id: e for e in kg.entities if e.entity_type == EntityType.ORGANIZATION}
+
+    all_orgs = {
+        e.entity_id: e for e in kg.entities if e.entity_type == EntityType.ORGANIZATION
+    }
     store = all_orgs.get(store_id)
     if store is None:
         return {"traced": False, "reason": "store not found"}
 
-    chain = {"store": {"id": store_id, "name": store.name, "is_open": store.attributes.get("is_open", True)}}
+    chain = {
+        "store": {
+            "id": store_id,
+            "name": store.name,
+            "is_open": store.attributes.get("is_open", True),
+        }
+    }
     broken_links = []
     if not chain["store"]["is_open"]:
         broken_links.append("store")
@@ -216,20 +270,43 @@ def trace_supply_chain(kg, store_id: str) -> dict:
             chain["factory"] = supply_status["factory"]
     broken_links.extend(supply_status["broken_links"])
 
-    bank = next((e for e in all_orgs.values() if e.attributes.get("type") == "bank"), None)
+    bank = next(
+        (e for e in all_orgs.values() if e.attributes.get("type") == "bank"), None
+    )
     if bank is not None:
         chain["bank"] = {"id": bank.entity_id, "name": bank.name}
 
-    processor = next((e for e in all_orgs.values() if e.attributes.get("type") == "payment_processor"), None)
+    processor = next(
+        (
+            e
+            for e in all_orgs.values()
+            if e.attributes.get("type") == "payment_processor"
+        ),
+        None,
+    )
     if processor is not None:
         p_status = processor.attributes.get("status", "operational")
-        chain["payment_processor"] = {"id": processor.entity_id, "name": processor.name, "status": p_status}
+        chain["payment_processor"] = {
+            "id": processor.entity_id,
+            "name": processor.name,
+            "status": p_status,
+        }
         if p_status != "operational":
             broken_links.append("payment_processor")
 
-    riders = [e for e in kg.entities if e.entity_type == EntityType.PERSON and e.attributes.get("status") == "available"]
+    riders = [
+        e
+        for e in kg.entities
+        if e.entity_type == EntityType.PERSON
+        and e.attributes.get("status") == "available"
+    ]
     chain["available_riders"] = len(riders)
     if not riders:
         broken_links.append("riders")
 
-    return {"traced": True, "chain": chain, "fulfillable": not broken_links, "broken_links": broken_links}
+    return {
+        "traced": True,
+        "chain": chain,
+        "fulfillable": not broken_links,
+        "broken_links": broken_links,
+    }

@@ -4,6 +4,7 @@ This script creates an in-memory NATSReducerStore (no NATS, no mem0), registers 
 simple parent pipeline that spawns a child, runs the parent via PipelineRuntime,
 and prints store action log to show thread.completed/answer.set entries.
 """
+
 import asyncio
 import time
 import sys
@@ -13,13 +14,28 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from services.agentos.events.reducer import NATSReducerStore, create_thread_reducer, create_answer_reducer
-from services.agentos.pipeline.pipeline_bootstrap import PipelineBootstrap, build_registry
-from services.agentos.pipeline.pipeline_interfaces import ContextPayload, PhysicalState, CognitiveState
+from services.agentos.events.reducer import (
+    NATSReducerStore,
+    create_thread_reducer,
+    create_answer_reducer,
+)
+from services.agentos.pipeline.pipeline_bootstrap import (
+    PipelineBootstrap,
+    build_registry,
+)
+from services.agentos.pipeline.pipeline_interfaces import (
+    ContextPayload,
+    PhysicalState,
+    CognitiveState,
+)
 from services.agentos.pipeline.pipeline_runtime import PipelineRuntime
 from services.agentos.pipeline.pipeline_engine import PipelineEngine
 from services.agentos.pipeline.pipeline_registry import PipelineRegistry
-from services.agentos.pipeline.pipeline_interfaces import ExecutionResult, PipelineStatus, IPipeline
+from services.agentos.pipeline.pipeline_interfaces import (
+    ExecutionResult,
+    PipelineStatus,
+    IPipeline,
+)
 
 
 class ChildOperator(IPipeline):
@@ -34,7 +50,14 @@ class ChildOperator(IPipeline):
 
     async def execute(self, payload: ContextPayload) -> ExecutionResult:
         await asyncio.sleep(0.01)
-        return ExecutionResult(status=PipelineStatus.COMPLETED, answer="child answer", semantic_hits=[], graph_paths=[], llm_answered=False, expert="dummy_child")
+        return ExecutionResult(
+            status=PipelineStatus.COMPLETED,
+            answer="child answer",
+            semantic_hits=[],
+            graph_paths=[],
+            llm_answered=False,
+            expert="dummy_child",
+        )
 
 
 class ParentOperator(IPipeline):
@@ -51,10 +74,16 @@ class ParentOperator(IPipeline):
         # spawn child via runtime — in real code this would be done inside the operator,
         # but for this smoke we just delegate and return a combined answer
         from services.agentos.pipeline.pipeline_bootstrap import PipelineBootstrap
+
         bootstrap = PipelineBootstrap(db=payload.physical.db)
         runtime = bootstrap.get_runtime()
         child_payload = ContextPayload(
-            physical=PhysicalState(entity_id="dummy", entity_type="dummy_child", parent_id="parent", db=payload.physical.db),
+            physical=PhysicalState(
+                entity_id="dummy",
+                entity_type="dummy_child",
+                parent_id="parent",
+                db=payload.physical.db,
+            ),
             cognitive=payload.cognitive,
             transaction_id=payload.transaction_id,
         )
@@ -70,6 +99,7 @@ async def main():
 
     # Create a bootstrap with our runtime/engine wired to the store
     from types import SimpleNamespace
+
     fake_db = SimpleNamespace()
     bootstrap = PipelineBootstrap(db=fake_db, store=store)
 
@@ -97,5 +127,5 @@ async def main():
         print(a)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

@@ -12,6 +12,7 @@ the dirty/untracked file set's *content* (not just names), so an approval
 captures what was actually on disk at discovery time, not just which
 commit the tree was based on.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,7 +29,11 @@ class RevisionComputationError(Exception):
 def _run_git(args: list[str], repo_root: Path) -> str:
     try:
         result = subprocess.run(
-            ["git", *args], cwd=str(repo_root), capture_output=True, text=True, check=True,
+            ["git", *args],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            check=True,
         )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise RevisionComputationError(f"git {' '.join(args)} failed: {exc}") from exc
@@ -92,8 +97,7 @@ def _effective_head_sha(root: Path, head_sha: str, exclude_prefixes: tuple[str, 
         parent = parents[1]
         try:
             changed = [
-                line for line in _run_git(["diff", "--name-only", parent, current], root).splitlines()
-                if line.strip()
+                line for line in _run_git(["diff", "--name-only", parent, current], root).splitlines() if line.strip()
             ]
         except RevisionComputationError:
             return current
@@ -105,7 +109,9 @@ def _effective_head_sha(root: Path, head_sha: str, exclude_prefixes: tuple[str, 
 
 
 def compute_repository_revision(
-    repo_root: Path | str, *, exclude_prefixes: tuple[str, ...] = DEFAULT_EXCLUDE_PREFIXES,
+    repo_root: Path | str,
+    *,
+    exclude_prefixes: tuple[str, ...] = DEFAULT_EXCLUDE_PREFIXES,
 ) -> RepositoryRevision:
     root = Path(repo_root)
     try:

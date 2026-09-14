@@ -4,6 +4,7 @@ Provides a framework for checking whether operations comply with
 regulatory requirements.  NOT a legal advice module — it provides
 hooks for policy enforcement, not legal interpretation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,17 +28,19 @@ class Regulation(str, Enum):
 @dataclass
 class ComplianceRule:
     """A single compliance rule."""
+
     rule_id: str
     regulation: Regulation
     description: str
-    check_fn: str = ""               # dotted path to check function
-    severity: str = "high"           # critical | high | medium | low
+    check_fn: str = ""  # dotted path to check function
+    severity: str = "high"  # critical | high | medium | low
     enabled: bool = True
 
 
 @dataclass
 class ComplianceResult:
     """Result of a compliance check."""
+
     rule_id: str
     regulation: str
     passed: bool
@@ -65,36 +68,46 @@ class RegulatoryComplianceEngine:
 
     def _register_defaults(self) -> None:
         """Register built-in compliance rules."""
-        self.register(ComplianceRule(
-            rule_id="gdpr_data_minimization",
-            regulation=Regulation.GDPR,
-            description="Only collect data necessary for the stated purpose",
-            severity="high",
-        ))
-        self.register(ComplianceRule(
-            rule_id="gdpr_right_to_erasure",
-            regulation=Regulation.GDPR,
-            description="Data must be erasable on request",
-            severity="critical",
-        ))
-        self.register(ComplianceRule(
-            rule_id="hipaa_phi_protection",
-            regulation=Regulation.HIPAA,
-            description="PHI must be encrypted at rest and in transit",
-            severity="critical",
-        ))
-        self.register(ComplianceRule(
-            rule_id="soc2_audit_trail",
-            regulation=Regulation.SOC2,
-            description="All actions must be auditable",
-            severity="high",
-        ))
-        self.register(ComplianceRule(
-            rule_id="soc2_access_control",
-            regulation=Regulation.SOC2,
-            description="Access must be authorized and logged",
-            severity="high",
-        ))
+        self.register(
+            ComplianceRule(
+                rule_id="gdpr_data_minimization",
+                regulation=Regulation.GDPR,
+                description="Only collect data necessary for the stated purpose",
+                severity="high",
+            )
+        )
+        self.register(
+            ComplianceRule(
+                rule_id="gdpr_right_to_erasure",
+                regulation=Regulation.GDPR,
+                description="Data must be erasable on request",
+                severity="critical",
+            )
+        )
+        self.register(
+            ComplianceRule(
+                rule_id="hipaa_phi_protection",
+                regulation=Regulation.HIPAA,
+                description="PHI must be encrypted at rest and in transit",
+                severity="critical",
+            )
+        )
+        self.register(
+            ComplianceRule(
+                rule_id="soc2_audit_trail",
+                regulation=Regulation.SOC2,
+                description="All actions must be auditable",
+                severity="high",
+            )
+        )
+        self.register(
+            ComplianceRule(
+                rule_id="soc2_access_control",
+                regulation=Regulation.SOC2,
+                description="Access must be authorized and logged",
+                severity="high",
+            )
+        )
 
     def register(self, rule: ComplianceRule) -> None:
         self._rules[rule.rule_id] = rule
@@ -110,7 +123,7 @@ class RegulatoryComplianceEngine:
                 rule_id=rule.rule_id,
                 regulation=rule.regulation.value,
                 passed=passed,
-                message="" if passed else f"Operation '{operation}' violates {rule.rule_id}",
+                message=("" if passed else f"Operation '{operation}' violates {rule.rule_id}"),
             )
             results.append(result)
             self._results.append(result)
@@ -118,7 +131,7 @@ class RegulatoryComplianceEngine:
             if passed:
                 self._total_passed += 1
         if len(self._results) > self._max_results:
-            self._results = self._results[-(self._max_results // 2):]   # bounded retention
+            self._results = self._results[-(self._max_results // 2) :]  # bounded retention
         return results
 
     def _evaluate_rule(self, rule: ComplianceRule, operation: str, context: dict[str, Any]) -> bool:

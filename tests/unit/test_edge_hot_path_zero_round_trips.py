@@ -8,6 +8,7 @@ measured SEPARATELY -- proving the intended shape:
 never "every action -> central service" regardless of locally-available
 authority.
 """
+
 from __future__ import annotations
 
 import time
@@ -17,7 +18,10 @@ import pytest
 
 from src.monkey_brain.kernel.edge.local_governance import LocalGovernanceEvaluator
 from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
-from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache, issue_policy_snapshot
+from src.monkey_brain.kernel.edge.policy_cache import (
+    EdgePolicyCache,
+    issue_policy_snapshot,
+)
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.pipeline.execution import Action
 from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trusted_auth
@@ -43,10 +47,15 @@ def _fake_bus():
 @pytest.fixture(autouse=True)
 def _bind(monkeypatch):
     monkeypatch.setenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "true")
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id=PRINCIPAL,
-        principal_type="service", mfa_status="satisfied",
-    ))
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id=PRINCIPAL,
+            principal_type="service",
+            mfa_status="satisfied",
+        )
+    )
     yield
 
 
@@ -55,8 +64,14 @@ class TestZeroRoundTripsWhenLocallyAuthorized:
     async def test_locally_cached_authority_never_calls_central_opa(self, monkeypatch, tmp_path):
         gov = _edge_governance(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal=PRINCIPAL, action="capability.grocery.purchase", resource="grocery.purchase",
-            policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE", "policy_rule": "edge_cached"},
+            principal=PRINCIPAL,
+            action="capability.grocery.purchase",
+            resource="grocery.purchase",
+            policy_decision={
+                "allowed": True,
+                "approval_mode": "AUTO_APPROVE",
+                "policy_rule": "edge_cached",
+            },
         )
         gov._policy_cache.store_snapshot(snapshot)
 
@@ -70,7 +85,12 @@ class TestZeroRoundTripsWhenLocallyAuthorized:
 
         bus, capability = _fake_bus()
         executor = ActionExecutor(
-            bus, connectivity_check=lambda cap: (False, "WAITING_FOR_AUTHORITY", "disconnected"),
+            bus,
+            connectivity_check=lambda cap: (
+                False,
+                "WAITING_FOR_AUTHORITY",
+                "disconnected",
+            ),
             edge_governance=gov,
         )
         action = Action(action_id="a1", capability="grocery.purchase", parameters={})
@@ -92,8 +112,14 @@ class TestHotPathLatencyBreakdown:
     async def test_measure_local_path_stage_latency(self, tmp_path, capsys):
         gov = _edge_governance(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal=PRINCIPAL, action="capability.grocery.purchase", resource="grocery.purchase",
-            policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE", "policy_rule": "edge_cached"},
+            principal=PRINCIPAL,
+            action="capability.grocery.purchase",
+            resource="grocery.purchase",
+            policy_decision={
+                "allowed": True,
+                "approval_mode": "AUTO_APPROVE",
+                "policy_rule": "edge_cached",
+            },
         )
         gov._policy_cache.store_snapshot(snapshot)
 
@@ -103,14 +129,21 @@ class TestHotPathLatencyBreakdown:
         for _ in range(N):
             bus, capability = _fake_bus()
             executor = ActionExecutor(
-                bus, connectivity_check=lambda cap: (False, "WAITING_FOR_AUTHORITY", "disconnected"),
+                bus,
+                connectivity_check=lambda cap: (
+                    False,
+                    "WAITING_FOR_AUTHORITY",
+                    "disconnected",
+                ),
                 edge_governance=gov,
             )
             action = Action(action_id="a1", capability="grocery.purchase", parameters={})
 
             t0 = time.monotonic()
             outcome = gov.evaluate(
-                principal=PRINCIPAL, action="capability.grocery.purchase", resource="grocery.purchase",
+                principal=PRINCIPAL,
+                action="capability.grocery.purchase",
+                resource="grocery.purchase",
                 authenticated_principal=PRINCIPAL,
             )
             t1 = time.monotonic()
@@ -128,8 +161,12 @@ class TestHotPathLatencyBreakdown:
         def p(vals, pct):
             return vals[int(len(vals) * pct)] if vals else 0.0
 
-        print(f"\nedge local governance decision: p50={p(governance_latencies, 0.50):.3f}ms p95={p(governance_latencies, 0.95):.3f}ms")
-        print(f"full ActionExecutor.execute (local path): p50={p(execution_latencies, 0.50):.3f}ms p95={p(execution_latencies, 0.95):.3f}ms")
+        print(
+            f"\nedge local governance decision: p50={p(governance_latencies, 0.50):.3f}ms p95={p(governance_latencies, 0.95):.3f}ms"
+        )
+        print(
+            f"full ActionExecutor.execute (local path): p50={p(execution_latencies, 0.50):.3f}ms p95={p(execution_latencies, 0.95):.3f}ms"
+        )
 
 
 class TestEscalatedPathMeasuredSeparately:
@@ -138,7 +175,12 @@ class TestEscalatedPathMeasuredSeparately:
         gov = _edge_governance(tmp_path)  # no snapshot stored -- nothing cached
         bus, capability = _fake_bus()
         executor = ActionExecutor(
-            bus, connectivity_check=lambda cap: (False, "WAITING_FOR_AUTHORITY", "disconnected"),
+            bus,
+            connectivity_check=lambda cap: (
+                False,
+                "WAITING_FOR_AUTHORITY",
+                "disconnected",
+            ),
             edge_governance=gov,
         )
         action = Action(action_id="a1", capability="grocery.purchase", parameters={})

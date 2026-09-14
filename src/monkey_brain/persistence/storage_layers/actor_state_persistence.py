@@ -3,6 +3,7 @@
 Responsibility: Save and load individual actor states.
 Depends on: MongoDB database, PersistedActorState dataclass
 """
+
 from __future__ import annotations
 
 import base64
@@ -108,7 +109,9 @@ class ActorStatePersistence(PersistenceInterface):
                 return None
 
             # Reconstruct PersistedActorState from document
-            from src.monkey_brain.persistence.actor_state_store import PersistedActorState
+            from src.monkey_brain.persistence.actor_state_store import (
+                PersistedActorState,
+            )
 
             state = PersistedActorState(
                 actor_id=doc["actor_id"],

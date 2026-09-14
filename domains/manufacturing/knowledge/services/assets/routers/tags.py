@@ -15,7 +15,6 @@ from services.assets.models.tags import (
 from services.common.auth import require_permission
 from services.common.db import get_database
 
-
 router = APIRouter()
 
 
@@ -40,7 +39,9 @@ async def list_rfid_tags(
         assigned_to=assigned_to,
         q=q,
     )
-    return PaginatedRFIDTagResponse(total=total, page=page, page_size=page_size, results=tags)
+    return PaginatedRFIDTagResponse(
+        total=total, page=page, page_size=page_size, results=tags
+    )
 
 
 @router.get("/by-barcode/{barcode}", response_model=RFIDTagRecord)
@@ -74,7 +75,12 @@ async def get_rfid_tag(
 
 
 @router.post("", response_model=RFIDTagRecord, status_code=status.HTTP_201_CREATED)
-@router.post("/", response_model=RFIDTagRecord, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post(
+    "/",
+    response_model=RFIDTagRecord,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 async def create_rfid_tag(
     data: RFIDTagCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

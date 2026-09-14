@@ -22,7 +22,9 @@ async def list_packages(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedPackageResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedPackageResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-code/{package_code}", response_model=PackageResponse)
@@ -33,7 +35,9 @@ async def get_package_by_code(
 ):
     record = await crud.get_by_code(db, package_code)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Package '{package_code}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Package '{package_code}' not found"
+        )
     return record
 
 
@@ -46,7 +50,9 @@ async def list_packages_by_pallet(
     return await crud.get_by_pallet(db, pallet_id)
 
 
-@router.get("/by-delivery-note/{delivery_note_id}", response_model=list[PackageResponse])
+@router.get(
+    "/by-delivery-note/{delivery_note_id}", response_model=list[PackageResponse]
+)
 async def list_packages_by_delivery_note(
     delivery_note_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -63,7 +69,10 @@ async def get_package_by_tracking_number(
 ):
     record = await crud.get_by_tracking_number(db, tracking_number)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Package with tracking number '{tracking_number}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Package with tracking number '{tracking_number}' not found",
+        )
     return record
 
 
@@ -84,7 +93,9 @@ async def get_package(
 ):
     record = await crud.get_by_id(db, package_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Package '{package_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Package '{package_id}' not found"
+        )
     return record
 
 
@@ -96,10 +107,17 @@ async def create_package(
 ):
     package_id = str(data.id)
     if await crud.get_by_id(db, package_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Package '{package_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"Package '{package_id}' already exists"
+        )
     if await crud.get_by_code(db, data.package_code):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Package '{data.package_code}' already exists")
-    if data.tracking_number and await crud.get_by_tracking_number(db, data.tracking_number):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Package '{data.package_code}' already exists",
+        )
+    if data.tracking_number and await crud.get_by_tracking_number(
+        db, data.tracking_number
+    ):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail=f"Package with tracking number '{data.tracking_number}' already exists",
@@ -117,7 +135,10 @@ async def update_package(
     if data.package_code:
         existing = await crud.get_by_code(db, data.package_code)
         if existing and existing.get("id") != package_id:
-            raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Package '{data.package_code}' already exists")
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=f"Package '{data.package_code}' already exists",
+            )
     if data.tracking_number:
         existing = await crud.get_by_tracking_number(db, data.tracking_number)
         if existing and existing.get("id") != package_id:
@@ -127,7 +148,9 @@ async def update_package(
             )
     updated = await crud.update(db, package_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Package '{package_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Package '{package_id}' not found"
+        )
     return updated
 
 
@@ -138,4 +161,6 @@ async def delete_package(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, package_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Package '{package_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Package '{package_id}' not found"
+        )

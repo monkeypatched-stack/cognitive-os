@@ -4,6 +4,7 @@ Post-merge, this agent tags the commit, pushes the tag, creates a GitHub
 Release via the REST API, and optionally attaches release assets. Returns
 typed AgentResult with a release artifact.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -69,11 +70,21 @@ class ReleaseAgent(BaseETASSAgent):
 
         if token and owner and repo_name:
             return await self._create_github_release(
-                token, owner, repo_name, tag, version, chart, release_notes, Artifact,
+                token,
+                owner,
+                repo_name,
+                tag,
+                version,
+                chart,
+                release_notes,
+                Artifact,
             )
 
         return await self._create_local_release(
-            tag, version, chart, Artifact,
+            tag,
+            version,
+            chart,
+            Artifact,
         )
 
     async def _create_tag(self, tag: str, branch: str) -> bool:
@@ -82,7 +93,10 @@ class ReleaseAgent(BaseETASSAgent):
             None,
             lambda: subprocess.run(
                 ["git", "tag", "-a", tag, "-m", f"Release {tag}"],
-                cwd=str(_REPO), capture_output=True, text=True, timeout=15,
+                cwd=str(_REPO),
+                capture_output=True,
+                text=True,
+                timeout=15,
             ),
         )
         if r.returncode != 0 and "already exists" not in r.stderr:
@@ -96,7 +110,10 @@ class ReleaseAgent(BaseETASSAgent):
             None,
             lambda: subprocess.run(
                 ["git", "push", "origin", tag],
-                cwd=str(_REPO), capture_output=True, text=True, timeout=30,
+                cwd=str(_REPO),
+                capture_output=True,
+                text=True,
+                timeout=30,
             ),
         )
         if r.returncode != 0:
@@ -105,8 +122,15 @@ class ReleaseAgent(BaseETASSAgent):
         return True
 
     async def _create_github_release(
-        self, token: str, owner: str, repo: str, tag: str,
-        version: str, chart: str, release_notes: str, Artifact: Any,
+        self,
+        token: str,
+        owner: str,
+        repo: str,
+        tag: str,
+        version: str,
+        chart: str,
+        release_notes: str,
+        Artifact: Any,
     ) -> dict:
         import httpx
 
@@ -135,9 +159,7 @@ class ReleaseAgent(BaseETASSAgent):
 
         release_url = data.get("html_url", "")
         artifacts = (
-            [Artifact(kind="release", name=f"Release {tag}", uri=release_url)]
-            if Artifact and release_url
-            else []
+            [Artifact(kind="release", name=f"Release {tag}", uri=release_url)] if Artifact and release_url else []
         )
 
         return self._result(
@@ -150,19 +172,27 @@ class ReleaseAgent(BaseETASSAgent):
             },
             artifacts=artifacts,
             observations=[
-                f"GitHub Release created: {release_url}" if success
-                else f"GitHub Release failed: {data.get('message', '')}"
+                (
+                    f"GitHub Release created: {release_url}"
+                    if success
+                    else f"GitHub Release failed: {data.get('message', '')}"
+                )
             ],
         )
 
     async def _create_local_release(
-        self, tag: str, version: str, chart: str, Artifact: Any,
+        self,
+        tag: str,
+        version: str,
+        chart: str,
+        Artifact: Any,
     ) -> dict:
         release_dir = _REPO / "releases"
         release_dir.mkdir(exist_ok=True)
         release_file = release_dir / f"{chart}-{tag}.json"
 
         import json
+
         release_info = {
             "tag": tag,
             "version": version,
@@ -173,11 +203,7 @@ class ReleaseAgent(BaseETASSAgent):
         release_file.write_text(json.dumps(release_info, indent=2))
 
         self._reward(True, 0.5)
-        artifacts = (
-            [Artifact(kind="release", name=f"Release {tag}", uri=str(release_file))]
-            if Artifact
-            else []
-        )
+        artifacts = [Artifact(kind="release", name=f"Release {tag}", uri=str(release_file))] if Artifact else []
 
         return self._result(
             payload={

@@ -19,6 +19,7 @@ succeed cleanly, without ever double-charging or double-decrementing
 stock, and a genuinely late/duplicate retry after success must also be
 a safe no-op.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import (
@@ -35,30 +36,66 @@ CREDIT_ACCOUNT_ID = "acct_alice_credit"
 
 def _seed_world(credit_limit: float) -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity(STORE_ID, EntityType.ORGANIZATION, "Key Food", {
-        "address": "200 W 23rd St, New York, NY", "delivery_fee": 4.99,
-    })
-    kg.add_entity("prod_milk", EntityType.ASSET, "Milk", {
-        "price": 3.99, "quantity": 10, "store_id": STORE_ID,
-    })
-    kg.add_entity(CREDIT_ACCOUNT_ID, EntityType.ACCOUNT, "Alice Credit Card", {
-        "account_type": "credit", "credit_limit": credit_limit,
-        "balance": 0.0, "owner": ACTOR_ID,
-    })
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {
-        "type": "payment_processor", "priority": 0,
-    })
+    kg.add_entity(
+        STORE_ID,
+        EntityType.ORGANIZATION,
+        "Key Food",
+        {
+            "address": "200 W 23rd St, New York, NY",
+            "delivery_fee": 4.99,
+        },
+    )
+    kg.add_entity(
+        "prod_milk",
+        EntityType.ASSET,
+        "Milk",
+        {
+            "price": 3.99,
+            "quantity": 10,
+            "store_id": STORE_ID,
+        },
+    )
+    kg.add_entity(
+        CREDIT_ACCOUNT_ID,
+        EntityType.ACCOUNT,
+        "Alice Credit Card",
+        {
+            "account_type": "credit",
+            "credit_limit": credit_limit,
+            "balance": 0.0,
+            "owner": ACTOR_ID,
+        },
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {
+            "type": "payment_processor",
+            "priority": 0,
+        },
+    )
     return kg
 
 
 def _cart() -> list[dict]:
-    return [{"id": "prod_milk", "name": "Milk", "price": 3.99, "qty": 2,
-             "store_id": STORE_ID, "store_name": "Key Food"}]
+    return [
+        {
+            "id": "prod_milk",
+            "name": "Milk",
+            "price": 3.99,
+            "qty": 2,
+            "store_id": STORE_ID,
+            "store_name": "Key Food",
+        }
+    ]
 
 
 def _place_order(kg: KnowledgeGraph, resume_order_id: str | None = None) -> dict:
     context = {
-        "knowledge_graph": kg, "selected_product": _cart(), "actor_id": ACTOR_ID,
+        "knowledge_graph": kg,
+        "selected_product": _cart(),
+        "actor_id": ACTOR_ID,
         "question": "deliver my order",
     }
     if resume_order_id:
@@ -68,8 +105,11 @@ def _place_order(kg: KnowledgeGraph, resume_order_id: str | None = None) -> dict
 
 def _attempt_payment(kg: KnowledgeGraph, order: dict) -> dict:
     context = {
-        "knowledge_graph": kg, "total": order["total"], "order": order,
-        "actor_id": ACTOR_ID, "selected_product": _cart(),
+        "knowledge_graph": kg,
+        "total": order["total"],
+        "order": order,
+        "actor_id": ACTOR_ID,
+        "selected_product": _cart(),
     }
     PaymentConfirmationCapability().handle({"context": context})
     return PaymentCapability().handle({"context": context})

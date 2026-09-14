@@ -13,6 +13,7 @@ A single feature slice W[d,:,:,f] is a SparseMatrix; the full tensor is a stack 
 them. CPU-friendly by construction (COO dicts, pure element-wise ops); the same shapes
 vectorize on GPU later.
 """
+
 from __future__ import annotations
 
 import math
@@ -109,16 +110,20 @@ class SparseMatrix:
         Builds CSR once and runs the accelerated backend (GPU cupy / CPU numpy / pure
         Python) for each step, so long chains and large operators vectorize."""
         from src.monkey_brain.kernel.compile import backend
+
         states = self.states()
         n = len(states)
         idx = {s: i for i, s in enumerate(states)}
         rows: dict[int, list[tuple[int, float]]] = {}
         for (r, c), v in self._m.items():
             rows.setdefault(idx[r], []).append((idx[c], v))
-        indptr = [0]; indices: list[int] = []; data: list[float] = []
+        indptr = [0]
+        indices: list[int] = []
+        data: list[float] = []
         for i in range(n):
-            for (c, v) in rows.get(i, ()):
-                indices.append(c); data.append(v)
+            for c, v in rows.get(i, ()):
+                indices.append(c)
+                data.append(v)
             indptr.append(len(indices))
 
         # Convert the operator to backend arrays ONCE, then step k times. The old form
@@ -141,7 +146,7 @@ class SparseMatrix:
             rows.setdefault(j, []).append((k, v))
         out = SparseMatrix()
         for (i, j), v in self._m.items():
-            for (k, w) in rows.get(j, ()):
+            for k, w in rows.get(j, ()):
                 out.add_at(i, k, v * w)
         return out
 
@@ -168,11 +173,12 @@ def epistemic_loss(a: SparseMatrix, b: SparseMatrix) -> float:
     any two operators. 0 = identical, 1 = maximal disagreement.
     """
     from src.monkey_brain.kernel.compile import backend
+
     union = list(set(a._m) | set(b._m))
     if not union:
         return 0.0
     av = [a._m.get(rc, 0.0) for rc in union]
     bv = [b._m.get(rc, 0.0) for rc in union]
-    diff = backend.l1_diff(av, bv)                      # vectorized on GPU/CPU
+    diff = backend.l1_diff(av, bv)  # vectorized on GPU/CPU
     scale = sum(max(abs(x), abs(y)) for x, y in zip(av, bv)) or 1.0
     return diff / scale

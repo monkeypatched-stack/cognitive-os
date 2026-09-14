@@ -2,13 +2,13 @@
 
 Replaces prototype assumptions with production security controls.
 """
+
 from __future__ import annotations
 
 import re
 import threading
 import time
 from typing import Any
-
 
 # ── Allow-list data classification ──────────────────────────────────────────
 
@@ -53,12 +53,13 @@ def sanitize_input(value: str, max_len: int = 10000) -> str:
 
 # ── Rate limiter ────────────────────────────────────────────────────────────
 
+
 class RateLimiter:
     """Token-bucket rate limiter per key (runtime_id, IP, etc.)."""
 
     def __init__(self, rate: float = 100.0, burst: float = 200.0) -> None:
-        self._rate = rate          # tokens per second
-        self._burst = burst        # max tokens
+        self._rate = rate  # tokens per second
+        self._burst = burst  # max tokens
         self._buckets: dict[str, tuple[float, float]] = {}  # key -> (tokens, last_time)
         self._lock = threading.Lock()
 
@@ -85,6 +86,7 @@ class RateLimiter:
 
 
 # ── Concurrency control ────────────────────────────────────────────────────
+
 
 class ReadWriteLock:
     """Multiple-reader, single-writer lock."""
@@ -119,6 +121,7 @@ class ReadWriteLock:
 
 # ── Bounded queue ──────────────────────────────────────────────────────────
 
+
 class BoundedQueue:
     """Thread-safe bounded queue with backpressure metrics."""
 
@@ -149,5 +152,8 @@ class BoundedQueue:
 
     @property
     def metrics(self) -> dict[str, int]:
-        return {"pending": self.pending(), "enqueued": self._total_enqueued,
-                "dropped": self._total_dropped}
+        return {
+            "pending": self.pending(),
+            "enqueued": self._total_enqueued,
+            "dropped": self._total_dropped,
+        }

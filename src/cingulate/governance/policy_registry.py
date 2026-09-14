@@ -28,7 +28,7 @@ class PolicyCategory(str, Enum):
 @dataclass
 class Policy:
     """A governance policy."""
-    
+
     policy_id: str = field(default_factory=lambda: f"policy-{uuid4().hex[:8]}")
     name: str = ""
     category: PolicyCategory = PolicyCategory.RUNTIME
@@ -43,27 +43,27 @@ class Policy:
 
 class PolicyRegistry:
     """Centralized policy definitions.
-    
+
     All policies are versioned and auditable.
     """
-    
+
     def __init__(self):
         self._policies: dict[str, Policy] = {}
-    
+
     def register(self, policy: Policy) -> str:
         """Register a policy."""
         self._policies[policy.policy_id] = policy
         return policy.policy_id
-    
+
     def get(self, policy_id: str) -> Policy | None:
         return self._policies.get(policy_id)
-    
+
     def get_by_category(self, category: PolicyCategory) -> list[Policy]:
         return [p for p in self._policies.values() if p.category == category]
-    
+
     def get_all(self) -> list[Policy]:
         return list(self._policies.values())
-    
+
     def update(self, policy_id: str, **kwargs: Any) -> bool:
         if policy_id in self._policies:
             policy = self._policies[policy_id]
@@ -73,13 +73,13 @@ class PolicyRegistry:
             policy.updated_at = datetime.now(timezone.utc).isoformat()
             return True
         return False
-    
+
     def remove(self, policy_id: str) -> bool:
         if policy_id in self._policies:
             del self._policies[policy_id]
             return True
         return False
-    
+
     def summary(self) -> dict:
         categories = {}
         for p in self._policies.values():
@@ -100,6 +100,7 @@ class PolicyRegistry:
         """
         try:
             from services.common.policy_control_plane import get_pcp
+
             pcp = await get_pcp(db=db)
             roles = await pcp.list_roles()
             synced = 0
@@ -114,8 +115,11 @@ class PolicyRegistry:
                     version="1.0.0",
                     description=f"ZTAA role-permission binding for role {role.get('role_id')}",
                     rules=[
-                        {"role_id": role.get("role_id"), "permissions": role.get("permissions", []),
-                         "parent_role_ids": role.get("parent_role_ids", [])}
+                        {
+                            "role_id": role.get("role_id"),
+                            "permissions": role.get("permissions", []),
+                            "parent_role_ids": role.get("parent_role_ids", []),
+                        }
                     ],
                 )
                 self._policies[policy_id] = p
@@ -123,6 +127,7 @@ class PolicyRegistry:
             return synced
         except Exception as exc:
             import logging
+
             logging.getLogger(__name__).warning("PCP sync failed (non-fatal): %s", exc)
             return 0
 

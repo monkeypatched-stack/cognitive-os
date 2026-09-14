@@ -42,7 +42,9 @@ async def get_by_id(db: AsyncIOMotorDatabase, board_id: str) -> Optional[dict]:
     return _serialize(doc) if doc else None
 
 
-async def get_by_workstation(db: AsyncIOMotorDatabase, workstation_id: str) -> list[dict]:
+async def get_by_workstation(
+    db: AsyncIOMotorDatabase, workstation_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"workstation_id": workstation_id})
     return [_serialize(d) async for d in cursor]
 

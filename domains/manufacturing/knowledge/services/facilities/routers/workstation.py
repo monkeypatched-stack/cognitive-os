@@ -23,6 +23,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedWorkstationResponse)
 async def list_workstations(
     page: int = Query(1, ge=1),
@@ -45,6 +46,7 @@ async def list_workstations(
 
 # ── Get by line ───────────────────────────────────────────────────────────────
 
+
 @router.get("/by-line/{line_id}", response_model=list[WorkstationResponse])
 async def list_workstations_by_line(
     line_id: str,
@@ -52,6 +54,7 @@ async def list_workstations_by_line(
     _: dict = Depends(get_current_user),
 ):
     return await crud.get_by_line(db, line_id)
+
 
 @router.get("/by-stage/{stage_id}", response_model=list[WorkstationResponse])
 async def list_workstations_by_stage(
@@ -62,7 +65,9 @@ async def list_workstations_by_stage(
     return await crud.get_by_stage_id(db, stage_id)
 
 
-@router.get("/{workstation_id}/machines", response_model=list[PharmaceuticalMachineResponse])
+@router.get(
+    "/{workstation_id}/machines", response_model=list[PharmaceuticalMachineResponse]
+)
 async def list_workstation_machines(
     workstation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -70,16 +75,22 @@ async def list_workstation_machines(
 ):
     record = await crud.get_by_id(db, workstation_id)
     if not record:
-        record = await db["workstations"].find_one({"name": {"$regex": f"^{re.escape(workstation_id)}$", "$options": "i"}})
+        record = await db["workstations"].find_one(
+            {"name": {"$regex": f"^{re.escape(workstation_id)}$", "$options": "i"}}
+        )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Workstation '{workstation_id}' not found",
         )
-    return await machine_crud.get_by_workstation(db, str(record.get("id") or workstation_id))
+    return await machine_crud.get_by_workstation(
+        db, str(record.get("id") or workstation_id)
+    )
 
 
-@router.get("/{workstation_id}/equipment", response_model=list[PharmaceuticalEquipmentResponse])
+@router.get(
+    "/{workstation_id}/equipment", response_model=list[PharmaceuticalEquipmentResponse]
+)
 async def list_workstation_equipment(
     workstation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -87,19 +98,27 @@ async def list_workstation_equipment(
 ):
     record = await crud.get_by_id(db, workstation_id)
     if not record:
-        record = await db["workstations"].find_one({"name": {"$regex": f"^{re.escape(workstation_id)}$", "$options": "i"}})
+        record = await db["workstations"].find_one(
+            {"name": {"$regex": f"^{re.escape(workstation_id)}$", "$options": "i"}}
+        )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Workstation '{workstation_id}' not found",
         )
-    return await equipment_crud.get_by_workstation_id(db, str(record.get("id") or workstation_id))
+    return await equipment_crud.get_by_workstation_id(
+        db, str(record.get("id") or workstation_id)
+    )
+
 
 # ── Get bottlenecks ───────────────────────────────────────────────────────────
 
+
 @router.get("/bottlenecks", response_model=list[WorkstationResponse])
 async def list_bottlenecks(
-    line_id: Optional[str] = Query(None, description="Optionally scope to a specific line"),
+    line_id: Optional[str] = Query(
+        None, description="Optionally scope to a specific line"
+    ),
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
@@ -107,6 +126,7 @@ async def list_bottlenecks(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{workstation_id}", response_model=WorkstationResponse)
 async def get_workstation(
@@ -125,7 +145,10 @@ async def get_workstation(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=WorkstationResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=WorkstationResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_workstation(
     data: WorkstationCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -140,6 +163,7 @@ async def create_workstation(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{workstation_id}", response_model=WorkstationResponse)
 async def update_workstation(
@@ -159,6 +183,7 @@ async def update_workstation(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 @router.delete("/{workstation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_workstation(
     workstation_id: str,
@@ -170,4 +195,3 @@ async def delete_workstation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Workstation '{workstation_id}' not found",
         )
-

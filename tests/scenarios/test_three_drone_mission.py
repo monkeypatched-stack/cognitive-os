@@ -3,6 +3,7 @@
 This is deliberately a deterministic simulation.  FakeRosExecutionAdapter is
 the hardware seam; the test proves the CognitiveOS boundaries around it.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -56,17 +57,17 @@ def _cell(actor_id: str) -> ActorCell:
 @pytest.mark.asyncio
 async def test_three_drone_mission_isolated_governed_and_coordinated():
     cells = {actor_id: _cell(actor_id) for actor_id in ("A", "B", "C")}
-    memories = {
-        actor_id: MemoryManager(vector_client=None, graph_client=None)
-        for actor_id in cells
-    }
+    memories = {actor_id: MemoryManager(vector_client=None, graph_client=None) for actor_id in cells}
     token = ProvenanceToken(trace_id="swarm", policy_path="mission", auth_hash="test")
 
     # Test 1 and 4: every actor owns independent mutable cognition.
     for actor_id, cell in cells.items():
         cell.actor.belief.observe(f"obstacle-{actor_id}", "observed")
         memories[actor_id].allocate_working_context(
-            actor_id, "survey", {"sector": actor_id}, token,
+            actor_id,
+            "survey",
+            {"sector": actor_id},
+            token,
         )
     assert len({id(c.actor._knowledge_graph) for c in cells.values()}) == 3
     assert len({id(c.actor.belief) for c in cells.values()}) == 3
@@ -89,21 +90,31 @@ async def test_three_drone_mission_isolated_governed_and_coordinated():
     returns = await asyncio.gather(*(execute(actor_id) for actor_id in cells))
     assert all(result["success"] for result in results + returns)
     for actor_id, cell in cells.items():
-        assert [call["parameters"]["sector"] for call in cell.ros_adapter.calls] == [actor_id, actor_id]
+        assert [call["parameters"]["sector"] for call in cell.ros_adapter.calls] == [
+            actor_id,
+            actor_id,
+        ]
         assert cell.ros_adapter.calls[1]["parameters"]["return_point"] == f"R-{actor_id}"
 
     # Test 2: cross-cell ROS dispatch fails before governance or hardware.
     with pytest.raises(RosUnavailableError):
         await run_ros_action_if_governed(
-            capability="SurveySector", resource="sector-B", parameters={},
-            adapter=cells["B"].ros_adapter, actor_id="A",
+            capability="SurveySector",
+            resource="sector-B",
+            parameters={},
+            adapter=cells["B"].ros_adapter,
+            actor_id="A",
             local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
         )
     assert len(cells["B"].ros_adapter.calls) == 2
 
     # Test 5: coordination is an explicit message payload, not a mutation of B.
-    coordination = {"from": "A", "to": "B", "type": "sector_unavailable", "payload": {"sector": "A"}}
+    coordination = {
+        "from": "A",
+        "to": "B",
+        "type": "sector_unavailable",
+        "payload": {"sector": "A"},
+    }
     assert coordination["from"] != coordination["to"]
     assert "obstacle-A" not in cells["B"].actor._knowledge_graph._entities
     assert "obstacle-A" not in memories["B"].working_memory[("B", "survey")].payload.values()
-

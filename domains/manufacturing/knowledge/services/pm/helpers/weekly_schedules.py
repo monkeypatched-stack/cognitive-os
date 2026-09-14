@@ -4,7 +4,10 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.pm.models.weekly_schedule import WeeklyScheduleCreate, WeeklyScheduleUpdate
+from services.pm.models.weekly_schedule import (
+    WeeklyScheduleCreate,
+    WeeklyScheduleUpdate,
+)
 
 COLLECTION = "weekly_schedules"
 

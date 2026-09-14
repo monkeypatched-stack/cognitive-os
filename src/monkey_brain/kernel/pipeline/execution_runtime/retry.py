@@ -36,6 +36,7 @@ Recovery actions:
                   step's own outcome remains a failure; the compensation is
                   a recorded side action, not a retroactive success.
 """
+
 from __future__ import annotations
 
 import time
@@ -45,9 +46,15 @@ from typing import Callable
 
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionContext, ExecutionOutcome, ExecutionStatus, ExecutionStep, RetryStrategy,
+    ExecutionContext,
+    ExecutionOutcome,
+    ExecutionStatus,
+    ExecutionStep,
+    RetryStrategy,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+)
 
 
 class RecoveryAction(Enum):
@@ -60,6 +67,7 @@ class RecoveryAction(Enum):
 @dataclass(frozen=True)
 class RecoveryPolicy:
     """What to do once a step's retries (if any) are exhausted."""
+
     action: RecoveryAction = RecoveryAction.CONTINUE
     compensation_operator: str = ""
     """Operator name to dispatch if action == COMPENSATE."""
@@ -69,6 +77,7 @@ class RecoveryPolicy:
 @dataclass(frozen=True)
 class RetryResult:
     """The final outcome of attempting a step with its retry policy applied."""
+
     outcome: ExecutionOutcome = field(default_factory=ExecutionOutcome)
     attempts: int = 1
     recovery_triggered: RecoveryAction | None = None
@@ -121,8 +130,10 @@ class RetryExecutor:
             compensation_outcome = self._compensate(step, recovery, context)
 
         return RetryResult(
-            outcome=outcome, attempts=attempt,
-            recovery_triggered=recovery.action, compensation_outcome=compensation_outcome,
+            outcome=outcome,
+            attempts=attempt,
+            recovery_triggered=recovery.action,
+            compensation_outcome=compensation_outcome,
         )
 
     # ── Thin ExecutionRegistry-shaped API — for drop-in scheduler composition ──
@@ -164,6 +175,9 @@ class RetryExecutor:
         compensating_step = ExecutionStep(
             operator=PlanningOperator(name=recovery.compensation_operator),
             parameters=step.parameters,
-            trace_metadata={**step.trace_metadata, "compensating_for_step_id": step.step_id},
+            trace_metadata={
+                **step.trace_metadata,
+                "compensating_for_step_id": step.step_id,
+            },
         )
         return self._registry.dispatch(compensating_step, context)

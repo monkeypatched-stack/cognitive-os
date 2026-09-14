@@ -41,6 +41,7 @@ async def quick_answer(
     knowledge_items: list = []
     try:
         from src.knowledge.pack import KnowledgePack
+
         kp: KnowledgePack | None = getattr(runtime, "_knowledge_pack", None)
         if kp is None:
             kp = KnowledgePack()
@@ -53,6 +54,7 @@ async def quick_answer(
     async def _background_plan():
         try:
             from src.monkey_brain.kernel.execute.runtime.executor import UnifiedExecutor
+
             executor = UnifiedExecutor()
             mongo_client = None
             try:

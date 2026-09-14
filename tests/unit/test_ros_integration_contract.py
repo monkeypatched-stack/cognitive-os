@@ -8,6 +8,7 @@ integration suite. This environment has no ROS 2 installation, so that
 second run is expected to skip here -- this file does not fake having
 ROS, it honestly reports "not run" via pytest.skip.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,6 +22,7 @@ from src.monkey_brain.kernel.edge.ros_integration import (
 
 try:
     import rclpy  # type: ignore[import-not-found]  # noqa: F401
+
     _ROS_AVAILABLE = True
 except ImportError:
     _ROS_AVAILABLE = False
@@ -73,12 +75,18 @@ class TestFakeRosExecutionAdapterContract(_AdapterContractMixin):
         assert result["simulated"] is True
 
 
-@pytest.mark.skipif(not _ROS_AVAILABLE, reason="rclpy not installed in this environment -- real ROS integration suite requires a ROS 2 installation")
+@pytest.mark.skipif(
+    not _ROS_AVAILABLE,
+    reason="rclpy not installed in this environment -- real ROS integration suite requires a ROS 2 installation",
+)
 class TestRclpyRosExecutionAdapterContract(_AdapterContractMixin):
     """Only runs when rclpy is actually importable. Never faked."""
 
     def build_adapter(self):
-        from src.monkey_brain.kernel.edge.ros_integration import RclpyRosExecutionAdapter
+        from src.monkey_brain.kernel.edge.ros_integration import (
+            RclpyRosExecutionAdapter,
+        )
+
         return RclpyRosExecutionAdapter()
 
 
@@ -93,16 +101,21 @@ class TestGovernanceBoundaryIsUnconditional:
 
         async def _deny(*args, **kwargs):
             from src.monkey_brain.kernel.security_boundary import SecurityBoundaryDenied
+
             raise SecurityBoundaryDenied("denied for test")
 
         monkeypatch.setattr(
-            "src.monkey_brain.kernel.security_boundary.ensure_governed", _deny,
+            "src.monkey_brain.kernel.security_boundary.ensure_governed",
+            _deny,
         )
         from src.monkey_brain.kernel.security_boundary import SecurityBoundaryDenied
 
         with pytest.raises(SecurityBoundaryDenied):
             await run_ros_action_if_governed(
-                capability="move_forward", resource="move_forward", parameters={}, adapter=adapter,
+                capability="move_forward",
+                resource="move_forward",
+                parameters={},
+                adapter=adapter,
             )
         assert adapter.calls == []
 
@@ -115,7 +128,10 @@ class TestStartupBehaviorWhenRosUnavailable:
         adapter = build_ros_execution_adapter()
         assert isinstance(adapter, FakeRosExecutionAdapter)
 
-    @pytest.mark.skipif(_ROS_AVAILABLE, reason="this test specifically covers the ROS-NOT-installed case")
+    @pytest.mark.skipif(
+        _ROS_AVAILABLE,
+        reason="this test specifically covers the ROS-NOT-installed case",
+    )
     def test_robot_deployment_requiring_real_ros_gets_a_clear_actionable_error(self):
         with pytest.raises(RosUnavailableError, match="rclpy"):
             build_ros_execution_adapter(require_real=True)

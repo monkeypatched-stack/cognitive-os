@@ -3,6 +3,7 @@
 Executes compiled execution graphs against the world, discovering transitions.
 Decoupled from planning and simulation for independent testing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,8 +32,12 @@ class PerActorExecutionRuntime:
         self._execution_history: list[dict] = []
         self._discoveries: list[tuple] = []
 
-    def execute(self, execution_graph: ExecutionPlanSnapshot, world: SparseTransitionTensor,
-                local_belief: SparseTransitionTensor) -> ExecutionPlanSnapshot:
+    def execute(
+        self,
+        execution_graph: ExecutionPlanSnapshot,
+        world: SparseTransitionTensor,
+        local_belief: SparseTransitionTensor,
+    ) -> ExecutionPlanSnapshot:
         """Execute plan against world, discover and record transitions.
 
         Args:
@@ -70,20 +75,23 @@ class PerActorExecutionRuntime:
             seen.add(cur)
 
             try:
-                succ = {
-                    d: world.feature(cur, d, Feature.PROBABILITY)
-                    for d, _ in world.successors(cur)
-                }
+                succ = {d: world.feature(cur, d, Feature.PROBABILITY) for d, _ in world.successors(cur)}
             except (KeyError, AttributeError, TypeError) as e:
                 logger.debug("[execution_runtime] world.successors(%r) failed: %s", cur, e)
                 break
             except RuntimeError as e:
-                logger.warning("[execution_runtime] world access failed at step %d: %s", step, e, exc_info=True)
+                logger.warning(
+                    "[execution_runtime] world access failed at step %d: %s",
+                    step,
+                    e,
+                    exc_info=True,
+                )
                 break
 
             assert isinstance(succ, dict), "successors must be dict"
-            assert all(isinstance(v, (int, float)) and v >= 0 for v in succ.values()), \
+            assert all(isinstance(v, (int, float)) and v >= 0 for v in succ.values()), (
                 "successor probabilities must be non-negative"
+            )
 
             if not succ:
                 break
@@ -103,14 +111,20 @@ class PerActorExecutionRuntime:
                     discoveries.append((cur, actual, reward))
 
                 local_belief.observe(
-                    cur, actual,
+                    cur,
+                    actual,
                     domain=domain,
                     dst_domain=dst_domain,
                     reward=reward,
-                    weight=1.0
+                    weight=1.0,
                 )
             except (KeyError, AttributeError, TypeError) as e:
-                logger.debug("[execution_runtime] belief update failed for edge (%r, %r): %s", cur, actual, e)
+                logger.debug(
+                    "[execution_runtime] belief update failed for edge (%r, %r): %s",
+                    cur,
+                    actual,
+                    e,
+                )
             except RuntimeError as e:
                 logger.warning("[execution_runtime] belief update failed: %s", e, exc_info=True)
 
@@ -120,6 +134,7 @@ class PerActorExecutionRuntime:
             cur = actual
 
         from src.monkey_brain.kernel.compile.sparse import epistemic_loss
+
         predicted = execution_graph.predicted_distribution or {}
         observed_end = {observed[-1][1]: 1.0} if observed and observed[-1][1] else {}
 
@@ -128,19 +143,25 @@ class PerActorExecutionRuntime:
                 {("_end", k): v for k, v in predicted.items()},
                 {("_end", k): v for k, v in observed_end.items()},
             )
-            assert isinstance(loss_matrix, (int, float)) and loss_matrix >= 0.0, \
+            assert isinstance(loss_matrix, (int, float)) and loss_matrix >= 0.0, (
                 f"epistemic_loss must be non-negative, got {loss_matrix}"
+            )
             execution_graph.epistemic_loss = loss_matrix
         except (KeyError, TypeError, ValueError) as e:
-            logger.warning("[execution_runtime] epistemic loss computation failed: %s", e, exc_info=True)
+            logger.warning(
+                "[execution_runtime] epistemic loss computation failed: %s",
+                e,
+                exc_info=True,
+            )
             execution_graph.epistemic_loss = 0.0
 
         execution_graph.observed_path = observed
         execution_graph.discoveries = discoveries
         execution_graph.reached_goal = bool(observed) and observed[-1][1] == goal
 
-        assert isinstance(execution_graph.epistemic_loss, (int, float)) and execution_graph.epistemic_loss >= 0.0, \
+        assert isinstance(execution_graph.epistemic_loss, (int, float)) and execution_graph.epistemic_loss >= 0.0, (
             "epistemic_loss post-condition failed"
+        )
         assert isinstance(execution_graph.observed_path, list), "observed_path must be list"
         assert all(len(t) == 2 for t in execution_graph.observed_path), "observed_path entries must be 2-tuples"
 
@@ -148,14 +169,22 @@ class PerActorExecutionRuntime:
 
         logger.info(
             "[execution_runtime] %s executed %s→%s: %d steps, %d discoveries, loss=%.4f, goal=%s",
-            self.actor_id, plan[0] if plan else "?", goal, len(observed),
-            len(discoveries), execution_graph.epistemic_loss,
-            "reached" if execution_graph.reached_goal else "missed"
+            self.actor_id,
+            plan[0] if plan else "?",
+            goal,
+            len(observed),
+            len(discoveries),
+            execution_graph.epistemic_loss,
+            "reached" if execution_graph.reached_goal else "missed",
         )
-        _obs.event("execution.completed", actor=self.actor_id,
-                   steps=len(observed), discoveries=len(discoveries),
-                   reached_goal=execution_graph.reached_goal,
-                   loss=round(execution_graph.epistemic_loss, 4))
+        _obs.event(
+            "execution.completed",
+            actor=self.actor_id,
+            steps=len(observed),
+            discoveries=len(discoveries),
+            reached_goal=execution_graph.reached_goal,
+            loss=round(execution_graph.epistemic_loss, 4),
+        )
 
         return execution_graph
 
@@ -187,17 +216,27 @@ class PerActorExecutionRuntime:
     def checkpoint(self, path: str) -> None:
         """Persist execution history and discoveries for auditing and recovery."""
         import json
+
         try:
             state = {
                 "execution_history": self._execution_history,
                 "discoveries": self._discoveries,
             }
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump(state, f)
-            logger.info("[execution_runtime] %s checkpointed %d executions, %d discoveries to %s",
-                       self.actor_id, len(self._execution_history), len(self._discoveries), path)
-            _obs.event("execution.checkpoint", actor=self.actor_id,
-                       executions=len(self._execution_history), discoveries=len(self._discoveries))
+            logger.info(
+                "[execution_runtime] %s checkpointed %d executions, %d discoveries to %s",
+                self.actor_id,
+                len(self._execution_history),
+                len(self._discoveries),
+                path,
+            )
+            _obs.event(
+                "execution.checkpoint",
+                actor=self.actor_id,
+                executions=len(self._execution_history),
+                discoveries=len(self._discoveries),
+            )
         except (IOError, OSError) as e:
             logger.error("[execution_runtime] checkpoint failed: %s", e, exc_info=True)
             raise
@@ -205,15 +244,25 @@ class PerActorExecutionRuntime:
     def restore(self, path: str) -> None:
         """Restore execution history and discoveries from checkpoint."""
         import json
+
         try:
             with open(path) as f:
                 state = json.load(f)
             self._execution_history = state.get("execution_history", [])
             self._discoveries = state.get("discoveries", [])
-            logger.info("[execution_runtime] %s restored %d executions, %d discoveries from %s",
-                       self.actor_id, len(self._execution_history), len(self._discoveries), path)
-            _obs.event("execution.restore", actor=self.actor_id,
-                       executions=len(self._execution_history), discoveries=len(self._discoveries))
+            logger.info(
+                "[execution_runtime] %s restored %d executions, %d discoveries from %s",
+                self.actor_id,
+                len(self._execution_history),
+                len(self._discoveries),
+                path,
+            )
+            _obs.event(
+                "execution.restore",
+                actor=self.actor_id,
+                executions=len(self._execution_history),
+                discoveries=len(self._discoveries),
+            )
         except (IOError, OSError, json.JSONDecodeError) as e:
             logger.error("[execution_runtime] restore failed: %s", e, exc_info=True)
             raise

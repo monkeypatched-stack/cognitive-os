@@ -35,11 +35,17 @@ def soma_compile(
         help="Chart file (values.yaml), chart folder, or charts directory. Auto-detected from repo root if omitted.",
     ),
     output_dir: str = typer.Option(
-        "somatic/compiled", "--output-dir", "-o", help="Directory to write compiled prompt files"
+        "somatic/compiled",
+        "--output-dir",
+        "-o",
+        help="Directory to write compiled prompt files",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON summary instead of human-readable output"),
     reload: bool = typer.Option(
-        False, "--reload", "-r", help="Hot-reload the running MonkeyBrain instance after compile"
+        False,
+        "--reload",
+        "-r",
+        help="Hot-reload the running MonkeyBrain instance after compile",
     ),
 ):
     """Compile somatic charts → prompt files.
@@ -90,7 +96,7 @@ def soma_compile(
             **summary,
             "output_dir": str(out_path),
             "files_written": [
-                str(p) if not p.is_relative_to(repo_root) else str(p.relative_to(repo_root)) for p in written
+                (str(p) if not p.is_relative_to(repo_root) else str(p.relative_to(repo_root))) for p in written
             ],
             "prompts": [
                 {
@@ -98,7 +104,7 @@ def soma_compile(
                     "file": f"{p.chart_name.replace('/', '_').replace(' ', '_')}.prompt.md",
                     "cot_steps": len(p.cot_steps),
                     "constraints": p.constraints,
-                    "preamble": p.preamble[:120] + "…" if len(p.preamble) > 120 else p.preamble,
+                    "preamble": (p.preamble[:120] + "…" if len(p.preamble) > 120 else p.preamble),
                 }
                 for p in prompts
             ],
@@ -142,7 +148,12 @@ def soma_compile(
         try:
             import subprocess
 
-            subprocess.run(["git", "add", str(out_path)], cwd=str(repo_root), capture_output=True, timeout=10)
+            subprocess.run(
+                ["git", "add", str(out_path)],
+                cwd=str(repo_root),
+                capture_output=True,
+                timeout=10,
+            )
             subprocess.run(
                 ["git", "commit", "-m", f"soma compile: {len(written)} prompt files"],
                 cwd=str(repo_root),
@@ -167,7 +178,11 @@ def soma_compile(
                         inv.get("statement", "") for inv in chart.values.get("invariants", [])
                     )
                     asyncio.get_event_loop().run_until_complete(
-                        sm.store(f"chart:{chart.name}", text, {"type": "chart", "name": chart.name})
+                        sm.store(
+                            f"chart:{chart.name}",
+                            text,
+                            {"type": "chart", "name": chart.name},
+                        )
                     )
                 typer.echo(f"  Indexed {len(compiler.charts)} charts to Elasticsearch")
             else:
@@ -239,10 +254,16 @@ def soma_api(
             typer.echo("\n── Cingulate compliance pre-check ──────────────────────")
         verdict = _run_cingulate_review(prompt_path_str, repo_root, json_output, return_verdict=True)
         if verdict == "REJECTED":
-            typer.echo("\nPrompt REJECTED — fix compliance issues before code generation.", err=True)
+            typer.echo(
+                "\nPrompt REJECTED — fix compliance issues before code generation.",
+                err=True,
+            )
             raise typer.Exit(1)
         if verdict == "NEEDS_REVISION":
-            typer.echo("\nPrompt flagged NEEDS_REVISION — review issues above before proceeding.", err=True)
+            typer.echo(
+                "\nPrompt flagged NEEDS_REVISION — review issues above before proceeding.",
+                err=True,
+            )
             raise typer.Exit(2)
         if not json_output:
             typer.echo("\nPrompt APPROVED — ready for code generation.")
@@ -298,7 +319,11 @@ def soma_review(
             raise typer.Exit(1)
     else:
         compiled_dir = repo_root / "somatic" / "compiled"
-        files = sorted(compiled_dir.glob("*.prompt.md"), key=lambda f: f.stat().st_mtime, reverse=True)
+        files = sorted(
+            compiled_dir.glob("*.prompt.md"),
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
         if not files:
             typer.echo("No compiled prompt files found in somatic/compiled/.", err=True)
             raise typer.Exit(1)
@@ -376,10 +401,16 @@ def soma_codegen(
                 typer.echo("\n── Cingulate compliance pre-check ──────────────────────")
             verdict = _run_cingulate_review(prompt_file, repo_root, json_output, return_verdict=True)
             if verdict == "REJECTED":
-                typer.echo("\nPrompt REJECTED — fix compliance issues before code generation.", err=True)
+                typer.echo(
+                    "\nPrompt REJECTED — fix compliance issues before code generation.",
+                    err=True,
+                )
                 raise typer.Exit(1)
             if verdict == "NEEDS_REVISION":
-                typer.echo("\nPrompt flagged NEEDS_REVISION — review issues before proceeding.", err=True)
+                typer.echo(
+                    "\nPrompt flagged NEEDS_REVISION — review issues before proceeding.",
+                    err=True,
+                )
                 raise typer.Exit(2)
             if not json_output:
                 typer.echo("Prompt APPROVED — proceeding to code generation.\n")
@@ -520,7 +551,10 @@ def soma_codegen(
                 if sp.get("seeded"):
                     typer.echo(f"  Seeded {sp.get('inserted', 0)} record(s) into {sp.get('collection', svc_slug)}")
                 else:
-                    typer.echo(f"  [seed] skipped — {sp.get('error', 'no models found')}", err=True)
+                    typer.echo(
+                        f"  [seed] skipped — {sp.get('error', 'no models found')}",
+                        err=True,
+                    )
         except Exception as _se:
             if not json_output:
                 typer.echo(f"  [seed] failed: {_se}", err=True)
@@ -663,7 +697,11 @@ def soma_govern(
             audit_ref=str(report_path),
             pipeline_id="soma_govern",
         )
-        lemon.info(_json.dumps(report, default=str), component="govern", pipeline_id="soma_govern")
+        lemon.info(
+            _json.dumps(report, default=str),
+            component="govern",
+            pipeline_id="soma_govern",
+        )
     except Exception as e:
         logger.debug("Lemon emit failed: %s", e)
 
@@ -808,7 +846,10 @@ def soma_comply(
     }
     std_key = standard.lower()
     if std_key not in _AGENT_MAP:
-        typer.echo(f"Unknown standard '{standard}'. Choose from: {', '.join(_AGENT_MAP)}", err=True)
+        typer.echo(
+            f"Unknown standard '{standard}'. Choose from: {', '.join(_AGENT_MAP)}",
+            err=True,
+        )
         raise typer.Exit(1)
 
     def _load_json(val: str) -> dict:
@@ -884,7 +925,10 @@ def soma_comply(
         "critical_count": critical_count,
         "high_count": high_count,
         "findings": findings,
-        "inputs": {"data_signals": data_signals, "system_attributes": system_attributes},
+        "inputs": {
+            "data_signals": data_signals,
+            "system_attributes": system_attributes,
+        },
         "agent_result": result,
     }
     report_path.write_text(_json.dumps(full_report, indent=2, default=str))
@@ -899,12 +943,16 @@ def soma_comply(
             decision=verdict,
             principal=f"compliance_{std_key}",
             obligations=[f.get("description", str(f)) for f in findings if f.get("severity") in ("CRITICAL", "HIGH")],
-            trust_score=1.0 if compliant else max(0.0, 1.0 - (critical_count * 0.3 + high_count * 0.1)),
+            trust_score=(1.0 if compliant else max(0.0, 1.0 - (critical_count * 0.3 + high_count * 0.1))),
             provenance_chain=["soma_comply", f"compliance_{std_key}"],
             audit_ref=str(report_path),
             pipeline_id="soma_comply",
         )
-        lemon.info(_json.dumps(full_report, default=str), component="comply", pipeline_id="soma_comply")
+        lemon.info(
+            _json.dumps(full_report, default=str),
+            component="comply",
+            pipeline_id="soma_comply",
+        )
     except Exception as e:
         logger.debug("Lemon emit failed: %s", e)
 
@@ -970,7 +1018,10 @@ def soma_ddd_check(
             svc_dir = nested
 
     if not svc_dir.exists():
-        typer.echo(f"Service directory not found: {svc_dir}\nRun: monkeypatched make codegen {svc_slug}", err=True)
+        typer.echo(
+            f"Service directory not found: {svc_dir}\nRun: monkeypatched make codegen {svc_slug}",
+            err=True,
+        )
         raise typer.Exit(1)
 
     import asyncio
@@ -1077,7 +1128,13 @@ def soma_ddd_check(
             break  # issues are not layer-regeneratable (e.g. main.py only)
         if not json_output:
             typer.echo(f"\n── Retry {attempt + 1}/{max_loops} — fixing layers: {sorted(broken)} ──")
-        loop_history.append({"attempt": attempt + 1, "broken_layers": sorted(broken), "issues_before": list(issues)})
+        loop_history.append(
+            {
+                "attempt": attempt + 1,
+                "broken_layers": sorted(broken),
+                "issues_before": list(issues),
+            }
+        )
         _bust_cache(broken)
         _rerun_codegen(broken)
         passed, issues = _run_structural_checks()
@@ -1148,7 +1205,11 @@ def soma_ddd_check(
             audit_ref=str(report_path),
             pipeline_id="soma_ddd_check",
         )
-        lemon.info(_json.dumps(report, default=str), component="ddd_check", pipeline_id="soma_ddd_check")
+        lemon.info(
+            _json.dumps(report, default=str),
+            component="ddd_check",
+            pipeline_id="soma_ddd_check",
+        )
     except Exception as _e:
         pass
 
@@ -1215,7 +1276,10 @@ def soma_seed(
         for col, n in (p.get("collections") or {}).items():
             typer.echo(f"  {col}: {n} records")
     else:
-        typer.echo(f"Seed failed: {p.get('error') or p.get('reason', 'no records inserted')}", err=True)
+        typer.echo(
+            f"Seed failed: {p.get('error') or p.get('reason', 'no records inserted')}",
+            err=True,
+        )
         raise typer.Exit(1)
 
 
@@ -1675,7 +1739,10 @@ def soma_plan(
     goal: str = typer.Argument(..., help="Goal description, e.g. 'build a todo service with MongoDB'."),
     service: str = typer.Option("", "--service", "-s", help="Service name if relevant (e.g. todo)."),
     output: str = typer.Option(
-        "", "--output", "-o", help="Save plan YAML to this path (default: ~/.monkeybrain/plans/<slug>_<ts>.yaml)."
+        "",
+        "--output",
+        "-o",
+        help="Save plan YAML to this path (default: ~/.monkeybrain/plans/<slug>_<ts>.yaml).",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON representation of the plan."),
 ):
@@ -1727,13 +1794,20 @@ def soma_execute_plan(
     plan_file: str = typer.Argument(..., help="Path to the plan YAML file generated by 'make plan'."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print steps without executing them."),
     continue_on_error: bool = typer.Option(
-        True, "--continue-on-error/--stop-on-error", help="Continue past failures and report at end (default: on)."
+        True,
+        "--continue-on-error/--stop-on-error",
+        help="Continue past failures and report at end (default: on).",
     ),
     auto_fix: bool = typer.Option(
-        True, "--auto-fix/--no-auto-fix", help="Run loss-driven repair on step failure (default: on)."
+        True,
+        "--auto-fix/--no-auto-fix",
+        help="Run loss-driven repair on step failure (default: on).",
     ),
     from_step: int = typer.Option(
-        1, "--from-step", "-s", help="Resume from this step number (skip earlier steps as already done)."
+        1,
+        "--from-step",
+        "-s",
+        help="Resume from this step number (skip earlier steps as already done).",
     ),
     json_output: bool = typer.Option(False, "--json", help="Print JSON execution report."),
 ):
@@ -1804,14 +1878,27 @@ def soma_execute_plan(
     if not json_output:
         typer.echo(report.format())
     else:
-        typer.echo(_json.dumps({**payload, "engineering_report": report.to_dict()}, indent=2, default=str))
+        typer.echo(
+            _json.dumps(
+                {**payload, "engineering_report": report.to_dict()},
+                indent=2,
+                default=str,
+            )
+        )
 
 
 def soma_run(
     service: str = typer.Argument(..., help="Service name to build, e.g. work-order, todo."),
-    goal: str = typer.Option("", "--goal", "-g", help="Override goal text (default: 'build <service> service')."),
+    goal: str = typer.Option(
+        "",
+        "--goal",
+        "-g",
+        help="Override goal text (default: 'build <service> service').",
+    ),
     no_simulate: bool = typer.Option(
-        False, "--no-simulate", help="Omit world-model simulation step (faster iteration)."
+        False,
+        "--no-simulate",
+        help="Omit world-model simulation step (faster iteration).",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Plan only — print steps, do not execute."),
     from_step: int = typer.Option(1, "--from-step", "-s", help="Resume execution from this step number."),
@@ -1881,7 +1968,13 @@ def soma_run(
 
     if dry_run:
         if json_output:
-            typer.echo(_json.dumps({"plan": plan, "plan_file": str(plan_path), "dry_run": True}, indent=2, default=str))
+            typer.echo(
+                _json.dumps(
+                    {"plan": plan, "plan_file": str(plan_path), "dry_run": True},
+                    indent=2,
+                    default=str,
+                )
+            )
         return
 
     # ── 2. Execute ────────────────────────────────────────────────────────────
@@ -1945,7 +2038,9 @@ def soma_discover(
     learn: bool = typer.Option(False, "--learn", help="Update Q-table from observations"),
     publish: bool = typer.Option(False, "--publish", help="Publish the canonical graph"),
     auto: bool = typer.Option(
-        False, "--auto", help="Run the full pipeline: discover → plan → execute → learn → publish → engineer"
+        False,
+        "--auto",
+        help="Run the full pipeline: discover → plan → execute → learn → publish → engineer",
     ),
     max_epochs: int = typer.Option(10, "--max-epochs", help="Max learning epochs before convergence"),
     convergence: float = typer.Option(0.1, "--convergence", help="Loss threshold for convergence"),
@@ -2021,7 +2116,11 @@ def soma_discover(
 
         base_url = _brain_url()
         result = _brain_post(
-            "/api/v1/agentos/execute-direct", base_url, {"question": intent}, json_output=False, quiet=True
+            "/api/v1/agentos/execute-direct",
+            base_url,
+            {"question": intent},
+            json_output=False,
+            quiet=True,
         )
         if not result:
             # A transport failure is recoverable — not a capability blocker.
@@ -2116,7 +2215,9 @@ def soma_discover(
                 reg_type = getattr(registered, "agent_type", "").lower().replace("-", " ").replace("_", " ")
                 if agent_lower in reg_type or reg_type in agent_lower:
                     logger.info(
-                        "[plan] %s fuzzy-matched to local %s", agent_name, getattr(registered, "agent_type", "")
+                        "[plan] %s fuzzy-matched to local %s",
+                        agent_name,
+                        getattr(registered, "agent_type", ""),
                     )
                     return "local"
         except Exception:
@@ -2131,7 +2232,11 @@ def soma_discover(
                     for oc in oc_agents:
                         oc_name = oc.get("name", "").lower().replace("-", " ").replace("_", " ")
                         if agent_lower in oc_name or oc_name in agent_lower:
-                            logger.info("[plan] %s found in OpenClaw: %s", agent_name, oc.get("name"))
+                            logger.info(
+                                "[plan] %s found in OpenClaw: %s",
+                                agent_name,
+                                oc.get("name"),
+                            )
                             _cache_provider_agent(agent_name, oc, "openclaw")
                             return "openclaw"
             except Exception:
@@ -2213,7 +2318,13 @@ def soma_discover(
             typer.echo("  No plan response — run --plan first.")
             return None
         base_url = _brain_url()
-        result = _brain_post("/api/v1/agentos/simulate", base_url, plan_response, json_output=False, quiet=True)
+        result = _brain_post(
+            "/api/v1/agentos/simulate",
+            base_url,
+            plan_response,
+            json_output=False,
+            quiet=True,
+        )
         if not result:
             typer.echo("  Simulate request failed — is the runtime running?")
             return None
@@ -2278,7 +2389,13 @@ def soma_discover(
             return result
 
         # Stream never started — safe to fall back to a single blocking POST.
-        result = _brain_post("/api/v1/agentos/execute", base_url, plan_response, json_output=False, quiet=True)
+        result = _brain_post(
+            "/api/v1/agentos/execute",
+            base_url,
+            plan_response,
+            json_output=False,
+            quiet=True,
+        )
         if not result:
             typer.echo("  Execute request failed — is the runtime running?")
             return None
@@ -2311,7 +2428,11 @@ def soma_discover(
         gm.graph = state.get("graph", {})
         sim_graph = state.get("simulation_graph", {})
         topo_loss = gm._topological_loss(sim_graph)
-        return {"topological_loss": topo_loss, "simulation_graph": sim_graph, "execution_graph": gm.graph}
+        return {
+            "topological_loss": topo_loss,
+            "simulation_graph": sim_graph,
+            "execution_graph": gm.graph,
+        }
 
     if diff or auto:
         diff_result = _diff_fn()

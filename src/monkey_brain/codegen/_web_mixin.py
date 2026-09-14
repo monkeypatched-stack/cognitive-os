@@ -1,4 +1,5 @@
 """WebLayerMixin — templates for main.py, schemas.py, dependencies.py, exceptions.py, routes.py."""
+
 from __future__ import annotations
 
 from .spec import FieldSpec
@@ -11,9 +12,10 @@ class WebLayerMixin:
     def _main(self) -> str:
         pg_import = "from .database import engine\nfrom .models import Base\n" if self.s.is_sql else ""
         pg_create = (
-            "    async with engine.begin() as conn:\n"
-            "        await conn.run_sync(Base.metadata.create_all)\n"
-        ) if self.s.is_sql else ""
+            ("    async with engine.begin() as conn:\n        await conn.run_sync(Base.metadata.create_all)\n")
+            if self.s.is_sql
+            else ""
+        )
         pg_dispose = "    await engine.dispose()\n" if self.s.is_sql else ""
 
         mongo_import = "from .database import init_db, close_db\n" if self.s.is_mongo else ""
@@ -176,7 +178,7 @@ class {self.cls}ListResponse(BaseModel):
             elif validators:
                 default_part = f" = Field({validators})"
 
-            desc = f'  # {f.description}' if f.description else ""
+            desc = f"  # {f.description}" if f.description else ""
             lines.append(f"    {f.name}: {py_type}{default_part}{desc}")
 
         return "\n".join(lines) if lines else "    pass"
@@ -189,14 +191,22 @@ class {self.cls}ListResponse(BaseModel):
 
     def _field_validators(self, f: FieldSpec) -> str:
         parts = []
-        if f.gt is not None: parts.append(f"gt={f.gt}")
-        if f.lt is not None: parts.append(f"lt={f.lt}")
-        if f.ge is not None: parts.append(f"ge={f.ge}")
-        if f.le is not None: parts.append(f"le={f.le}")
-        if f.min_length is not None: parts.append(f"min_length={f.min_length}")
-        if f.max_length is not None: parts.append(f"max_length={f.max_length}")
-        if f.regex is not None: parts.append(f"pattern={f.regex!r}")
-        if f.description: parts.append(f"description={f.description!r}")
+        if f.gt is not None:
+            parts.append(f"gt={f.gt}")
+        if f.lt is not None:
+            parts.append(f"lt={f.lt}")
+        if f.ge is not None:
+            parts.append(f"ge={f.ge}")
+        if f.le is not None:
+            parts.append(f"le={f.le}")
+        if f.min_length is not None:
+            parts.append(f"min_length={f.min_length}")
+        if f.max_length is not None:
+            parts.append(f"max_length={f.max_length}")
+        if f.regex is not None:
+            parts.append(f"pattern={f.regex!r}")
+        if f.description:
+            parts.append(f"description={f.description!r}")
         return ", ".join(parts)
 
     # ------------------------------------------------------------------
@@ -214,7 +224,7 @@ async def get_current_user() -> None:
     return None
 '''
         elif auth.type == "bearer":
-            auth_dep = f'''\
+            auth_dep = f"""\
 from jose import JWTError, jwt
 import sys as _sys
 
@@ -241,9 +251,9 @@ async def get_current_user(authorization: str = Header(default="")) -> str:
         return subject
     except JWTError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
-'''
+"""
         else:  # api_key
-            auth_dep = f'''\
+            auth_dep = f"""\
 _API_KEY = os.environ.get({auth.api_key_env!r}, "").strip()
 
 
@@ -253,15 +263,19 @@ async def get_current_user(x_api_key: str = Header(alias={auth.api_key_header!r}
     if x_api_key != _API_KEY:
         raise HTTPException(status_code=403, detail="Invalid API key")
     return "api-key-user"
-'''
+"""
 
-        pg_dep = f'''\
+        pg_dep = (
+            f"""\
 from sqlalchemy.ext.asyncio import AsyncSession
 {pg_session}
 async def get_session() -> AsyncSession:  # type: ignore[return]
     async for session in get_db():
         yield session
-''' if self.s.is_sql else ""
+"""
+            if self.s.is_sql
+            else ""
+        )
 
         pagination_default = self.s.pagination.default_limit
         pagination_max = self.s.pagination.max_limit
@@ -326,7 +340,8 @@ class ValidationError(ServiceError):
     def _routes(self) -> str:
         db_import = (
             "from .dependencies import get_session\nfrom sqlalchemy.ext.asyncio import AsyncSession\n"
-            if self.s.is_sql else ""
+            if self.s.is_sql
+            else ""
         )
         id_type = "str" if self.s.is_mongo else "UUID"
         id_import = "" if self.s.is_mongo else "from uuid import UUID\n"

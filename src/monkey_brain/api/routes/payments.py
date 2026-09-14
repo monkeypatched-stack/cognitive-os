@@ -24,6 +24,7 @@ simulator runs entirely server-side (never receives an untrusted request),
 so it calls this directly instead of signing and POSTing a loopback HTTP
 request to itself.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,7 +36,8 @@ from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.idempotency import idempotent
 from src.monkey_brain.kernel.domains.razorpay_upi_provider import get_default_provider
 from src.monkey_brain.kernel.pipeline.payment_store import (
-    load_pending_payment_by_reservation, resolve_pending_payment,
+    load_pending_payment_by_reservation,
+    resolve_pending_payment,
 )
 
 logger = logging.getLogger("agentos.gateway.payments")
@@ -87,7 +89,11 @@ def _get_planetary_runtime(request: Request) -> Any:
 
 
 async def resolve_and_resume_payment(
-    order_id: str, payment_id: str, amount: float, event: str, pr: Any,
+    order_id: str,
+    payment_id: str,
+    amount: float,
+    event: str,
+    pr: Any,
     failure_reason: str = "payment failed",
 ) -> dict[str, Any]:
     """The real resolve-then-resume logic for a payment.authorized/
@@ -105,15 +111,29 @@ async def resolve_and_resume_payment(
     provider = get_default_provider()
 
     if event not in ("payment.authorized", "payment.failed"):
-        return {"handled": False, "event": event, "reason": "not a pause-resolving event"}
+        return {
+            "handled": False,
+            "event": event,
+            "reason": "not a pause-resolving event",
+        }
     if not order_id:
         return {"handled": False, "event": event, "reason": "no order_id in payload"}
 
     pending = load_pending_payment_by_reservation(order_id)
     if pending is None:
-        return {"handled": False, "event": event, "order_id": order_id, "reason": "no pending payment for this order"}
+        return {
+            "handled": False,
+            "event": event,
+            "order_id": order_id,
+            "reason": "no pending payment for this order",
+        }
     if pending.decided is not None:
-        return {"handled": False, "event": event, "order_id": order_id, "reason": "already resolved"}
+        return {
+            "handled": False,
+            "event": event,
+            "order_id": order_id,
+            "reason": "already resolved",
+        }
 
     if event == "payment.authorized":
         # The ONLY place this provider instance learns order_id ->
@@ -130,9 +150,16 @@ async def resolve_and_resume_payment(
         # still correctly recorded for whenever the execution IS
         # resumed (e.g. the actor's next real request re-enters the
         # checkpoint), so this is a partial, not a lost, update.
-        return {"handled": True, "event": event, "order_id": order_id, "execution_id": pending.execution_id, "resumed": False}
+        return {
+            "handled": True,
+            "event": event,
+            "order_id": order_id,
+            "execution_id": pending.execution_id,
+            "resumed": False,
+        }
 
     from src.monkey_brain.kernel.models.prompt import PromptRequest
+
     prompt_request = PromptRequest(
         question=pending.original_question or "Resume after a real payment confirmation.",
         meta={"resume_execution_id": pending.execution_id},
@@ -141,7 +168,13 @@ async def resolve_and_resume_payment(
     await pr.execute_actor_request(pending.actor_id, prompt_request)
     pr.checkpoint_actor_belief(pending.actor_id)
 
-    return {"handled": True, "event": event, "order_id": order_id, "execution_id": pending.execution_id, "resumed": True}
+    return {
+        "handled": True,
+        "event": event,
+        "order_id": order_id,
+        "execution_id": pending.execution_id,
+        "resumed": True,
+    }
 
 
 @router.post("/payments/webhooks/razorpay", tags=["Payments"])
@@ -165,14 +198,16 @@ async def razorpay_webhook(
     """
     import json
     from src.monkey_brain.kernel.security_boundary import ensure_governed
-    from src.monkey_brain.kernel.trusted_auth import bind_trusted_auth, evidence_for_service
+    from src.monkey_brain.kernel.trusted_auth import (
+        bind_trusted_auth,
+        evidence_for_service,
+    )
 
     bind_trusted_auth(evidence_for_service("razorpay-webhook"))
     body = json.loads(raw_body.decode("utf-8") or "{}")
     event = body.get("event", "")
     payment_entity = (
-        body.get("payload", {}).get("payment", {}).get("entity", {})
-        if isinstance(body.get("payload"), dict) else {}
+        body.get("payload", {}).get("payment", {}).get("entity", {}) if isinstance(body.get("payload"), dict) else {}
     )
     order_id = payment_entity.get("order_id", "")
     payment_id = payment_entity.get("id", "")
@@ -197,13 +232,16 @@ async def simulate_capture(
 ) -> dict[str, Any]:
     """Dev/demo-only: marks a reservation captured LOCALLY."""
     from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
     if not insecure_dev_mode():
         raise HTTPException(status_code=403, detail="simulate-capture is insecure-dev only")
     provider = get_default_provider()
     result = provider.force_capture(reservation_id)
     return {
-        "success": result.success, "reservation_id": reservation_id,
-        "status": result.status.value, "captured_amount": result.captured_amount,
+        "success": result.success,
+        "reservation_id": reservation_id,
+        "status": result.status.value,
+        "captured_amount": result.captured_amount,
         "reason": result.reason,
     }
 
@@ -218,14 +256,21 @@ async def dev_complete_payment(
     """Dev/demo-only: the one-call version of the real payment.authorized
     webhook + simulate-capture + resume sequence."""
     from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
     if not insecure_dev_mode():
         raise HTTPException(status_code=403, detail="dev-complete is insecure-dev only")
     provider = get_default_provider()
     pending = load_pending_payment_by_reservation(reservation_id)
     if pending is None:
-        raise HTTPException(status_code=404, detail=f"no pending payment for reservation {reservation_id!r}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"no pending payment for reservation {reservation_id!r}",
+        )
     if pending.decided is not None:
-        raise HTTPException(status_code=409, detail=f"reservation {reservation_id!r} was already resolved")
+        raise HTTPException(
+            status_code=409,
+            detail=f"reservation {reservation_id!r} was already resolved",
+        )
 
     fake_payment_id = f"pay_dev_{reservation_id}"
     provider.record_authorization(reservation_id, fake_payment_id, pending.amount)
@@ -235,7 +280,15 @@ async def dev_complete_payment(
 
     pr = _get_planetary_runtime(request)
     outcome = await resolve_and_resume_payment(
-        order_id=reservation_id, payment_id=fake_payment_id, amount=pending.amount,
-        event="payment.authorized", pr=pr,
+        order_id=reservation_id,
+        payment_id=fake_payment_id,
+        amount=pending.amount,
+        event="payment.authorized",
+        pr=pr,
     )
-    return {"success": True, "reservation_id": reservation_id, "captured_amount": capture_result.captured_amount, **outcome}
+    return {
+        "success": True,
+        "reservation_id": reservation_id,
+        "captured_amount": capture_result.captured_amount,
+        **outcome,
+    }

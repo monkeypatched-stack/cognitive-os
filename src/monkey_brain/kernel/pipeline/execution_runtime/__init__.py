@@ -19,6 +19,7 @@ Named execution_runtime/, not execution/, because kernel/pipeline/execution.py
 already exists (Action, ActionOutcome, ExecutionResult, ExecutionEngine) —
 a package and a module can't share a name in the same directory.
 """
+
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
     ExecutionStatus,
     RetryStrategy,
@@ -70,8 +71,13 @@ from src.monkey_brain.kernel.pipeline.execution_runtime.monitoring import (
     ExecutionProgress,
     ExecutionMonitor,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.integration import IntegratedExecutionEngine
-from src.monkey_brain.kernel.pipeline.execution_runtime.trace import ExecutionTrace, build_execution_trace
+from src.monkey_brain.kernel.pipeline.execution_runtime.integration import (
+    IntegratedExecutionEngine,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.trace import (
+    ExecutionTrace,
+    build_execution_trace,
+)
 
 __all__ = [
     "ExecutionStatus",

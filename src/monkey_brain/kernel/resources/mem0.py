@@ -6,6 +6,7 @@ dashboard. Missing credentials are the expected, common case (mem0 is
 optional here) — reported as UNAVAILABLE/OPTIONAL_MISSING with a
 "local memory only" reason, not a warning-worthy failure.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.resource_manager import (
@@ -48,7 +49,9 @@ class Mem0Resource:
             return ResourceHealth(name=self.name, state=ResourceState.READY, required=False)
 
         return ResourceHealth(
-            name=self.name, state=ResourceState.UNAVAILABLE,
+            name=self.name,
+            state=ResourceState.UNAVAILABLE,
             reason="Credentials missing or mem0ai not installed — falling back to local memory only",
-            category=ErrorCategory.OPTIONAL_MISSING, required=False,
+            category=ErrorCategory.OPTIONAL_MISSING,
+            required=False,
         )

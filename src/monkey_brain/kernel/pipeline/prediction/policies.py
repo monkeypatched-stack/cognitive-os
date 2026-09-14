@@ -25,6 +25,7 @@ DeterministicPredictionPolicy, the default implementation. Future policies
 implement PredictionPolicy directly and compose with PredictionIntegratedPolicy
 via the same constructor injection.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -34,10 +35,13 @@ from src.monkey_brain.kernel.pipeline.prediction.domain import PredictionResult
 from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
 from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationTrajectory
 from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
-    CounterfactualAssumption, CounterfactualEngine,
+    CounterfactualAssumption,
+    CounterfactualEngine,
 )
 from src.monkey_brain.kernel.pipeline.prediction.scenarios import (
-    ScenarioEvaluator, scenarios_from_counterfactuals, build_scenario_participation,
+    ScenarioEvaluator,
+    scenarios_from_counterfactuals,
+    build_scenario_participation,
     DEFAULT_REJECTION_THRESHOLD,
 )
 
@@ -48,6 +52,7 @@ class PredictionPolicyInput:
     belief state, plan, and configuration. Kept minimal -- policies that
     need richer context (e.g. Monte Carlo needs a budget) extend via
     metadata."""
+
     world_snapshot: Any = None
     belief_state: Any = None
     plan: Any = None
@@ -72,6 +77,7 @@ class PredictionPolicyResult:
     """What every prediction policy produces: a PredictionResult plus
     optional provenance metadata. Policies that produce richer output
     (e.g. trajectory sets for Monte Carlo) attach them via metadata."""
+
     result: PredictionResult = field(default_factory=PredictionResult)
     trajectories: tuple[SimulationTrajectory, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -125,7 +131,13 @@ class DeterministicPredictionPolicy:
         cf_engine = CounterfactualEngine(self._transition_model)
         baseline = cf_engine.simulate_baseline(input.world_snapshot, input.belief_state, input.plan)
         branches = tuple(
-            cf_engine.branch(input.world_snapshot, input.belief_state, input.plan, assumption, baseline=baseline)
+            cf_engine.branch(
+                input.world_snapshot,
+                input.belief_state,
+                input.plan,
+                assumption,
+                baseline=baseline,
+            )
             for assumption in self._counterfactual_assumptions
         )
         scenarios = scenarios_from_counterfactuals("Baseline", baseline, branches)
@@ -137,8 +149,10 @@ class DeterministicPredictionPolicy:
 
         evaluator = ScenarioEvaluator(rejection_threshold=self._rejection_threshold)
         result = evaluator.evaluate_and_recommend(
-            scenarios, time_horizon=input.time_horizon,
-            provenance=input.provenance, prediction_id=input.prediction_id,
+            scenarios,
+            time_horizon=input.time_horizon,
+            provenance=input.provenance,
+            prediction_id=input.prediction_id,
             participation=participation,
         )
 

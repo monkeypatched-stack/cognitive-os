@@ -21,7 +21,9 @@ from src.monkey_brain.kernel.fix.policy.policy import BellmanPolicy
 from src.monkey_brain.kernel.learn.observer.observer import Observer
 from src.monkey_brain.kernel.learn.learning import Learning
 from src.monkey_brain.kernel.fix.policy.transition import Transition
-from src.monkey_brain.kernel.plan.intents.intent_router import classify_and_check_support
+from src.monkey_brain.kernel.plan.intents.intent_router import (
+    classify_and_check_support,
+)
 from src.monkey_brain.runtime.runtime import Runtime
 from src.introspection.lemon import Lemon
 
@@ -73,7 +75,7 @@ class Agent:
 
     def discover_capabilities(self) -> list[str]:
         """Discover available capabilities in the runtime."""
-        if hasattr(self._runtime, 'available_capabilities'):
+        if hasattr(self._runtime, "available_capabilities"):
             return self._runtime.available_capabilities()
         return list(self._runtime._capabilities.keys())
 
@@ -91,7 +93,7 @@ class Agent:
         try:
             # 1. Discover capabilities
             capabilities = self.discover_capabilities()
-            response.metrics['available_capabilities'] = capabilities
+            response.metrics["available_capabilities"] = capabilities
 
             # 2. Route question using classifier
             routing = classify_and_check_support(question)
@@ -128,12 +130,14 @@ class Agent:
             response.success = exec_result.success
             response.latency_ms = (time.monotonic() - start) * 1000
 
-            response.metrics.update({
-                "intent_confidence": response.intent_confidence,
-                "supported": response.supported,
-                "capabilities_count": len(response.capabilities_used),
-                "policy_q_entries": self._policy.q_table_size() if self._policy else 0,
-            })
+            response.metrics.update(
+                {
+                    "intent_confidence": response.intent_confidence,
+                    "supported": response.supported,
+                    "capabilities_count": len(response.capabilities_used),
+                    "policy_q_entries": (self._policy.q_table_size() if self._policy else 0),
+                }
+            )
 
         except Exception as e:
             response.success = False
@@ -144,13 +148,15 @@ class Agent:
         # must not overwrite a successfully computed answer if they fail.
         try:
             if self._policy and state is not None and pipeline is not None:
-                self._policy.update(Transition(
-                    state=state.to_dict(),
-                    action=pipeline.pipeline_id,
-                    reward=0.95 if exec_result.success else 0.1,
-                    next_state=exec_result.final_state,
-                    done=True,
-                ))
+                self._policy.update(
+                    Transition(
+                        state=state.to_dict(),
+                        action=pipeline.pipeline_id,
+                        reward=0.95 if exec_result.success else 0.1,
+                        next_state=exec_result.final_state,
+                        done=True,
+                    )
+                )
 
             if state is not None:
                 self._observer.observe(

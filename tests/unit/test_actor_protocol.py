@@ -3,6 +3,7 @@
 Structural (typing.Protocol) contract every registered actor must satisfy —
 replaces the previous hasattr(actor, "tick") duck-typing.
 """
+
 from __future__ import annotations
 
 import pytest

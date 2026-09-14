@@ -10,11 +10,15 @@ therefore incorrectly predicting an URGENT stockout, or masking a real
 one) for reasons that have nothing to do with what this household
 actually buys.
 """
+
 from __future__ import annotations
 
 import time
 
-from src.monkey_brain.kernel.domains.grocery import predict_household_stockout, update_order_stats
+from src.monkey_brain.kernel.domains.grocery import (
+    predict_household_stockout,
+    update_order_stats,
+)
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
 PRODUCT_ID = "product_milk"

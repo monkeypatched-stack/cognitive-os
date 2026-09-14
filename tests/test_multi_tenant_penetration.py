@@ -3,6 +3,7 @@
 Tests that all known attack vectors are blocked by the defense layers.
 Defense in depth: middleware + RLS + isolation tests.
 """
+
 import pytest
 from unittest.mock import Mock, patch
 
@@ -45,6 +46,7 @@ class TestSQLInjectionAttacks:
 
         # Test: parameterized queries prevent injection
         import re
+
         valid_pattern = re.compile(r"^[a-z0-9_-]{1,128}$")
 
         assert not valid_pattern.match(malicious_value)
@@ -114,7 +116,9 @@ class TestRaceConditionAttacks:
 
     def test_concurrent_access_to_different_tenants(self):
         """Concurrent queries to different tenants isolated."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
         import threading
 
         results = {}
@@ -128,7 +132,7 @@ class TestRaceConditionAttacks:
         for i in range(5):
             t = threading.Thread(
                 target=concurrent_access,
-                args=(f"actor_{i}", "org_alpha" if i < 3 else "org_beta")
+                args=(f"actor_{i}", "org_alpha" if i < 3 else "org_beta"),
             )
             threads.append(t)
             t.start()
@@ -169,7 +173,9 @@ class TestDataExfiltrationAttempts:
 
     def test_cannot_load_other_tenant_actor_state(self):
         """Load attempt from wrong tenant returns empty."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         # Store data in org_alpha
         mem_a = EpisodicMemoryStore("alice", "org_alpha")
@@ -198,6 +204,7 @@ class TestDataExfiltrationAttempts:
 # ──────────────────────────────────────────────────────────────
 # PHASE 2.4 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase2Deliverable24Complete:
     """Verify penetration testing scenarios complete."""

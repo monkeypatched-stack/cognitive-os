@@ -14,6 +14,7 @@ already computes, never a separately-tracked value that could drift from
 it — and GET /actors/{id}/fraud-status (api/routes/actors.py) exposes
 this real assessment read-only, before any transaction is attempted.
 """
+
 from __future__ import annotations
 
 import time
@@ -26,10 +27,17 @@ ACTOR_ID = "fraud_policy_actor"
 
 def _seed_order_history(kg: KnowledgeGraph, actor_id: str, count: int, total: float, when: float) -> None:
     for i in range(count):
-        kg.add_entity(f"ord_hist_{actor_id}_{i}", EntityType.EVENT, "Grocery Order", {
-            "order_id": f"ord_hist_{actor_id}_{i}", "buyer_id": actor_id,
-            "total": total, "created_at": when,
-        })
+        kg.add_entity(
+            f"ord_hist_{actor_id}_{i}",
+            EntityType.EVENT,
+            "Grocery Order",
+            {
+                "order_id": f"ord_hist_{actor_id}_{i}",
+                "buyer_id": actor_id,
+                "total": total,
+                "created_at": when,
+            },
+        )
 
 
 def test_fraud001_a_legitimate_transaction_is_not_held():

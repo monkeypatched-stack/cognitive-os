@@ -32,12 +32,13 @@ def _get_redis():
     global _redis
     if _redis is None:
         import redis.asyncio as aioredis
+
         _redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     return _redis
 
 
-_ACCESS_TTL = AGENT_ACCESS_TOKEN_MINUTES * 60        # seconds — matches token expiry
-_AGENT_BLOCK_TTL = 60 * 60 * 24 * 30                # 30 days
+_ACCESS_TTL = AGENT_ACCESS_TOKEN_MINUTES * 60  # seconds — matches token expiry
+_AGENT_BLOCK_TTL = 60 * 60 * 24 * 30  # 30 days
 
 _AGENT_COLLECTION = "agent_identities"
 
@@ -45,6 +46,7 @@ _AGENT_COLLECTION = "agent_identities"
 # ---------------------------------------------------------------------------
 # JTI blocklist (individual access tokens)
 # ---------------------------------------------------------------------------
+
 
 async def block_jti(jti: str) -> None:
     """Add an access token's jti to the blocklist."""
@@ -55,8 +57,11 @@ async def block_jti(jti: str) -> None:
         _memory_jti.add(jti)
         try:
             from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
             if insecure_dev_mode():
-                logger.warning("Redis unavailable, jti %s blocked in-process only: %s", jti, exc)
+                logger.warning(
+                    "Redis unavailable, jti %s blocked in-process only: %s", jti, exc
+                )
                 return
         except Exception:
             pass
@@ -75,8 +80,11 @@ async def is_jti_revoked(jti: str | None) -> bool:
     except Exception as exc:
         try:
             from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
             if insecure_dev_mode():
-                logger.warning("Redis unavailable, jti revocation check skipped: %s", exc)
+                logger.warning(
+                    "Redis unavailable, jti revocation check skipped: %s", exc
+                )
                 return False
         except Exception:
             pass
@@ -88,10 +96,13 @@ async def is_jti_revoked(jti: str | None) -> bool:
 # Agent-level block (all tokens for a client_id)
 # ---------------------------------------------------------------------------
 
+
 async def block_agent(client_id: str) -> None:
     """Block all tokens for a given client_id (marks agent as compromised/retired)."""
     try:
-        await _get_redis().setex(f"agent:revoked:{client_id}", _AGENT_BLOCK_TTL, "revoked")
+        await _get_redis().setex(
+            f"agent:revoked:{client_id}", _AGENT_BLOCK_TTL, "revoked"
+        )
     except Exception as exc:
         logger.warning("Redis unavailable, agent %s not blocked: %s", client_id, exc)
 
@@ -111,7 +122,10 @@ async def is_agent_blocked(client_id: str | None) -> bool:
 # Full agent deactivation (Redis + MongoDB)
 # ---------------------------------------------------------------------------
 
-async def deactivate_agent(client_id: str, db: AsyncIOMotorDatabase, reason: str = "") -> dict:
+
+async def deactivate_agent(
+    client_id: str, db: AsyncIOMotorDatabase, reason: str = ""
+) -> dict:
     """Deactivate an agent: block in Redis and set is_active=False in MongoDB.
 
     Returns a summary of what was done.

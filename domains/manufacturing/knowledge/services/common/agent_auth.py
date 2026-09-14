@@ -25,7 +25,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 
 from services.auth.helpers.tokens import decode_access_token
-from services.auth.helpers.agent_tokens import decode_agent_access_token, decode_pipeline_token
+from services.auth.helpers.agent_tokens import (
+    decode_agent_access_token,
+    decode_pipeline_token,
+)
 from services.auth.helpers.revocation import is_jti_revoked, is_agent_blocked
 
 logger = logging.getLogger(__name__)
@@ -37,12 +40,14 @@ _bearer = HTTPBearer(auto_error=False)
 # Keycloak fallback
 # ---------------------------------------------------------------------------
 
+
 def _try_keycloak(token: str) -> dict | None:
     if not os.getenv("KEYCLOAK_ISSUER"):
         return None
     try:
         from fastapi.security import HTTPAuthorizationCredentials as _Creds
         from services.file.src.core.keycloak import verify_jwt as _kc_verify
+
         return _kc_verify(_Creds(scheme="bearer", credentials=token))
     except Exception:
         return None
@@ -51,6 +56,7 @@ def _try_keycloak(token: str) -> dict | None:
 # ---------------------------------------------------------------------------
 # Principal dependency
 # ---------------------------------------------------------------------------
+
 
 async def get_current_principal(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
@@ -84,7 +90,9 @@ async def get_current_principal(
         # a logged-out/revoked human token stayed valid here until its
         # natural expiry even after auth.py::logout revoked it.
         if await is_jti_revoked(payload.get("jti")):
-            await audit_events.emit("auth.denied", "deny", payload, metadata={"reason": "jti_revoked"})
+            await audit_events.emit(
+                "auth.denied", "deny", payload, metadata={"reason": "jti_revoked"}
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
@@ -102,7 +110,9 @@ async def get_current_principal(
     try:
         payload = decode_pipeline_token(token)
         if await is_jti_revoked(payload.get("jti")):
-            await audit_events.emit("auth.denied", "deny", payload, metadata={"reason": "jti_revoked"})
+            await audit_events.emit(
+                "auth.denied", "deny", payload, metadata={"reason": "jti_revoked"}
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
@@ -121,14 +131,18 @@ async def get_current_principal(
 
         # Revocation checks — both are Redis lookups, fall through on Redis failure
         if await is_jti_revoked(payload.get("jti")):
-            await audit_events.emit("auth.denied", "deny", payload, metadata={"reason": "jti_revoked"})
+            await audit_events.emit(
+                "auth.denied", "deny", payload, metadata={"reason": "jti_revoked"}
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         if await is_agent_blocked(payload.get("client_id")):
-            await audit_events.emit("auth.denied", "deny", payload, metadata={"reason": "agent_blocked"})
+            await audit_events.emit(
+                "auth.denied", "deny", payload, metadata={"reason": "agent_blocked"}
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Agent identity has been deactivated",
@@ -148,7 +162,9 @@ async def get_current_principal(
         kc["principal_type"] = "keycloak"
         return kc
 
-    await audit_events.emit("auth.denied", "deny", metadata={"reason": "no_valid_token"})
+    await audit_events.emit(
+        "auth.denied", "deny", metadata={"reason": "no_valid_token"}
+    )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired token",
@@ -160,12 +176,14 @@ async def get_current_principal(
 # Scope-aware permission dependency
 # ---------------------------------------------------------------------------
 
+
 def require_scope(scope: str):
     """For endpoints that accept both humans and agents.
 
     Agents: enforces token scopes (derived from RBAC role permission_ids).
     Humans: no scope check — use existing require_permission() for human-only routes.
     """
+
     async def _check(principal: dict = Depends(get_current_principal)) -> dict:
         if principal.get("principal_type") == "agent":
             if scope not in set(principal.get("scopes") or []):
@@ -174,4 +192,5 @@ def require_scope(scope: str):
                     detail=f"Scope '{scope}' required",
                 )
         return principal
+
     return _check

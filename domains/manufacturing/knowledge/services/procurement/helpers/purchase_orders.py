@@ -3,7 +3,10 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.procurement.models.purchase_orders import PurchaseOrderCreate, PurchaseOrderUpdate
+from services.procurement.models.purchase_orders import (
+    PurchaseOrderCreate,
+    PurchaseOrderUpdate,
+)
 
 COLLECTION = "purchase_orders"
 

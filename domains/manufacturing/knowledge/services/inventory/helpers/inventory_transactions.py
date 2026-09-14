@@ -59,7 +59,9 @@ async def get_by_transaction_id(
     return _serialize(await db[COLLECTION].find_one({"transaction_id": transaction_id}))
 
 
-async def get_by_inventory_id(db: AsyncIOMotorDatabase, inventory_id: str) -> list[dict]:
+async def get_by_inventory_id(
+    db: AsyncIOMotorDatabase, inventory_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"inventory_id": inventory_id})
     return [_serialize(doc) async for doc in cursor]
 

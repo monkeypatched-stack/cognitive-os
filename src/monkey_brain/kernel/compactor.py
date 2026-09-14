@@ -4,6 +4,7 @@ Periodically checks tensor capacity and triggers eviction + compaction
 when usage exceeds a threshold.  Prevents unbounded growth without
 blocking the hot path.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,8 +37,11 @@ class TensorCompactor:
         self._tensor = tensor
         self._thread = threading.Thread(target=self._run, daemon=True, name="tensor-compactor")
         self._thread.start()
-        logger.info("[compactor] started (high_water=%.0f%%, interval=%.0fs)",
-                    self._high_water * 100, self._interval)
+        logger.info(
+            "[compactor] started (high_water=%.0f%%, interval=%.0fs)",
+            self._high_water * 100,
+            self._interval,
+        )
 
     def stop(self) -> None:
         """Stop the background compactor."""
@@ -45,8 +49,11 @@ class TensorCompactor:
         if self._thread:
             self._thread.join(timeout=self._interval * 2)
             self._thread = None
-        logger.info("[compactor] stopped (compactions=%d, evictions=%d)",
-                    self._compaction_count, self._eviction_count)
+        logger.info(
+            "[compactor] stopped (compactions=%d, evictions=%d)",
+            self._compaction_count,
+            self._eviction_count,
+        )
 
     def compact_now(self) -> dict[str, int]:
         """Force an immediate compaction. Returns stats."""
@@ -62,8 +69,12 @@ class TensorCompactor:
         self._compaction_count += 1
         self._eviction_count += evicted
 
-        logger.info("[compactor] ran: evicted=%d, compacted=%d, usage=%.1f%%",
-                    evicted, compacted, self._tensor.capacity_usage * 100)
+        logger.info(
+            "[compactor] ran: evicted=%d, compacted=%d, usage=%.1f%%",
+            evicted,
+            compacted,
+            self._tensor.capacity_usage * 100,
+        )
         return {"evicted": evicted, "compacted": compacted}
 
     def _run(self) -> None:

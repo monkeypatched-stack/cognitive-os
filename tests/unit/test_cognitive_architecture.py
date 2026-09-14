@@ -7,6 +7,7 @@ Wires together:
     Comparator → Hierarchical losses
     Actor → Belief + Policy
 """
+
 from __future__ import annotations
 
 import pytest
@@ -125,14 +126,16 @@ class TestCognitiveArchitectureEndToEnd:
             "nodes": [{"id": "n1"}, {"id": "n2"}],
             "edges": [{"from": "n1", "to": "n2"}],
             "execution_order": [["n1"], ["n2"]],
-            "metadata": {"summary": {
-                "predicted_state": {"answer": "ok"},
-                "predicted_reward": 0.8,
-                "grounding_score": 0.9,
-                "operations": ["a", "b"],
-                "events": ["done"],
-                "artifacts": ["out"],
-            }}
+            "metadata": {
+                "summary": {
+                    "predicted_state": {"answer": "ok"},
+                    "predicted_reward": 0.8,
+                    "grounding_score": 0.9,
+                    "operations": ["a", "b"],
+                    "events": ["done"],
+                    "artifacts": ["out"],
+                }
+            },
         }
         exec_result = {
             "graph_id": "sim1",
@@ -148,6 +151,7 @@ class TestCognitiveArchitectureEndToEnd:
         }
 
         import asyncio
+
         cmp = ComparatorRuntime()
         result = asyncio.run(cmp.compare(sim, exec_result))
         d = result.to_dict()
@@ -176,7 +180,13 @@ class TestCognitiveArchitectureEndToEnd:
         arch.create_actor("operator_1")
         arch.actor_observe("operator_1", "inventory_10", "inventory_9")
         arch.actor_learn("operator_1", "inventory_10", "monitor", reward=0.8)
-        arch.actor_learn("operator_1", "inventory_9", "restock", reward=0.6, next_state="inventory_10")
+        arch.actor_learn(
+            "operator_1",
+            "inventory_9",
+            "restock",
+            reward=0.6,
+            next_state="inventory_10",
+        )
 
         # 3. Actor's policy has learned
         actor = arch.get_actor("operator_1")
@@ -202,7 +212,7 @@ class TestPartialObservability:
 
         # World has many transitions
         for i in range(5):
-            arch.propose_observation(f"s{i}", f"s{i+1}")
+            arch.propose_observation(f"s{i}", f"s{i + 1}")
 
         # Actor A only observes first half
         arch.create_actor("actor_a")

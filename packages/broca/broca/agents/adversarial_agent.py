@@ -9,6 +9,7 @@ Discovers AdversarialFalsificationCapability from Cerebellum to execute the loop
 Falls back to calling src.cortex.world_model_simulation.run_adversarial_refinement_loop
 directly when the capability is not available.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,12 +57,7 @@ class AdversarialAgent(BaseETASSAgent):
     async def _impl(self, context: dict[str, Any]) -> dict[str, Any]:
         _ensure_cortex()
 
-        prompt: str = (
-            context.get("prompt")
-            or context.get("question")
-            or context.get("goal")
-            or ""
-        )
+        prompt: str = context.get("prompt") or context.get("question") or context.get("goal") or ""
         world_state: dict = context.get("world_state") or {}
         max_rounds: int = int(context.get("max_rounds", 3))
         timeout: float = float(context.get("timeout", 90.0))
@@ -78,9 +74,12 @@ class AdversarialAgent(BaseETASSAgent):
         if not world_state and db is not None:
             try:
                 from src.cortex.world_model_simulation import _capture_world_state
+
                 world_state = await _capture_world_state(db)
-                logger.info("[adversarial] captured world state: %d collections",
-                            len(world_state.get("collections", {})))
+                logger.info(
+                    "[adversarial] captured world state: %d collections",
+                    len(world_state.get("collections", {})),
+                )
             except Exception as exc:
                 logger.warning("[adversarial] world state capture failed: %s", exc)
 
@@ -89,18 +88,23 @@ class AdversarialAgent(BaseETASSAgent):
         try:
             cap = self._discover_capability("adversarial_falsification")
             if cap is not None:
-                raw = await cap.execute({
-                    "prompt": prompt,
-                    "world_state": world_state,
-                    "max_rounds": max_rounds,
-                    "timeout": timeout,
-                })
+                raw = await cap.execute(
+                    {
+                        "prompt": prompt,
+                        "world_state": world_state,
+                        "max_rounds": max_rounds,
+                        "timeout": timeout,
+                    }
+                )
                 result = raw.get("payload", raw) if isinstance(raw, dict) else {}
         except Exception as exc:
             logger.debug("[adversarial] capability path failed: %s — using direct call", exc)
 
         if not result:
-            from src.cortex.world_model_simulation import run_adversarial_refinement_loop
+            from src.cortex.world_model_simulation import (
+                run_adversarial_refinement_loop,
+            )
+
             result = await run_adversarial_refinement_loop(
                 prompt=prompt,
                 world_state=world_state,
@@ -110,10 +114,7 @@ class AdversarialAgent(BaseETASSAgent):
 
         converged = result.get("converged", False)
         rounds_run = len(result.get("rounds", []))
-        total_findings = sum(
-            len(r.get("attack", {}).get("findings", []))
-            for r in result.get("rounds", [])
-        )
+        total_findings = sum(len(r.get("attack", {}).get("findings", [])) for r in result.get("rounds", []))
         confidence_delta = result.get("total_confidence_delta", 0.0)
 
         self._reward(converged, 0.9 if converged else max(0.3, 0.6 - 0.1 * total_findings))

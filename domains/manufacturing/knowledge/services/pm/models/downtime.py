@@ -8,6 +8,7 @@ import uuid
 # ENUMS (match your TS types)
 # ─────────────────────────────────────────────
 
+
 class DowntimeCategory(str, Enum):
     MECHANICAL_FAILURE = "Mechanical Failure"
     ELECTRICAL_FAULT = "Electrical Fault"
@@ -28,6 +29,7 @@ class DowntimeStatus(str, Enum):
 # ─────────────────────────────────────────────
 # MAIN MODEL (DB Model)
 # ─────────────────────────────────────────────
+
 
 class DowntimeLog(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -71,10 +73,11 @@ class DowntimeLog(BaseModel):
             self.duration_minutes = int(delta.total_seconds() // 60)
 
         return self
-    
+
 
 class DowntimeLogCreate(DowntimeLog):
     pass
+
 
 class DowntimeLogUpdate(BaseModel):
     machine_id: Optional[str] = None
@@ -98,9 +101,11 @@ class DowntimeLogUpdate(BaseModel):
     notes: Optional[str] = None
     updated_at: Optional[datetime] = None
 
+
 class DowntimeLogResponse(DowntimeLog):
     class Config:
         from_attributes = True
+
 
 class PaginatedDowntimeResponse(BaseModel):
     total: int

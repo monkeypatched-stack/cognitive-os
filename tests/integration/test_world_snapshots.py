@@ -3,6 +3,7 @@
 Tests that world state is captured and persisted with actor state.
 Enables disaster recovery and point-in-time queries.
 """
+
 import pytest
 import pickle
 from unittest.mock import Mock, MagicMock, patch
@@ -18,7 +19,11 @@ class TestWorldSnapshotPersistence:
         # picklable stand-in, not a Mock. A plain dict is what
         # PersistedActorState.world_snapshot actually stores in every other
         # test in this file (pickle.dumps({...})) — matching that here too.
-        world = {"states": ["A", "B", "C"], "transitions": [(0, 1), (1, 2)], "version": 5}
+        world = {
+            "states": ["A", "B", "C"],
+            "transitions": [(0, 1), (1, 2)],
+            "version": 5,
+        }
 
         # Serialize
         snapshot = pickle.dumps(world)
@@ -45,9 +50,9 @@ class TestWorldSnapshotPersistence:
             phi_compiled=b"",
             memory_kv={},
             world_snapshot=world_snapshot,  # World included
-            world_version=42,               # With version number
+            world_version=42,  # With version number
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         assert state.world_snapshot == world_snapshot
@@ -71,7 +76,10 @@ class TestWorldSnapshotPersistence:
 
     def test_actor_state_store_preserves_world_snapshot(self):
         """ActorStateStore.save() and load() preserve world snapshot."""
-        from src.monkey_brain.persistence.actor_state_store import PersistedActorState, ActorStateStore
+        from src.monkey_brain.persistence.actor_state_store import (
+            PersistedActorState,
+            ActorStateStore,
+        )
         from datetime import datetime
 
         # ActorStateStore is MongoDB-backed (self._db.get_db()[collection_name],
@@ -84,7 +92,7 @@ class TestWorldSnapshotPersistence:
         mock_db = MagicMock()
         mock_db.get_db.return_value.__getitem__.return_value = mock_collection
 
-        with patch.object(ActorStateStore, '_init_schema'):
+        with patch.object(ActorStateStore, "_init_schema"):
             store = ActorStateStore(mock_db)
 
             # Create state with world snapshot
@@ -99,7 +107,7 @@ class TestWorldSnapshotPersistence:
                 world_snapshot=world_snapshot,
                 world_version=10,
                 last_updated=datetime.now().isoformat(),
-                version=1
+                version=1,
             )
 
             # Save should include world snapshot
@@ -129,7 +137,7 @@ class TestWorldSnapshotPersistence:
             world_snapshot=snapshot_v1,
             world_version=1,
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         # Cycle 2: World grows
@@ -144,7 +152,7 @@ class TestWorldSnapshotPersistence:
             world_snapshot=snapshot_v2,
             world_version=2,
             last_updated=datetime.now().isoformat(),
-            version=2
+            version=2,
         )
 
         # Cycle 3: World further evolved
@@ -159,7 +167,7 @@ class TestWorldSnapshotPersistence:
             world_snapshot=snapshot_v3,
             world_version=3,
             last_updated=datetime.now().isoformat(),
-            version=3
+            version=3,
         )
 
         # Can recover to v1, v2, or v3
@@ -188,7 +196,7 @@ class TestWorldSnapshotPersistence:
             world_snapshot=snapshot_alpha,
             world_version=5,
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         # Tenant B's world
@@ -203,7 +211,7 @@ class TestWorldSnapshotPersistence:
             world_snapshot=snapshot_beta,
             world_version=3,
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         # Snapshots should be different
@@ -218,6 +226,7 @@ class TestWorldSnapshotPersistence:
 # ──────────────────────────────────────────────────────────────
 # PHASE 1 DELIVERABLE #3 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase1Deliverable3Complete:
     """Verify World Snapshots persistence is complete."""

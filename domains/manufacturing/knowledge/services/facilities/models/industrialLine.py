@@ -5,8 +5,10 @@ from pydantic import BaseModel, Field, model_validator
 LineType = Literal["Assembly", "Continuous", "Batch"]
 LineStatus = Literal["Operational", "Maintenance", "Down", "Stalled"]
 
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
 
 def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     if dt is None:
@@ -14,6 +16,7 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
 
 class IndustrialLine(BaseModel):
     id: str
@@ -41,8 +44,10 @@ class IndustrialLine(BaseModel):
             raise ValueError("efficiency must be < 100 when status is 'Maintenance'")
         return self
 
+
 class IndustrialLineCreate(IndustrialLine):
     pass
+
 
 class IndustrialLineUpdate(BaseModel):
     name: Optional[str] = None
@@ -55,15 +60,25 @@ class IndustrialLineUpdate(BaseModel):
 
     @model_validator(mode="after")
     def check_efficiency_vs_status(self) -> "IndustrialLineUpdate":
-        if self.status == "Down" and self.efficiency is not None and self.efficiency > 0:
+        if (
+            self.status == "Down"
+            and self.efficiency is not None
+            and self.efficiency > 0
+        ):
             raise ValueError("efficiency must be 0 when status is 'Down'")
-        if self.status == "Maintenance" and self.efficiency is not None and self.efficiency >= 100:
+        if (
+            self.status == "Maintenance"
+            and self.efficiency is not None
+            and self.efficiency >= 100
+        ):
             raise ValueError("efficiency must be < 100 when status is 'Maintenance'")
         return self
+
 
 class IndustrialLineResponse(IndustrialLine):
     class Config:
         from_attributes = True
+
 
 class PaginatedLineResponse(BaseModel):
     total: int

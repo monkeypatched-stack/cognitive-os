@@ -98,11 +98,20 @@ class SamplingPlan(BaseModel):
 
     @model_validator(mode="after")
     def validate_method_fields(self) -> "SamplingPlan":
-        if self.sampling_method == SamplingMethod.FIXED_QUANTITY and self.fixed_sample_qty is None:
+        if (
+            self.sampling_method == SamplingMethod.FIXED_QUANTITY
+            and self.fixed_sample_qty is None
+        ):
             raise ValueError("fixed_sample_qty is required for FIXED_QUANTITY method.")
-        if self.sampling_method == SamplingMethod.PERCENTAGE_BASED and self.percentage is None:
+        if (
+            self.sampling_method == SamplingMethod.PERCENTAGE_BASED
+            and self.percentage is None
+        ):
             raise ValueError("percentage is required for PERCENTAGE_BASED method.")
-        if self.sampling_method == SamplingMethod.SKIP_LOT and self.skip_lot_frequency is None:
+        if (
+            self.sampling_method == SamplingMethod.SKIP_LOT
+            and self.skip_lot_frequency is None
+        ):
             raise ValueError("skip_lot_frequency is required for SKIP_LOT method.")
         return self
 

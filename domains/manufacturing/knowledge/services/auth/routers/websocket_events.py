@@ -14,7 +14,6 @@ from services.common.auth import get_current_user
 from services.common.config import settings
 from services.common.event_types import infer_event_type
 
-
 router = APIRouter()
 log = logging.getLogger("uvicorn.error")
 
@@ -47,7 +46,9 @@ async def _authenticate(websocket: WebSocket) -> dict:
     if not token:
         log.warning("WebSocket connection rejected: missing bearer token")
         await websocket.accept()
-        await websocket.send_json({"status": "error", "detail": "Bearer token required"})
+        await websocket.send_json(
+            {"status": "error", "detail": "Bearer token required"}
+        )
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return {}
 
@@ -56,7 +57,9 @@ async def _authenticate(websocket: WebSocket) -> dict:
     except JWTError:
         log.warning("WebSocket connection rejected: invalid or expired token")
         await websocket.accept()
-        await websocket.send_json({"status": "error", "detail": "Invalid or expired token"})
+        await websocket.send_json(
+            {"status": "error", "detail": "Invalid or expired token"}
+        )
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return {}
     # Security audit P1-5: same live jti-revocation check as the HTTP auth
@@ -65,7 +68,9 @@ async def _authenticate(websocket: WebSocket) -> dict:
     if await is_jti_revoked(payload.get("jti")):
         log.warning("WebSocket connection rejected: token has been revoked")
         await websocket.accept()
-        await websocket.send_json({"status": "error", "detail": "Token has been revoked"})
+        await websocket.send_json(
+            {"status": "error", "detail": "Token has been revoked"}
+        )
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return {}
     return payload
@@ -89,12 +94,16 @@ def _event_payload(message: dict, current_user: dict) -> dict:
     if isinstance(payload, dict) and _looks_like_event_envelope(payload):
         return _normalize_event_envelope(payload, current_user, source="websocket")
 
-    return _new_event_envelope(payload, current_user, source="websocket", payload_type=payload_type)
+    return _new_event_envelope(
+        payload, current_user, source="websocket", payload_type=payload_type
+    )
 
 
 def _api_event_payload(payload: dict, current_user: dict) -> dict:
     if _looks_like_event_envelope(payload):
-        return _normalize_event_envelope(payload, current_user, source=str(payload.get("source") or "api"))
+        return _normalize_event_envelope(
+            payload, current_user, source=str(payload.get("source") or "api")
+        )
     if payload.get("text") is not None or payload.get("bytes") is not None:
         return _event_payload(payload, current_user)
     return _new_event_envelope(payload, current_user, source="api", payload_type="json")
@@ -132,10 +141,14 @@ def _new_event_envelope(
     }
 
 
-def _normalize_event_envelope(payload: dict, current_user: dict, *, source: str) -> dict:
+def _normalize_event_envelope(
+    payload: dict, current_user: dict, *, source: str
+) -> dict:
     event = dict(payload)
     event["event_id"] = str(event.get("event_id") or uuid4())
-    event["received_at"] = str(event.get("received_at") or datetime.now(timezone.utc).isoformat())
+    event["received_at"] = str(
+        event.get("received_at") or datetime.now(timezone.utc).isoformat()
+    )
     event["source"] = str(event.get("source") or source)
     event["event_type"] = str(event.get("event_type") or infer_event_type(event))
     event["subject"] = str(event.get("subject") or settings.NATS_EVENTS_SUBJECT)
@@ -145,7 +158,10 @@ def _normalize_event_envelope(payload: dict, current_user: dict, *, source: str)
         or current_user.get("user_id")
         or ""
     )
-    event["payload_type"] = str(event.get("payload_type") or ("json" if isinstance(event.get("payload"), dict) else "text"))
+    event["payload_type"] = str(
+        event.get("payload_type")
+        or ("json" if isinstance(event.get("payload"), dict) else "text")
+    )
     return event
 
 
@@ -201,10 +217,12 @@ async def websocket_event_listener(websocket: WebSocket):
         websocket.client,
         settings.NATS_EVENTS_SUBJECT,
     )
-    await websocket.send_json({
-        "status": "connected",
-        "subject_prefix": settings.NATS_EVENT_TYPE_SUBJECT_PREFIX,
-    })
+    await websocket.send_json(
+        {
+            "status": "connected",
+            "subject_prefix": settings.NATS_EVENT_TYPE_SUBJECT_PREFIX,
+        }
+    )
     await websocket_broadcast.add_connection(websocket)
 
     try:
@@ -232,12 +250,14 @@ async def websocket_event_listener(websocket: WebSocket):
                     user_id,
                     event.get("subject"),
                 )
-                await websocket.send_json({
-                    "status": "nack",
-                    "event_id": event["event_id"],
-                    "subject": event.get("subject"),
-                    "detail": f"Failed to publish event to NATS: {exc}",
-                })
+                await websocket.send_json(
+                    {
+                        "status": "nack",
+                        "event_id": event["event_id"],
+                        "subject": event.get("subject"),
+                        "detail": f"Failed to publish event to NATS: {exc}",
+                    }
+                )
                 continue
             log.info(
                 "WebSocket event published event_id=%s user_id=%s subject=%s",
@@ -245,13 +265,17 @@ async def websocket_event_listener(websocket: WebSocket):
                 user_id,
                 event.get("subject"),
             )
-            await websocket.send_json({
-                "status": "published",
-                "event_id": event["event_id"],
-                "subject": event.get("subject"),
-            })
+            await websocket.send_json(
+                {
+                    "status": "published",
+                    "event_id": event["event_id"],
+                    "subject": event.get("subject"),
+                }
+            )
     except WebSocketDisconnect:
-        log.info("WebSocket disconnected user_id=%s client=%s", user_id, websocket.client)
+        log.info(
+            "WebSocket disconnected user_id=%s client=%s", user_id, websocket.client
+        )
         await websocket_broadcast.remove_connection(websocket)
         return
     log.info("WebSocket disconnected user_id=%s client=%s", user_id, websocket.client)

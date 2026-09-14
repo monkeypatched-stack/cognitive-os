@@ -6,6 +6,7 @@ Support interactions:
 
 Every interaction becomes part of the shared context stream.
 """
+
 from __future__ import annotations
 
 import time
@@ -39,6 +40,7 @@ class InteractionStatus(Enum):
 @dataclass(frozen=True)
 class InteractionMessage:
     """One message in a social interaction."""
+
     message_id: str = field(default_factory=lambda: uuid4().hex)
     interaction_id: str = ""
     sender_id: str = ""
@@ -55,6 +57,7 @@ class InteractionMessage:
 @dataclass(frozen=True)
 class Interaction:
     """A complete social interaction between actors."""
+
     interaction_id: str = field(default_factory=lambda: uuid4().hex)
     interaction_type: InteractionType = InteractionType.INFORM
     initiator_id: str = ""
@@ -113,7 +116,7 @@ class InteractionManager:
             interaction_id=interaction.interaction_id,
             interaction_type=interaction.interaction_type,
             initiator_id=interaction.initiator_id,
-           participant_ids=interaction.participant_ids,
+            participant_ids=interaction.participant_ids,
             status=interaction.status,
             messages=interaction.messages + (message,),
             topic=interaction.topic,
@@ -127,8 +130,7 @@ class InteractionManager:
         self._interactions[interaction_id] = updated
         return updated
 
-    def respond(self, interaction_id: str, actor_id: str, accept: bool,
-                message: str = "") -> Interaction | None:
+    def respond(self, interaction_id: str, actor_id: str, accept: bool, message: str = "") -> Interaction | None:
         interaction = self._interactions.get(interaction_id)
         if interaction is None:
             return None
@@ -137,7 +139,7 @@ class InteractionManager:
             interaction_id=interaction.interaction_id,
             interaction_type=interaction.interaction_type,
             initiator_id=interaction.initiator_id,
-           participant_ids=interaction.participant_ids,
+            participant_ids=interaction.participant_ids,
             status=status,
             messages=interaction.messages,
             topic=interaction.topic,
@@ -162,7 +164,7 @@ class InteractionManager:
             interaction_id=interaction.interaction_id,
             interaction_type=interaction.interaction_type,
             initiator_id=interaction.initiator_id,
-           participant_ids=interaction.participant_ids,
+            participant_ids=interaction.participant_ids,
             status=InteractionStatus.COMPLETED,
             messages=interaction.messages,
             topic=interaction.topic,
@@ -185,7 +187,8 @@ class InteractionManager:
 
     def active_interactions(self) -> tuple[Interaction, ...]:
         return tuple(
-            i for i in self._interactions.values()
+            i
+            for i in self._interactions.values()
             if i.status in (InteractionStatus.PENDING, InteractionStatus.ACCEPTED)
         )
 

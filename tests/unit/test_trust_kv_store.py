@@ -1,4 +1,5 @@
 """Tests for TrustKVStore — JSON file-backed trust storage."""
+
 from __future__ import annotations
 
 import tempfile
@@ -105,7 +106,8 @@ class TestTrustKVStore:
         with tempfile.TemporaryDirectory() as tmpdir:
             store = TrustKVStore(Path(tmpdir) / "trust.json")
             store.save_edge(
-                "alice", "bob",
+                "alice",
+                "bob",
                 permissions=["read", "write"],
                 knowledge_scope=["manufacturing"],
                 policy_scope=["internal"],
@@ -120,7 +122,8 @@ class TestTrustKVStore:
         with tempfile.TemporaryDirectory() as tmpdir:
             store = TrustKVStore(Path(tmpdir) / "trust.json")
             store.save_edge(
-                "alice", "bob",
+                "alice",
+                "bob",
                 delegation_chain=["charlie", "diana"],
             )
 
@@ -133,6 +136,7 @@ class TestTrustKVStoreAsync:
 
     def test_async_save_and_load(self):
         import asyncio
+
         with tempfile.TemporaryDirectory() as tmpdir:
             store = TrustKVStore(Path(tmpdir) / "trust.json")
             asyncio.run(store.save_trust_edge(src="alice", dst="bob", trust_score=0.8))
@@ -143,6 +147,7 @@ class TestTrustKVStoreAsync:
 
     def test_async_revoke(self):
         import asyncio
+
         with tempfile.TemporaryDirectory() as tmpdir:
             store = TrustKVStore(Path(tmpdir) / "trust.json")
             asyncio.run(store.save_trust_edge(src="alice", dst="bob"))

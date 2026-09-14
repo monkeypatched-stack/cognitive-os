@@ -3,6 +3,7 @@
 Tests that actor beliefs, policies, and memory survive requests.
 Phase 1 validation: persistence layer working end-to-end.
 """
+
 import pytest
 import pickle
 from datetime import datetime
@@ -30,7 +31,7 @@ class TestActorStatePersistenceRoundTrip:
 
         db_pool, _ = mock_db_pool
 
-        with patch.object(ActorStateStore, '_init_schema'):
+        with patch.object(ActorStateStore, "_init_schema"):
             store = ActorStateStore(db_pool)
 
         assert store is not None
@@ -43,7 +44,7 @@ class TestActorStatePersistenceRoundTrip:
         # Create belief data
         belief_data = {
             "observations": [("state_1", "state_2", 0.8), ("state_2", "state_3", 0.9)],
-            "version": 5
+            "version": 5,
         }
 
         # Serialize
@@ -78,7 +79,7 @@ class TestActorStatePersistenceRoundTrip:
         phi_data = {
             "transitions": [(0, 1, 0.8), (1, 2, 0.9)],
             "sparse_matrix": [(0, 1), (1, 2)],
-            "compiled_at": datetime.now().isoformat()
+            "compiled_at": datetime.now().isoformat(),
         }
 
         # Serialize
@@ -94,11 +95,12 @@ class TestActorStatePersistenceRoundTrip:
         memory_data = {
             "episode_1": {"action": "search", "result": "found_item"},
             "episode_2": {"action": "plan", "result": "plan_created"},
-            "visited_states": ["A", "B", "C", "A"]
+            "visited_states": ["A", "B", "C", "A"],
         }
 
         # Serialize (as JSON, not pickle)
         import json
+
         memory_json = json.dumps(memory_data)
 
         # Deserialize
@@ -125,7 +127,7 @@ class TestActorStatePersistenceRoundTrip:
             last_updated=datetime.now().isoformat(),
             version=1,
             is_active=True,
-            cycle_count=0
+            cycle_count=0,
         )
 
         assert state.actor_id == "alice"
@@ -150,7 +152,7 @@ class TestActorStatePersistenceRoundTrip:
             phi_compiled=b"",
             memory_kv={"cycle": 1},
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         # Cycle 2: Updated belief
@@ -163,7 +165,7 @@ class TestActorStatePersistenceRoundTrip:
             phi_compiled=b"",
             memory_kv={"cycle": 2},
             last_updated=datetime.now().isoformat(),
-            version=2
+            version=2,
         )
 
         # Cycle 3: Bellman updated
@@ -176,7 +178,7 @@ class TestActorStatePersistenceRoundTrip:
             phi_compiled=b"",
             memory_kv={"cycle": 3},
             last_updated=datetime.now().isoformat(),
-            version=3
+            version=3,
         )
 
         # Verify states are independent
@@ -206,7 +208,7 @@ class TestActorStatePersistenceRoundTrip:
             phi_compiled=b"",
             memory_kv={"tenant": "alpha"},
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         # Tenant B: Alice's state (different!)
@@ -218,7 +220,7 @@ class TestActorStatePersistenceRoundTrip:
             phi_compiled=b"",
             memory_kv={"tenant": "beta"},
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         # Verify isolation
@@ -251,7 +253,7 @@ class TestDatabasePoolIntegration:
         """DBPool initializes with default connection string."""
         from src.monkey_brain.persistence.db_pool import DBPool
 
-        with patch('pymongo.MongoClient', return_value=self._mock_mongo_client()):
+        with patch("pymongo.MongoClient", return_value=self._mock_mongo_client()):
             pool = DBPool()
             assert pool.connection_string is not None
 
@@ -259,7 +261,7 @@ class TestDatabasePoolIntegration:
         """DBPool works as context manager."""
         from src.monkey_brain.persistence.db_pool import DBPool
 
-        with patch('pymongo.MongoClient', return_value=self._mock_mongo_client()):
+        with patch("pymongo.MongoClient", return_value=self._mock_mongo_client()):
             with DBPool() as pool:
                 assert pool is not None
 
@@ -269,7 +271,7 @@ class TestDatabasePoolIntegration:
 
         reset_db_pool()  # Clear any existing pool
 
-        with patch('pymongo.MongoClient', return_value=self._mock_mongo_client()):
+        with patch("pymongo.MongoClient", return_value=self._mock_mongo_client()):
             pool1 = get_db_pool()
             pool2 = get_db_pool()
 
@@ -282,6 +284,7 @@ class TestDatabasePoolIntegration:
 # ──────────────────────────────────────────────────────────────
 # PHASE 1 INTEGRATION TESTS
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase1Completion:
     """Verify Phase 1 Deliverable #1 complete."""
@@ -330,10 +333,16 @@ class TestPhase1Completion:
 # _load_societies() settles self._society_runtime.
 # ──────────────────────────────────────────────────────────────
 
+
 class TestActorRestartRehydration:
     @staticmethod
     def _profile(name: str):
-        from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+        from src.monkey_brain.kernel.society.domain import (
+            ActorIdentity,
+            ActorProfile,
+            ActorType,
+        )
+
         return ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN))
 
     def test_actor_survives_process_restart_with_exact_state(self):
@@ -409,17 +418,23 @@ class TestActorRestartRehydration:
         the rehydrated instance uses is the same canonical one, not a
         disconnected one that silently drops future writes too."""
         from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-        from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+        from src.monkey_brain.kernel.society.context_stream import (
+            ContextEvent,
+            ContextEventType,
+        )
 
         pr_a = PlanetaryRuntime()
         state = pr_a.register_actor(self._profile("Write After Restart"))
         actor_id = state.profile.identity.actor_id
 
         pr_b = PlanetaryRuntime()  # process B: rehydrated
-        pr_b.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.INTERACTION,
-            actor_id=actor_id, description="a new event written after restart",
-        ))
+        pr_b.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.INTERACTION,
+                actor_id=actor_id,
+                description="a new event written after restart",
+            )
+        )
         # This write must go through the SAME path a real action's
         # publish would (society.integration._save_context, called via
         # ContextStream's on_publish hook) for a THIRD instance to see it.

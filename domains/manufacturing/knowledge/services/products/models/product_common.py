@@ -8,21 +8,108 @@ from pydantic import BaseModel, Field, model_validator
 # ──────────────────────────────────────────────────────────────
 # Type Aliases & Constants
 # ──────────────────────────────────────────────────────────────
-ProductStatus = Literal["Draft", "Active", "Inactive", "Discontinued", "Obsolete", "On-Hold"]
-ProductType = Literal["Finished-Good", "Raw-Material", "Component", "Consumable", "Spare-Part", "Packaging", "Service", "Kit/Bundle", "Other"]
-LifecycleStage = Literal["Development", "Introduction", "Growth", "Maturity", "Decline", "End-of-Life"]
-UnitOfMeasure = Literal["Each", "Case", "Pallet", "Kg", "L", "M", "Box", "Roll", "Custom"]
-ComponentType = Literal["Required", "Optional", "Accessory", "Service", "Consumable", "Spare-Part"]
-PricingType = Literal["Standard", "Promotional", "Contract", "Tiered", "Subscription", "Cost-Plus", "Dynamic"]
-SupportedCurrency = Literal["USD", "EUR", "GBP", "INR", "AUD", "CAD", "SGD", "AED", "JPY"]
+ProductStatus = Literal[
+    "Draft", "Active", "Inactive", "Discontinued", "Obsolete", "On-Hold"
+]
+ProductType = Literal[
+    "Finished-Good",
+    "Raw-Material",
+    "Component",
+    "Consumable",
+    "Spare-Part",
+    "Packaging",
+    "Service",
+    "Kit/Bundle",
+    "Other",
+]
+LifecycleStage = Literal[
+    "Development", "Introduction", "Growth", "Maturity", "Decline", "End-of-Life"
+]
+UnitOfMeasure = Literal[
+    "Each", "Case", "Pallet", "Kg", "L", "M", "Box", "Roll", "Custom"
+]
+ComponentType = Literal[
+    "Required", "Optional", "Accessory", "Service", "Consumable", "Spare-Part"
+]
+PricingType = Literal[
+    "Standard",
+    "Promotional",
+    "Contract",
+    "Tiered",
+    "Subscription",
+    "Cost-Plus",
+    "Dynamic",
+]
+SupportedCurrency = Literal[
+    "USD", "EUR", "GBP", "INR", "AUD", "CAD", "SGD", "AED", "JPY"
+]
 
-PRODUCT_STATUSES: tuple[str, ...] = ("Draft", "Active", "Inactive", "Discontinued", "Obsolete", "On-Hold")
-PRODUCT_TYPES: tuple[str, ...] = ("Finished-Good", "Raw-Material", "Component", "Consumable", "Spare-Part", "Packaging", "Service", "Kit/Bundle", "Other")
-LIFECYCLE_STAGES: tuple[str, ...] = ("Development", "Introduction", "Growth", "Maturity", "Decline", "End-of-Life")
-UNITS_OF_MEASURE: tuple[str, ...] = ("Each", "Case", "Pallet", "Kg", "L", "M", "Box", "Roll", "Custom")
-COMPONENT_TYPES: tuple[str, ...] = ("Required", "Optional", "Accessory", "Service", "Consumable", "Spare-Part")
-PRICING_TYPES: tuple[str, ...] = ("Standard", "Promotional", "Contract", "Tiered", "Subscription", "Cost-Plus", "Dynamic")
-SUPPORTED_CURRENCIES: tuple[str, ...] = ("USD", "EUR", "GBP", "INR", "AUD", "CAD", "SGD", "AED", "JPY")
+PRODUCT_STATUSES: tuple[str, ...] = (
+    "Draft",
+    "Active",
+    "Inactive",
+    "Discontinued",
+    "Obsolete",
+    "On-Hold",
+)
+PRODUCT_TYPES: tuple[str, ...] = (
+    "Finished-Good",
+    "Raw-Material",
+    "Component",
+    "Consumable",
+    "Spare-Part",
+    "Packaging",
+    "Service",
+    "Kit/Bundle",
+    "Other",
+)
+LIFECYCLE_STAGES: tuple[str, ...] = (
+    "Development",
+    "Introduction",
+    "Growth",
+    "Maturity",
+    "Decline",
+    "End-of-Life",
+)
+UNITS_OF_MEASURE: tuple[str, ...] = (
+    "Each",
+    "Case",
+    "Pallet",
+    "Kg",
+    "L",
+    "M",
+    "Box",
+    "Roll",
+    "Custom",
+)
+COMPONENT_TYPES: tuple[str, ...] = (
+    "Required",
+    "Optional",
+    "Accessory",
+    "Service",
+    "Consumable",
+    "Spare-Part",
+)
+PRICING_TYPES: tuple[str, ...] = (
+    "Standard",
+    "Promotional",
+    "Contract",
+    "Tiered",
+    "Subscription",
+    "Cost-Plus",
+    "Dynamic",
+)
+SUPPORTED_CURRENCIES: tuple[str, ...] = (
+    "USD",
+    "EUR",
+    "GBP",
+    "INR",
+    "AUD",
+    "CAD",
+    "SGD",
+    "AED",
+    "JPY",
+)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -56,5 +143,7 @@ class PricingTier(BaseModel):
     @model_validator(mode="after")
     def max_quantity_after_min_quantity(self) -> "PricingTier":
         if self.max_quantity is not None and self.max_quantity < self.min_quantity:
-            raise ValueError("max_quantity must be greater than or equal to min_quantity")
+            raise ValueError(
+                "max_quantity must be greater than or equal to min_quantity"
+            )
         return self

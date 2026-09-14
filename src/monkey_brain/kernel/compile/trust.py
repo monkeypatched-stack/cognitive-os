@@ -18,6 +18,7 @@ Every trust edge carries:
 
     Person → Runtime → Trust Graph → Knowledge Exchange
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,6 +51,7 @@ class Relationship(str, Enum):
 
 class Perm:
     """Permission classes (a friendship is not unrestricted access)."""
+
     SEND_MESSAGE = "msg.send"
     RECEIVE_MESSAGE = "msg.receive"
     PUBLISH_OBSERVATIONS = "know.publish_obs"
@@ -71,32 +73,64 @@ class Perm:
 _MSG = {Perm.SEND_MESSAGE, Perm.RECEIVE_MESSAGE}
 
 RELATIONSHIP_POLICIES: dict[Relationship, set[str]] = {
-    Relationship.FRIEND:        _MSG | {Perm.SHARE_WORKFLOWS, Perm.SUBSCRIBE_OBSERVATIONS},
-    Relationship.FAMILY:        _MSG | {Perm.SHARE_WORKFLOWS, Perm.PUBLISH_BELIEFS, Perm.RECEIVE_BELIEFS},
-    Relationship.COLLEAGUE:     _MSG | {Perm.SHARE_WORKFLOWS, Perm.SHARE_EXECUTION_GRAPHS,
-                                        Perm.EXECUTE_JOINTLY, Perm.DELEGATE_TASKS},
-    Relationship.MENTOR:        _MSG | {Perm.SHARE_EXECUTION_GRAPHS, Perm.SHARE_WORKFLOWS,
-                                        Perm.PUBLISH_BELIEFS, Perm.PUBLISH_EXPERIENCES, Perm.SHARE_ONTOLOGY},
-    Relationship.STUDENT:       _MSG | {Perm.RECEIVE_BELIEFS, Perm.RECEIVE_EXPERIENCES,
-                                        Perm.SUBSCRIBE_OBSERVATIONS, Perm.REQUEST_KNOWLEDGE},
-    Relationship.ORGANIZATION:  _MSG | {Perm.SHARE_WORKFLOWS, Perm.SHARE_EXECUTION_GRAPHS,
-                                        Perm.SYNCHRONIZE_CONTEXT, Perm.DELEGATE_TASKS},
-    Relationship.COMMUNITY:     _MSG | {Perm.PUBLISH_OBSERVATIONS, Perm.SUBSCRIBE_OBSERVATIONS, Perm.SHARE_ONTOLOGY},
-    Relationship.RESEARCH_PARTNER: _MSG | {Perm.SHARE_EXECUTION_GRAPHS, Perm.PUBLISH_BELIEFS,
-                                           Perm.RECEIVE_BELIEFS, Perm.SHARE_ONTOLOGY, Perm.EXECUTE_JOINTLY},
+    Relationship.FRIEND: _MSG | {Perm.SHARE_WORKFLOWS, Perm.SUBSCRIBE_OBSERVATIONS},
+    Relationship.FAMILY: _MSG | {Perm.SHARE_WORKFLOWS, Perm.PUBLISH_BELIEFS, Perm.RECEIVE_BELIEFS},
+    Relationship.COLLEAGUE: _MSG
+    | {
+        Perm.SHARE_WORKFLOWS,
+        Perm.SHARE_EXECUTION_GRAPHS,
+        Perm.EXECUTE_JOINTLY,
+        Perm.DELEGATE_TASKS,
+    },
+    Relationship.MENTOR: _MSG
+    | {
+        Perm.SHARE_EXECUTION_GRAPHS,
+        Perm.SHARE_WORKFLOWS,
+        Perm.PUBLISH_BELIEFS,
+        Perm.PUBLISH_EXPERIENCES,
+        Perm.SHARE_ONTOLOGY,
+    },
+    Relationship.STUDENT: _MSG
+    | {
+        Perm.RECEIVE_BELIEFS,
+        Perm.RECEIVE_EXPERIENCES,
+        Perm.SUBSCRIBE_OBSERVATIONS,
+        Perm.REQUEST_KNOWLEDGE,
+    },
+    Relationship.ORGANIZATION: _MSG
+    | {
+        Perm.SHARE_WORKFLOWS,
+        Perm.SHARE_EXECUTION_GRAPHS,
+        Perm.SYNCHRONIZE_CONTEXT,
+        Perm.DELEGATE_TASKS,
+    },
+    Relationship.COMMUNITY: _MSG | {Perm.PUBLISH_OBSERVATIONS, Perm.SUBSCRIBE_OBSERVATIONS, Perm.SHARE_ONTOLOGY},
+    Relationship.RESEARCH_PARTNER: _MSG
+    | {
+        Perm.SHARE_EXECUTION_GRAPHS,
+        Perm.PUBLISH_BELIEFS,
+        Perm.RECEIVE_BELIEFS,
+        Perm.SHARE_ONTOLOGY,
+        Perm.EXECUTE_JOINTLY,
+    },
     Relationship.PERSONAL_TO_PERSONAL: _MSG | {Perm.SHARE_WORKFLOWS, Perm.PUBLISH_BELIEFS},
     Relationship.PERSONAL_TO_ENTERPRISE: _MSG | {Perm.SHARE_WORKFLOWS, Perm.SHARE_EXECUTION_GRAPHS},
     Relationship.ENTERPRISE_TO_GOVERNMENT: _MSG | {Perm.SHARE_EXECUTION_GRAPHS, Perm.SYNCHRONIZE_CONTEXT},
-    Relationship.GOVERNMENT_TO_GOVERNMENT: _MSG | {Perm.SHARE_EXECUTION_GRAPHS, Perm.SYNCHRONIZE_CONTEXT,
-                                                   Perm.DELEGATE_TASKS},
-    Relationship.INSTITUTION_TO_INSTITUTION: _MSG | {Perm.SHARE_EXECUTION_GRAPHS, Perm.SHARE_ONTOLOGY,
-                                                     Perm.PUBLISH_EXPERIENCES},
+    Relationship.GOVERNMENT_TO_GOVERNMENT: _MSG
+    | {Perm.SHARE_EXECUTION_GRAPHS, Perm.SYNCHRONIZE_CONTEXT, Perm.DELEGATE_TASKS},
+    Relationship.INSTITUTION_TO_INSTITUTION: _MSG
+    | {Perm.SHARE_EXECUTION_GRAPHS, Perm.SHARE_ONTOLOGY, Perm.PUBLISH_EXPERIENCES},
 }
 
 _DEFAULT_TRUST: dict[Relationship, float] = {
-    Relationship.FAMILY: 0.9, Relationship.MENTOR: 0.85, Relationship.RESEARCH_PARTNER: 0.75,
-    Relationship.COLLEAGUE: 0.7, Relationship.ORGANIZATION: 0.65, Relationship.FRIEND: 0.6,
-    Relationship.STUDENT: 0.6, Relationship.COMMUNITY: 0.4,
+    Relationship.FAMILY: 0.9,
+    Relationship.MENTOR: 0.85,
+    Relationship.RESEARCH_PARTNER: 0.75,
+    Relationship.COLLEAGUE: 0.7,
+    Relationship.ORGANIZATION: 0.65,
+    Relationship.FRIEND: 0.6,
+    Relationship.STUDENT: 0.6,
+    Relationship.COMMUNITY: 0.4,
     Relationship.PERSONAL_TO_PERSONAL: 0.6,
     Relationship.PERSONAL_TO_ENTERPRISE: 0.5,
     Relationship.ENTERPRISE_TO_GOVERNMENT: 0.4,
@@ -108,18 +142,19 @@ _DEFAULT_TRUST: dict[Relationship, float] = {
 @dataclass
 class TrustEdge:
     """A typed, revocable, auditable trust relationship between two runtimes."""
+
     src: str
     dst: str
     relationship: Relationship
     permissions: set[str] = field(default_factory=set)
     trust_score: float = 0.5
-    knowledge_scope: set[str] = field(default_factory=set)   # allowed knowledge kinds (empty = all)
-    policy_scope: set[str] = field(default_factory=set)       # policies that apply (empty = all)
-    expiration: float = 0.0            # 0 = no expiry
+    knowledge_scope: set[str] = field(default_factory=set)  # allowed knowledge kinds (empty = all)
+    policy_scope: set[str] = field(default_factory=set)  # policies that apply (empty = all)
+    expiration: float = 0.0  # 0 = no expiry
     revoked: bool = False
     revoked_at: float = 0.0
     revoked_by: str = ""
-    reputation: float = 0.5            # cumulative interaction score
+    reputation: float = 0.5  # cumulative interaction score
     delegation_chain: list[str] = field(default_factory=list)  # who authorized this
     created_at: float = field(default_factory=time.time)
     provenance: list[tuple] = field(default_factory=list)
@@ -134,7 +169,8 @@ class TrustEdge:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "src": self.src, "dst": self.dst,
+            "src": self.src,
+            "dst": self.dst,
             "relationship": self.relationship.value,
             "permissions": sorted(self.permissions),
             "trust_score": self.trust_score,
@@ -152,12 +188,18 @@ class TrustEdge:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "TrustEdge":
         return cls(
-            src=d["src"], dst=d["dst"], relationship=Relationship(d["relationship"]),
-            permissions=set(d.get("permissions", [])), trust_score=d.get("trust_score", 0.5),
+            src=d["src"],
+            dst=d["dst"],
+            relationship=Relationship(d["relationship"]),
+            permissions=set(d.get("permissions", [])),
+            trust_score=d.get("trust_score", 0.5),
             knowledge_scope=set(d.get("knowledge_scope", [])),
-            policy_scope=set(d.get("policy_scope", [])), expiration=d.get("expiration", 0.0),
-            revoked=d.get("revoked", False), revoked_at=d.get("revoked_at", 0.0),
-            revoked_by=d.get("revoked_by", ""), reputation=d.get("reputation", 0.5),
+            policy_scope=set(d.get("policy_scope", [])),
+            expiration=d.get("expiration", 0.0),
+            revoked=d.get("revoked", False),
+            revoked_at=d.get("revoked_at", 0.0),
+            revoked_by=d.get("revoked_by", ""),
+            reputation=d.get("reputation", 0.5),
             delegation_chain=list(d.get("delegation_chain", [])),
             created_at=d.get("created_at", time.time()),
         )
@@ -187,6 +229,7 @@ class TrustNetwork:
     def load(self, path: str) -> None:
         import json
         import os
+
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as fh:
@@ -199,18 +242,31 @@ class TrustNetwork:
             return
         import json
         from src.monkey_brain.kernel.identity import _atomic_write
+
         _atomic_write(self._store, json.dumps(self.to_dict()).encode("utf-8"), mode=0o600)
 
-    def connect(self, src: str, dst: str, relationship: Relationship, *,
-                trust: float | None = None, permissions: set[str] | None = None,
-                mutual: bool = False, knowledge_scope: set[str] | None = None,
-                policy_scope: set[str] | None = None, expiration: float = 0.0,
-                delegation_chain: list[str] | None = None) -> TrustEdge:
+    def connect(
+        self,
+        src: str,
+        dst: str,
+        relationship: Relationship,
+        *,
+        trust: float | None = None,
+        permissions: set[str] | None = None,
+        mutual: bool = False,
+        knowledge_scope: set[str] | None = None,
+        policy_scope: set[str] | None = None,
+        expiration: float = 0.0,
+        delegation_chain: list[str] | None = None,
+    ) -> TrustEdge:
         """Create a trust edge src→dst."""
         perms = set(permissions) if permissions is not None else set(RELATIONSHIP_POLICIES.get(relationship, set()))
         edge = TrustEdge(
-            src=src, dst=dst, relationship=relationship, permissions=perms,
-            trust_score=trust if trust is not None else _DEFAULT_TRUST.get(relationship, 0.5),
+            src=src,
+            dst=dst,
+            relationship=relationship,
+            permissions=perms,
+            trust_score=(trust if trust is not None else _DEFAULT_TRUST.get(relationship, 0.5)),
             knowledge_scope=knowledge_scope or set(),
             policy_scope=policy_scope or set(),
             expiration=expiration,
@@ -218,11 +274,25 @@ class TrustNetwork:
         )
         edge.provenance.append(("connect", relationship.value, round(time.time(), 3)))
         self._edges[(src, dst)] = edge
-        _obs.event("trust.connect", src=src, dst=dst, relationship=relationship.value,
-                   trust=edge.trust_score, permissions=len(perms))
+        _obs.event(
+            "trust.connect",
+            src=src,
+            dst=dst,
+            relationship=relationship.value,
+            trust=edge.trust_score,
+            permissions=len(perms),
+        )
         if mutual:
-            self.connect(dst, src, relationship, trust=trust, permissions=permissions,
-                         mutual=False, knowledge_scope=knowledge_scope, policy_scope=policy_scope)
+            self.connect(
+                dst,
+                src,
+                relationship,
+                trust=trust,
+                permissions=permissions,
+                mutual=False,
+                knowledge_scope=knowledge_scope,
+                policy_scope=policy_scope,
+            )
         self._save()
         return edge
 
@@ -249,8 +319,7 @@ class TrustNetwork:
         self._save()
         return True
 
-    def revoke(self, src: str, dst: str, permission: str | None = None,
-               revoked_by: str = "") -> bool:
+    def revoke(self, src: str, dst: str, permission: str | None = None, revoked_by: str = "") -> bool:
         """Revoke a permission or the entire edge."""
         e = self._edges.get((src, dst))
         if not e:
@@ -307,13 +376,11 @@ class TrustNetwork:
         return list(e.provenance) if e else []
 
     def relationships_of(self, runtime: str) -> list[tuple[str, Relationship]]:
-        return [(dst, e.relationship) for (s, dst), e in self._edges.items()
-                if s == runtime and e.is_active]
+        return [(dst, e.relationship) for (s, dst), e in self._edges.items() if s == runtime and e.is_active]
 
     # ── hierarchical / transitive delegation (the pyramid) ───────────────────────────
 
-    def permits_via(self, src: str, dst: str, relationship: Relationship, *,
-                    max_depth: int = 8) -> bool:
+    def permits_via(self, src: str, dst: str, relationship: Relationship, *, max_depth: int = 8) -> bool:
         """Is `dst` reachable from `src` along a chain of edges of `relationship`?"""
         if src == dst:
             return True
@@ -335,8 +402,7 @@ class TrustNetwork:
                     frontier.append((nxt, depth + 1))
         return False
 
-    def delegation_path(self, src: str, dst: str, relationship: Relationship,
-                        *, max_depth: int = 8) -> list[str]:
+    def delegation_path(self, src: str, dst: str, relationship: Relationship, *, max_depth: int = 8) -> list[str]:
         """The reporting chain src→…→dst along `relationship` edges."""
         if src == dst:
             return [src]

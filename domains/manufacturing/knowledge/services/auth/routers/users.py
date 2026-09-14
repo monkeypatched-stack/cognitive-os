@@ -23,7 +23,9 @@ async def list_users(
     _: dict = Depends(require_permission("perm-view-users")),
 ):
     users, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedUserEntryResponse(total=total, page=page, page_size=page_size, results=users)
+    return PaginatedUserEntryResponse(
+        total=total, page=page, page_size=page_size, results=users
+    )
 
 
 @router.get("/by-employee/{employee_id}", response_model=UserEntryResponse)
@@ -34,7 +36,9 @@ async def get_user_by_employee_id(
 ):
     record = await crud.get_by_employee_id(db, employee_id)
     if not record:
-        raise HTTPException(404, detail=f"User with employee_id '{employee_id}' not found")
+        raise HTTPException(
+            404, detail=f"User with employee_id '{employee_id}' not found"
+        )
     return record
 
 
@@ -79,7 +83,9 @@ async def create_user(
     try:
         return await crud.create(db, data)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
 
 @router.patch("/{user_id}", response_model=UserEntryResponse)
@@ -92,7 +98,9 @@ async def update_user(
     try:
         updated = await crud.update(db, user_id, data)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     if not updated:
         raise HTTPException(404, detail=f"User '{user_id}' not found")
     return updated
@@ -106,7 +114,8 @@ async def delete_user(
 ):
     if not await crud.delete(db, user_id):
         raise HTTPException(404, detail=f"User '{user_id}' not found")
-    
+
+
 @router.get("/by-email/{email}", response_model=UserEntryResponse)
 async def get_user_by_email(
     email: str,

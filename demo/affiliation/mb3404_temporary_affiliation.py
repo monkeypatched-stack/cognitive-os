@@ -9,6 +9,7 @@ multi-society lookup (_societies_for), which is what lets a
 temporarily-co-present pair be found as sharing a Society even though
 neither one's PERMANENT home society changed.
 """
+
 from __future__ import annotations
 
 import sys
@@ -43,7 +44,10 @@ def main() -> int:
 
         section("Contractor leaves the Warehouse (back to the Contractor Pool Office)")
         presence = move_actor(c, contractor_id, spaces["contractor_office"], activity="returning")
-        kv("Presence recorded at", presence.get("space_id", spaces["contractor_office"]))
+        kv(
+            "Presence recorded at",
+            presence.get("space_id", spaces["contractor_office"]),
+        )
 
         section("After leaving: Contractor asks Warehouse Worker again")
         status, body = ask_actor(c, contractor_id, "Contractor", worker_id, "Can I help out today?")

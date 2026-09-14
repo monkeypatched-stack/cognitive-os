@@ -4,6 +4,7 @@
 Adds: workers (Aarav Mehta, Rahul Deshmukh), work orders, batches,
 change controls, and machine aliases needed by the 432-question set.
 """
+
 import asyncio
 import os
 import sys
@@ -17,6 +18,7 @@ DB_NAME = os.getenv("DB_NAME", "demo")
 
 async def seed():
     from motor.motor_asyncio import AsyncIOMotorClient
+
     mongo = AsyncIOMotorClient(MONGO_URI)
     db = mongo[DB_NAME]
 
@@ -185,31 +187,40 @@ async def seed():
     # Add alias names so questions about "V-Blender VB-01" find the right machine
     result = await db.pharmaceutical_machines.update_one(
         {"machine_id": "MCH-TAB-06-01"},
-        {"$set": {
-            "alias": "V-Blender VB-01",
-            "serial_number": "VB-01",
-            "manufacturer": "Glatt",
-            "model": "Bin Blender 600L",
-            "location": "Blending Stage, Tablet Line A",
-        }}
+        {
+            "$set": {
+                "alias": "V-Blender VB-01",
+                "serial_number": "VB-01",
+                "manufacturer": "Glatt",
+                "model": "Bin Blender 600L",
+                "location": "Blending Stage, Tablet Line A",
+            }
+        },
     )
     print(f"  ~ machine MCH-TAB-06-01: alias=V-Blender VB-01 (matched={result.matched_count})")
 
     result = await db.pharmaceutical_machines.update_one(
         {"machine_id": "MCH-TAB-03-01"},
-        {"$set": {
-            "alias": "Rapid Mixer Granulator RMG-01",
-            "serial_number": "RMG-01",
-            "manufacturer": "Lodha",
-            "model": "LG-150",
-            "location": "Granulation Stage, Tablet Line A",
-        }}
+        {
+            "$set": {
+                "alias": "Rapid Mixer Granulator RMG-01",
+                "serial_number": "RMG-01",
+                "manufacturer": "Lodha",
+                "model": "LG-150",
+                "location": "Granulation Stage, Tablet Line A",
+            }
+        },
     )
     print(f"  ~ machine MCH-TAB-03-01: alias=RMG-01 (matched={result.matched_count})")
 
     # ── Summary ─────────────────────────────────────────────────────
     print("\n--- Summary ---")
-    for c in ["workers", "work_orders", "batch_production_execution_records", "change_controls"]:
+    for c in [
+        "workers",
+        "work_orders",
+        "batch_production_execution_records",
+        "change_controls",
+    ]:
         count = await db[c].count_documents({})
         print(f"  {c}: {count}")
 

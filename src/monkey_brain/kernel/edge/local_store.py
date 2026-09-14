@@ -23,6 +23,7 @@ callers: "belief", "world_projection", "capability_metadata",
 "policy_snapshot", "delegation", "negotiation", "semantic_memory",
 "idempotency".
 """
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,11 @@ import time
 from dataclasses import dataclass
 from typing import Any, Iterator
 
-from src.monkey_brain.kernel.edge.freshness import CacheProvenance, provenance_from_dict, provenance_to_dict
+from src.monkey_brain.kernel.edge.freshness import (
+    CacheProvenance,
+    provenance_from_dict,
+    provenance_to_dict,
+)
 
 logger = logging.getLogger("agentos.edge.local_store")
 
@@ -45,6 +50,7 @@ _DEFAULT_DB_PATH = os.path.expanduser("~/.monkeybrain/edge/local_store.db")
 class CacheEntry:
     """One durable local record: a value plus the provenance needed to
     judge its freshness later (kernel/edge/freshness.py)."""
+
     namespace: str
     key: str
     value: dict[str, Any]
@@ -79,8 +85,7 @@ class EdgeLocalStore:
 
     def _init_schema(self) -> None:
         with self._lock:
-            self._conn.execute(
-                """
+            self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS cache_entries (
                     namespace TEXT NOT NULL,
                     key TEXT NOT NULL,
@@ -89,24 +94,25 @@ class EdgeLocalStore:
                     updated_at REAL NOT NULL,
                     PRIMARY KEY (namespace, key)
                 )
-                """
-            )
-            self._conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_cache_entries_namespace ON cache_entries(namespace)"
-            )
-            self._conn.execute(
-                """
+                """)
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_entries_namespace ON cache_entries(namespace)")
+            self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS sync_state (
                     stream TEXT PRIMARY KEY,
                     last_epoch INTEGER NOT NULL DEFAULT 0,
                     last_synced_at REAL NOT NULL DEFAULT 0,
                     cursor TEXT NOT NULL DEFAULT ''
                 )
-                """
-            )
+                """)
             self._conn.commit()
 
-    def put(self, namespace: str, key: str, value: dict[str, Any], provenance: CacheProvenance) -> None:
+    def put(
+        self,
+        namespace: str,
+        key: str,
+        value: dict[str, Any],
+        provenance: CacheProvenance,
+    ) -> None:
         """Upsert. A fresh write always supersedes whatever was cached
         before for this (namespace, key) -- this is a lookup cache, not
         an append-only audit trail (durable append-only history already
@@ -121,7 +127,13 @@ class EdgeLocalStore:
                     ON CONFLICT(namespace, key) DO UPDATE SET
                         value=excluded.value, provenance=excluded.provenance, updated_at=excluded.updated_at
                     """,
-                    (namespace, key, json.dumps(value), json.dumps(provenance_to_dict(provenance)), now),
+                    (
+                        namespace,
+                        key,
+                        json.dumps(value),
+                        json.dumps(provenance_to_dict(provenance)),
+                        now,
+                    ),
                 )
                 self._conn.commit()
         except sqlite3.DatabaseError as exc:
@@ -189,7 +201,13 @@ class EdgeLocalStore:
                         value=excluded.value, provenance=excluded.provenance, updated_at=excluded.updated_at
                     """,
                     [
-                        (namespace, key, json.dumps(value), json.dumps(provenance_to_dict(provenance)), now)
+                        (
+                            namespace,
+                            key,
+                            json.dumps(value),
+                            json.dumps(provenance_to_dict(provenance)),
+                            now,
+                        )
                         for key, (value, provenance) in entries.items()
                     ],
                 )
@@ -201,7 +219,8 @@ class EdgeLocalStore:
         try:
             with self._lock:
                 self._conn.execute(
-                    "DELETE FROM cache_entries WHERE namespace = ? AND key = ?", (namespace, key),
+                    "DELETE FROM cache_entries WHERE namespace = ? AND key = ?",
+                    (namespace, key),
                 )
                 self._conn.commit()
         except sqlite3.DatabaseError as exc:
@@ -226,12 +245,17 @@ class EdgeLocalStore:
             # down the whole store for one bad record.
             logger.warning(
                 "EdgeLocalStore: corrupt cache entry %s/%s, treating as absent: %s",
-                row["namespace"], row["key"], exc,
+                row["namespace"],
+                row["key"],
+                exc,
             )
             raise EdgeLocalStoreError(f"corrupt entry {row['namespace']}/{row['key']}") from exc
         return CacheEntry(
-            namespace=row["namespace"], key=row["key"], value=value,
-            provenance=provenance, updated_at=row["updated_at"],
+            namespace=row["namespace"],
+            key=row["key"],
+            value=value,
+            provenance=provenance,
+            updated_at=row["updated_at"],
         )
 
     # ── Sync bookkeeping (Section 7) ────────────────────────────────
@@ -243,7 +267,8 @@ class EdgeLocalStore:
         requests a full initial snapshot rather than an incremental one."""
         with self._lock:
             row = self._conn.execute(
-                "SELECT last_epoch, last_synced_at, cursor FROM sync_state WHERE stream = ?", (stream,),
+                "SELECT last_epoch, last_synced_at, cursor FROM sync_state WHERE stream = ?",
+                (stream,),
             ).fetchone()
         if row is None:
             return 0, 0.0, ""

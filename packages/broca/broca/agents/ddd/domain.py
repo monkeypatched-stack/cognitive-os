@@ -1,4 +1,5 @@
 """DomainAgent — reasons about business strategy across bounded contexts."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -35,7 +36,6 @@ class DomainAgent(BaseDDDAgent):
         }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        goal = perception.get("goal", "").lower()
         question = perception.get("question", "").lower()
 
         # Route to the most relevant bounded context

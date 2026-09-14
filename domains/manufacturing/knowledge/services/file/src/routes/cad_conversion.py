@@ -8,10 +8,15 @@ from ..helpers.cad_conversion import convert_cad_upload_to_svg, safe_filename_st
 
 # These endpoints accept an upload and run a CAD conversion — they were completely
 # unauthenticated, so any caller could burn CPU/memory converting arbitrary files.
-router = APIRouter(tags=["CAD Conversion"], dependencies=[Depends(require_auth_context)])
+router = APIRouter(
+    tags=["CAD Conversion"], dependencies=[Depends(require_auth_context)]
+)
 
 # Bound the upload: an unbounded UploadFile lets a caller exhaust memory/disk.
-MAX_UPLOAD_BYTES = int(os.getenv("CAD_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))  # 25 MiB
+MAX_UPLOAD_BYTES = int(
+    os.getenv("CAD_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024))
+)  # 25 MiB
+
 
 async def _convert_to_svg(file: UploadFile) -> Response:
     svg = await convert_cad_upload_to_svg(file)

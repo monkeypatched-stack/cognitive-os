@@ -43,11 +43,15 @@ from typing import Any
 from src.monkey_brain.kernel.pipeline.cognitive_policy import StageFn
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.learning.domain import LearningPolicy
-from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption
+from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+    CounterfactualAssumption,
+)
 from src.monkey_brain.kernel.pipeline.prediction.integration import (
     PredictionIntegratedPolicy,
 )
-from src.monkey_brain.kernel.pipeline.prediction.scenarios import DEFAULT_REJECTION_THRESHOLD
+from src.monkey_brain.kernel.pipeline.prediction.scenarios import (
+    DEFAULT_REJECTION_THRESHOLD,
+)
 from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
 
 logger = logging.getLogger("agentos.pipeline.comparison_integration")
@@ -202,8 +206,12 @@ class ComparisonIntegratedPolicy(PredictionIntegratedPolicy):
         # call site passes self._generate_plan/self._execute_plan), so
         # `.__self__` recovers that instance without changing configure()'s
         # signature (shared across all CognitivePolicy subclasses).
-        from src.monkey_brain.kernel.cognitive_os.execution_runtime import ExecutionRuntime
-        from src.monkey_brain.kernel.cognitive_os.reasoning_runtime import ReasoningRuntime
+        from src.monkey_brain.kernel.cognitive_os.execution_runtime import (
+            ExecutionRuntime,
+        )
+        from src.monkey_brain.kernel.cognitive_os.reasoning_runtime import (
+            ReasoningRuntime,
+        )
 
         runtime_ref = getattr(plan, "__self__", None)
 
@@ -283,7 +291,7 @@ async def _run_comparison(state: CognitiveState, policy: Any = None) -> Cognitiv
         # this silent branch was the only place it could have gone.
         logger.warning(
             "Comparison skipped (execution_id=%s): prediction_result=%s execution_result=%s",
-            state.metrics.get("execution_id", "") if isinstance(state.metrics, dict) else "",
+            (state.metrics.get("execution_id", "") if isinstance(state.metrics, dict) else ""),
             "present" if prediction is not None else "MISSING",
             "present" if execution is not None else "MISSING",
         )
@@ -393,7 +401,9 @@ def _apply_transition_learning(state: CognitiveState, policy: Any = None) -> Cog
         # "actor_id -> name" record when it loads/saves this same key).
         actor_id = getattr(state.actor, "actor_id", "") if getattr(state, "actor", None) else ""
         if actor_id:
-            from src.monkey_brain.kernel.pipeline.prediction.persistence import save_transition_model
+            from src.monkey_brain.kernel.pipeline.prediction.persistence import (
+                save_transition_model,
+            )
 
             save_transition_model(actor_id, learned)
 
@@ -438,7 +448,10 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         save_current_plan,
     )
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
-    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import decide, score_plan
+    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import (
+        decide,
+        score_plan,
+    )
 
     # Real gap this closes: Plan.goal only ever carries resolved_goal.name
     # (llm_planner.py) -- the one-off triggering text (e.g. "buy 1 dozen
@@ -490,7 +503,9 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
     # Mirrors the last_execution_failed bypass immediately below — a
     # Current Plan whose world-state assumptions have moved on is treated
     # the same as one that's already demonstrated it doesn't work.
-    from src.monkey_brain.kernel.pipeline.planning.plan_staleness import check_plan_staleness
+    from src.monkey_brain.kernel.pipeline.planning.plan_staleness import (
+        check_plan_staleness,
+    )
 
     kg = state.context.get("knowledge_graph") if isinstance(state.context, dict) else None
     staleness = check_plan_staleness(kg, current) if current is not None else None
@@ -532,7 +547,9 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         # protection; bypass the score comparison entirely rather than
         # asking a fresh candidate to clear the normal 10% margin over a
         # plan that's already demonstrated it doesn't work.
-        from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import HysteresisVerdict
+        from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import (
+            HysteresisVerdict,
+        )
 
         new_score, components = score_plan(state.plan, state.prediction_result)
         bypass_reason = (
@@ -569,7 +586,9 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         # ACTOR_NODE_CLASS convention already used to skip Moss's
         # semantic plan cache (llm_planner.py) for the identical reason.
         new_score, components = score_plan(state.plan, state.prediction_result)
-        from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import HysteresisVerdict
+        from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import (
+            HysteresisVerdict,
+        )
 
         verdict = HysteresisVerdict(
             action="replace",
@@ -590,7 +609,9 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         # tick with no concrete goal) — never let this outscore or
         # overwrite a real Current Plan; always keep whatever exists FOR
         # THIS GOAL.
-        from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import HysteresisVerdict
+        from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import (
+            HysteresisVerdict,
+        )
 
         new_score, components = 0.0, {}
         verdict = HysteresisVerdict(
@@ -620,7 +641,9 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         state.metrics["decide_new_plan_id"] = new_plan_id
         state.metrics["decide_replaced_plan_snapshot"] = current.to_dict() if current else None
 
-        from src.monkey_brain.kernel.pipeline.planning.plan_staleness import capture_entity_versions
+        from src.monkey_brain.kernel.pipeline.planning.plan_staleness import (
+            capture_entity_versions,
+        )
 
         record = CurrentPlanRecord(
             plan_id=new_plan_id,
@@ -708,7 +731,9 @@ def _record_plan_outcome_feedback(state: CognitiveState, policy: Any) -> Cogniti
     plan_hysteresis.py's docstring flags as deferred: score_plan has no
     actual-outcome feedback of its own — this is that feedback, applied
     one layer up rather than inside the pure scoring function."""
-    from src.monkey_brain.kernel.pipeline.planning.current_plan_store import save_current_plan
+    from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+        save_current_plan,
+    )
 
     goal_key = state.metrics.get("decide_goal_key")
     if not goal_key or not hasattr(policy, "_current_plans"):
@@ -810,7 +835,9 @@ def _learn_transitions(
     execution_id = state.metrics.get("execution_id", "") if isinstance(state.metrics, dict) else ""
     already_learned: set[tuple[str, str]] = set()
     if execution_id:
-        from src.monkey_brain.kernel.pipeline.learning_event_store import load_learning_events_for_execution
+        from src.monkey_brain.kernel.pipeline.learning_event_store import (
+            load_learning_events_for_execution,
+        )
 
         already_learned = {(e.goal_key, e.action_key) for e in load_learning_events_for_execution(execution_id)}
 
@@ -833,7 +860,10 @@ def _learn_transitions(
 
     outcome = str(comparison.get("outcome", "") or "")
     if outcome in ("inconclusive", "no_change"):
-        logger.info("Transition learning skipped: Comparator outcome=%s has no transition evidence.", outcome)
+        logger.info(
+            "Transition learning skipped: Comparator outcome=%s has no transition evidence.",
+            outcome,
+        )
         _obs.counter("learn.skipped.total", reason=outcome)
         return
 
@@ -1010,13 +1040,16 @@ def _learn_transitions(
         # `continue` gates above (no evidence / actual_success is None), so
         # an unexecuted step never produces an event either -- same
         # invariant _learn_transitions already enforces for the model itself.
-        from src.monkey_brain.kernel.pipeline.learning_event_store import LearningEvent, record_learning_event
+        from src.monkey_brain.kernel.pipeline.learning_event_store import (
+            LearningEvent,
+            record_learning_event,
+        )
 
         updated = current_model.known_transitions[(goal_key, action_key)][-1].to_dict()
         record_learning_event(
             LearningEvent(
                 execution_id=execution_id,
-                actor_id=getattr(state.actor, "actor_id", "") if getattr(state, "actor", None) else "",
+                actor_id=(getattr(state.actor, "actor_id", "") if getattr(state, "actor", None) else ""),
                 goal_key=goal_key,
                 action_key=action_key,
                 success=success,
@@ -1111,7 +1144,7 @@ def _prediction_to_graph(prediction: Any, plan_steps: tuple = (), execution_id: 
         if j > 0 and nodes:
             edges.append(
                 {
-                    "from": step_ids[j - 1] if j - 1 < len(step_ids) else f"step_{j - 1}",
+                    "from": (step_ids[j - 1] if j - 1 < len(step_ids) else f"step_{j - 1}"),
                     "to": node_id,
                     "type": "depends_on",
                 }
@@ -1244,7 +1277,7 @@ def _execution_to_graph(execution: Any, plan_steps: tuple = (), execution_id: st
         if i > 0 and nodes:
             edges.append(
                 {
-                    "from": step_ids[i - 1] if i - 1 < len(step_ids) else f"step_{i - 1}",
+                    "from": (step_ids[i - 1] if i - 1 < len(step_ids) else f"step_{i - 1}"),
                     "to": node_id,
                     "type": "depends_on",
                 }
@@ -1319,7 +1352,9 @@ def build_comparison_integrated_runtime(
     ContextConstructionEngine, threaded straight to CognitiveRuntime (not
     through ComparisonIntegratedPolicy/ReasoningRuntime — _generate_plan
     lives on CognitiveRuntime itself)."""
-    from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime as PipelineCognitiveRuntime
+    from src.monkey_brain.kernel.pipeline.belief_runtime import (
+        CognitiveRuntime as PipelineCognitiveRuntime,
+    )
 
     # NOTE: only observations passed others will be none and must use the default fallback
     return PipelineCognitiveRuntime(

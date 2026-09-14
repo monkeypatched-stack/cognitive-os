@@ -58,19 +58,32 @@ class TokenBlobStore:
     def clear(cls) -> None:
         cls._store.clear()
 
-_ENDPOINT    = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-_SERVICE     = os.getenv("OTEL_SERVICE_NAME", "monkeybrain")
-_ENABLED     = bool(_ENDPOINT)
+
+_ENDPOINT = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+_SERVICE = os.getenv("OTEL_SERVICE_NAME", "monkeybrain")
+_ENABLED = bool(_ENDPOINT)
 
 
 class _NoOpSpan:
     """Returned when OTel is not available — silent no-op."""
-    def set_attribute(self, key: str, value: Any) -> None: pass
-    def set_status(self, status: Any, description: str = "") -> None: pass
-    def record_exception(self, exc: Exception) -> None: pass
-    def end(self) -> None: pass
-    def __enter__(self): return self
-    def __exit__(self, *_): pass
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        pass
+
+    def set_status(self, status: Any, description: str = "") -> None:
+        pass
+
+    def record_exception(self, exc: Exception) -> None:
+        pass
+
+    def end(self) -> None:
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
 
 
 class OTelBridge:
@@ -93,14 +106,20 @@ class OTelBridge:
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
             from opentelemetry.sdk.metrics import MeterProvider
             from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-            from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+                OTLPSpanExporter,
+            )
+            from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+                OTLPMetricExporter,
+            )
             from opentelemetry.sdk.resources import Resource
 
-            resource = Resource.create({
-                "service.name": _SERVICE,
-                "service.namespace": "cognitive-os",
-            })
+            resource = Resource.create(
+                {
+                    "service.name": _SERVICE,
+                    "service.namespace": "cognitive-os",
+                }
+            )
 
             # Traces
             tp = TracerProvider(resource=resource)
@@ -109,9 +128,7 @@ class OTelBridge:
             self._tracer = trace.get_tracer("lemon")
 
             # Metrics
-            reader = PeriodicExportingMetricReader(
-                OTLPMetricExporter(endpoint=_ENDPOINT), export_interval_millis=15000
-            )
+            reader = PeriodicExportingMetricReader(OTLPMetricExporter(endpoint=_ENDPOINT), export_interval_millis=15000)
             mp = MeterProvider(resource=resource, metric_readers=[reader])
             metrics.set_meter_provider(mp)
             self._meter = metrics.get_meter("lemon")
@@ -149,10 +166,18 @@ class OTelBridge:
             except Exception as exc:
                 otel_span.record_exception(exc)
                 from opentelemetry.trace import StatusCode
+
                 otel_span.set_status(StatusCode.ERROR, str(exc))
                 raise
 
-    def emit_span(self, name: str, layer: str, duration_ms: float, status: str = "ok", **attributes: Any) -> None:
+    def emit_span(
+        self,
+        name: str,
+        layer: str,
+        duration_ms: float,
+        status: str = "ok",
+        **attributes: Any,
+    ) -> None:
         """Emit a completed span from a pre-recorded Lemon event (non-context-manager form)."""
         if not self._available or self._tracer is None:
             return
@@ -245,12 +270,19 @@ class OTelBridge:
             layer="agent",
             duration_ms=latency_ms,
             agent_type=agent_type,
-            violations_count=len(violations),   # scalar: OTel-safe
+            violations_count=len(violations),  # scalar: OTel-safe
             pipeline_id=pipeline_id,
-            blob_pointer=blob_pointer,           # hash ref, not raw data
+            blob_pointer=blob_pointer,  # hash ref, not raw data
         )
 
-    def emit_pipeline_step(self, pipeline_id: str, step: str, capability: str, latency_ms: float, status: str) -> None:
+    def emit_pipeline_step(
+        self,
+        pipeline_id: str,
+        step: str,
+        capability: str,
+        latency_ms: float,
+        status: str,
+    ) -> None:
         self.emit_span(
             f"pipeline.step.{step}",
             layer="pipeline",

@@ -28,6 +28,7 @@ Neo4j schema:
     Nodes: (:Entity {id, entity_type, domain, name, attributes, state})
     Edges: (:Entity)-[:RELATES_TO {relation_type, domain, attributes}]->(:Entity)
 """
+
 from __future__ import annotations
 
 import json
@@ -37,7 +38,11 @@ import time
 from typing import Any, Callable
 
 from src.monkey_brain.kernel.compile.entity import (
-    Entity, EntityType, RelationType, EntityRegistry, Relationship,
+    Entity,
+    EntityType,
+    RelationType,
+    EntityRegistry,
+    Relationship,
 )
 
 logger = logging.getLogger("agentos.semantic_graph")
@@ -64,8 +69,12 @@ class SemanticGraph:
         - Edges: (:Entity)-[:RELATES_TO {relation_type, ...}]->(:Entity)
     """
 
-    def __init__(self, neo4j_uri: str | None = None, neo4j_user: str | None = None,
-                 neo4j_password: str | None = None) -> None:
+    def __init__(
+        self,
+        neo4j_uri: str | None = None,
+        neo4j_user: str | None = None,
+        neo4j_password: str | None = None,
+    ) -> None:
         self._neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self._neo4j_user = neo4j_user or os.getenv("NEO4J_USER", "neo4j")
         self._neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD") or ""
@@ -96,6 +105,7 @@ class SemanticGraph:
         """
         try:
             import asyncio
+
             loop = asyncio.get_running_loop()
             # We're inside an async context — schedule directly
             if operation == "persist_entity":
@@ -120,8 +130,10 @@ class SemanticGraph:
             return
         try:
             from neo4j import AsyncGraphDatabase
+
             self._driver = AsyncGraphDatabase.driver(
-                self._neo4j_uri, auth=(self._neo4j_user, self._neo4j_password),
+                self._neo4j_uri,
+                auth=(self._neo4j_user, self._neo4j_password),
             )
             await self._create_schema()
             await self._load_from_neo4j()
@@ -144,15 +156,9 @@ class SemanticGraph:
         if not self.is_connected():
             return
         async with self._driver.session() as session:
-            await session.run(
-                "CREATE INDEX entity_id IF NOT EXISTS FOR (e:Entity) ON (e.id)"
-            )
-            await session.run(
-                "CREATE INDEX entity_type IF NOT EXISTS FOR (e:Entity) ON (e.entity_type)"
-            )
-            await session.run(
-                "CREATE INDEX entity_domain IF NOT EXISTS FOR (e:Entity) ON (e.domain)"
-            )
+            await session.run("CREATE INDEX entity_id IF NOT EXISTS FOR (e:Entity) ON (e.id)")
+            await session.run("CREATE INDEX entity_type IF NOT EXISTS FOR (e:Entity) ON (e.entity_type)")
+            await session.run("CREATE INDEX entity_domain IF NOT EXISTS FOR (e:Entity) ON (e.domain)")
 
     async def _load_from_neo4j(self) -> None:
         """Load all entities and relationships from Neo4j into memory."""
@@ -175,10 +181,7 @@ class SemanticGraph:
                 self._registry.register(entity)
 
             # Load relationships
-            result = await session.run(
-                "MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity) "
-                "RETURN a.id as src, b.id as dst, r"
-            )
+            result = await session.run("MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity) RETURN a.id as src, b.id as dst, r")
             async for record in result:
                 r = record["r"]
                 rel = Relationship(
@@ -191,8 +194,11 @@ class SemanticGraph:
                 )
                 self._add_rel_to_cache(rel)
 
-        logger.info("SemanticGraph loaded %d entities, %d relationships from Neo4j",
-                     len(self._entities), sum(len(v) for v in self._relationships.values()))
+        logger.info(
+            "SemanticGraph loaded %d entities, %d relationships from Neo4j",
+            len(self._entities),
+            sum(len(v) for v in self._relationships.values()),
+        )
 
     # ── Entity CRUD ──────────────────────────────────────────────────────
 
@@ -271,13 +277,21 @@ class SemanticGraph:
 
     # ── Relationship CRUD ────────────────────────────────────────────────
 
-    def relate(self, source_id: str, target_id: str,
-               relation_type: RelationType = RelationType.RELATED_TO,
-               domain: str = "default",
-               attributes: dict | None = None) -> Relationship | None:
+    def relate(
+        self,
+        source_id: str,
+        target_id: str,
+        relation_type: RelationType = RelationType.RELATED_TO,
+        domain: str = "default",
+        attributes: dict | None = None,
+    ) -> Relationship | None:
         """Create relationship between two entities."""
         if source_id not in self._entities or target_id not in self._entities:
-            logger.warning("SemanticGraph.relate: entity not found (%s or %s)", source_id, target_id)
+            logger.warning(
+                "SemanticGraph.relate: entity not found (%s or %s)",
+                source_id,
+                target_id,
+            )
             return None
 
         rel = Relationship(
@@ -299,9 +313,12 @@ class SemanticGraph:
 
         return rel
 
-    def get_relationships(self, entity_id: str,
-                          relation_type: RelationType | None = None,
-                          direction: str = "outgoing") -> list[Relationship]:
+    def get_relationships(
+        self,
+        entity_id: str,
+        relation_type: RelationType | None = None,
+        direction: str = "outgoing",
+    ) -> list[Relationship]:
         """Get relationships for an entity.
 
         direction: "outgoing", "incoming", or "both"
@@ -323,8 +340,7 @@ class SemanticGraph:
 
         return results
 
-    def remove_relationship(self, source_id: str, target_id: str,
-                            relation_type: RelationType | None = None) -> int:
+    def remove_relationship(self, source_id: str, target_id: str, relation_type: RelationType | None = None) -> int:
         """Remove relationships between two entities. Returns count removed."""
         removed = 0
         rels = self._relationships.get(source_id, [])
@@ -346,9 +362,7 @@ class SemanticGraph:
     def _add_rel_to_cache(self, rel: Relationship) -> None:
         """Add relationship to in-memory cache."""
         self._relationships.setdefault(rel.source_id, []).append(rel)
-        self._adjacency.setdefault(rel.source_id, {}).setdefault(
-            rel.relation_type.value, []
-        ).append(rel)
+        self._adjacency.setdefault(rel.source_id, {}).setdefault(rel.relation_type.value, []).append(rel)
 
     # ── Traversal APIs ───────────────────────────────────────────────────
 
@@ -374,9 +388,7 @@ class SemanticGraph:
 
         return result
 
-    def neighbors_by_type(self, entity_id: str,
-                          relation_type: RelationType,
-                          max_depth: int = 1) -> list[Entity]:
+    def neighbors_by_type(self, entity_id: str, relation_type: RelationType, max_depth: int = 1) -> list[Entity]:
         """Get neighbors connected by a specific relationship type."""
         visited = set()
         result = []
@@ -399,8 +411,7 @@ class SemanticGraph:
 
         return result
 
-    def find_path(self, start_id: str, goal_id: str,
-                  max_depth: int = 6) -> list[Entity] | None:
+    def find_path(self, start_id: str, goal_id: str, max_depth: int = 6) -> list[Entity] | None:
         """BFS shortest path between two entities."""
         if start_id not in self._entities or goal_id not in self._entities:
             return None
@@ -423,9 +434,13 @@ class SemanticGraph:
 
         return None
 
-    def find_path_by_types(self, start_id: str, goal_id: str,
-                           allowed_relation_types: list[RelationType],
-                           max_depth: int = 6) -> list[Entity] | None:
+    def find_path_by_types(
+        self,
+        start_id: str,
+        goal_id: str,
+        allowed_relation_types: list[RelationType],
+        max_depth: int = 6,
+    ) -> list[Entity] | None:
         """BFS path constrained by relationship types."""
         if start_id not in self._entities or goal_id not in self._entities:
             return None
@@ -455,11 +470,42 @@ class SemanticGraph:
         """Return entity type hierarchy."""
         return {
             "Entity": ["PassiveEntity", "Actor"],
-            "PassiveEntity": ["Product", "Machine", "Building", "Road", "Sensor",
-                              "Device", "Document", "Organization", "Location", "DigitalEntity"],
-            "Actor": ["Person", "Vehicle", "Robot", "Drone", "DigitalAgent", "AutonomousSystem"],
-            "Organization": ["Enterprise", "Government", "Community", "NGO", "Institution"],
-            "Location": ["Country", "StateProvince", "City", "Factory", "Warehouse", "Store", "Port"],
+            "PassiveEntity": [
+                "Product",
+                "Machine",
+                "Building",
+                "Road",
+                "Sensor",
+                "Device",
+                "Document",
+                "Organization",
+                "Location",
+                "DigitalEntity",
+            ],
+            "Actor": [
+                "Person",
+                "Vehicle",
+                "Robot",
+                "Drone",
+                "DigitalAgent",
+                "AutonomousSystem",
+            ],
+            "Organization": [
+                "Enterprise",
+                "Government",
+                "Community",
+                "NGO",
+                "Institution",
+            ],
+            "Location": [
+                "Country",
+                "StateProvince",
+                "City",
+                "Factory",
+                "Warehouse",
+                "Store",
+                "Port",
+            ],
             "DigitalEntity": ["Service", "API", "DigitalTwin"],
             "Vehicle": ["Car", "Truck"],
         }
@@ -489,7 +535,8 @@ class SemanticGraph:
         for entity_id, rels in self._relationships.items():
             for rel in rels:
                 tensor.observe(
-                    rel.source_id, rel.target_id,
+                    rel.source_id,
+                    rel.target_id,
                     domain=rel.domain,
                     weight=1.0,
                 )
@@ -515,8 +562,12 @@ class SemanticGraph:
             # Check if relationship already exists
             existing = self.get_relationships(src, direction="outgoing")
             if not any(r.target_id == dst for r in existing):
-                self.relate(src, dst, RelationType.TRANSITIONS_TO,
-                           domain=tensor.domain_of(src) if hasattr(tensor, 'domain_of') else "default")
+                self.relate(
+                    src,
+                    dst,
+                    RelationType.TRANSITIONS_TO,
+                    domain=(tensor.domain_of(src) if hasattr(tensor, "domain_of") else "default"),
+                )
                 count += 1
 
         return count
@@ -525,7 +576,7 @@ class SemanticGraph:
 
     def on_context_event(self, event: Any) -> None:
         """Handle Context Stream events — update graph from world mutations."""
-        if not hasattr(event, 'entity') or not hasattr(event, 'attribute'):
+        if not hasattr(event, "entity") or not hasattr(event, "attribute"):
             return
 
         src = event.entity
@@ -540,7 +591,7 @@ class SemanticGraph:
         # Add transition relationship
         existing = self.get_relationships(src, RelationType.TRANSITIONS_TO, "outgoing")
         if not any(r.target_id == dst for r in existing):
-            domain = event.metadata.get("domain", "default") if hasattr(event, 'metadata') else "default"
+            domain = event.metadata.get("domain", "default") if hasattr(event, "metadata") else "default"
             self.relate(src, dst, RelationType.TRANSITIONS_TO, domain=domain)
 
     # ── Neo4j persistence (async, fire-and-forget) ───────────────────────
@@ -600,8 +651,7 @@ class SemanticGraph:
         except Exception as exc:
             logger.debug("SemanticGraph: remove entity failed: %s", exc)
 
-    async def _remove_relationship_from_neo4j(self, src: str, dst: str,
-                                               rel_type: RelationType | None) -> None:
+    async def _remove_relationship_from_neo4j(self, src: str, dst: str, rel_type: RelationType | None) -> None:
         if not self.is_connected():
             return
         try:
@@ -610,13 +660,15 @@ class SemanticGraph:
                     await session.run(
                         "MATCH (a:Entity {id: $src})-[r:RELATES_TO]->(b:Entity {id: $dst}) "
                         "WHERE r.relation_type = $rel_type DELETE r",
-                        src=src, dst=dst, rel_type=rel_type.value,
+                        src=src,
+                        dst=dst,
+                        rel_type=rel_type.value,
                     )
                 else:
                     await session.run(
-                        "MATCH (a:Entity {id: $src})-[r:RELATES_TO]->(b:Entity {id: $dst}) "
-                        "DELETE r",
-                        src=src, dst=dst,
+                        "MATCH (a:Entity {id: $src})-[r:RELATES_TO]->(b:Entity {id: $dst}) DELETE r",
+                        src=src,
+                        dst=dst,
                     )
         except Exception as exc:
             logger.debug("SemanticGraph: remove relationship failed: %s", exc)

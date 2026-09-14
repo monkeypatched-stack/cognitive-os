@@ -1,4 +1,5 @@
 """Process management."""
+
 from __future__ import annotations
 
 
@@ -37,29 +38,34 @@ def process_list(
                 pid = None
 
         if alive or pid:
-            rows.append({
-                "name": svc_name,
-                "type": "microservice",
-                "port": port,
-                "pid": pid,
-                "status": "running",
-            })
+            rows.append(
+                {
+                    "name": svc_name,
+                    "type": "microservice",
+                    "port": port,
+                    "pid": pid,
+                    "status": "running",
+                }
+            )
 
     # --- 2. Cognitive agents from MonkeyBrain API ---
     import httpx
+
     try:
         r = httpx.get(f"{url or _brain_url()}/api/v1/agentos/agents", timeout=5)
         data = r.json() if r.status_code == 200 else []
         agents = data.get("agents", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
         for agent in agents:
-            rows.append({
-                "name": agent.get("agent_type", "?"),
-                "type": "agent",
-                "port": None,
-                "pid": None,
-                "status": "registered",
-                "source": agent.get("source", "local"),
-            })
+            rows.append(
+                {
+                    "name": agent.get("agent_type", "?"),
+                    "type": "agent",
+                    "port": None,
+                    "pid": None,
+                    "status": "registered",
+                    "source": agent.get("source", "local"),
+                }
+            )
     except Exception as e:
         logger.debug("Agent registry query failed: %s", e)
 
@@ -72,13 +78,12 @@ def process_list(
         return
 
     typer.echo(f"  {'NAME':<24s} {'TYPE':<14s} {'PORT':>6s}  {'PID':>8s}  STATUS")
-    typer.echo(f"  {'-'*24} {'-'*14} {'-'*6}  {'-'*8}  {'-'*12}")
+    typer.echo(f"  {'-' * 24} {'-' * 14} {'-' * 6}  {'-' * 8}  {'-' * 12}")
     for r in rows:
         port_s = f":{r['port']}" if r["port"] else "-"
-        pid_s  = str(r["pid"]) if r["pid"] else "-"
-        src    = f"  [{r.get('source','')}]" if r["type"] == "agent" else ""
+        pid_s = str(r["pid"]) if r["pid"] else "-"
+        src = f"  [{r.get('source', '')}]" if r["type"] == "agent" else ""
         typer.echo(f"  {r['name']:<24s} {r['type']:<14s} {port_s:>6s}  {pid_s:>8s}  {r['status']}{src}")
-
 
 
 def process_stop(
@@ -100,6 +105,7 @@ def process_stop(
 
     # fallback: brew / systemctl
     import subprocess, shutil
+
     if shutil.which("brew"):
         result = subprocess.run(["brew", "services", "stop", name], capture_output=True, text=True)
         if result.returncode == 0:
@@ -113,4 +119,3 @@ def process_stop(
 # ===========================================================================
 # identity sub-commands  (useradd / id)
 # ===========================================================================
-

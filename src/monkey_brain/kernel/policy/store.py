@@ -13,6 +13,7 @@ Architectural invariant:
     Policy storage never mutates the world tensor.
     Policy operates on belief, not world directly.
 """
+
 from __future__ import annotations
 
 import json
@@ -109,30 +110,51 @@ class PolicyStore:
             self._q[(state, action)] = new_q
             self._update_count += 1
 
-            self._replay_buffer.append({
-                "state": state, "action": action, "reward": reward,
-                "next_state": next_state, "old_q": old_q, "new_q": new_q,
-                "td_error": abs(target - old_q), "timestamp": time.time(),
-            })
+            self._replay_buffer.append(
+                {
+                    "state": state,
+                    "action": action,
+                    "reward": reward,
+                    "next_state": next_state,
+                    "old_q": old_q,
+                    "new_q": new_q,
+                    "td_error": abs(target - old_q),
+                    "timestamp": time.time(),
+                }
+            )
             if len(self._replay_buffer) > self._replay_capacity:
-                self._replay_buffer = self._replay_buffer[-self._replay_capacity:]
+                self._replay_buffer = self._replay_buffer[-self._replay_capacity :]
 
-    def append_replay(self, state: str, action: str, reward: float,
-                      next_state: str = "", old_q: float = 0.5,
-                      new_q: float = 0.5, td_error: float = 0.0) -> None:
+    def append_replay(
+        self,
+        state: str,
+        action: str,
+        reward: float,
+        next_state: str = "",
+        old_q: float = 0.5,
+        new_q: float = 0.5,
+        td_error: float = 0.0,
+    ) -> None:
         """Append a transition to the replay buffer without a Bellman update.
 
         Use when the caller has already computed the Q-value update externally
         and only needs to record the transition for future replay.
         """
         with self._lock:
-            self._replay_buffer.append({
-                "state": state, "action": action, "reward": reward,
-                "next_state": next_state, "old_q": old_q, "new_q": new_q,
-                "td_error": abs(td_error), "timestamp": time.time(),
-            })
+            self._replay_buffer.append(
+                {
+                    "state": state,
+                    "action": action,
+                    "reward": reward,
+                    "next_state": next_state,
+                    "old_q": old_q,
+                    "new_q": new_q,
+                    "td_error": abs(td_error),
+                    "timestamp": time.time(),
+                }
+            )
             if len(self._replay_buffer) > self._replay_capacity:
-                self._replay_buffer = self._replay_buffer[-self._replay_capacity:]
+                self._replay_buffer = self._replay_buffer[-self._replay_capacity :]
 
     def best_action(self, state: str, legal_actions: list[str]) -> str:
         """Select the action with highest Q-value from the legal set.
@@ -145,14 +167,14 @@ class PolicyStore:
         with self._lock:
             return max(legal_actions, key=lambda a: self._q.get((state, a), 0.5))
 
-    def explore_action(self, state: str, legal_actions: list[str],
-                       epsilon: float = 0.1) -> str:
+    def explore_action(self, state: str, legal_actions: list[str], epsilon: float = 0.1) -> str:
         """Epsilon-greedy action selection.
 
         With probability epsilon, explore a random action.
         With probability 1-epsilon, exploit the best action.
         """
         import random
+
         if not legal_actions:
             return ""
         if random.random() < epsilon:
@@ -177,7 +199,9 @@ class PolicyStore:
         count = 0
         for t in transitions:
             self.update(
-                t["state"], t["action"], t["reward"],
+                t["state"],
+                t["action"],
+                t["reward"],
                 t.get("next_state", ""),
             )
             count += 1
@@ -227,6 +251,7 @@ class PolicyStore:
     def replay_sample(self, batch_size: int = 32) -> list[dict]:
         """Sample a random batch from the replay buffer."""
         import random
+
         with self._lock:
             return random.sample(self._replay_buffer, min(batch_size, len(self._replay_buffer)))
 

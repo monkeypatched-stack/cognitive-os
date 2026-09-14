@@ -21,6 +21,7 @@ Ownership boundaries:
     Orchestrator  owns coordination.
     CognitiveRuntime owns cognition.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,19 +36,35 @@ from src.monkey_brain.kernel.pipeline.contracts import (
     CompiledRequest,
     RuntimeContext,
 )
-from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState, WorldSnapshot
+from src.monkey_brain.kernel.pipeline.execution_state import (
+    CognitiveState,
+    WorldSnapshot,
+)
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
 from src.monkey_brain.kernel.pipeline.actor import Actor
 from src.monkey_brain.kernel.pipeline.observations import (
-    ObservationProvider, WorldPollingProvider, BeliefFusion,
+    ObservationProvider,
+    WorldPollingProvider,
+    BeliefFusion,
 )
 from src.monkey_brain.kernel.pipeline.cognitive_delta import CognitiveDelta
 from src.monkey_brain.kernel.pipeline.cognitive_policy import CognitivePolicy
 from src.monkey_brain.kernel.pipeline.planner import PlanningEngine
 from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
-from src.monkey_brain.kernel.pipeline.plan_validator import PlanValidator, ValidationResult
-from src.monkey_brain.kernel.pipeline.execution import ExecutionEngine, Action, ActionOutcome, ExecutionResult
-from src.monkey_brain.kernel.pipeline.plan_compiler import compile_plan, build_actions_from_compiled
+from src.monkey_brain.kernel.pipeline.plan_validator import (
+    PlanValidator,
+    ValidationResult,
+)
+from src.monkey_brain.kernel.pipeline.execution import (
+    ExecutionEngine,
+    Action,
+    ActionOutcome,
+    ExecutionResult,
+)
+from src.monkey_brain.kernel.pipeline.plan_compiler import (
+    compile_plan,
+    build_actions_from_compiled,
+)
 from src.monkey_brain.kernel.pipeline.action_executor import CapabilityRuntime
 
 logger = logging.getLogger("agentos.pipeline.belief_runtime")
@@ -72,27 +89,38 @@ def _sanitize_error_for_memory(error_text: str) -> str:
     return _ID_LIKE_TOKEN.sub("[id]", error_text).strip()
 
 
-_NO_PERMISSION_NEEDED_ACTIONS = frozenset({
-    "AskActor", "BroadcastToAffiliation", "RespondToInquiry",
-    "EvaluateStrategy", "CompeteForResource", "RecordAgreement",
-    "GetAgreements", "DelegationCheck",
-    # kernel/domains/robot.py's PX4 mission capabilities: already really
-    # governed at the ROS layer (ensure_governed(force_authorize=True)
-    # inside run_ros_action_if_governed, kernel/edge/ros_integration.py)
-    # -- this pre-execution required_permission gate is a second,
-    # redundant layer on top that only exists because the LLM populates
-    # it, never a real requirement these capabilities declare themselves.
-    # Confirmed live: the exact same failure mode this frozenset was
-    # already built for, on a different action set -- a small local
-    # model tagged a plausible-looking invented "resource:drone_control"
-    # onto its own "Arm"/"Takeoff"/"Waypoint"/"Land" steps despite the
-    # system prompt's identical "leave required_permission empty"
-    # instruction, and since no permission by that name has ever existed
-    # anywhere in this codebase (confirmed: not a single reference), it
-    # could never resolve for ANY actor -- a real drone mission would
-    # fail 100% of the time on this alone, regardless of who's asking.
-    "Heartbeat", "Arm", "Takeoff", "Waypoint", "Land",
-})
+_NO_PERMISSION_NEEDED_ACTIONS = frozenset(
+    {
+        "AskActor",
+        "BroadcastToAffiliation",
+        "RespondToInquiry",
+        "EvaluateStrategy",
+        "CompeteForResource",
+        "RecordAgreement",
+        "GetAgreements",
+        "DelegationCheck",
+        # kernel/domains/robot.py's PX4 mission capabilities: already really
+        # governed at the ROS layer (ensure_governed(force_authorize=True)
+        # inside run_ros_action_if_governed, kernel/edge/ros_integration.py)
+        # -- this pre-execution required_permission gate is a second,
+        # redundant layer on top that only exists because the LLM populates
+        # it, never a real requirement these capabilities declare themselves.
+        # Confirmed live: the exact same failure mode this frozenset was
+        # already built for, on a different action set -- a small local
+        # model tagged a plausible-looking invented "resource:drone_control"
+        # onto its own "Arm"/"Takeoff"/"Waypoint"/"Land" steps despite the
+        # system prompt's identical "leave required_permission empty"
+        # instruction, and since no permission by that name has ever existed
+        # anywhere in this codebase (confirmed: not a single reference), it
+        # could never resolve for ANY actor -- a real drone mission would
+        # fail 100% of the time on this alone, regardless of who's asking.
+        "Heartbeat",
+        "Arm",
+        "Takeoff",
+        "Waypoint",
+        "Land",
+    }
+)
 """The exact action set llm_planner.py's own system prompt tells the
 model to leave required_permission empty for. Confirmed live: a small
 local model reliably follows the nearby "use these real parameters"
@@ -155,7 +183,9 @@ def _describe_single_change(capability: str, result: dict) -> str | None:
         )
         return f"Selected: {names}"
     if capability == "CompeteForResource" and result.get("won"):
-        return f"Won competition for {result.get('qty', 1)}x {result.get('resource_id', '')} — {result.get('reason', '')}"
+        return (
+            f"Won competition for {result.get('qty', 1)}x {result.get('resource_id', '')} — {result.get('reason', '')}"
+        )
     if capability == "RecordAgreement" and result.get("agreement"):
         agreement = result["agreement"]
         return f"Agreement recorded for {result.get('entity_id', '')} with {agreement.get('with', '')} — {agreement.get('terms', '')}"
@@ -181,7 +211,7 @@ def _describe_world_changes(plan_steps: Any, action_outcomes: Any) -> list[str]:
     return changes
 
 
-class   CognitiveRuntime:
+class CognitiveRuntime:
     """Core cognitive execution engine.
 
     Owns: execution lifecycle, belief state, planning, execution,
@@ -309,7 +339,12 @@ class   CognitiveRuntime:
         # create the metrics
         state.metrics["total_ms"] = round((time.time() - lifecycle_start) * 1000, 2)
         from src.monkey_brain.kernel.compile import _obs
-        _obs.gauge("pipeline.cognitive_tick_total_ms", state.metrics["total_ms"], actor_id=state.actor.actor_id)
+
+        _obs.gauge(
+            "pipeline.cognitive_tick_total_ms",
+            state.metrics["total_ms"],
+            actor_id=state.actor.actor_id,
+        )
 
         # Mark actor as idle
         state.actor.finish_reasoning()
@@ -330,6 +365,7 @@ class   CognitiveRuntime:
             return
         try:
             from dataclasses import asdict
+
             self._event_bus.publish(
                 "cognitive.delta",
                 asdict(state.cognitive_delta),
@@ -349,6 +385,7 @@ class   CognitiveRuntime:
         ObservationProvider → ObservationSet → Observe() → Belief
         """
         from src.monkey_brain.kernel.compile import _obs
+
         _observe_start = time.time()
 
         belief = state.belief
@@ -367,18 +404,18 @@ class   CognitiveRuntime:
                 world = context.get("world")
 
         # Capture world snapshot BEFORE observations
-        # Assumes that the world is already loaded so load world must happen in kernet before this 
+        # Assumes that the world is already loaded so load world must happen in kernet before this
         if world:
             try:
-                if hasattr(world, 'states'):
+                if hasattr(world, "states"):
                     states = world.states()
                     state.world_snapshot = WorldSnapshot(
                         states=tuple(states),
                         state_count=len(states),
-                        domain_count=len(world.domains()) if hasattr(world, "domains") else 0,
+                        domain_count=(len(world.domains()) if hasattr(world, "domains") else 0),
                         transition_count=world.nnz() if hasattr(world, "nnz") else 0,
                     )
-                elif hasattr(world, 'entities'):
+                elif hasattr(world, "entities"):
                     # SharedWorld compatibility — use entities as states
                     entities = list(world.entities())
                     state.world_snapshot = WorldSnapshot(
@@ -402,7 +439,7 @@ class   CognitiveRuntime:
         _obs.histogram("observe.duration_ms", (time.time() - _observe_start) * 1000.0)
 
         return state
-    
+
     # ── Stage 2: Update belief ─────────────────────────────────────────────────────
 
     async def _update_beliefs(self, state: CognitiveState) -> CognitiveState:
@@ -442,15 +479,17 @@ class   CognitiveRuntime:
                 goal_name = getattr(goal_ir, "goal", "")
 
             # update the goal in the delief
-            belief.update_goal(name=goal_name, description=goal_desc, optimization_objective=goal_objective)
+            belief.update_goal(
+                name=goal_name,
+                description=goal_desc,
+                optimization_objective=goal_objective,
+            )
 
         # Update confidence from observation quality
         if belief.observations:
             obs_confidences = [o.confidence for o in belief.observations]
             avg_obs_conf = sum(obs_confidences) / len(obs_confidences)
-            belief.uncertainty.confidence = round(
-                0.7 * avg_obs_conf + 0.3 * belief.uncertainty.confidence, 4
-            )
+            belief.uncertainty.confidence = round(0.7 * avg_obs_conf + 0.3 * belief.uncertainty.confidence, 4)
 
         return state
 
@@ -540,7 +579,10 @@ class   CognitiveRuntime:
         # relevant changed since the last plan."
         execution_id = state.metrics.get("execution_id", "") if isinstance(state.metrics, dict) else ""
         if has_goal and execution_id:
-            from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import load_execution_checkpoint
+            from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import (
+                load_execution_checkpoint,
+            )
+
             checkpoint = load_execution_checkpoint(execution_id)
             if checkpoint is not None and checkpoint.plan:
                 skip_replan = True
@@ -549,9 +591,16 @@ class   CognitiveRuntime:
 
         if not skip_replan and has_goal and self._context_engine is not None:
             try:
-                from src.monkey_brain.kernel.pipeline.planning.current_plan_store import load_current_plan
+                from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+                    load_current_plan,
+                )
+
                 current_record = load_current_plan(belief.actor_id, goal_key)
-                if current_record is not None and current_record.plan and canonicalize_goal(current_record.goal) == goal_key:
+                if (
+                    current_record is not None
+                    and current_record.plan
+                    and canonicalize_goal(current_record.goal) == goal_key
+                ):
                     skip_counts = belief.metadata.setdefault("_consecutive_plan_skips", {})
                     version_by_goal = belief.metadata.setdefault("_last_plan_context_version", {})
                     consecutive_skips = int(skip_counts.get(goal_key, 0))
@@ -569,17 +618,27 @@ class   CognitiveRuntime:
                     # uses, not a new parallel versioning system. kg comes
                     # from state.context, the same plain dict every
                     # capability already reads "knowledge_graph" from.
-                    from src.monkey_brain.kernel.pipeline.planning.plan_staleness import check_plan_staleness
+                    from src.monkey_brain.kernel.pipeline.planning.plan_staleness import (
+                        check_plan_staleness,
+                    )
+
                     kg = state.context.get("knowledge_graph") if isinstance(state.context, dict) else None
                     staleness = check_plan_staleness(kg, current_record)
                     if staleness.is_stale:
                         state.metrics["plan_stale"] = staleness.to_dict()
                         state.metrics["plan_stale"]["plan_id"] = current_record.plan_id
-                        from src.monkey_brain.kernel.pipeline.audit_trail import record_plan_event
+                        from src.monkey_brain.kernel.pipeline.audit_trail import (
+                            record_plan_event,
+                        )
+
                         record_plan_event(
-                            "invalidated", plan_id=current_record.plan_id, actor_id=belief.actor_id,
-                            execution_id=execution_id, goal=current_record.goal,
-                            steps=current_record.steps, step_descriptions=current_record.step_descriptions,
+                            "invalidated",
+                            plan_id=current_record.plan_id,
+                            actor_id=belief.actor_id,
+                            execution_id=execution_id,
+                            goal=current_record.goal,
+                            steps=current_record.steps,
+                            step_descriptions=current_record.step_descriptions,
                             result="; ".join(r["reason"] for r in staleness.to_dict()["affected_assumptions"]),
                             metadata={"affected_assumptions": staleness.to_dict()["affected_assumptions"]},
                         )
@@ -611,16 +670,21 @@ class   CognitiveRuntime:
             except Exception:
                 logger.debug(
                     "_generate_plan: incremental-scheduling check failed for %r (non-fatal -- replanning as usual)",
-                    belief.actor_id, exc_info=True,
+                    belief.actor_id,
+                    exc_info=True,
                 )
                 skip_replan = False
 
         try:
             if not has_goal:
                 from src.monkey_brain.kernel.pipeline.belief_state import Plan
+
                 plan = Plan(goal="", confidence=0.0, planner="llm")
             elif skip_replan:
-                from src.monkey_brain.kernel.pipeline.planning.current_plan_store import plan_from_dict
+                from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+                    plan_from_dict,
+                )
+
                 plan = plan_from_dict(reused_plan_dict)
                 resumed = bool(state.metrics.get("plan_resumed_from_checkpoint"))
                 if not resumed:
@@ -634,7 +698,8 @@ class   CognitiveRuntime:
                 state.metrics.setdefault("stage_timings_ms", {})["grounding_ms"] = 0.0
                 state.metrics["plan_skipped_replan"] = True
                 state.metrics["plan_skip_reason"] = (
-                    "resuming from a checkpointed execution" if resumed
+                    "resuming from a checkpointed execution"
+                    if resumed
                     else "goal unchanged, no new relevant activity since last plan"
                 )
                 # Real gap this closes: when grounding is skipped, this
@@ -663,13 +728,18 @@ class   CognitiveRuntime:
                 execution_id = state.metrics.get("execution_id", "")
                 if execution_id:
                     from src.monkey_brain.kernel.pipeline.planning.context_snapshot_store import (
-                        save_context_snapshot, load_latest_context_snapshot_for_goal, diff_snapshots,
+                        save_context_snapshot,
+                        load_latest_context_snapshot_for_goal,
+                        diff_snapshots,
                     )
                     import dataclasses as _dc
+
                     previous_snapshot = load_latest_context_snapshot_for_goal(belief.actor_id, goal_key)
                     if previous_snapshot is not None:
                         reused_snapshot = _dc.replace(
-                            previous_snapshot, execution_id=execution_id, created_at=time.time(),
+                            previous_snapshot,
+                            execution_id=execution_id,
+                            created_at=time.time(),
                             diff_from_previous=None,
                         )
                         reused_snapshot.diff_from_previous = diff_snapshots(previous_snapshot, reused_snapshot)
@@ -683,7 +753,6 @@ class   CognitiveRuntime:
                     # then honestly reports zero items retrieved instead
                     # of showing another execution's grounding.
             elif self._context_engine is not None:
-
                 # Context Grounding: build() now also queries ContextStream
                 # (ContextConstructionEngine._retrieve_context_stream) —
                 # this used to be a known, explicit gap (recent live
@@ -694,7 +763,9 @@ class   CognitiveRuntime:
                 # newest-first alongside the other retrieval sources.
                 _context_build_start = time.perf_counter()
                 planning_context = await self._context_engine.build_async(
-                    belief.actor_id, goal, execution_id=state.metrics.get("execution_id", ""),
+                    belief.actor_id,
+                    goal,
+                    execution_id=state.metrics.get("execution_id", ""),
                 )
                 context_build_latency_ms = (time.perf_counter() - _context_build_start) * 1000
                 # Performance analysis instrumentation only (measurement,
@@ -733,8 +804,7 @@ class   CognitiveRuntime:
                 # somewhere in the catalog.
                 if isinstance(state.context, dict):
                     state.context["_relevant_knowledge_ids"] = {
-                        item.evidence_ids[0] for item in planning_context.relevant_knowledge
-                        if item.evidence_ids
+                        item.evidence_ids[0] for item in planning_context.relevant_knowledge if item.evidence_ids
                     }
 
                 # Context Grounding: persist the FULL PlanningContext this
@@ -750,8 +820,12 @@ class   CognitiveRuntime:
                 execution_id = state.metrics.get("execution_id", "")
                 if execution_id:
                     from src.monkey_brain.kernel.pipeline.planning.context_snapshot_store import (
-                        ContextSnapshot, save_context_snapshot, load_latest_context_snapshot_for_goal, diff_snapshots,
+                        ContextSnapshot,
+                        save_context_snapshot,
+                        load_latest_context_snapshot_for_goal,
+                        diff_snapshots,
                     )
+
                     # Goal-scoped, not actor-wide: comparing against
                     # whatever this actor's most recent tick happened to
                     # be (any goal) produced a fabricated-looking diff —
@@ -765,25 +839,53 @@ class   CognitiveRuntime:
                     # compare against) instead of a diff against noise.
                     previous_snapshot = load_latest_context_snapshot_for_goal(belief.actor_id, goal_key)
                     snapshot = ContextSnapshot.from_planning_context(
-                        execution_id, belief.actor_id, planning_context, goal_key=goal_key,
+                        execution_id,
+                        belief.actor_id,
+                        planning_context,
+                        goal_key=goal_key,
                     )
                     snapshot.diff_from_previous = diff_snapshots(previous_snapshot, snapshot)
                     save_context_snapshot(snapshot)
                     state.metrics["context_diff"] = snapshot.diff_from_previous
 
                     from src.monkey_brain.kernel.compile import _obs
-                    _obs.gauge("context.entities_retrieved", float(snapshot.summary.get("entity_count", 0)))
-                    _obs.gauge("context.relationships_traversed", float(snapshot.summary.get("relationship_count", 0)))
-                    _obs.gauge("context.context_events_consumed", float(snapshot.summary.get("context_event_count", 0)))
-                    _obs.gauge("context.semantic_memories_retrieved", float(len(snapshot.experiences)))
-                    _obs.gauge("context.episodic_memories_retrieved", float(len(snapshot.executions) + len(snapshot.conversations)))
+
+                    _obs.gauge(
+                        "context.entities_retrieved",
+                        float(snapshot.summary.get("entity_count", 0)),
+                    )
+                    _obs.gauge(
+                        "context.relationships_traversed",
+                        float(snapshot.summary.get("relationship_count", 0)),
+                    )
+                    _obs.gauge(
+                        "context.context_events_consumed",
+                        float(snapshot.summary.get("context_event_count", 0)),
+                    )
+                    _obs.gauge(
+                        "context.semantic_memories_retrieved",
+                        float(len(snapshot.experiences)),
+                    )
+                    _obs.gauge(
+                        "context.episodic_memories_retrieved",
+                        float(len(snapshot.executions) + len(snapshot.conversations)),
+                    )
                     _obs.gauge("context.construction_latency_ms", context_build_latency_ms)
-                    context_size = sum(len(getattr(snapshot, s)) for s in (
-                        "knowledge", "relationships", "context_events", "experiences", "conversations", "executions",
-                    ))
+                    context_size = sum(
+                        len(getattr(snapshot, s))
+                        for s in (
+                            "knowledge",
+                            "relationships",
+                            "context_events",
+                            "experiences",
+                            "conversations",
+                            "executions",
+                        )
+                    )
                     _obs.gauge("context.size", float(context_size))
-                    diff_size = sum(len(v) for v in snapshot.diff_from_previous["added"].values()) + \
-                        sum(len(v) for v in snapshot.diff_from_previous["removed"].values())
+                    diff_size = sum(len(v) for v in snapshot.diff_from_previous["added"].values()) + sum(
+                        len(v) for v in snapshot.diff_from_previous["removed"].values()
+                    )
                     _obs.gauge("context.diff_size", float(diff_size))
 
                 # Permissions ARE already policy/governance-based here —
@@ -804,9 +906,9 @@ class   CognitiveRuntime:
                 # belief never actually persisted). Only ever read via `in`
                 # membership checks below, so a tuple is behaviorally
                 # identical.
-                belief.metadata["_resolved_permissions"] = tuple(sorted({
-                    p for m in memberships for p in m.get("permissions", ())
-                }))
+                belief.metadata["_resolved_permissions"] = tuple(
+                    sorted({p for m in memberships for p in m.get("permissions", ())})
+                )
 
                 # generate the plans
                 #
@@ -828,9 +930,7 @@ class   CognitiveRuntime:
                 # prompt-build/llm-call/response-parse sub-timings on this
                 # same PlanningContext.metadata (see llm_planner.py) --
                 # pull them into this tick's stage_timings_ms too.
-                state.metrics["stage_timings_ms"].update(
-                    planning_context.metadata.get("_stage_timings_ms", {}) or {}
-                )
+                state.metrics["stage_timings_ms"].update(planning_context.metadata.get("_stage_timings_ms", {}) or {})
                 # Incremental scheduling: a real replan just happened --
                 # reset THIS GOAL's skip counter and record the context
                 # version this plan was grounded against, so the NEXT
@@ -912,17 +1012,19 @@ class   CognitiveRuntime:
         state.plan = plan
 
         # Record plan in state trace
-        trace_detail = (
-            f"steps={len(plan.steps)}, confidence={plan.confidence:.2f}, "
-            f"valid={validation.valid}"
-        )
+        trace_detail = f"steps={len(plan.steps)}, confidence={plan.confidence:.2f}, valid={validation.valid}"
         state.add_trace("plan", "plan_generated", trace_detail)
         # add_trace above only appends to state.execution_trace (in-memory,
         # dies with the request) — _obs.event is the actual Lemon sink, same
         # one this function already uses for pipeline.planner_latency_ms
         # above, so this is real telemetry, not just local bookkeeping.
-        _obs.event("pipeline.plan_generated", actor_id=belief.actor_id,
-                    steps=len(plan.steps), confidence=plan.confidence, valid=validation.valid)
+        _obs.event(
+            "pipeline.plan_generated",
+            actor_id=belief.actor_id,
+            steps=len(plan.steps),
+            confidence=plan.confidence,
+            valid=validation.valid,
+        )
 
         return state
 
@@ -953,13 +1055,21 @@ class   CognitiveRuntime:
             # reason; this reuses that same "no real observation, don't
             # learn from it" exclusion for every OTHER never-attempted
             # case instead of adding a third, subtly different mechanism.
-            ActionOutcome(action_id=f"{actor_id}_step_{i}", success=False, error=reason, result={"not_attempted": True})
+            ActionOutcome(
+                action_id=f"{actor_id}_step_{i}",
+                success=False,
+                error=reason,
+                result={"not_attempted": True},
+            )
             for i in range(len(plan.steps))
         )
         state.actions = list(rejected_actions)
         rejected_result = ExecutionResult(
-            actions=rejected_actions, success_count=0, failure_count=len(rejected_actions),
-            total_latency_ms=0.0, goal_achieved=False,
+            actions=rejected_actions,
+            success_count=0,
+            failure_count=len(rejected_actions),
+            total_latency_ms=0.0,
+            goal_achieved=False,
         )
         state.execution_result = rejected_result
         # A rejection must be a real, visible ExecutionRecord (Execution
@@ -969,7 +1079,10 @@ class   CognitiveRuntime:
         # carry through even on a rejected plan — a DECIDE-stage rejection
         # is still a real execution, not an execution without an identity.
         self._record_execution(
-            state.belief, plan, rejected_result, state.metrics.get("execution_id", ""),
+            state.belief,
+            plan,
+            rejected_result,
+            state.metrics.get("execution_id", ""),
             grounding_performed=not state.metrics.get("plan_skipped_replan", False),
             grounding_skip_reason=state.metrics.get("plan_skip_reason", ""),
         )
@@ -998,8 +1111,11 @@ class   CognitiveRuntime:
             # to do" instead of treating every no-op tick as
             # unmeasurable.
             state.execution_result = ExecutionResult(
-                actions=(), success_count=0, failure_count=0,
-                total_latency_ms=0.0, goal_achieved=True,
+                actions=(),
+                success_count=0,
+                failure_count=0,
+                total_latency_ms=0.0,
+                goal_achieved=True,
             )
             return state
 
@@ -1058,9 +1174,7 @@ class   CognitiveRuntime:
         if candidates and prediction.get("selected") is None and not state.metrics.get("plan_resumed_from_checkpoint"):
             best = candidates[0]
             outcomes = (best.get("prediction") or {}).get("predicted_outcomes") or []
-            all_unknown = bool(outcomes) and all(
-                (o.get("metadata") or {}).get("kind") == "unknown" for o in outcomes
-            )
+            all_unknown = bool(outcomes) and all((o.get("metadata") or {}).get("kind") == "unknown" for o in outcomes)
             if not all_unknown:
                 # Learning recovery: real negative evidence exists, so the
                 # default is still to reject -- but a fixed, low-probability
@@ -1079,9 +1193,7 @@ class   CognitiveRuntime:
                     reason = f"Decision rejected: {prediction.get('rationale') or 'no viable scenario'}"
                     return self._reject_plan(state, plan, reason)
             else:
-                state.metrics["decision_override_reason"] = (
-                    "no prior data for this action — executing to learn"
-                )
+                state.metrics["decision_override_reason"] = "no prior data for this action — executing to learn"
 
         # Compilation-hardening pass: validated plan -> executable
         # representation boundary. Runs after both existing rejection
@@ -1142,11 +1254,10 @@ class   CognitiveRuntime:
                 resolved_capabilities[step.action] = step.action if denied else resolver(step.action)
 
         compile_outcome = compile_plan(
-            plan, plan_id=plan_id, actor_id=state.actor_id,
-            goal_id=(
-                (getattr(plan, "metadata", {}) or {}).get("goal_id")
-                or state.metrics.get("execution_id", "")
-            ),
+            plan,
+            plan_id=plan_id,
+            actor_id=state.actor_id,
+            goal_id=((getattr(plan, "metadata", {}) or {}).get("goal_id") or state.metrics.get("execution_id", "")),
             resolved_capabilities=resolved_capabilities,
         )
         if not compile_outcome.ok:
@@ -1188,6 +1299,7 @@ class   CognitiveRuntime:
         # points below, and this object already lives for the runtime's
         # whole lifetime, shared across every actor's ticks).
         from src.monkey_brain.kernel.compile import _obs
+
         self._active_executions = getattr(self, "_active_executions", 0) + 1
         _obs.gauge("execution.active", self._active_executions)
         try:
@@ -1207,7 +1319,8 @@ class   CognitiveRuntime:
             merged = tuple(by_index[i] for i in sorted(by_index))
             success_count = sum(1 for o in merged if o.success)
             exec_result = ExecutionResult(
-                actions=merged, success_count=success_count,
+                actions=merged,
+                success_count=success_count,
                 failure_count=len(merged) - success_count,
                 total_latency_ms=exec_result.total_latency_ms,
                 goal_achieved=success_count == len(merged),
@@ -1225,7 +1338,10 @@ class   CognitiveRuntime:
         state.execution_result = exec_result
 
         self._record_execution(
-            state.belief, plan, exec_result, state.metrics.get("execution_id", ""),
+            state.belief,
+            plan,
+            exec_result,
+            state.metrics.get("execution_id", ""),
             grounding_performed=not state.metrics.get("plan_skipped_replan", False),
             grounding_skip_reason=state.metrics.get("plan_skip_reason", ""),
         )
@@ -1233,8 +1349,13 @@ class   CognitiveRuntime:
         return state
 
     def _record_execution(
-        self, belief: BeliefState, plan: Any, exec_result: Any, execution_id: str = "",
-        grounding_performed: bool = True, grounding_skip_reason: str = "",
+        self,
+        belief: BeliefState,
+        plan: Any,
+        exec_result: Any,
+        execution_id: str = "",
+        grounding_performed: bool = True,
+        grounding_skip_reason: str = "",
     ) -> None:
         from src.monkey_brain.kernel.timeline.entry import TimelineKind
         from src.monkey_brain.kernel.timeline.store import TimelineStore
@@ -1271,6 +1392,7 @@ class   CognitiveRuntime:
         # timed_out signal to report honestly, so those label values are
         # reserved, never emitted, rather than fabricated).
         from src.monkey_brain.kernel.compile import _obs
+
         _obs.counter("execution.total", status="completed" if outcome == "success" else "failed")
         _obs.histogram("execution.duration_ms", exec_result.total_latency_ms)
         for step, action_outcome in zip(plan.steps, exec_result.actions):
@@ -1294,12 +1416,18 @@ class   CognitiveRuntime:
         # specific as before ("buy groceries efficiently Purchase 1 dozen
         # large eggs"), even though the Goal Timeline itself now only
         # ever sees the clean standing goal.
-        full_goal_text = f"{belief.goal.name} {belief.goal.description}".strip() if belief.goal.description else belief.goal.name
+        full_goal_text = (
+            f"{belief.goal.name} {belief.goal.description}".strip() if belief.goal.description else belief.goal.name
+        )
         TimelineStore().record(
-            TimelineKind.EXECUTION, actor_id=belief.actor_id, goal=full_goal_text,
-            plan_summary=plan_summary, outcome=outcome,
+            TimelineKind.EXECUTION,
+            actor_id=belief.actor_id,
+            goal=full_goal_text,
+            plan_summary=plan_summary,
+            outcome=outcome,
             failure_reason=all_failures[0] if all_failures else "",
-            step_failures=all_failures, capabilities_used=capabilities_used,
+            step_failures=all_failures,
+            capabilities_used=capabilities_used,
             # execution_id already self-correlates this tick — reuse it
             # rather than minting a second id for the same operation.
             correlation_id=execution_id,
@@ -1324,8 +1452,14 @@ class   CognitiveRuntime:
         self._record_episodic_experience(belief, plan, exec_result, execution_id, outcome, failed, full_goal_text)
 
     def _record_episodic_experience(
-        self, belief: BeliefState, plan: Any, exec_result: Any, execution_id: str,
-        outcome: str, failed: Any, full_goal_text: str,
+        self,
+        belief: BeliefState,
+        plan: Any,
+        exec_result: Any,
+        execution_id: str,
+        outcome: str,
+        failed: Any,
+        full_goal_text: str,
     ) -> None:
         """Real gap this closes (confirmed live: an actor's Experiences AND
         Executions Referenced retrieval — ContextConstructionEngine.
@@ -1340,7 +1474,9 @@ class   CognitiveRuntime:
         parallel capture mechanism."""
         if not plan.steps:
             return  # a no-op tick has nothing memorable to record
-        memory_manager = getattr(self._context_engine, "_memory_manager", None) if self._context_engine is not None else None
+        memory_manager = (
+            getattr(self._context_engine, "_memory_manager", None) if self._context_engine is not None else None
+        )
         if memory_manager is None:
             return
         if outcome == "success":
@@ -1369,7 +1505,9 @@ class   CognitiveRuntime:
         timestamp = time.time()
         try:
             memory_manager.record_experience(
-                belief.actor_id, kind="experience", text=text,
+                belief.actor_id,
+                kind="experience",
+                text=text,
                 metadata={
                     "timestamp": timestamp,
                     "execution_id": execution_id,
@@ -1378,7 +1516,11 @@ class   CognitiveRuntime:
                 },
             )
         except Exception:
-            logger.exception("record_experience(kind=experience) failed for actor %s execution %s — Timeline record above already succeeded, so the tick itself is unaffected", belief.actor_id, execution_id)
+            logger.exception(
+                "record_experience(kind=experience) failed for actor %s execution %s — Timeline record above already succeeded, so the tick itself is unaffected",
+                belief.actor_id,
+                execution_id,
+            )
         # Same real gap, same real data, for the "Executions Referenced" /
         # prior-executions bucket (_bucket_memory_nodes's kind="execution"
         # list) — a distinct retrieval bucket from "experience" above, so
@@ -1390,11 +1532,22 @@ class   CognitiveRuntime:
         # frontend couldn't read anyway.
         try:
             memory_manager.record_experience(
-                belief.actor_id, kind="execution", text=f"{full_goal_text} — {outcome}",
-                metadata={"timestamp": timestamp, "execution_id": execution_id, "outcome": outcome, "confidence": confidence},
+                belief.actor_id,
+                kind="execution",
+                text=f"{full_goal_text} — {outcome}",
+                metadata={
+                    "timestamp": timestamp,
+                    "execution_id": execution_id,
+                    "outcome": outcome,
+                    "confidence": confidence,
+                },
             )
         except Exception:
-            logger.exception("record_experience(kind=execution) failed for actor %s execution %s — Timeline record above already succeeded, so the tick itself is unaffected", belief.actor_id, execution_id)
+            logger.exception(
+                "record_experience(kind=execution) failed for actor %s execution %s — Timeline record above already succeeded, so the tick itself is unaffected",
+                belief.actor_id,
+                execution_id,
+            )
 
     async def _observe_outcome(self, state: CognitiveState) -> CognitiveState:
         """Capture the results of execution."""
@@ -1422,11 +1575,10 @@ class   CognitiveRuntime:
         _obs.counter("observe_outcome.total", goal_achieved=str(state.outcome["goal_achieved"]))
         _obs.gauge("observe_outcome.actions_executed", float(state.outcome["actions_executed"]))
         return state
-    
 
     # ── Stage 5: Learn ────────────────────────────────────────────────────
-    # this should happen after step 6 not here. 
-    # here it will learn nothing epistemic loss will be empty so will the execution graph losss 
+    # this should happen after step 6 not here.
+    # here it will learn nothing epistemic loss will be empty so will the execution graph losss
     async def _learn(self, state: CognitiveState) -> CognitiveState:
         """Update internal knowledge from the observed outcome.
 
@@ -1449,7 +1601,10 @@ class   CognitiveRuntime:
             # rendered hypothesis text as e.g. "HIGH RISK: ('buy
             # groceries', 'Payment') has only 15%..." instead of a
             # readable action label. Same transition, just a legible one.
-            for (goal_key, action_key), transitions in transition_model.known_transitions.items():
+            for (
+                goal_key,
+                action_key,
+            ), transitions in transition_model.known_transitions.items():
                 if not transitions:
                     continue
                 t = transitions[0]
@@ -1458,7 +1613,10 @@ class   CognitiveRuntime:
                     belief.add_hypothesis(
                         claim=f"HIGH RISK: {label} has only {t.probability:.0%} success rate — consider alternative or add redundancy",
                         confidence=1.0 - t.probability,
-                        evidence=[f"transition:{action_key}:p={t.probability:.3f}", f"kind:{t.kind.value}"],
+                        evidence=[
+                            f"transition:{action_key}:p={t.probability:.3f}",
+                            f"kind:{t.kind.value}",
+                        ],
                     )
                 elif t.probability < 0.7:
                     belief.add_hypothesis(
@@ -1529,7 +1687,10 @@ class   CognitiveRuntime:
                 belief.add_hypothesis(
                     claim=f"Prediction accuracy poor (actor_loss={actor_loss:.2f}) — world model needs more observation cycles",
                     confidence=0.8,
-                    evidence=[f"comparison:actor_loss={actor_loss:.3f}", f"comparison:world_loss={world_loss:.3f}"],
+                    evidence=[
+                        f"comparison:actor_loss={actor_loss:.3f}",
+                        f"comparison:world_loss={world_loss:.3f}",
+                    ],
                 )
             if world_loss > 0.8:
                 belief.add_hypothesis(
@@ -1546,9 +1707,12 @@ class   CognitiveRuntime:
             success_rate = success_count / actions_executed
             if failure_count > 0:
                 belief.add_hypothesis(
-                    claim=f"Execution: {failure_count}/{actions_executed} actions failed ({1-success_rate:.0%} failure rate) — identify root causes from transition model",
+                    claim=f"Execution: {failure_count}/{actions_executed} actions failed ({1 - success_rate:.0%} failure rate) — identify root causes from transition model",
                     confidence=0.8,
-                    evidence=[f"outcome:success={success_count}", f"outcome:fail={failure_count}"],
+                    evidence=[
+                        f"outcome:success={success_count}",
+                        f"outcome:fail={failure_count}",
+                    ],
                 )
 
         # Record what was learned
@@ -1613,6 +1777,7 @@ class   CognitiveRuntime:
         # (prediction/simulation.py::simulate(), no belief.goal fallback)
         # so this lookup uses the same key Learning actually wrote under.
         from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
+
         # Widened to match _run_decide's own goal_key fix (plan_hysteresis
         # was silently reusing an unrelated request's stale plan because
         # `plan.goal` only ever carries the standing goal NAME, never the
@@ -1636,15 +1801,13 @@ class   CognitiveRuntime:
                 if t:
                     p_success = t.probability
                     cumulative_success *= p_success
-                    step_predictions.append(
-                        f"Step {i+1} '{action_key}': {p_success:.0%} success"
-                    )
+                    step_predictions.append(f"Step {i + 1} '{action_key}': {p_success:.0%} success")
                     if p_success < 0.5:
-                        risk_factors.append(f"Step {i+1} '{action_key}' is unreliable ({p_success:.0%})")
+                        risk_factors.append(f"Step {i + 1} '{action_key}' is unreliable ({p_success:.0%})")
                     elif p_success < 0.7:
-                        risk_factors.append(f"Step {i+1} '{action_key}' needs monitoring ({p_success:.0%})")
+                        risk_factors.append(f"Step {i + 1} '{action_key}' needs monitoring ({p_success:.0%})")
             else:
-                step_predictions.append(f"Step {i+1} '{action_key}': unknown (no learned transitions)")
+                step_predictions.append(f"Step {i + 1} '{action_key}': unknown (no learned transitions)")
                 cumulative_success *= 0.5  # conservative estimate
 
         # Overall prediction
@@ -1694,22 +1857,31 @@ class   CognitiveRuntime:
         state.cognitive_delta = CognitiveDelta(
             actor_id=actor.actor_id if actor else "",
             tenant_id=actor.tenant_id if actor else "",
-            new_facts=tuple({
-                "entity": f.entity,
-                "attribute": f.attribute,
-                "value": f.value,
-                "confidence": f.confidence,
-            } for f in belief.facts),
+            new_facts=tuple(
+                {
+                    "entity": f.entity,
+                    "attribute": f.attribute,
+                    "value": f.value,
+                    "confidence": f.confidence,
+                }
+                for f in belief.facts
+            ),
             updated_beliefs=belief.summary(),
             actions=tuple(state.actions),
-            predictions=tuple({
-                "description": p.description,
-                "confidence": p.confidence,
-            } for p in belief.predictions),
-            learning_updates=tuple({
-                "what": l.what,
-                "confidence": l.confidence,
-            } for l in belief.learned_updates),
+            predictions=tuple(
+                {
+                    "description": p.description,
+                    "confidence": p.confidence,
+                }
+                for p in belief.predictions
+            ),
+            learning_updates=tuple(
+                {
+                    "what": l.what,
+                    "confidence": l.confidence,
+                }
+                for l in belief.learned_updates
+            ),
             events=(),
             metrics=state.metrics,
             cycle_number=actor.cycle_count if actor else 0,
@@ -1748,19 +1920,21 @@ class   CognitiveRuntime:
                     {
                         "action": s.action,
                         "description": s.description,
-                        "preconditions": list(s.preconditions) if hasattr(s, "preconditions") else [],
-                        "expected_outcome": s.expected_outcome if hasattr(s, "expected_outcome") else "",
+                        "preconditions": (list(s.preconditions) if hasattr(s, "preconditions") else []),
+                        "expected_outcome": (s.expected_outcome if hasattr(s, "expected_outcome") else ""),
                         "cost": s.cost if hasattr(s, "cost") else 0.0,
                         "confidence": s.confidence if hasattr(s, "confidence") else 0.0,
                     }
                     for s in belief.plan.steps
                 ],
-                "preconditions": list(belief.plan.preconditions) if hasattr(belief.plan, "preconditions") else [],
-                "expected_outcomes": list(belief.plan.expected_outcomes) if hasattr(belief.plan, "expected_outcomes") else [],
+                "preconditions": (list(belief.plan.preconditions) if hasattr(belief.plan, "preconditions") else []),
+                "expected_outcomes": (
+                    list(belief.plan.expected_outcomes) if hasattr(belief.plan, "expected_outcomes") else []
+                ),
                 "confidence": belief.plan.confidence,
                 "cost": belief.plan.cost if hasattr(belief.plan, "cost") else 0.0,
                 "risk": belief.plan.risk if hasattr(belief.plan, "risk") else 0.0,
-                "planner": belief.plan.planner if hasattr(belief.plan, "planner") else "",
+                "planner": (belief.plan.planner if hasattr(belief.plan, "planner") else ""),
             },
             "actions": [
                 {
@@ -1777,7 +1951,8 @@ class   CognitiveRuntime:
             "metrics": state.metrics,
             "errors": state.errors,
             "stage_durations": state.stage_durations,
-            "cognitive_delta": asdict(state.cognitive_delta) if state.cognitive_delta else None,
+            "cognitive_delta": (asdict(state.cognitive_delta) if state.cognitive_delta else None),
         }
+
 
 CognitiveEngine = CognitiveRuntime

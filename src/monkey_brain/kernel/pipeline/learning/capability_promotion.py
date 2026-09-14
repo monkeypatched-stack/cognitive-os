@@ -39,7 +39,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.monkey_brain.kernel.pipeline.learning.domain import experience_tenant_id, scoped_goal_signature
+from src.monkey_brain.kernel.pipeline.learning.domain import (
+    experience_tenant_id,
+    scoped_goal_signature,
+)
 
 logger = logging.getLogger("agentos.pipeline.capability_promotion")
 
@@ -80,7 +83,10 @@ def _get_client() -> Any:
         _client = client
         _connect_attempted = True
     except Exception as exc:
-        logger.warning("PromotedCapabilityCandidate persistence: Redis unavailable (non-fatal): %s", exc)
+        logger.warning(
+            "PromotedCapabilityCandidate persistence: Redis unavailable (non-fatal): %s",
+            exc,
+        )
         _client = None
     return _client
 
@@ -262,7 +268,12 @@ def _save_candidate(candidate: PromotedCapabilityCandidate) -> bool:
         client.sadd(_CANDIDATE_INDEX_KEY, candidate.candidate_id)
         return True
     except Exception as exc:
-        logger.warning("_save_candidate(%s) failed: %s", candidate.goal_signature, exc, exc_info=True)
+        logger.warning(
+            "_save_candidate(%s) failed: %s",
+            candidate.goal_signature,
+            exc,
+            exc_info=True,
+        )
         return False
 
 
@@ -278,7 +289,12 @@ def _save_recipe(recipe: VerifiedExecutionRecipe) -> bool:
         client.set(key, json.dumps(recipe.to_dict()))
         return True
     except Exception as exc:
-        logger.warning("_save_recipe(%s) failed: %s", recipe.source_candidate_id, exc, exc_info=True)
+        logger.warning(
+            "_save_recipe(%s) failed: %s",
+            recipe.source_candidate_id,
+            exc,
+            exc_info=True,
+        )
         return False
 
 
@@ -520,16 +536,25 @@ class PromotedDeterministicCapability:
             if isinstance(result, dict):
                 success = bool(result.get("success", True))
             step_success[idx] = success
-            outcomes.append({"step": idx, "action": step.action, "success": success, "result": result})
+            outcomes.append(
+                {
+                    "step": idx,
+                    "action": step.action,
+                    "success": success,
+                    "result": result,
+                }
+            )
             if not success:
                 return {
                     "success": False,
                     "promoted_replay": True,
                     "candidate_id": self.candidate_id,
                     "outcomes": outcomes,
-                    "error": (result or {}).get("error", f"step {idx} ({step.action}) failed")
-                    if isinstance(result, dict)
-                    else f"step {idx} ({step.action}) failed",
+                    "error": (
+                        (result or {}).get("error", f"step {idx} ({step.action}) failed")
+                        if isinstance(result, dict)
+                        else f"step {idx} ({step.action}) failed"
+                    ),
                 }
 
         return {
@@ -621,7 +646,11 @@ def deactivate_promoted_capability(goal_signature: str, capability_bus: Any) -> 
     if isinstance(caps, dict):
         caps.pop(name, None)
     _clear_active(goal_signature)
-    logger.info("capability_promotion: operator deactivated %r (%s)", goal_signature, candidate_id)
+    logger.info(
+        "capability_promotion: operator deactivated %r (%s)",
+        goal_signature,
+        candidate_id,
+    )
     return True
 
 

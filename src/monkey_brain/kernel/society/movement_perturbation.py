@@ -36,6 +36,7 @@ changes, this class needs no changes to stay correct — that is the
 "rely on the same movement and membership lifecycle... rather than
 implementing special-case logic" requirement made concrete.
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,8 +65,12 @@ class MovementPerturbationEngine:
     MembershipGovernor directly, so this class stays a thin trigger, not a
     second implementation of movement's consequences."""
 
-    def __init__(self, move_actor: MoveActor, presence: PresenceTimeline,
-                 geo_registry: GeographicRegistry) -> None:
+    def __init__(
+        self,
+        move_actor: MoveActor,
+        presence: PresenceTimeline,
+        geo_registry: GeographicRegistry,
+    ) -> None:
         self._move_actor = move_actor
         self._presence = presence
         self._geo_registry = geo_registry
@@ -102,14 +107,16 @@ class MovementPerturbationEngine:
                 logger.error("Movement perturbation failed to move %s: %s", actor_id, e)
                 continue
             if moved:
-                perturbations.append({
-                    "perturbation": "movement",
-                    "cause": cause,
-                    "actor_id": actor_id,
-                    "from_space_id": space_id,
-                    "to_space_id": destination_id,
-                    "timestamp": timestamp,
-                })
+                perturbations.append(
+                    {
+                        "perturbation": "movement",
+                        "cause": cause,
+                        "actor_id": actor_id,
+                        "from_space_id": space_id,
+                        "to_space_id": destination_id,
+                        "timestamp": timestamp,
+                    }
+                )
         return perturbations
 
     def _evacuation_destination(self, space_id: str) -> str | None:
@@ -121,13 +128,11 @@ class MovementPerturbationEngine:
             return None
         if space.parent_id is not None:
             siblings = [
-                e for e in self._geo_registry.children_of(space.parent_id)
+                e
+                for e in self._geo_registry.children_of(space.parent_id)
                 if e.entity_type == GeographicEntityType.SPACE and e.entity_id != space_id
             ]
             if siblings:
                 return random.choice(siblings).entity_id
-        others = [
-            e for e in self._geo_registry.all(GeographicEntityType.SPACE)
-            if e.entity_id != space_id
-        ]
+        others = [e for e in self._geo_registry.all(GeographicEntityType.SPACE) if e.entity_id != space_id]
         return random.choice(others).entity_id if others else None

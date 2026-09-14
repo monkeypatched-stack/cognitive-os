@@ -8,7 +8,7 @@ version = "1.0.5"
 description = "MonkeyBrain — Cognitive Operating System for industrial decision intelligence"
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 authors = [{ name = "Prashun Javeri" }]
 keywords = ["ai", "industrial", "decision-intelligence", "cognitive-os", "agent"]
 classifiers = [
@@ -79,10 +79,18 @@ dependencies = [
     "moss==1.7.3",
 ]
 
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-timeout", "ruff", "pre-commit", "bandit", "mypy"]
+
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff", "pre-commit", "bandit", "mypy"]
 enterprise = ["elasticsearch[async]", "pyspark", "mem0ai", "spacy"]
-soma = ["soma-cli>=1.0.0"]
+# NOT a real PyPI dependency -- "soma-cli" on PyPI is an unrelated package
+# (tops out at 0.4.1, never satisfies >=1.0.0, and isn't this repo's code
+# even if it did) that collides by name with the local packages/soma-cli/.
+# `uv lock` fails outright if this extra declares soma-cli>=1.0.0 as a real
+# dependency, since no such PyPI release exists. Install the real package
+# with `pip install -e packages/soma-cli`; this extra just documents that.
+soma = []
 # Robot/ROS deployments only (kernel/edge/ros_integration.py). rclpy is
 # NOT a normal CognitiveOS dependency -- it is not installable via PyPI
 # at all (it ships with a ROS 2 distribution's own apt/conda packaging),

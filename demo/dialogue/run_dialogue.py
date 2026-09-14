@@ -23,6 +23,7 @@ know what to show and what to fold into the next round's context.
 Usage:
     python3 demo/dialogue/run_dialogue.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -30,9 +31,23 @@ import time
 from typing import Any
 
 try:  # Support both `python run_dialogue.py` and package/test imports.
-    from .bootstrap import ACTOR_DEFS, ApiError, TRACKED_PRODUCT_NAME, _call, _client, bootstrap_world
+    from .bootstrap import (
+        ACTOR_DEFS,
+        ApiError,
+        TRACKED_PRODUCT_NAME,
+        _call,
+        _client,
+        bootstrap_world,
+    )
 except ImportError:  # pragma: no cover - exercised by direct script execution.
-    from bootstrap import ACTOR_DEFS, ApiError, TRACKED_PRODUCT_NAME, _call, _client, bootstrap_world
+    from bootstrap import (
+        ACTOR_DEFS,
+        ApiError,
+        TRACKED_PRODUCT_NAME,
+        _call,
+        _client,
+        bootstrap_world,
+    )
 
 MAX_ROUNDS = 4
 WIDTH = 56
@@ -52,27 +67,46 @@ def section(title: str) -> None:
 
 # ── Real world progression (order + shipment, same as demo/conversation) ─
 
+
 def place_real_order(client, world: dict[str, Any]) -> str:
     product_id = world["commerce"]["products"][TRACKED_PRODUCT_NAME]
-    order = _call(client, "POST", "/orders", json={
-        "actor_id": world["actors"]["Customer"],
-        "items": [{"id": product_id, "name": TRACKED_PRODUCT_NAME, "qty": 1, "price": 59.99}],
-        "question": "buy the wireless gaming mouse",
-    })
+    order = _call(
+        client,
+        "POST",
+        "/orders",
+        json={
+            "actor_id": world["actors"]["Customer"],
+            "items": [
+                {
+                    "id": product_id,
+                    "name": TRACKED_PRODUCT_NAME,
+                    "qty": 1,
+                    "price": 59.99,
+                }
+            ],
+            "question": "buy the wireless gaming mouse",
+        },
+    )
     return order.get("order_id", "")
 
 
 def pack_and_ship(client, world: dict[str, Any], order_id: str) -> str:
     product_id = world["commerce"]["products"][TRACKED_PRODUCT_NAME]
-    shipment = _call(client, "POST", "/shipments", json={
-        "order_id": order_id,
-        "packages": [{"box": 1, "items": [product_id]}],
-        "rider_id": world["rider_id"],
-    })
+    shipment = _call(
+        client,
+        "POST",
+        "/shipments",
+        json={
+            "order_id": order_id,
+            "packages": [{"box": 1, "items": [product_id]}],
+            "rider_id": world["rider_id"],
+        },
+    )
     return shipment.get("shipment_id", "")
 
 
 # ── Contacts directory (real registered data, not invented) ─────────────
+
 
 def build_contacts_directory(exclude_name: str) -> str:
     lines = []
@@ -85,8 +119,12 @@ def build_contacts_directory(exclude_name: str) -> str:
 
 # ── The autonomous dialogue loop ─────────────────────────────────────────
 
+
 def run_dialogue(
-    client, world: dict[str, Any], asking_actor_name: str, original_question: str,
+    client,
+    world: dict[str, Any],
+    asking_actor_name: str,
+    original_question: str,
     max_rounds: int = MAX_ROUNDS,
 ) -> tuple[str | None, list[tuple[str, str, str]], int]:
     """Returns (final_answer_or_None, learned[(target, question, answer)], rounds_used).
@@ -101,10 +139,13 @@ def run_dialogue(
         section(f"Round {round_num} — {asking_actor_name} thinks")
 
         error_text = (
-            "\n\nYour last attempt(s) at asking someone failed for a real reason — "
-            "read this and don't repeat the mistake:\n"
-            + "\n".join(f"- {e}" for e in errors_so_far)
-        ) if errors_so_far else ""
+            (
+                "\n\nYour last attempt(s) at asking someone failed for a real reason — "
+                "read this and don't repeat the mistake:\n" + "\n".join(f"- {e}" for e in errors_so_far)
+            )
+            if errors_so_far
+            else ""
+        )
 
         if not learned:
             prompt_text = (
@@ -118,9 +159,7 @@ def run_dialogue(
                 f"{error_text}"
             )
         else:
-            learned_text = "\n".join(
-                f'- You asked {t}: "{q}" and they told you: "{a}"' for t, q, a in learned
-            )
+            learned_text = "\n".join(f'- You asked {t}: "{q}" and they told you: "{a}"' for t, q, a in learned)
             prompt_text = (
                 f'A customer asked: "{original_question}"\n\n'
                 f"You are the {asking_actor_name}. So far you have learned:\n{learned_text}\n\n"
@@ -131,15 +170,22 @@ def run_dialogue(
                 f"{error_text}"
             )
 
-        response = _call(client, "POST", "/prompt", json={"question": prompt_text},
-                          headers={"X-User-ID": asking_actor_id})
+        response = _call(
+            client,
+            "POST",
+            "/prompt",
+            json={"question": prompt_text},
+            headers={"X-User-ID": asking_actor_id},
+        )
         execution = (response.get("query_result") or {}).get("actor_execution") or {}
         plan = execution.get("plan") or {}
         steps = plan.get("steps") or []
         actions = execution.get("actions") or []
 
-        print(f"\n{asking_actor_name}'s plan this round: "
-              + (" -> ".join(s.get("action", "?") for s in steps) or "(no steps)"))
+        print(
+            f"\n{asking_actor_name}'s plan this round: "
+            + (" -> ".join(s.get("action", "?") for s in steps) or "(no steps)")
+        )
 
         asked_this_round: list[str] = []
         concluded_answer: str | None = None
@@ -179,12 +225,14 @@ def run_dialogue(
                 concluded_answer = result.get("answer", "")
 
         if concluded_answer and not asked_this_round:
-            print(f"\n  {asking_actor_name} concludes: \"{concluded_answer}\"")
+            print(f'\n  {asking_actor_name} concludes: "{concluded_answer}"')
             return concluded_answer, learned, round_num
         if concluded_answer and asked_this_round:
-            print(f"\n  ({asking_actor_name} both asked and tried to conclude in the same "
-                  f"round — treating as not yet concluded; it hasn't seen this round's real "
-                  f"replies yet. Continuing.)")
+            print(
+                f"\n  ({asking_actor_name} both asked and tried to conclude in the same "
+                f"round — treating as not yet concluded; it hasn't seen this round's real "
+                f"replies yet. Continuing.)"
+            )
         if not asked_this_round and not concluded_answer:
             print(f"\n  ({asking_actor_name} produced no usable dialogue step — retrying.)")
             continue
@@ -216,7 +264,10 @@ def main() -> int:
             print(f'\nCustomer -> Support Agent: "{original_question}"')
 
             final_answer, learned, rounds_used = run_dialogue(
-                client, world, "Support Agent", original_question,
+                client,
+                world,
+                "Support Agent",
+                original_question,
             )
 
             section("Final Answer to Customer")

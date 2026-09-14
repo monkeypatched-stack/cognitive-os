@@ -3,9 +3,12 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
-YieldReconciliationStatus = Literal["Draft", "Calculated", "Reviewed", "Approved", "Rejected"]
-YieldDisposition = Literal["Pending", "Accepted", "Rejected", "Rework", "Investigation Required"]
+YieldReconciliationStatus = Literal[
+    "Draft", "Calculated", "Reviewed", "Approved", "Rejected"
+]
+YieldDisposition = Literal[
+    "Pending", "Accepted", "Rejected", "Rework", "Investigation Required"
+]
 YieldExecutionStatus = Literal["Planned", "In Progress", "Executed", "Voided"]
 
 
@@ -79,11 +82,19 @@ class YieldReconciliationRecord(BaseModel):
         if self.actual_batch_quantity is None:
             self.actual_batch_quantity = self.actual_yield
         if self.yield_percent is None and self.theoretical_yield:
-            self.yield_percent = round((self.actual_yield / self.theoretical_yield) * 100, 4)
+            self.yield_percent = round(
+                (self.actual_yield / self.theoretical_yield) * 100, 4
+            )
         if self.variance_quantity is None:
-            self.variance_quantity = round(self.actual_batch_quantity - self.planned_batch_quantity, 6)
+            self.variance_quantity = round(
+                self.actual_batch_quantity - self.planned_batch_quantity, 6
+            )
         if self.variance_percent is None and self.theoretical_yield:
-            self.variance_percent = round((self.variance_quantity / self.planned_batch_quantity) * 100, 4) if self.planned_batch_quantity else 0
+            self.variance_percent = (
+                round((self.variance_quantity / self.planned_batch_quantity) * 100, 4)
+                if self.planned_batch_quantity
+                else 0
+            )
         self.planned_vs_actual_comparison = {
             **self.planned_vs_actual_comparison,
             "planned_batch_quantity": self.planned_batch_quantity,
@@ -91,30 +102,65 @@ class YieldReconciliationRecord(BaseModel):
             "variance_quantity": self.variance_quantity,
             "variance_percent": self.variance_percent,
             "unit": self.unit,
-            "comparison_result": "Within tolerance" if abs(self.variance_percent or 0) <= 2 else "Outside tolerance",
+            "comparison_result": (
+                "Within tolerance"
+                if abs(self.variance_percent or 0) <= 2
+                else "Outside tolerance"
+            ),
         }
 
         if self.execution_status == "Executed":
             if self.actual_batch_quantity != self.actual_yield:
-                raise ValueError("actual_batch_quantity must match actual_yield for executed yield reconciliation records.")
+                raise ValueError(
+                    "actual_batch_quantity must match actual_yield for executed yield reconciliation records."
+                )
             if self.planned_batch_quantity != self.planned_quantity:
-                raise ValueError("planned_batch_quantity must match planned_quantity for executed yield reconciliation records.")
+                raise ValueError(
+                    "planned_batch_quantity must match planned_quantity for executed yield reconciliation records."
+                )
 
-        total_accounted = self.actual_yield + self.rejected_quantity + self.scrap_quantity + self.rework_quantity
-        if total_accounted > self.planned_quantity and self.status in {"Reviewed", "Approved"}:
-            raise ValueError("accounted yield quantities cannot exceed planned_quantity for reviewed/approved records.")
-        if self.execution_status == "Executed" and (not self.executed_by or not self.executed_at):
-            raise ValueError("executed yield reconciliation records must include executed_by and executed_at.")
-        if self.status in {"Reviewed", "Approved"} and self.execution_status != "Executed":
-            raise ValueError("reviewed/approved yield reconciliation records must have execution_status 'Executed'.")
+        total_accounted = (
+            self.actual_yield
+            + self.rejected_quantity
+            + self.scrap_quantity
+            + self.rework_quantity
+        )
+        if total_accounted > self.planned_quantity and self.status in {
+            "Reviewed",
+            "Approved",
+        }:
+            raise ValueError(
+                "accounted yield quantities cannot exceed planned_quantity for reviewed/approved records."
+            )
+        if self.execution_status == "Executed" and (
+            not self.executed_by or not self.executed_at
+        ):
+            raise ValueError(
+                "executed yield reconciliation records must include executed_by and executed_at."
+            )
+        if (
+            self.status in {"Reviewed", "Approved"}
+            and self.execution_status != "Executed"
+        ):
+            raise ValueError(
+                "reviewed/approved yield reconciliation records must have execution_status 'Executed'."
+            )
         if self.status in {"Reviewed", "Approved"} and not self.reviewed_by:
-            raise ValueError("reviewed/approved yield reconciliation records must include reviewed_by.")
+            raise ValueError(
+                "reviewed/approved yield reconciliation records must include reviewed_by."
+            )
         if self.status == "Approved" and not self.approved_by:
-            raise ValueError("approved yield reconciliation records must include approved_by.")
+            raise ValueError(
+                "approved yield reconciliation records must include approved_by."
+            )
         if self.status == "Approved" and not self.signature_ids:
-            raise ValueError("approved yield reconciliation records must include signature_ids.")
+            raise ValueError(
+                "approved yield reconciliation records must include signature_ids."
+            )
         if self.disposition == "Investigation Required" and not self.deviation_id:
-            raise ValueError("yield reconciliations requiring investigation must include deviation_id.")
+            raise ValueError(
+                "yield reconciliations requiring investigation must include deviation_id."
+            )
         return self
 
 

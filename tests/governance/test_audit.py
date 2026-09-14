@@ -1,10 +1,16 @@
 """Tests for governance.audit — event-type vocabulary and per-event
 identifiers (Section 13: idempotency/traceability groundwork)."""
+
 from __future__ import annotations
 
 import pytest
 
-from governance.audit import EVENT_TYPES, GovernanceAuditError, record_governance_event, read_governance_events
+from governance.audit import (
+    EVENT_TYPES,
+    GovernanceAuditError,
+    record_governance_event,
+    read_governance_events,
+)
 
 
 class TestEventVocabulary:

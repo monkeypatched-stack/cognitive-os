@@ -1,6 +1,14 @@
 import logging
 import os
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, BackgroundTasks, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    UploadFile,
+    HTTPException,
+    BackgroundTasks,
+    Query,
+)
 
 from ..core.security import require_auth_context
 from botocore.exceptions import BotoCoreError, ClientError
@@ -10,15 +18,15 @@ from ..helpers.helpers import (
     list_files_by_date_helper,
     read_file_helper,
     upload_file_helper,
-    delete_folder_helper
+    delete_folder_helper,
 )
 
 S3_BUCKET = os.getenv("AWS_S3_BUCKET") or os.getenv("S3_BUCKET")
 logger = logging.getLogger(__name__)
 
-#--------------------------------------------
-# ROUTER 
-#-------------------------------------------
+# --------------------------------------------
+# ROUTER
+# -------------------------------------------
 
 router = APIRouter(
     prefix="/files",
@@ -28,18 +36,16 @@ router = APIRouter(
 root_router = APIRouter(tags=["Files"], dependencies=[Depends(require_auth_context)])
 
 
-#--------------------------------------------
+# --------------------------------------------
 # ROUTES
-#-------------------------------------------
+# -------------------------------------------
+
 
 @root_router.post("/upload")
 @root_router.post("/upload/")
 @router.post("/upload")
 @router.post("/upload/")
-async def upload_file(
-    file: UploadFile = File(...),
-    notify: bool = True
-):
+async def upload_file(file: UploadFile = File(...), notify: bool = True):
     """
     Upload a document to S3 and optionally forward it to another service via HTTP POST.
     Folder structure: uploads/YYYY-MM-DD/<uuid>.<ext>
@@ -54,6 +60,7 @@ async def upload_file(
     except Exception as e:
         logger.error(f"Unexpected error during upload: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
 
 @router.get("/{date}")
 async def list_files_by_date(date: str, create_backup: bool = True):
@@ -72,11 +79,14 @@ async def list_files_by_date(date: str, create_backup: bool = True):
         logger.error(f"Unexpected error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
+
 @router.get("/{date}/{filename}")
 async def read_file(
     date: str,
     filename: str,
-    download: bool = Query(True, description="Return as browser download attachment when true"),
+    download: bool = Query(
+        True, description="Return as browser download attachment when true"
+    ),
 ):
     """
     Read or download a file from S3 given its date and filename.
@@ -101,6 +111,7 @@ async def read_file(
         logger.error(f"S3 read error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"S3 read error: {str(e)}")
 
+
 @router.delete("/{date}/{filename}")
 async def delete_file(date: str, filename: str, delete_backup: bool = True):
     """Delete a file from S3 and optionally its backup."""
@@ -118,11 +129,10 @@ async def delete_file(date: str, filename: str, delete_backup: bool = True):
         logger.error(f"Unexpected error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
+
 @router.delete("/{date}")
 async def delete_folder(
-    date: str,
-    delete_backup: bool = True,
-    background_tasks: BackgroundTasks = None
+    date: str, delete_backup: bool = True, background_tasks: BackgroundTasks = None
 ):
     """Delete all files for a specific date (entire folder)."""
     try:

@@ -24,7 +24,7 @@ This document describes how security-sensitive configuration (secrets, credentia
 ```python
 # ❌ WRONG
 SECRET_KEY = os.getenv("SECRET_KEY", "default-key")  # Falls back to weak default
-TOKEN_SECRET = os.getenv("TOKEN_SECRET", "")        # Falls back to empty
+TOKEN_SECRET = os.getenv("TOKEN_SECRET", "")  # Falls back to empty
 ```
 
 Problems:
@@ -41,6 +41,7 @@ def _require_secret(name: str) -> str:
     if not value:
         raise RuntimeError(f"{name} is required but not set")
     return value
+
 
 SECRET_KEY = _require_secret("SECRET_KEY")
 ```
@@ -350,6 +351,7 @@ from services.common.secrets import validate_secrets_at_startup
 
 app = FastAPI()
 
+
 @app.on_event("startup")
 async def startup():
     # Fail-closed: validates required secrets, raises if missing
@@ -365,10 +367,10 @@ def _require_secret(name: str, value: str) -> str:
     """Fail closed — never sign with an empty key."""
     if not value or not value.strip():
         raise RuntimeError(
-            f"{name} is not configured. "
-            "Set it in your .env file or environment before starting the service."
+            f"{name} is not configured. Set it in your .env file or environment before starting the service."
         )
     return value
+
 
 def create_access_token(user_id: str) -> str:
     # Validate secret before using it
@@ -386,6 +388,7 @@ def _require_keycloak_config(var_name: str) -> str:
     if not value:
         raise RuntimeError(f"{var_name} is required but not set")
     return value
+
 
 # Validates at import time (before any requests)
 KEYCLOAK_ISSUER = _require_keycloak_config("KEYCLOAK_ISSUER")

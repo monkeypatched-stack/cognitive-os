@@ -28,6 +28,7 @@ left unproven while that fix is pending -- and adds Section 22's
 duplicate-controller concurrent-reconcile case, which had no existing
 coverage at all.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -45,10 +46,16 @@ from .conftest import FakeRedis, force_redis_authoritative, register
 
 
 class TestControllerRestartReconciliationProducesCorrectNotDuplicateState:
-    def test_a_dead_nodes_actor_is_recovered_on_a_new_node_with_the_same_identity_no_duplicate(self):
+    def test_a_dead_nodes_actor_is_recovered_on_a_new_node_with_the_same_identity_no_duplicate(
+        self,
+    ):
         shared = FakeRedis()
-        pr_a = PlanetaryRuntime(); pr_a._redis = shared; pr_a._node_id = "node-a"
-        pr_b = PlanetaryRuntime(); pr_b._redis = shared; pr_b._node_id = "node-b"
+        pr_a = PlanetaryRuntime()
+        pr_a._redis = shared
+        pr_a._node_id = "node-a"
+        pr_b = PlanetaryRuntime()
+        pr_b._redis = shared
+        pr_b._node_id = "node-b"
         force_redis_authoritative(pr_a)
         force_redis_authoritative(pr_b)
         pr_a.register_node(ExecutionNode(node_id="node-a", capacity=10))
@@ -103,8 +110,12 @@ class TestDuplicateControllersReconcilingTheSameActorConcurrently:
     @pytest.mark.asyncio
     async def test_two_controllers_racing_to_start_the_same_actor_only_one_wins(self):
         shared = FakeRedis()
-        pr_a = PlanetaryRuntime(); pr_a._redis = shared; pr_a._node_id = "node-a"
-        pr_b = PlanetaryRuntime(); pr_b._redis = shared; pr_b._node_id = "node-b"
+        pr_a = PlanetaryRuntime()
+        pr_a._redis = shared
+        pr_a._node_id = "node-a"
+        pr_b = PlanetaryRuntime()
+        pr_b._redis = shared
+        pr_b._node_id = "node-b"
         force_redis_authoritative(pr_a)
         force_redis_authoritative(pr_b)
         pr_a.register_node(ExecutionNode(node_id="node-a", capacity=10))
@@ -135,8 +146,7 @@ class TestDuplicateControllersReconcilingTheSameActorConcurrently:
         # saw the lease held and skipped rather than also starting it.
         real_actions = [r for r in results if r.action not in ("skipped_lease_held", "none")]
         assert len(real_actions) <= 1, (
-            f"expected at most one controller to win the race and perform a real "
-            f"lifecycle action, got: {actions}"
+            f"expected at most one controller to win the race and perform a real lifecycle action, got: {actions}"
         )
         if len(real_actions) == 1:
             assert real_actions[0].succeeded is True
@@ -156,6 +166,7 @@ class TestDuplicateControllersReconcilingTheSameActorConcurrently:
         processes agree on cluster-wide state like node health or
         overall scheduling policy)."""
         import importlib
+
         for candidate in ("raft", "paxos", "consensus", "leader_election"):
             with pytest.raises(ModuleNotFoundError):
                 importlib.import_module(f"src.monkey_brain.kernel.society.{candidate}")

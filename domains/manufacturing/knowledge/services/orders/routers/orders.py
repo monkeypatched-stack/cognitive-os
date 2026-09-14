@@ -22,7 +22,9 @@ async def list_orders(
     _: dict = Depends(require_permission("perm-view-order")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedOrderResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedOrderResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
@@ -33,7 +35,10 @@ async def get_order(
 ):
     record = await crud.get_by_order_id(db, order_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order '{order_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order '{order_id}' not found",
+        )
     return record
 
 
@@ -60,7 +65,10 @@ async def update_order(
 ):
     record = await crud.update(db, order_id, data)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order '{order_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order '{order_id}' not found",
+        )
     return record
 
 
@@ -71,4 +79,7 @@ async def delete_order(
     _: dict = Depends(require_permission("perm-delete-order")),
 ):
     if not await crud.delete(db, order_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order '{order_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order '{order_id}' not found",
+        )

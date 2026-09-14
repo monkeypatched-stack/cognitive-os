@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StepResult:
     """Result of executing a single CoT step."""
+
     step: int
     instruction: str
     constraint: str | None = None
@@ -23,6 +24,7 @@ class StepResult:
 @dataclass
 class PromptResult:
     """Full result of executing a compiled prompt."""
+
     chart_name: str
     preamble: str = ""
     steps: list[StepResult] = field(default_factory=list)

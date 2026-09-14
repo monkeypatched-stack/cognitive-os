@@ -15,6 +15,7 @@ is no partial reuse or heuristic staleness tolerance here (contrast with
 kernel/edge/freshness.py's STALE_BUT_USABLE, which is for individual
 world-state PROJECTIONS, not a whole assembled PlanningContext).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -36,32 +37,58 @@ def _goal_hash(goal: Any) -> str:
 
 
 def build_context_key(
-    *, actor_id: str, goal: Any, world_state_version: str, policy_version: str, knowledge_version: str,
+    *,
+    actor_id: str,
+    goal: Any,
+    world_state_version: str,
+    policy_version: str,
+    knowledge_version: str,
 ) -> str:
-    return "|".join([
-        actor_id, _goal_hash(goal), str(world_state_version), str(policy_version), str(knowledge_version),
-    ])
+    return "|".join(
+        [
+            actor_id,
+            _goal_hash(goal),
+            str(world_state_version),
+            str(policy_version),
+            str(knowledge_version),
+        ]
+    )
 
 
 class CachedContextConstructionEngine:
     """Drop-in in front of a real ContextConstructionEngine -- delegates
     every actual build to it on a miss, never reimplements retrieval."""
 
-    def __init__(self, engine: Any, *, max_size: int = 256, ttl_seconds: float = DEFAULT_CONTEXT_CACHE_TTL_SECONDS) -> None:
+    def __init__(
+        self,
+        engine: Any,
+        *,
+        max_size: int = 256,
+        ttl_seconds: float = DEFAULT_CONTEXT_CACHE_TTL_SECONDS,
+    ) -> None:
         self._engine = engine
         self._cache: BoundedTTLCache = BoundedTTLCache(max_size=max_size, default_ttl_seconds=ttl_seconds)
         self._ttl = ttl_seconds
 
     def build(
-        self, actor_id: str, goal: Any, execution_id: str = "", *,
-        world_state_version: str = "", policy_version: str = "", knowledge_version: str = "",
+        self,
+        actor_id: str,
+        goal: Any,
+        execution_id: str = "",
+        *,
+        world_state_version: str = "",
+        policy_version: str = "",
+        knowledge_version: str = "",
     ) -> tuple[Any, bool]:
         """Returns (PlanningContext, cache_hit). cache_hit is surfaced
         explicitly (Section 19's observability requirement) rather than
         hidden inside the context object itself."""
         key = build_context_key(
-            actor_id=actor_id, goal=goal, world_state_version=world_state_version,
-            policy_version=policy_version, knowledge_version=knowledge_version,
+            actor_id=actor_id,
+            goal=goal,
+            world_state_version=world_state_version,
+            policy_version=policy_version,
+            knowledge_version=knowledge_version,
         )
         version_key = f"{world_state_version}|{policy_version}|{knowledge_version}"
         cached = self._cache.get(key, version_key=version_key)
@@ -73,12 +100,21 @@ class CachedContextConstructionEngine:
         return context, False
 
     async def build_async(
-        self, actor_id: str, goal: Any, execution_id: str = "", *,
-        world_state_version: str = "", policy_version: str = "", knowledge_version: str = "",
+        self,
+        actor_id: str,
+        goal: Any,
+        execution_id: str = "",
+        *,
+        world_state_version: str = "",
+        policy_version: str = "",
+        knowledge_version: str = "",
     ) -> tuple[Any, bool]:
         key = build_context_key(
-            actor_id=actor_id, goal=goal, world_state_version=world_state_version,
-            policy_version=policy_version, knowledge_version=knowledge_version,
+            actor_id=actor_id,
+            goal=goal,
+            world_state_version=world_state_version,
+            policy_version=policy_version,
+            knowledge_version=knowledge_version,
         )
         version_key = f"{world_state_version}|{policy_version}|{knowledge_version}"
         cached = self._cache.get(key, version_key=version_key)

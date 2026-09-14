@@ -13,7 +13,6 @@ from services.workorders.models.area_room_usage_ledger import (
     PaginatedAreaRoomUsageLedgerResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -72,7 +71,9 @@ async def get_area_room_usage_ledger_entry(
     return record
 
 
-@router.post("/", response_model=AreaRoomUsageLedgerResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=AreaRoomUsageLedgerResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_area_room_usage_ledger_entry(
     data: AreaRoomUsageLedgerCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

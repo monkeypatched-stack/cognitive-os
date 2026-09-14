@@ -1,4 +1,5 @@
 """Code embedding provider — SBERT semantic + lexical AST approximation."""
+
 from __future__ import annotations
 
 import logging
@@ -37,16 +38,33 @@ class CodeEmbedder(EmbeddingEmbedder):
         n_lines = len(lines)
         tokens = _re.findall(r"[a-zA-Z_]\w*", content)
 
-        feat[0]  = min(n_lines, 2000) / 2000.0
-        feat[1]  = min(len(tokens), 10000) / 10000.0
-        feat[2]  = min(len(_re.findall(r"^\s*(?:import|from|require|use|include)\s", content, _re.M)), 100) / 100.0
-        feat[3]  = min(len(_re.findall(r"(?:def|function|func|fn)\s+\w+\s*\(", content)), 100) / 100.0
-        feat[4]  = min(len(_re.findall(r"(?:class|struct|interface|trait)\s+\w+", content)), 50) / 50.0
-        feat[5]  = min(len(_re.findall(r"\b(?:if|elif|else|for|while|match|case|catch|except|switch)\b", content)), 200) / 200.0
+        feat[0] = min(n_lines, 2000) / 2000.0
+        feat[1] = min(len(tokens), 10000) / 10000.0
+        feat[2] = (
+            min(
+                len(_re.findall(r"^\s*(?:import|from|require|use|include)\s", content, _re.M)),
+                100,
+            )
+            / 100.0
+        )
+        feat[3] = min(len(_re.findall(r"(?:def|function|func|fn)\s+\w+\s*\(", content)), 100) / 100.0
+        feat[4] = min(len(_re.findall(r"(?:class|struct|interface|trait)\s+\w+", content)), 50) / 50.0
+        feat[5] = (
+            min(
+                len(
+                    _re.findall(
+                        r"\b(?:if|elif|else|for|while|match|case|catch|except|switch)\b",
+                        content,
+                    )
+                ),
+                200,
+            )
+            / 200.0
+        )
         comments = [l for l in lines if _re.match(r"\s*(?:#|//|/\*|\*|<!-)", l)]
-        feat[6]  = len(comments) / max(n_lines, 1)
+        feat[6] = len(comments) / max(n_lines, 1)
         non_empty = [l for l in lines if l.strip()]
-        feat[7]  = min(sum(len(l) for l in non_empty) / max(len(non_empty), 1), 200) / 200.0
+        feat[7] = min(sum(len(l) for l in non_empty) / max(len(non_empty), 1), 200) / 200.0
 
         lang_sigs = [
             (r"\bdef\b[^(]*\(.*\)\s*:", 8),
@@ -61,9 +79,20 @@ class CodeEmbedder(EmbeddingEmbedder):
         for pattern, slot in lang_sigs:
             feat[slot] = 1.0 if _re.search(pattern, content, _re.M | _re.I) else 0.0
 
-        type_kw = _re.findall(r"\b(?:int|float|str|bool|Optional|List|Dict|Union|Any|None|type)\b", content)
+        type_kw = _re.findall(
+            r"\b(?:int|float|str|bool|Optional|List|Dict|Union|Any|None|type)\b",
+            content,
+        )
         feat[16] = min(len(type_kw), 100) / 100.0
-        feat[17] = 1.0 if _re.search(r"\basync\b|\bawait\b|\bgoroutine\b|\bthread\b|\bspawn\b", content, _re.I) else 0.0
+        feat[17] = (
+            1.0
+            if _re.search(
+                r"\basync\b|\bawait\b|\bgoroutine\b|\bthread\b|\bspawn\b",
+                content,
+                _re.I,
+            )
+            else 0.0
+        )
         feat[18] = float((getattr(item, "provenance", 0.85) + 1.0 - getattr(item, "uncertainty", 0.15)) / 2)
         feat[19] = float(getattr(item, "provenance", 0.5))
         lexical = np.tanh(feat)

@@ -7,8 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ── Enums ─────────────────────────────────────────────────────────────────────
+
 
 class Severity(str, Enum):
     critical = "critical"
@@ -32,6 +32,7 @@ class ResourceKind(str, Enum):
 
 
 # ── Base ──────────────────────────────────────────────────────────────────────
+
 
 class ResourceMetadata(BaseModel):
     name: str
@@ -58,6 +59,7 @@ class ConstitutionalResource(BaseModel):
 
 
 # ── Typed spec models ─────────────────────────────────────────────────────────
+
 
 class ModuleSpec(BaseModel):
     owns: list[str] = Field(default_factory=list)
@@ -123,6 +125,7 @@ class PromptSpec(BaseModel):
 
 
 # ── Chart manifest ─────────────────────────────────────────────────────────────
+
 
 class ChartMetadata(BaseModel):
     name: str

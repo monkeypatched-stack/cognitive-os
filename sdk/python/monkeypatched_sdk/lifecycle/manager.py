@@ -40,7 +40,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from ..contracts.adapter import AdapterStatus, CapabilityAdapter
 from ..contracts.context import AdapterContext, AdapterResponse
-from ..contracts.interfaces import ILifecycleManager, IConfigurationManager, IEventBus, ITelemetryManager
+from ..contracts.interfaces import (
+    ILifecycleManager,
+    IConfigurationManager,
+    IEventBus,
+    ITelemetryManager,
+)
 from .registry import AdapterRegistry
 
 if TYPE_CHECKING:
@@ -105,17 +110,13 @@ class LifecycleManager(ILifecycleManager):
         background health-check loop.
         """
         adapter_classes = AdapterRegistry.get_all()
-        logger.info(
-            "Starting LifecycleManager with %d adapter(s).", len(adapter_classes)
-        )
+        logger.info("Starting LifecycleManager with %d adapter(s).", len(adapter_classes))
 
         for adapter_class in adapter_classes:
             await self._start_adapter(adapter_class)
 
         # Start periodic health monitoring
-        self._health_check_task = asyncio.create_task(
-            self._health_check_loop(), name="sdk-health-check"
-        )
+        self._health_check_task = asyncio.create_task(self._health_check_loop(), name="sdk-health-check")
 
         logger.info(
             "LifecycleManager ready. %d/%d adapter(s) started.",
@@ -140,9 +141,7 @@ class LifecycleManager(ILifecycleManager):
             try:
                 await adapter.shutdown()
                 adapter.set_status(AdapterStatus.SHUTDOWN)
-                await self._emit_lifecycle_event(
-                    LifecycleEvent.ADAPTER_SHUTDOWN, adapter_id
-                )
+                await self._emit_lifecycle_event(LifecycleEvent.ADAPTER_SHUTDOWN, adapter_id)
                 logger.info("Adapter '%s' shut down.", adapter_id)
             except Exception as exc:
                 logger.error("Error shutting down adapter '%s': %s", adapter_id, exc)
@@ -160,14 +159,10 @@ class LifecycleManager(ILifecycleManager):
         """
         adapter = self.adapters.get(capability_id)
         if adapter is None:
-            return AdapterResponse.fail(
-                f"No adapter registered for capability '{capability_id}'"
-            )
+            return AdapterResponse.fail(f"No adapter registered for capability '{capability_id}'")
 
         adapter.set_status(AdapterStatus.EXECUTING)
-        await self._emit_lifecycle_event(
-            LifecycleEvent.ADAPTER_EXECUTING, capability_id
-        )
+        await self._emit_lifecycle_event(LifecycleEvent.ADAPTER_EXECUTING, capability_id)
 
         try:
             response = await adapter.execute(context, inputs)
@@ -259,9 +254,7 @@ class LifecycleManager(ILifecycleManager):
             self.adapters[capability_id] = adapter
             self.health_checks[capability_id] = True
 
-            await self._emit_lifecycle_event(
-                LifecycleEvent.ADAPTER_READY, capability_id
-            )
+            await self._emit_lifecycle_event(LifecycleEvent.ADAPTER_READY, capability_id)
             logger.info(
                 "Adapter '%s' ready (v%s).",
                 capability_id,
@@ -269,12 +262,8 @@ class LifecycleManager(ILifecycleManager):
             )
 
         except Exception as exc:
-            logger.error(
-                "Failed to start adapter '%s': %s", adapter_class.__name__, exc
-            )
-            await self._emit_lifecycle_event(
-                LifecycleEvent.ADAPTER_FAILED, capability_id
-            )
+            logger.error("Failed to start adapter '%s': %s", adapter_class.__name__, exc)
+            await self._emit_lifecycle_event(LifecycleEvent.ADAPTER_FAILED, capability_id)
 
     def _resolve_config(self, adapter_class, capability_id: str):
         """Find the best-matching AdapterConfig for an adapter."""
@@ -314,16 +303,12 @@ class LifecycleManager(ILifecycleManager):
 
                         if healthy and not was_healthy:
                             adapter.set_status(AdapterStatus.READY)
-                            await self._emit_lifecycle_event(
-                                LifecycleEvent.ADAPTER_RECOVERED, adapter_id
-                            )
+                            await self._emit_lifecycle_event(LifecycleEvent.ADAPTER_RECOVERED, adapter_id)
                             logger.info("Adapter '%s' recovered.", adapter_id)
 
                         elif not healthy and was_healthy:
                             adapter.set_status(AdapterStatus.DEGRADED)
-                            await self._emit_lifecycle_event(
-                                LifecycleEvent.ADAPTER_DEGRADED, adapter_id
-                            )
+                            await self._emit_lifecycle_event(LifecycleEvent.ADAPTER_DEGRADED, adapter_id)
                             logger.warning("Adapter '%s' is degraded.", adapter_id)
 
                         self.health_checks[adapter_id] = healthy
@@ -336,9 +321,7 @@ class LifecycleManager(ILifecycleManager):
             except asyncio.CancelledError:
                 break
 
-    async def _emit_lifecycle_event(
-        self, event: LifecycleEvent, adapter_id: str
-    ) -> None:
+    async def _emit_lifecycle_event(self, event: LifecycleEvent, adapter_id: str) -> None:
         """Emit a lifecycle event to the platform bus (best-effort)."""
         if self._event_bus is not None:
             try:
@@ -362,40 +345,32 @@ class LifecycleManager(ILifecycleManager):
         return adapter.status.value
 
     async def execute_capability(
-        self,
-        capability_id: str,
-        context: Dict[str, Any],
-        inputs: Dict[str, Any]
+        self, capability_id: str, context: Dict[str, Any], inputs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Execute a capability by ID (interface method)."""
         adapter = self.get_adapter(capability_id)
         if adapter is None:
-            return {
-                "success": False,
-                "error": f"Adapter {capability_id} not found"
-            }
-        
+            return {"success": False, "error": f"Adapter {capability_id} not found"}
+
         try:
             # Convert context to AdapterContext
             from ..contracts.context import AdapterContext
+
             adapter_context = AdapterContext(
                 world_state=context.get("world_state", {}),
                 execution_id=context.get("execution_id", ""),
-                trace_id=context.get("trace_id", "")
+                trace_id=context.get("trace_id", ""),
             )
-            
+
             # Execute the capability
             result = await adapter.execute(adapter_context, inputs)
-            
+
             return {
                 "success": result.success,
                 "data": result.data if result.success else None,
-                "error": result.error if not result.success else None
+                "error": result.error if not result.success else None,
             }
-            
+
         except Exception as exc:
             logger.error("Capability execution failed for %s: %s", capability_id, exc)
-            return {
-                "success": False,
-                "error": str(exc)
-            }
+            return {"success": False, "error": str(exc)}

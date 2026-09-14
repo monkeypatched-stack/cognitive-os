@@ -19,9 +19,9 @@ class TestE2EActionQueries:
     @pytest.mark.asyncio
     async def test_e2e_acquisition_query(self):
         """Test complete flow: acquisition query → action handler"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Acquisition Query")
-        print("="*70)
+        print("=" * 70)
 
         # Create mock LLM for classification
         mock_llm = Mock()
@@ -34,10 +34,7 @@ class TestE2EActionQueries:
 
         # Process query
         print("\n[1] Input: 'Get me 2 liters of milk'")
-        response = await router.process(
-            question="Get me 2 liters of milk",
-            actor_id="user_123"
-        )
+        response = await router.process(question="Get me 2 liters of milk", actor_id="user_123")
 
         print(f"[2] Classification: {response.routing_decision.query_type.value}")
         print(f"    Confidence: {response.routing_decision.confidence}")
@@ -59,9 +56,9 @@ class TestE2EActionQueries:
     @pytest.mark.asyncio
     async def test_e2e_booking_query(self):
         """Test booking query flow"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Booking Query")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -71,10 +68,7 @@ class TestE2EActionQueries:
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] Input: 'Book a flight to Tokyo for next week'")
-        response = await router.process(
-            question="Book a flight to Tokyo for next week",
-            actor_id="user_456"
-        )
+        response = await router.process(question="Book a flight to Tokyo for next week", actor_id="user_456")
 
         print(f"[2] Classified as: {response.routing_decision.query_type.value}")
         print(f"[3] Handler: {response.handler_type}")
@@ -92,9 +86,9 @@ class TestE2ERetrievalQueries:
     @pytest.mark.asyncio
     async def test_e2e_factual_query(self):
         """Test factual query flow"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Factual Query")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -104,10 +98,7 @@ class TestE2ERetrievalQueries:
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] Input: 'What is the capital of France?'")
-        response = await router.process(
-            question="What is the capital of France?",
-            actor_id="user_789"
-        )
+        response = await router.process(question="What is the capital of France?", actor_id="user_789")
 
         print(f"[2] Classified as: {response.routing_decision.query_type.value}")
         print(f"[3] Handler: {response.handler_type}")
@@ -121,9 +112,9 @@ class TestE2ERetrievalQueries:
     @pytest.mark.asyncio
     async def test_e2e_list_query(self):
         """Test listing/discovery query flow"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: List Query")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -133,10 +124,7 @@ class TestE2ERetrievalQueries:
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] Input: 'Show me all nearby restaurants'")
-        response = await router.process(
-            question="Show me all nearby restaurants",
-            actor_id="user_101"
-        )
+        response = await router.process(question="Show me all nearby restaurants", actor_id="user_101")
 
         print(f"[2] Classified as: {response.routing_decision.query_type.value}")
         print(f"[3] Handler: {response.handler_type}")
@@ -153,9 +141,9 @@ class TestE2EReasoningQueries:
     @pytest.mark.asyncio
     async def test_e2e_why_question(self):
         """Test why/reasoning query flow"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Why Question")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -165,10 +153,7 @@ class TestE2EReasoningQueries:
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] Input: 'Why do people form social bonds?'")
-        response = await router.process(
-            question="Why do people form social bonds?",
-            actor_id="user_202"
-        )
+        response = await router.process(question="Why do people form social bonds?", actor_id="user_202")
 
         print(f"[2] Classified as: {response.routing_decision.query_type.value}")
         print(f"[3] Handler: {response.handler_type}")
@@ -182,9 +167,9 @@ class TestE2EReasoningQueries:
     @pytest.mark.asyncio
     async def test_e2e_comparison_query(self):
         """Test comparison/analysis query"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Comparison Query")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -194,10 +179,7 @@ class TestE2EReasoningQueries:
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] Input: 'Compare socialism vs capitalism'")
-        response = await router.process(
-            question="Compare socialism vs capitalism",
-            actor_id="user_303"
-        )
+        response = await router.process(question="Compare socialism vs capitalism", actor_id="user_303")
 
         print(f"[2] Classified as: {response.routing_decision.query_type.value}")
         print(f"[3] Handler: {response.handler_type}")
@@ -214,9 +196,9 @@ class TestE2ERealtimeQueries:
     @pytest.mark.asyncio
     async def test_e2e_stock_price_query(self):
         """Test real-time stock price query"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Stock Price Query")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -226,10 +208,7 @@ class TestE2ERealtimeQueries:
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] Input: 'What is the current stock price of Apple?'")
-        response = await router.process(
-            question="What is the current stock price of Apple?",
-            actor_id="user_404"
-        )
+        response = await router.process(question="What is the current stock price of Apple?", actor_id="user_404")
 
         print(f"[2] Classified as: {response.routing_decision.query_type.value}")
         print(f"[3] Handler: {response.handler_type}")
@@ -243,9 +222,9 @@ class TestE2ERealtimeQueries:
     @pytest.mark.asyncio
     async def test_e2e_weather_query(self):
         """Test real-time weather query"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Weather Query")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -255,10 +234,7 @@ class TestE2ERealtimeQueries:
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] Input: 'What is the weather right now?'")
-        response = await router.process(
-            question="What is the weather right now?",
-            actor_id="user_505"
-        )
+        response = await router.process(question="What is the weather right now?", actor_id="user_505")
 
         print(f"[2] Classified as: {response.routing_decision.query_type.value}")
         print(f"[3] Handler: {response.handler_type}")
@@ -275,9 +251,9 @@ class TestE2EConversationalQueries:
     @pytest.mark.asyncio
     async def test_e2e_multi_turn_conversation(self):
         """Test complete multi-turn conversation flow"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Multi-Turn Conversation")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -287,7 +263,7 @@ class TestE2EConversationalQueries:
                 # Second query classification
                 '{"type": "conversational", "confidence": 0.89, "reasoning": "Follow-up"}',
                 # Conversational response
-                'Based on our conversation, here is more information...'
+                "Based on our conversation, here is more information...",
             ]
         )
 
@@ -295,10 +271,7 @@ class TestE2EConversationalQueries:
 
         # Turn 1
         print("\n[TURN 1] User: 'What is Python?'")
-        r1 = await router.process(
-            question="What is Python?",
-            actor_id="user_606"
-        )
+        r1 = await router.process(question="What is Python?", actor_id="user_606")
 
         session_id = r1.session_id
         print(f"  Classification: {r1.routing_decision.query_type.value}")
@@ -310,11 +283,7 @@ class TestE2EConversationalQueries:
 
         # Turn 2
         print("\n[TURN 2] User: 'Tell me more'")
-        r2 = await router.process(
-            question="Tell me more",
-            actor_id="user_606",
-            session_id=session_id
-        )
+        r2 = await router.process(question="Tell me more", actor_id="user_606", session_id=session_id)
 
         print(f"  Classification: {r2.routing_decision.query_type.value}")
         print(f"  Handler: {r2.handler_type}")
@@ -340,16 +309,16 @@ class TestE2EConversationalQueries:
     @pytest.mark.asyncio
     async def test_e2e_conversation_with_pronoun_resolution(self):
         """Test conversation with pronoun resolution"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Pronoun Resolution in Conversation")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
             side_effect=[
                 '{"type": "action", "confidence": 0.92, "reasoning": "Booking"}',
                 '{"type": "conversational", "confidence": 0.88, "reasoning": "Follow-up"}',
-                'I understand, let me help with that...'
+                "I understand, let me help with that...",
             ]
         )
 
@@ -357,10 +326,7 @@ class TestE2EConversationalQueries:
 
         # Initial query
         print("\n[TURN 1] User: 'Book a flight to Paris'")
-        r1 = await router.process(
-            question="Book a flight to Paris",
-            actor_id="user_707"
-        )
+        r1 = await router.process(question="Book a flight to Paris", actor_id="user_707")
 
         session_id = r1.session_id
         print(f"  Action: {r1.routing_decision.query_type.value}")
@@ -368,11 +334,7 @@ class TestE2EConversationalQueries:
 
         # Follow-up with pronoun
         print("\n[TURN 2] User: 'Make it first class'")
-        r2 = await router.process(
-            question="Make it first class",
-            actor_id="user_707",
-            session_id=session_id
-        )
+        r2 = await router.process(question="Make it first class", actor_id="user_707", session_id=session_id)
 
         print(f"  Classification: {r2.routing_decision.query_type.value}")
         print(f"  Handler: {r2.handler_type}")
@@ -390,9 +352,9 @@ class TestE2EFallbackScenarios:
     @pytest.mark.asyncio
     async def test_e2e_classification_fallback_to_patterns(self):
         """Test fallback to pattern matching when LLM fails"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Classification Fallback")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(side_effect=Exception("API error"))
@@ -401,10 +363,7 @@ class TestE2EFallbackScenarios:
 
         print("\n[1] Input: 'Get me 2 liters of milk'")
         print("[2] LLM fails (simulated)")
-        response = await router.process(
-            question="Get me 2 liters of milk",
-            actor_id="user_808"
-        )
+        response = await router.process(question="Get me 2 liters of milk", actor_id="user_808")
 
         print(f"[3] Fallback classification: {response.routing_decision.query_type.value}")
         print(f"    Matched patterns: {response.routing_decision.matched_patterns}")
@@ -419,9 +378,9 @@ class TestE2EFallbackScenarios:
     @pytest.mark.asyncio
     async def test_e2e_with_llm_disabled(self):
         """Test complete flow with LLM disabled"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: LLM Disabled")
-        print("="*70)
+        print("=" * 70)
 
         os.environ["USE_LLM"] = "false"
 
@@ -432,10 +391,7 @@ class TestE2EFallbackScenarios:
 
         print("\n[1] USE_LLM=false")
         print("[2] Input: 'Get me 2 liters of milk'")
-        response = await router.process(
-            question="Get me 2 liters of milk",
-            actor_id="user_909"
-        )
+        response = await router.process(question="Get me 2 liters of milk", actor_id="user_909")
 
         print(f"[3] Classification (rule-based): {response.routing_decision.query_type.value}")
         print(f"[4] Handler: {response.handler_type}")
@@ -457,23 +413,18 @@ class TestE2EErrorScenarios:
     @pytest.mark.asyncio
     async def test_e2e_invalid_query_type_fallback(self):
         """Test fallback when LLM returns invalid type"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Invalid Query Type Fallback")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
-        mock_llm.complete = AsyncMock(
-            return_value='{"type": "invalid_type", "confidence": 0.5, "reasoning": "Oops"}'
-        )
+        mock_llm.complete = AsyncMock(return_value='{"type": "invalid_type", "confidence": 0.5, "reasoning": "Oops"}')
 
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] LLM returns invalid type")
         print("[2] Input: 'Get me milk'")
-        response = await router.process(
-            question="Get me milk",
-            actor_id="user_010"
-        )
+        response = await router.process(question="Get me milk", actor_id="user_010")
 
         print(f"[3] Fallback to patterns: {response.routing_decision.query_type.value}")
         print(f"[4] Handler still works: {response.handler_type}")
@@ -487,23 +438,18 @@ class TestE2EErrorScenarios:
     @pytest.mark.asyncio
     async def test_e2e_malformed_json_fallback(self):
         """Test fallback when LLM returns malformed JSON"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Malformed JSON Fallback")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
-        mock_llm.complete = AsyncMock(
-            return_value="This is not JSON at all"
-        )
+        mock_llm.complete = AsyncMock(return_value="This is not JSON at all")
 
         router = HybridRouter(llm_provider=mock_llm)
 
         print("\n[1] LLM returns malformed JSON")
         print("[2] Input: 'Get me milk'")
-        response = await router.process(
-            question="Get me milk",
-            actor_id="user_011"
-        )
+        response = await router.process(question="Get me milk", actor_id="user_011")
 
         print(f"[3] Fallback to patterns: {response.routing_decision.query_type.value}")
         print(f"[4] Handler: {response.handler_type}")
@@ -520,21 +466,16 @@ class TestE2EPerformance:
     @pytest.mark.asyncio
     async def test_e2e_performance_with_llm(self):
         """Measure performance with LLM classification"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Performance with LLM")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
-        mock_llm.complete = AsyncMock(
-            return_value='{"type": "action", "confidence": 0.95, "reasoning": "Test"}'
-        )
+        mock_llm.complete = AsyncMock(return_value='{"type": "action", "confidence": 0.95, "reasoning": "Test"}')
 
         router = HybridRouter(llm_provider=mock_llm)
 
-        response = await router.process(
-            question="Get me 2 liters of milk",
-            actor_id="user_012"
-        )
+        response = await router.process(question="Get me 2 liters of milk", actor_id="user_012")
 
         print(f"\nPerformance Metrics:")
         print(f"  Classification time: {response.routing_decision.classification_time_ms:.1f}ms")
@@ -554,18 +495,15 @@ class TestE2EPerformance:
     @pytest.mark.asyncio
     async def test_e2e_performance_without_llm(self):
         """Measure performance without LLM (pattern matching)"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Performance without LLM")
-        print("="*70)
+        print("=" * 70)
 
         os.environ["USE_LLM"] = "false"
 
         router = HybridRouter(llm_provider=None)
 
-        response = await router.process(
-            question="Get me 2 liters of milk",
-            actor_id="user_013"
-        )
+        response = await router.process(question="Get me 2 liters of milk", actor_id="user_013")
 
         print(f"\nPerformance Metrics (Pattern-based):")
         print(f"  Classification time: {response.routing_decision.classification_time_ms:.1f}ms")
@@ -587,9 +525,9 @@ class TestE2ERouterStatistics:
     @pytest.mark.asyncio
     async def test_e2e_statistics_tracking(self):
         """Test router statistics accumulation"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("E2E TEST: Statistics Tracking")
-        print("="*70)
+        print("=" * 70)
 
         mock_llm = Mock()
         mock_llm.complete = AsyncMock(
@@ -620,25 +558,26 @@ class TestE2ERouterStatistics:
         print(f"\nRouter Statistics:")
         print(f"  Total queries: {stats['total_queries']}")
         print(f"  By type:")
-        for qtype, count in stats['by_type'].items():
+        for qtype, count in stats["by_type"].items():
             print(f"    - {qtype}: {count}")
         print(f"  By status:")
-        for status, count in stats['by_status'].items():
+        for status, count in stats["by_status"].items():
             print(f"    - {status}: {count}")
         print(f"  Average latencies:")
-        for handler, lats in stats['average_latencies'].items():
-            print(f"    - {handler}: avg={lats['avg_ms']:.1f}ms, "
-                  f"min={lats['min_ms']:.1f}ms, max={lats['max_ms']:.1f}ms")
+        for handler, lats in stats["average_latencies"].items():
+            print(
+                f"    - {handler}: avg={lats['avg_ms']:.1f}ms, min={lats['min_ms']:.1f}ms, max={lats['max_ms']:.1f}ms"
+            )
 
         # Verify stats
-        assert stats['total_queries'] == 3
-        assert stats['by_type']['action'] == 1
-        assert stats['by_type']['retrieval'] == 1
-        assert stats['by_type']['reasoning'] == 1
+        assert stats["total_queries"] == 3
+        assert stats["by_type"]["action"] == 1
+        assert stats["by_type"]["retrieval"] == 1
+        assert stats["by_type"]["reasoning"] == 1
         # Some queries may return "partial" (e.g., empty KB), which is valid
-        total_responses = sum(stats['by_status'].values())
+        total_responses = sum(stats["by_status"].values())
         assert total_responses == 3
-        success_or_partial = stats['by_status'].get('success', 0) + stats['by_status'].get('partial', 0)
+        success_or_partial = stats["by_status"].get("success", 0) + stats["by_status"].get("partial", 0)
         assert success_or_partial == 3  # All returned valid responses
 
         print("\n✓ E2E statistics tracking passed")
@@ -646,9 +585,9 @@ class TestE2ERouterStatistics:
 
 def run_all_e2e_tests():
     """Run all E2E tests"""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("END-TO-END INTEGRATION TESTS")
-    print("="*70)
+    print("=" * 70)
     print("\nRun with: pytest tests/test_e2e_hybrid_router.py -v -s")
     print("\nThis test suite validates:")
     print("  ✓ Query classification (LLM + fallback)")

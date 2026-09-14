@@ -5,6 +5,7 @@ the agent name and description, then registers them.
 Flow:
     Agent not found → LLM generates agent code → Register → Execute
 """
+
 from __future__ import annotations
 
 import json
@@ -33,6 +34,7 @@ def _ollama_available() -> bool:
 def _claude_available() -> bool:
     try:
         import anthropic
+
         anthropic.Anthropic()
         return True
     except Exception:
@@ -46,12 +48,16 @@ class OllamaClient:
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import httpx
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
         async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{self.base_url}/api/chat", json={"model": self.model, "messages": messages, "stream": False})
+            resp = await client.post(
+                f"{self.base_url}/api/chat",
+                json={"model": self.model, "messages": messages, "stream": False},
+            )
             resp.raise_for_status()
             return resp.json()["message"]["content"]
 
@@ -62,8 +68,14 @@ class ClaudeClient:
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import anthropic
+
         client = anthropic.Anthropic()
-        msg = client.messages.create(model=self.model, max_tokens=4096, system=system or "You are a Python developer.", messages=[{"role": "user", "content": prompt}])
+        msg = client.messages.create(
+            model=self.model,
+            max_tokens=4096,
+            system=system or "You are a Python developer.",
+            messages=[{"role": "user", "content": prompt}],
+        )
         return msg.content[0].text
 
 
@@ -75,11 +87,13 @@ class OpenRouterClient:
         self.model = model or os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
         self.base_url = os.environ.get("OPENROUTER_API_BASE_URL") or os.environ.get(
-            "OPENROUTER_API_URL", "https://openrouter.ai/api/v1",
+            "OPENROUTER_API_URL",
+            "https://openrouter.ai/api/v1",
         )
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import httpx
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -118,13 +132,17 @@ class AutoAgentGenerator(BaseETASSAgent):
     def _select_provider(self):
         from ._llm_bridge import dev_bridge_client
         from ._llm_cache import maybe_cache
+
         bridge = dev_bridge_client("auto_agent_generator")
         if bridge is not None:
             return maybe_cache(bridge, "auto_agent_generator")
         if os.environ.get("SPEC_DISCOVERY_PROVIDER", "").lower() == "claude" and _claude_available():
             return maybe_cache(ClaudeClient(), "auto_agent_generator")
         if _ollama_available():
-            return maybe_cache(OllamaClient(model=os.environ.get("OLLAMA_MODEL", "gemma3:latest")), "auto_agent_generator")
+            return maybe_cache(
+                OllamaClient(model=os.environ.get("OLLAMA_MODEL", "gemma3:latest")),
+                "auto_agent_generator",
+            )
         if _claude_available():
             return maybe_cache(ClaudeClient(), "auto_agent_generator")
         return None
@@ -146,7 +164,12 @@ class AutoAgentGenerator(BaseETASSAgent):
         if existing:
             self._reward(True, 0.8)
             return self._result(
-                payload={"generated": False, "agent_name": agent_name, "found": True, "source": "registry"},
+                payload={
+                    "generated": False,
+                    "agent_name": agent_name,
+                    "found": True,
+                    "source": "registry",
+                },
                 observations=[f"Agent {agent_name} already exists in registry"],
             )
 
@@ -170,14 +193,15 @@ class AutoAgentGenerator(BaseETASSAgent):
     def _find_existing_agent(self, agent_name: str) -> bool:
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
             # Exact match
             if registry.discover(agent_name) is not None:
                 return True
             # Fuzzy match: check if any registered agent type contains the name
             agent_lower = agent_name.lower().replace("-", " ").replace("_", " ")
-            for registered in registry._agents.values() if hasattr(registry, '_agents') else []:
-                reg_type = getattr(registered, 'agent_type', '').lower().replace('-', ' ').replace('_', ' ')
+            for registered in registry._agents.values() if hasattr(registry, "_agents") else []:
+                reg_type = getattr(registered, "agent_type", "").lower().replace("-", " ").replace("_", " ")
                 if agent_lower in reg_type or reg_type in agent_lower:
                     return True
             return False
@@ -187,7 +211,10 @@ class AutoAgentGenerator(BaseETASSAgent):
     async def _generate_agent(self, name: str, description: str, spec: dict, discovery: dict) -> str:
         if self._llm is not None:
             try:
-                raw = await self._llm.generate(self._agent_prompt(name, description, spec, discovery), system=self._system_prompt())
+                raw = await self._llm.generate(
+                    self._agent_prompt(name, description, spec, discovery),
+                    system=self._system_prompt(),
+                )
                 m = re.search(r"```python\s*\n(.*?)```", raw, re.DOTALL)
                 if m:
                     return m.group(1).strip()
@@ -210,7 +237,7 @@ class AutoAgentGenerator(BaseETASSAgent):
             f"Specification: {json.dumps(spec, indent=2)[:1000]}\n\n"
             "The agent must:\n"
             "1. Extend BaseETASSAgent from broca.agents._base\n"
-            "2. Have agent_type = \"{name}\"\n"
+            '2. Have agent_type = "{name}"\n'
             "3. Have a handle() method that returns an AgentResult\n"
             "4. Use self._run(context, self._impl) pattern\n"
             "5. Return self._result(payload={...}, observations=[...])\n\n"
@@ -229,6 +256,7 @@ class AutoAgentGenerator(BaseETASSAgent):
         # a quote in either escaped the string literal and injected code. Sanitise both — the
         # identifier for the class name, and a repr() for the string literals.
         from broca.agents._codegen_guard import safe_identifier
+
         ident = safe_identifier(name)
         name_lit = repr(str(name))
         desc_lit = repr(str(description))
@@ -260,14 +288,19 @@ class AutoGen_{ident}(BaseETASSAgent):
             return False
 
         from broca.agents._codegen_guard import (
-            SAFE_BUILTINS, UnsafeGeneratedCode, exec_enabled, validate_agent_code,
+            SAFE_BUILTINS,
+            UnsafeGeneratedCode,
+            exec_enabled,
+            validate_agent_code,
         )
 
         # Executing model-written source is RCE by design — make it a deliberate choice.
         if not exec_enabled():
             logger.error(
                 "[auto_agent] refusing to exec generated code for %r: set BROCA_AUTO_AGENT_EXEC=1 "
-                "to enable (this executes LLM-written Python in-process)", name)
+                "to enable (this executes LLM-written Python in-process)",
+                name,
+            )
             return False
 
         # The source is influenced by request-supplied agent_name/agent_description (prompt
@@ -280,6 +313,7 @@ class AutoGen_{ident}(BaseETASSAgent):
 
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
 
             namespace = {
@@ -290,13 +324,16 @@ class AutoGen_{ident}(BaseETASSAgent):
             }
             try:
                 from broca.agents._base import BaseETASSAgent
+
                 namespace["BaseETASSAgent"] = BaseETASSAgent
                 # Ensure broca.agents has BaseETASSAgent even if cached from earlier
                 import broca.agents as _ba
+
                 if not hasattr(_ba, "BaseETASSAgent"):
                     _ba.BaseETASSAgent = BaseETASSAgent
                 # Also patch sys.modules entry
                 import sys as _sys
+
                 _sm = _sys.modules.get("broca.agents")
                 if _sm is not None and not hasattr(_sm, "BaseETASSAgent"):
                     _sm.BaseETASSAgent = BaseETASSAgent

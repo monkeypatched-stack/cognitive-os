@@ -3,6 +3,7 @@
 Re-runs the complete MonkeyBrain benchmark suite against the hardened
 production implementation to verify no regressions were introduced.
 """
+
 from __future__ import annotations
 
 import os
@@ -43,19 +44,30 @@ def client():
     # implicitly from the per-test fixture.
     import os
     import subprocess
+
     try:
         subprocess.run(
-            ["redis-cli", "-h", os.getenv("REDIS_HOST", "localhost"),
-             "-p", os.getenv("REDIS_PORT", "6379"), "flushdb"],
-            timeout=2, capture_output=True, check=False,
+            [
+                "redis-cli",
+                "-h",
+                os.getenv("REDIS_HOST", "localhost"),
+                "-p",
+                os.getenv("REDIS_PORT", "6379"),
+                "flushdb",
+            ],
+            timeout=2,
+            capture_output=True,
+            check=False,
         )
     except Exception:
         pass
 
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -64,30 +76,46 @@ def client():
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _create_actor(client, name, actor_type, goal, caps=None):
-    r = client.post("/api/v1/agentos/actors", json={
-        "name": name, "actor_type": actor_type,
-        "goals": [goal], "capabilities": caps or [{"name": "general"}],
-    })
+    r = client.post(
+        "/api/v1/agentos/actors",
+        json={
+            "name": name,
+            "actor_type": actor_type,
+            "goals": [goal],
+            "capabilities": caps or [{"name": "general"}],
+        },
+    )
     assert r.status_code == 200, f"Create actor failed: {r.status_code} {r.text}"
     return r.json()["actor_id"]
 
 
 def _tick_actor(client, aid, start="origin", goal="target"):
-    r = client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-        "start": start, "goal": goal, "reward": 1.0,
-    })
+    r = client.post(
+        f"/api/v1/agentos/actors/{aid}/tick",
+        json={
+            "start": start,
+            "goal": goal,
+            "reward": 1.0,
+        },
+    )
     assert r.status_code == 200, f"Tick failed: {r.status_code} {r.text}"
     return r.json()
 
 
 def _share_experience(client, aid, outcome="success", confidence=0.8, lessons=None):
-    r = client.post("/api/v1/agentos/learn/experience", json={
-        "experience": {
-            "actor_id": aid, "outcome": outcome,
-            "confidence": confidence, "lessons": lessons or [],
-        }
-    })
+    r = client.post(
+        "/api/v1/agentos/learn/experience",
+        json={
+            "experience": {
+                "actor_id": aid,
+                "outcome": outcome,
+                "confidence": confidence,
+                "lessons": lessons or [],
+            }
+        },
+    )
     assert r.status_code == 200
     return r.json()
 
@@ -95,6 +123,7 @@ def _share_experience(client, aid, outcome="success", confidence=0.8, lessons=No
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. Functional Benchmarks (MB-0001 through MB-0015)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestMB0001HelloWorld:
     """MB-0001: Basic cognitive cycle — single actor, single tick."""
@@ -273,6 +302,7 @@ class TestMB0015Learning:
 # 2. Gateway Benchmarks
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestGatewayBenchmarks:
     """All benchmarks executed through the Runtime Gateway."""
 
@@ -358,13 +388,13 @@ class TestGatewayBenchmarks:
             else:
                 assert False, f"GET {ep} returned unexpected {r.status_code}"
         # At least 80% should succeed
-        assert successes >= len(subset) * 0.8, \
-            f"Only {successes}/{len(subset)} endpoints returned 200"
+        assert successes >= len(subset) * 0.8, f"Only {successes}/{len(subset)} endpoints returned 200"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. Performance Benchmarks
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPerformanceBenchmarks:
     """Measure and compare performance metrics."""
@@ -390,8 +420,9 @@ class TestPerformanceBenchmarks:
         max_lat = latencies[-1]
 
         print(f"\n  Actor tick: P50={p50:.1f}ms P95={p95:.1f}ms P99={p99:.1f}ms Max={max_lat:.1f}ms")
-        assert p99 < BASELINE["actor_tick_p99_ms"] * 2, \
+        assert p99 < BASELINE["actor_tick_p99_ms"] * 2, (
             f"P99 {p99:.1f}ms exceeds 2x baseline {BASELINE['actor_tick_p99_ms']}ms"
+        )
 
     def test_society_tick_latency(self, client):
         for i in range(10):
@@ -407,8 +438,7 @@ class TestPerformanceBenchmarks:
 
         assert r.status_code == 200
         print(f"\n  Society tick (10 actors): {elapsed:.1f}ms")
-        assert elapsed < BASELINE["society_tick_10_actors_ms"] * 3, \
-            f"Society tick {elapsed:.1f}ms exceeds 3x baseline"
+        assert elapsed < BASELINE["society_tick_10_actors_ms"] * 3, f"Society tick {elapsed:.1f}ms exceeds 3x baseline"
 
     def test_planet_tick_latency(self, client):
         start = time.time()
@@ -417,8 +447,7 @@ class TestPerformanceBenchmarks:
 
         assert r.status_code == 200
         print(f"\n  Planet tick: {elapsed:.1f}ms")
-        assert elapsed < BASELINE["planet_tick_10_actors_ms"] * 3, \
-            f"Planet tick {elapsed:.1f}ms exceeds 3x baseline"
+        assert elapsed < BASELINE["planet_tick_10_actors_ms"] * 3, f"Planet tick {elapsed:.1f}ms exceeds 3x baseline"
 
     def test_read_endpoint_latency(self, client):
         endpoints = {
@@ -443,6 +472,7 @@ class TestPerformanceBenchmarks:
 # 4. Learning Benchmarks
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearningBenchmarks:
     """Verify learning produces observable state changes."""
 
@@ -451,7 +481,9 @@ class TestLearningBenchmarks:
 
         # Share 10 experiences
         for i in range(10):
-            exp = _share_experience(client, aid,
+            exp = _share_experience(
+                client,
+                aid,
                 outcome="success" if i % 2 == 0 else "failure",
                 confidence=0.5 + (i % 5) * 0.1,
                 lessons=[f"lesson_{i}"],
@@ -468,8 +500,11 @@ class TestLearningBenchmarks:
         aid = _create_actor(client, "WorldRefiner", "ai_agent", "refine_world")
 
         # Share experience with lessons
-        exp = _share_experience(client, aid,
-            outcome="success", confidence=0.9,
+        exp = _share_experience(
+            client,
+            aid,
+            outcome="success",
+            confidence=0.9,
             lessons=["lesson_1", "lesson_2"],
         )
         assert exp["result"]["world_refined"] is True
@@ -478,14 +513,17 @@ class TestLearningBenchmarks:
         aid = _create_actor(client, "PolicyProposer", "ai_agent", "propose_policy")
 
         # Share policy evolution experience
-        r = client.post("/api/v1/agentos/learn/experience", json={
-            "learning_type": "policy_evolution",
-            "experience": {
-                "actor_id": aid,
-                "outcome": "success",
-                "confidence": 0.9,
-            }
-        })
+        r = client.post(
+            "/api/v1/agentos/learn/experience",
+            json={
+                "learning_type": "policy_evolution",
+                "experience": {
+                    "actor_id": aid,
+                    "outcome": "success",
+                    "confidence": 0.9,
+                },
+            },
+        )
         assert r.status_code == 200
         assert r.json()["result"]["policy_proposed"] is not None
 
@@ -505,6 +543,7 @@ class TestLearningBenchmarks:
 # ═══════════════════════════════════════════════════════════════════════════
 # 5. Federation Benchmarks
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFederationBenchmarks:
     """Federation coordination and failure isolation."""
@@ -541,6 +580,7 @@ class TestFederationBenchmarks:
 # 6. Resource Benchmarks
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestResourceBenchmarks:
     """Monitor resource usage and bounded growth."""
 
@@ -561,7 +601,7 @@ class TestResourceBenchmarks:
         total2 = sum(s.size for s in snap2.statistics("lineno"))
         growth_pct = ((total2 - total1) / total1 * 100) if total1 > 0 else 0
 
-        print(f"\n  Memory: {total1/1024:.1f}KB → {total2/1024:.1f}KB ({growth_pct:+.1f}%)")
+        print(f"\n  Memory: {total1 / 1024:.1f}KB → {total2 / 1024:.1f}KB ({growth_pct:+.1f}%)")
         assert growth_pct < 100, f"Memory grew {growth_pct:.1f}% (>100%)"
 
     def test_world_events_bounded(self, client):
@@ -585,6 +625,7 @@ class TestResourceBenchmarks:
 # 7. Regression Benchmarks
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRegressionBenchmarks:
     """Verify no behavioral regressions."""
 
@@ -596,9 +637,14 @@ class TestRegressionBenchmarks:
         r = client.post("/api/v1/agentos/societies", json={"name": "Regression"})
         assert r.status_code == 200
 
-        r = client.post("/api/v1/agentos/actors", json={
-            "name": "Regression-Actor", "actor_type": "robot", "goals": ["test"],
-        })
+        r = client.post(
+            "/api/v1/agentos/actors",
+            json={
+                "name": "Regression-Actor",
+                "actor_type": "robot",
+                "goals": ["test"],
+            },
+        )
         assert r.status_code == 200
 
         # Validation errors

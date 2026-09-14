@@ -7,18 +7,36 @@ from services.common.logging import configure_service_logging, install_request_l
 from services.common.tracing import install_route_tracing
 
 from services.common.db import close_db, connect_db
-from services.process_definitions.routers.cpp_cqa_registry import router as cpp_cqa_registry_router
-from services.process_definitions.routers.mbmr_templates import router as mbmr_templates_router
-from services.process_definitions.routers.packing_instructions import router as packing_instructions_router
-from services.process_definitions.routers.process_definition import router as process_definition_router
-from services.process_definitions.routers.process_steps import router as process_steps_router
-from services.process_definitions.routers.process_pre_checks import router as process_definition_prechecks_router
-from services.process_definitions.routers.process_post_checks import router as process_definition_postchecks_router
-from services.process_definitions.routers.process_constraints import router as process_constraints_router
-from services.process_definitions.routers.process_corrections import router as process_corrections_router
-
+from services.process_definitions.routers.cpp_cqa_registry import (
+    router as cpp_cqa_registry_router,
+)
+from services.process_definitions.routers.mbmr_templates import (
+    router as mbmr_templates_router,
+)
+from services.process_definitions.routers.packing_instructions import (
+    router as packing_instructions_router,
+)
+from services.process_definitions.routers.process_definition import (
+    router as process_definition_router,
+)
+from services.process_definitions.routers.process_steps import (
+    router as process_steps_router,
+)
+from services.process_definitions.routers.process_pre_checks import (
+    router as process_definition_prechecks_router,
+)
+from services.process_definitions.routers.process_post_checks import (
+    router as process_definition_postchecks_router,
+)
+from services.process_definitions.routers.process_constraints import (
+    router as process_constraints_router,
+)
+from services.process_definitions.routers.process_corrections import (
+    router as process_corrections_router,
+)
 
 logger = configure_service_logging("process_definition")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -55,15 +73,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(process_definition_router, prefix="/api/v1/process-definitions", tags=["Process Definitions"])
-app.include_router(cpp_cqa_registry_router, prefix="/api/v1/cpp-cqa-registry", tags=["CPP CQA Registry"])
-app.include_router(mbmr_templates_router, prefix="/api/v1/mbmr-templates", tags=["MBMR Templates"])
-app.include_router(packing_instructions_router, prefix="/api/v1/packing-instructions", tags=["Packing Instructions"])
-app.include_router(process_steps_router, prefix="/api/v1/process-steps", tags=["Process Steps"])
-app.include_router(process_definition_prechecks_router, prefix="/api/v1/process-prechecks", tags=["Process Prechecks"])
-app.include_router(process_definition_postchecks_router, prefix="/api/v1/process-postchecks", tags=["Process Postchecks"])
-app.include_router(process_constraints_router, prefix="/api/v1/process-constraints", tags=["Process Constraints"])
-app.include_router(process_corrections_router, prefix="/api/v1/process-corrections", tags=["Process Corrections"])
+app.include_router(
+    process_definition_router,
+    prefix="/api/v1/process-definitions",
+    tags=["Process Definitions"],
+)
+app.include_router(
+    cpp_cqa_registry_router,
+    prefix="/api/v1/cpp-cqa-registry",
+    tags=["CPP CQA Registry"],
+)
+app.include_router(
+    mbmr_templates_router, prefix="/api/v1/mbmr-templates", tags=["MBMR Templates"]
+)
+app.include_router(
+    packing_instructions_router,
+    prefix="/api/v1/packing-instructions",
+    tags=["Packing Instructions"],
+)
+app.include_router(
+    process_steps_router, prefix="/api/v1/process-steps", tags=["Process Steps"]
+)
+app.include_router(
+    process_definition_prechecks_router,
+    prefix="/api/v1/process-prechecks",
+    tags=["Process Prechecks"],
+)
+app.include_router(
+    process_definition_postchecks_router,
+    prefix="/api/v1/process-postchecks",
+    tags=["Process Postchecks"],
+)
+app.include_router(
+    process_constraints_router,
+    prefix="/api/v1/process-constraints",
+    tags=["Process Constraints"],
+)
+app.include_router(
+    process_corrections_router,
+    prefix="/api/v1/process-corrections",
+    tags=["Process Corrections"],
+)
 
 
 @app.get("/health", tags=["Health"])

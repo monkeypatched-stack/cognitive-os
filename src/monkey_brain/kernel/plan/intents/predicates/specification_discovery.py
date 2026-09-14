@@ -1,5 +1,6 @@
 """Specification Discovery — routes open-ended build requests through
 the SpecificationDiscoveryAgent for autonomous spec inference."""
+
 from __future__ import annotations
 
 import logging
@@ -9,12 +10,28 @@ from typing import Any
 logger = logging.getLogger("agentos.spec_discovery")
 
 _SPEC_DISCOVERY_KEYWORDS = [
-    "build me", "create a", "make me", "develop a", "write me",
-    "i need an", "i want a", "can you build", "can you create",
-    "help me build", "help me create", "design a", "generate a",
-    "write an app", "build an app", "build a system", "build a tool",
-    "write a tool", "create a tool", "build an assistant",
-    "write an assistant", "create an assistant",
+    "build me",
+    "create a",
+    "make me",
+    "develop a",
+    "write me",
+    "i need an",
+    "i want a",
+    "can you build",
+    "can you create",
+    "help me build",
+    "help me create",
+    "design a",
+    "generate a",
+    "write an app",
+    "build an app",
+    "build a system",
+    "build a tool",
+    "write a tool",
+    "create a tool",
+    "build an assistant",
+    "write an assistant",
+    "create an assistant",
 ]
 
 
@@ -23,13 +40,18 @@ def is_specification_discovery_question(question: str) -> bool:
     q = question.lower().strip()
     if any(kw in q for kw in _SPEC_DISCOVERY_KEYWORDS):
         return True
-    if re.search(r"\b(build|create|make|develop|write|design|generate)\b.*\b(app|tool|system|assistant|bot|service|agent|workflow|pipeline|integration)\b", q):
+    if re.search(
+        r"\b(build|create|make|develop|write|design|generate)\b.*\b(app|tool|system|assistant|bot|service|agent|workflow|pipeline|integration)\b",
+        q,
+    ):
         return True
     return False
 
 
 async def specification_discovery_question_answer(
-    client: Any, question: str, force: bool = False,
+    client: Any,
+    question: str,
+    force: bool = False,
 ) -> str:
     """Route through SpecificationDiscoveryAgent for autonomous spec inference."""
     from broca.agents.specification_discovery_agent import SpecificationDiscoveryAgent

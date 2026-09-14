@@ -9,6 +9,7 @@ from enum import Enum
 
 class PRStatus(Enum):
     """Pull request status value object."""
+
     OPEN = "open"
     MERGED = "merged"
     CLOSED = "closed"
@@ -17,6 +18,7 @@ class PRStatus(Enum):
 
 class TestResult(Enum):
     """Test result value object."""
+
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -25,6 +27,7 @@ class TestResult(Enum):
 
 class DeploymentEnvironment(Enum):
     """Deployment environment value object."""
+
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"
@@ -33,6 +36,7 @@ class DeploymentEnvironment(Enum):
 
 class PipelineStage(Enum):
     """Pipeline stage value object."""
+
     BUILD = "build"
     TEST = "test"
     LINT = "lint"
@@ -44,6 +48,7 @@ class PipelineStage(Enum):
 @dataclass(frozen=True)
 class CodeMetrics:
     """Code metrics value object."""
+
     lines_added: int = 0
     lines_removed: int = 0
     files_changed: int = 0
@@ -57,6 +62,7 @@ class CodeMetrics:
 @dataclass(frozen=True)
 class TestCoverage:
     """Test coverage value object."""
+
     line_coverage: float = 0.0
     branch_coverage: float = 0.0
     function_coverage: float = 0.0

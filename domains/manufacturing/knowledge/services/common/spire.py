@@ -12,7 +12,7 @@ try:
 except ImportError:
     import os as _os
 
-    _SOCKET    = _os.getenv("SPIFFE_ENDPOINT_SOCKET", "")
+    _SOCKET = _os.getenv("SPIFFE_ENDPOINT_SOCKET", "")
     _STATIC_ID = _os.getenv("SPIFFE_ID", "")
 
     async def fetch_svid() -> dict[str, Any] | None:  # type: ignore[misc]
@@ -26,11 +26,18 @@ except ImportError:
                     insecure_dev_mode,
                     production_mode_enabled,
                 )
+
                 if production_mode_enabled() or not insecure_dev_mode():
                     return None
             except Exception:
                 return None
-            return {"spiffe_id": _STATIC_ID, "source": "env", "cert_pem": None, "key_pem": None, "bundle_pem": None}
+            return {
+                "spiffe_id": _STATIC_ID,
+                "source": "env",
+                "cert_pem": None,
+                "key_pem": None,
+                "bundle_pem": None,
+            }
         return None
 
     def spiffe_id_from_svid(svid: dict[str, Any] | None) -> str | None:  # type: ignore[misc]

@@ -21,6 +21,7 @@ first real use. Activated societies' policies are merged by priority
 descending, deduped by name (highest-priority society's version wins),
 ties broken by activation order.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -99,7 +100,10 @@ class SocietyActivationEngine:
 
         policy_bundle = self._merge_policies(activated)
         return SocietyActivationResult(
-            actor_id=actor_id, goal=goal, activated=tuple(activated), policy_bundle=policy_bundle,
+            actor_id=actor_id,
+            goal=goal,
+            activated=tuple(activated),
+            policy_bundle=policy_bundle,
         )
 
     def _merge_policies(self, activated: list[ActivatedSociety]) -> PolicyBundle:

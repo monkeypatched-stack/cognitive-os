@@ -29,6 +29,7 @@ _flush_shared_redis fixture already documents fixing for Actors/geography.
 These tests exist to lock in the correct behavior as a regression guard,
 not because a code defect was found and fixed here.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -38,6 +39,7 @@ class _Helpers:
     @staticmethod
     def _seed_merchant_and_store(pr, merchant_actor_id: str, store_name: str):
         from src.monkey_brain.kernel.domains.commerce import onboard_merchant
+
         return onboard_merchant(pr.knowledge_graph, merchant_actor_id, store_name)
 
 
@@ -52,8 +54,12 @@ class TestCatalogCrossProcessReadAfterWrite(_Helpers):
         pr_a = PlanetaryRuntime()
         store = self._seed_merchant_and_store(pr_a, "merchant-catalog-test-1", "Catalog Test Store")
         result = list_product(
-            pr_a.knowledge_graph, store["store_id"], "merchant-catalog-test-1",
-            "Cross-Process Widget", price=9.99, quantity=10,
+            pr_a.knowledge_graph,
+            store["store_id"],
+            "merchant-catalog-test-1",
+            "Cross-Process Widget",
+            price=9.99,
+            quantity=10,
         )
         assert result["success"], result
         product_id = result["product_id"]
@@ -102,14 +108,21 @@ class TestCatalogCrossProcessUpdateVisibility(_Helpers):
     """
 
     def test_price_update_from_one_instance_seen_by_a_new_instance(self):
-        from src.monkey_brain.kernel.domains.commerce import list_product, update_product
+        from src.monkey_brain.kernel.domains.commerce import (
+            list_product,
+            update_product,
+        )
         from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
         pr_a = PlanetaryRuntime()
         store = self._seed_merchant_and_store(pr_a, "merchant-catalog-test-3", "Price Update Store")
         created = list_product(
-            pr_a.knowledge_graph, store["store_id"], "merchant-catalog-test-3",
-            "Priceable Widget", price=5.00, quantity=3,
+            pr_a.knowledge_graph,
+            store["store_id"],
+            "merchant-catalog-test-3",
+            "Priceable Widget",
+            price=5.00,
+            quantity=3,
         )
         product_id = created["product_id"]
 
@@ -143,8 +156,12 @@ class TestCatalogSurvivesRestart(_Helpers):
             pr_a = PlanetaryRuntime()
             store = self._seed_merchant_and_store(pr_a, "merchant-catalog-test-4", "Restart Store")
             created = list_product(
-                pr_a.knowledge_graph, store["store_id"], "merchant-catalog-test-4",
-                "Restart-Surviving Widget", price=12.34, quantity=1,
+                pr_a.knowledge_graph,
+                store["store_id"],
+                "merchant-catalog-test-4",
+                "Restart-Surviving Widget",
+                price=12.34,
+                quantity=1,
             )
             return created["product_id"], store["store_id"]
             # pr_a falls out of scope here — nothing keeps it alive, same
@@ -173,8 +190,12 @@ class TestCatalogInitializationDoesNotOverwriteSharedState(_Helpers):
         pr_a = PlanetaryRuntime()
         store = self._seed_merchant_and_store(pr_a, "merchant-catalog-test-5", "Survives Boot Store")
         created = list_product(
-            pr_a.knowledge_graph, store["store_id"], "merchant-catalog-test-5",
-            "Should Not Vanish", price=1.00, quantity=1,
+            pr_a.knowledge_graph,
+            store["store_id"],
+            "merchant-catalog-test-5",
+            "Should Not Vanish",
+            price=1.00,
+            quantity=1,
         )
         product_id = created["product_id"]
 
@@ -206,8 +227,12 @@ class TestCatalogOwnershipIsolation(_Helpers):
 
         pr_b = PlanetaryRuntime()  # different process, sees the same store
         denied = list_product(
-            pr_b.knowledge_graph, store_a["store_id"], "merchant-owner-b",
-            "Should Be Denied", price=1.00, quantity=1,
+            pr_b.knowledge_graph,
+            store_a["store_id"],
+            "merchant-owner-b",
+            "Should Be Denied",
+            price=1.00,
+            quantity=1,
         )
         assert not denied["success"]
         assert "does not own" in denied["error"]

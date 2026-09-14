@@ -66,7 +66,9 @@ async def get_by_sales_order_id(
     db: AsyncIOMotorDatabase,
     sales_order_id: str,
 ) -> Optional[dict]:
-    return _serialize_response(await db[COLLECTION].find_one({"sales_order_id": sales_order_id}))
+    return _serialize_response(
+        await db[COLLECTION].find_one({"sales_order_id": sales_order_id})
+    )
 
 
 async def get_by_customer_id(db: AsyncIOMotorDatabase, customer_id: str) -> list[dict]:

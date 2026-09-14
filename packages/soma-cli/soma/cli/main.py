@@ -55,109 +55,117 @@ def _helm_to_jinja(template: str) -> str:
     # Convert block tags FIRST (before inline expressions)
     # {{- range $name, $sub := .Values.x }}
     t = re.sub(
-        r'\{\{\s*-?\s*range\s+\$\w+,\s*\$\w+\s*:=\s*\.Values\.(\S+?)\s*-?\}\}',
-        r'{% for key, item in values.\1.items() %}',
-        t
+        r"\{\{\s*-?\s*range\s+\$\w+,\s*\$\w+\s*:=\s*\.Values\.(\S+?)\s*-?\}\}",
+        r"{% for key, item in values.\1.items() %}",
+        t,
     )
     # {{ $name }} → {{ key }}
-    t = re.sub(r'\{\{\s*\$name\s*\}\}', '{{ key }}', t)
+    t = re.sub(r"\{\{\s*\$name\s*\}\}", "{{ key }}", t)
     # {{- range .Values.x }} or {{ - range .Values.x }}
-    t = re.sub(r'\{\{\s*-?\s*range\s+\.Values\.(\S+?)\s*-?\}\}', r'{% for item in values.\1 %}', t)
-    t = re.sub(r'\{\{\s*-?\s*range\s+values\.(\S+?)\s*-?\}\}', r'{% for item in values.\1 %}', t)
+    t = re.sub(
+        r"\{\{\s*-?\s*range\s+\.Values\.(\S+?)\s*-?\}\}",
+        r"{% for item in values.\1 %}",
+        t,
+    )
+    t = re.sub(
+        r"\{\{\s*-?\s*range\s+values\.(\S+?)\s*-?\}\}",
+        r"{% for item in values.\1 %}",
+        t,
+    )
     # {{- range item.x }} (nested range inside a for loop)
-    t = re.sub(r'\{\{\s*-?\s*range\s+item\.(\S+?)\s*-?\}\}', r'{% for sub in item.\1 %}', t)
+    t = re.sub(r"\{\{\s*-?\s*range\s+item\.(\S+?)\s*-?\}\}", r"{% for sub in item.\1 %}", t)
     # {{- range .x }} (bare dot nested range — item.x)
-    t = re.sub(r'\{\{\s*-?\s*range\s+\.(\S+?)\s*-?\}\}', r'{% for sub in item.\1 %}', t)
+    t = re.sub(r"\{\{\s*-?\s*range\s+\.(\S+?)\s*-?\}\}", r"{% for sub in item.\1 %}", t)
     # {{- if .foo }} or {{- if item.foo }}
-    t = re.sub(r'\{\{\s*-?\s*if\s+\.(\S+?)\s*-?\}\}', r'{% if item.\1 %}', t)
-    t = re.sub(r'\{\{\s*-?\s*if\s+item\.(\S+?)\s*-?\}\}', r'{% if item.\1 %}', t)
+    t = re.sub(r"\{\{\s*-?\s*if\s+\.(\S+?)\s*-?\}\}", r"{% if item.\1 %}", t)
+    t = re.sub(r"\{\{\s*-?\s*if\s+item\.(\S+?)\s*-?\}\}", r"{% if item.\1 %}", t)
     # {{- end }} or {{ end }}
-    t = re.sub(r'\{\{\s*-?\s*end\s*-?\}\}', '{% end %}', t)
+    t = re.sub(r"\{\{\s*-?\s*end\s*-?\}\}", "{% end %}", t)
 
     # Resolve {% end %} to {% endfor %} or {% endif %} by tracking nesting
-    lines = t.split('\n')
+    lines = t.split("\n")
     stack = []
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith('{% for'):
+        if stripped.startswith("{% for"):
             # Detect which variable: "for item in" vs "for sub in"
-            if 'for sub ' in stripped:
-                stack.append('sub')
+            if "for sub " in stripped:
+                stack.append("sub")
             else:
-                stack.append('item')
-        elif stripped.startswith('{% if'):
-            stack.append('if')
-        elif stripped == '{% end %}':
+                stack.append("item")
+        elif stripped.startswith("{% if"):
+            stack.append("if")
+        elif stripped == "{% end %}":
             if stack:
                 block_type = stack.pop()
-                if block_type == 'if':
-                    lines[i] = line.replace('{% end %}', '{% endif %}')
+                if block_type == "if":
+                    lines[i] = line.replace("{% end %}", "{% endif %}")
                 else:
-                    lines[i] = line.replace('{% end %}', '{% endfor %}')
-    t = '\n'.join(lines)
+                    lines[i] = line.replace("{% end %}", "{% endfor %}")
+    t = "\n".join(lines)
 
     # Now convert inline {{ ... }} expressions
     def convert_expr(m):
         expr = m.group(1).strip()
 
         # Remove | default <value>
-        expr = re.sub(r'\s*\|\s*default\s+\S+', '', expr)
+        expr = re.sub(r"\s*\|\s*default\s+\S+", "", expr)
         # Remove | quote (Helm quoting is handled by YAML output)
-        expr = re.sub(r'\s*\|\s*quote', '', expr)
+        expr = re.sub(r"\s*\|\s*quote", "", expr)
         # Convert Helm | lower | replace " " "-" → Jinja2 filters
-        expr = re.sub(r'\|\s*lower', '|lower', expr)
+        expr = re.sub(r"\|\s*lower", "|lower", expr)
         expr = re.sub(r'\|\s*replace\s+"([^"]+)"\s+"([^"]+)"', r"|replace('\1', '\2')", expr)
         # Convert | toJson → | tojson
-        expr = re.sub(r'\|\s*toJson', '|tojson', expr)
+        expr = re.sub(r"\|\s*toJson", "|tojson", expr)
 
         # printf "fmt" arg1 arg2
         pm = re.match(r'printf\s+"([^"]+)"\s*(.*)', expr)
         if pm:
             fmt = pm.group(1)
             args_raw = pm.group(2).strip()
-            args = re.sub(r'\$\.Values\.(\S+)', r'values.\1', args_raw)
-            args = re.sub(r'\.Values\.(\S+)', r'values.\1', args)
-            args = re.sub(r'(?<![a-zA-Z0-9_])\.([a-zA-Z])', r'item.\1', args)
-            args = re.sub(r'\s+', ', ', args)
-            return '{{ "' + fmt + '"|format(' + args + ') }}'
+            args = re.sub(r"\$\.Values\.(\S+)", r"values.\1", args_raw)
+            args = re.sub(r"\.Values\.(\S+)", r"values.\1", args)
+            args = re.sub(r"(?<![a-zA-Z0-9_])\.([a-zA-Z])", r"item.\1", args)
+            args = re.sub(r"\s+", ", ", args)
+            return '{{ "' + fmt + '"|format(' + args + ") }}"
 
         # $.Values.x.y → values.x.y
-        expr = re.sub(r'\$\.Values\.(\S+)', r'values.\1', expr)
+        expr = re.sub(r"\$\.Values\.(\S+)", r"values.\1", expr)
         # .Values.x.y → values.x.y
-        expr = re.sub(r'\.Values\.(\S+)', r'values.\1', expr)
+        expr = re.sub(r"\.Values\.(\S+)", r"values.\1", expr)
         # bare . → item
-        if expr == '.':
-            expr = 'item'
+        if expr == ".":
+            expr = "item"
         # .foo → item.foo (but only when not already item.xxx or values.xxx)
-        if not expr.startswith('item.') and not expr.startswith('values.'):
-            expr = re.sub(r'(?<![a-zA-Z0-9_])\.([a-zA-Z])', r'item.\1', expr)
+        if not expr.startswith("item.") and not expr.startswith("values."):
+            expr = re.sub(r"(?<![a-zA-Z0-9_])\.([a-zA-Z])", r"item.\1", expr)
 
-        return '{{ ' + expr + ' }}'
+        return "{{ " + expr + " }}"
 
-    t = re.sub(r'\{\{(.+?)\}\}', convert_expr, t)
+    t = re.sub(r"\{\{(.+?)\}\}", convert_expr, t)
 
     # Fix: inside "for sub in" loops, "item" should be "sub"
-    lines = t.split('\n')
+    lines = t.split("\n")
     in_sub = False
     depth = 0
     result = []
     for line in lines:
         stripped = line.strip()
-        if stripped.startswith('{% for sub '):
+        if stripped.startswith("{% for sub "):
             in_sub = True
             depth = 1
-        elif stripped.startswith('{% for '):
+        elif stripped.startswith("{% for "):
             if in_sub:
                 depth += 1
-        elif stripped.startswith('{% endfor'):
+        elif stripped.startswith("{% endfor"):
             if in_sub:
                 depth -= 1
                 if depth == 0:
                     in_sub = False
-        elif in_sub and '{{ item }}' in line:
-            line = line.replace('{{ item }}', '{{ sub }}')
+        elif in_sub and "{{ item }}" in line:
+            line = line.replace("{{ item }}", "{{ sub }}")
         result.append(line)
-    t = '\n'.join(result)
+    t = "\n".join(result)
 
     return t
 
@@ -169,26 +177,44 @@ def _render_template(template: str, values: dict) -> str:
     tmpl = env.from_string(jinja_template)
     rendered = tmpl.render(values=values, Release={"Namespace": "default"})
     # Post-process: quote YAML values containing colons or multiline content
-    lines = rendered.split('\n')
+    lines = rendered.split("\n")
     result = []
     in_multiline = False
     for line in lines:
         stripped = line.strip()
         # Detect multiline string values (indented lines after a key without quotes)
         if in_multiline:
-            if stripped and not stripped.startswith('#') and not stripped.startswith('-') and ':' in stripped and not stripped.startswith('"'):
+            if (
+                stripped
+                and not stripped.startswith("#")
+                and not stripped.startswith("-")
+                and ":" in stripped
+                and not stripped.startswith('"')
+            ):
                 in_multiline = False
             else:
                 result.append(line)
                 continue
         # Quote values with colons
-        if ':' in line and not stripped.startswith('#') and not stripped.startswith('-') and not stripped.startswith('{'):
-            key, _, val = line.partition(':')
+        if (
+            ":" in line
+            and not stripped.startswith("#")
+            and not stripped.startswith("-")
+            and not stripped.startswith("{")
+        ):
+            key, _, val = line.partition(":")
             val = val.strip()
-            if val and not val.startswith('"') and not val.startswith("'") and not val.startswith('{') and not val.startswith('[') and ':' in val:
+            if (
+                val
+                and not val.startswith('"')
+                and not val.startswith("'")
+                and not val.startswith("{")
+                and not val.startswith("[")
+                and ":" in val
+            ):
                 line = f'{key}: "{val}"'
         result.append(line)
-    return '\n'.join(result)
+    return "\n".join(result)
 
 
 def _parse_rendered_yaml(rendered: str) -> list[dict]:
@@ -201,6 +227,7 @@ def _parse_rendered_yaml(rendered: str) -> list[dict]:
 
 
 # ── Commands ──────────────────────────────────────────────────────────────────
+
 
 @app.command()
 def lint(
@@ -290,7 +317,9 @@ def validate(
 @app.command()
 def build(
     chart: Optional[str] = typer.Argument(None, help="Specific chart to build (default: all)"),
-    output: str = typer.Option("src/sittingface_charts/somatic", "-o", "--output", help="Output directory"),
+    output: str = typer.Option(
+        "src/sittingface_charts/somatic", "-o", "--output", help="Output directory"
+    ),
 ) -> None:
     """Build YAML resources from somatic charts, then extract prompts as markdown."""
     charts_dir = CONSTITUTIONS_DIR / "charts"
@@ -450,7 +479,9 @@ def build(
                 if ops:
                     md_lines.append("### Operations")
                     for op in ops:
-                        md_lines.append(f"- **{op.get('name', '?')}** ({op.get('method', '?')}): {op.get('description', '?')}")
+                        md_lines.append(
+                            f"- **{op.get('name', '?')}** ({op.get('method', '?')}): {op.get('description', '?')}"
+                        )
                     md_lines.append("")
 
                 tests = defn.get("tests", {})
@@ -491,14 +522,18 @@ def build(
                     steps = workflow.get("steps", [])
                     if steps:
                         for s in steps:
-                            md_lines.append(f"  - {s.get('id', '?')} ({s.get('action', '?')}) → {s.get('on_failure', '?')}")
+                            md_lines.append(
+                                f"  - {s.get('id', '?')} ({s.get('action', '?')}) → {s.get('on_failure', '?')}"
+                            )
                     md_lines.append("")
 
                 tools = ag.get("tools", [])
                 if tools:
                     md_lines.append("### Tools")
                     for t in tools:
-                        md_lines.append(f"- **{t.get('name', '?')}** ({t.get('type', '?')}): {t.get('description', '?')}")
+                        md_lines.append(
+                            f"- **{t.get('name', '?')}** ({t.get('type', '?')}): {t.get('description', '?')}"
+                        )
                     md_lines.append("")
 
                 routing = ag.get("routing", {})
@@ -506,7 +541,9 @@ def build(
                     md_lines.append("### Routing")
                     md_lines.append(f"- **Strategy:** {routing.get('strategy', '?')}")
                     for ra in routing["agents"]:
-                        md_lines.append(f"- **{ra.get('name', '?')}**: {', '.join(ra.get('handles', []))}")
+                        md_lines.append(
+                            f"- **{ra.get('name', '?')}**: {', '.join(ra.get('handles', []))}"
+                        )
                     md_lines.append("")
 
                 mem = ag.get("memory", {})
@@ -524,13 +561,17 @@ def build(
                 cgconf = cg.get("codegen_config", {})
                 if cgconf:
                     md_lines.append(f"- **Runtime module:** {cgconf.get('runtime_module', '?')}")
-                    md_lines.append(f"- **Auto-register:** {cgconf.get('registry_auto_register', '?')}")
+                    md_lines.append(
+                        f"- **Auto-register:** {cgconf.get('registry_auto_register', '?')}"
+                    )
                 md_lines.append("")
 
         md_content = "\n".join(md_lines)
         out_file = out_dir / f"{chart_name}.md"
         out_file.write_text(md_content)
-        console.print(f"  [green]OK[/green] {chart_name} ({len(resources)} resources) → {out_file.relative_to(_find_repo_root())}")
+        console.print(
+            f"  [green]OK[/green] {chart_name} ({len(resources)} resources) → {out_file.relative_to(_find_repo_root())}"
+        )
 
     console.print(f"\n[green]Built {len(chart_dirs)} charts → {out_dir}[/green]")
 
@@ -595,7 +636,9 @@ def prompts(
 
 @app.command()
 def capabilities(
-    output: str = typer.Option("src/sittingface_charts/cerebellum", "-o", "--output", help="Output directory"),
+    output: str = typer.Option(
+        "src/sittingface_charts/cerebellum", "-o", "--output", help="Output directory"
+    ),
 ) -> None:
     """Build capability markdown from cerebellum capability charts."""
     charts_dir = CONSTITUTIONS_DIR / "charts"
@@ -670,7 +713,9 @@ def capabilities(
                 md_lines.append("| Name | Method | Description |")
                 md_lines.append("|------|--------|-------------|")
                 for op in ops:
-                    md_lines.append(f"| {op.get('name', '?')} | {op.get('method', '?')} | {op.get('description', '?')} |")
+                    md_lines.append(
+                        f"| {op.get('name', '?')} | {op.get('method', '?')} | {op.get('description', '?')} |"
+                    )
                 md_lines.append("")
 
             rate = defn.get("rate_limit", {})
@@ -686,7 +731,9 @@ def capabilities(
                 md_lines.append("## Error Handling")
                 md_lines.append(f"- **Transient:** {errors.get('transient_statuses', [])}")
                 md_lines.append(f"- **Permanent:** {errors.get('permanent_statuses', [])}")
-                md_lines.append(f"- **Circuit breaker:** {errors.get('circuit_breaker_threshold', '?')} failures / {errors.get('circuit_breaker_window_seconds', '?')}s")
+                md_lines.append(
+                    f"- **Circuit breaker:** {errors.get('circuit_breaker_threshold', '?')} failures / {errors.get('circuit_breaker_window_seconds', '?')}s"
+                )
                 md_lines.append("")
 
             tests = defn.get("tests", {})
@@ -712,12 +759,16 @@ def capabilities(
     md_content = "\n".join(md_lines)
     out_file = out_dir / "capabilities.md"
     out_file.write_text(md_content)
-    console.print(f"[green]Built {len(resources)} resources → {out_file.relative_to(_find_repo_root())}[/green]")
+    console.print(
+        f"[green]Built {len(resources)} resources → {out_file.relative_to(_find_repo_root())}[/green]"
+    )
 
 
 @app.command()
 def reviews(
-    output: str = typer.Option("src/sittingface_charts/somatic", "-o", "--output", help="Output directory"),
+    output: str = typer.Option(
+        "src/sittingface_charts/somatic", "-o", "--output", help="Output directory"
+    ),
 ) -> None:
     """Generate architecture and governance review documents from charts."""
     repo_root = _find_repo_root()
@@ -729,6 +780,7 @@ def reviews(
         raise typer.Exit(1)
 
     import sys
+
     sys.path.insert(0, str(repo_root / "src"))
     from sittingface.review_generator import (
         generate_architecture_review,
@@ -752,10 +804,16 @@ def reviews(
 
 @app.command()
 def run(
-    output: str = typer.Option("/Users/prashunjaveri/Code/generated/monkeypatched", "-o", "--output", help="Output directory for generated code"),
+    output: str = typer.Option(
+        "/Users/prashunjaveri/Code/generated/monkeypatched",
+        "-o",
+        "--output",
+        help="Output directory for generated code",
+    ),
 ) -> None:
     """Run compiled prompts through MiMo Code Agent and generate Python code."""
     import sys
+
     sys.path.insert(0, str(_find_repo_root() / "src"))
 
     from sittingface.somatic_compiler import SomaticCompiler
@@ -789,7 +847,7 @@ def run(
                 console.print(f"         → {s.target_file}")
 
     summary = agent.summary()
-    console.print(f"\n[green]Code generation complete[/green]")
+    console.print("\n[green]Code generation complete[/green]")
     console.print(f"  Prompts run: {summary['prompts_run']}")
     console.print(f"  Total steps: {summary['total_steps']}")
     console.print(f"  Files written: {summary['files_written']}")
@@ -799,7 +857,12 @@ def run(
 @app.command("source-diff")
 def source_diff(
     src_dir: str = typer.Option("src", "-s", "--src", help="Source directory (existing code)"),
-    gen_dir: str = typer.Option("/Users/prashunjaveri/Code/generated/monkeypatched", "-g", "--generated", help="Generated directory"),
+    gen_dir: str = typer.Option(
+        "/Users/prashunjaveri/Code/generated/monkeypatched",
+        "-g",
+        "--generated",
+        help="Generated directory",
+    ),
     output: str = typer.Option("docs/diff-report.md", "-o", "--output", help="Output report path"),
 ) -> None:
     """Diff src/ against generated/ and produce a markdown report."""
@@ -821,15 +884,15 @@ def source_diff(
     lines.append(f"**Source:** `{src}`\n")
     lines.append(f"**Generated:** `{gen}`\n")
 
-    modules = sorted(set(
-        [d.name for d in src.iterdir() if d.is_dir() and (d / "__init__.py").exists()] +
-        [d.name for d in gen.iterdir() if d.is_dir()]
-    ))
+    modules = sorted(
+        set(
+            [d.name for d in src.iterdir() if d.is_dir() and (d / "__init__.py").exists()]
+            + [d.name for d in gen.iterdir() if d.is_dir()]
+        )
+    )
 
     total_src_lines = 0
     total_gen_lines = 0
-    total_match = 0
-    total_diff = 0
 
     for mod in modules:
         src_mod = src / mod
@@ -852,8 +915,8 @@ def source_diff(
         both = set(src_files.keys()) & set(gen_files.keys())
 
         lines.append(f"\n## {mod}\n")
-        lines.append(f"| Metric | Count |")
-        lines.append(f"|--------|-------|")
+        lines.append("| Metric | Count |")
+        lines.append("|--------|-------|")
         lines.append(f"| In src/ only | {len(only_src)} |")
         lines.append(f"| In generated/ only | {len(only_gen)} |")
         lines.append(f"| In both | {len(both)} |")
@@ -886,7 +949,10 @@ def source_diff(
                 lines.append(f"- `{f}`")
             lines.append("")
 
-    lines.insert(2, f"## Summary\n| Metric | Value |\n|--------|-------|\n| src/ lines | {total_src_lines} |\n| generated/ lines | {total_gen_lines} |\n")
+    lines.insert(
+        2,
+        f"## Summary\n| Metric | Value |\n|--------|-------|\n| src/ lines | {total_src_lines} |\n| generated/ lines | {total_gen_lines} |\n",
+    )
 
     out_path = repo_root / output
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -901,7 +967,6 @@ def update(
     chart: str = typer.Argument(..., help="Chart name to update from src/"),
 ) -> None:
     """Update a somatic chart from the actual src/ code."""
-    from pathlib import Path
     import yaml
 
     repo_root = _find_repo_root()
@@ -960,14 +1025,22 @@ def update(
 @app.command()
 def update_all() -> None:
     """Update all somatic charts from actual src/ code."""
-    from pathlib import Path
     import yaml
 
     repo_root = _find_repo_root()
     somatic_dir = repo_root / "somatic" / "charts"
 
-    modules = ["broca", "cerebellum", "cingulate", "cortex", "deepdive",
-               "homeostasis", "introspection", "plasticity", "sync"]
+    modules = [
+        "broca",
+        "cerebellum",
+        "cingulate",
+        "cortex",
+        "deepdive",
+        "homeostasis",
+        "introspection",
+        "plasticity",
+        "sync",
+    ]
 
     updated = 0
     for mod in modules:
@@ -1039,7 +1112,9 @@ def model(
 @app.command()
 def tests(
     chart: str = typer.Argument(None, help="Chart to generate tests for (default: all)"),
-    test_type: str = typer.Option("unit", "-t", "--type", help="Test type: unit, integration, static"),
+    test_type: str = typer.Option(
+        "unit", "-t", "--type", help="Test type: unit, integration, static"
+    ),
     output: str = typer.Option("tests", "-o", "--output", help="Output directory"),
 ) -> None:
     """Generate unit/integration tests from somatic charts."""
@@ -1048,6 +1123,7 @@ def tests(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     import sys
+
     sys.path.insert(0, str(repo_root / "src"))
     from sittingface.somatic_compiler import SomaticCompiler
 
@@ -1061,7 +1137,9 @@ def tests(
             console.print(f"[red]No capability chart found: {chart}[/red]")
             raise typer.Exit(1)
 
-    console.print(f"[cyan]Generating {test_type} tests for {len(capabilities)} capabilities...[/cyan]")
+    console.print(
+        f"[cyan]Generating {test_type} tests for {len(capabilities)} capabilities...[/cyan]"
+    )
 
     for cap in capabilities:
         cap_data = cap.values.get("capability", {})
@@ -1069,13 +1147,13 @@ def tests(
         cap_name = cap_data.get("name", cap.name)
 
         if test_type == "unit":
-            code = self._gen_unit_tests(cap_name, operations, cap_data)
+            code = _gen_unit_tests(cap_name, operations, cap_data)
             out_file = out_dir / f"test_{cap_name}_unit.py"
         elif test_type == "integration":
-            code = self._gen_integration_tests(cap_name, operations, cap_data)
+            code = _gen_integration_tests(cap_name, operations, cap_data)
             out_file = out_dir / f"test_{cap_name}_integration.py"
         else:
-            code = self._gen_static_analysis(cap_name, operations, cap_data)
+            code = _gen_static_analysis(cap_name, operations, cap_data)
             out_file = out_dir / f"analysis_{cap_name}.py"
 
         out_file.write_text(code)
@@ -1095,12 +1173,11 @@ def _gen_unit_tests(cap_name: str, operations: list[dict], cap_data: dict) -> st
     ]
     for op in operations:
         op_name = op.get("name", "unknown")
-        req_params = op.get("required_params", [])
-        lines.append(f'@pytest.mark.asyncio')
-        lines.append(f'async def test_{op_name}():')
+        lines.append("@pytest.mark.asyncio")
+        lines.append(f"async def test_{op_name}():")
         lines.append(f'    """Test {op_name} operation."""')
-        lines.append(f'    assert True  # TODO: implement')
-        lines.append(f"")
+        lines.append("    assert True  # TODO: implement")
+        lines.append("")
     lines.append("")
     return "\n".join(lines)
 
@@ -1115,11 +1192,11 @@ def _gen_integration_tests(cap_name: str, operations: list[dict], cap_data: dict
     ]
     for op in operations:
         op_name = op.get("name", "unknown")
-        lines.append(f'@pytest.mark.asyncio')
-        lines.append(f'async def test_{op_name}_integration():')
+        lines.append("@pytest.mark.asyncio")
+        lines.append(f"async def test_{op_name}_integration():")
         lines.append(f'    """Integration test for {op_name} against live endpoint."""')
-        lines.append(f'    assert True  # TODO: implement with real endpoint')
-        lines.append(f"")
+        lines.append("    assert True  # TODO: implement with real endpoint")
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -1140,13 +1217,13 @@ def _gen_static_analysis(cap_name: str, operations: list[dict], cap_data: dict) 
         opt = op.get("optional_params", [])
         lines.append(f"def check_{op_name}():")
         lines.append(f'    """Check {method} {path}"""')
-        lines.append(f"    checks = [")
-        lines.append(f'        {"True" if req else "False"}  # has required params')
-        lines.append(f'        {"True" if opt else "False"}  # has optional params')
-        lines.append(f'        {method in ("GET", "POST", "PUT", "DELETE")}  # valid method')
-        lines.append(f'    ]')
-        lines.append(f'    return all(checks)')
-        lines.append(f"")
+        lines.append("    checks = [")
+        lines.append(f"        {'True' if req else 'False'}  # has required params")
+        lines.append(f"        {'True' if opt else 'False'}  # has optional params")
+        lines.append(f"        {method in ('GET', 'POST', 'PUT', 'DELETE')}  # valid method")
+        lines.append("    ]")
+        lines.append("    return all(checks)")
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -1166,6 +1243,7 @@ def simulate(
 
     try:
         from src.cortex.world_model_simulation import simulate as run_simulate
+
         ctx = json.loads(context) if context else {}
         result = asyncio.run(run_simulate(prompt, context=ctx))
 
@@ -1184,7 +1262,7 @@ def simulate(
 
 
 @app.command()
-def lint(
+def code_lint(
     path: str = typer.Argument(None, help="Path to lint (default: src/)"),
 ) -> None:
     """Run static analysis on src/ code."""
@@ -1195,8 +1273,14 @@ def lint(
 
     # Run ruff
     result = run(
-        [str(_find_repo_root() / ".venv" / "bin" / "ruff"), "check", str(target), "--output-format=text"],
-        check=False, capture=True,
+        [
+            str(_find_repo_root() / ".venv" / "bin" / "ruff"),
+            "check",
+            str(target),
+            "--output-format=text",
+        ],
+        check=False,
+        capture=True,
     )
     if result.stdout:
         console.print(result.stdout)
@@ -1207,8 +1291,13 @@ def lint(
 
     # Run mypy if available
     mypy_result = run(
-        [str(_find_repo_root() / ".venv" / "bin" / "mypy"), str(target), "--ignore-missing-imports"],
-        check=False, capture=True,
+        [
+            str(_find_repo_root() / ".venv" / "bin" / "mypy"),
+            str(target),
+            "--ignore-missing-imports",
+        ],
+        check=False,
+        capture=True,
     )
     if mypy_result.stdout:
         console.print(f"\n{mypy_result.stdout}")
@@ -1262,6 +1351,7 @@ def _git_cmd(name: str, ctx: typer.Context, cwd: Path | None = None) -> None:
 
 # ── Repo setup ──────────────────────────────────────────────────────────────
 
+
 @app.command(context_settings=_GIT_CTX)
 def init(ctx: typer.Context) -> None:
     """git init — create or reinitialize a repository."""
@@ -1276,6 +1366,7 @@ def clone(ctx: typer.Context) -> None:
 
 
 # ── Working tree ─────────────────────────────────────────────────────────────
+
 
 @app.command(context_settings=_GIT_CTX)
 def status(ctx: typer.Context) -> None:
@@ -1315,6 +1406,7 @@ def clean(ctx: typer.Context) -> None:
 
 # ── Commits ───────────────────────────────────────────────────────────────────
 
+
 @app.command(context_settings=_GIT_CTX)
 def commit(ctx: typer.Context) -> None:
     """git commit — record changes to the repository."""
@@ -1329,6 +1421,7 @@ def amend(ctx: typer.Context) -> None:
 
 
 # ── History ───────────────────────────────────────────────────────────────────
+
 
 @app.command(context_settings=_GIT_CTX)
 def log(ctx: typer.Context) -> None:
@@ -1361,6 +1454,7 @@ def grep(ctx: typer.Context) -> None:
 
 
 # ── Branching ─────────────────────────────────────────────────────────────────
+
 
 @app.command(context_settings=_GIT_CTX)
 def branch(ctx: typer.Context) -> None:
@@ -1400,6 +1494,7 @@ def cherry_pick(ctx: typer.Context) -> None:
 
 # ── Reset / undo ──────────────────────────────────────────────────────────────
 
+
 @app.command(context_settings=_GIT_CTX)
 def reset(ctx: typer.Context) -> None:
     """git reset — reset current HEAD to the specified state."""
@@ -1420,6 +1515,7 @@ def stash(ctx: typer.Context) -> None:
 
 # ── Tags ──────────────────────────────────────────────────────────────────────
 
+
 @app.command(context_settings=_GIT_CTX)
 def tag(ctx: typer.Context) -> None:
     """git tag — create, list, delete or verify a tag object."""
@@ -1427,6 +1523,7 @@ def tag(ctx: typer.Context) -> None:
 
 
 # ── Remotes / sync ────────────────────────────────────────────────────────────
+
 
 @app.command(context_settings=_GIT_CTX)
 def remote(ctx: typer.Context) -> None:
@@ -1453,6 +1550,7 @@ def push(ctx: typer.Context) -> None:
 
 
 # ── Inspection / utility ──────────────────────────────────────────────────────
+
 
 @app.command(context_settings=_GIT_CTX)
 def bisect(ctx: typer.Context) -> None:
@@ -1492,18 +1590,29 @@ def worktree(ctx: typer.Context) -> None:
 
 # ── Spec repo configuration ───────────────────────────────────────────────────
 
+
 @app.command("repo")
 def repo_cmd(
-    action: str = typer.Argument("show", help="Action: show | set <path> | create <name> | github <name>"),
+    action: str = typer.Argument(
+        "show", help="Action: show | set <path> | create <name> | github <name>"
+    ),
     path: Optional[str] = typer.Argument(None, help="Repo path or name"),
     remote: Optional[str] = typer.Option(None, "--remote", "-r", help="Remote URL (for 'create')"),
     bare: bool = typer.Option(False, "--bare", help="Create a bare repo (for 'create')"),
     initial_branch: str = typer.Option("main", "--branch", "-b", help="Initial branch name"),
     # GitHub creation flags
-    github_org: Optional[str] = typer.Option(None, "--org", help="GitHub org to create under (default: authenticated user)"),
+    github_org: Optional[str] = typer.Option(
+        None, "--org", help="GitHub org to create under (default: authenticated user)"
+    ),
     github_private: bool = typer.Option(False, "--private", help="Make GitHub repo private"),
-    github_description: str = typer.Option("", "--description", "-d", help="GitHub repo description"),
-    github_push: bool = typer.Option(True, "--push/--no-push", help="Push initial commit after GitHub create (default: yes)"),
+    github_description: str = typer.Option(
+        "", "--description", "-d", help="GitHub repo description"
+    ),
+    github_push: bool = typer.Option(
+        True,
+        "--push/--no-push",
+        help="Push initial commit after GitHub create (default: yes)",
+    ),
 ) -> None:
     """Configure, display, or create the target spec repository.
 
@@ -1569,7 +1678,8 @@ def repo_cmd(
                 subprocess.run(["git", "init"], cwd=repo_path, check=True)
                 subprocess.run(
                     ["git", "checkout", "-b", initial_branch],
-                    cwd=repo_path, capture_output=True
+                    cwd=repo_path,
+                    capture_output=True,
                 )
             console.print(f"[green]Initialized repo: {repo_path}[/green]")
 
@@ -1583,15 +1693,18 @@ def repo_cmd(
             subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
             subprocess.run(
                 ["git", "commit", "-m", "chore: initial spec repo"],
-                cwd=repo_path, check=True
+                cwd=repo_path,
+                check=True,
             )
-            console.print(f"  [green]Initial commit created[/green]")
+            console.print("  [green]Initial commit created[/green]")
 
         # Add remote and push if provided
         if remote:
             r = subprocess.run(
                 ["git", "remote", "add", "origin", remote],
-                cwd=repo_path, capture_output=True, text=True
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
             )
             if r.returncode != 0 and "already exists" not in r.stderr:
                 console.print(f"[red]Failed to add remote: {r.stderr}[/red]")
@@ -1600,12 +1713,16 @@ def repo_cmd(
 
             r = subprocess.run(
                 ["git", "push", "--set-upstream", "origin", initial_branch],
-                cwd=repo_path, capture_output=True, text=True
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
             )
             if r.returncode == 0:
                 console.print(f"  [green]Pushed to {remote}[/green]")
             else:
-                console.print(f"  [yellow]Push failed (remote may not exist yet): {r.stderr.strip()}[/yellow]")
+                console.print(
+                    f"  [yellow]Push failed (remote may not exist yet): {r.stderr.strip()}[/yellow]"
+                )
 
         # Save as configured spec repo
         config_file = _find_repo_root() / ".soma" / "config.json"
@@ -1618,7 +1735,7 @@ def repo_cmd(
                 pass
         cfg["spec_repo"] = str(repo_path)
         config_file.write_text(json.dumps(cfg, indent=2))
-        console.print(f"  [green]Configured as active spec repo[/green]")
+        console.print("  [green]Configured as active spec repo[/green]")
 
     elif action == "github":
         # Create on GitHub via API, then git init locally and push
@@ -1633,20 +1750,26 @@ def repo_cmd(
 
         import asyncio as _asyncio
         import sys as _sys
+
         _sys.path.insert(0, str(_find_repo_root() / "packages" / "cerebellum"))
 
         async def _create_on_github():
-            from cerebellum.capabilities.source_control.source_control import GitHubCapability
+            from cerebellum.capabilities.source_control.source_control import (
+                GitHubCapability,
+            )
+
             cap = GitHubCapability(token=token)
-            return await cap.execute({
-                "operation": "create_repo",
-                "name": path,
-                "org": github_org or "",
-                "private": github_private,
-                "description": github_description or "MonkeyBrain spec repository",
-                "auto_init": False,
-                "default_branch": initial_branch,
-            })
+            return await cap.execute(
+                {
+                    "operation": "create_repo",
+                    "name": path,
+                    "org": github_org or "",
+                    "private": github_private,
+                    "description": github_description or "MonkeyBrain spec repository",
+                    "auto_init": False,
+                    "default_branch": initial_branch,
+                }
+            )
 
         console.print(f"[cyan]Creating GitHub repo '{path}'...[/cyan]")
         gh_result = _asyncio.run(_create_on_github())
@@ -1665,26 +1788,40 @@ def repo_cmd(
 
         r = subprocess.run(
             ["git", "init", "--initial-branch", initial_branch],
-            cwd=repo_path, capture_output=True, text=True
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
         )
         if r.returncode != 0:
             subprocess.run(["git", "init"], cwd=repo_path, check=True)
-            subprocess.run(["git", "checkout", "-b", initial_branch], cwd=repo_path, capture_output=True)
+            subprocess.run(
+                ["git", "checkout", "-b", initial_branch],
+                cwd=repo_path,
+                capture_output=True,
+            )
 
         (repo_path / ".gitignore").write_text("*.pyc\n__pycache__/\n.env\n.DS_Store\n")
-        (repo_path / "README.md").write_text(f"# {path}\n\n{github_description or 'MonkeyBrain spec repository.'}\n")
+        (repo_path / "README.md").write_text(
+            f"# {path}\n\n{github_description or 'MonkeyBrain spec repository.'}\n"
+        )
         subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
         subprocess.run(["git", "commit", "-m", "chore: initial commit"], cwd=repo_path, check=True)
         console.print(f"  [green]Initialized[/green] {repo_path}")
 
         # wire remote
-        subprocess.run(["git", "remote", "add", "origin", clone_url], cwd=repo_path, capture_output=True)
+        subprocess.run(
+            ["git", "remote", "add", "origin", clone_url],
+            cwd=repo_path,
+            capture_output=True,
+        )
         console.print(f"  Remote origin → {clone_url}")
 
         if github_push:
             r = subprocess.run(
                 ["git", "push", "--set-upstream", "origin", initial_branch],
-                cwd=repo_path, capture_output=True, text=True
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
             )
             if r.returncode == 0:
                 console.print(f"  [green]Pushed → {html_url}[/green]")
@@ -1702,10 +1839,12 @@ def repo_cmd(
                 pass
         cfg["spec_repo"] = str(repo_path)
         config_file.write_text(json.dumps(cfg, indent=2))
-        console.print(f"  [green]Configured as active spec repo[/green]")
+        console.print("  [green]Configured as active spec repo[/green]")
 
     else:
-        console.print(f"[red]Unknown action: {action!r}. Use 'show', 'set', 'create', or 'github'.[/red]")
+        console.print(
+            f"[red]Unknown action: {action!r}. Use 'show', 'set', 'create', or 'github'.[/red]"
+        )
         raise typer.Exit(1)
 
 

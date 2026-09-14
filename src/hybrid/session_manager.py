@@ -15,6 +15,7 @@ logger = logging.getLogger("agentos.hybrid.session_manager")
 @dataclass
 class Message:
     """Single message in conversation"""
+
     role: str  # "user" or "assistant"
     content: str
     timestamp: datetime
@@ -27,13 +28,14 @@ class Message:
             "content": self.content,
             "timestamp": self.timestamp.isoformat(),
             "query_type": self.query_type,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class ConversationContext:
     """Full conversation context"""
+
     session_id: str
     actor_id: str
     created_at: datetime
@@ -92,13 +94,14 @@ class SessionManager:
         """
         if session_id is None:
             import uuid
+
             session_id = f"session_{uuid.uuid4().hex[:8]}"
 
         context = ConversationContext(
             session_id=session_id,
             actor_id=actor_id,
             created_at=datetime.now(),
-            last_updated=datetime.now()
+            last_updated=datetime.now(),
         )
 
         self.sessions[session_id] = context
@@ -127,7 +130,7 @@ class SessionManager:
         role: str,
         content: str,
         query_type: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[Message]:
         """
         Add message to session
@@ -152,7 +155,7 @@ class SessionManager:
             content=content,
             timestamp=datetime.now(),
             query_type=query_type,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         context.messages.append(message)
@@ -185,11 +188,7 @@ class SessionManager:
 
         return None
 
-    def get_conversation_history(
-        self,
-        session_id: str,
-        max_messages: int = 20
-    ) -> List[Message]:
+    def get_conversation_history(self, session_id: str, max_messages: int = 20) -> List[Message]:
         """Get conversation history"""
         context = self.get_session(session_id)
         if not context:
@@ -197,11 +196,7 @@ class SessionManager:
 
         return context.messages[-max_messages:]
 
-    def resolve_pronouns(
-        self,
-        session_id: str,
-        query: str
-    ) -> str:
+    def resolve_pronouns(self, session_id: str, query: str) -> str:
         """
         Attempt to resolve pronouns in query using context
 
@@ -232,7 +227,7 @@ class SessionManager:
             "it": "the item",
             "that": "that option",
             "them": "those items",
-            "there": "that location"
+            "there": "that location",
         }
 
         resolved = query
@@ -254,10 +249,7 @@ class SessionManager:
     def cleanup_expired_sessions(self) -> int:
         """Remove expired sessions"""
         now = datetime.now()
-        expired = [
-            sid for sid, context in self.sessions.items()
-            if now - context.last_updated > self.session_timeout
-        ]
+        expired = [sid for sid, context in self.sessions.items() if now - context.last_updated > self.session_timeout]
 
         for sid in expired:
             del self.sessions[sid]
@@ -285,5 +277,5 @@ class SessionManager:
             "created_at": context.created_at.isoformat(),
             "last_updated": context.last_updated.isoformat(),
             "duration_seconds": (context.last_updated - context.created_at).total_seconds(),
-            "stored_variables": len(context.variables)
+            "stored_variables": len(context.variables),
         }

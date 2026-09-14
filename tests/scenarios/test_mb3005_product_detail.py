@@ -18,6 +18,7 @@ parallel stock number, and adds attributes["images"]/["reviews"]/
 ["variants"] as the new product-detail fields, normalized into typed
 ProductReview/ProductVariant records.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import (
@@ -34,26 +35,38 @@ GHOST_VARIANT_ID = "prod_milk_discontinued"  # referenced, but not in the catalo
 
 def _seed_catalog() -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity(PRODUCT_ID, EntityType.ASSET, "Store Brand 2% Milk", {
-        "price": 3.99,
-        "quantity": 24,
-        "store_id": "store_001",
-        "images": [
-            "https://example.com/milk-2pct-front.jpg",
-            "https://example.com/milk-2pct-nutrition.jpg",
-        ],
-        "reviews": [
-            {"reviewer": "alice", "rating": 4.5, "comment": "Good value"},
-            {"reviewer": "bob", "rating": 3.0, "comment": "A bit watery"},
-        ],
-        "variants": [
-            {"entity_id": VARIANT_ID, "label": "Whole Milk"},
-            {"entity_id": GHOST_VARIANT_ID, "label": "Discontinued"},
-        ],
-    })
-    kg.add_entity(VARIANT_ID, EntityType.ASSET, "Store Brand Whole Milk", {
-        "price": 4.29, "quantity": 10, "store_id": "store_001",
-    })
+    kg.add_entity(
+        PRODUCT_ID,
+        EntityType.ASSET,
+        "Store Brand 2% Milk",
+        {
+            "price": 3.99,
+            "quantity": 24,
+            "store_id": "store_001",
+            "images": [
+                "https://example.com/milk-2pct-front.jpg",
+                "https://example.com/milk-2pct-nutrition.jpg",
+            ],
+            "reviews": [
+                {"reviewer": "alice", "rating": 4.5, "comment": "Good value"},
+                {"reviewer": "bob", "rating": 3.0, "comment": "A bit watery"},
+            ],
+            "variants": [
+                {"entity_id": VARIANT_ID, "label": "Whole Milk"},
+                {"entity_id": GHOST_VARIANT_ID, "label": "Discontinued"},
+            ],
+        },
+    )
+    kg.add_entity(
+        VARIANT_ID,
+        EntityType.ASSET,
+        "Store Brand Whole Milk",
+        {
+            "price": 4.29,
+            "quantity": 10,
+            "store_id": "store_001",
+        },
+    )
     return kg
 
 

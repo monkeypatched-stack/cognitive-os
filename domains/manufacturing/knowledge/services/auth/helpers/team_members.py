@@ -74,10 +74,12 @@ async def get_member(
     team_id: str,
     user_id: str,
 ) -> Optional[dict]:
-    doc = await db[COLLECTION].find_one({
-        "team_id": team_id,
-        "user_id": user_id,
-    })
+    doc = await db[COLLECTION].find_one(
+        {
+            "team_id": team_id,
+            "user_id": user_id,
+        }
+    )
     return _serialize(doc) if doc else None
 
 
@@ -139,10 +141,12 @@ async def delete(
     team_id: str,
     user_id: str,
 ) -> bool:
-    result = await db[COLLECTION].delete_one({
-        "team_id": team_id,
-        "user_id": user_id,
-    })
+    result = await db[COLLECTION].delete_one(
+        {
+            "team_id": team_id,
+            "user_id": user_id,
+        }
+    )
     return result.deleted_count == 1
 
 

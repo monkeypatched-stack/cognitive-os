@@ -13,6 +13,7 @@ logger = logging.getLogger("agentos.state")
 
 router = APIRouter()
 
+
 @router.get("/state", tags=["State"])
 async def get_state(
     request: Request,
@@ -51,6 +52,7 @@ async def get_state(
 
 def _get_store():
     from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+
     store = get_graph_store_instance()
     if store is None or not store.is_connected():
         return None

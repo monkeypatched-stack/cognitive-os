@@ -31,9 +31,9 @@ artifact + context
 @dataclass
 class VerificationResult:
     passed: bool
-    violations: list[str]       # human-readable failure reasons
-    evidence: dict[str, Any]    # diagnostic data
-    score: float                # [0, 1] — 1.0 = fully passing
+    violations: list[str]  # human-readable failure reasons
+    evidence: dict[str, Any]  # diagnostic data
+    score: float  # [0, 1] — 1.0 = fully passing
 ```
 
 **`IVerifier`**
@@ -52,9 +52,9 @@ class IVerifier(ABC):
 
 ```python
 pipeline = VerificationPipeline([EpistemicVerifier(), CapabilityVerifier()])
-results  = await pipeline.run(epa_state, context={"world_state": ws})
-ok       = pipeline.passed(results)
-score    = pipeline.aggregate_score(results)
+results = await pipeline.run(epa_state, context={"world_state": ws})
+ok = pipeline.passed(results)
+score = pipeline.aggregate_score(results)
 ```
 
 ### Concrete Verifiers
@@ -77,12 +77,14 @@ from cerebellum.verification import (
     MeshVerifier,
 )
 
-pipeline = VerificationPipeline([
-    EpistemicVerifier(belief_loss_threshold=0.70),
-    CapabilityVerifier(),
-    SimulationVerifier(loss_threshold=0.50),
-    MeshVerifier(),
-])
+pipeline = VerificationPipeline(
+    [
+        EpistemicVerifier(belief_loss_threshold=0.70),
+        CapabilityVerifier(),
+        SimulationVerifier(loss_threshold=0.50),
+        MeshVerifier(),
+    ]
+)
 
 # epa_state is EpistemicPredictiveState from cortex.epa
 results = await pipeline.run(epa_state, context={"world_state": ws})

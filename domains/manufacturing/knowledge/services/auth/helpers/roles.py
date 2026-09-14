@@ -25,9 +25,11 @@ async def get_by_id(db: AsyncIOMotorDatabase, role_id: str) -> Optional[dict]:
     doc = await db[COLLECTION].find_one({"role_id": role_id})
     return _serialize(doc) if doc else None
 
+
 async def get_by_name(db: AsyncIOMotorDatabase, role_name: str) -> Optional[dict]:
     doc = await db[COLLECTION].find_one({"name": role_name})
     return _serialize(doc) if doc else None
+
 
 async def get_by_permission(db: AsyncIOMotorDatabase, permission_id: str) -> list[dict]:
     cursor = db[COLLECTION].find({"permissions": permission_id})

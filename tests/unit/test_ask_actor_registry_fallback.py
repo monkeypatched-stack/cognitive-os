@@ -37,6 +37,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/unit/test_ask_actor_registry_fallback.py -v
 """
+
 from __future__ import annotations
 
 import os
@@ -48,7 +49,11 @@ os.environ["RATE_LIMIT_RPS"] = "100000"
 os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.communication import CommunicationDecision
 from src.monkey_brain.kernel.domains.grocery import AskActorCapability
 
@@ -81,11 +86,13 @@ class _FakeActorHashRedis:
 
 def _register(pr: PlanetaryRuntime, name: str, **kwargs):
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)),
+        **kwargs,
     )
 
 
 # ── Regression: a genuinely nonexistent actor still fails honestly ──────
+
 
 @pytest.mark.asyncio
 async def test_genuinely_unknown_actor_still_reports_not_found_not_remote():
@@ -101,15 +108,22 @@ async def test_genuinely_unknown_actor_still_reports_not_found_not_remote():
 
     assert pr.locate_actor("Nobody Real") is None  # the new fallback correctly finds nothing either
 
-    result = await AskActorCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {"target_actor": "Nobody Real", "question": "hi?"},
-    })
+    result = await AskActorCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {"target_actor": "Nobody Real", "question": "hi?"},
+        }
+    )
     assert result["success"] is False
     assert "no actor named" in result["error"]
 
 
 # ── The actual fix: target resolvable via registry, not local residency ──
+
 
 @pytest.mark.asyncio
 async def test_ask_actor_resolves_target_via_registry_when_not_locally_resident():
@@ -150,15 +164,29 @@ async def test_ask_actor_resolves_target_via_registry_when_not_locally_resident(
     # decision so this test's outcome depends only on target resolution.
     def _fake_resolve(sender_id, recipient_id, *, correlation_id="", causation_id=""):
         return CommunicationDecision(
-            sender_id=sender_id, recipient_id=recipient_id, allowed=True,
-            reason="test override", correlation_id=correlation_id, causation_id=causation_id,
+            sender_id=sender_id,
+            recipient_id=recipient_id,
+            allowed=True,
+            reason="test override",
+            correlation_id=correlation_id,
+            causation_id=causation_id,
         )
+
     pr1.resolve_communication = _fake_resolve
 
-    result = await AskActorCapability().handle({
-        "context": {"planetary_runtime": pr1, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {"target_actor": carol.actor_id, "question": "are you there?"},
-    })
+    result = await AskActorCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr1,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {
+                "target_actor": carol.actor_id,
+                "question": "are you there?",
+            },
+        }
+    )
 
     assert result["success"] is False
     # The critical assertion: resolution succeeded (this is NOT a "not
@@ -183,19 +211,31 @@ async def test_ask_actor_registry_fallback_only_tried_after_local_search_misses(
 
     def _should_not_be_called(actor_id):
         raise AssertionError("locate_actor() must not be called when local search already found the target")
+
     pr.locate_actor = _should_not_be_called
 
     def _fake_resolve(sender_id, recipient_id, *, correlation_id="", causation_id=""):
         return CommunicationDecision(
-            sender_id=sender_id, recipient_id=recipient_id, allowed=True,
-            reason="test override", correlation_id=correlation_id, causation_id=causation_id,
+            sender_id=sender_id,
+            recipient_id=recipient_id,
+            allowed=True,
+            reason="test override",
+            correlation_id=correlation_id,
+            causation_id=causation_id,
         )
+
     pr.resolve_communication = _fake_resolve
 
-    result = await AskActorCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {"target_actor": bob.actor_id, "question": "hi bob"},
-    })
+    result = await AskActorCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {"target_actor": bob.actor_id, "question": "hi bob"},
+        }
+    )
     # No NATS in this test env and bob IS locally resident -> falls to the
     # in-process AnswerQuestionCapability path, which will itself likely
     # fail for unrelated reasons (no real KG/LLM wired here) — this test

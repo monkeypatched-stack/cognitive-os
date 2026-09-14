@@ -22,17 +22,23 @@ kernel/pipeline/capability_runtime.py) — deterministic, no model
 dependency, same in-process construction style as
 test_mb3060_end_to_end_cognitive_os_prompt.py.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.grocery import PaymentConfirmationCapability
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 from src.monkey_brain.kernel.pipeline.execution import Action
-from src.monkey_brain.kernel.testing.mutation_hooks import clear_mutations, register_mutation
+from src.monkey_brain.kernel.testing.mutation_hooks import (
+    clear_mutations,
+    register_mutation,
+)
 
 ACTOR_ID = "world_test_actor"
 
@@ -63,46 +69,109 @@ def _seed_catalog(*, second_milk_option: bool = False, second_store: bool = Fals
     """
     kg = KnowledgeGraph()
     store_a = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99)["store_id"]
-    milk_id = list_product(kg, store_a, "merchant_a", "Milk", price=3.99, quantity=5, store_name="Trader Joe's")["product_id"]
-    pizza_id = list_product(kg, store_a, "merchant_a", "Frozen Cheese Pizza", price=7.99, quantity=10, store_name="Trader Joe's")["product_id"]
+    milk_id = list_product(
+        kg,
+        store_a,
+        "merchant_a",
+        "Milk",
+        price=3.99,
+        quantity=5,
+        store_name="Trader Joe's",
+    )["product_id"]
+    pizza_id = list_product(
+        kg,
+        store_a,
+        "merchant_a",
+        "Frozen Cheese Pizza",
+        price=7.99,
+        quantity=10,
+        store_name="Trader Joe's",
+    )["product_id"]
 
     milk_alt_id = None
     if second_milk_option:
-        milk_alt_id = list_product(kg, store_a, "merchant_a", "Oat Milk", price=3.49, quantity=5, store_name="Trader Joe's")["product_id"]
+        milk_alt_id = list_product(
+            kg,
+            store_a,
+            "merchant_a",
+            "Oat Milk",
+            price=3.49,
+            quantity=5,
+            store_name="Trader Joe's",
+        )["product_id"]
 
     store_b = None
     milk_store_b_id = None
     if second_store:
         store_b = onboard_merchant(kg, "merchant_b", "Whole Foods", delivery_fee=2.99)["store_id"]
-        milk_store_b_id = list_product(kg, store_b, "merchant_b", "Whole Milk", price=4.29, quantity=5, store_name="Whole Foods")["product_id"]
+        milk_store_b_id = list_product(
+            kg,
+            store_b,
+            "merchant_b",
+            "Whole Milk",
+            price=4.29,
+            quantity=5,
+            store_name="Whole Foods",
+        )["product_id"]
 
-    kg.add_entity("wallet_world_test", EntityType.ACCOUNT, "World Test Wallet", {
-        "account_type": "debit", "balance": 200.0, "owner": ACTOR_ID,
-    })
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {"type": "payment_processor", "priority": 0})
+    kg.add_entity(
+        "wallet_world_test",
+        EntityType.ACCOUNT,
+        "World Test Wallet",
+        {
+            "account_type": "debit",
+            "balance": 200.0,
+            "owner": ACTOR_ID,
+        },
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {"type": "payment_processor", "priority": 0},
+    )
 
     return kg, store_a, milk_id, pizza_id, milk_alt_id, store_b, milk_store_b_id
 
 
 def _base_context(kg):
-    return {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "Buy milk and pizza."}
+    return {
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "Buy milk and pizza.",
+    }
 
 
 def _pay_and_confirm(start_index: int, depends_on):
     """Canonical checkout tail: PaymentConfirmation → Payment → OrderConfirmation."""
     return (
-        Action(action_id=f"a{start_index}", capability="PaymentConfirmation",
-               step_index=start_index, depends_on=depends_on),
-        Action(action_id=f"a{start_index + 1}", capability="Payment",
-               step_index=start_index + 1, depends_on=(start_index,)),
-        Action(action_id=f"a{start_index + 2}", capability="OrderConfirmation",
-               step_index=start_index + 2, depends_on=(start_index + 1,)),
+        Action(
+            action_id=f"a{start_index}",
+            capability="PaymentConfirmation",
+            step_index=start_index,
+            depends_on=depends_on,
+        ),
+        Action(
+            action_id=f"a{start_index + 1}",
+            capability="Payment",
+            step_index=start_index + 1,
+            depends_on=(start_index,),
+        ),
+        Action(
+            action_id=f"a{start_index + 2}",
+            capability="OrderConfirmation",
+            step_index=start_index + 2,
+            depends_on=(start_index + 1,),
+        ),
     )
 
 
 def _selection_action(action_id: str, step_index: int, product_id: str, depends_on=()):
     return Action(
-        action_id=action_id, capability="ProductSelection", step_index=step_index, depends_on=depends_on,
+        action_id=action_id,
+        capability="ProductSelection",
+        step_index=step_index,
+        depends_on=depends_on,
         parameters={"selection": [{"id": product_id, "qty": 1}]},
     )
 
@@ -122,8 +191,9 @@ async def test_world001_unavailable_milk_triggers_replan_to_alternative():
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
@@ -162,8 +232,9 @@ async def test_world002_price_change_reprices_same_item_not_a_stockout():
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
@@ -203,8 +274,9 @@ async def test_world003_store_closed_excludes_it_and_replans_to_another_store():
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
@@ -239,8 +311,9 @@ async def test_world004_last_available_removed_with_no_alternative_fails_closed(
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
@@ -256,7 +329,8 @@ async def test_world004_last_available_removed_with_no_alternative_fails_closed(
     failed = [o for o in result.actions if not o.success]
     assert failed, "checkout must fail closed when the only option is gone"
     assert any(
-        "no alternative" in (o.error or "") or "backorder" in (o.error or "").lower()
+        "no alternative" in (o.error or "")
+        or "backorder" in (o.error or "").lower()
         or "blocked" in (o.error or "").lower()
         for o in failed
     )
@@ -276,8 +350,9 @@ async def test_world005_stale_item_replanned_without_repeating_or_dropping_the_o
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
@@ -314,12 +389,40 @@ def _seed_payable_world(*, milk_qty: int, milk_alt_qty: int = 5) -> tuple[Knowle
     in isolation like the tests above."""
     kg = KnowledgeGraph()
     store_a = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99)["store_id"]
-    milk_id = list_product(kg, store_a, "merchant_a", "Milk", price=3.99, quantity=milk_qty, store_name="Trader Joe's")["product_id"]
-    list_product(kg, store_a, "merchant_a", "Oat Milk", price=3.49, quantity=milk_alt_qty, store_name="Trader Joe's")["product_id"]
-    kg.add_entity(WALLET_ID, EntityType.ACCOUNT, "World Test Wallet", {
-        "account_type": "debit", "balance": 100.0, "owner": ACTOR_ID,
-    })
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {"type": "payment_processor", "priority": 0})
+    milk_id = list_product(
+        kg,
+        store_a,
+        "merchant_a",
+        "Milk",
+        price=3.99,
+        quantity=milk_qty,
+        store_name="Trader Joe's",
+    )["product_id"]
+    list_product(
+        kg,
+        store_a,
+        "merchant_a",
+        "Oat Milk",
+        price=3.49,
+        quantity=milk_alt_qty,
+        store_name="Trader Joe's",
+    )["product_id"]
+    kg.add_entity(
+        WALLET_ID,
+        EntityType.ACCOUNT,
+        "World Test Wallet",
+        {
+            "account_type": "debit",
+            "balance": 100.0,
+            "owner": ACTOR_ID,
+        },
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {"type": "payment_processor", "priority": 0},
+    )
     return kg, store_a, milk_id
 
 
@@ -342,16 +445,34 @@ async def test_world006_requested_quantity_exceeding_stock_self_heals_within_the
     Payment ever run, so the actor is charged for what they actually got.
     """
     kg, store_a, milk_id = _seed_payable_world(milk_qty=1)
-    context = {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "Buy 3 gallons of milk."}
+    context = {
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "Buy 3 gallons of milk.",
+    }
     executor = build_execution_engine("grocery")
 
     actions = (
-        Action(action_id="a0", capability="ProductSelection", step_index=0,
-               parameters={"selection": [{"id": milk_id, "qty": 3}]}),
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            parameters={"selection": [{"id": milk_id, "qty": 3}]},
+        ),
         Action(action_id="a1", capability="OrderCreation", step_index=1, depends_on=(0,)),
-        Action(action_id="a2", capability="PaymentConfirmation", step_index=2, depends_on=(1,)),
+        Action(
+            action_id="a2",
+            capability="PaymentConfirmation",
+            step_index=2,
+            depends_on=(1,),
+        ),
         Action(action_id="a3", capability="Payment", step_index=3, depends_on=(2,)),
-        Action(action_id="a4", capability="OrderConfirmation", step_index=4, depends_on=(3,)),
+        Action(
+            action_id="a4",
+            capability="OrderConfirmation",
+            step_index=4,
+            depends_on=(3,),
+        ),
     )
 
     result = await executor.execute(actions, context)
@@ -395,10 +516,19 @@ def test_world007_payment_confirmation_refuses_when_a_real_backorder_remains():
     includes an item that was never actually reserved. It must fail
     closed rather than confirm a charge for stock that isn't there."""
     order = {
-        "success": True, "order_id": "ORD-backordered-1", "total": 11.97,
+        "success": True,
+        "order_id": "ORD-backordered-1",
+        "total": 11.97,
         "items": [{"product": "Milk", "qty": 3, "unit_price": 3.99, "store": "Trader Joe's"}],
-        "backordered": [{"product": "Milk", "product_id": "milk_1", "qty": 3,
-                          "reason": "insufficient stock", "backorder_id": "BO-1"}],
+        "backordered": [
+            {
+                "product": "Milk",
+                "product_id": "milk_1",
+                "qty": 3,
+                "reason": "insufficient stock",
+                "backorder_id": "BO-1",
+            }
+        ],
     }
     result = PaymentConfirmationCapability().handle({"context": {"order": order, "total": order["total"]}})
 
@@ -419,15 +549,48 @@ async def test_world008_warehouse_fire_mid_tick_self_heals_within_order_creation
     than waiting for OrderConfirmation to catch it one stage later."""
     kg = KnowledgeGraph()
     store_a = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99, warehouse_id="wh_a")["store_id"]
-    kg.add_entity("wh_a", EntityType.ORGANIZATION, "Trader Joe's Warehouse", {"status": "operational"})
-    milk_id = list_product(kg, store_a, "merchant_a", "Milk", price=3.99, quantity=5, store_name="Trader Joe's")["product_id"]
+    kg.add_entity(
+        "wh_a",
+        EntityType.ORGANIZATION,
+        "Trader Joe's Warehouse",
+        {"status": "operational"},
+    )
+    milk_id = list_product(
+        kg,
+        store_a,
+        "merchant_a",
+        "Milk",
+        price=3.99,
+        quantity=5,
+        store_name="Trader Joe's",
+    )["product_id"]
 
     store_b = onboard_merchant(kg, "merchant_b", "Whole Foods", delivery_fee=2.99)["store_id"]
-    milk_alt_id = list_product(kg, store_b, "merchant_b", "Whole Milk", price=4.29, quantity=5, store_name="Whole Foods")["product_id"]
-    kg.add_entity("wallet_world_test", EntityType.ACCOUNT, "World Test Wallet", {
-        "account_type": "debit", "balance": 200.0, "owner": ACTOR_ID,
-    })
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {"type": "payment_processor", "priority": 0})
+    milk_alt_id = list_product(
+        kg,
+        store_b,
+        "merchant_b",
+        "Whole Milk",
+        price=4.29,
+        quantity=5,
+        store_name="Whole Foods",
+    )["product_id"]
+    kg.add_entity(
+        "wallet_world_test",
+        EntityType.ACCOUNT,
+        "World Test Wallet",
+        {
+            "account_type": "debit",
+            "balance": 200.0,
+            "owner": ACTOR_ID,
+        },
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {"type": "payment_processor", "priority": 0},
+    )
 
     context = _base_context(kg)
     executor = build_execution_engine("grocery")
@@ -437,8 +600,9 @@ async def test_world008_warehouse_fire_mid_tick_self_heals_within_order_creation
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 

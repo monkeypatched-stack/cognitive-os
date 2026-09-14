@@ -2,6 +2,7 @@
 
 Validates the complete execution pipeline.
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,14 +13,13 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-
-
 logger = logging.getLogger("cingulate.benchmark.scenario_runner")
+
 
 @dataclass
 class ScenarioStep:
     """A single step in a scenario."""
-    
+
     step_id: str = ""
     name: str = ""
     action: str = ""
@@ -34,7 +34,7 @@ class ScenarioStep:
 @dataclass
 class ScenarioResult:
     """Result of a complete scenario execution."""
-    
+
     scenario_id: str = field(default_factory=lambda: f"scenario-{uuid4().hex[:8]}")
     name: str = ""
     status: str = "pending"
@@ -42,7 +42,7 @@ class ScenarioResult:
     total_latency_ms: float = 0.0
     metrics: dict[str, Any] = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "scenario_id": self.scenario_id,
@@ -64,32 +64,39 @@ class ScenarioResult:
 
 class ScenarioRunner:
     """Runs complete end-to-end scenarios.
-    
+
     Validates the complete execution pipeline.
     """
-    
+
     def __init__(self):
         self._scenarios: list[dict[str, Any]] = []
         self._results: list[ScenarioResult] = []
-    
+
     def register(self, name: str, steps: list[dict[str, Any]]) -> str:
         """Register a scenario."""
         scenario_id = f"scenario-{uuid4().hex[:8]}"
-        self._scenarios.append({
-            "id": scenario_id,
-            "name": name,
-            "steps": steps,
-        })
+        self._scenarios.append(
+            {
+                "id": scenario_id,
+                "name": name,
+                "steps": steps,
+            }
+        )
         return scenario_id
-    
-    async def run(self, name: str, steps: list[dict[str, Any]], context: dict[str, Any] | None = None) -> ScenarioResult:
+
+    async def run(
+        self,
+        name: str,
+        steps: list[dict[str, Any]],
+        context: dict[str, Any] | None = None,
+    ) -> ScenarioResult:
         """Run a complete scenario."""
         start = time.monotonic()
         context = context or {}
-        
+
         result = ScenarioResult(name=name)
         step_results = []
-        
+
         for step_def in steps:
             step = ScenarioStep(
                 step_id=step_def.get("id", f"step-{len(step_results)}"),
@@ -98,9 +105,9 @@ class ScenarioRunner:
                 input_data=step_def.get("input", {}),
                 expected_output=step_def.get("expected", {}),
             )
-            
+
             step_start = time.monotonic()
-            
+
             try:
                 fn = step_def.get("function")
                 if fn:
@@ -112,24 +119,26 @@ class ScenarioRunner:
             except Exception as e:
                 step.error = str(e)
                 step.passed = False
-            
+
             step.latency_ms = (time.monotonic() - step_start) * 1000
             step_results.append(step)
-        
+
         result.steps = step_results
         result.total_latency_ms = (time.monotonic() - start) * 1000
         result.status = "passed" if all(s.passed for s in step_results) else "failed"
-        
+
         result.metrics = {
             "total_steps": len(step_results),
             "passed_steps": sum(1 for s in step_results if s.passed),
             "failed_steps": sum(1 for s in step_results if not s.passed),
-            "avg_step_latency_ms": round(sum(s.latency_ms for s in step_results) / len(step_results), 2) if step_results else 0,
+            "avg_step_latency_ms": (
+                round(sum(s.latency_ms for s in step_results) / len(step_results), 2) if step_results else 0
+            ),
         }
-        
+
         self._results.append(result)
         return result
-    
+
     def _validate_step(self, expected: dict[str, Any], actual: dict[str, Any]) -> bool:
         """Validate a single step."""
         for key, expected_value in expected.items():
@@ -137,12 +146,12 @@ class ScenarioRunner:
             if expected_value is not None and actual_value != expected_value:
                 return False
         return True
-    
+
     def get_results(self, status: str | None = None) -> list[ScenarioResult]:
         if status:
             return [r for r in self._results if r.status == status]
         return list(self._results)
-    
+
     def summary(self) -> dict:
         total = len(self._results)
         passed = sum(1 for r in self._results if r.status == "passed")

@@ -27,6 +27,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/scenarios/test_horizontal_scheduler_scaling.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,9 +45,18 @@ os.environ["RATE_LIMIT_BURST"] = "200000"
 import src.monkey_brain.kernel.domains.grocery  # noqa: F401
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType, ActorStatus
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+    ActorStatus,
+)
 from src.monkey_brain.kernel.society.actor_lifecycle import ActorDesiredState
-from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode, NodeClass, NodeHealth
+from src.monkey_brain.kernel.society.actor_scheduler import (
+    ExecutionNode,
+    NodeClass,
+    NodeHealth,
+)
 
 
 class _FakeRedis:
@@ -171,7 +181,8 @@ class _FakeRedis:
 
 def _register(pr: PlanetaryRuntime, name: str, **kwargs):
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)),
+        **kwargs,
     )
 
 
@@ -185,6 +196,7 @@ def _pr(redis=None, node_id: str = "") -> PlanetaryRuntime:
 
 
 # ── 1: Independent Actor scheduling ───────────────────────────────────────
+
 
 def test_01_actor_scheduling_is_per_actor_independent():
     """Scheduling actor A never touches actor B's records -- each is one
@@ -201,12 +213,15 @@ def test_01_actor_scheduling_is_per_actor_independent():
     assert pr.get_actor_desired_node(b) == ""
     decision_b = pr.scheduler.schedule(b)
     assert decision_b.scheduled is True
-    assert pr.get_actor_desired_node(a) != pr.get_actor_desired_node(b) or True  # both may land on n1; identity independence is what matters
+    assert (
+        pr.get_actor_desired_node(a) != pr.get_actor_desired_node(b) or True
+    )  # both may land on n1; identity independence is what matters
     assert pr.get_actor_desired_node(a) == "n1"
     assert pr.get_actor_desired_node(b) == "n1"
 
 
 # ── 2: Concurrent scheduling / placement contention (Section 20) ─────────
+
 
 def test_02_two_scheduler_instances_race_for_one_slot_never_overallocate():
     """Two DISTINCT PlanetaryRuntime instances (Section 20's literal
@@ -230,8 +245,10 @@ def test_02_two_scheduler_instances_race_for_one_slot_never_overallocate():
 
     t1 = threading.Thread(target=_schedule, args=(pr_a, actor_a, "a"))
     t2 = threading.Thread(target=_schedule, args=(pr_b, actor_b, "b"))
-    t1.start(); t2.start()
-    t1.join(); t2.join()
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 
     scheduled = [r for r in results.values() if r.scheduled]
     assert len(scheduled) == 1
@@ -240,6 +257,7 @@ def test_02_two_scheduler_instances_race_for_one_slot_never_overallocate():
 
 
 # ── 3: Multiple reconciler instances (Scheduler Pool) ─────────────────────
+
 
 def test_03_multiple_reconciler_instances_never_duplicate_work():
     """Two independent PlanetaryRuntime instances both drain the SAME
@@ -260,6 +278,7 @@ def test_03_multiple_reconciler_instances_never_duplicate_work():
 
 
 # ── 4: Node failure -- only affected Actors move ──────────────────────────
+
 
 def test_04_node_failure_only_reschedules_actors_on_that_node():
     redis = _FakeRedis()
@@ -308,6 +327,7 @@ def test_04_node_failure_only_reschedules_actors_on_that_node():
 
 # ── 5: Independent Actor failure isolation ────────────────────────────────
 
+
 def test_05_one_actor_failing_does_not_affect_others():
     redis = _FakeRedis()
     pr = _pr(redis)
@@ -337,9 +357,10 @@ def test_05_one_actor_failing_does_not_affect_others():
 
 # ── 6: Scheduler failure does not stop running Actors ─────────────────────
 
+
 @pytest.mark.asyncio
 async def test_06_scheduler_offline_running_actors_keep_ticking():
-    """"Scheduler offline" == the reconciliation loop simply never runs
+    """ "Scheduler offline" == the reconciliation loop simply never runs
     again. An already-ACTIVE actor's tick_one_actor() has no dependency
     on the Scheduler or the reconciliation loop at all (Section 9/17)."""
     redis = _FakeRedis()
@@ -358,6 +379,7 @@ async def test_06_scheduler_offline_running_actors_keep_ticking():
 
 # ── 7: Registry interruption ───────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_07_redis_outage_fails_closed_by_default():
     """Documents the DEFAULT, honest behavior (Section 22: "do not claim
@@ -373,6 +395,7 @@ async def test_07_redis_outage_fails_closed_by_default():
 
     def _raise(*a, **k):
         raise ConnectionError("redis unreachable")
+
     redis.set = _raise  # acquire_actor_lease's SET NX now raises
 
     sr = pr._society_runtime
@@ -396,6 +419,7 @@ async def test_07b_explicit_opt_in_keeps_ticking_through_redis_outage(monkeypatc
 
     def _raise(*a, **k):
         raise ConnectionError("redis unreachable")
+
     redis.set = _raise
 
     sr = pr._society_runtime
@@ -404,6 +428,7 @@ async def test_07b_explicit_opt_in_keeps_ticking_through_redis_outage(monkeypatc
 
 
 # ── 8: Burst Actor creation / backpressure ────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_08_burst_registration_backpressure_bounds_concurrency():
@@ -450,6 +475,7 @@ async def test_08_burst_registration_backpressure_bounds_concurrency():
 
 # ── 9: Event-driven rescheduling without a full sweep ─────────────────────
 
+
 def test_09_event_driven_start_never_scans_the_actor_table():
     """A single new actor's start decision is reachable via the queue
     alone -- the O(N-actors) full-table HGETALL (_ACTORS_HASH_KEY,
@@ -472,6 +498,7 @@ def test_09_event_driven_start_never_scans_the_actor_table():
 
 # ── 10: Multiple reconciler instances converge to the same state ─────────
 
+
 def test_10_multiple_reconciler_instances_converge():
     redis = _FakeRedis()
     pr_a = _pr(redis, "reconciler-a")
@@ -493,6 +520,7 @@ def test_10_multiple_reconciler_instances_converge():
 
 # ── 11: Control plane / data plane separation ─────────────────────────────
 
+
 def test_11_steady_state_ticking_never_touches_scheduler_or_node_registry():
     """Section 9/17/18/23's central claim, verified directly: once an
     actor is ACTIVE, repeated cognition-layer ticks must never read or
@@ -507,9 +535,11 @@ def test_11_steady_state_ticking_never_touches_scheduler_or_node_registry():
 
     original_schedule = pr.scheduler.schedule
     calls = {"count": 0}
+
     def _spy_schedule(*args, **kwargs):
         calls["count"] += 1
         return original_schedule(*args, **kwargs)
+
     pr.scheduler.schedule = _spy_schedule
 
     # Steady-state: this actor is already ACTIVE and correctly placed --
@@ -523,6 +553,7 @@ def test_11_steady_state_ticking_never_touches_scheduler_or_node_registry():
 
 
 # ── 12-14: Scale (correctness, not load/performance) ─────────────────────
+
 
 def test_12_ten_actors_schedule_and_converge():
     _run_scale_scenario(n=10, n_nodes=2)
@@ -588,6 +619,7 @@ def _run_scale_scenario(n: int, n_nodes: int) -> None:
 
 # ── 15: Destructive multi-failure scenario ────────────────────────────────
 
+
 def test_15_destructive_multi_failure_scenario_converges_without_duplication():
     """Representative-scale (30 actors across 3 node classes) version of
     Section 32's destructive test. Not 1,000 actors: constructing and
@@ -650,8 +682,10 @@ def test_15_destructive_multi_failure_scenario_converges_without_duplication():
 
     # Failure 4: Registry (Redis) has a transient outage, then recovers.
     real_hgetall = redis.hgetall
+
     def _raise(*a, **k):
         raise ConnectionError("redis unreachable")
+
     redis.hgetall = _raise
     try:
         # An operation that needs the registry during the outage degrades

@@ -15,6 +15,7 @@ POST /shipments/{id}/replace  — issue a replacement for a lost shipment
 POST /shipments/{id}/delay    — report a carrier delay
 GET  /orders/{id}/tracking    — track every shipment for an order
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,8 +25,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    PackRequest, PickRequest, ShipmentCreateRequest, ShipmentDelayRequest,
-    ShipmentLostRequest, ShipmentResponse,
+    PackRequest,
+    PickRequest,
+    ShipmentCreateRequest,
+    ShipmentDelayRequest,
+    ShipmentLostRequest,
+    ShipmentResponse,
 )
 from src.monkey_brain.api.idempotency import idempotent
 
@@ -85,10 +90,15 @@ async def create_shipment_route(
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.domains.logistics import create_shipment
 
-    return _result(create_shipment(
-        _kg(request), body.order_id, body.packages,
-        rider_id=body.rider_id, carrier=body.carrier,
-    ))
+    return _result(
+        create_shipment(
+            _kg(request),
+            body.order_id,
+            body.packages,
+            rider_id=body.rider_id,
+            carrier=body.carrier,
+        )
+    )
 
 
 @router.get("/shipments/{shipment_id}", tags=["Fulfillment"])

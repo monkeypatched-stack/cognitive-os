@@ -3,6 +3,7 @@
 Accepts issues from a governance report (or inline list), locates the relevant
 source files, and calls CodeGenAgent to produce and write fixes.
 """
+
 from __future__ import annotations
 
 import glob
@@ -53,7 +54,12 @@ class FixItAgent(BaseETASSAgent):
         if not issues:
             self._reward(True, 1.0)
             return self._result(
-                payload={"fixed": True, "service_slug": service_slug, "files": [], "issues_found": 0},
+                payload={
+                    "fixed": True,
+                    "service_slug": service_slug,
+                    "files": [],
+                    "issues_found": 0,
+                },
                 observations=["no issues found — nothing to fix"],
             )
 
@@ -84,8 +90,7 @@ class FixItAgent(BaseETASSAgent):
             for iss in issues
         )
         files_text = "\n\n".join(
-            f"=== FILE: {rel} ===\n{content[:3000]}\n=== END FILE ==="
-            for rel, content in source_files.items()
+            f"=== FILE: {rel} ===\n{content[:3000]}\n=== END FILE ===" for rel, content in source_files.items()
         )
 
         system = (
@@ -126,7 +131,6 @@ class FixItAgent(BaseETASSAgent):
                 observations=["set ANTHROPIC_API_KEY or start Ollama"],
             )
 
-        import asyncio
         raw = await cg._call_llm(user, system)
 
         # ── 5. Apply fixes ────────────────────────────────────────────────────

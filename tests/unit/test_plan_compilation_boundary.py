@@ -53,6 +53,7 @@ Per this session's standing convention, this file is written but not
 executed by the assistant. Run with:
     python -m pytest tests/unit/test_plan_compilation_boundary.py -v
 """
+
 from __future__ import annotations
 
 import pytest
@@ -61,7 +62,11 @@ from src.monkey_brain.kernel.pipeline.actor import Actor
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
-from src.monkey_brain.kernel.pipeline.execution import Action, ActionOutcome, ExecutionResult
+from src.monkey_brain.kernel.pipeline.execution import (
+    Action,
+    ActionOutcome,
+    ExecutionResult,
+)
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.pipeline.plan_compiler import (
     compile_plan,
@@ -70,8 +75,8 @@ from src.monkey_brain.kernel.pipeline.plan_compiler import (
     graphs_equivalent,
 )
 
-
 # ── Shared helpers (mirror test_execution_boundary_hardening.py's own) ─────
+
 
 class _StubCapability:
     def __init__(self, success: bool = True, error: str = "", result: dict | None = None) -> None:
@@ -121,8 +126,13 @@ def _plan(steps: tuple[PlanStep, ...], goal: str = "buy groceries") -> Plan:
     return Plan(goal=goal, steps=steps, cost=0.0, confidence=0.8, risk=0.0, planner="llm")
 
 
-def _state(plan: Plan, actor_id: str = "arjun", execution_id: str = "exec-1",
-           resolved_permissions: frozenset = frozenset(), decide_plan_id: str = "") -> CognitiveState:
+def _state(
+    plan: Plan,
+    actor_id: str = "arjun",
+    execution_id: str = "exec-1",
+    resolved_permissions: frozenset = frozenset(),
+    decide_plan_id: str = "",
+) -> CognitiveState:
     actor = Actor(actor_id=actor_id, tenant_id="acme")
     belief = BeliefState(actor_id=actor_id, tenant_id="acme")
     belief.plan = plan
@@ -138,12 +148,15 @@ def _state(plan: Plan, actor_id: str = "arjun", execution_id: str = "exec-1",
 # Test 1: Simple linear plan compilation.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLinearCompilation:
     def test_two_step_no_dependency_plan_compiles_in_order(self):
-        plan = _plan((
-            PlanStep(action="FindMilk", description="find milk"),
-            PlanStep(action="AddToCart", description="add to cart", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="FindMilk", description="find milk"),
+                PlanStep(action="AddToCart", description="add to cart", depends_on=(0,)),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-1", actor_id="arjun")
         assert outcome.ok, outcome.violations
         assert [n.step_index for n in outcome.graph.nodes] == [0, 1]
@@ -160,32 +173,32 @@ class TestLinearCompilation:
 # Test 2: Branching graph compilation.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBranchingCompilation:
     def test_two_steps_both_depend_on_the_same_root(self):
-        plan = _plan((
-            PlanStep(action="A"),
-            PlanStep(action="B", depends_on=(0,)),
-            PlanStep(action="C", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="A"),
+                PlanStep(action="B", depends_on=(0,)),
+                PlanStep(action="C", depends_on=(0,)),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-2", actor_id="arjun")
         assert outcome.ok
         assert outcome.graph.nodes[1].depends_on == (0,)
         assert outcome.graph.nodes[2].depends_on == (0,)
         assert outcome.graph.nodes[1].node_id != outcome.graph.nodes[2].node_id
         eg = outcome.execution_graph
-        c_deps = sorted(
-            e.src for e in eg.incoming("plan-2:2") if e.rel == "depends_on"
-        )
+        c_deps = sorted(e.src for e in eg.incoming("plan-2:2") if e.rel == "depends_on")
         assert c_deps == ["plan-2:0"]
-        b_deps = sorted(
-            e.src for e in eg.incoming("plan-2:1") if e.rel == "depends_on"
-        )
+        b_deps = sorted(e.src for e in eg.incoming("plan-2:1") if e.rel == "depends_on")
         assert b_deps == ["plan-2:0"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 3: Parallel independent nodes.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestParallelIndependentNodes:
     def test_three_steps_with_no_shared_dependency_compile_independently(self):
@@ -197,24 +210,23 @@ class TestParallelIndependentNodes:
         depends_edges = [e for e in eg._edges if e.rel == "depends_on"]
         assert depends_edges == []
 
-    def test_parallel_branches_converging_on_shared_consumer_preserve_independent_roots(self):
-        plan = _plan((
-            PlanStep(action="A"),
-            PlanStep(action="B"),
-            PlanStep(action="C", depends_on=(0, 1)),
-        ))
+    def test_parallel_branches_converging_on_shared_consumer_preserve_independent_roots(
+        self,
+    ):
+        plan = _plan(
+            (
+                PlanStep(action="A"),
+                PlanStep(action="B"),
+                PlanStep(action="C", depends_on=(0, 1)),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-3b", actor_id="arjun")
         assert outcome.ok
         eg = outcome.execution_graph
-        c_deps = sorted(
-            e.src for e in eg.incoming("plan-3b:2") if e.rel == "depends_on"
-        )
+        c_deps = sorted(e.src for e in eg.incoming("plan-3b:2") if e.rel == "depends_on")
         assert c_deps == ["plan-3b:0", "plan-3b:1"]
         # No spurious edge between the independent roots.
-        ab_edges = [
-            e for e in eg._edges
-            if e.rel == "depends_on" and {e.src, e.dst} == {"plan-3b:0", "plan-3b:1"}
-        ]
+        ab_edges = [e for e in eg._edges if e.rel == "depends_on" and {e.src, e.dst} == {"plan-3b:0", "plan-3b:1"}]
         assert ab_edges == []
 
 
@@ -222,12 +234,16 @@ class TestParallelIndependentNodes:
 # Test 4: Dependency preservation.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDependencyPreservation:
     def test_multi_dependency_tuple_preserved_exactly(self):
-        plan = _plan((
-            PlanStep(action="A"), PlanStep(action="B"),
-            PlanStep(action="C", depends_on=(0, 1)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="A"),
+                PlanStep(action="B"),
+                PlanStep(action="C", depends_on=(0, 1)),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-4", actor_id="arjun")
         assert outcome.ok
         assert outcome.graph.nodes[2].depends_on == (0, 1)
@@ -236,6 +252,7 @@ class TestDependencyPreservation:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 5: Candidate preservation (step.parameters fidelity).
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCandidatePreservation:
     def test_structured_parameters_preserved_verbatim_and_source_unmutated(self):
@@ -256,22 +273,31 @@ class TestCandidatePreservation:
 # Test 6: Capability binding.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCapabilityBinding:
     def test_exact_match_capability_resolves(self):
         plan = _plan((PlanStep(action="FindMilk"),))
-        outcome = compile_plan(plan, plan_id="plan-6a", actor_id="arjun",
-                                resolved_capabilities={"FindMilk": "FindMilk"})
+        outcome = compile_plan(
+            plan,
+            plan_id="plan-6a",
+            actor_id="arjun",
+            resolved_capabilities={"FindMilk": "FindMilk"},
+        )
         assert outcome.ok
         assert outcome.graph.nodes[0].capability == "FindMilk"
         assert outcome.graph.nodes[0].resolved_capability_name == "FindMilk"
 
     def test_case_drift_capability_resolves_to_canonical_registered_name(self):
         plan = _plan((PlanStep(action="findMilk"),))
-        outcome = compile_plan(plan, plan_id="plan-6b", actor_id="arjun",
-                                resolved_capabilities={"findMilk": "FindMilk"})
+        outcome = compile_plan(
+            plan,
+            plan_id="plan-6b",
+            actor_id="arjun",
+            resolved_capabilities={"findMilk": "FindMilk"},
+        )
         assert outcome.ok
         node = outcome.graph.nodes[0]
-        assert node.capability == "findMilk"          # original, verbatim
+        assert node.capability == "findMilk"  # original, verbatim
         assert node.resolved_capability_name == "FindMilk"  # what will actually dispatch
 
     @pytest.mark.asyncio
@@ -289,11 +315,10 @@ class TestCapabilityBinding:
 # Test 7: Agent binding — honest limitation.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestAgentBinding:
     def test_declared_agent_is_preserved_on_compiled_node_and_execution_graph(self):
-        plan = _plan((
-            PlanStep(action="AskActor", parameters={"_agent": "grocery_clerk"}),
-        ))
+        plan = _plan((PlanStep(action="AskActor", parameters={"_agent": "grocery_clerk"}),))
         outcome = compile_plan(plan, plan_id="plan-7", actor_id="arjun")
         assert outcome.ok
         node = outcome.graph.nodes[0]
@@ -301,8 +326,7 @@ class TestAgentBinding:
         step_node = outcome.execution_graph.get_node("plan-7:0")
         assert step_node.props["agent"] == "grocery_clerk"
         agent_edges = [
-            e for e in outcome.execution_graph._edges
-            if e.rel == "provides" and e.src == "agent:grocery_clerk"
+            e for e in outcome.execution_graph._edges if e.rel == "provides" and e.src == "agent:grocery_clerk"
         ]
         assert agent_edges
 
@@ -311,27 +335,33 @@ class TestAgentBinding:
 # Test 8: Input/output binding — honest limitation.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestInputOutputBinding:
     def test_explicit_compile_time_bindings_are_represented_in_graph(self):
-        plan = _plan((
-            PlanStep(
-                action="ProviderLookup",
-                parameters={
-                    "_bindings": {"outputs": {"provider_id": "X"}},
-                },
-            ),
-            PlanStep(
-                action="OrderCreation",
-                depends_on=(0,),
-                parameters={
-                    "_bindings": {
-                        "inputs": {
-                            "provider_id": {"from_step": 0, "from_output": "provider_id"},
+        plan = _plan(
+            (
+                PlanStep(
+                    action="ProviderLookup",
+                    parameters={
+                        "_bindings": {"outputs": {"provider_id": "X"}},
+                    },
+                ),
+                PlanStep(
+                    action="OrderCreation",
+                    depends_on=(0,),
+                    parameters={
+                        "_bindings": {
+                            "inputs": {
+                                "provider_id": {
+                                    "from_step": 0,
+                                    "from_output": "provider_id",
+                                },
+                            },
                         },
                     },
-                },
-            ),
-        ))
+                ),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-8", actor_id="arjun")
         assert outcome.ok
         assert outcome.graph.nodes[0].output_bindings[0].value == "X"
@@ -340,54 +370,84 @@ class TestInputOutputBinding:
         assert binding.from_step == 0
         assert binding.from_output == "provider_id"
         bind_edges = [
-            e for e in outcome.execution_graph._edges
+            e
+            for e in outcome.execution_graph._edges
             if e.rel == "binds" and e.src == "plan-8:0" and e.dst == "plan-8:1"
         ]
         assert len(bind_edges) == 1
 
     def test_missing_declared_output_binding_is_rejected(self):
-        plan = _plan((
-            PlanStep(action="A"),
-            PlanStep(
-                action="B",
-                parameters={
-                    "_bindings": {
-                        "inputs": {
-                            "provider_id": {"from_step": 0, "from_output": "provider_id"},
+        plan = _plan(
+            (
+                PlanStep(action="A"),
+                PlanStep(
+                    action="B",
+                    parameters={
+                        "_bindings": {
+                            "inputs": {
+                                "provider_id": {
+                                    "from_step": 0,
+                                    "from_output": "provider_id",
+                                },
+                            },
                         },
                     },
-                },
-            ),
-        ))
+                ),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-8b", actor_id="arjun")
         assert not outcome.ok
         assert "undeclared output" in outcome.violations[0]
 
     @pytest.mark.asyncio
-    async def test_real_output_to_input_propagation_still_works_with_compile_step_inserted(self):
+    async def test_real_output_to_input_propagation_still_works_with_compile_step_inserted(
+        self,
+    ):
         """Regression, not a new capability: the compile step must be a
         no-op with respect to ActionExecutor's existing, correct,
         execution-time output->input binding (_context_projector). Mirrors
         test_execution_boundary_hardening.py::TestOutputPropagation."""
         from src.monkey_brain.kernel.domains.grocery import (
-            build_default_capability_bus, project_action_result_to_context,
+            build_default_capability_bus,
+            project_action_result_to_context,
         )
         from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
         kg = KnowledgeGraph()
-        kg.add_entity("prod_milk", EntityType.ASSET, "Whole Milk (2L)", {"price": 4.5, "quantity": 20})
+        kg.add_entity(
+            "prod_milk",
+            EntityType.ASSET,
+            "Whole Milk (2L)",
+            {"price": 4.5, "quantity": 20},
+        )
 
         bus = build_default_capability_bus()
         executor = ActionExecutor(capability_bus=bus, context_projector=project_action_result_to_context)
 
-        plan = _plan((
-            PlanStep(action="ProductSelection", description="select milk",
-                     parameters={"selection": [{"id": "prod_milk", "qty": 2}]}, confidence=0.9),
-            PlanStep(action="OrderCreation", description="create order", depends_on=(0,), confidence=0.9),
-        ), goal="buy 2 liters of whole milk")
+        plan = _plan(
+            (
+                PlanStep(
+                    action="ProductSelection",
+                    description="select milk",
+                    parameters={"selection": [{"id": "prod_milk", "qty": 2}]},
+                    confidence=0.9,
+                ),
+                PlanStep(
+                    action="OrderCreation",
+                    description="create order",
+                    depends_on=(0,),
+                    confidence=0.9,
+                ),
+            ),
+            goal="buy 2 liters of whole milk",
+        )
 
         state = _state(plan, actor_id="milk_buyer", execution_id="exec-milk-trace")
-        state.context = {"knowledge_graph": kg, "actor_id": "milk_buyer", "question": "Buy 2 liters of whole milk"}
+        state.context = {
+            "knowledge_graph": kg,
+            "actor_id": "milk_buyer",
+            "question": "Buy 2 liters of whole milk",
+        }
         rt = CognitiveRuntime(execution_engine=executor)
         result_state = await rt._execute_plan(state)
 
@@ -403,11 +463,16 @@ class TestInputOutputBinding:
 # Test 9: Invalid capability rejection.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestInvalidCapabilityRejection:
     def test_unresolvable_capability_rejected_with_actionable_error(self):
         plan = _plan((PlanStep(action="Nonexistent"),))
-        outcome = compile_plan(plan, plan_id="plan-9", actor_id="arjun",
-                                resolved_capabilities={"Nonexistent": None})
+        outcome = compile_plan(
+            plan,
+            plan_id="plan-9",
+            actor_id="arjun",
+            resolved_capabilities={"Nonexistent": None},
+        )
         assert not outcome.ok
         assert outcome.graph is None
         assert "Nonexistent" in outcome.violations[0]
@@ -416,10 +481,12 @@ class TestInvalidCapabilityRejection:
     async def test_integration_missing_capability_rejects_before_any_dispatch(self):
         cap_a = _StubCapability()
         bus = _SpyBus({"FindMilk": cap_a})  # AddToCart intentionally not registered
-        plan = _plan((
-            PlanStep(action="FindMilk"),
-            PlanStep(action="AddToCart"),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="FindMilk"),
+                PlanStep(action="AddToCart"),
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -435,23 +502,28 @@ class TestInvalidCapabilityRejection:
 # Test 10: Circular dependency rejection.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCircularDependencyRejection:
     def test_two_node_mutual_cycle_rejected(self):
-        plan = _plan((
-            PlanStep(action="A", depends_on=(1,)),
-            PlanStep(action="B", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="A", depends_on=(1,)),
+                PlanStep(action="B", depends_on=(0,)),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-10a", actor_id="arjun")
         assert not outcome.ok
         assert "circular" in outcome.violations[0]
         assert "0" in outcome.violations[0] and "1" in outcome.violations[0]
 
     def test_three_node_cycle_rejected(self):
-        plan = _plan((
-            PlanStep(action="A", depends_on=(2,)),
-            PlanStep(action="B", depends_on=(0,)),
-            PlanStep(action="C", depends_on=(1,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="A", depends_on=(2,)),
+                PlanStep(action="B", depends_on=(0,)),
+                PlanStep(action="C", depends_on=(1,)),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-10b", actor_id="arjun")
         assert not outcome.ok
         assert "circular" in outcome.violations[0]
@@ -464,10 +536,12 @@ class TestCircularDependencyRejection:
         rejection reason. Now it's one explicit compile-time rejection."""
         cap_a, cap_b = _StubCapability(), _StubCapability()
         bus = _SpyBus({"A": cap_a, "B": cap_b})
-        plan = _plan((
-            PlanStep(action="A", depends_on=(1,)),
-            PlanStep(action="B", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="A", depends_on=(1,)),
+                PlanStep(action="B", depends_on=(0,)),
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -480,6 +554,7 @@ class TestCircularDependencyRejection:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 11: Missing dependency rejection.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestMissingDependencyRejection:
     def test_out_of_range_index_rejected(self):
@@ -513,6 +588,7 @@ class TestMissingDependencyRejection:
 # Test 12: Stable node identity.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestStableNodeIdentity:
     def test_node_id_derived_from_plan_id_and_step_index(self):
         plan = _plan((PlanStep(action="A"), PlanStep(action="B")))
@@ -530,6 +606,7 @@ class TestStableNodeIdentity:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 13: Deterministic compilation.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDeterministicCompilation:
     def test_same_plan_object_compiled_twice_yields_equal_hash_and_nodes(self):
@@ -551,13 +628,19 @@ class TestDeterministicCompilation:
 # Test 14: Compilation provenance.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCompilationProvenance:
     @pytest.mark.asyncio
     async def test_compiled_graph_carries_real_plan_id_goal_and_actor_id(self):
         cap = _StubCapability()
         bus = _SpyBus({"FindMilk": cap})
         plan = _plan((PlanStep(action="FindMilk"),), goal="buy milk")
-        state = _state(plan, actor_id="arjun", execution_id="exec-1", decide_plan_id="plan-real-123")
+        state = _state(
+            plan,
+            actor_id="arjun",
+            execution_id="exec-1",
+            decide_plan_id="plan-real-123",
+        )
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
 
@@ -570,7 +653,9 @@ class TestCompilationProvenance:
         assert result_state.compiled_execution_graph.metadata["actor_id"] == "arjun"
 
     @pytest.mark.asyncio
-    async def test_dispatched_action_causation_id_is_the_real_plan_id_not_execution_id(self):
+    async def test_dispatched_action_causation_id_is_the_real_plan_id_not_execution_id(
+        self,
+    ):
         cap = _StubCapability()
         bus = _SpyBus({"FindMilk": cap})
         inner = ActionExecutor(capability_bus=bus)
@@ -584,7 +669,9 @@ class TestCompilationProvenance:
         assert capturing.captured[0].correlation_id == "exec-1"
 
     @pytest.mark.asyncio
-    async def test_causation_id_falls_back_to_execution_id_when_no_real_plan_id_exists(self):
+    async def test_causation_id_falls_back_to_execution_id_when_no_real_plan_id_exists(
+        self,
+    ):
         cap = _StubCapability()
         bus = _SpyBus({"FindMilk": cap})
         inner = ActionExecutor(capability_bus=bus)
@@ -601,6 +688,7 @@ class TestCompilationProvenance:
 # Test 15: Same plan compiled twice (independently-constructed objects)
 # produces equivalent graphs.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSamePlanTwiceProducesEquivalentGraphs:
     def test_value_equal_but_distinct_plan_objects_hash_equal(self):
@@ -623,9 +711,12 @@ class TestSamePlanTwiceProducesEquivalentGraphs:
 # Regression: compilation does not interfere with permission denial.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCompilationDoesNotInterfereWithPermissionDenial:
     @pytest.mark.asyncio
-    async def test_permission_denied_step_with_unregistered_capability_still_denied_not_compile_rejected(self):
+    async def test_permission_denied_step_with_unregistered_capability_still_denied_not_compile_rejected(
+        self,
+    ):
         """A permission-denied step is never dispatched regardless of
         whether its capability exists in the bus -- compilation must not
         require bus registration for it (governance and capability
@@ -635,10 +726,16 @@ class TestCompilationDoesNotInterfereWithPermissionDenial:
         insertion unchanged."""
         cap_b = _StubCapability()
         bus = _SpyBus({"OrderCreation": cap_b})  # ReserveFunds intentionally unregistered
-        plan = _plan((
-            PlanStep(action="ReserveFunds", description="reserve", required_permission="perm-finance"),
-            PlanStep(action="OrderCreation", description="place order", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(
+                    action="ReserveFunds",
+                    description="reserve",
+                    required_permission="perm-finance",
+                ),
+                PlanStep(action="OrderCreation", description="place order", depends_on=(0,)),
+            )
+        )
         state = _state(plan, resolved_permissions=frozenset())
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -668,7 +765,10 @@ class TestBrocaBridge:
             "edges": [{"from": "n0", "to": "n1", "type": "depends_on"}],
         }
         outcome = compile_broca_graph(
-            graph, plan_id="plan-broca", actor_id="arjun", goal_id="goal-broca-1",
+            graph,
+            plan_id="plan-broca",
+            actor_id="arjun",
+            goal_id="goal-broca-1",
         )
         assert outcome.ok, outcome.violations
         assert outcome.graph.goal_id == "goal-broca-1"
@@ -677,10 +777,12 @@ class TestBrocaBridge:
 
 class TestRuntimeProjections:
     def test_known_capability_gets_runtime_projection_metadata(self):
-        plan = _plan((
-            PlanStep(action="ProductSelection"),
-            PlanStep(action="OrderCreation", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="ProductSelection"),
+                PlanStep(action="OrderCreation", depends_on=(0,)),
+            )
+        )
         outcome = compile_plan(plan, plan_id="plan-rp", actor_id="arjun")
         assert outcome.ok
         node = outcome.graph.nodes[0]
@@ -689,7 +791,8 @@ class TestRuntimeProjections:
         step_node = outcome.execution_graph.get_node("plan-rp:0")
         assert step_node.props["runtime_projections"][0]["context_key"] == "selected_product"
         projects_to = [
-            e for e in outcome.execution_graph._edges
+            e
+            for e in outcome.execution_graph._edges
             if e.rel == "projects_to" and e.src == "plan-rp:0" and e.dst == "plan-rp:1"
         ]
         assert len(projects_to) == 1
@@ -700,22 +803,44 @@ class TestRuntimeProjections:
         runtime_projections. Both append selected -> selected_product; a
         single ProductSelection used to become two identical line items."""
         from src.monkey_brain.kernel.domains.grocery import (
-            build_default_capability_bus, project_action_result_to_context,
+            build_default_capability_bus,
+            project_action_result_to_context,
         )
         from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
         kg = KnowledgeGraph()
-        kg.add_entity("prod_milk", EntityType.ASSET, "Whole Milk (1L)", {"price": 3.49, "quantity": 20})
+        kg.add_entity(
+            "prod_milk",
+            EntityType.ASSET,
+            "Whole Milk (1L)",
+            {"price": 3.49, "quantity": 20},
+        )
 
         bus = build_default_capability_bus()
         executor = ActionExecutor(capability_bus=bus, context_projector=project_action_result_to_context)
-        plan = _plan((
-            PlanStep(action="ProductSelection", description="select milk",
-                     parameters={"selection": [{"id": "prod_milk", "qty": 1}]}, confidence=0.9),
-            PlanStep(action="OrderCreation", description="create order", depends_on=(0,), confidence=0.9),
-        ), goal="buy 1L of milk")
+        plan = _plan(
+            (
+                PlanStep(
+                    action="ProductSelection",
+                    description="select milk",
+                    parameters={"selection": [{"id": "prod_milk", "qty": 1}]},
+                    confidence=0.9,
+                ),
+                PlanStep(
+                    action="OrderCreation",
+                    description="create order",
+                    depends_on=(0,),
+                    confidence=0.9,
+                ),
+            ),
+            goal="buy 1L of milk",
+        )
         state = _state(plan, actor_id="priya", execution_id="exec-one-item")
-        state.context = {"knowledge_graph": kg, "actor_id": "priya", "question": "Buy 1L of Milk."}
+        state.context = {
+            "knowledge_graph": kg,
+            "actor_id": "priya",
+            "question": "Buy 1L of Milk.",
+        }
         rt = CognitiveRuntime(execution_engine=executor)
         result_state = await rt._execute_plan(state)
 
@@ -740,7 +865,11 @@ class TestGoalIdOnCompiledGraph:
 
 class TestExecutionGraphSigning:
     def test_execution_graph_sign_and_verify_round_trip(self):
-        from src.monkey_brain.kernel.execute.graph import ExecutionGraph, GraphEdge, GraphNode
+        from src.monkey_brain.kernel.execute.graph import (
+            ExecutionGraph,
+            GraphEdge,
+            GraphNode,
+        )
 
         graph = ExecutionGraph(id="graph-sign-test")
         graph.add_node(GraphNode(id="a", type="step", label="A", props={"capability": "A"}))
@@ -753,12 +882,16 @@ class TestExecutionGraphSigning:
 
 class TestGraphDrivenActionBuild:
     def test_build_actions_from_compiled_preserves_step_indices_and_deps(self):
-        from src.monkey_brain.kernel.pipeline.plan_compiler import build_actions_from_compiled
+        from src.monkey_brain.kernel.pipeline.plan_compiler import (
+            build_actions_from_compiled,
+        )
 
-        plan = _plan((
-            PlanStep(action="A"),
-            PlanStep(action="B", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="A"),
+                PlanStep(action="B", depends_on=(0,)),
+            )
+        )
         compiled = compile_plan(plan, plan_id="plan-actions", actor_id="arjun").graph
         actions, denied = build_actions_from_compiled(
             compiled,

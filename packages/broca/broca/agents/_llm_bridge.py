@@ -16,6 +16,7 @@ Protocol (one request/response pair per LLM call):
     {id}.response.txt   written by the answerer with the completion text.
 The client deletes both files once it reads the response.
 """
+
 from __future__ import annotations
 
 import asyncio

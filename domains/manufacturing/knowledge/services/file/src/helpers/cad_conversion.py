@@ -53,7 +53,9 @@ def _float_list(fields: dict[str, list[str]], code: str) -> list[float]:
     return values
 
 
-def _transform(point: tuple[float, float], min_x: float, max_y: float) -> tuple[float, float]:
+def _transform(
+    point: tuple[float, float], min_x: float, max_y: float
+) -> tuple[float, float]:
     return point[0] - min_x, max_y - point[1]
 
 
@@ -75,7 +77,8 @@ def _polyline(
     close: bool = False,
 ) -> str:
     point_text = " ".join(
-        f"{x:g},{y:g}" for x, y in (_transform(vertex, min_x, max_y) for vertex in vertices)
+        f"{x:g},{y:g}"
+        for x, y in (_transform(vertex, min_x, max_y) for vertex in vertices)
     )
     tag = "polygon" if close else "polyline"
     return f'<{tag} points="{point_text}" />'
@@ -126,10 +129,14 @@ def _svg_document(
         if kind == "line":
             elements.append(_line(shape["start"], shape["end"], min_x, max_y))
         elif kind == "polyline":
-            elements.append(_polyline(shape["vertices"], min_x, max_y, close=shape["close"]))
+            elements.append(
+                _polyline(shape["vertices"], min_x, max_y, close=shape["close"])
+            )
         elif kind == "circle":
             cx, cy = _transform(shape["center"], min_x, max_y)
-            elements.append(f'<circle cx="{cx:g}" cy="{cy:g}" r="{shape["radius"]:g}" />')
+            elements.append(
+                f'<circle cx="{cx:g}" cy="{cy:g}" r="{shape["radius"]:g}" />'
+            )
         elif kind == "arc":
             start, end, large_arc = _arc_points(
                 shape["center"],
@@ -149,9 +156,7 @@ def _svg_document(
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:g} {height:g}" '
         'fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" '
         'stroke-linejoin="round">\n'
-        f"<title>{escape(title)}</title>\n"
-        + "\n".join(elements)
-        + "\n</svg>\n"
+        f"<title>{escape(title)}</title>\n" + "\n".join(elements) + "\n</svg>\n"
     )
 
 
@@ -211,7 +216,9 @@ def convert_dxf_text_to_svg(text: str, title: str = "CAD Preview") -> str:
             vertices = list(zip(xs, ys))
             if len(vertices) >= 2:
                 flags = int(_float(fields, "70", 0))
-                shapes.append({"kind": "polyline", "vertices": vertices, "close": bool(flags & 1)})
+                shapes.append(
+                    {"kind": "polyline", "vertices": vertices, "close": bool(flags & 1)}
+                )
                 bounds.extend(vertices)
 
         index = max(next_index, index + 1)
@@ -220,14 +227,18 @@ def convert_dxf_text_to_svg(text: str, title: str = "CAD Preview") -> str:
 
 
 def _convert_dwg_with_external_tool(input_path: Path, output_path: Path) -> bool:
-    command_template = os.getenv("DWG_TO_SVG_COMMAND") or os.getenv("CAD_TO_SVG_COMMAND")
+    command_template = os.getenv("DWG_TO_SVG_COMMAND") or os.getenv(
+        "CAD_TO_SVG_COMMAND"
+    )
     if not command_template:
         return False
     command = command_template.format(
         input=shlex.quote(str(input_path)),
         output=shlex.quote(str(output_path)),
     )
-    subprocess.run(command, shell=True, check=True, timeout=60, capture_output=True, text=True)
+    subprocess.run(
+        command, shell=True, check=True, timeout=60, capture_output=True, text=True
+    )
     return output_path.exists()
 
 
@@ -239,7 +250,9 @@ def _convert_dwg_to_dxf_with_external_tool(input_path: Path, output_path: Path) 
         input=shlex.quote(str(input_path)),
         output=shlex.quote(str(output_path)),
     )
-    subprocess.run(command, shell=True, check=True, timeout=60, capture_output=True, text=True)
+    subprocess.run(
+        command, shell=True, check=True, timeout=60, capture_output=True, text=True
+    )
     return output_path.exists()
 
 

@@ -15,6 +15,7 @@ Kernel, but no schema for that exists in this codebase yet. The interface
 (save/load/delete) is written so swapping in a durable backend later doesn't
 require touching ProcessManager at all.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -84,9 +85,9 @@ class Checkpoint:
     run_id: str
     schema_version: str
     created_at: float
-    context: dict[str, Any]          # ExecutionContext fields (minus intent_ir, stored separately)
+    context: dict[str, Any]  # ExecutionContext fields (minus intent_ir, stored separately)
     intent_ir: dict[str, Any] | None  # IntentIR.to_dict()
-    graph_snapshot: dict[str, Any]     # ExecutionGraph.snapshot()
+    graph_snapshot: dict[str, Any]  # ExecutionGraph.snapshot()
     retry_budget: dict[str, int]
     compensation_log: list[dict[str, Any]]
     approval_gate: dict[str, Any] | None
@@ -94,21 +95,31 @@ class Checkpoint:
 
     def _signing_payload(self) -> str:
         import json
-        return "|".join([
-            self.schema_version, self.checkpoint_id, self.run_id,
-            json.dumps(self.context, sort_keys=True),
-            json.dumps(self.intent_ir, sort_keys=True),
-            json.dumps(self.graph_snapshot, sort_keys=True),
-            json.dumps(self.retry_budget, sort_keys=True),
-            json.dumps(self.compensation_log, sort_keys=True),
-            json.dumps(self.approval_gate, sort_keys=True),
-        ])
+
+        return "|".join(
+            [
+                self.schema_version,
+                self.checkpoint_id,
+                self.run_id,
+                json.dumps(self.context, sort_keys=True),
+                json.dumps(self.intent_ir, sort_keys=True),
+                json.dumps(self.graph_snapshot, sort_keys=True),
+                json.dumps(self.retry_budget, sort_keys=True),
+                json.dumps(self.compensation_log, sort_keys=True),
+                json.dumps(self.approval_gate, sort_keys=True),
+            ]
+        )
 
     def sign(self) -> None:
         """Sign checkpoint using Ed25519 via identity module, fallback to HMAC."""
         blob = self._signing_payload().encode("utf-8")
         try:
-            from src.monkey_brain.kernel.identity import get_identity, get_key_manager, sign_bytes
+            from src.monkey_brain.kernel.identity import (
+                get_identity,
+                get_key_manager,
+                sign_bytes,
+            )
+
             identity = get_identity()
             km = get_key_manager()
             key = km.get_or_create(identity.runtime_id)
@@ -124,7 +135,12 @@ class Checkpoint:
 
         # Try Ed25519
         try:
-            from src.monkey_brain.kernel.identity import get_identity, get_key_manager, verify_bytes
+            from src.monkey_brain.kernel.identity import (
+                get_identity,
+                get_key_manager,
+                verify_bytes,
+            )
+
             identity = get_identity()
             km = get_key_manager()
             pub_pem = km.get_public_key_pem(identity.runtime_id)
@@ -198,7 +214,9 @@ def build_checkpoint(rpcb: Any, checkpoint_id: str) -> Checkpoint:
     return ckpt
 
 
-def restore_from_checkpoint(ckpt: Checkpoint) -> tuple[ExecutionContext, ExecutionGraph]:
+def restore_from_checkpoint(
+    ckpt: Checkpoint,
+) -> tuple[ExecutionContext, ExecutionGraph]:
     """Rebuild the two heavyweight pieces of an RPCB from a checkpoint.
     Caller (ProcessManager.restore_process) reattaches the rest (retry_budget,
     compensation_log, approval_gate) directly from the checkpoint's dicts.
@@ -258,6 +276,7 @@ class CheckpointStore:
     def cleanup(self, max_age_seconds: float = 86400 * 7) -> int:
         """Delete checkpoints older than max_age_seconds (default 7 days)."""
         import time as _time
+
         cutoff = _time.time() - max_age_seconds
         to_delete = [cid for cid, ckpt in self._checkpoints.items() if ckpt.created_at < cutoff]
         for cid in to_delete:
@@ -278,6 +297,7 @@ class MongoCheckpointStore:
 
     def __init__(self, mongo_client: Any, db_name: str = "monkeybrain") -> None:
         import motor.motor_asyncio
+
         # Accept both sync pymongo.MongoClient and async motor client
         if isinstance(mongo_client, motor.motor_asyncio.AsyncIOMotorClient):
             self._db = mongo_client[db_name]
@@ -297,11 +317,16 @@ class MongoCheckpointStore:
         # Audit: record checkpoint persistence
         try:
             from src.monkey_brain.kernel.audit import get_audit_log
+
             get_audit_log().record(
                 runtime_id=checkpoint.run_id,
-                event_type="checkpoint", action="save",
+                event_type="checkpoint",
+                action="save",
                 target=checkpoint.checkpoint_id,
-                details={"run_id": checkpoint.run_id, "schema_version": checkpoint.schema_version},
+                details={
+                    "run_id": checkpoint.run_id,
+                    "schema_version": checkpoint.schema_version,
+                },
             )
         except Exception:
             logger.debug("save: suppressed exception", exc_info=True)
@@ -342,6 +367,7 @@ class MongoCheckpointStore:
         periodically to bound storage growth.
         """
         import time as _time
+
         cutoff = _time.time() - max_age_seconds
         result = await self._col.delete_many({"created_at": {"$lt": cutoff}})
         return result.deleted_count
@@ -361,7 +387,10 @@ class CheckpointOpsMixin:
         """Requires the process to already be SUSPENDED — checkpointing a
         live RUNNING process would serialize a graph mid-mutation.
         """
-        from src.monkey_brain.kernel.process.models import CheckpointRef, RuntimeProcessState
+        from src.monkey_brain.kernel.process.models import (
+            CheckpointRef,
+            RuntimeProcessState,
+        )
 
         rpcb = self._require(run_id)
         checkpoint_id = f"ckpt-{run_id}-{len(rpcb.checkpoints)}"
@@ -375,7 +404,10 @@ class CheckpointOpsMixin:
         return ref
 
     async def restore_process(
-        self, checkpoint_id: str, *, execution_mode: Literal["serial", "parallel"] = "serial",
+        self,
+        checkpoint_id: str,
+        *,
+        execution_mode: Literal["serial", "parallel"] = "serial",
     ) -> Any:
         """Rebuild an RPCB from a stored checkpoint, in RESUMING state. Caller
         must call start_process() (RESUMING -> RUNNING) to continue it —
@@ -385,8 +417,14 @@ class CheckpointOpsMixin:
         concern, not process state) — defaults to "serial", same rationale
         as create_process().
         """
-        from src.monkey_brain.kernel.process.expansion_policy import _TrackingExpansionPolicy
-        from src.monkey_brain.kernel.process.models import ApprovalGateState, RuntimeProcessControlBlock, RuntimeProcessState
+        from src.monkey_brain.kernel.process.expansion_policy import (
+            _TrackingExpansionPolicy,
+        )
+        from src.monkey_brain.kernel.process.models import (
+            ApprovalGateState,
+            RuntimeProcessControlBlock,
+            RuntimeProcessState,
+        )
 
         load_result = self._checkpoint_store.load(checkpoint_id)
         if asyncio.iscoroutine(load_result):
@@ -416,9 +454,7 @@ class CheckpointOpsMixin:
             state=RuntimeProcessState.CHECKPOINTED,
             retry_budget=dict(ckpt.retry_budget),
             compensation_log=[],
-            approval_gate=(
-                ApprovalGateState(**ckpt.approval_gate) if ckpt.approval_gate else None
-            ),
+            approval_gate=(ApprovalGateState(**ckpt.approval_gate) if ckpt.approval_gate else None),
         )
         self._table[run_id] = rpcb
         policy = _TrackingExpansionPolicy(SelfHealingPolicy(max_repair_attempts=self._max_repair_attempts))

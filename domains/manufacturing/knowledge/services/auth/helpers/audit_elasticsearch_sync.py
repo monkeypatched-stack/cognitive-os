@@ -13,7 +13,6 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.common.compliance import AUDIT_COLLECTION, stable_json
 from services.common.config import settings
 
-
 logger = logging.getLogger("auth.audit_elasticsearch_sync")
 
 SYNC_STATE_COLLECTION = "part11_audit_search_sync_state"
@@ -88,7 +87,9 @@ def _change_control_id(entry: dict[str, Any]) -> str | None:
             if isinstance(change_controls, list) and change_controls:
                 first = change_controls[0]
                 if isinstance(first, dict):
-                    value = first.get("change_control_id") or first.get("change_control_number")
+                    value = first.get("change_control_id") or first.get(
+                        "change_control_number"
+                    )
                     if value:
                         return str(value)
     return None
@@ -157,7 +158,10 @@ def _client_headers() -> dict[str, str]:
 
 def _client_auth():
     if settings.AUDIT_ELASTICSEARCH_USERNAME:
-        return (settings.AUDIT_ELASTICSEARCH_USERNAME, settings.AUDIT_ELASTICSEARCH_PASSWORD)
+        return (
+            settings.AUDIT_ELASTICSEARCH_USERNAME,
+            settings.AUDIT_ELASTICSEARCH_PASSWORD,
+        )
     return None
 
 
@@ -202,7 +206,7 @@ async def _ensure_index(client: httpx.AsyncClient) -> None:
                 "result_summary": {"type": "object", "enabled": False},
                 "search_text": {"type": "text"},
             }
-        }
+        },
     }
     response = await client.put(index_url, json=mapping)
     if response.status_code not in {200, 201}:
@@ -212,7 +216,9 @@ async def _ensure_index(client: httpx.AsyncClient) -> None:
 async def _post_bulk(client: httpx.AsyncClient, lines: list[str]) -> int:
     if not lines:
         return 0
-    response = await client.post("/_bulk", content=("\n".join(lines) + "\n"), headers=_client_headers())
+    response = await client.post(
+        "/_bulk", content=("\n".join(lines) + "\n"), headers=_client_headers()
+    )
     response.raise_for_status()
     payload = response.json()
     if payload.get("errors"):
@@ -229,14 +235,26 @@ async def _bulk_index(client: httpx.AsyncClient, entries: list[dict[str, Any]]) 
     lines: list[str] = []
     current_bytes = 0
     indexed = 0
-    max_bytes = max(int(settings.AUDIT_ELASTICSEARCH_BULK_MAX_BYTES or 5 * 1024 * 1024), 1024 * 1024)
+    max_bytes = max(
+        int(settings.AUDIT_ELASTICSEARCH_BULK_MAX_BYTES or 5 * 1024 * 1024), 1024 * 1024
+    )
 
     for entry in entries:
         document = _index_document(entry)
         document_id = str(document["audit_id"])
-        action_line = json.dumps({"index": {"_index": settings.AUDIT_ELASTICSEARCH_INDEX, "_id": document_id}}, separators=(",", ":"))
+        action_line = json.dumps(
+            {
+                "index": {
+                    "_index": settings.AUDIT_ELASTICSEARCH_INDEX,
+                    "_id": document_id,
+                }
+            },
+            separators=(",", ":"),
+        )
         document_line = json.dumps(document, default=str, separators=(",", ":"))
-        pair_bytes = len(action_line.encode("utf-8")) + len(document_line.encode("utf-8")) + 2
+        pair_bytes = (
+            len(action_line.encode("utf-8")) + len(document_line.encode("utf-8")) + 2
+        )
 
         if lines and current_bytes + pair_bytes > max_bytes:
             indexed += await _post_bulk(client, lines)
@@ -250,7 +268,9 @@ async def _bulk_index(client: httpx.AsyncClient, entries: list[dict[str, Any]]) 
     return indexed
 
 
-async def sync_part11_audit_to_elasticsearch(db: AsyncIOMotorDatabase, *, batch_size: int | None = None) -> dict[str, Any]:
+async def sync_part11_audit_to_elasticsearch(
+    db: AsyncIOMotorDatabase, *, batch_size: int | None = None
+) -> dict[str, Any]:
     if not settings.AUDIT_ELASTICSEARCH_ENABLED:
         return {"enabled": False, "indexed": 0}
 
@@ -263,7 +283,9 @@ async def sync_part11_audit_to_elasticsearch(db: AsyncIOMotorDatabase, *, batch_
         try:
             query["_id"] = {"$gt": ObjectId(str(last_object_id))}
         except Exception:
-            logger.warning("Ignoring invalid audit Elasticsearch sync cursor: %s", last_object_id)
+            logger.warning(
+                "Ignoring invalid audit Elasticsearch sync cursor: %s", last_object_id
+            )
 
     limit = max(int(batch_size or settings.AUDIT_ELASTICSEARCH_BATCH_SIZE or 500), 1)
     indexed = 0
@@ -276,7 +298,13 @@ async def sync_part11_audit_to_elasticsearch(db: AsyncIOMotorDatabase, *, batch_
     ) as client:
         await _ensure_index(client)
         while True:
-            entries = await raw_db[AUDIT_COLLECTION].find(query).sort("_id", 1).limit(limit).to_list(length=limit)
+            entries = (
+                await raw_db[AUDIT_COLLECTION]
+                .find(query)
+                .sort("_id", 1)
+                .limit(limit)
+                .to_list(length=limit)
+            )
             if not entries:
                 break
 
@@ -303,14 +331,19 @@ async def sync_part11_audit_to_elasticsearch(db: AsyncIOMotorDatabase, *, batch_
     return {
         "enabled": True,
         "indexed": indexed,
-        "last_audit_id": last_entry.get("audit_id") if last_entry else state.get("last_audit_id"),
-        "last_object_id": str(last_entry.get("_id")) if last_entry else state.get("last_object_id"),
+        "last_audit_id": (
+            last_entry.get("audit_id") if last_entry else state.get("last_audit_id")
+        ),
+        "last_object_id": (
+            str(last_entry.get("_id")) if last_entry else state.get("last_object_id")
+        ),
         "index": settings.AUDIT_ELASTICSEARCH_INDEX,
     }
 
 
 async def _sync_loop(db: AsyncIOMotorDatabase) -> None:
     import pymongo.errors
+
     interval = max(int(settings.AUDIT_ELASTICSEARCH_SYNC_INTERVAL_SECONDS or 3600), 60)
     while True:
         try:
@@ -319,7 +352,10 @@ async def _sync_loop(db: AsyncIOMotorDatabase) -> None:
         except asyncio.CancelledError:
             raise
         except pymongo.errors.ServerSelectionTimeoutError:
-            logger.warning("Part 11 audit sync skipped — MongoDB not reachable (will retry in %ds)", interval)
+            logger.warning(
+                "Part 11 audit sync skipped — MongoDB not reachable (will retry in %ds)",
+                interval,
+            )
         except Exception:
             logger.exception("Part 11 audit Elasticsearch sync failed")
         await asyncio.sleep(interval)
@@ -332,7 +368,9 @@ async def start_audit_elasticsearch_sync(db: AsyncIOMotorDatabase) -> None:
         return
     if _sync_task and not _sync_task.done():
         return
-    _sync_task = asyncio.create_task(_sync_loop(db), name="part11-audit-elasticsearch-sync")
+    _sync_task = asyncio.create_task(
+        _sync_loop(db), name="part11-audit-elasticsearch-sync"
+    )
     logger.info(
         "Started Part 11 audit Elasticsearch sync job every %ss to %s/%s",
         settings.AUDIT_ELASTICSEARCH_SYNC_INTERVAL_SECONDS,

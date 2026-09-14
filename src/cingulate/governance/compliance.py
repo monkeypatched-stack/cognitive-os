@@ -18,7 +18,7 @@ from uuid import uuid4
 @dataclass
 class ComplianceCheck:
     """A single compliance check result."""
-    
+
     check_id: str = field(default_factory=lambda: f"check-{uuid4().hex[:8]}")
     policy_id: str = ""
     subsystem: str = ""
@@ -32,7 +32,7 @@ class ComplianceCheck:
 @dataclass
 class ComplianceReport:
     """Compliance report for a subsystem."""
-    
+
     report_id: str = field(default_factory=lambda: f"comp-{uuid4().hex[:8]}")
     subsystem: str = ""
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -45,18 +45,25 @@ class ComplianceReport:
 
 class ComplianceEngine:
     """Validates compliance with policies and constitutions.
-    
+
     Responsibilities:
     - Validate constitutional compliance
     - Validate policy compliance
     - Generate compliance reports
     """
-    
+
     def __init__(self):
         self._checks: list[ComplianceCheck] = []
         self._reports: list[ComplianceReport] = []
-    
-    def check(self, subsystem: str, rule: str, passed: bool, message: str = "", severity: str = "medium") -> ComplianceCheck:
+
+    def check(
+        self,
+        subsystem: str,
+        rule: str,
+        passed: bool,
+        message: str = "",
+        severity: str = "medium",
+    ) -> ComplianceCheck:
         """Run a compliance check."""
         check = ComplianceCheck(
             subsystem=subsystem,
@@ -67,11 +74,11 @@ class ComplianceEngine:
         )
         self._checks.append(check)
         return check
-    
+
     def validate_subsystem(self, subsystem: str, rules: list[dict[str, Any]]) -> ComplianceReport:
         """Validate a subsystem against a set of rules."""
         report = ComplianceReport(subsystem=subsystem)
-        
+
         for rule in rules:
             check = self.check(
                 subsystem=subsystem,
@@ -81,20 +88,20 @@ class ComplianceEngine:
                 severity=rule.get("severity", "medium"),
             )
             report.checks.append(check)
-        
+
         report.total_checks = len(report.checks)
         report.passed_checks = sum(1 for c in report.checks if c.passed)
         report.failed_checks = report.total_checks - report.passed_checks
         report.compliance_score = report.passed_checks / report.total_checks if report.total_checks else 0.0
-        
+
         self._reports.append(report)
         return report
-    
+
     def get_reports(self, subsystem: str | None = None) -> list[ComplianceReport]:
         if subsystem:
             return [r for r in self._reports if r.subsystem == subsystem]
         return list(self._reports)
-    
+
     def summary(self) -> dict:
         return {
             "total_checks": len(self._checks),

@@ -10,13 +10,13 @@ The bus deliberately has no knowledge of grocery names or entities.  A
 capability is any object exposing a ``name`` attribute and a ``handle``
 method; this is the same small contract consumed by ``ActionExecutor``.
 """
+
 from __future__ import annotations
 
 import dataclasses
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Mapping
-
 
 CapabilityHandler = Callable[..., Any]
 
@@ -45,7 +45,9 @@ class DomainCapability:
         try:
             handler = self._handlers[operation]
         except KeyError as exc:
-            raise KeyError(f"{self.name} does not provide operation {operation!r}") from exc
+            raise KeyError(
+                f"{self.name} does not provide operation {operation!r}"
+            ) from exc
         return handler(*args, **kwargs)
 
 
@@ -53,6 +55,7 @@ class DomainCapability:
 class ProductReview:
     """One customer review of a product — a normalized view over one
     attributes["reviews"] entry (MB-3005 Product Detail)."""
+
     reviewer: str = ""
     rating: float = 0.0
     comment: str = ""
@@ -74,6 +77,7 @@ class ProductVariant:
     a substitution alternative (2% -> whole -> oat milk): this is a
     structured reference get_product_detail() resolves against the same
     KnowledgeGraph, not prose in a docstring."""
+
     entity_id: str = ""
     label: str = ""
 
@@ -105,9 +109,15 @@ def get_effective_price(kg: Any, product_id: str, now: float | None = None) -> f
     return float(promo.get("sale_price", regular_price))
 
 
-def create_promotion(kg: Any, product_id: str, merchant_id: str, sale_price: float,
-                      starts_at: float | None = None, ends_at: float | None = None,
-                      now: float | None = None) -> dict:
+def create_promotion(
+    kg: Any,
+    product_id: str,
+    merchant_id: str,
+    sale_price: float,
+    starts_at: float | None = None,
+    ends_at: float | None = None,
+    now: float | None = None,
+) -> dict:
     """MB-3034 Promotion: a merchant runs a time-limited sale on their
     own product — a real discount, automatically applied while it's
     running, with no code the customer has to enter (the opposite of
@@ -132,7 +142,10 @@ def create_promotion(kg: Any, product_id: str, merchant_id: str, sale_price: flo
 
     regular_price = float(product.attributes.get("price", 0.0) or 0.0)
     if sale_price < 0:
-        return {"success": False, "error": f"sale price must be non-negative, got {sale_price!r}"}
+        return {
+            "success": False,
+            "error": f"sale price must be non-negative, got {sale_price!r}",
+        }
     if sale_price >= regular_price:
         return {
             "success": False,
@@ -142,19 +155,32 @@ def create_promotion(kg: Any, product_id: str, merchant_id: str, sale_price: flo
     if ends_at is not None and ends_at <= starts_at:
         return {"success": False, "error": "ends_at must be after starts_at"}
 
-    kg.update_entity(product_id, attributes={"promotion": {
-        "sale_price": sale_price, "starts_at": starts_at, "ends_at": ends_at, "created_by": merchant_id,
-    }})
+    kg.update_entity(
+        product_id,
+        attributes={
+            "promotion": {
+                "sale_price": sale_price,
+                "starts_at": starts_at,
+                "ends_at": ends_at,
+                "created_by": merchant_id,
+            }
+        },
+    )
     return {
-        "success": True, "product_id": product_id, "sale_price": sale_price,
-        "regular_price": regular_price, "starts_at": starts_at, "ends_at": ends_at,
+        "success": True,
+        "product_id": product_id,
+        "sale_price": sale_price,
+        "regular_price": regular_price,
+        "starts_at": starts_at,
+        "ends_at": ends_at,
     }
 
 
 @dataclass(frozen=True)
 class ProductDetail:
-    """"Open product" (MB-3005): inventory, images, reviews, and variants
+    """ "Open product" (MB-3005): inventory, images, reviews, and variants
     assembled from one product's catalog entity."""
+
     product_id: str
     name: str = ""
     price: float = 0.0
@@ -204,12 +230,16 @@ def get_product_detail(kg: Any, product_id: str) -> ProductDetail | None:
 
     attrs = entity.attributes
     reviews = tuple(ProductReview.from_dict(r) for r in (attrs.get("reviews") or ()))
-    average_rating = (sum(r.rating for r in reviews) / len(reviews)) if reviews else None
+    average_rating = (
+        (sum(r.rating for r in reviews) / len(reviews)) if reviews else None
+    )
 
     variants = tuple(
         ProductVariant(entity_id=v["entity_id"], label=str(v.get("label", "")))
         for v in (attrs.get("variants") or ())
-        if isinstance(v, Mapping) and v.get("entity_id") and kg.get_entity(v["entity_id"]) is not None
+        if isinstance(v, Mapping)
+        and v.get("entity_id")
+        and kg.get_entity(v["entity_id"]) is not None
     )
 
     regular_price = float(attrs.get("price", 0.0) or 0.0)
@@ -230,8 +260,14 @@ def get_product_detail(kg: Any, product_id: str) -> ProductDetail | None:
     )
 
 
-def leave_review(kg: Any, product_id: str, reviewer_id: str, rating: float, comment: str = "",
-                  now: float | None = None) -> dict:
+def leave_review(
+    kg: Any,
+    product_id: str,
+    reviewer_id: str,
+    rating: float,
+    comment: str = "",
+    now: float | None = None,
+) -> dict:
     """MB-3023 Customer Review: appends a new {"reviewer", "rating",
     "comment"} entry to a product's attributes["reviews"] — the write
     side of get_product_detail()'s existing read side (MB-3005), which
@@ -255,19 +291,23 @@ def leave_review(kg: Any, product_id: str, reviewer_id: str, rating: float, comm
         return {"success": False, "error": f"no such product {product_id!r}"}
 
     if not (1.0 <= rating <= 5.0):
-        return {"success": False, "error": f"rating must be between 1 and 5, got {rating!r}"}
+        return {
+            "success": False,
+            "error": f"rating must be between 1 and 5, got {rating!r}",
+        }
 
     verified = any(
         order.attributes.get("buyer_id") == reviewer_id
         and order.attributes.get("status") == "completed"
-        and product_id in {item.get("product_id") for item in (order.attributes.get("items") or ())}
+        and product_id
+        in {item.get("product_id") for item in (order.attributes.get("items") or ())}
         for order in kg.entities_by_type(EntityType.EVENT)
     )
     if not verified:
         return {
             "success": False,
             "error": f"no completed order for {product_id!r} found for reviewer {reviewer_id!r} "
-                     f"— a review requires a verified purchase",
+            f"— a review requires a verified purchase",
         }
 
     review = {
@@ -280,7 +320,12 @@ def leave_review(kg: Any, product_id: str, reviewer_id: str, rating: float, comm
     reviews = list(entity.attributes.get("reviews") or [])
     reviews.append(review)
     kg.update_entity(product_id, attributes={"reviews": reviews})
-    return {"success": True, "product_id": product_id, "review": review, "review_count": len(reviews)}
+    return {
+        "success": True,
+        "product_id": product_id,
+        "review": review,
+        "review_count": len(reviews),
+    }
 
 
 @dataclass(frozen=True)
@@ -289,12 +334,15 @@ class ProductRecommendation:
     co-occurred with the target product across other customers' real
     Orders (MB-3006 Recommendation Engine), ranked by how often that
     happened."""
+
     entity_id: str
     name: str = ""
     co_purchase_count: int = 0
 
 
-def customers_also_bought(kg: Any, product_id: str, limit: int = 5) -> tuple[ProductRecommendation, ...]:
+def customers_also_bought(
+    kg: Any, product_id: str, limit: int = 5
+) -> tuple[ProductRecommendation, ...]:
     """Recommendation workflow: "customers who bought product_id also
     bought..." — mined directly from real Order history (kernel/domains/
     grocery.py::OrderCreationCapability persists every confirmed order as
@@ -329,7 +377,11 @@ def customers_also_bought(kg: Any, product_id: str, limit: int = 5) -> tuple[Pro
     recommendations = [
         ProductRecommendation(
             entity_id=other_id,
-            name=(kg.get_entity(other_id).name if kg.get_entity(other_id) is not None else ""),
+            name=(
+                kg.get_entity(other_id).name
+                if kg.get_entity(other_id) is not None
+                else ""
+            ),
             co_purchase_count=count,
         )
         for other_id, count in co_purchase_counts.items()
@@ -341,6 +393,7 @@ def customers_also_bought(kg: Any, product_id: str, limit: int = 5) -> tuple[Pro
 @dataclass(frozen=True)
 class CartLine:
     """One line item in a customer's cart (MB-3007 Add To Cart)."""
+
     product_id: str
     name: str = ""
     price: float = 0.0
@@ -354,6 +407,7 @@ class Cart:
     domains/grocery.py::OrderCreationCapability) — "cart updated" means a
     real, durable state change a later request can read back, not an
     in-memory list that disappears between calls."""
+
     actor_id: str
     lines: tuple[CartLine, ...] = ()
     coupon_code: str = ""
@@ -395,7 +449,8 @@ def get_cart(kg: Any, actor_id: str) -> Cart:
         return Cart(actor_id=actor_id)
     lines = tuple(CartLine(**line) for line in entity.attributes.get("lines", ()))
     return Cart(
-        actor_id=actor_id, lines=lines,
+        actor_id=actor_id,
+        lines=lines,
         coupon_code=entity.attributes.get("coupon_code", ""),
         discount=float(entity.attributes.get("discount", 0.0) or 0.0),
     )
@@ -404,15 +459,22 @@ def get_cart(kg: Any, actor_id: str) -> Cart:
 def _persist_cart(kg: Any, cart: Cart) -> None:
     from src.monkey_brain.kernel.knowledge_graph import EntityType
 
-    kg.add_entity(_cart_entity_id(cart.actor_id), EntityType.OTHER, f"Cart: {cart.actor_id}", {
-        "actor_id": cart.actor_id,
-        "lines": [dataclasses.asdict(line) for line in cart.lines],
-        "coupon_code": cart.coupon_code,
-        "discount": cart.discount,
-    })
+    kg.add_entity(
+        _cart_entity_id(cart.actor_id),
+        EntityType.OTHER,
+        f"Cart: {cart.actor_id}",
+        {
+            "actor_id": cart.actor_id,
+            "lines": [dataclasses.asdict(line) for line in cart.lines],
+            "coupon_code": cart.coupon_code,
+            "discount": cart.discount,
+        },
+    )
 
 
-def add_to_cart(kg: Any, actor_id: str, product_id: str, quantity: int = 1) -> Cart | None:
+def add_to_cart(
+    kg: Any, actor_id: str, product_id: str, quantity: int = 1
+) -> Cart | None:
     """Add product_id to actor_id's cart, persist it, and return the
     UPDATED Cart. Returns None (no write performed) if product_id doesn't
     resolve to a real catalog product — mirrors get_product_detail()'s
@@ -442,12 +504,14 @@ def add_to_cart(kg: Any, actor_id: str, product_id: str, quantity: int = 1) -> C
             lines[i] = dataclasses.replace(line, quantity=line.quantity + quantity)
             break
     else:
-        lines.append(CartLine(
-            product_id=product_id,
-            name=product.name,
-            price=get_effective_price(kg, product_id),
-            quantity=quantity,
-        ))
+        lines.append(
+            CartLine(
+                product_id=product_id,
+                name=product.name,
+                price=get_effective_price(kg, product_id),
+                quantity=quantity,
+            )
+        )
 
     updated = dataclasses.replace(cart, lines=tuple(lines))
     _persist_cart(kg, updated)
@@ -461,6 +525,7 @@ class CouponResult:
     real/expired/store-scoped status is decided) into a typed shape
     consistent with the rest of this module, and computes what
     acceptance actually means for one cart's subtotal."""
+
     code: str
     accepted: bool
     reason: str = ""
@@ -474,7 +539,9 @@ class CouponResult:
     new_total: float = 0.0
 
 
-def apply_coupon_to_cart(kg: Any, actor_id: str, code: str, store_id: str | None = None) -> CouponResult:
+def apply_coupon_to_cart(
+    kg: Any, actor_id: str, code: str, store_id: str | None = None
+) -> CouponResult:
     """Apply a coupon code to actor_id's current cart. Delegates
     validation entirely to grocery.py's validate_coupon() — this
     function only translates that decision into what it means for THIS
@@ -488,7 +555,8 @@ def apply_coupon_to_cart(kg: Any, actor_id: str, code: str, store_id: str | None
 
     if not validation["valid"]:
         return CouponResult(
-            code=code, accepted=False,
+            code=code,
+            accepted=False,
             reason=validation.get("reason", ""),
             fraud_suspected=bool(validation.get("fraud_suspected", False)),
             new_total=cart.total,
@@ -500,17 +568,22 @@ def apply_coupon_to_cart(kg: Any, actor_id: str, code: str, store_id: str | None
         discount_amount = round(cart.subtotal * discount_percent / 100, 2)
     discount_amount = min(discount_amount, cart.subtotal)  # never a negative total
 
-    updated = dataclasses.replace(cart, coupon_code=code.upper(), discount=discount_amount)
+    updated = dataclasses.replace(
+        cart, coupon_code=code.upper(), discount=discount_amount
+    )
     _persist_cart(kg, updated)
 
     return CouponResult(
-        code=code, accepted=True,
+        code=code,
+        accepted=True,
         discount_amount=discount_amount,
         new_total=updated.total,
     )
 
 
-def onboard_merchant(kg: Any, merchant_id: str, store_name: str, **store_attrs: Any) -> dict:
+def onboard_merchant(
+    kg: Any, merchant_id: str, store_name: str, **store_attrs: Any
+) -> dict:
     """MB-3037 Merchant Onboarding: creates a real Store (ORGANIZATION)
     entity owned by merchant_id — closing a real gap: "Merchant" (MB-3001)
     is an ActorType.ENTERPRISE actor in the society/geography system,
@@ -551,11 +624,24 @@ def onboard_merchant(kg: Any, merchant_id: str, store_name: str, **store_attrs: 
     # merchant-actor's personal wallet — a merchant who owns multiple
     # stores keeps each store's revenue separately trackable.
     store_account_id = f"account_{store_id}"
-    kg.add_entity(store_account_id, EntityType.ACCOUNT, f"{store_name} Receivable", {
-        "owner": store_id, "store_id": store_id, "account_type": "merchant_receivable", "balance": 0.0,
-    })
-    return {"success": True, "store_id": store_id, "owner_id": merchant_id, "name": store_name,
-            "store_account_id": store_account_id}
+    kg.add_entity(
+        store_account_id,
+        EntityType.ACCOUNT,
+        f"{store_name} Receivable",
+        {
+            "owner": store_id,
+            "store_id": store_id,
+            "account_type": "merchant_receivable",
+            "balance": 0.0,
+        },
+    )
+    return {
+        "success": True,
+        "store_id": store_id,
+        "owner_id": merchant_id,
+        "name": store_name,
+        "store_account_id": store_account_id,
+    }
 
 
 def require_store_owner(kg: Any, store_id: str, merchant_id: str) -> dict | None:
@@ -571,12 +657,22 @@ def require_store_owner(kg: Any, store_id: str, merchant_id: str) -> dict | None
     if store is None:
         return {"success": False, "error": f"no such store {store_id!r}"}
     if store.attributes.get("owner_id") != merchant_id:
-        return {"success": False, "error": f"actor {merchant_id!r} does not own store {store_id!r}"}
+        return {
+            "success": False,
+            "error": f"actor {merchant_id!r} does not own store {store_id!r}",
+        }
     return None
 
 
-def list_product(kg: Any, store_id: str, merchant_id: str, name: str, price: float,
-                  quantity: int = 0, **product_attrs: Any) -> dict:
+def list_product(
+    kg: Any,
+    store_id: str,
+    merchant_id: str,
+    name: str,
+    price: float,
+    quantity: int = 0,
+    **product_attrs: Any,
+) -> dict:
     """MB-3038 Product Listing: a merchant lists a new product in their
     own store. Refuses outright unless merchant_id actually owns
     store_id (require_store_owner()) — a merchant can never list a
@@ -598,11 +694,20 @@ def list_product(kg: Any, store_id: str, merchant_id: str, name: str, price: flo
 
     product_id = f"product_{uuid.uuid4().hex}"
     attributes = {
-        "product": True, "store_id": store_id, "price": price, "quantity": quantity,
+        "product": True,
+        "store_id": store_id,
+        "price": price,
+        "quantity": quantity,
         **product_attrs,
     }
     kg.add_entity(product_id, EntityType.ASSET, name, attributes)
-    return {"success": True, "product_id": product_id, "store_id": store_id, "name": name, "price": price}
+    return {
+        "success": True,
+        "product_id": product_id,
+        "store_id": store_id,
+        "name": name,
+        "price": price,
+    }
 
 
 def update_product(kg: Any, product_id: str, merchant_id: str, **updates: Any) -> dict:
@@ -627,7 +732,10 @@ def update_product(kg: Any, product_id: str, merchant_id: str, **updates: Any) -
         return denied
 
     if "price" in updates and updates["price"] < 0:
-        return {"success": False, "error": f"price must be non-negative, got {updates['price']!r}"}
+        return {
+            "success": False,
+            "error": f"price must be non-negative, got {updates['price']!r}",
+        }
 
     name = updates.pop("name", None)
     kwargs: dict[str, Any] = {"attributes": updates} if updates else {}
@@ -635,7 +743,11 @@ def update_product(kg: Any, product_id: str, merchant_id: str, **updates: Any) -
         kwargs["name"] = name
     if kwargs:
         kg.update_entity(product_id, **kwargs)
-    return {"success": True, "product_id": product_id, "updated": {**({"name": name} if name is not None else {}), **updates}}
+    return {
+        "success": True,
+        "product_id": product_id,
+        "updated": {**({"name": name} if name is not None else {}), **updates},
+    }
 
 
 def update_organization(kg: Any, org_id: str, **updates: Any) -> dict:
@@ -671,7 +783,11 @@ def update_organization(kg: Any, org_id: str, **updates: Any) -> dict:
             kwargs["name"] = name
         if kwargs:
             kg.update_entity(org_id, **kwargs)
-    return {"success": True, "org_id": org_id, "updated": {**({"name": name} if name is not None else {}), **updates}}
+    return {
+        "success": True,
+        "org_id": org_id,
+        "updated": {**({"name": name} if name is not None else {}), **updates},
+    }
 
 
 def remove_product(kg: Any, product_id: str, merchant_id: str) -> dict:
@@ -695,7 +811,14 @@ def remove_product(kg: Any, product_id: str, merchant_id: str) -> dict:
     if (denied := require_store_owner(kg, store_id, merchant_id)) is not None:
         return denied
 
-    kg.update_entity(product_id, attributes={"product": False, "removed_at": time.time(), "removed_by": merchant_id})
+    kg.update_entity(
+        product_id,
+        attributes={
+            "product": False,
+            "removed_at": time.time(),
+            "removed_by": merchant_id,
+        },
+    )
     return {"success": True, "product_id": product_id}
 
 
@@ -734,18 +857,24 @@ def get_store_analytics(kg: Any, store_id: str, merchant_id: str) -> dict:
         return denied
 
     store_product_ids = {
-        e.entity_id for e in kg.entities_by_type(EntityType.ASSET)
+        e.entity_id
+        for e in kg.entities_by_type(EntityType.ASSET)
         if e.attributes.get("store_id") == store_id
     }
     listed_products = [
-        e for e in kg.entities_by_type(EntityType.ASSET)
-        if e.attributes.get("store_id") == store_id and e.attributes.get("product") is True
+        e
+        for e in kg.entities_by_type(EntityType.ASSET)
+        if e.attributes.get("store_id") == store_id
+        and e.attributes.get("product") is True
     ]
 
     total_stock = sum(p.attributes.get("quantity", 0) for p in listed_products)
-    out_of_stock_count = sum(1 for p in listed_products if p.attributes.get("quantity", 0) == 0)
+    out_of_stock_count = sum(
+        1 for p in listed_products if p.attributes.get("quantity", 0) == 0
+    )
     low_stock_count = sum(
-        1 for p in listed_products
+        1
+        for p in listed_products
         if 0 < p.attributes.get("quantity", 0) <= _LOW_STOCK_THRESHOLD
     )
 
@@ -753,11 +882,17 @@ def get_store_analytics(kg: Any, store_id: str, merchant_id: str) -> dict:
     for order in kg.entities_by_type(EntityType.EVENT):
         if order.attributes.get("payment_status") != "paid":
             continue
-        item_ids = {item.get("product_id") for item in (order.attributes.get("items") or ()) if item.get("product_id")}
+        item_ids = {
+            item.get("product_id")
+            for item in (order.attributes.get("items") or ())
+            if item.get("product_id")
+        }
         if item_ids & store_product_ids:
             store_orders.append(order)
 
-    total_revenue = round(sum(order.attributes.get("total", 0) for order in store_orders), 2)
+    total_revenue = round(
+        sum(order.attributes.get("total", 0) for order in store_orders), 2
+    )
 
     buyer_order_counts: dict[str, int] = {}
     for order in store_orders:
@@ -780,7 +915,9 @@ def get_store_analytics(kg: Any, store_id: str, merchant_id: str) -> dict:
         },
         "customers": {
             "customer_count": len(buyer_order_counts),
-            "repeat_customer_count": sum(1 for count in buyer_order_counts.values() if count > 1),
+            "repeat_customer_count": sum(
+                1 for count in buyer_order_counts.values() if count > 1
+            ),
         },
     }
 
@@ -797,15 +934,30 @@ class CommerceCapability(DomainCapability):
     name = "commerce"
 
     _DEFAULT_OPERATIONS = (
-        "observe_catalog", "search_products", "reserve_inventory",
-        "confirm_reservation", "cancel_order", "return_order", "refund_order",
-        "place_backorder", "fulfill_backorders",
+        "observe_catalog",
+        "search_products",
+        "reserve_inventory",
+        "confirm_reservation",
+        "cancel_order",
+        "return_order",
+        "refund_order",
+        "place_backorder",
+        "fulfill_backorders",
     )
     _NATIVE_OPERATIONS = (
-        "open_product", "customers_also_bought", "add_to_cart", "get_cart",
-        "apply_coupon_to_cart", "leave_review",
-        "onboard_merchant", "list_product", "update_product", "remove_product",
-        "create_promotion", "get_effective_price", "get_store_analytics",
+        "open_product",
+        "customers_also_bought",
+        "add_to_cart",
+        "get_cart",
+        "apply_coupon_to_cart",
+        "leave_review",
+        "onboard_merchant",
+        "list_product",
+        "update_product",
+        "remove_product",
+        "create_promotion",
+        "get_effective_price",
+        "get_store_analytics",
     )
     """Operations implemented directly in this module, not delegated to
     grocery.py — see _legacy_handler vs get_product_detail()/
@@ -815,8 +967,10 @@ class CommerceCapability(DomainCapability):
 
     def __init__(self, handlers: Mapping[str, CapabilityHandler] | None = None):
         if handlers is None:
-            handlers = {operation: self._legacy_handler(operation)
-                       for operation in self._DEFAULT_OPERATIONS}
+            handlers = {
+                operation: self._legacy_handler(operation)
+                for operation in self._DEFAULT_OPERATIONS
+            }
             handlers["open_product"] = get_product_detail
             handlers["add_to_cart"] = add_to_cart
             handlers["get_cart"] = get_cart
@@ -842,8 +996,9 @@ class CommerceCapability(DomainCapability):
                 products = grocery.open_products(*args, **kwargs)
                 if operation == "search_products" and query:
                     query_words = set(str(query).lower().split())
-                    products = [p for p in products
-                                if query_words & set(p.name.lower().split())]
+                    products = [
+                        p for p in products if query_words & set(p.name.lower().split())
+                    ]
                 return products
             if operation == "reserve_inventory":
                 return grocery.try_reserve(*args, **kwargs)
@@ -858,7 +1013,8 @@ class CommerceCapability(DomainCapability):
             if operation == "refund_order":
                 return grocery.refund_order(*args, **kwargs)
             raise NotImplementedError(
-                f"{operation} has no vertical-neutral legacy adapter yet")
+                f"{operation} has no vertical-neutral legacy adapter yet"
+            )
 
         return handler
 
@@ -922,18 +1078,23 @@ class VerticalCapabilityBundle:
 
     @property
     def capabilities(self) -> dict[str, Any]:
-        return {name: self.bus.discover(name) for name in self.definition.requires
-                if self.bus.discover(name) is not None}
+        return {
+            name: self.bus.discover(name)
+            for name in self.definition.requires
+            if self.bus.discover(name) is not None
+        }
 
     def missing(self) -> tuple[str, ...]:
-        return tuple(name for name in self.definition.requires
-                     if self.bus.discover(name) is None)
+        return tuple(
+            name for name in self.definition.requires if self.bus.discover(name) is None
+        )
 
     def validate(self) -> None:
         missing = self.missing()
         if missing:
             raise RuntimeError(
-                f"{self.definition.name} is missing capabilities: {', '.join(missing)}")
+                f"{self.definition.name} is missing capabilities: {', '.join(missing)}"
+            )
 
 
 # These are the commerce mechanics that historically lived in grocery.py.
@@ -969,18 +1130,38 @@ def __getattr__(name: str) -> Any:
     """
     if name in _LEGACY_COMMERCE_EXPORTS:
         from src.monkey_brain.kernel.domains import grocery
+
         return getattr(grocery, name)
     raise AttributeError(name)
 
 
 __all__ = [
-    "CapabilityHandler", "DomainCapability", "CommerceCapability",
-    "CommerceCapabilityBus", "VerticalDefinition", "VerticalCapabilityBundle",
-    "ProductReview", "ProductVariant", "ProductDetail", "get_product_detail", "leave_review",
-    "ProductRecommendation", "customers_also_bought",
-    "CartLine", "Cart", "get_cart", "add_to_cart",
-    "CouponResult", "apply_coupon_to_cart",
-    "onboard_merchant", "require_store_owner", "list_product", "update_product", "remove_product",
-    "get_effective_price", "create_promotion", "get_store_analytics",
+    "CapabilityHandler",
+    "DomainCapability",
+    "CommerceCapability",
+    "CommerceCapabilityBus",
+    "VerticalDefinition",
+    "VerticalCapabilityBundle",
+    "ProductReview",
+    "ProductVariant",
+    "ProductDetail",
+    "get_product_detail",
+    "leave_review",
+    "ProductRecommendation",
+    "customers_also_bought",
+    "CartLine",
+    "Cart",
+    "get_cart",
+    "add_to_cart",
+    "CouponResult",
+    "apply_coupon_to_cart",
+    "onboard_merchant",
+    "require_store_owner",
+    "list_product",
+    "update_product",
+    "remove_product",
+    "get_effective_price",
+    "create_promotion",
+    "get_store_analytics",
     *sorted(_LEGACY_COMMERCE_EXPORTS),
 ]

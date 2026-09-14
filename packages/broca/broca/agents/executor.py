@@ -7,6 +7,7 @@ Self-healing: on failure each step is passed to _heal_step() which dispatches
 to the correct repair strategy before retrying.  Healing loops up to
 MAX_HEAL_ATTEMPTS per step.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,8 +31,16 @@ _HARD_GATE_STEPS: frozenset[str] = frozenset({"codegen"})
 
 # Subcommands where the last positional arg is the service slug
 _SVC_ARG_SUBCMDS = {
-    "api", "codegen", "test-service", "fixit", "ddd-check",
-    "serve", "client", "chart-from-client", "compile-agent", "create-agent",
+    "api",
+    "codegen",
+    "test-service",
+    "fixit",
+    "ddd-check",
+    "serve",
+    "client",
+    "chart-from-client",
+    "compile-agent",
+    "create-agent",
 }
 
 # SOC2/GDPR attributes injected during comply self-heal.
@@ -75,12 +84,16 @@ class ExecutorAgent(BaseETASSAgent):
         if not plan_file.exists():
             self._reward(False, 0.0)
             return self._result(
-                payload={"executed": False, "error": f"plan file not found: {plan_file}"},
+                payload={
+                    "executed": False,
+                    "error": f"plan file not found: {plan_file}",
+                },
                 observations=[f"plan file not found: {plan_file}"],
             )
 
         try:
             import yaml
+
             data = yaml.safe_load(plan_file.read_text()) or {}
         except Exception as e:
             self._reward(False, 0.0)
@@ -115,13 +128,27 @@ class ExecutorAgent(BaseETASSAgent):
             deps = step.get("depends_on", [])
 
             if (step_id or 0) < from_step:
-                results.append({"id": step_id, "name": name, "status": "skipped(resume)", "returncode": None})
+                results.append(
+                    {
+                        "id": step_id,
+                        "name": name,
+                        "status": "skipped(resume)",
+                        "returncode": None,
+                    }
+                )
                 continue
 
             failed_deps = [d for d in deps if d not in completed_ids]
             if failed_deps and not continue_on_error:
                 print(f"  [skip] {name} — deps not satisfied: {failed_deps}")
-                results.append({"id": step_id, "name": name, "status": "skipped", "returncode": None})
+                results.append(
+                    {
+                        "id": step_id,
+                        "name": name,
+                        "status": "skipped",
+                        "returncode": None,
+                    }
+                )
                 all_ok = False
                 continue
 
@@ -129,7 +156,14 @@ class ExecutorAgent(BaseETASSAgent):
             print(f"\n▶ [{step_id}] {name}")
             print(f"  {command}")
             if dry_run:
-                results.append({"id": step_id, "name": name, "status": "dry_run", "command": command})
+                results.append(
+                    {
+                        "id": step_id,
+                        "name": name,
+                        "status": "dry_run",
+                        "command": command,
+                    }
+                )
                 completed_ids.add(step_id)
                 continue
 
@@ -143,10 +177,17 @@ class ExecutorAgent(BaseETASSAgent):
             if not ok and subcmd in _HARD_GATE_STEPS:
                 self._display_error_report(step_id, name, command, rc, error_output)
                 print(f"  ✗ HARD GATE '{subcmd}' failed — pipeline aborted.")
-                results.append({
-                    "id": step_id, "name": name, "status": "failed(gate)",
-                    "returncode": rc, "command": command, "healed": False, "heal_attempts": 0,
-                })
+                results.append(
+                    {
+                        "id": step_id,
+                        "name": name,
+                        "status": "failed(gate)",
+                        "returncode": rc,
+                        "command": command,
+                        "healed": False,
+                        "heal_attempts": 0,
+                    }
+                )
                 all_ok = False
                 break
 
@@ -168,7 +209,7 @@ class ExecutorAgent(BaseETASSAgent):
 
             status = "ok" if ok else "failed"
             if ok and not healed:
-                print(f"  ✓ ok")
+                print("  ✓ ok")
             elif not ok:
                 print(f"  ✗ failed after {heal_attempts} heal attempt(s) (rc={rc})")
                 self._alert_failure(
@@ -177,15 +218,17 @@ class ExecutorAgent(BaseETASSAgent):
                     {"id": step_id, "name": name, "command": command, "returncode": rc},
                     heal_attempts,
                 )
-            results.append({
-                "id": step_id,
-                "name": name,
-                "status": status,
-                "returncode": rc,
-                "command": command,
-                "healed": healed,
-                "heal_attempts": heal_attempts,
-            })
+            results.append(
+                {
+                    "id": step_id,
+                    "name": name,
+                    "status": status,
+                    "returncode": rc,
+                    "command": command,
+                    "healed": healed,
+                    "heal_attempts": heal_attempts,
+                }
+            )
 
             if ok:
                 completed_ids.add(step_id)
@@ -206,7 +249,11 @@ class ExecutorAgent(BaseETASSAgent):
             observations=[
                 f"{'dry run' if dry_run else 'executed'} {len(results)}/{len(steps)} steps"
                 + (f" — {sum(1 for r in results if r['status'] == 'ok')} ok" if not dry_run else "")
-                + (f", {sum(1 for r in results if r.get('healed'))} healed" if any(r.get('healed') for r in results) else "")
+                + (
+                    f", {sum(1 for r in results if r.get('healed'))} healed"
+                    if any(r.get("healed") for r in results)
+                    else ""
+                )
             ],
         )
 
@@ -254,7 +301,8 @@ class ExecutorAgent(BaseETASSAgent):
         try:
             result = subprocess.run(
                 ["lsof", "-ti", f":{port}"],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
             pids = result.stdout.strip().splitlines()
             for pid in pids:
@@ -289,7 +337,7 @@ class ExecutorAgent(BaseETASSAgent):
         new_attr_json = json.dumps(attrs)
 
         if attr_match:
-            healed = command[:attr_match.start()] + f"--attributes '{new_attr_json}'" + command[attr_match.end():]
+            healed = command[: attr_match.start()] + f"--attributes '{new_attr_json}'" + command[attr_match.end() :]
         else:
             healed = command + f" --attributes '{new_attr_json}'"
 
@@ -304,22 +352,22 @@ class ExecutorAgent(BaseETASSAgent):
         import json as _json
         import time
 
-        step_id   = step.get("id", "?")
+        step_id = step.get("id", "?")
         step_name = step.get("name", "unknown")
-        command   = step.get("command", "")
-        rc        = step.get("returncode", -1)
-        ts        = time.strftime("%Y%m%d_%H%M%S")
+        command = step.get("command", "")
+        rc = step.get("returncode", -1)
+        ts = time.strftime("%Y%m%d_%H%M%S")
 
         payload = {
-            "plan_id":      plan_id,
-            "goal":         goal,
-            "step_id":      step_id,
-            "step_name":    step_name,
-            "command":      command,
-            "returncode":   rc,
+            "plan_id": plan_id,
+            "goal": goal,
+            "step_id": step_id,
+            "step_name": step_name,
+            "command": command,
+            "returncode": rc,
             "heal_attempts": heal_attempts,
-            "timestamp":    ts,
-            "severity":     "CRITICAL",
+            "timestamp": ts,
+            "severity": "CRITICAL",
         }
 
         # Write alert file
@@ -330,13 +378,15 @@ class ExecutorAgent(BaseETASSAgent):
 
         # Fire lemon alert (best-effort)
         try:
-            import sys, os
+            import sys
+
             repo = Path(__file__).parents[4]
             src = str(repo / "src")
             if src not in sys.path:
                 sys.path.insert(0, src)
             from src.introspection.lemon import get_lemon
             from src.introspection.alerting import AlertSeverity
+
             lemon = get_lemon()
             lemon.error(
                 f"Pipeline step failed: [{step_id}] {step_name} (rc={rc}, {heal_attempts} heal attempt(s))",
@@ -359,7 +409,7 @@ class ExecutorAgent(BaseETASSAgent):
 
     @staticmethod
     def _print_report(results: list[dict], goal: str, plan_id: str = "") -> None:
-        ok     = [r for r in results if r.get("status") == "ok"]
+        ok = [r for r in results if r.get("status") == "ok"]
         healed = [r for r in results if r.get("healed")]
         failed = [r for r in results if r.get("status") == "failed"]
         skipped = [r for r in results if "skipped" in str(r.get("status", ""))]
@@ -380,14 +430,16 @@ class ExecutorAgent(BaseETASSAgent):
                 tag = "  SKIPPED"
             else:
                 tag = f"  FAILED  (rc={rc}, {ha} fix attempt(s))"
-            print(f"  {r.get('id','?'):>3}  {r.get('name',''):<{col}}  {tag}")
+            print(f"  {r.get('id', '?'):>3}  {r.get('name', ''):<{col}}  {tag}")
 
         print("─" * 60)
-        print(f"  Total: {len(results)}   OK: {len(ok)}   Healed: {len(healed)}   Failed: {len(failed)}   Skipped: {len(skipped)}")
+        print(
+            f"  Total: {len(results)}   OK: {len(ok)}   Healed: {len(healed)}   Failed: {len(failed)}   Skipped: {len(skipped)}"
+        )
         if failed:
             print("\nFailed steps:")
             for r in failed:
-                print(f"  • [{r.get('id')}] {r.get('name')} — {r.get('command','')}")
+                print(f"  • [{r.get('id')}] {r.get('name')} — {r.get('command', '')}")
             alerts_dir = Path.home() / ".monkeybrain" / "alerts"
             print(f"\nAlerts written to: {alerts_dir}/")
         print("─" * 60 + "\n")
@@ -420,41 +472,42 @@ class ExecutorAgent(BaseETASSAgent):
             if "--signals" not in command and "--attributes" not in command:
                 if std == "gdpr":
                     return (
-                        f"monkeypatched make comply gdpr "
-                        f"--signals '{{\"has_pii\":true,\"lawful_basis\":\"contract\","
-                        f"\"privacy_by_design\":true,\"retention_period_defined\":true,"
-                        f"\"right_to_erasure_enabled\":true,\"right_to_access_enabled\":true,"
-                        f"\"breach_notification_proc\":true,\"consent_withdrawable\":true}}' "
-                        f"--attributes '{{\"region\":\"EU\"}}'"
+                        "monkeypatched make comply gdpr "
+                        '--signals \'{"has_pii":true,"lawful_basis":"contract",'
+                        '"privacy_by_design":true,"retention_period_defined":true,'
+                        '"right_to_erasure_enabled":true,"right_to_access_enabled":true,'
+                        '"breach_notification_proc":true,"consent_withdrawable":true}\' '
+                        '--attributes \'{"region":"EU"}\''
                     )
                 if std == "soc2":
                     return (
-                        f"monkeypatched make comply soc2 "
-                        f"--signals '{{\"has_operations\":true,\"has_data\":true,\"has_user_access\":true}}' "
-                        f"--attributes '{{\"security_policy_documented\":true,\"risk_ownership_defined\":true,"
-                        f"\"monitoring_alerting_enabled\":true,\"incident_response_plan\":true,"
-                        f"\"backup_tested\":true,\"change_management_process\":true,"
-                        f"\"change_log_maintained\":true,"
-                        f"\"access_provisioning_formal\":true}}'"
+                        "monkeypatched make comply soc2 "
+                        '--signals \'{"has_operations":true,"has_data":true,"has_user_access":true}\' '
+                        '--attributes \'{"security_policy_documented":true,"risk_ownership_defined":true,'
+                        '"monitoring_alerting_enabled":true,"incident_response_plan":true,'
+                        '"backup_tested":true,"change_management_process":true,'
+                        '"change_log_maintained":true,'
+                        '"access_provisioning_formal":true}\''
                     )
-                return f"monkeypatched make comply {std} --signals '{{\"has_operations\":true}}' --attributes '{{\"region\":\"EU\"}}'"
+                return f'monkeypatched make comply {std} --signals \'{{"has_operations":true}}\' --attributes \'{{"region":"EU"}}\''
 
             # Signals flag IS present but may be empty '{}' — promote to real signal set.
             if re.search(r"--signals\s+'(\{\}|{})'", command):
                 if std == "gdpr":
                     command = re.sub(
                         r"--signals\s+'[^']*'",
-                        ("--signals '{\"has_pii\":true,\"lawful_basis\":\"contract\","
-                         "\"privacy_by_design\":true,\"retention_period_defined\":true,"
-                         "\"right_to_erasure_enabled\":true,\"right_to_access_enabled\":true,"
-                         "\"breach_notification_proc\":true,\"consent_withdrawable\":true}'"),
+                        (
+                            '--signals \'{"has_pii":true,"lawful_basis":"contract",'
+                            '"privacy_by_design":true,"retention_period_defined":true,'
+                            '"right_to_erasure_enabled":true,"right_to_access_enabled":true,'
+                            '"breach_notification_proc":true,"consent_withdrawable":true}\''
+                        ),
                         command,
                     )
                 elif std == "soc2":
                     command = re.sub(
                         r"--signals\s+'[^']*'",
-                        ("--signals '{\"has_operations\":true,\"has_data\":true,"
-                         "\"has_user_access\":true}'"),
+                        ('--signals \'{"has_operations":true,"has_data":true,"has_user_access":true}\''),
                         command,
                     )
                     # Merge required SOC2 attributes into existing --attributes block.
@@ -476,9 +529,7 @@ class ExecutorAgent(BaseETASSAgent):
                             existing = {}
                         merged = {**_soc2_required, **existing}
                         command = (
-                            command[: attr_m.start()]
-                            + f"--attributes '{json.dumps(merged)}'"
-                            + command[attr_m.end() :]
+                            command[: attr_m.start()] + f"--attributes '{json.dumps(merged)}'" + command[attr_m.end() :]
                         )
                     else:
                         command += f" --attributes '{json.dumps(_soc2_required)}'"
@@ -530,7 +581,8 @@ class ExecutorAgent(BaseETASSAgent):
             logger.warning(
                 "[executor] plan has a dependency cycle — %d step(s) could not be ordered "
                 "(%s); running them in declaration order with dependencies unsatisfied",
-                len(stranded), ", ".join(str(s.get("id")) for s in stranded),
+                len(stranded),
+                ", ".join(str(s.get("id")) for s in stranded),
             )
             result.extend(stranded)
         return result
@@ -550,6 +602,7 @@ class ExecutorAgent(BaseETASSAgent):
     def _llm_fix_from_errors(service: str, error_output: str) -> None:
         """Build an LLM prompt from the error output and patch service files."""
         import sys
+
         repo = Path(__file__).parents[4]
         svc_dir = repo / "generated" / service
         if not svc_dir.exists():
@@ -591,6 +644,7 @@ class ExecutorAgent(BaseETASSAgent):
             if src not in sys.path:
                 sys.path.insert(0, src)
             from sittingface.codegen_agent import CodeGenAgent
+
             cg = CodeGenAgent()
             print("  [heal:llm] calling LLM to fix errors…")
             raw = cg._run_llm_sync(prompt, system)

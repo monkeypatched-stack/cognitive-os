@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from typing import Optional, Literal, List
 from pydantic import BaseModel, Field, model_validator
 
-
 BayType = Literal[
     "Assembly",
     "Packaging",
@@ -13,6 +12,7 @@ BayType = Literal[
     "Machining",
     "Other",
 ]
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -27,10 +27,10 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 
 class Bay(BaseModel):
-    bay_id:      str            = Field(..., min_length=1)
-    room_id:     str            = Field(..., min_length=1)
-    name:        str            = Field(..., min_length=1)
-    machine_id:  Optional[str]  = None
+    bay_id: str = Field(..., min_length=1)
+    room_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    machine_id: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -46,10 +46,10 @@ class BayCreate(Bay):
 
 
 class BayUpdate(BaseModel):
-    room_id:     Optional[str]   = None
-    floor_id:    Optional[str]   = None
-    machine_id:  Optional[str]  = None
-    name:        Optional[str]   = None
+    room_id: Optional[str] = None
+    floor_id: Optional[str] = None
+    machine_id: Optional[str] = None
+    name: Optional[str] = None
     updated_at: datetime = Field(default_factory=utc_now)
 
 
@@ -59,7 +59,7 @@ class BayResponse(Bay):
 
 
 class PaginatedBayResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   List[BayResponse]
+    results: List[BayResponse]

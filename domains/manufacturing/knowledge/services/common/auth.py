@@ -23,9 +23,12 @@ def _dev_bypass() -> bool:
     """
     on = os.getenv("AUTH_DEV_BYPASS", "").strip().lower() in ("1", "true", "yes", "on")
     if on:
-        logger.critical("[auth] AUTH_DEV_BYPASS is ON — authentication is DISABLED. "
-                        "Never enable this outside local development.")
+        logger.critical(
+            "[auth] AUTH_DEV_BYPASS is ON — authentication is DISABLED. "
+            "Never enable this outside local development."
+        )
     return on
+
 
 PERMISSION_ALIASES = {
     "perm-view-process-definitions": {"perm-view-workflows"},
@@ -61,23 +64,29 @@ async def get_current_user(
         return _DEV_ADMIN
 
     if credentials is None or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Not authenticated")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+        )
     try:
-        payload = decode_access_token(credentials.credentials)   # verifies signature + exp
+        payload = decode_access_token(
+            credentials.credentials
+        )  # verifies signature + exp
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Invalid or expired token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+        )
     if not payload or not payload.get("sub"):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Invalid token claims")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token claims"
+        )
     # Security audit P1-5: signature+expiry alone don't reflect logout/
     # revocation — a token is only truly dead once its jti is checked
     # against the same live blocklist agent tokens already use (see
     # services.auth.helpers.revocation, and auth.py::logout's write side).
     if await is_jti_revoked(payload.get("jti")):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Token has been revoked")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked"
+        )
 
     user = {
         # "sub" is kept alongside "user_id": the per-router get_current_user copies this

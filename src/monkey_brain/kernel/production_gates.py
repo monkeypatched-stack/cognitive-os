@@ -6,6 +6,7 @@ not the switch that turns fundamental security on.
 Unsafe local-dev relaxations require COGNITIVEOS_ALLOW_INSECURE_DEV_MODE=true
 and are rejected when production mode is also set.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,10 +37,7 @@ def insecure_dev_mode() -> bool:
     global _INSECURE_DEV_WARNED
     requested = _truthy("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE")
     if requested and production_mode_enabled():
-        raise RuntimeError(
-            "COGNITIVEOS_ALLOW_INSECURE_DEV_MODE cannot be combined with "
-            "COGNITIVEOS_PRODUCTION_MODE"
-        )
+        raise RuntimeError("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE cannot be combined with COGNITIVEOS_PRODUCTION_MODE")
     if requested and not _INSECURE_DEV_WARNED:
         _INSECURE_DEV_WARNED = True
         logger.warning(
@@ -110,18 +108,13 @@ def validate_production_gates(*, redis_available: bool, opa_configured: bool) ->
     """Raise RuntimeError when a required security dependency is missing."""
     # Combining flags is always illegal, even if individual gates would pass.
     if _truthy("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE") and production_mode_enabled():
-        raise RuntimeError(
-            "COGNITIVEOS_ALLOW_INSECURE_DEV_MODE cannot be combined with "
-            "COGNITIVEOS_PRODUCTION_MODE"
-        )
+        raise RuntimeError("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE cannot be combined with COGNITIVEOS_PRODUCTION_MODE")
     errors: list[str] = []
     if require_redis() and not redis_available:
         errors.append("Redis is mandatory but unavailable")
     if require_opa() and not opa_configured:
         errors.append("OPA_URL must be set for governance")
     if _falsey_explicit("AGENTOS_AUTH_REQUIRED") and not insecure_dev_mode():
-        errors.append(
-            "AGENTOS_AUTH_REQUIRED=false requires COGNITIVEOS_ALLOW_INSECURE_DEV_MODE"
-        )
+        errors.append("AGENTOS_AUTH_REQUIRED=false requires COGNITIVEOS_ALLOW_INSECURE_DEV_MODE")
     if errors:
         raise RuntimeError("; ".join(errors))

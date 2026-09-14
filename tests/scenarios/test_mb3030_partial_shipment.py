@@ -14,10 +14,15 @@ place_backorder()/fulfill_backorders()) for this actor ships LATER,
 once that backorder is actually fulfilled. A single out-of-stock item
 no longer holds an entire order's shipment hostage.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import fulfill_backorders, place_backorder
-from src.monkey_brain.kernel.domains.logistics import LogisticsCapability, create_partial_shipments, track_order
+from src.monkey_brain.kernel.domains.logistics import (
+    LogisticsCapability,
+    create_partial_shipments,
+    track_order,
+)
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
 PRODUCTS = [

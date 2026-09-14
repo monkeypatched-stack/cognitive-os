@@ -1,34 +1,128 @@
 from fastapi import logger
-from src.monkey_brain.kernel.plan.intents.predicates.codegen import codegen_question_answer, is_codegen_question
-from src.monkey_brain.kernel.plan.intents.predicates.drug_research import drug_research_question_answer, is_drug_research_question
-from src.monkey_brain.kernel.plan.intents.predicates.batch_record import batch_record_question_answer, is_batch_record_question
-from src.monkey_brain.kernel.plan.intents.predicates.batch_creation import batch_creation_question_answer, is_batch_creation_question
-from src.monkey_brain.kernel.plan.intents.predicates.batch_update import batch_update_question_answer, is_batch_update_question
-from src.monkey_brain.kernel.plan.intents.predicates.batch_delete import batch_delete_question_answer, is_batch_delete_question
-from src.monkey_brain.kernel.plan.intents.predicates.sittingface_pipeline import sittingface_pipeline_question_answer, is_sittingface_pipeline_question
-from src.monkey_brain.kernel.plan.intents.predicates.specification_discovery import specification_discovery_question_answer, is_specification_discovery_question
-from src.monkey_brain.kernel.plan.intents.predicates.self_healing_pipeline import self_healing_pipeline_question_answer, is_self_healing_question
-from src.monkey_brain.kernel.plan.intents.predicates.batch_hold import batch_hold_question_answer, is_batch_hold_question
-from src.monkey_brain.kernel.plan.intents.predicates.batch_close import batch_close_question_answer, is_batch_close_question
-from src.monkey_brain.kernel.plan.intents.predicates.work_order_create import work_order_create_question_answer, is_work_order_create_question
-from src.monkey_brain.kernel.plan.intents.predicates.work_order_query import work_order_query_question_answer, is_work_order_query_question
-from src.monkey_brain.kernel.plan.intents.predicates.work_order_update import work_order_update_question_answer, is_work_order_update_question
-from src.monkey_brain.kernel.plan.intents.predicates.work_order_delete import work_order_delete_question_answer, is_work_order_delete_question
-from src.monkey_brain.kernel.plan.intents.predicates.work_order_hold import work_order_hold_question_answer, is_work_order_hold_question
-from src.monkey_brain.kernel.plan.intents.predicates.work_order_status import work_order_status_question_answer, is_work_order_status_question
-from src.monkey_brain.kernel.plan.intents.predicates.approval_create import approval_create_question_answer, is_approval_create_question
-from src.monkey_brain.kernel.plan.intents.predicates.approval_query import approval_query_question_answer, is_approval_query_question
-from src.monkey_brain.kernel.plan.intents.predicates.approval_decision import approval_decision_question_answer, is_approval_decision_question
-from src.monkey_brain.kernel.plan.intents.predicates.approval_hold import approval_hold_question_answer, is_approval_hold_question
-from src.monkey_brain.kernel.plan.intents.predicates.change_control import change_control_question_answer, is_change_control_question, is_change_control_create_question, is_change_control_query_question, is_change_control_update_question, is_change_control_decision_question
-from src.monkey_brain.kernel.plan.intents.predicates.compliance_audit import is_compliance_audit_question, compliance_audit_approval_question_answer
-from src.monkey_brain.kernel.plan.intents.predicates.decision_intelligence import decision_intelligence_question_answer, is_decision_intelligence_question
-from src.monkey_brain.kernel.plan.intents.predicates.production_kpi import production_kpi_question_answer, is_production_kpi_question
-from src.monkey_brain.kernel.plan.intents.predicates.warehouse_shipping import warehouse_shipping_question_answer, is_warehouse_shipping_question
-from src.monkey_brain.kernel.plan.intents.predicates.worker import worker_question_answer, is_worker_question
-from src.monkey_brain.kernel.plan.intents.predicates.sop_query import sop_query_question_answer, is_sop_query_question
-from src.monkey_brain.kernel.plan.intents.predicates.facility_query import facility_query_question_answer, is_facility_query
-from src.monkey_brain.kernel.plan.intents.predicates.plant_hierarchy import plant_hierarchy_question_answer, is_plant_hierarchy
+from src.monkey_brain.kernel.plan.intents.predicates.codegen import (
+    codegen_question_answer,
+    is_codegen_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.drug_research import (
+    drug_research_question_answer,
+    is_drug_research_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.batch_record import (
+    batch_record_question_answer,
+    is_batch_record_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.batch_creation import (
+    batch_creation_question_answer,
+    is_batch_creation_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.batch_update import (
+    batch_update_question_answer,
+    is_batch_update_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.batch_delete import (
+    batch_delete_question_answer,
+    is_batch_delete_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.sittingface_pipeline import (
+    sittingface_pipeline_question_answer,
+    is_sittingface_pipeline_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.specification_discovery import (
+    specification_discovery_question_answer,
+    is_specification_discovery_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.self_healing_pipeline import (
+    self_healing_pipeline_question_answer,
+    is_self_healing_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.batch_hold import (
+    batch_hold_question_answer,
+    is_batch_hold_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.batch_close import (
+    batch_close_question_answer,
+    is_batch_close_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.work_order_create import (
+    work_order_create_question_answer,
+    is_work_order_create_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.work_order_query import (
+    work_order_query_question_answer,
+    is_work_order_query_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.work_order_update import (
+    work_order_update_question_answer,
+    is_work_order_update_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.work_order_delete import (
+    work_order_delete_question_answer,
+    is_work_order_delete_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.work_order_hold import (
+    work_order_hold_question_answer,
+    is_work_order_hold_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.work_order_status import (
+    work_order_status_question_answer,
+    is_work_order_status_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.approval_create import (
+    approval_create_question_answer,
+    is_approval_create_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.approval_query import (
+    approval_query_question_answer,
+    is_approval_query_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.approval_decision import (
+    approval_decision_question_answer,
+    is_approval_decision_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.approval_hold import (
+    approval_hold_question_answer,
+    is_approval_hold_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.change_control import (
+    change_control_question_answer,
+    is_change_control_question,
+    is_change_control_create_question,
+    is_change_control_query_question,
+    is_change_control_update_question,
+    is_change_control_decision_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.compliance_audit import (
+    is_compliance_audit_question,
+    compliance_audit_approval_question_answer,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.decision_intelligence import (
+    decision_intelligence_question_answer,
+    is_decision_intelligence_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.production_kpi import (
+    production_kpi_question_answer,
+    is_production_kpi_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.warehouse_shipping import (
+    warehouse_shipping_question_answer,
+    is_warehouse_shipping_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.worker import (
+    worker_question_answer,
+    is_worker_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.sop_query import (
+    sop_query_question_answer,
+    is_sop_query_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.facility_query import (
+    facility_query_question_answer,
+    is_facility_query,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.plant_hierarchy import (
+    plant_hierarchy_question_answer,
+    is_plant_hierarchy,
+)
 
 # ------------------------------------------------------------------
 # Semantic Definition
@@ -40,26 +134,17 @@ from typing import Any, Awaitable, Callable
 
 @dataclass(slots=True, frozen=True)
 class IntentDefinition:
-
     intent: str
 
     description: str = ""
 
-    required_inputs: list[str] = field(
-        default_factory=list
-    )
+    required_inputs: list[str] = field(default_factory=list)
 
-    required_outputs: list[str] = field(
-        default_factory=list
-    )
+    required_outputs: list[str] = field(default_factory=list)
 
-    default_augmentations: list[str] = field(
-        default_factory=list
-    )
+    default_augmentations: list[str] = field(default_factory=list)
 
-    constraints: dict[str, Any] = field(
-        default_factory=dict
-    )
+    constraints: dict[str, Any] = field(default_factory=dict)
 
     min_confidence: float = 0.58
 
@@ -766,6 +851,7 @@ PLANT_HIERARCHY_INTENT = IntentRoute(
 # It ensures intent is never None in the UNDERSTAND phase.
 # MUST be defined BEFORE INTENT_REGISTRY and placed LAST in the registry.
 
+
 async def world_graph_traversal_handler(question: str, **kwargs) -> dict:
     """Handle questions by traversing the world graph.
 
@@ -803,7 +889,7 @@ INTENT_REGISTRY: dict[str, IntentRoute] = {
     route.intent: route
     for route in (
         SELF_HEALING_PIPELINE_INTENT,  # must be first — healing sentinel takes priority
-        CODEGEN_INTENT,               # before drug_research — "generate service" must not fall to LLM
+        CODEGEN_INTENT,  # before drug_research — "generate service" must not fall to LLM
         FACILITY_QUERY_INTENT,
         PLANT_HIERARCHY_INTENT,
         DRUG_RESEARCH_INTENT,
@@ -949,24 +1035,24 @@ def lookup_or_register_from_soma(intent_name: str) -> IntentRoute | None:
 
 def register_domain_intent(domain: str, entity_name: str = "") -> IntentRoute | None:
     """Auto-register a new intent for an unseen domain.
-    
+
     When a new domain is encountered (e.g., 'legal', 'entertainment'),
     this function registers a new intent in INTENT_REGISTRY so that
     future questions about this domain can be handled properly.
-    
+
     Args:
         domain: The domain name (e.g., 'legal', 'entertainment')
         entity_name: Optional entity name (e.g., 'lawyer', 'music')
-    
+
     Returns:
         The newly registered IntentRoute, or None if registration failed.
     """
     intent_name = f"{domain}_query"
-    
+
     # Don't register if already exists
     if intent_name in INTENT_REGISTRY:
         return INTENT_REGISTRY[intent_name]
-    
+
     # Create predicate that matches questions about this domain
     def domain_predicate(question: str) -> bool:
         question_lower = question.lower()
@@ -976,7 +1062,7 @@ def register_domain_intent(domain: str, entity_name: str = "") -> IntentRoute | 
         if entity_name and entity_name.lower() in question_lower:
             return True
         return False
-    
+
     # Create handler for this domain
     async def domain_handler(question: str, **kwargs) -> dict:
         return {
@@ -987,7 +1073,7 @@ def register_domain_intent(domain: str, entity_name: str = "") -> IntentRoute | 
             "answer": f"Processing {domain} request: {question}",
             "handler": "domain_handler",
         }
-    
+
     # Register the intent
     route = IntentRoute(
         intent=intent_name,
@@ -996,8 +1082,8 @@ def register_domain_intent(domain: str, entity_name: str = "") -> IntentRoute | 
         min_confidence=0.5,
         question_source="payload",
     )
-    
+
     INTENT_REGISTRY[intent_name] = route
     logger.info(f"Registered new domain intent: {intent_name}")
-    
+
     return route

@@ -6,6 +6,7 @@ Tests:
 - Verify isolation and consistency
 - Measure latency and throughput
 """
+
 import pytest
 import asyncio
 import time
@@ -19,7 +20,9 @@ class TestLoad1000Actors:
     @pytest.mark.asyncio
     async def test_spawn_1000_actors_sequentially(self):
         """Spawn 1000 actors and measure creation latency."""
-        from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime as SocietyRuntime
+        from src.monkey_brain.kernel.compile.society_runtime import (
+            CompileSocietyRuntime as SocietyRuntime,
+        )
 
         runtime = SocietyRuntime()
         start = time.time()
@@ -39,7 +42,9 @@ class TestLoad1000Actors:
     @pytest.mark.asyncio
     async def test_1000_actors_concurrent_cognitive_cycles(self):
         """Run cognitive cycles on 1000 actors concurrently."""
-        from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime as SocietyRuntime
+        from src.monkey_brain.kernel.compile.society_runtime import (
+            CompileSocietyRuntime as SocietyRuntime,
+        )
 
         runtime = SocietyRuntime()
 
@@ -76,7 +81,9 @@ class TestLoad1000Actors:
     async def test_1000_actors_memory_footprint(self):
         """Verify memory usage scales linearly with actor count."""
         import sys
-        from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime as SocietyRuntime
+        from src.monkey_brain.kernel.compile.society_runtime import (
+            CompileSocietyRuntime as SocietyRuntime,
+        )
 
         runtime = SocietyRuntime()
 
@@ -105,7 +112,9 @@ class TestLoad1000Actors:
     @pytest.mark.asyncio
     async def test_1000_actors_multi_tenant_isolation(self):
         """Verify isolation with 1000 actors across 10 tenants."""
-        from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime as SocietyRuntime
+        from src.monkey_brain.kernel.compile.society_runtime import (
+            CompileSocietyRuntime as SocietyRuntime,
+        )
 
         runtime = SocietyRuntime()
 
@@ -130,7 +139,9 @@ class TestLoad1000Actors:
         """Measure queue throughput with 1000 pending tasks."""
         from src.monkey_brain.kernel.compile.scheduler_registry import SchedulerRegistry
         from src.monkey_brain.kernel.compile.scheduler_interface import ScheduleRequest
-        from src.monkey_brain.kernel.compile.scheduler_adapters import ProcessSchedulerAdapter
+        from src.monkey_brain.kernel.compile.scheduler_adapters import (
+            ProcessSchedulerAdapter,
+        )
         from src.monkey_brain.runtime.scheduler import Scheduler as ProcessScheduler
 
         # Create adapter
@@ -158,12 +169,14 @@ class TestLoad1000Actors:
         assert depth > 0, "Queue should have pending tasks"
         assert queue_time < 5, f"Queuing 1000 tasks took {queue_time:.2f}s (should be <5s)"
 
-        print(f"✓ Queued {depth} tasks in {queue_time:.2f}s ({1000/queue_time:.0f} tasks/sec)")
+        print(f"✓ Queued {depth} tasks in {queue_time:.2f}s ({1000 / queue_time:.0f} tasks/sec)")
 
     @pytest.mark.asyncio
     async def test_1000_actors_concurrent_world_updates(self):
         """Publish 1000 concurrent world updates and verify ordering."""
-        from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime as SocietyRuntime
+        from src.monkey_brain.kernel.compile.society_runtime import (
+            CompileSocietyRuntime as SocietyRuntime,
+        )
         import threading
 
         runtime = SocietyRuntime()
@@ -200,7 +213,9 @@ class TestLoad1000Actors:
     @pytest.mark.asyncio
     async def test_1000_actors_latency_percentiles(self):
         """Measure latency percentiles for 1000 actor operations."""
-        from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime as SocietyRuntime
+        from src.monkey_brain.kernel.compile.society_runtime import (
+            CompileSocietyRuntime as SocietyRuntime,
+        )
 
         runtime = SocietyRuntime()
         latencies = []
@@ -228,6 +243,7 @@ class TestLoad1000Actors:
 # ──────────────────────────────────────────────────────────────
 # PHASE 3.4 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase3Complete:
     """Verify Phase 3 architecture consolidation is complete."""

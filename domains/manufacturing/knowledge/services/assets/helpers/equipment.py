@@ -3,10 +3,14 @@ from datetime import date, datetime
 from typing import Optional
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.assets.models.equipment import PharmaceuticalEquipmentCreate, PharmaceuticalEquipmentUpdate
+from services.assets.models.equipment import (
+    PharmaceuticalEquipmentCreate,
+    PharmaceuticalEquipmentUpdate,
+)
 from bson.errors import InvalidDocument
 
 COLLECTION = "pharmaceutical_equipment"
+
 
 def _serialize(doc: dict) -> dict:
     doc = dict(doc)
@@ -14,12 +18,18 @@ def _serialize(doc: dict) -> dict:
     equipment_id = str(doc.get("equipment_id") or doc.get("id") or "")
     doc["equipment_id"] = equipment_id
     doc["name"] = doc.get("name") or equipment_id or "Equipment"
-    doc["category"] = doc.get("category") or ("Machine" if doc.get("equipment_type") else "Instrument")
+    doc["category"] = doc.get("category") or (
+        "Machine" if doc.get("equipment_type") else "Instrument"
+    )
     doc["manufacturer"] = doc.get("manufacturer") or "Unknown"
     if doc.get("status") == "Operational":
         doc["status"] = "active"
     doc["status"] = doc.get("status") or "active"
-    doc["requires_calibration"] = bool(doc.get("requires_calibration")) if doc.get("requires_calibration") is not None else False
+    doc["requires_calibration"] = (
+        bool(doc.get("requires_calibration"))
+        if doc.get("requires_calibration") is not None
+        else False
+    )
     for date_field in ("purchase_date", "expiry_date"):
         if date_field in doc and hasattr(doc[date_field], "date"):
             doc[date_field] = doc[date_field].date()
@@ -29,7 +39,11 @@ def _serialize(doc: dict) -> dict:
 def _prepare(doc: dict) -> dict:
     """Convert date -> datetime so BSON can encode it."""
     return {
-        k: datetime.combine(v, datetime.min.time()) if isinstance(v, date) and not isinstance(v, datetime) else v
+        k: (
+            datetime.combine(v, datetime.min.time())
+            if isinstance(v, date) and not isinstance(v, datetime)
+            else v
+        )
         for k, v in doc.items()
     }
 
@@ -44,11 +58,15 @@ async def get_all(
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(d) async for d in cursor], total
 
+
 async def get_by_id(db: AsyncIOMotorDatabase, equipment_id: str) -> Optional[dict]:
     doc = await db[COLLECTION].find_one({"equipment_id": equipment_id})
     return _serialize(doc) if doc else None
 
-async def get_by_workstation_id(db: AsyncIOMotorDatabase, workstation_id: str) -> list[dict]:
+
+async def get_by_workstation_id(
+    db: AsyncIOMotorDatabase, workstation_id: str
+) -> list[dict]:
     workstation_ids = {workstation_id}
     workstation = await db["workstations"].find_one(
         {
@@ -105,16 +123,22 @@ async def get_by_plant(db: AsyncIOMotorDatabase, plant_id: str) -> list[dict]:
     return [_serialize(d) async for d in cursor]
 
 
-async def _plant_id_for_workstation(db: AsyncIOMotorDatabase, workstation: dict) -> str | None:
+async def _plant_id_for_workstation(
+    db: AsyncIOMotorDatabase, workstation: dict
+) -> str | None:
     if workstation.get("plant_id"):
         return str(workstation["plant_id"])
     stage_id = workstation.get("stage_id")
     if stage_id:
-        stage = await db["industrial_stages"].find_one({"id": stage_id}, {"plant_id": 1, "line_id": 1})
+        stage = await db["industrial_stages"].find_one(
+            {"id": stage_id}, {"plant_id": 1, "line_id": 1}
+        )
         if stage and stage.get("plant_id"):
             return str(stage["plant_id"])
         if stage and stage.get("line_id"):
-            line = await db["industrial_lines"].find_one({"id": stage["line_id"]}, {"plant_id": 1})
+            line = await db["industrial_lines"].find_one(
+                {"id": stage["line_id"]}, {"plant_id": 1}
+            )
             if line and line.get("plant_id"):
                 return str(line["plant_id"])
     line_id = workstation.get("line_id")
@@ -126,7 +150,9 @@ async def _plant_id_for_workstation(db: AsyncIOMotorDatabase, workstation: dict)
 
 
 async def _valid_workstation_ids(db: AsyncIOMotorDatabase) -> list[str]:
-    workstations = await db["workstations"].find({}, {"id": 1, "name": 1}).to_list(length=1000)
+    workstations = (
+        await db["workstations"].find({}, {"id": 1, "name": 1}).to_list(length=1000)
+    )
     return [
         str(value)
         for workstation in workstations
@@ -134,17 +160,21 @@ async def _valid_workstation_ids(db: AsyncIOMotorDatabase) -> list[str]:
         if value
     ]
 
+
 async def get_by_location(db: AsyncIOMotorDatabase, location: str) -> list[dict]:
     cursor = db[COLLECTION].find({"location": location})
     return [_serialize(d) async for d in cursor]
+
 
 async def get_by_status(db: AsyncIOMotorDatabase, status: str) -> list[dict]:
     cursor = db[COLLECTION].find({"status": status})
     return [_serialize(d) async for d in cursor]
 
+
 async def get_by_category(db: AsyncIOMotorDatabase, category: str) -> list[dict]:
     cursor = db[COLLECTION].find({"category": category})
     return [_serialize(d) async for d in cursor]
+
 
 async def get_by_assigned_to(db: AsyncIOMotorDatabase, assigned_to: str) -> list[dict]:
     cursor = db[COLLECTION].find({"assigned_to": assigned_to})

@@ -22,6 +22,7 @@ Wired into ActionExecutor via an optional `connectivity_check` hook
 behavior for every existing caller; this only takes effect for a caller
 that explicitly opts in (the edge runtime, kernel/society/edge_runtime.py).
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,6 +38,7 @@ class ConnectivityStatus(Enum):
     demand (assess_connectivity), never cached indefinitely — a process
     that regains connectivity must be able to notice within one check,
     not stay stuck DISCONNECTED forever."""
+
     CONNECTED = "connected"
     """Redis (the Actor Registry / lease / checkpoint substrate this
     whole control plane depends on) is reachable. NATS/Mongo may or may
@@ -57,6 +59,7 @@ class ConnectivityStatus(Enum):
 class OperationSafety(Enum):
     """Section 11's explicit classification. Every capability falls into
     exactly one bucket."""
+
     SAFE_OFFLINE = "safe_offline"
     """Local observation/cognition that only touches this Actor's own
     local belief — never blocked, any connectivity status."""
@@ -84,25 +87,51 @@ class OperationSafety(Enum):
 # — grep-verified against grocery.py/commerce.py at the time this was
 # written; a capability not listed here gets the conservative default
 # (REQUIRES_AUTHORITY), never SAFE_OFFLINE by omission.
-_SAFE_OFFLINE = frozenset({
-    "AnswerQuestionCapability", "AskActorCapability", "ObserveCapability",
-    "GetStatusCapability", "SummarizeCapability", "RecallMemoryCapability",
-    "GetActorStatusCapability", "LocalObservationCapability",
-})
-_REQUIRES_WORLD_STATE = frozenset({
-    "ProductSelectionCapability", "PriceCheckCapability", "InventoryCheckCapability",
-    "CheckStockCapability", "SearchProductsCapability", "GetProductDetailsCapability",
-    "CompareOffersCapability",
-})
-_REQUIRES_SYNC = frozenset({
-    "ReserveStockCapability", "ReserveInventoryCapability",
-})
-_REQUIRES_AUTHORITY = frozenset({
-    "OrderCreationCapability", "PaymentCapability", "RefundCapability",
-    "DeliveryCapability", "DelegationCapability", "NegotiationCapability",
-    "CancelOrderCapability", "WalletCapability", "RazorpayWalletCapability",
-    "TransferFundsCapability", "GrantPermissionCapability", "RevokePermissionCapability",
-})
+_SAFE_OFFLINE = frozenset(
+    {
+        "AnswerQuestionCapability",
+        "AskActorCapability",
+        "ObserveCapability",
+        "GetStatusCapability",
+        "SummarizeCapability",
+        "RecallMemoryCapability",
+        "GetActorStatusCapability",
+        "LocalObservationCapability",
+    }
+)
+_REQUIRES_WORLD_STATE = frozenset(
+    {
+        "ProductSelectionCapability",
+        "PriceCheckCapability",
+        "InventoryCheckCapability",
+        "CheckStockCapability",
+        "SearchProductsCapability",
+        "GetProductDetailsCapability",
+        "CompareOffersCapability",
+    }
+)
+_REQUIRES_SYNC = frozenset(
+    {
+        "ReserveStockCapability",
+        "ReserveInventoryCapability",
+    }
+)
+_REQUIRES_AUTHORITY = frozenset(
+    {
+        "OrderCreationCapability",
+        "PaymentCapability",
+        "RefundCapability",
+        "DeliveryCapability",
+        "DelegationCapability",
+        "NegotiationCapability",
+        "CancelOrderCapability",
+        "WalletCapability",
+        "RazorpayWalletCapability",
+        "TransferFundsCapability",
+        "GrantPermissionCapability",
+        "RevokePermissionCapability",
+    }
+)
 
 _WAITING_FOR_WORLD_STATE = "WAITING_FOR_WORLD_STATE"
 _WAITING_FOR_AUTHORITY = "WAITING_FOR_AUTHORITY"
@@ -143,8 +172,7 @@ def assess_connectivity(planetary_runtime: Any) -> ConnectivityStatus:
     return ConnectivityStatus.CONNECTED
 
 
-def check_operation_allowed(capability_name: str,
-                            connectivity: ConnectivityStatus) -> tuple[bool, str, str]:
+def check_operation_allowed(capability_name: str, connectivity: ConnectivityStatus) -> tuple[bool, str, str]:
     """Returns (allowed, waiting_state, reason). waiting_state is one of
     "" (allowed), WAITING_FOR_WORLD_STATE, WAITING_FOR_AUTHORITY,
     DISCONNECTED (Section 31's exact vocabulary) — never a silent
@@ -156,9 +184,13 @@ def check_operation_allowed(capability_name: str,
         return True, "", ""
 
     if connectivity == ConnectivityStatus.DISCONNECTED:
-        return False, _DISCONNECTED, (
-            f"{capability_name} requires {safety.value} but this node cannot reach "
-            "the authoritative Actor Registry/lease substrate (Redis unreachable)"
+        return (
+            False,
+            _DISCONNECTED,
+            (
+                f"{capability_name} requires {safety.value} but this node cannot reach "
+                "the authoritative Actor Registry/lease substrate (Redis unreachable)"
+            ),
         )
 
     if safety == OperationSafety.REQUIRES_WORLD_STATE:
@@ -172,10 +204,14 @@ def check_operation_allowed(capability_name: str,
         return True, "", ""
 
     waiting_state = _WAITING_FOR_AUTHORITY
-    return False, waiting_state, (
-        f"{capability_name} requires {safety.value} but this node is only "
-        f"{connectivity.value} (NATS/Mongo unreachable) — refusing to execute a "
-        "consequential action without full connectivity to authoritative state"
+    return (
+        False,
+        waiting_state,
+        (
+            f"{capability_name} requires {safety.value} but this node is only "
+            f"{connectivity.value} (NATS/Mongo unreachable) — refusing to execute a "
+            "consequential action without full connectivity to authoritative state"
+        ),
     )
 
 

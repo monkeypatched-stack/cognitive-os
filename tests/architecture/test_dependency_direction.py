@@ -9,6 +9,7 @@ Target direction (Section 12):
 
 Infrastructure implementations depend on interfaces, not the reverse.
 """
+
 from __future__ import annotations
 
 import ast
@@ -61,8 +62,7 @@ class TestGovernanceNeverImportsExecutionSubstrates:
         forbidden_substrings = ("ros_integration", "moss_retrieval", "sync_transport")
         violations = [imp for imp in imports for f in forbidden_substrings if f in imp]
         assert violations == [], (
-            f"kernel/security_boundary.py must not import execution-substrate-specific "
-            f"modules, found: {violations}"
+            f"kernel/security_boundary.py must not import execution-substrate-specific modules, found: {violations}"
         )
 
     def test_governance_module_does_not_import_ros_or_moss(self):
@@ -81,7 +81,9 @@ class TestExecutionAdaptersNeverImportGovernanceInternals:
     authorization. This is a structural, not textual, check: it parses
     real import statements in the real file."""
 
-    def test_ros_integration_module_only_imports_ensure_governed_the_public_entry_point(self):
+    def test_ros_integration_module_only_imports_ensure_governed_the_public_entry_point(
+        self,
+    ):
         path = os.path.join(SRC_ROOT, "kernel", "edge", "ros_integration.py")
         imports = _module_imports(path)
         # Importing security_boundary itself (to call the PUBLIC
@@ -175,7 +177,9 @@ class TestSocietyGovernanceEngineNeverGatesExecution:
         # checks specifically for a governance-engine-shaped call.
         assert "governance.authorize(" not in source
 
-    def test_domains_never_call_society_governance_engine_authorize_or_check_permission(self):
+    def test_domains_never_call_society_governance_engine_authorize_or_check_permission(
+        self,
+    ):
         files = _py_files("kernel/domains")
         violations = []
         for path in files:

@@ -3,6 +3,7 @@
 Tests that compiled IR objects are cached to avoid reparsing.
 Measures cache hit rate and latency improvement.
 """
+
 import pytest
 from unittest.mock import Mock, patch
 
@@ -191,6 +192,7 @@ class TestCachePerformance:
 # ──────────────────────────────────────────────────────────────
 # PHASE 1 DELIVERABLE 1.5 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase1Deliverable15Complete:
     """Verify IR Caching is complete."""

@@ -1,6 +1,7 @@
 from typing import Optional
 from .value_objects import Reference, Status, WriteBlogPostAboutItem
 
+
 class WriteBlogPostAboutCreated:
     def __init__(self, blog_post_id: str):
         self.blog_post_id = blog_post_id
@@ -17,11 +18,14 @@ class WriteBlogPostAboutDeleted:
 
 
 class WriteBlogPostAboutAggregateRoot:
-    def __init__(self, blog_post_id: Optional[str] = None,
-                 title: Optional[str] = None,
-                 content: Optional[str] = None,
-                 reference: Optional[Reference] = None,
-                 status: Optional[Status] = Status.DRAFT):
+    def __init__(
+        self,
+        blog_post_id: Optional[str] = None,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        reference: Optional[Reference] = None,
+        status: Optional[Status] = Status.DRAFT,
+    ):
         self.blog_post_id = blog_post_id
         self.title = title
         self.content = content

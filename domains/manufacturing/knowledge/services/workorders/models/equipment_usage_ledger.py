@@ -3,7 +3,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
 EquipmentUsageStatus = Literal["Planned", "In Use", "Completed", "Aborted", "Rejected"]
 
 
@@ -72,16 +71,24 @@ class EquipmentUsageLedgerEntry(BaseModel):
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
 
         if not (self.machine_id or self.equipment_id):
-            raise ValueError("equipment usage ledger entries must reference a machine_id or equipment_id.")
+            raise ValueError(
+                "equipment usage ledger entries must reference a machine_id or equipment_id."
+            )
         if self.ended_at and self.ended_at < self.started_at:
-            raise ValueError("ended_at cannot be before started_at for an equipment usage ledger entry.")
+            raise ValueError(
+                "ended_at cannot be before started_at for an equipment usage ledger entry."
+            )
         if self.duration_minutes is None and self.ended_at:
             elapsed = (self.ended_at - self.started_at).total_seconds() / 60
             self.duration_minutes = round(max(elapsed, 0), 4)
         if self.status == "Completed" and not self.ended_at:
-            raise ValueError("completed equipment usage ledger entries must include ended_at.")
+            raise ValueError(
+                "completed equipment usage ledger entries must include ended_at."
+            )
         if self.regulated and self.status == "Completed" and not self.signature_ids:
-            raise ValueError("completed regulated equipment usage entries must include signature_ids.")
+            raise ValueError(
+                "completed regulated equipment usage entries must include signature_ids."
+            )
         return self
 
 

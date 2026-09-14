@@ -13,8 +13,8 @@ from services.floor_layout.routers.rooms import router as rooms_router
 from services.floor_layout.routers.bays import router as bays_router
 from services.floor_layout.routers.locations import router as locations_router
 
-
 logger = configure_service_logging("floor-layout")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,7 +34,9 @@ install_route_tracing(app, "floor-layout")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

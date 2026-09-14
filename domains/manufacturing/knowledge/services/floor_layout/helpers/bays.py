@@ -38,27 +38,49 @@ async def get_by_machine(db: AsyncIOMotorDatabase, machine_id: str) -> list[dict
 
 
 async def get_by_floor(db: AsyncIOMotorDatabase, floor_id: str) -> list[dict]:
-    rooms = await db[COLLECTION].find({"floor_id": floor_id, "type": "room"}).to_list(None)
+    rooms = (
+        await db[COLLECTION].find({"floor_id": floor_id, "type": "room"}).to_list(None)
+    )
     room_ids = [r["room_id"] for r in rooms]
     cursor = db[COLLECTION].find({"room_id": {"$in": room_ids}, "type": "bay"})
     return [_serialize(d) async for d in cursor]
 
 
 async def get_by_building(db: AsyncIOMotorDatabase, building_id: str) -> list[dict]:
-    floors = await db[COLLECTION].find({"building_id": building_id, "type": "floor"}).to_list(None)
+    floors = (
+        await db[COLLECTION]
+        .find({"building_id": building_id, "type": "floor"})
+        .to_list(None)
+    )
     floor_ids = [f["floor_id"] for f in floors]
-    rooms = await db[COLLECTION].find({"floor_id": {"$in": floor_ids}, "type": "room"}).to_list(None)
+    rooms = (
+        await db[COLLECTION]
+        .find({"floor_id": {"$in": floor_ids}, "type": "room"})
+        .to_list(None)
+    )
     room_ids = [r["room_id"] for r in rooms]
     cursor = db[COLLECTION].find({"room_id": {"$in": room_ids}, "type": "bay"})
     return [_serialize(d) async for d in cursor]
 
 
 async def get_by_facility(db: AsyncIOMotorDatabase, facility_id: str) -> list[dict]:
-    buildings = await db[COLLECTION].find({"plant_id": facility_id, "type": "building"}).to_list(None)
+    buildings = (
+        await db[COLLECTION]
+        .find({"plant_id": facility_id, "type": "building"})
+        .to_list(None)
+    )
     building_ids = [b["building_id"] for b in buildings]
-    floors = await db[COLLECTION].find({"building_id": {"$in": building_ids}, "type": "floor"}).to_list(None)
+    floors = (
+        await db[COLLECTION]
+        .find({"building_id": {"$in": building_ids}, "type": "floor"})
+        .to_list(None)
+    )
     floor_ids = [f["floor_id"] for f in floors]
-    rooms = await db[COLLECTION].find({"floor_id": {"$in": floor_ids}, "type": "room"}).to_list(None)
+    rooms = (
+        await db[COLLECTION]
+        .find({"floor_id": {"$in": floor_ids}, "type": "room"})
+        .to_list(None)
+    )
     room_ids = [r["room_id"] for r in rooms]
     cursor = db[COLLECTION].find({"room_id": {"$in": room_ids}, "type": "bay"})
     return [_serialize(d) async for d in cursor]

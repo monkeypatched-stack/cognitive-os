@@ -10,6 +10,7 @@ policy snapshot) at the recorded `observed_at`/`version`/`authority_epoch`
 — this module only ever judges freshness of provenance that already
 exists; it never fabricates provenance for data that doesn't have any.
 """
+
 from __future__ import annotations
 
 import time
@@ -29,6 +30,7 @@ class Freshness(Enum):
     as "stale" -- it means this module could not establish a
     trustworthy age/version for the object at all (missing provenance),
     which must be treated at least as conservatively as STALE_MUST_REFRESH."""
+
     FRESH = "fresh"
     STALE_BUT_USABLE = "stale_but_usable"
     STALE_MUST_REFRESH = "stale_must_refresh"
@@ -47,6 +49,7 @@ class CacheProvenance:
     STALE_BUT_USABLE data; a caller needing REQUIRES_AUTHORITY-grade
     freshness must only ever accept FRESH.
     """
+
     source: str
     """Where this was observed from, e.g. "neo4j:knowledge_graph",
     "opa:agentos/routes/allow", "mongo:actor_state". Never "cache" or

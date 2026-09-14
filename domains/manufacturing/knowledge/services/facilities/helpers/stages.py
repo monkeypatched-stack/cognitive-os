@@ -3,10 +3,14 @@ from datetime import date, datetime
 from typing import Optional
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.facilities.models.stages import IndustrialStageCreate, IndustrialStageUpdate
+from services.facilities.models.stages import (
+    IndustrialStageCreate,
+    IndustrialStageUpdate,
+)
 from bson.errors import InvalidDocument
 
 COLLECTION = "industrial_stages"
+
 
 def _serialize(doc: dict) -> dict:
     doc = dict(doc)
@@ -18,7 +22,11 @@ def _serialize(doc: dict) -> dict:
 
 def _prepare(doc: dict) -> dict:
     return {
-        k: datetime.combine(v, datetime.min.time()) if isinstance(v, date) and not isinstance(v, datetime) else v
+        k: (
+            datetime.combine(v, datetime.min.time())
+            if isinstance(v, date) and not isinstance(v, datetime)
+            else v
+        )
         for k, v in doc.items()
     }
 
@@ -83,6 +91,7 @@ async def get_by_circuit(db: AsyncIOMotorDatabase, circuit_id: str) -> list[dict
     cursor = db[COLLECTION].find({"circuit_id": circuit_id})
     return [_serialize(d) async for d in cursor]
 
+
 async def create(db: AsyncIOMotorDatabase, data: IndustrialStageCreate) -> dict:
     doc = _prepare(data.model_dump())
     try:
@@ -90,6 +99,7 @@ async def create(db: AsyncIOMotorDatabase, data: IndustrialStageCreate) -> dict:
     except InvalidDocument as e:
         raise HTTPException(status_code=422, detail=f"Unprocessable document: {e}")
     return _serialize(doc)
+
 
 async def update(
     db: AsyncIOMotorDatabase, stage_id: str, data: IndustrialStageUpdate

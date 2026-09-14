@@ -3,6 +3,7 @@
 Responsibility: Build ExecutionContext from IntentIR.
 Depends on: ExecutionContext, intent IR
 """
+
 from __future__ import annotations
 
 import logging
@@ -67,7 +68,7 @@ class RuntimeBuilder(ExecutorInterface):
         logger.info(
             "[builder] Built execution context: run_id=%s, mode=%s, user=%s",
             intent_ir.run_id,
-            execution_mode.name if hasattr(execution_mode, "name") else str(execution_mode),
+            (execution_mode.name if hasattr(execution_mode, "name") else str(execution_mode)),
             user_id or "unknown",
         )
 

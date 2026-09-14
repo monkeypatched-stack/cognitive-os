@@ -1,4 +1,5 @@
 """Tests for Edge-Cloud Architecture (Thesis 14)."""
+
 from __future__ import annotations
 
 import pytest
@@ -110,10 +111,12 @@ class TestCloudAggregator:
 
     def test_get_world_snapshot(self):
         cloud = CloudAggregator()
-        cloud.receive_edge_sync({
-            "node_id": "node-1",
-            "observations": [{"src": "s1", "dst": "s2"}],
-        })
+        cloud.receive_edge_sync(
+            {
+                "node_id": "node-1",
+                "observations": [{"src": "s1", "dst": "s2"}],
+            }
+        )
 
         snapshot = cloud.get_world_snapshot()
         assert "transitions" in snapshot
@@ -156,10 +159,15 @@ class TestEdgeCloudSync:
         sync = EdgeCloudSync(cloud, edge)
 
         # Cloud has some world data
-        cloud.receive_edge_sync({
-            "node_id": "cloud",
-            "observations": [{"src": "s1", "dst": "s2"}, {"src": "s2", "dst": "s3"}],
-        })
+        cloud.receive_edge_sync(
+            {
+                "node_id": "cloud",
+                "observations": [
+                    {"src": "s1", "dst": "s2"},
+                    {"src": "s2", "dst": "s3"},
+                ],
+            }
+        )
 
         # Create edge node with actor
         node = EdgeNode(name="node-1")
@@ -216,7 +224,7 @@ class TestThesis14Verification:
         """Edge maintains belief formation, decision making, policy, learning."""
         actor = EdgeActor("actor-1", "node-1")
         assert actor.belief is not None  # Belief formation
-        assert actor.policy is not None   # Policy
+        assert actor.policy is not None  # Policy
 
     def test_only_observations_exchanged(self):
         """Only observations and world updates are exchanged."""

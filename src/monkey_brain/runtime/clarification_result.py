@@ -4,6 +4,7 @@ When ambiguity is detected, the runtime returns a ClarificationResult
 instead of executing. No repository operations are executed.
 No world state changes.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,6 +21,7 @@ class ClarificationResult:
     No repository operations are executed.
     No world state changes.
     """
+
     question: str
     candidates: list[IntentCandidate] = field(default_factory=list)
     original_question: str = ""

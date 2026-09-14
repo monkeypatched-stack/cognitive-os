@@ -33,16 +33,17 @@ logger = logging.getLogger(__name__)
 # Secret Classification
 # ============================================================================
 
+
 class SecretClassification:
     """Metadata about a secret: where it comes from, what it guards, etc."""
-    
+
     def __init__(
         self,
         name: str,
         purpose: str,
         required: bool = True,
         env_var: str = "",
-        validation_fn = None,
+        validation_fn=None,
     ):
         """
         Args:
@@ -149,13 +150,16 @@ SECRET_CATALOG = {
     "auth": AUTHENTICATION_SECRETS + KEYCLOAK_SECRETS,
     "file": KEYCLOAK_SECRETS,
     "agentos": AUTHENTICATION_SECRETS + OPTIONAL_SERVICE_SECRETS,
-    "all_services": AUTHENTICATION_SECRETS + KEYCLOAK_SECRETS + OPTIONAL_SERVICE_SECRETS,
+    "all_services": AUTHENTICATION_SECRETS
+    + KEYCLOAK_SECRETS
+    + OPTIONAL_SERVICE_SECRETS,
 }
 
 
 # ============================================================================
 # Validation Functions
 # ============================================================================
+
 
 def _validate_secret_not_empty(value: str) -> str:
     """Fail closed: reject empty secrets."""
@@ -166,26 +170,28 @@ def _validate_secret_not_empty(value: str) -> str:
 
 # Exact (case-insensitive) values that must never be used as HMAC/JWT secrets.
 # Includes historical compose/CI/Helm placeholders so a forgotten override cannot boot.
-KNOWN_INSECURE_HMAC_SECRETS = frozenset({
-    "replace_me",
-    "changeme",
-    "change-me",
-    "change_me",
-    "password",
-    "secret",
-    "dev-access-token-secret",
-    "dev-refresh-token-secret",
-    "dev-access-secret",
-    "test-access-token-secret",
-    "test-refresh-token-secret",
-    "test-access-secret",
-    "ci-test-access-token-secret",
-    "ci-test-refresh-token-secret",
-    "my-shared-secret",
-    "access-secret-123",
-    "refresh-secret-456",
-    "change-me-internal-service-token",
-})
+KNOWN_INSECURE_HMAC_SECRETS = frozenset(
+    {
+        "replace_me",
+        "changeme",
+        "change-me",
+        "change_me",
+        "password",
+        "secret",
+        "dev-access-token-secret",
+        "dev-refresh-token-secret",
+        "dev-access-secret",
+        "test-access-token-secret",
+        "test-refresh-token-secret",
+        "test-access-secret",
+        "ci-test-access-token-secret",
+        "ci-test-refresh-token-secret",
+        "my-shared-secret",
+        "access-secret-123",
+        "refresh-secret-456",
+        "change-me-internal-service-token",
+    }
+)
 
 
 def reject_insecure_hmac_secret(value: str, *, name: str = "HMAC secret") -> str:
@@ -258,8 +264,10 @@ def _validate_secret_length(value: str, min_bytes: int = 16) -> str:
 # Runtime Secret Loading and Validation
 # ============================================================================
 
+
 class SecretLoadError(RuntimeError):
     """Raised when a required secret cannot be loaded or is invalid."""
+
     pass
 
 
@@ -376,6 +384,7 @@ def validate_secrets_at_startup(service_name: str) -> None:
 # Audit Logging (for compliance)
 # ============================================================================
 
+
 def log_secret_access(secret_name: str, operation: str, status: str) -> None:
     """
     Audit log when secrets are accessed (for compliance/forensics).
@@ -396,6 +405,7 @@ def log_secret_access(secret_name: str, operation: str, status: str) -> None:
 # ============================================================================
 # Configuration Documentation
 # ============================================================================
+
 
 def print_secrets_reference(service_name: str = "all_services") -> str:
     """
@@ -429,11 +439,15 @@ def print_secrets_reference(service_name: str = "all_services") -> str:
         for secret in required:
             lines.append(f"\n  {secret.env_var}")
             lines.append(f"    Purpose: {secret.purpose}")
-            lines.append(f"    Category: {'Security-critical' if 'SECRET' in secret.env_var else 'Configuration'}")
+            lines.append(
+                f"    Category: {'Security-critical' if 'SECRET' in secret.env_var else 'Configuration'}"
+            )
         lines.append("")
 
     if optional:
-        lines.append("\nOPTIONAL (service runs without these, may have reduced functionality):")
+        lines.append(
+            "\nOPTIONAL (service runs without these, may have reduced functionality):"
+        )
         lines.append("-" * 70)
         for secret in optional:
             lines.append(f"\n  {secret.env_var}")
@@ -447,5 +461,6 @@ def print_secrets_reference(service_name: str = "all_services") -> str:
 if __name__ == "__main__":
     # Quick reference when running this module directly
     import sys
+
     service = sys.argv[1] if len(sys.argv) > 1 else "all_services"
     print(print_secrets_reference(service))

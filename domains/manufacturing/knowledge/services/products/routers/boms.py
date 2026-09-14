@@ -4,7 +4,12 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.common.db import get_database
 from services.common.auth import require_permission
 from services.products.helpers import boms as crud
-from services.products.models.product_component import BOMCreate, BOMRecord, BOMUpdate, PaginatedBOMResponse
+from services.products.models.product_component import (
+    BOMCreate,
+    BOMRecord,
+    BOMUpdate,
+    PaginatedBOMResponse,
+)
 
 router = APIRouter()
 

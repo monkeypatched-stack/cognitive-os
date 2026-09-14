@@ -11,6 +11,7 @@ i.e. it was asked to name the domain of a prompt stuffed with unrelated example 
 weaker model answers "Compiler" or "Todo". The guidance now lives in the graph generator's
 own prompt; the intent carried around is the raw question.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -23,7 +24,7 @@ POLLUTANTS = [
     "expert software architecture planner",
     "Blog Writer:",
     "Todo Application:",
-    "LexerAgent",          # from the Compiler example
+    "LexerAgent",  # from the Compiler example
 ]
 
 
@@ -46,16 +47,19 @@ def test_plan_route_no_longer_embeds_guidance_in_the_intent():
 def test_the_guidance_survives_in_the_agent_that_needs_it():
     """Removing the pollution must not lose the planning rules — they move, not vanish."""
     src = GRAPH_GEN.read_text()
-    for rule in ("exactly one responsibility",
-                 "Do NOT create agents named Discovery",
-                 "well-known components",
-                 "parallel execution"):
+    for rule in (
+        "exactly one responsibility",
+        "Do NOT create agents named Discovery",
+        "well-known components",
+        "parallel execution",
+    ):
         assert rule in src, f"planning rule {rule!r} was lost, not relocated"
 
 
 def test_domain_extraction_prompt_receives_only_the_question():
     """The domain-extraction call interpolates the intent. With a clean intent, no example
-    domains can leak into it — so the plan route must not build a prompt template at all."""
-    assert 'Extract a single domain name from this intent' in GRAPH_GEN.read_text()
+    domains can leak into it — so the plan route must not build a prompt template at all.
+    """
+    assert "Extract a single domain name from this intent" in GRAPH_GEN.read_text()
     code = _code_only(PLAN.read_text())
     assert 'prompt = f"""' not in code, "plan route is building a prompt template again"

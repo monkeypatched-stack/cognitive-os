@@ -11,44 +11,45 @@ from services.inventory.models.inventory_enums import (
 )
 from services.products.models.product_common import ensure_utc, utc_now
 
+
 class ProductInventoryBase(BaseModel):
-    product_id:         str   = Field(..., min_length=1)
-    location_id:        str   = Field(..., min_length=1)
-    quantity_on_hand:   float = Field(default=0, ge=0)
-    quantity_reserved:  float = Field(default=0, ge=0)
-    quantity_incoming:  float = Field(default=0, ge=0)
+    product_id: str = Field(..., min_length=1)
+    location_id: str = Field(..., min_length=1)
+    quantity_on_hand: float = Field(default=0, ge=0)
+    quantity_reserved: float = Field(default=0, ge=0)
+    quantity_incoming: float = Field(default=0, ge=0)
     quantity_committed: float = Field(default=0, ge=0)
-    reorder_point:      Optional[float] = Field(default=None, ge=0)
-    reorder_quantity:   Optional[float] = Field(default=None, ge=0)
-    max_stock_level:    Optional[float] = Field(default=None, ge=0)
-    safety_stock:       Optional[float] = Field(default=None, ge=0)
-    valuation_method:   InventoryValuationMethod = "Weighted-Average"
-    unit_cost:          Optional[float] = Field(default=None, ge=0)
-    currency:           str  = Field(default="USD", min_length=3, max_length=3)
-    batch_tracking:     bool = False
-    serial_tracking:    bool = False
-    expiry_tracking:    bool = False
-    last_counted_at:    Optional[date] = None
-    next_count_due:     Optional[date] = None
-    status:             InventoryStatus = "In-Stock"
-    notes:              Optional[str] = None
-    metadata:           Optional[dict[str, Any]] = None
+    reorder_point: Optional[float] = Field(default=None, ge=0)
+    reorder_quantity: Optional[float] = Field(default=None, ge=0)
+    max_stock_level: Optional[float] = Field(default=None, ge=0)
+    safety_stock: Optional[float] = Field(default=None, ge=0)
+    valuation_method: InventoryValuationMethod = "Weighted-Average"
+    unit_cost: Optional[float] = Field(default=None, ge=0)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    batch_tracking: bool = False
+    serial_tracking: bool = False
+    expiry_tracking: bool = False
+    last_counted_at: Optional[date] = None
+    next_count_due: Optional[date] = None
+    status: InventoryStatus = "In-Stock"
+    notes: Optional[str] = None
+    metadata: Optional[dict[str, Any]] = None
 
 
 class ProductInventoryRecord(ProductInventoryBase):
-    inventory_id:       str   = Field(..., min_length=1)
-    sku:                str   = Field(..., min_length=1)
-    product_name:       str   = Field(..., min_length=1)
+    inventory_id: str = Field(..., min_length=1)
+    sku: str = Field(..., min_length=1)
+    product_name: str = Field(..., min_length=1)
     quantity_available: float = Field(default=0, ge=0)
-    total_value:        Optional[float] = Field(default=None, ge=0)
-    is_below_reorder:   bool  = False
-    is_overstocked:     bool  = False
-    is_expired:         bool  = False
-    alert_flags:        list[str] = Field(default_factory=list)
-    created_by:         Optional[str] = None
-    updated_by:         Optional[str] = None
-    created_at:         datetime = Field(default_factory=utc_now)
-    updated_at:         datetime = Field(default_factory=utc_now)
+    total_value: Optional[float] = Field(default=None, ge=0)
+    is_below_reorder: bool = False
+    is_overstocked: bool = False
+    is_expired: bool = False
+    alert_flags: list[str] = Field(default_factory=list)
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
     def compute_fields(self) -> "ProductInventoryRecord":
@@ -89,30 +90,30 @@ class ProductInventoryCreate(ProductInventoryBase):
 
 
 class ProductInventoryUpdate(BaseModel):
-    quantity_on_hand:   Optional[float] = Field(default=None, ge=0)
-    quantity_reserved:  Optional[float] = Field(default=None, ge=0)
-    quantity_incoming:  Optional[float] = Field(default=None, ge=0)
+    quantity_on_hand: Optional[float] = Field(default=None, ge=0)
+    quantity_reserved: Optional[float] = Field(default=None, ge=0)
+    quantity_incoming: Optional[float] = Field(default=None, ge=0)
     quantity_committed: Optional[float] = Field(default=None, ge=0)
-    reorder_point:      Optional[float] = Field(default=None, ge=0)
-    reorder_quantity:   Optional[float] = Field(default=None, ge=0)
-    max_stock_level:    Optional[float] = Field(default=None, ge=0)
-    safety_stock:       Optional[float] = Field(default=None, ge=0)
-    valuation_method:   Optional[InventoryValuationMethod] = None
-    unit_cost:          Optional[float] = Field(default=None, ge=0)
-    currency:           Optional[str]  = Field(default=None, min_length=3, max_length=3)
-    batch_tracking:     Optional[bool] = None
-    serial_tracking:    Optional[bool] = None
-    expiry_tracking:    Optional[bool] = None
-    last_counted_at:    Optional[date] = None
-    next_count_due:     Optional[date] = None
-    status:             Optional[InventoryStatus] = None
-    notes:              Optional[str] = None
-    metadata:           Optional[dict[str, Any]] = None
-    updated_by:         Optional[str] = None
+    reorder_point: Optional[float] = Field(default=None, ge=0)
+    reorder_quantity: Optional[float] = Field(default=None, ge=0)
+    max_stock_level: Optional[float] = Field(default=None, ge=0)
+    safety_stock: Optional[float] = Field(default=None, ge=0)
+    valuation_method: Optional[InventoryValuationMethod] = None
+    unit_cost: Optional[float] = Field(default=None, ge=0)
+    currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
+    batch_tracking: Optional[bool] = None
+    serial_tracking: Optional[bool] = None
+    expiry_tracking: Optional[bool] = None
+    last_counted_at: Optional[date] = None
+    next_count_due: Optional[date] = None
+    status: Optional[InventoryStatus] = None
+    notes: Optional[str] = None
+    metadata: Optional[dict[str, Any]] = None
+    updated_by: Optional[str] = None
 
 
 class PaginatedProductInventoryResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[ProductInventoryRecord]
+    results: list[ProductInventoryRecord]

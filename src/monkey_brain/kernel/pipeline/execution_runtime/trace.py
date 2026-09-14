@@ -12,6 +12,7 @@ Scheduling -> Capability Resolution -> Execute -> Execution Monitoring ->
 Execution Result narrative from Step 9's own acceptance criteria; a future
 visualization layer can consume .to_dict() instead.
 """
+
 from __future__ import annotations
 
 import time
@@ -20,16 +21,27 @@ from typing import Any
 from uuid import uuid4
 
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionMetrics, ExecutionOutcome, ExecutionRequest, ExecutionResult, ExecutionStatus,
+    ExecutionMetrics,
+    ExecutionOutcome,
+    ExecutionRequest,
+    ExecutionResult,
+    ExecutionStatus,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import ExecutionSchedule
-from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import ResolutionReport
-from src.monkey_brain.kernel.pipeline.execution_runtime.monitoring import ExecutionTimeline
+from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import (
+    ExecutionSchedule,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import (
+    ResolutionReport,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.monitoring import (
+    ExecutionTimeline,
+)
 
 
 @dataclass(frozen=True)
 class ExecutionTrace:
     """The complete, structured record of one execution."""
+
     trace_id: str = field(default_factory=lambda: uuid4().hex)
     request_id: str = ""
     schedule: ExecutionSchedule | None = None
@@ -56,20 +68,34 @@ class ExecutionTrace:
         return {
             "trace_id": self.trace_id,
             "request_id": self.request_id,
-            "schedule": {
-                "batches": [list(b) for b in self.schedule.batches],
-                "is_valid": self.schedule.is_valid,
-                "has_deadlock": self.schedule.has_deadlock,
-            } if self.schedule else None,
-            "resolution": {
-                "resolved": self.resolution.resolved,
-                "issues": [{"kind": i.kind, "subject": i.subject, "message": i.message} for i in self.resolution.issues],
-            } if self.resolution else None,
+            "schedule": (
+                {
+                    "batches": [list(b) for b in self.schedule.batches],
+                    "is_valid": self.schedule.is_valid,
+                    "has_deadlock": self.schedule.has_deadlock,
+                }
+                if self.schedule
+                else None
+            ),
+            "resolution": (
+                {
+                    "resolved": self.resolution.resolved,
+                    "issues": [
+                        {"kind": i.kind, "subject": i.subject, "message": i.message} for i in self.resolution.issues
+                    ],
+                }
+                if self.resolution
+                else None
+            ),
             "outcomes": [
                 {
-                    "step_id": o.step_id, "label": self._label(o.step_id), "status": o.status.value,
-                    "output": o.output, "error": o.error.message if o.error else None,
-                    "attempt": o.attempt, "duration_seconds": o.duration_seconds,
+                    "step_id": o.step_id,
+                    "label": self._label(o.step_id),
+                    "status": o.status.value,
+                    "output": o.output,
+                    "error": o.error.message if o.error else None,
+                    "attempt": o.attempt,
+                    "duration_seconds": o.duration_seconds,
                 }
                 for o in self.outcomes
             ],
@@ -77,9 +103,12 @@ class ExecutionTrace:
             "failed_step_ids": list(self.failed_step_ids),
             "skipped_step_ids": list(self.skipped_step_ids),
             "metrics": {
-                "total_steps": self.metrics.total_steps, "succeeded": self.metrics.succeeded,
-                "failed": self.metrics.failed, "retried": self.metrics.retried,
-                "skipped": self.metrics.skipped, "success_rate": self.metrics.success_rate,
+                "total_steps": self.metrics.total_steps,
+                "succeeded": self.metrics.succeeded,
+                "failed": self.metrics.failed,
+                "retried": self.metrics.retried,
+                "skipped": self.metrics.skipped,
+                "success_rate": self.metrics.success_rate,
                 "total_duration_seconds": self.metrics.total_duration_seconds,
             },
             "goal_achieved": self.final_result.goal_achieved,
@@ -93,11 +122,17 @@ class ExecutionTrace:
         Monitoring -> Execution Result."""
         lines = ["Execution Request", "    ↓"]
 
-        batch_note = f" ({len(self.schedule.batches)} batch{'es' if len(self.schedule.batches) != 1 else ''})" if self.schedule else ""
+        batch_note = (
+            f" ({len(self.schedule.batches)} batch{'es' if len(self.schedule.batches) != 1 else ''})"
+            if self.schedule
+            else ""
+        )
         lines.append(f"Dependency Scheduling{batch_note}")
         if self.schedule is not None and not self.schedule.is_valid:
             if self.schedule.has_deadlock:
-                lines.append(f"  ✗ deadlock among: {', '.join(self._label(s) for s in self.schedule.deadlocked_step_ids)}")
+                lines.append(
+                    f"  ✗ deadlock among: {', '.join(self._label(s) for s in self.schedule.deadlocked_step_ids)}"
+                )
             for v in self.schedule.violations:
                 lines.append(f"  ✗ {v.message}")
         lines.append("    ↓")
@@ -167,7 +202,10 @@ def build_execution_trace(
     else:
         goal_achieved = resolved_metrics.total_steps > 0 and resolved_metrics.failed == 0
     final_result = ExecutionResult(
-        request_id=request.request_id, outcomes=outcomes, metrics=resolved_metrics, goal_achieved=goal_achieved,
+        request_id=request.request_id,
+        outcomes=outcomes,
+        metrics=resolved_metrics,
+        goal_achieved=goal_achieved,
     )
 
     return ExecutionTrace(
@@ -182,7 +220,9 @@ def build_execution_trace(
         metrics=resolved_metrics,
         final_result=final_result,
         step_labels=dict(step_labels) if step_labels else {},
-        rationale=rationale if rationale is not None else _default_rationale(schedule, resolution, outcomes, resolved_metrics),
+        rationale=(
+            rationale if rationale is not None else _default_rationale(schedule, resolution, outcomes, resolved_metrics)
+        ),
     )
 
 
@@ -192,13 +232,20 @@ def _metrics_from_outcomes(outcomes: tuple[ExecutionOutcome, ...]) -> ExecutionM
     skipped = sum(1 for o in outcomes if o.status == ExecutionStatus.SKIPPED)
     retried = sum(1 for o in outcomes if o.attempt > 1)
     return ExecutionMetrics(
-        total_steps=len(outcomes), succeeded=succeeded, failed=failed, retried=retried, skipped=skipped,
+        total_steps=len(outcomes),
+        succeeded=succeeded,
+        failed=failed,
+        retried=retried,
+        skipped=skipped,
         total_duration_seconds=round(sum(o.duration_seconds for o in outcomes), 4),
     )
 
 
 def _default_rationale(
-    schedule: ExecutionSchedule, resolution: ResolutionReport | None, outcomes: tuple[ExecutionOutcome, ...], metrics: ExecutionMetrics,
+    schedule: ExecutionSchedule,
+    resolution: ResolutionReport | None,
+    outcomes: tuple[ExecutionOutcome, ...],
+    metrics: ExecutionMetrics,
 ) -> str:
     if not schedule.is_valid:
         reason = "a dependency deadlock" if schedule.has_deadlock else "dependency violations"
@@ -208,7 +255,9 @@ def _default_rationale(
     if not outcomes:
         return "No steps to execute."
     if metrics.failed == 0 and metrics.skipped == 0:
-        return f"All {metrics.total_steps} step(s) succeeded" + (f" ({metrics.retried} required a retry)." if metrics.retried else ".")
+        return f"All {metrics.total_steps} step(s) succeeded" + (
+            f" ({metrics.retried} required a retry)." if metrics.retried else "."
+        )
     return (
         f"{metrics.succeeded}/{metrics.total_steps} step(s) succeeded, "
         f"{metrics.failed} failed, {metrics.skipped} skipped as a result."

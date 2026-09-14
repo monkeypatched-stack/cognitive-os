@@ -65,7 +65,8 @@ def _warn_bandit_unavailable(exc: Exception) -> None:
     logger.warning(
         "[world_model_sim] bandit agent-selection layer unavailable (%s) — running every "
         "DAG node with NO agent selection, no reward recording, and no example storage. "
-        "dry_run has nothing to guard in this mode.", exc,
+        "dry_run has nothing to guard in this mode.",
+        exc,
     )
 
 
@@ -78,15 +79,35 @@ DOMAIN_COLLECTIONS: dict[str, list[str]] = {
     "process_definitions": ["process_definitions", "process_definition_canvas_layouts"],
     "material_flows": ["material_flows", "material_flow_nodes"],
     "equipment": ["pharmaceutical_machines", "pharmaceutical_equipment"],
-    "inventory": ["inventory_items", "inventory_lots", "inventory_reservations", "stock_movements"],
-    "batch": ["batch_records", "batch_production_execution_records", "executed_bmr_records", "executed_bpr_records"],
-    "quality": ["cpp_cqa_registry", "ipc_result_records", "deviation_records", "capa_records"],
+    "inventory": [
+        "inventory_items",
+        "inventory_lots",
+        "inventory_reservations",
+        "stock_movements",
+    ],
+    "batch": [
+        "batch_records",
+        "batch_production_execution_records",
+        "executed_bmr_records",
+        "executed_bpr_records",
+    ],
+    "quality": [
+        "cpp_cqa_registry",
+        "ipc_result_records",
+        "deviation_records",
+        "capa_records",
+    ],
     "maintenance": ["maintenance", "cleaning", "calibrations", "downtime"],
     "procurement": ["purchase_orders", "procurement_requisitions"],
     "orders": ["orders", "customer_orders", "work_orders"],
     "shipping": ["shipments", "shipment_lines", "shipping_events"],
     "documents": ["document_metadata", "documents", "uploaded_files"],
-    "approvals": ["gxp_change_controls", "gxp_proposed_changes", "approvals", "notifications"],
+    "approvals": [
+        "gxp_change_controls",
+        "gxp_proposed_changes",
+        "approvals",
+        "notifications",
+    ],
 }
 
 # ---------------------------------------------------------------------------
@@ -94,17 +115,20 @@ DOMAIN_COLLECTIONS: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 
 ENTITY_TRACKED_COLLECTIONS: dict[str, dict[str, str]] = {
-    "industrial_plants":                {"name_field": "name", "status_field": "status"},
-    "industrial_lines":                 {"name_field": "name", "status_field": "status"},
-    "industrial_stages":                {"name_field": "name", "status_field": "status"},
-    "industrial_workstations":          {"name_field": "name", "status_field": "status"},
-    "pharmaceutical_machines":          {"name_field": "name", "status_field": "status"},
-    "pharmaceutical_equipment":         {"name_field": "name", "status_field": "status"},
-    "production_batches":               {"name_field": "batch_number", "status_field": "status"},
-    "batch_production_execution_records": {"name_field": "batch_execution_record_id", "status_field": "status"},
-    "batch_step_executions":            {"name_field": "step_name", "status_field": "status"},
-    "work_orders":                      {"name_field": "title", "status_field": "status"},
-    "gxp_change_controls":              {"name_field": "title", "status_field": "status"},
+    "industrial_plants": {"name_field": "name", "status_field": "status"},
+    "industrial_lines": {"name_field": "name", "status_field": "status"},
+    "industrial_stages": {"name_field": "name", "status_field": "status"},
+    "industrial_workstations": {"name_field": "name", "status_field": "status"},
+    "pharmaceutical_machines": {"name_field": "name", "status_field": "status"},
+    "pharmaceutical_equipment": {"name_field": "name", "status_field": "status"},
+    "production_batches": {"name_field": "batch_number", "status_field": "status"},
+    "batch_production_execution_records": {
+        "name_field": "batch_execution_record_id",
+        "status_field": "status",
+    },
+    "batch_step_executions": {"name_field": "step_name", "status_field": "status"},
+    "work_orders": {"name_field": "title", "status_field": "status"},
+    "gxp_change_controls": {"name_field": "title", "status_field": "status"},
 }
 
 SIM_RUNS_COLLECTION = "simulation_runs"
@@ -113,22 +137,50 @@ SIM_TRANSITIONS_COLLECTION = "simulation_transitions"
 
 # Keywords that trigger the sensor layer
 _SENSOR_KEYWORDS = {
-    "sensor", "reading", "threshold", "alarm", "alert", "temperature",
-    "pressure", "humidity", "weight", "variation", "drift", "excursion",
-    "calibration", "measurement", "value", "spike", "deviation", "trend",
+    "sensor",
+    "reading",
+    "threshold",
+    "alarm",
+    "alert",
+    "temperature",
+    "pressure",
+    "humidity",
+    "weight",
+    "variation",
+    "drift",
+    "excursion",
+    "calibration",
+    "measurement",
+    "value",
+    "spike",
+    "deviation",
+    "trend",
 }
 
 # Keywords that suggest a world-model / what-if query
 _WHATIF_KEYWORDS = {
-    "what if", "what would", "simulate", "impact", "scenario", "effect of",
-    "consequence", "predict", "forecast", "change", "modify", "update",
-    "replace", "swap", "upgrade",
+    "what if",
+    "what would",
+    "simulate",
+    "impact",
+    "scenario",
+    "effect of",
+    "consequence",
+    "predict",
+    "forecast",
+    "change",
+    "modify",
+    "update",
+    "replace",
+    "swap",
+    "upgrade",
 }
 
 
 # ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -153,13 +205,15 @@ def _projection() -> dict[str, int]:
 # Prompt classification
 # ---------------------------------------------------------------------------
 
+
 def _classify_prompt(prompt: str, context: dict[str, Any]) -> dict[str, bool]:
     """Return which simulation layers should run for this prompt + context."""
     lower = prompt.lower()
 
     sensor_score = sum(1 for kw in _SENSOR_KEYWORDS if kw in lower)
     has_sensor_context = bool(
-        context.get("sensor_id") or context.get("sensor_name")
+        context.get("sensor_id")
+        or context.get("sensor_name")
         or context.get("previous_value") is not None
         or context.get("new_value") is not None
     )
@@ -181,6 +235,7 @@ def _classify_prompt(prompt: str, context: dict[str, Any]) -> dict[str, bool]:
 # ---------------------------------------------------------------------------
 # Public entry points
 # ---------------------------------------------------------------------------
+
 
 async def simulate(
     prompt: str,
@@ -250,7 +305,10 @@ async def simulate(
         try:
             domains = ctx.get("domains") or list(DOMAIN_COLLECTIONS.keys())
             scope = ctx.get("scope") or {}
-            scenario = ctx.get("scenario") or {"prompt": prompt, "scenario_type": "analysis"}
+            scenario = ctx.get("scenario") or {
+                "prompt": prompt,
+                "scenario_type": "analysis",
+            }
             world_model_result = await _run_world_model_layer(
                 prompt, ctx, db, domains=domains, scope=scope, scenario=scenario
             )
@@ -266,9 +324,7 @@ async def simulate(
             workflow_result = await _run_workflow_layer(prompt, ctx, store)
             state_after = await _capture_world_state(db)
             state_delta = _compare_states(state_before, state_after)
-            impact = _build_impact_assessment(
-                workflow_result.get("execution_results", [])
-            )
+            impact = _build_impact_assessment(workflow_result.get("execution_results", []))
 
             results["state_before"] = state_before
             results["state_after"] = state_after
@@ -276,9 +332,9 @@ async def simulate(
             results["workflow_result"] = workflow_result
             results["impact_assessment"] = impact
 
-            needs_correction = (
-                state_delta.get("has_changes", False)
-                and state_delta.get("severity", "low") in ("medium", "high")
+            needs_correction = state_delta.get("has_changes", False) and state_delta.get("severity", "low") in (
+                "medium",
+                "high",
             )
             results["needs_correction"] = needs_correction
             if needs_correction:
@@ -292,20 +348,19 @@ async def simulate(
     # --- Layer 4: G→A→R adversarial refinement loop ---
     # Simulation-only — never runs in the actual query path.
     # Uses the best available world state (state_after > state_before) as design context.
-    adversarial_world_state = (
-        results.get("state_after")
-        or results.get("state_before")
-        or {}
-    )
+    adversarial_world_state = results.get("state_after") or results.get("state_before") or {}
     try:
         adv_loop = await run_adversarial_refinement_loop(
             prompt, adversarial_world_state, max_rounds=3, timeout_per_round=90.0
         )
         results["adversarial"] = adv_loop
         last_adv = (adv_loop.get("rounds") or [{}])[-1].get("attack") or {}
-        logger.info("[simulate] G→A→R: rounds=%d converged=%s findings=%d",
-                    adv_loop.get("rounds_run", 0), adv_loop.get("converged", False),
-                    len(last_adv.get("findings", [])))
+        logger.info(
+            "[simulate] G→A→R: rounds=%d converged=%s findings=%d",
+            adv_loop.get("rounds_run", 0),
+            adv_loop.get("converged", False),
+            len(last_adv.get("findings", [])),
+        )
     except Exception as exc:
         logger.warning("[simulate] G→A→R loop failed: %s", exc)
         results["adversarial"] = {"error": str(exc)}
@@ -320,9 +375,7 @@ async def simulate(
 
     # --- Loss calculation: compare predicted (state_before) vs actual (state_after) ---
     if results["state_before"] is not None and results["state_after"] is not None:
-        loss_result = _calculate_loss(
-            results["state_before"], results["state_after"], prompt
-        )
+        loss_result = _calculate_loss(results["state_before"], results["state_after"], prompt)
         results["loss"] = loss_result
 
         # --- Bellman transition: store (s, a, r, s') ---
@@ -340,34 +393,41 @@ async def simulate(
                 feasibility_verdict=results["feasibility_verdict"],
             )
     else:
-        results["loss"] = {"loss": 1.0, "total_facts": 0, "matching_facts": 0,
-                           "count_accuracy": 0.0, "name_accuracy": 0.0, "status_accuracy": 0.0,
-                           "entity_details": []}
+        results["loss"] = {
+            "loss": 1.0,
+            "total_facts": 0,
+            "matching_facts": 0,
+            "count_accuracy": 0.0,
+            "name_accuracy": 0.0,
+            "status_accuracy": 0.0,
+            "entity_details": [],
+        }
 
     # --- Dispatch result to shared state if store is available ---
     if store is not None:
         try:
             from src.monkey_brain.events.reducer import Action
-            await store.dispatch(Action(
-                action_type="simulation.completed",
-                payload={
-                    "simulation_id": simulation_id,
-                    "grounding_score": results["grounding_score"],
-                    "feasibility_verdict": results["feasibility_verdict"],
-                    "layers_activated": layers,
-                    "needs_correction": results["needs_correction"],
-                },
-                source_thread_id=f"simulator-{simulation_id}",
-            ))
+
+            await store.dispatch(
+                Action(
+                    action_type="simulation.completed",
+                    payload={
+                        "simulation_id": simulation_id,
+                        "grounding_score": results["grounding_score"],
+                        "feasibility_verdict": results["feasibility_verdict"],
+                        "layers_activated": layers,
+                        "needs_correction": results["needs_correction"],
+                    },
+                    source_thread_id=f"simulator-{simulation_id}",
+                )
+            )
         except Exception as exc:
             logger.warning("Store dispatch failed: %s", exc)
 
     # --- Persist to MongoDB if db is available ---
     if db is not None:
         try:
-            await db[SIM_RUNS_COLLECTION].insert_one(
-                {**_json_safe(results), "_inserted_at": _now()}
-            )
+            await db[SIM_RUNS_COLLECTION].insert_one({**_json_safe(results), "_inserted_at": _now()})
         except Exception as exc:
             logger.warning("Simulation persistence failed: %s", exc)
 
@@ -439,25 +499,33 @@ async def run_adversarial_refinement_loop(
         epistemic = evolve_epistemic_state(epistemic, adv_dict, sim_loss_dict)
 
         if not adv.findings:
-            rounds.append({
-                "round": round_num,
-                "attack": adv_dict,
-                "repair": None,
-                "terminated": "attacks_exhausted",
-                "epistemic": epistemic.summary(),
-            })
+            rounds.append(
+                {
+                    "round": round_num,
+                    "attack": adv_dict,
+                    "repair": None,
+                    "terminated": "attacks_exhausted",
+                    "epistemic": epistemic.summary(),
+                }
+            )
             logger.info("[G→A→R] round %d — no findings, converged", round_num)
             break
 
         # Repair — LLM generates hypothesis patch (Rule 7, Rule 11)
         repair = await _repair_from_findings(current_prompt, world_state, adv.findings)
-        rounds.append({
-            "round": round_num,
-            "attack": adv_dict,
-            "repair": repair,
-            "epistemic": epistemic.summary(),
-        })
-        logger.info("[G→A→R] round %d — %d findings, design patched", round_num, len(adv.findings))
+        rounds.append(
+            {
+                "round": round_num,
+                "attack": adv_dict,
+                "repair": repair,
+                "epistemic": epistemic.summary(),
+            }
+        )
+        logger.info(
+            "[G→A→R] round %d — %d findings, design patched",
+            round_num,
+            len(adv.findings),
+        )
         current_prompt = repair.get("patched_prompt", current_prompt)
 
     else:
@@ -506,9 +574,7 @@ async def approve_and_execute(
     simulate(), then returns a signed audit package with the delta.
     """
     predicted_state = simulation_result.get("state_after") or {}
-    result = await execute_with_correction(
-        prompt, predicted_state, context=context
-    )
+    result = await execute_with_correction(prompt, predicted_state, context=context)
     return {
         "prompt": prompt,
         "simulation_id": simulation_result.get("simulation_id"),
@@ -557,7 +623,9 @@ async def execute_with_correction(
 
         correction_count += 1
         correction_prompt = _build_correction_prompt(
-            current_prompt, delta, result.get("workflow_result", {}).get("execution_results", [])
+            current_prompt,
+            delta,
+            result.get("workflow_result", {}).get("execution_results", []),
         )
         last_result["correction_prompt"] = correction_prompt
         last_result["correction_applied"] = True
@@ -572,6 +640,7 @@ async def execute_with_correction(
 # Layer 1 — Sensor / event impact
 # ---------------------------------------------------------------------------
 
+
 async def _run_sensor_layer(
     prompt: str,
     context: dict[str, Any],
@@ -581,13 +650,23 @@ async def _run_sensor_layer(
     sensor = await _sensor_document(db, context)
     if not sensor:
         # Try to infer sensor from prompt when no explicit sensor context given.
-        sensor = await db["sensors"].find_one(
-            {"$or": [
-                {"name": {"$regex": re.escape(prompt[:60]), "$options": "i"}},
-                {"sensor_type": {"$regex": r"weight|temperature|pressure|humidity", "$options": "i"}},
-            ]},
-            _projection(),
-        ) or {}
+        sensor = (
+            await db["sensors"].find_one(
+                {
+                    "$or": [
+                        {"name": {"$regex": re.escape(prompt[:60]), "$options": "i"}},
+                        {
+                            "sensor_type": {
+                                "$regex": r"weight|temperature|pressure|humidity",
+                                "$options": "i",
+                            }
+                        },
+                    ]
+                },
+                _projection(),
+            )
+            or {}
+        )
 
     if not sensor:
         return {
@@ -650,8 +729,14 @@ async def _sensor_document(db: Any, context: dict[str, Any]) -> dict[str, Any] |
 
 async def _asset_context(db: Any, sensor: dict[str, Any]) -> dict[str, Any]:
     if db is None:
-        return {"machine": None, "equipment": None, "workstation": None,
-                "stage_id": None, "linked_sops": [], "related_work_orders": []}
+        return {
+            "machine": None,
+            "equipment": None,
+            "workstation": None,
+            "stage_id": None,
+            "linked_sops": [],
+            "related_work_orders": [],
+        }
 
     machine_id = _text(sensor.get("machine_id"))
     equipment_id = _text(sensor.get("equipment_id"))
@@ -665,34 +750,38 @@ async def _asset_context(db: Any, sensor: dict[str, Any]) -> dict[str, Any]:
     equipment = None
     if equipment_id:
         equipment = await db["pharmaceutical_equipment"].find_one(
-            {"$or": [{"equipment_id": equipment_id}, {"id": equipment_id}]}, _projection()
+            {"$or": [{"equipment_id": equipment_id}, {"id": equipment_id}]},
+            _projection(),
         )
 
     if not workstation_id:
-        workstation_id = _text(
-            (machine or {}).get("workstation_id") or (equipment or {}).get("workstation_id")
-        )
+        workstation_id = _text((machine or {}).get("workstation_id") or (equipment or {}).get("workstation_id"))
     workstation = None
     if workstation_id:
         workstation = await db["workstations"].find_one(
-            {"$or": [{"id": workstation_id}, {"workstation_id": workstation_id}]}, _projection()
+            {"$or": [{"id": workstation_id}, {"workstation_id": workstation_id}]},
+            _projection(),
         )
 
     stage_id = _text(
-        (machine or {}).get("stage_id") or (equipment or {}).get("stage_id")
-        or (workstation or {}).get("stage_id") or sensor.get("stage_id")
+        (machine or {}).get("stage_id")
+        or (equipment or {}).get("stage_id")
+        or (workstation or {}).get("stage_id")
+        or sensor.get("stage_id")
     )
 
     linked_sops: list[dict] = []
     sop_clauses: list[dict] = []
-    for key, val in [("stage_id", stage_id), ("workstation_id", workstation_id),
-                      ("machine_id", machine_id), ("equipment_id", equipment_id)]:
+    for key, val in [
+        ("stage_id", stage_id),
+        ("workstation_id", workstation_id),
+        ("machine_id", machine_id),
+        ("equipment_id", equipment_id),
+    ]:
         if val:
             sop_clauses.extend([{key: val}, {f"process_definition.{key}": val}])
     if sop_clauses:
-        linked_sops = await db["sops"].find(
-            {"$or": sop_clauses}, _projection()
-        ).limit(25).to_list(25)
+        linked_sops = await db["sops"].find({"$or": sop_clauses}, _projection()).limit(25).to_list(25)
 
     related_work_orders: list[dict] = []
     wo_clauses: list[dict] = []
@@ -701,9 +790,7 @@ async def _asset_context(db: Any, sensor: dict[str, Any]) -> dict[str, Any]:
     if equipment_id:
         wo_clauses.append({"equipment_id": equipment_id})
     if wo_clauses:
-        related_work_orders = await db["work_orders"].find(
-            {"$or": wo_clauses}, _projection()
-        ).limit(10).to_list(10)
+        related_work_orders = await db["work_orders"].find({"$or": wo_clauses}, _projection()).limit(10).to_list(10)
 
     return {
         "machine": machine,
@@ -715,9 +802,7 @@ async def _asset_context(db: Any, sensor: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _reading_classification(
-    sensor: dict[str, Any], previous_value: float, new_value: float
-) -> dict[str, Any]:
+def _reading_classification(sensor: dict[str, Any], previous_value: float, new_value: float) -> dict[str, Any]:
     low = _num(sensor.get("alert_threshold_low"))
     high = _num(sensor.get("alert_threshold_high"))
     range_min = _num(sensor.get("measurement_range_min"))
@@ -725,12 +810,9 @@ def _reading_classification(
 
     delta = new_value - previous_value
     delta_pct = (delta / previous_value * 100.0) if previous_value else None
-    threshold_crossed = bool(
-        (high is not None and new_value >= high) or (low is not None and new_value <= low)
-    )
+    threshold_crossed = bool((high is not None and new_value >= high) or (low is not None and new_value <= low))
     range_exceeded = bool(
-        (range_max is not None and new_value > range_max)
-        or (range_min is not None and new_value < range_min)
+        (range_max is not None and new_value > range_max) or (range_min is not None and new_value < range_min)
     )
     approaching_high = bool(high is not None and new_value < high and new_value >= high * 0.85)
     approaching_low = bool(low is not None and new_value > low and new_value <= low * 1.15)
@@ -785,10 +867,17 @@ def _sensor_effects(
             "Investigate sensor validity and product impact before release.",
         ]
         changes_needed = [
-            {"area": "Quality workflow", "change": "Open deviation/CAPA record.",
-             "approval_required": True, "target_records": ["deviation_records", "capa_records"]},
-            {"area": "Release gate", "change": "Hold downstream release until QA disposition.",
-             "approval_required": True},
+            {
+                "area": "Quality workflow",
+                "change": "Open deviation/CAPA record.",
+                "approval_required": True,
+                "target_records": ["deviation_records", "capa_records"],
+            },
+            {
+                "area": "Release gate",
+                "change": "Hold downstream release until QA disposition.",
+                "approval_required": True,
+            },
         ]
     elif warning:
         summary = f"{sensor_name} is trending toward threshold at {new_val} {unit}."
@@ -798,28 +887,44 @@ def _sensor_effects(
             "Prepare escalation if trend persists.",
         ]
         changes_needed = [
-            {"area": "Preventive action", "change": "Schedule follow-up monitoring.",
-             "approval_required": False, "target_records": ["calibration_records", "maintenance_logs"]},
+            {
+                "area": "Preventive action",
+                "change": "Schedule follow-up monitoring.",
+                "approval_required": False,
+                "target_records": ["calibration_records", "maintenance_logs"],
+            },
         ]
     else:
         summary = f"{sensor_name} changed to {new_val} {unit}, within configured limits."
         operational = ["Record the reading and continue normal monitoring."]
         changes_needed = [
-            {"area": "Event record", "change": "Record before/after reading and delta.",
-             "approval_required": False},
+            {
+                "area": "Event record",
+                "change": "Record before/after reading and delta.",
+                "approval_required": False,
+            },
         ]
 
     return {
         "summary": summary,
         "desired_result": desired_result,
         "impacted": {
-            "sensor": {"sensor_id": sensor.get("sensor_id"), "name": sensor_name,
-                       "unit": unit, "status": sensor.get("status")},
-            "asset": {"machine_id": sensor.get("machine_id"),
-                      "equipment_id": sensor.get("equipment_id"),
-                      "stage_id": asset_ctx.get("stage_id")},
+            "sensor": {
+                "sensor_id": sensor.get("sensor_id"),
+                "name": sensor_name,
+                "unit": unit,
+                "status": sensor.get("status"),
+            },
+            "asset": {
+                "machine_id": sensor.get("machine_id"),
+                "equipment_id": sensor.get("equipment_id"),
+                "stage_id": asset_ctx.get("stage_id"),
+            },
             "linked_sops": [
-                {"id": s.get("id") or s.get("sop_id"), "title": s.get("title") or s.get("name")}
+                {
+                    "id": s.get("id") or s.get("sop_id"),
+                    "title": s.get("title") or s.get("name"),
+                }
                 for s in asset_ctx.get("linked_sops", [])
             ],
         },
@@ -835,6 +940,7 @@ def _sensor_effects(
 # ---------------------------------------------------------------------------
 # Layer 2 — World model snapshot
 # ---------------------------------------------------------------------------
+
 
 async def _run_world_model_layer(
     prompt: str,
@@ -852,8 +958,14 @@ async def _run_world_model_layer(
 
     # Build scoped query
     scope_keys = (
-        "plant_id", "line_id", "stage_id", "workstation_id",
-        "machine_id", "equipment_id", "batch_id", "order_id",
+        "plant_id",
+        "line_id",
+        "stage_id",
+        "workstation_id",
+        "machine_id",
+        "equipment_id",
+        "batch_id",
+        "order_id",
     )
     values = {k: scope[k] for k in scope_keys if scope.get(k)}
     query = {"$or": [{k: v} for k, v in values.items()]} if values else {}
@@ -913,25 +1025,36 @@ async def _llm_impact_assessment(
         "Identify affected entities, state changes, risks, and required approvals. "
         "Return only valid JSON."
     )
-    user_msg = json.dumps({
-        "prompt": prompt,
-        "scenario": scenario,
-        "world_state_summary": {
-            "domains": snapshot.get("domains", []),
-            "record_counts": snapshot.get("record_counts", {}),
+    user_msg = json.dumps(
+        {
+            "prompt": prompt,
+            "scenario": scenario,
+            "world_state_summary": {
+                "domains": snapshot.get("domains", []),
+                "record_counts": snapshot.get("record_counts", {}),
+            },
+            "required_response_schema": {
+                "step_analysis": [
+                    {
+                        "step_number": 0,
+                        "entities_affected": [],
+                        "impact_on_state": "",
+                        "risks_or_constraints": [],
+                    }
+                ],
+                "cumulative_results": {
+                    "total_entities_affected": 0,
+                    "collections_impacted": [],
+                    "approvals_required": [],
+                    "compliance_impacts": [],
+                },
+                "assessment_summary": "",
+                "feasibility_verdict": "feasible|risky|not_recommended",
+                "recommended_precautions": [],
+            },
         },
-        "required_response_schema": {
-            "step_analysis": [{"step_number": 0, "entities_affected": [],
-                               "impact_on_state": "", "risks_or_constraints": []}],
-            "cumulative_results": {"total_entities_affected": 0,
-                                   "collections_impacted": [],
-                                   "approvals_required": [],
-                                   "compliance_impacts": []},
-            "assessment_summary": "",
-            "feasibility_verdict": "feasible|risky|not_recommended",
-            "recommended_precautions": [],
-        },
-    }, default=str)
+        default=str,
+    )
 
     result = await _call_ollama(system_msg, user_msg)
     if result:
@@ -949,8 +1072,12 @@ async def _llm_impact_assessment(
         "assessment_summary": f"Fallback assessment for: {prompt[:120]}",
         "feasibility_verdict": "feasible",
         "step_analysis": [],
-        "cumulative_results": {"total_entities_affected": 0, "collections_impacted": [],
-                               "approvals_required": [], "compliance_impacts": []},
+        "cumulative_results": {
+            "total_entities_affected": 0,
+            "collections_impacted": [],
+            "approvals_required": [],
+            "compliance_impacts": [],
+        },
         "recommended_precautions": [],
         "determination_source": "fallback",
     }
@@ -959,14 +1086,21 @@ async def _llm_impact_assessment(
 async def _call_ollama(system_msg: str, user_msg: str) -> dict | None:
     try:
         import httpx
+
         base = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
         model = os.getenv("OLLAMA_MODEL", "gemma3:latest")
         async with httpx.AsyncClient(timeout=120.0) as client:
-            r = await client.post(f"{base}/api/chat", json={
-                "model": model, "stream": False,
-                "messages": [{"role": "system", "content": system_msg},
-                             {"role": "user", "content": user_msg}],
-            })
+            r = await client.post(
+                f"{base}/api/chat",
+                json={
+                    "model": model,
+                    "stream": False,
+                    "messages": [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": user_msg},
+                    ],
+                },
+            )
         if r.status_code != 200:
             return None
         content = r.json().get("message", {}).get("content", "")
@@ -979,15 +1113,24 @@ async def _call_ollama(system_msg: str, user_msg: str) -> dict | None:
 async def _call_openrouter(system_msg: str, user_msg: str, api_key: str) -> dict | None:
     try:
         import httpx
+
         base = os.getenv("OPENROUTER_API_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
         model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
         async with httpx.AsyncClient(timeout=30.0) as client:
             r = await client.post(
                 f"{base}/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={"model": model, "response_format": {"type": "json_object"},
-                      "messages": [{"role": "system", "content": system_msg},
-                                   {"role": "user", "content": user_msg}]},
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": user_msg},
+                    ],
+                },
             )
         if r.status_code != 200:
             return None
@@ -1022,15 +1165,17 @@ async def _repair_from_findings(
         "'patched_prompt' (full repaired design description), "
         "'repairs' (list of {finding_type, repair, confidence})."
     )
-    user_msg = json.dumps({
-        "original_design": prompt[:2000],
-        "adversarial_findings": summaries,
-        "instruction": (
-            "Patch the design to address each finding. "
-            "Add missing entities, resolve contradictions, clarify ambiguous transitions. "
-            "Return the complete patched design as 'patched_prompt'."
-        ),
-    })
+    user_msg = json.dumps(
+        {
+            "original_design": prompt[:2000],
+            "adversarial_findings": summaries,
+            "instruction": (
+                "Patch the design to address each finding. "
+                "Add missing entities, resolve contradictions, clarify ambiguous transitions. "
+                "Return the complete patched design as 'patched_prompt'."
+            ),
+        }
+    )
 
     result = await _call_ollama(system_msg, user_msg)
     if not result:
@@ -1044,10 +1189,7 @@ async def _repair_from_findings(
     # Fallback: append findings as explicit repair constraints
     constraint_block = "\n".join(f"  - REPAIR NEEDED: {s}" for s in summaries)
     return {
-        "patched_prompt": (
-            f"{prompt}\n\n"
-            f"Design corrections from adversarial analysis:\n{constraint_block}"
-        ),
+        "patched_prompt": (f"{prompt}\n\nDesign corrections from adversarial analysis:\n{constraint_block}"),
         "repairs": [
             {
                 "finding_type": getattr(f, "finding_type", "?"),
@@ -1074,7 +1216,7 @@ def _parse_llm_json(content: str) -> dict | None:
     s, e = content.find("{"), content.rfind("}")
     if s != -1 and e > s:
         try:
-            return json.loads(content[s:e + 1])
+            return json.loads(content[s : e + 1])
         except json.JSONDecodeError:
             logger.debug("Exception caught: %s", e)
     return None
@@ -1083,6 +1225,7 @@ def _parse_llm_json(content: str) -> dict | None:
 # ---------------------------------------------------------------------------
 # Layer 3 — Workflow execution
 # ---------------------------------------------------------------------------
+
 
 async def _run_workflow_layer(
     prompt: str,
@@ -1107,6 +1250,7 @@ async def _run_workflow_layer(
     if not goal:
         try:
             from src.monkey_brain.goals.goal import Goal, GoalType
+
             goal = Goal(
                 name="simulation",
                 goal_type=GoalType.ANALYZE,
@@ -1117,11 +1261,19 @@ async def _run_workflow_layer(
                 metadata={"question": prompt},
             )
         except ImportError:
-            return {"status": "skipped", "reason": "Goal class unavailable.", "execution_results": []}
+            return {
+                "status": "skipped",
+                "reason": "Goal class unavailable.",
+                "execution_results": [],
+            }
 
     compilation_result = await _compile(goal)
     if "error" in compilation_result:
-        return {"status": "error", "error": compilation_result["error"], "execution_results": []}
+        return {
+            "status": "error",
+            "error": compilation_result["error"],
+            "execution_results": [],
+        }
 
     steps = compilation_result.get("steps", [])
     if not steps:
@@ -1130,9 +1282,7 @@ async def _run_workflow_layer(
     dag = _build_execution_dag(steps)
 
     db = context.get("db")
-    execution_results = await _execute_dag(
-        list(dag.nodes), {"status": "ready"}, prompt, store, db, dry_run=dry_run
-    )
+    execution_results = await _execute_dag(list(dag.nodes), {"status": "ready"}, prompt, store, db, dry_run=dry_run)
 
     return {
         "status": "completed",
@@ -1147,6 +1297,7 @@ async def _run_workflow_layer(
 # DAG construction + execution
 # ---------------------------------------------------------------------------
 
+
 def _build_execution_dag(steps: list[dict[str, Any]]) -> Any:
     from src.monkey_brain.kernel.execute.runtime.dag import ExecutionDAG
     from src.monkey_brain.kernel.execute.runtime.dag import DAGNode
@@ -1154,11 +1305,16 @@ def _build_execution_dag(steps: list[dict[str, Any]]) -> Any:
 
     nodes, edges = [], []
     for step in steps:
-        nodes.append(DAGNode(
-            node_id=step.get("id", "unknown"),
-            operator_type=step.get("capability", "unknown"),
-            metadata={"inputs": step.get("inputs", []), "outputs": step.get("outputs", [])},
-        ))
+        nodes.append(
+            DAGNode(
+                node_id=step.get("id", "unknown"),
+                operator_type=step.get("capability", "unknown"),
+                metadata={
+                    "inputs": step.get("inputs", []),
+                    "outputs": step.get("outputs", []),
+                },
+            )
+        )
         for dep in step.get("dependencies", []):
             edges.append(DAGEdge(source_node_id=dep, target_node_id=step.get("id", "unknown")))
 
@@ -1183,7 +1339,10 @@ async def _execute_dag(
         from src.monkey_brain.execution.agents.agent_bootstrap import AgentBootstrap
         from src.monkey_brain.learning.capability_bandit import compute_reward
         from src.monkey_brain.learning import store_example, get_similar_examples
-        from src.monkey_brain.learning.agent_bandit import select_agent, record_agent_reward
+        from src.monkey_brain.learning.agent_bandit import (
+            select_agent,
+            record_agent_reward,
+        )
     except ImportError as exc:
         # NOTE: as of this writing NEITHER src.monkey_brain.execution NOR
         # src.monkey_brain.learning exists, so this branch is the one that ALWAYS runs.
@@ -1198,19 +1357,23 @@ async def _execute_dag(
             exec_result = await _execute_single_step(
                 node.operator_type,
                 node.metadata.get("inputs", []) if node.metadata else [],
-                world_state, prompt, db,
+                world_state,
+                prompt,
+                db,
             )
             # Same keys as the bandit path below, so downstream readers see one shape
             # rather than KeyError-ing on selection_method / available_agents.
-            results.append({
-                "node_id": node.node_id,
-                "operator_type": node.operator_type,
-                "available_agents": [],
-                "agent_selected": None,
-                "inputs": node.metadata.get("inputs", []) if node.metadata else [],
-                "result": exec_result,
-                "selection_method": "unavailable",
-            })
+            results.append(
+                {
+                    "node_id": node.node_id,
+                    "operator_type": node.operator_type,
+                    "available_agents": [],
+                    "agent_selected": None,
+                    "inputs": node.metadata.get("inputs", []) if node.metadata else [],
+                    "result": exec_result,
+                    "selection_method": "unavailable",
+                }
+            )
         return results
 
     agent_bootstrap = AgentBootstrap()
@@ -1230,44 +1393,42 @@ async def _execute_dag(
         operator_type = node.operator_type
         inputs = node.metadata.get("inputs", []) if node.metadata else []
 
-        available = list(set(
-            aid
-            for cap, aids in cap_to_agents.items()
-            if cap.lower() == operator_type.lower()
-            for aid in aids
-        ))
+        available = list(
+            set(aid for cap, aids in cap_to_agents.items() if cap.lower() == operator_type.lower() for aid in aids)
+        )
 
         step: dict[str, Any] = {
-            "node_id": node_id, "operator_type": operator_type,
-            "available_agents": available, "agent_selected": None,
-            "inputs": inputs, "result": None,
+            "node_id": node_id,
+            "operator_type": operator_type,
+            "available_agents": available,
+            "agent_selected": None,
+            "inputs": inputs,
+            "result": None,
             "selection_method": "none",
         }
 
         if available:
-            selected_id = (
-                await select_agent(redis, operator_type, available)
-                if len(available) > 1 else available[0]
-            )
+            selected_id = await select_agent(redis, operator_type, available) if len(available) > 1 else available[0]
             step["agent_selected"] = selected_id
             step["selection_method"] = "bandit" if len(available) > 1 else "single"
 
-            exec_result = await _execute_single_step(
-                operator_type, inputs, world_state, prompt, db
-            )
+            exec_result = await _execute_single_step(operator_type, inputs, world_state, prompt, db)
             step["result"] = exec_result
 
             if not dry_run:
                 # Write bandit feedback only for actual runs — never for simulation.
                 reward = compute_reward(exec_result)
                 await record_agent_reward(redis, selected_id, operator_type, reward)
-                await store_example(redis, prompt, operator_type,
-                                    _format_result(exec_result), reward,
-                                    [{"capability": operator_type, "inputs": inputs}])
+                await store_example(
+                    redis,
+                    prompt,
+                    operator_type,
+                    _format_result(exec_result),
+                    reward,
+                    [{"capability": operator_type, "inputs": inputs}],
+                )
         else:
-            step["result"] = await _execute_single_step(
-                operator_type, inputs, world_state, prompt, db
-            )
+            step["result"] = await _execute_single_step(operator_type, inputs, world_state, prompt, db)
             step["selection_method"] = "fallback"
 
         # Dispatch step result to shared state — skipped in dry_run to avoid
@@ -1275,18 +1436,21 @@ async def _execute_dag(
         if store is not None and not dry_run:
             try:
                 from src.monkey_brain.events.reducer import Action
-                await store.dispatch(Action(
-                    action_type="step.completed",
-                    payload={
-                        "step_id": node_id,
-                        "operator_type": operator_type,
-                        "result": str(step["result"])[:200],
-                        "status": "completed",
-                        "agent_selected": step["agent_selected"],
-                        "selection_method": step["selection_method"],
-                    },
-                    source_thread_id=f"simulator-dag-{node_id}",
-                ))
+
+                await store.dispatch(
+                    Action(
+                        action_type="step.completed",
+                        payload={
+                            "step_id": node_id,
+                            "operator_type": operator_type,
+                            "result": str(step["result"])[:200],
+                            "status": "completed",
+                            "agent_selected": step["agent_selected"],
+                            "selection_method": step["selection_method"],
+                        },
+                        source_thread_id=f"simulator-dag-{node_id}",
+                    )
+                )
             except Exception as exc:
                 logger.warning("store.dispatch failed for %s: %s", node_id, exc)
 
@@ -1314,21 +1478,32 @@ async def _execute_single_step(
     elif cap == "document_search":
         return await _document_search(db, prompt) if db else {"status": "skipped"}
     elif cap == "transform":
-        return {"status": "transformed", "effect": f"Applied transformation to {inputs}"}
+        return {
+            "status": "transformed",
+            "effect": f"Applied transformation to {inputs}",
+        }
     elif cap == "aggregate":
         return {"status": "aggregated", "effect": f"Aggregated data from {inputs}"}
     elif cap == "validate":
         return {"status": "validated", "effect": f"Validated inputs {inputs}"}
     else:
-        return {"status": "simulated", "effect": f"Simulated {capability} with inputs {inputs}"}
+        return {
+            "status": "simulated",
+            "effect": f"Simulated {capability} with inputs {inputs}",
+        }
 
 
 # ---------------------------------------------------------------------------
 # World state capture + comparison (entity-aware)
 # ---------------------------------------------------------------------------
 
+
 async def _capture_world_state(db: Any) -> dict[str, Any]:
-    state: dict[str, Any] = {"collections": {}, "entities": {}, "timestamp": time.time()}
+    state: dict[str, Any] = {
+        "collections": {},
+        "entities": {},
+        "timestamp": time.time(),
+    }
     if db is None:
         return state
     try:
@@ -1344,13 +1519,13 @@ async def _capture_world_state(db: Any) -> dict[str, Any]:
                 name_f = fields["name_field"]
                 status_f = fields["status_field"]
                 entities: list[dict] = []
-                async for doc in db[col].find(
-                    {}, {name_f: 1, status_f: 1, "_id": 0}
-                ).limit(100):
-                    entities.append({
-                        "name": doc.get(name_f, ""),
-                        "status": doc.get(status_f, ""),
-                    })
+                async for doc in db[col].find({}, {name_f: 1, status_f: 1, "_id": 0}).limit(100):
+                    entities.append(
+                        {
+                            "name": doc.get(name_f, ""),
+                            "status": doc.get(status_f, ""),
+                        }
+                    )
                 status_counts: dict[str, int] = {}
                 for e in entities:
                     s = e["status"] or "unknown"
@@ -1374,10 +1549,14 @@ def _compare_states(before: dict, after: dict) -> dict[str, Any]:
     for col in set(list(before_cols) + list(after_cols)):
         delta = after_cols.get(col, {}).get("count", 0) - before_cols.get(col, {}).get("count", 0)
         if delta:
-            changes.append({"collection": col,
-                            "before": before_cols.get(col, {}).get("count", 0),
-                            "after": after_cols.get(col, {}).get("count", 0),
-                            "delta": delta})
+            changes.append(
+                {
+                    "collection": col,
+                    "before": before_cols.get(col, {}).get("count", 0),
+                    "after": after_cols.get(col, {}).get("count", 0),
+                    "delta": delta,
+                }
+            )
     total = sum(abs(c["delta"]) for c in changes)
     severity = "none" if total == 0 else "low" if total <= 2 else "medium" if total <= 10 else "high"
 
@@ -1401,15 +1580,19 @@ def _compare_states(before: dict, after: dict) -> dict[str, Any]:
             if bd != ad:
                 status_diff[s] = {"before": bd, "after": ad, "delta": ad - bd}
         if added or removed or status_diff:
-            entity_changes.append({
-                "collection": col,
-                "added_names": added,
-                "removed_names": removed,
-                "status_changes": status_diff,
-            })
+            entity_changes.append(
+                {
+                    "collection": col,
+                    "added_names": added,
+                    "removed_names": removed,
+                    "status_changes": status_diff,
+                }
+            )
 
     return {
-        "changes": changes, "total_changes": total, "severity": severity,
+        "changes": changes,
+        "total_changes": total,
+        "severity": severity,
         "has_changes": bool(changes),
         "entity_changes": entity_changes,
         "has_entity_changes": bool(entity_changes),
@@ -1419,6 +1602,7 @@ def _compare_states(before: dict, after: dict) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Loss calculation
 # ---------------------------------------------------------------------------
+
 
 def _calculate_loss(
     predicted: dict[str, Any],
@@ -1472,14 +1656,16 @@ def _calculate_loss(
                 status_matches += 1
 
         if p_names != a_names or p_stat != a_stat:
-            entity_details.append({
-                "collection": col,
-                "predicted_names": sorted(p_names),
-                "actual_names": sorted(a_names),
-                "name_overlap": sorted(p_names & a_names),
-                "predicted_statuses": p_stat,
-                "actual_statuses": a_stat,
-            })
+            entity_details.append(
+                {
+                    "collection": col,
+                    "predicted_names": sorted(p_names),
+                    "actual_names": sorted(a_names),
+                    "name_overlap": sorted(p_names & a_names),
+                    "predicted_statuses": p_stat,
+                    "actual_statuses": a_stat,
+                }
+            )
 
     total_facts = count_total + name_total + status_total
     total_matches = count_matches + name_matches + status_matches
@@ -1501,7 +1687,7 @@ def _calculate_loss(
         "matching_facts": total_matches,
         "count_accuracy": round(count_matches / count_total, 4) if count_total else 1.0,
         "name_accuracy": round(name_matches / name_total, 4) if name_total else 1.0,
-        "status_accuracy": round(status_matches / status_total, 4) if status_total else 1.0,
+        "status_accuracy": (round(status_matches / status_total, 4) if status_total else 1.0),
         "entity_details": entity_details,
     }
 
@@ -1509,6 +1695,7 @@ def _calculate_loss(
 # ---------------------------------------------------------------------------
 # Bellman transition values
 # ---------------------------------------------------------------------------
+
 
 async def _store_transition(
     db: Any,
@@ -1617,6 +1804,7 @@ async def get_transition_values(
 
     return {"transitions": transitions, "action_values": action_values}
 
+
 def _build_impact_assessment(step_results: list[dict[str, Any]]) -> dict[str, Any]:
     total, collections_hit, records = 0, [], []
     for step in step_results:
@@ -1630,10 +1818,13 @@ def _build_impact_assessment(step_results: list[dict[str, Any]]) -> dict[str, An
                 records.append({"collection": col, "records": found})
     return {
         "step_analysis": [
-            {"step_number": i, "node_id": s.get("node_id"),
-             "capability": s.get("operator_type"),
-             "effect": (s.get("result") or {}).get("effect") or (s.get("result") or {}).get("status"),
-             "selection_method": s.get("selection_method")}
+            {
+                "step_number": i,
+                "node_id": s.get("node_id"),
+                "capability": s.get("operator_type"),
+                "effect": (s.get("result") or {}).get("effect") or (s.get("result") or {}).get("status"),
+                "selection_method": s.get("selection_method"),
+            }
             for i, s in enumerate(step_results)
         ],
         "cumulative_results": {
@@ -1676,7 +1867,8 @@ def _compute_grounding_score(results: dict[str, Any]) -> float:
     exec_results = wf.get("execution_results", [])
     if exec_results:
         found = sum(
-            1 for s in exec_results
+            1
+            for s in exec_results
             if (s.get("result") or {}).get("results_found", 0) > 0
             or (s.get("result") or {}).get("status") not in ("error", "simulated", None)
         )
@@ -1715,10 +1907,7 @@ def _build_correction_prompt(
     delta: dict[str, Any],
     execution_results: list[dict],
 ) -> str:
-    summary = ", ".join(
-        f"{c['collection']}: {c['delta']:+d} records"
-        for c in delta.get("changes", [])[:5]
-    )
+    summary = ", ".join(f"{c['collection']}: {c['delta']:+d} records" for c in delta.get("changes", [])[:5])
     return (
         f"The previous simulation for '{prompt}' caused unexpected state changes: "
         f"{summary}. Retrigger with a safer workflow that minimises state changes."
@@ -1729,19 +1918,32 @@ def _build_correction_prompt(
 # Data retrieval helpers
 # ---------------------------------------------------------------------------
 
+
 async def _web_search(prompt: str) -> dict[str, Any]:
     try:
         from src.monkey_brain.kernel.plan.intents.helpers import (
-            _ollama_web_search, _tavily_search, _fallback_web_search,
+            _ollama_web_search,
+            _tavily_search,
+            _fallback_web_search,
         )
+
         for fn in [_ollama_web_search, _tavily_search, _fallback_web_search]:
             try:
                 results = await fn(prompt, limit=5)
                 if results:
-                    return {"status": "searched", "source": "web",
-                            "results_found": len(results),
-                            "details": [{"title": r.get("title"), "text": r.get("snippet", "")[:500],
-                                         "url": r.get("url")} for r in results[:5]]}
+                    return {
+                        "status": "searched",
+                        "source": "web",
+                        "results_found": len(results),
+                        "details": [
+                            {
+                                "title": r.get("title"),
+                                "text": r.get("snippet", "")[:500],
+                                "url": r.get("url"),
+                            }
+                            for r in results[:5]
+                        ],
+                    }
             except Exception as e:
                 logger.debug("Web search failed: %s", e)
                 continue
@@ -1767,14 +1969,24 @@ async def _document_search(db: Any, prompt: str) -> dict[str, Any]:
                 ]
                 docs = await db[col].find({"$or": conditions}).limit(3).to_list(3)
                 if docs:
-                    results.append({"collection": col, "found": len(docs),
-                                    "documents": [{k: v for k, v in d.items()
-                                                   if k != "_id" and not isinstance(v, bytes)}
-                                                  for d in docs]})
+                    results.append(
+                        {
+                            "collection": col,
+                            "found": len(docs),
+                            "documents": [
+                                {k: v for k, v in d.items() if k != "_id" and not isinstance(v, bytes)} for d in docs
+                            ],
+                        }
+                    )
             except Exception as e:
                 logger.debug("Document search failed for %s: %s", col, e)
                 continue
-        return {"status": "searched", "source": "documents", "results_found": len(results), "details": results}
+        return {
+            "status": "searched",
+            "source": "documents",
+            "results_found": len(results),
+            "details": results,
+        }
     except Exception as exc:
         return {"status": "error", "error": str(exc)}
 
@@ -1794,17 +2006,27 @@ async def _retrieve_from_db(db: Any, inputs: list[str], prompt: str) -> dict[str
                 conditions = [
                     {field: {"$regex": t, "$options": "i"}}
                     for t in terms
-                    for field in ("name", "id", "batch_id", "lot_number", "label",
-                                  "description", "plant_id")
+                    for field in (
+                        "name",
+                        "id",
+                        "batch_id",
+                        "lot_number",
+                        "label",
+                        "description",
+                        "plant_id",
+                    )
                 ]
                 docs = await db[col].find({"$or": conditions}).limit(3).to_list(3)
                 if docs:
-                    results.append({
-                        "collection": col, "found": len(docs),
-                        "documents": [{k: v for k, v in d.items()
-                                       if k != "_id" and not isinstance(v, bytes)}
-                                      for d in docs],
-                    })
+                    results.append(
+                        {
+                            "collection": col,
+                            "found": len(docs),
+                            "documents": [
+                                {k: v for k, v in d.items() if k != "_id" and not isinstance(v, bytes)} for d in docs
+                            ],
+                        }
+                    )
             except Exception as e:
                 logger.debug("Graph traversal failed for %s: %s", col, e)
                 continue
@@ -1817,29 +2039,31 @@ async def _retrieve_from_db(db: Any, inputs: list[str], prompt: str) -> dict[str
                     ("industrial_lines", "industrial_stages", "line_id"),
                 ]:
                     try:
-                        doc = await db[col].find_one(
-                            {"name": {"$regex": re.escape(term), "$options": "i"}}
-                        )
+                        doc = await db[col].find_one({"name": {"$regex": re.escape(term), "$options": "i"}})
                         if doc:
                             doc_id = doc.get("id", "")
                             if doc_id:
-                                related = await db[child_col].find(
-                                    {id_field: doc_id}
-                                ).limit(10).to_list(10)
+                                related = await db[child_col].find({id_field: doc_id}).limit(10).to_list(10)
                                 if related:
-                                    results.append({
-                                        "collection": child_col, "found": len(related),
-                                        "documents": [{k: v for k, v in r.items()
-                                                       if k != "_id"} for r in related],
-                                        "via": f"{col}: {doc.get('name')}",
-                                    })
+                                    results.append(
+                                        {
+                                            "collection": child_col,
+                                            "found": len(related),
+                                            "documents": [{k: v for k, v in r.items() if k != "_id"} for r in related],
+                                            "via": f"{col}: {doc.get('name')}",
+                                        }
+                                    )
                     except Exception as e:
                         logger.debug("Relationship query failed: %s", e)
                         continue
                 if results:
                     break
 
-        return {"status": "retrieved", "results_found": len(results), "details": results}
+        return {
+            "status": "retrieved",
+            "results_found": len(results),
+            "details": results,
+        }
     except Exception as exc:
         return {"status": "error", "error": str(exc)}
 
@@ -1848,10 +2072,26 @@ async def _retrieve_from_db(db: Any, inputs: list[str], prompt: str) -> dict[str
 # Misc helpers
 # ---------------------------------------------------------------------------
 
+
 def _compact(record: dict[str, Any]) -> dict[str, Any]:
-    keep = ("id", "sop_id", "batch_id", "order_id", "machine_id", "equipment_id",
-            "name", "title", "status", "stage_id", "line_id", "plant_id",
-            "workstation_id", "version", "updated_at", "created_at")
+    keep = (
+        "id",
+        "sop_id",
+        "batch_id",
+        "order_id",
+        "machine_id",
+        "equipment_id",
+        "name",
+        "title",
+        "status",
+        "stage_id",
+        "line_id",
+        "plant_id",
+        "workstation_id",
+        "version",
+        "updated_at",
+        "created_at",
+    )
     return {k: record[k] for k in keep if k in record}
 
 
@@ -1864,6 +2104,7 @@ def _json_safe(value: Any) -> Any:
         return value.isoformat()
     try:
         from bson import ObjectId
+
         if isinstance(value, ObjectId):
             return str(value)
     except ImportError:
@@ -1874,6 +2115,7 @@ def _json_safe(value: Any) -> Any:
 def _connect_redis() -> Any:
     try:
         import redis as _redis
+
         url = os.getenv("REDIS_URL")
         if url:
             r = _redis.from_url(url)

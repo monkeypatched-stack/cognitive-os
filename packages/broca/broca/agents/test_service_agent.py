@@ -2,9 +2,9 @@
 
 Wraps the ruff + pytest + CodeGenAgent correction loop.  Called by soma_test_service.
 """
+
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import re
@@ -49,7 +49,10 @@ class TestServiceAgent(BaseETASSAgent):
         if not svc_dir.exists():
             self._reward(False, 0.0)
             return self._result(
-                payload={"all_passed": False, "error": f"service dir not found: {svc_dir}"},
+                payload={
+                    "all_passed": False,
+                    "error": f"service dir not found: {svc_dir}",
+                },
                 observations=[f"run codegen first: monkeypatched make codegen {service_slug}"],
             )
 
@@ -58,10 +61,27 @@ class TestServiceAgent(BaseETASSAgent):
         # ── Helpers ───────────────────────────────────────────────────────────
 
         _TYPING_NAMES = {
-            "Optional", "List", "Dict", "Tuple", "Set", "FrozenSet",
-            "Any", "Union", "Type", "Callable", "Sequence", "Mapping",
-            "Iterator", "Generator", "Awaitable", "Coroutine",
-            "ClassVar", "Final", "Literal", "TypeVar", "overload",
+            "Optional",
+            "List",
+            "Dict",
+            "Tuple",
+            "Set",
+            "FrozenSet",
+            "Any",
+            "Union",
+            "Type",
+            "Callable",
+            "Sequence",
+            "Mapping",
+            "Iterator",
+            "Generator",
+            "Awaitable",
+            "Coroutine",
+            "ClassVar",
+            "Final",
+            "Literal",
+            "TypeVar",
+            "overload",
         }
 
         # Names that must survive ruff's unused-import removal because they are
@@ -127,7 +147,10 @@ class TestServiceAgent(BaseETASSAgent):
             try:
                 subprocess.run(
                     [sys.executable, "-m", "ruff", "check", "--fix", "."],
-                    capture_output=True, text=True, timeout=60, cwd=str(path),
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=str(path),
                 )
             except Exception:
                 pass
@@ -136,7 +159,10 @@ class TestServiceAgent(BaseETASSAgent):
             try:
                 r = subprocess.run(
                     [sys.executable, "-m", "ruff", "check", "."],
-                    capture_output=True, text=True, timeout=60, cwd=str(path),
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=str(path),
                 )
                 return r.returncode == 0, (r.stdout + r.stderr)[-2000:]
             except Exception as e:
@@ -145,8 +171,18 @@ class TestServiceAgent(BaseETASSAgent):
         def _run_pytest(test_target: Path, cwd: Path) -> tuple[bool, str]:
             try:
                 r = subprocess.run(
-                    [sys.executable, "-m", "pytest", str(test_target), "--tb=short", "-q"],
-                    capture_output=True, text=True, timeout=120, cwd=str(cwd),
+                    [
+                        sys.executable,
+                        "-m",
+                        "pytest",
+                        str(test_target),
+                        "--tb=short",
+                        "-q",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    cwd=str(cwd),
                 )
                 return r.returncode == 0, (r.stdout + r.stderr)[-3000:]
             except Exception as e:
@@ -187,9 +223,13 @@ class TestServiceAgent(BaseETASSAgent):
 
         def _domain_context() -> str:
             blocks: list[str] = []
-            for pattern in ("domain/entities/*.py", "domain/aggregates/*.py",
-                            "domain/value_objects/*.py", "domain/repositories/*.py",
-                            "domain/*.py"):
+            for pattern in (
+                "domain/entities/*.py",
+                "domain/aggregates/*.py",
+                "domain/value_objects/*.py",
+                "domain/repositories/*.py",
+                "domain/*.py",
+            ):
                 for p in sorted(svc_dir.glob(pattern)):
                     try:
                         rel = p.relative_to(svc_dir)
@@ -272,7 +312,7 @@ class TestServiceAgent(BaseETASSAgent):
 
         # ── Main test + correction loop ───────────────────────────────────────
         _inject_imports(svc_dir)  # fill missing typing imports before any checks
-        _run_ruff_autofix(svc_dir)       # fix remaining auto-fixable issues
+        _run_ruff_autofix(svc_dir)  # fix remaining auto-fixable issues
         correction_history: list[dict] = []
         errors = _collect_errors()
 
@@ -293,8 +333,7 @@ class TestServiceAgent(BaseETASSAgent):
         ruff_ok, ruff_out = _run_ruff(svc_dir)
         test_target = next((d for d in [svc_dir / "tests", svc_dir / "test"] if d.exists()), None)
         pytest_passed, pytest_out = (
-            (True, "no tests/ directory") if not test_target
-            else _run_pytest(test_target, out_base)
+            (True, "no tests/ directory") if not test_target else _run_pytest(test_target, out_base)
         )
         all_passed = ruff_ok and pytest_passed
 

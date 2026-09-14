@@ -54,7 +54,9 @@ async def get_shift_template(
     return record
 
 
-@router.post("/", response_model=ShiftTemplateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=ShiftTemplateResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_shift_template(
     data: ShiftTemplateCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

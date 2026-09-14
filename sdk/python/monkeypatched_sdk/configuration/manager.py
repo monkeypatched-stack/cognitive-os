@@ -162,7 +162,7 @@ class AdapterConfig:
 class ConfigurationManager(IConfigurationManager):
     """
     Loads and manages SDK + adapter configuration.
-    
+
     Implements IConfigurationManager interface for dependency injection.
 
     Features
@@ -196,13 +196,9 @@ class ConfigurationManager(IConfigurationManager):
             with open(self.config_path, "r") as fh:
                 raw = yaml.safe_load(fh) or {}
         except FileNotFoundError:
-            raise ConfigurationError(
-                f"Configuration file not found: {self.config_path}"
-            )
+            raise ConfigurationError(f"Configuration file not found: {self.config_path}")
         except yaml.YAMLError as exc:
-            raise ConfigurationError(
-                f"Failed to parse configuration file {self.config_path}: {exc}"
-            )
+            raise ConfigurationError(f"Failed to parse configuration file {self.config_path}: {exc}")
 
         # Interpolate environment variables throughout the entire config
         self._raw = _interpolate(raw)

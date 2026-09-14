@@ -2,6 +2,7 @@
 
 The engine orchestrates validation, compilation, routing, and execution.
 """
+
 from __future__ import annotations
 
 import logging
@@ -74,28 +75,34 @@ class OQLEngine:
             # 5. Learn from result
             if self._routing:
                 from src.monkey_brain.routing.policy import RoutingObservation
-                self._routing._policy.observe(RoutingObservation(
-                    capability=query.entity.lower(),
-                    entity=query.entity,
-                    database=database,
-                    repository=repository,
-                    latency_ms=latency_ms,
-                    confidence=0.9 if result_data else 0.1,
-                    completeness=1.0 if result_data else 0.0,
-                    freshness=1.0,
-                    success=True,
-                ))
+
+                self._routing._policy.observe(
+                    RoutingObservation(
+                        capability=query.entity.lower(),
+                        entity=query.entity,
+                        database=database,
+                        repository=repository,
+                        latency_ms=latency_ms,
+                        confidence=0.9 if result_data else 0.1,
+                        completeness=1.0 if result_data else 0.0,
+                        freshness=1.0,
+                        success=True,
+                    )
+                )
 
             return QueryResult(
                 success=True,
-                data=result_data if isinstance(result_data, list) else [result_data] if result_data else [],
-                count=len(result_data) if isinstance(result_data, list) else 1 if result_data else 0,
+                data=(result_data if isinstance(result_data, list) else [result_data] if result_data else []),
+                count=(len(result_data) if isinstance(result_data, list) else 1 if result_data else 0),
                 entity=query.entity,
                 database=database,
                 repository=repository,
                 latency_ms=latency_ms,
                 query_id=query.query_id,
-                metadata={"operation": query.operation.value, "native_query_type": native_query.query_type},
+                metadata={
+                    "operation": query.operation.value,
+                    "native_query_type": native_query.query_type,
+                },
             )
 
         except Exception as e:
@@ -103,17 +110,20 @@ class OQLEngine:
 
             if self._routing:
                 from src.monkey_brain.routing.policy import RoutingObservation
-                self._routing._policy.observe(RoutingObservation(
-                    capability=query.entity.lower(),
-                    entity=query.entity,
-                    database=database,
-                    repository=repository,
-                    latency_ms=latency_ms,
-                    confidence=0.0,
-                    completeness=0.0,
-                    freshness=0.0,
-                    success=False,
-                ))
+
+                self._routing._policy.observe(
+                    RoutingObservation(
+                        capability=query.entity.lower(),
+                        entity=query.entity,
+                        database=database,
+                        repository=repository,
+                        latency_ms=latency_ms,
+                        confidence=0.0,
+                        completeness=0.0,
+                        freshness=0.0,
+                        success=False,
+                    )
+                )
 
             return QueryResult(
                 success=False,

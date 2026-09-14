@@ -2,6 +2,7 @@
 the cache never re-labels or fabricates retrieval provenance, and that a
 repeated query with the same knowledge_version is served without a
 second real retrieval."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,7 +11,10 @@ from typing import Any
 import pytest
 
 from src.monkey_brain.kernel.edge.semantic_cache import CachedSittingFaceRetriever
-from src.monkey_brain.kernel.knowledge.external_context import ExternalKnowledgeItem, KnowledgeRetrievalReport
+from src.monkey_brain.kernel.knowledge.external_context import (
+    ExternalKnowledgeItem,
+    KnowledgeRetrievalReport,
+)
 
 
 class _FakeRetriever:
@@ -20,15 +24,28 @@ class _FakeRetriever:
     def retrieve_sync(self, query: str, *, cycle_id: str = "", force: bool = False) -> KnowledgeRetrievalReport:
         self.calls += 1
         return KnowledgeRetrievalReport(
-            query=query, attempted=True, keyword_used=True, vector_used=False,
+            query=query,
+            attempted=True,
+            keyword_used=True,
+            vector_used=False,
             methods_used=["keyword"],
             items=[ExternalKnowledgeItem(content="fact", source_chart="c", retrieval_method="keyword")],
         )
 
-    async def retrieve(self, query: str, *, cycle_id: str = "", force: bool = False, meta: dict | None = None) -> KnowledgeRetrievalReport:
+    async def retrieve(
+        self,
+        query: str,
+        *,
+        cycle_id: str = "",
+        force: bool = False,
+        meta: dict | None = None,
+    ) -> KnowledgeRetrievalReport:
         self.calls += 1
         return KnowledgeRetrievalReport(
-            query=query, attempted=True, keyword_used=False, vector_used=True,
+            query=query,
+            attempted=True,
+            keyword_used=False,
+            vector_used=True,
             methods_used=["vector"],
             items=[ExternalKnowledgeItem(content="vector fact", source_chart="c", retrieval_method="vector")],
         )
@@ -43,7 +60,9 @@ class TestCacheAvoidsRedundantRetrieval:
         assert fake.calls == 1
 
     @pytest.mark.asyncio
-    async def test_second_async_call_with_same_key_does_not_call_the_real_retriever(self):
+    async def test_second_async_call_with_same_key_does_not_call_the_real_retriever(
+        self,
+    ):
         fake = _FakeRetriever()
         cached = CachedSittingFaceRetriever(fake)
         await cached.retrieve("what is CAPA", cycle_id="c1", knowledge_version="k1")

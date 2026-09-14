@@ -29,8 +29,10 @@ logger = logging.getLogger("manufacturing.agents.calibration")
 
 COLLECTION = "calibration_records"
 
-_ABSENT = (f"no calibration records exist — {{uri}} is not present in the database. "
-           f"Nothing can be said about what is due until it is populated.")
+_ABSENT = (
+    f"no calibration records exist — {{uri}} is not present in the database. "
+    f"Nothing can be said about what is due until it is populated."
+)
 
 
 def _as_date(value: Any) -> date | None:
@@ -53,7 +55,9 @@ async def records_for_line(line_id: str) -> dict[str, Any]:
     if not asset_ids:
         return {"records": [], "asset_ids": [], "sources": inventory["sources"]}
 
-    records = await _data.find(COLLECTION, {"equipment_id": {"$in": asset_ids}}, limit=1000)
+    records = await _data.find(
+        COLLECTION, {"equipment_id": {"$in": asset_ids}}, limit=1000
+    )
     return {
         "records": records,
         "asset_ids": asset_ids,
@@ -102,25 +106,33 @@ class _CalibrationAgent(DataBackedAgentMixin, BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"question": str(context.get("question", "")),
-                "line_id": str(context.get("line_id", ""))}
+        return {
+            "question": str(context.get("question", "")),
+            "line_id": str(context.get("line_id", "")),
+        }
 
     async def _load(self, perception: dict[str, Any]) -> dict[str, Any]:
         line_id = perception["line_id"]
         if not line_id:
             resolved = await resolve_line(perception["question"])
             if not resolved.get("success"):
-                return {"success": False, "error": resolved.get("error", "line unresolved"),
-                        "sources": resolved.get("sources", [])}
+                return {
+                    "success": False,
+                    "error": resolved.get("error", "line unresolved"),
+                    "sources": resolved.get("sources", []),
+                }
             line_id = resolved["line_id"]
 
         try:
             found = await records_for_line(line_id)
         except _data.CollectionAbsent:
             # Genuine inability — there is nothing to read, so nothing can be said.
-            return {"success": False, "unable": True,
-                    "error": _ABSENT.format(uri=_data.source_uri(COLLECTION)),
-                    "sources": []}
+            return {
+                "success": False,
+                "unable": True,
+                "error": _ABSENT.format(uri=_data.source_uri(COLLECTION)),
+                "sources": [],
+            }
 
         return {"success": True, "line_id": line_id, **found}
 
@@ -130,8 +142,10 @@ class CalibrationScheduleAgent(_CalibrationAgent):
     """Reads the calibration schedule for the assets on a line."""
 
     agent_type = "calibration_schedule"
-    description = ("Reads the calibration records (schedule, interval, next due date) for the "
-                   "assets on a production line")
+    description = (
+        "Reads the calibration records (schedule, interval, next due date) for the "
+        "assets on a production line"
+    )
 
     async def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         return await self._load(perception)
@@ -144,9 +158,15 @@ class CalibrationScheduleAgent(_CalibrationAgent):
             # "The calibration_records collection does not exist" is a genuine inability:
             # nothing can be said, and the run must be able to see that it failed.
             unable = bool(decision.get("unable"))
-            payload = {"action": "report", "operation": "calibration.schedule", "success": not unable,
-                       "resolved": False, "summary": decision["error"],
-                       "answer": decision["error"], "sources": decision.get("sources", [])}
+            payload = {
+                "action": "report",
+                "operation": "calibration.schedule",
+                "success": not unable,
+                "resolved": False,
+                "summary": decision["error"],
+                "answer": decision["error"],
+                "sources": decision.get("sources", []),
+            }
             if unable:
                 payload["error"] = decision["error"]
             return payload
@@ -154,8 +174,10 @@ class CalibrationScheduleAgent(_CalibrationAgent):
         records = decision["records"]
         line_id = decision["line_id"]
         if not records:
-            summary = (f"{line_id} has {len(decision['asset_ids'])} assets, but none of them "
-                       f"has a calibration record.")
+            summary = (
+                f"{line_id} has {len(decision['asset_ids'])} assets, but none of them "
+                f"has a calibration record."
+            )
         else:
             summary = f"{len(records)} calibration records for the assets on {line_id}."
 
@@ -177,8 +199,10 @@ class CalibrationDueEvaluatorAgent(_CalibrationAgent):
     """Decides which assets are overdue or due soon, from their records and today's date."""
 
     agent_type = "calibration_due_evaluator"
-    description = ("Evaluates which assets on a line are overdue or due soon for calibration, "
-                   "by comparing their next due date against today")
+    description = (
+        "Evaluates which assets on a line are overdue or due soon for calibration, "
+        "by comparing their next due date against today"
+    )
 
     async def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         loaded = await self._load(perception)
@@ -195,9 +219,15 @@ class CalibrationDueEvaluatorAgent(_CalibrationAgent):
             # "The calibration_records collection does not exist" is a genuine inability:
             # nothing can be said, and the run must be able to see that it failed.
             unable = bool(decision.get("unable"))
-            payload = {"action": "report", "operation": "calibration.due", "success": not unable,
-                       "resolved": False, "summary": decision["error"],
-                       "answer": decision["error"], "sources": decision.get("sources", [])}
+            payload = {
+                "action": "report",
+                "operation": "calibration.due",
+                "success": not unable,
+                "resolved": False,
+                "summary": decision["error"],
+                "answer": decision["error"],
+                "sources": decision.get("sources", []),
+            }
             if unable:
                 payload["error"] = decision["error"]
             return payload
@@ -213,12 +243,21 @@ class CalibrationDueEvaluatorAgent(_CalibrationAgent):
         else:
             parts = []
             if overdue:
-                parts.append("overdue: " + ", ".join(
-                    f"{e['equipment_id']} ({e['days_overdue']}d, due {e['next_due_date']})"
-                    for e in overdue[:10]))
+                parts.append(
+                    "overdue: "
+                    + ", ".join(
+                        f"{e['equipment_id']} ({e['days_overdue']}d, due {e['next_due_date']})"
+                        for e in overdue[:10]
+                    )
+                )
             if due_soon:
-                parts.append("due within 30 days: " + ", ".join(
-                    f"{e['equipment_id']} (in {e['days_until_due']}d)" for e in due_soon[:10]))
+                parts.append(
+                    "due within 30 days: "
+                    + ", ".join(
+                        f"{e['equipment_id']} (in {e['days_until_due']}d)"
+                        for e in due_soon[:10]
+                    )
+                )
             summary = f"On {line_id} — " + "; ".join(parts) + "."
 
         return {

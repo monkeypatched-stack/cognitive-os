@@ -30,7 +30,9 @@ async def list_stock_adjustment_requests(
     )
 
 
-@router.get("/by-inventory/{inventory_id}", response_model=list[StockAdjustmentRequestResponse])
+@router.get(
+    "/by-inventory/{inventory_id}", response_model=list[StockAdjustmentRequestResponse]
+)
 async def list_stock_adjustment_requests_by_inventory(
     inventory_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -39,7 +41,9 @@ async def list_stock_adjustment_requests_by_inventory(
     return await crud.get_by_inventory_id(db, inventory_id)
 
 
-@router.get("/by-product/{product_id}", response_model=list[StockAdjustmentRequestResponse])
+@router.get(
+    "/by-product/{product_id}", response_model=list[StockAdjustmentRequestResponse]
+)
 async def list_stock_adjustment_requests_by_product(
     product_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -48,7 +52,9 @@ async def list_stock_adjustment_requests_by_product(
     return await crud.get_by_product_id(db, product_id)
 
 
-@router.get("/by-location/{location_id}", response_model=list[StockAdjustmentRequestResponse])
+@router.get(
+    "/by-location/{location_id}", response_model=list[StockAdjustmentRequestResponse]
+)
 async def list_stock_adjustment_requests_by_location(
     location_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -57,7 +63,9 @@ async def list_stock_adjustment_requests_by_location(
     return await crud.get_by_location_id(db, location_id)
 
 
-@router.get("/by-status/{status_value}", response_model=list[StockAdjustmentRequestResponse])
+@router.get(
+    "/by-status/{status_value}", response_model=list[StockAdjustmentRequestResponse]
+)
 async def list_stock_adjustment_requests_by_status(
     status_value: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -81,7 +89,11 @@ async def get_stock_adjustment_request(
     return record
 
 
-@router.post("/", response_model=StockAdjustmentRequestResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=StockAdjustmentRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_stock_adjustment_request(
     data: StockAdjustmentRequestCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

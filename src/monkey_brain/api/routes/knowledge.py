@@ -5,6 +5,7 @@ execution graph topology, and Q-table into a versioned, signed JSON bundle.
 Import receives a bundle, verifies the signature, checks trust and
 agreements, and merges accepted transitions with conflict resolution.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,11 +29,12 @@ KNOWLEDGE_VERSION = "1.0"
 
 class MergeStrategy(str, Enum):
     """How to handle conflicts during import."""
-    SKIP = "skip"              # skip conflicting edges (current behavior)
-    HIGHER_REWARD = "higher"   # keep the edge with higher reward
-    LOCAL_WINS = "local"       # local value always wins
-    REMOTE_WINS = "remote"     # imported value always wins
-    AVERAGE = "average"        # average the two rewards
+
+    SKIP = "skip"  # skip conflicting edges (current behavior)
+    HIGHER_REWARD = "higher"  # keep the edge with higher reward
+    LOCAL_WINS = "local"  # local value always wins
+    REMOTE_WINS = "remote"  # imported value always wins
+    AVERAGE = "average"  # average the two rewards
 
 
 class KnowledgeExport(BaseModel):
@@ -78,7 +80,11 @@ async def export_knowledge(
     """Export the current world tensor, Q-table, and graph topology as a
     versioned, signed JSON bundle suitable for import into another runtime."""
     from src.monkey_brain.kernel.compile.world_tensor import get_world
-    from src.monkey_brain.kernel.identity import get_identity, get_key_manager, sign_bytes
+    from src.monkey_brain.kernel.identity import (
+        get_identity,
+        get_key_manager,
+        sign_bytes,
+    )
 
     tenant_id = getattr(runtime, "_tenant_id", "default")
     world = get_world(tenant_id)
@@ -92,11 +98,14 @@ async def export_knowledge(
         src = world._state_name[i]
         dst = world._state_name[j]
         if src and dst:
-            transitions.append({
-                "src": src, "dst": dst,
-                "domain": world._state_domain[i] or "default",
-                "freq": cell.freq,
-            })
+            transitions.append(
+                {
+                    "src": src,
+                    "dst": dst,
+                    "domain": world._state_domain[i] or "default",
+                    "freq": cell.freq,
+                }
+            )
 
     q_table = gm.q_table.snapshot() if gm else {}
     graph_nodes = gm.graph.get("nodes", []) if gm else []
@@ -149,7 +158,8 @@ async def import_knowledge(
     # Version check
     if bundle.version != KNOWLEDGE_VERSION:
         return KnowledgeImportResult(
-            status="rejected", version=bundle.version,
+            status="rejected",
+            version=bundle.version,
         )
 
     # Signature verification
@@ -168,8 +178,7 @@ async def import_knowledge(
             signature_valid = False
 
     # Filter out non-shareable domains
-    shareable = [t for t in bundle.transitions
-                 if is_shareable("belief", t.get("domain", ""))]
+    shareable = [t for t in bundle.transitions if is_shareable("belief", t.get("domain", ""))]
 
     # Merge with conflict resolution — via Context Stream (sole mutation path)
     world = get_world(tenant_id)
@@ -180,16 +189,24 @@ async def import_knowledge(
 
     def _publish_transition(src: str, dst: str, domain: str, weight: float) -> None:
         """Publish world transition through Context Stream."""
-        from src.monkey_brain.kernel.compile.context_stream import ContextEvent, EventType
+        from src.monkey_brain.kernel.compile.context_stream import (
+            ContextEvent,
+            EventType,
+        )
         import time as _time
+
         try:
             rt = get_cognitive_runtime(request)
-            cs = getattr(rt, '_context_stream', None)
-            if cs and hasattr(cs, 'publish'):
+            cs = getattr(rt, "_context_stream", None)
+            if cs and hasattr(cs, "publish"):
                 event = ContextEvent(
-                    timestamp=_time.time(), entity=src, attribute=dst,
-                    previous_value=None, current_value=weight,
-                    source="knowledge_import", confidence=1.0,
+                    timestamp=_time.time(),
+                    entity=src,
+                    attribute=dst,
+                    previous_value=None,
+                    current_value=weight,
+                    source="knowledge_import",
+                    confidence=1.0,
                     event_type=EventType.TRANSITION_ADD,
                     metadata={"domain": domain},
                 )
@@ -210,7 +227,14 @@ async def import_knowledge(
         if existing > 0.0 and abs(existing - reward) > 0.1:
             # Conflict detected — apply merge strategy
             if strategy == MergeStrategy.SKIP:
-                conflicts.append({"edge": (src, dst), "local": existing, "proposed": reward, "action": "skipped"})
+                conflicts.append(
+                    {
+                        "edge": (src, dst),
+                        "local": existing,
+                        "proposed": reward,
+                        "action": "skipped",
+                    }
+                )
                 continue
             elif strategy == MergeStrategy.HIGHER_REWARD:
                 final_reward = max(existing, reward)
@@ -225,7 +249,15 @@ async def import_knowledge(
 
             _publish_transition(src, dst, domain, final_reward)
             resolved += 1
-            conflicts.append({"edge": (src, dst), "local": existing, "proposed": reward, "action": "resolved", "final": final_reward})
+            conflicts.append(
+                {
+                    "edge": (src, dst),
+                    "local": existing,
+                    "proposed": reward,
+                    "action": "resolved",
+                    "final": final_reward,
+                }
+            )
         else:
             _publish_transition(src, dst, domain, reward)
         accepted += 1
@@ -251,7 +283,11 @@ async def import_knowledge(
 
     logger.info(
         "[knowledge] imported from %s: %d accepted, %d resolved, %d conflicts, sig=%s",
-        body.origin, accepted, resolved, len(conflicts), signature_valid,
+        body.origin,
+        accepted,
+        resolved,
+        len(conflicts),
+        signature_valid,
     )
 
     return KnowledgeImportResult(

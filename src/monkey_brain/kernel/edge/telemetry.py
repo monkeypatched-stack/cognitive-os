@@ -19,6 +19,7 @@ buffered events and counts the drops -- telemetry loss is an acceptable,
 observable degradation; it is never allowed to become back-pressure on
 governance or execution.
 """
+
 from __future__ import annotations
 
 import threading
@@ -105,6 +106,7 @@ class AsyncTelemetryDispatcher:
     def flush(self, timeout: float = 2.0) -> bool:
         """Block until the queue drains or timeout -- for tests and clean shutdown, not the hot path."""
         import time
+
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             with self._lock:
@@ -122,4 +124,8 @@ class AsyncTelemetryDispatcher:
 
     def stats(self) -> dict[str, int]:
         with self._lock:
-            return {"queued": len(self._queue), "dropped": self._dropped, "delivered": self._delivered}
+            return {
+                "queued": len(self._queue),
+                "dropped": self._dropped,
+                "delivered": self._delivered,
+            }

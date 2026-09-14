@@ -69,16 +69,18 @@ def test_the_sources_survive_so_the_answer_can_be_grounded():
 
 def test_a_failed_agent_is_not_reported_as_a_success():
     """success was hardcoded True on this path — a failing agent still read [ok]."""
-    failed = AgentOutcome(reward=0.0, success=False,
-                          payload={"action": "report", "success": False, "error": "no line 3"})
+    failed = AgentOutcome(
+        reward=0.0,
+        success=False,
+        payload={"action": "report", "success": False, "error": "no line 3"},
+    )
     out = _execute(failed)
     assert out.success is False
     assert out.produced["error"] == "no line 3"
 
 
 def test_observations_and_reward_are_carried_through():
-    out = _execute(AgentOutcome(reward=0.75, payload=PAYLOAD, success=True,
-                                observations=["read 78 records"]))
+    out = _execute(AgentOutcome(reward=0.75, payload=PAYLOAD, success=True, observations=["read 78 records"]))
     assert out.events_emitted == ["read 78 records"]
     assert out.feedback == 0.75
 

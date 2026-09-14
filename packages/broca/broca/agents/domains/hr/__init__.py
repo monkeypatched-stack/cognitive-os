@@ -1,4 +1,5 @@
 """Human Resources agents — Employee, Recruiting, Interview, Payroll, Leave, Benefits, Performance, Onboarding, Offboarding, Organization."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class EmployeeAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "query"), "employee_id": context.get("employee_id", ""), "query": context.get("query", "")}
+        return {
+            "operation": context.get("operation", "query"),
+            "employee_id": context.get("employee_id", ""),
+            "query": context.get("query", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"employee.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"employee.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"employee.{decision['operation']}", "success": True}
@@ -30,10 +38,17 @@ class RecruitingAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "post"), "position": context.get("position", {}), "pipeline": context.get("pipeline", [])}
+        return {
+            "operation": context.get("operation", "post"),
+            "position": context.get("position", {}),
+            "pipeline": context.get("pipeline", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"recruiting.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"recruiting.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"recruiting.{decision['operation']}", "success": True}
@@ -46,13 +61,24 @@ class InterviewAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"candidate_id": context.get("candidate_id", ""), "position": context.get("position", ""), "interview_type": context.get("interview_type", "technical")}
+        return {
+            "candidate_id": context.get("candidate_id", ""),
+            "position": context.get("position", ""),
+            "interview_type": context.get("interview_type", "technical"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "interview.schedule", "candidate_id": perception.get("candidate_id", "")}
+        return {
+            "action": "interview.schedule",
+            "candidate_id": perception.get("candidate_id", ""),
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "interview.schedule", "success": True, "interview_id": f"iv-{decision.get('candidate_id', '')[:8]}"}
+        return {
+            "action": "interview.schedule",
+            "success": True,
+            "interview_id": f"iv-{decision.get('candidate_id', '')[:8]}",
+        }
 
 
 class PayrollAgent(BaseDDDAgent):
@@ -62,13 +88,25 @@ class PayrollAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "process"), "pay_period": context.get("pay_period", ""), "employee_ids": context.get("employee_ids", [])}
+        return {
+            "operation": context.get("operation", "process"),
+            "pay_period": context.get("pay_period", ""),
+            "employee_ids": context.get("employee_ids", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"payroll.{perception['operation']}", "employee_count": len(perception.get("employee_ids", []))}
+        return {
+            "operation": perception["operation"],
+            "action": f"payroll.{perception['operation']}",
+            "employee_count": len(perception.get("employee_ids", [])),
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"payroll.{decision['operation']}", "success": True, "processed": decision.get("employee_count", 0)}
+        return {
+            "action": f"payroll.{decision['operation']}",
+            "success": True,
+            "processed": decision.get("employee_count", 0),
+        }
 
 
 class LeaveAgent(BaseDDDAgent):
@@ -78,13 +116,25 @@ class LeaveAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "request"), "employee_id": context.get("employee_id", ""), "leave_type": context.get("leave_type", "vacation"), "days": context.get("days", 1)}
+        return {
+            "operation": context.get("operation", "request"),
+            "employee_id": context.get("employee_id", ""),
+            "leave_type": context.get("leave_type", "vacation"),
+            "days": context.get("days", 1),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"leave.{perception['operation']}", "approved": True}
+        return {
+            "operation": perception["operation"],
+            "action": f"leave.{perception['operation']}",
+            "approved": True,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"leave.{decision['operation']}", "success": decision.get("approved", True)}
+        return {
+            "action": f"leave.{decision['operation']}",
+            "success": decision.get("approved", True),
+        }
 
 
 class BenefitsAgent(BaseDDDAgent):
@@ -94,10 +144,17 @@ class BenefitsAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "enroll"), "employee_id": context.get("employee_id", ""), "plan": context.get("plan", "")}
+        return {
+            "operation": context.get("operation", "enroll"),
+            "employee_id": context.get("employee_id", ""),
+            "plan": context.get("plan", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"benefits.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"benefits.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"benefits.{decision['operation']}", "success": True}
@@ -110,10 +167,17 @@ class PerformanceAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"employee_id": context.get("employee_id", ""), "operation": context.get("operation", "review"), "period": context.get("period", "")}
+        return {
+            "employee_id": context.get("employee_id", ""),
+            "operation": context.get("operation", "review"),
+            "period": context.get("period", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"performance.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"performance.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"performance.{decision['operation']}", "success": True}
@@ -126,10 +190,18 @@ class OnboardingAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"employee_id": context.get("employee_id", ""), "department": context.get("department", ""), "checklist": context.get("checklist", [])}
+        return {
+            "employee_id": context.get("employee_id", ""),
+            "department": context.get("department", ""),
+            "checklist": context.get("checklist", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "onboarding.progress", "completed_items": 0, "total_items": len(perception.get("checklist", []))}
+        return {
+            "action": "onboarding.progress",
+            "completed_items": 0,
+            "total_items": len(perception.get("checklist", [])),
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": "onboarding.progress", "success": True, "progress": 0}
@@ -142,10 +214,17 @@ class OffboardingAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"employee_id": context.get("employee_id", ""), "last_day": context.get("last_day", ""), "assets": context.get("assets", [])}
+        return {
+            "employee_id": context.get("employee_id", ""),
+            "last_day": context.get("last_day", ""),
+            "assets": context.get("assets", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "offboarding.process", "employee_id": perception.get("employee_id", "")}
+        return {
+            "action": "offboarding.process",
+            "employee_id": perception.get("employee_id", ""),
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": "offboarding.process", "success": True}
@@ -158,10 +237,17 @@ class OrganizationAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "query"), "department": context.get("department", ""), "query": context.get("query", "")}
+        return {
+            "operation": context.get("operation", "query"),
+            "department": context.get("department", ""),
+            "query": context.get("query", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"organization.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"organization.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"organization.{decision['operation']}", "success": True}

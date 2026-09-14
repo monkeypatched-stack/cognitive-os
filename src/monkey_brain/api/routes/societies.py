@@ -13,6 +13,7 @@ GET    /societies/{id}/resources — world resources visible to a society
 POST   /societies/{id}/activate  — activate society for planetary cycles
 POST   /societies/{id}/deactivate — deactivate society from planetary cycles
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,14 +23,29 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    SocietyCreateRequest, SocietyUpdateRequest, SocietyResponse,
-    SocietyStatusResponse, SocietyContextResponse, SocietyBeliefsResponse,
-    SocietyResourcesResponse, ActorResponse,
-    SharedGoalRequest, SharedGoalsResponse, PolicyRequest, PoliciesResponse,
-    SocietyActivationRequest, SocietyActivationResponse, ActivatedSocietyResponse,
-    GovernancePolicyCreateRequest, GovernancePolicyResponse, GovernancePoliciesResponse,
-    ActorPermissionGrantRequest, ActorPermissionResponse, ActorPermissionsResponse,
-    SocietyMembersResponse, SocietyCommunicationLogResponse,
+    SocietyCreateRequest,
+    SocietyUpdateRequest,
+    SocietyResponse,
+    SocietyStatusResponse,
+    SocietyContextResponse,
+    SocietyBeliefsResponse,
+    SocietyResourcesResponse,
+    ActorResponse,
+    SharedGoalRequest,
+    SharedGoalsResponse,
+    PolicyRequest,
+    PoliciesResponse,
+    SocietyActivationRequest,
+    SocietyActivationResponse,
+    ActivatedSocietyResponse,
+    GovernancePolicyCreateRequest,
+    GovernancePolicyResponse,
+    GovernancePoliciesResponse,
+    ActorPermissionGrantRequest,
+    ActorPermissionResponse,
+    ActorPermissionsResponse,
+    SocietyMembersResponse,
+    SocietyCommunicationLogResponse,
 )
 from src.monkey_brain.api.idempotency import idempotent
 
@@ -100,21 +116,23 @@ async def list_societies(
     for sr in pr.all_societies():
         td = sr.to_dict()
         actor_count, active_actors = _society_actor_counts(pr, sr.society.society_id)
-        results.append(SocietyResponse(
-            society_id=td.get("society_id", sr.society.society_id),
-            name=td.get("society_name", sr.society.name),
-            description=sr.society.description,
-            society_type=sr.society.society_type,
-            activation_tags=list(sr.society.activation_tags),
-            always_active=sr.society.always_active,
-            actor_count=actor_count,
-            active_actors=active_actors,
-            tick_count=td.get("tick_count", 0),
-            interaction_count=td.get("interaction_count", 0),
-            shared_goal_count=td.get("shared_goal_count", 0),
-            policy_count=td.get("policy_count", 0),
-            is_active=sr.is_active,
-        ))
+        results.append(
+            SocietyResponse(
+                society_id=td.get("society_id", sr.society.society_id),
+                name=td.get("society_name", sr.society.name),
+                description=sr.society.description,
+                society_type=sr.society.society_type,
+                activation_tags=list(sr.society.activation_tags),
+                always_active=sr.society.always_active,
+                actor_count=actor_count,
+                active_actors=active_actors,
+                tick_count=td.get("tick_count", 0),
+                interaction_count=td.get("interaction_count", 0),
+                shared_goal_count=td.get("shared_goal_count", 0),
+                policy_count=td.get("policy_count", 0),
+                is_active=sr.is_active,
+            )
+        )
     return results
 
 
@@ -129,8 +147,11 @@ async def create_society(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     sr = pr.create_society(
-        body.name, description=body.description, society_type=body.society_type,
-        activation_tags=tuple(body.activation_tags), always_active=body.always_active,
+        body.name,
+        description=body.description,
+        society_type=body.society_type,
+        activation_tags=tuple(body.activation_tags),
+        always_active=body.always_active,
         subscribed_events=tuple(body.subscribed_events),
     )
     td = sr.to_dict()
@@ -163,21 +184,23 @@ async def search_societies(
     for sr in pr.search_societies(tag=tag, society_type=society_type):
         td = sr.to_dict()
         actor_count, active_actors = _society_actor_counts(pr, sr.society.society_id)
-        results.append(SocietyResponse(
-            society_id=td.get("society_id", sr.society.society_id),
-            name=td.get("society_name", sr.society.name),
-            description=sr.society.description,
-            society_type=sr.society.society_type,
-            activation_tags=list(sr.society.activation_tags),
-            always_active=sr.society.always_active,
-            actor_count=actor_count,
-            active_actors=active_actors,
-            tick_count=td.get("tick_count", 0),
-            interaction_count=td.get("interaction_count", 0),
-            shared_goal_count=td.get("shared_goal_count", 0),
-            policy_count=td.get("policy_count", 0),
-            is_active=sr.is_active,
-        ))
+        results.append(
+            SocietyResponse(
+                society_id=td.get("society_id", sr.society.society_id),
+                name=td.get("society_name", sr.society.name),
+                description=sr.society.description,
+                society_type=sr.society.society_type,
+                activation_tags=list(sr.society.activation_tags),
+                always_active=sr.society.always_active,
+                actor_count=actor_count,
+                active_actors=active_actors,
+                tick_count=td.get("tick_count", 0),
+                interaction_count=td.get("interaction_count", 0),
+                shared_goal_count=td.get("shared_goal_count", 0),
+                policy_count=td.get("policy_count", 0),
+                is_active=sr.is_active,
+            )
+        )
     return results
 
 
@@ -302,11 +325,12 @@ async def update_society(
     if sr is None:
         raise HTTPException(status_code=404, detail=f"Society {society_id} not found")
     import dataclasses
+
     old = sr._society
     new = dataclasses.replace(
         old,
         name=body.name if body.name is not None else old.name,
-        description=body.description if body.description is not None else old.description,
+        description=(body.description if body.description is not None else old.description),
     )
     sr._society = new
     pr._save_societies()
@@ -325,7 +349,11 @@ async def update_society(
     )
 
 
-@router.get("/societies/{society_id}/status", response_model=SocietyStatusResponse, tags=["Societies"])
+@router.get(
+    "/societies/{society_id}/status",
+    response_model=SocietyStatusResponse,
+    tags=["Societies"],
+)
 async def get_society_status(
     society_id: str,
     request: Request,
@@ -350,7 +378,11 @@ async def get_society_status(
     )
 
 
-@router.get("/societies/{society_id}/actors", response_model=list[ActorResponse], tags=["Societies"])
+@router.get(
+    "/societies/{society_id}/actors",
+    response_model=list[ActorResponse],
+    tags=["Societies"],
+)
 async def get_society_actors(
     society_id: str,
     request: Request,
@@ -385,7 +417,11 @@ async def get_society_actors(
     ]
 
 
-@router.get("/societies/{society_id}/members", response_model=SocietyMembersResponse, tags=["Societies"])
+@router.get(
+    "/societies/{society_id}/members",
+    response_model=SocietyMembersResponse,
+    tags=["Societies"],
+)
 async def get_society_members(
     society_id: str,
     request: Request,
@@ -423,7 +459,9 @@ async def get_society_members(
 
 
 @router.get(
-    "/societies/{society_id}/communication-log", response_model=SocietyCommunicationLogResponse, tags=["Societies"],
+    "/societies/{society_id}/communication-log",
+    response_model=SocietyCommunicationLogResponse,
+    tags=["Societies"],
 )
 async def get_society_communication_log(
     society_id: str,
@@ -461,7 +499,11 @@ async def get_society_communication_log(
     return SocietyCommunicationLogResponse(society_id=society_id, entries=entries)
 
 
-@router.get("/societies/{society_id}/context", response_model=SocietyContextResponse, tags=["Societies"])
+@router.get(
+    "/societies/{society_id}/context",
+    response_model=SocietyContextResponse,
+    tags=["Societies"],
+)
 async def get_society_context(
     society_id: str,
     request: Request,
@@ -503,7 +545,11 @@ async def get_society_context(
     )
 
 
-@router.get("/societies/{society_id}/beliefs", response_model=SocietyBeliefsResponse, tags=["Societies"])
+@router.get(
+    "/societies/{society_id}/beliefs",
+    response_model=SocietyBeliefsResponse,
+    tags=["Societies"],
+)
 async def get_society_beliefs(
     society_id: str,
     request: Request,
@@ -529,6 +575,7 @@ async def get_society_beliefs(
     member_ids = _get_society_member_ids(pr, society_id)
 
     from src.monkey_brain.api.dependencies import auth_required
+
     granted = getattr(request.state, "jwt_permissions", set()) or set()
     privileged = (not auth_required()) or "perm-view-societies" in granted
     is_member = bool(member_ids) and user_id in member_ids
@@ -549,7 +596,11 @@ async def get_society_beliefs(
     return SocietyBeliefsResponse(society_id=society_id, actors=actors)
 
 
-@router.get("/societies/{society_id}/resources", response_model=SocietyResourcesResponse, tags=["Societies"])
+@router.get(
+    "/societies/{society_id}/resources",
+    response_model=SocietyResourcesResponse,
+    tags=["Societies"],
+)
 async def get_society_resources(
     society_id: str,
     request: Request,
@@ -596,6 +647,7 @@ async def tick_society(
 
 # ── Society Activation/Deactivation ────────────────────────────────────────
 
+
 @router.post("/societies/{society_id}/activate", tags=["Societies"])
 @idempotent("societies.activate_society")
 async def activate_society(
@@ -632,7 +684,12 @@ async def deactivate_society(
 
 # ── Shared Goals CRUD ───────────────────────────────────────────────────
 
-@router.get("/societies/{society_id}/goals", response_model=SharedGoalsResponse, tags=["Societies"])
+
+@router.get(
+    "/societies/{society_id}/goals",
+    response_model=SharedGoalsResponse,
+    tags=["Societies"],
+)
 async def get_society_goals(
     society_id: str,
     request: Request,
@@ -648,7 +705,11 @@ async def get_society_goals(
     return SharedGoalsResponse(society_id=society_id, goals=goals, count=len(goals))
 
 
-@router.post("/societies/{society_id}/goals", response_model=SharedGoalsResponse, tags=["Societies"])
+@router.post(
+    "/societies/{society_id}/goals",
+    response_model=SharedGoalsResponse,
+    tags=["Societies"],
+)
 @idempotent("societies.add_society_goal")
 async def add_society_goal(
     society_id: str,
@@ -687,6 +748,7 @@ async def remove_society_goal(
         raise HTTPException(status_code=404, detail=f"Goal index {goal_index} not found")
     removed = goals.pop(goal_index)
     import dataclasses
+
     sr._society = dataclasses.replace(sr._society, shared_goals=tuple(goals))
     pr._save_societies()
     return {"status": "deleted", "goal": removed}
@@ -694,7 +756,12 @@ async def remove_society_goal(
 
 # ── Policies CRUD ───────────────────────────────────────────────────────
 
-@router.get("/societies/{society_id}/policies", response_model=PoliciesResponse, tags=["Societies"])
+
+@router.get(
+    "/societies/{society_id}/policies",
+    response_model=PoliciesResponse,
+    tags=["Societies"],
+)
 async def get_society_policies(
     society_id: str,
     request: Request,
@@ -710,7 +777,11 @@ async def get_society_policies(
     return PoliciesResponse(society_id=society_id, policies=policies, count=len(policies))
 
 
-@router.post("/societies/{society_id}/policies", response_model=PoliciesResponse, tags=["Societies"])
+@router.post(
+    "/societies/{society_id}/policies",
+    response_model=PoliciesResponse,
+    tags=["Societies"],
+)
 @idempotent("societies.add_society_policy")
 async def add_society_policy(
     society_id: str,
@@ -732,13 +803,22 @@ async def add_society_policy(
 
 def _governance_policy_to_response(p: Any) -> GovernancePolicyResponse:
     return GovernancePolicyResponse(
-        policy_id=p.policy_id, name=p.name, description=p.description,
-        policy_type=p.policy_type.value, rules=list(p.rules),
-        scope=p.scope, priority=p.priority, enabled=p.enabled,
+        policy_id=p.policy_id,
+        name=p.name,
+        description=p.description,
+        policy_type=p.policy_type.value,
+        rules=list(p.rules),
+        scope=p.scope,
+        priority=p.priority,
+        enabled=p.enabled,
     )
 
 
-@router.get("/societies/{society_id}/governance-policies", response_model=GovernancePoliciesResponse, tags=["Societies"])
+@router.get(
+    "/societies/{society_id}/governance-policies",
+    response_model=GovernancePoliciesResponse,
+    tags=["Societies"],
+)
 async def get_society_governance_policies(
     society_id: str,
     request: Request,
@@ -758,7 +838,11 @@ async def get_society_governance_policies(
     return GovernancePoliciesResponse(society_id=society_id, policies=policies, count=len(policies))
 
 
-@router.post("/societies/{society_id}/governance-policies", response_model=GovernancePolicyResponse, tags=["Societies"])
+@router.post(
+    "/societies/{society_id}/governance-policies",
+    response_model=GovernancePolicyResponse,
+    tags=["Societies"],
+)
 @idempotent("societies.add_society_governance_policy")
 async def add_society_governance_policy(
     society_id: str,
@@ -773,13 +857,19 @@ async def add_society_governance_policy(
     if sr is None:
         raise HTTPException(status_code=404, detail=f"Society {society_id} not found")
     from src.monkey_brain.kernel.society.governance import GovernancePolicy, PolicyType
+
     try:
         policy_type = PolicyType(body.policy_type)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"invalid policy_type: {body.policy_type!r}")
     policy = GovernancePolicy(
-        name=body.name, description=body.description, policy_type=policy_type,
-        rules=tuple(body.rules), scope=body.scope, priority=body.priority, enabled=body.enabled,
+        name=body.name,
+        description=body.description,
+        policy_type=policy_type,
+        rules=tuple(body.rules),
+        scope=body.scope,
+        priority=body.priority,
+        enabled=body.enabled,
     )
     sr.governance.add_policy(policy)
     # CognitiveOS Constitution: "knowledge, policies and capabilities are
@@ -795,10 +885,16 @@ async def add_society_governance_policy(
     # governance setup, not an agent action, and fails closed with
     # SecurityBoundaryDenied (500) outside insecure-dev-mode without this.
     from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
-    with privileged_infrastructure(reason="POST /societies/{id}/governance-policies: operator defining a policy, not an agent action"):
+
+    with privileged_infrastructure(
+        reason="POST /societies/{id}/governance-policies: operator defining a policy, not an agent action"
+    ):
         sr.world.record_policy(
-            policy_id=policy.policy_id, name=policy.name, description=policy.description,
-            rules=policy.rules, scope=policy.scope,
+            policy_id=policy.policy_id,
+            name=policy.name,
+            description=policy.description,
+            rules=policy.rules,
+            scope=policy.scope,
         )
     # SocietyGovernanceEngine cross-process gap: _save_societies() already
     # serializes sr.governance.policies() into the same durable blob every
@@ -834,12 +930,19 @@ async def remove_society_governance_policy(
 
 def _permission_to_response(p: Any) -> ActorPermissionResponse:
     return ActorPermissionResponse(
-        permission_id=p.permission_id, actor_id=p.actor_id,
-        resource=p.resource, action=p.action, expires_at=p.expires_at,
+        permission_id=p.permission_id,
+        actor_id=p.actor_id,
+        resource=p.resource,
+        action=p.action,
+        expires_at=p.expires_at,
     )
 
 
-@router.get("/societies/{society_id}/actors/{actor_id}/permissions", response_model=ActorPermissionsResponse, tags=["Societies"])
+@router.get(
+    "/societies/{society_id}/actors/{actor_id}/permissions",
+    response_model=ActorPermissionsResponse,
+    tags=["Societies"],
+)
 async def get_actor_permissions(
     society_id: str,
     actor_id: str,
@@ -855,10 +958,19 @@ async def get_actor_permissions(
     if sr is None:
         raise HTTPException(status_code=404, detail=f"Society {society_id} not found")
     permissions = [_permission_to_response(p) for p in sr.governance.permissions_for(actor_id)]
-    return ActorPermissionsResponse(society_id=society_id, actor_id=actor_id, permissions=permissions, count=len(permissions))
+    return ActorPermissionsResponse(
+        society_id=society_id,
+        actor_id=actor_id,
+        permissions=permissions,
+        count=len(permissions),
+    )
 
 
-@router.post("/societies/{society_id}/permissions", response_model=ActorPermissionResponse, tags=["Societies"])
+@router.post(
+    "/societies/{society_id}/permissions",
+    response_model=ActorPermissionResponse,
+    tags=["Societies"],
+)
 @idempotent("societies.grant_actor_permission")
 async def grant_actor_permission(
     society_id: str,
@@ -873,9 +985,13 @@ async def grant_actor_permission(
     if sr is None:
         raise HTTPException(status_code=404, detail=f"Society {society_id} not found")
     from src.monkey_brain.kernel.society.governance import Permission
+
     permission = Permission(
-        actor_id=body.actor_id, resource=body.resource, action=body.action,
-        granted_by=user_id, expires_at=body.expires_at,
+        actor_id=body.actor_id,
+        resource=body.resource,
+        action=body.action,
+        granted_by=user_id,
+        expires_at=body.expires_at,
     )
     sr.governance.grant_permission(permission)
     pr._save_societies()  # SocietyGovernanceEngine cross-process gap — see add_society_governance_policy's comment
@@ -902,7 +1018,12 @@ async def revoke_actor_permission(
     if not removed:
         raise HTTPException(status_code=404, detail="Permission not found")
     pr._save_societies()
-    return {"status": "revoked", "actor_id": actor_id, "resource": resource, "action": action}
+    return {
+        "status": "revoked",
+        "actor_id": actor_id,
+        "resource": resource,
+        "action": action,
+    }
 
 
 @router.delete("/societies/{society_id}/policies/{policy_index}", tags=["Societies"])
@@ -924,6 +1045,7 @@ async def remove_society_policy(
         raise HTTPException(status_code=404, detail=f"Policy index {policy_index} not found")
     removed = policies.pop(policy_index)
     import dataclasses
+
     sr._society = dataclasses.replace(sr._society, policies=tuple(policies))
     pr._save_societies()
     return {"status": "deleted", "policy": removed}

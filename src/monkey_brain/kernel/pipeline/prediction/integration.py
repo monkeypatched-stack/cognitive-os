@@ -48,6 +48,7 @@ knowledge, every action predicts as UNKNOWN (Step 11.2's explicit
 Callers with real knowledge (or a future Step 11.10 policy) supply a
 populated TransitionModel for richer predictions.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -57,13 +58,21 @@ from typing import Any
 from src.monkey_brain.kernel.pipeline.cognitive_policy import StageFn
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.learning.domain import LearningPolicy
-from src.monkey_brain.kernel.pipeline.learning.integration import LearningIntegratedPolicy
+from src.monkey_brain.kernel.pipeline.learning.integration import (
+    LearningIntegratedPolicy,
+)
 
 from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
-from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption
-from src.monkey_brain.kernel.pipeline.prediction.policies import DeterministicPredictionPolicy, PredictionPolicyInput
+from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+    CounterfactualAssumption,
+)
+from src.monkey_brain.kernel.pipeline.prediction.policies import (
+    DeterministicPredictionPolicy,
+    PredictionPolicyInput,
+)
 from src.monkey_brain.kernel.pipeline.prediction.domain import PredictionResult
 from src.monkey_brain.kernel.pipeline.learning.domain import Provenance
+
 # Real gap this closed: this used to be its own independent module-level
 # `DEFAULT_REJECTION_THRESHOLD = 0.3` -- same name, different constant,
 # never imported from scenarios.py's real definition. Confirmed live: a
@@ -74,7 +83,9 @@ from src.monkey_brain.kernel.pipeline.learning.domain import Provenance
 # grocery vertical's real request pipeline (comparison/integration.py::
 # build_comparison_integrated_runtime), whose own rejection_threshold
 # default was ALSO an independent, unsynced 0.3 literal until now.
-from src.monkey_brain.kernel.pipeline.prediction.scenarios import DEFAULT_REJECTION_THRESHOLD
+from src.monkey_brain.kernel.pipeline.prediction.scenarios import (
+    DEFAULT_REJECTION_THRESHOLD,
+)
 
 
 def _safe_serialize(value: Any) -> Any:
@@ -134,6 +145,7 @@ class PredictionIntegratedPolicy(LearningIntegratedPolicy):
         async def integrated_predict(state: CognitiveState) -> CognitiveState:
             state = await original_predict(state)
             import time as _time
+
             _predict_start = _time.time()
 
             # Delegates to the real DeterministicPredictionPolicy
@@ -154,7 +166,8 @@ class PredictionIntegratedPolicy(LearningIntegratedPolicy):
             # Participation hardening pass).
             prediction_id = uuid.uuid4().hex
             provenance = Provenance(
-                actor_id=state.actor_id, run_id=state.metrics.get("execution_id", ""),
+                actor_id=state.actor_id,
+                run_id=state.metrics.get("execution_id", ""),
                 source="prediction_integrated_policy",
             )
             policy = DeterministicPredictionPolicy(
@@ -162,10 +175,16 @@ class PredictionIntegratedPolicy(LearningIntegratedPolicy):
                 counterfactual_assumptions=self._counterfactual_assumptions,
                 rejection_threshold=self._rejection_threshold,
             )
-            policy_result = policy.predict(PredictionPolicyInput(
-                world_snapshot=state.world_snapshot, belief_state=state.belief, plan=state.belief.plan,
-                time_horizon=self._time_horizon, provenance=provenance, prediction_id=prediction_id,
-            ))
+            policy_result = policy.predict(
+                PredictionPolicyInput(
+                    world_snapshot=state.world_snapshot,
+                    belief_state=state.belief,
+                    plan=state.belief.plan,
+                    time_horizon=self._time_horizon,
+                    provenance=provenance,
+                    prediction_id=prediction_id,
+                )
+            )
 
             state.prediction_result = prediction_result_to_dict(policy_result.result)
 
@@ -175,6 +194,7 @@ class PredictionIntegratedPolicy(LearningIntegratedPolicy):
             # probability come straight off the PredictionResult this call
             # just produced, never fabricated.
             from src.monkey_brain.kernel.compile import _obs
+
             result = policy_result.result
             selected = result.selected
             _obs.counter("prediction.total", recommendation=result.recommendation or "unknown")
@@ -188,7 +208,17 @@ class PredictionIntegratedPolicy(LearningIntegratedPolicy):
         # learn/compile_phi with Step 10.7/10.8's own overrides and then
         # calls CognitivePolicy.configure() with the final 9-stage list --
         # zero duplication of that logic here.
-        super().configure(observe, believe, plan, execute, observe_outcome, learn, compile_phi, integrated_predict, commit)
+        super().configure(
+            observe,
+            believe,
+            plan,
+            execute,
+            observe_outcome,
+            learn,
+            compile_phi,
+            integrated_predict,
+            commit,
+        )
 
 
 def build_prediction_integrated_runtime(
@@ -210,7 +240,9 @@ def build_prediction_integrated_runtime(
     with Steps 8.7/9.7's IntegratedPlanningEngine/IntegratedExecutionEngine.
     Import of CognitiveRuntime is deferred to call time, the same
     lazy-import shape Step 10.7 used for the identical reason."""
-    from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime as PipelineCognitiveRuntime
+    from src.monkey_brain.kernel.pipeline.belief_runtime import (
+        CognitiveRuntime as PipelineCognitiveRuntime,
+    )
 
     return PipelineCognitiveRuntime(
         observation_provider=observation_provider,

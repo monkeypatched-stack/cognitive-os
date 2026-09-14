@@ -2,6 +2,7 @@
 
 This policy learns to select better plans based on past outcomes.
 """
+
 from __future__ import annotations
 
 import random
@@ -9,14 +10,18 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.monkey_brain.kernel.config import (
-    PLANNER_LEARNING_RATE, PLANNER_EXPLORATION_RATE, PLANNER_EXPLORATION_DECAY,
-    PLANNER_MIN_EXPLORATION_RATE, DISCOUNT_FACTOR,
+    PLANNER_LEARNING_RATE,
+    PLANNER_EXPLORATION_RATE,
+    PLANNER_EXPLORATION_DECAY,
+    PLANNER_MIN_EXPLORATION_RATE,
+    DISCOUNT_FACTOR,
 )
 
 
 @dataclass
 class PlanDecision:
     """Outcome of a planning decision."""
+
     plan_id: str = ""
     expected_reward: float = 0.0
     confidence: float = 0.5
@@ -35,6 +40,7 @@ class PlannerPolicy:
     def __init__(self):
         # Delegate Q-storage to PolicyStore
         from src.monkey_brain.kernel.policy.store import PolicyStore
+
         self._policy_store = PolicyStore()
         self._plan_counts: dict[str, int] = {}
         self._learning_rate = PLANNER_LEARNING_RATE
@@ -47,8 +53,7 @@ class PlannerPolicy:
     def _q_values(self) -> dict[str, float]:
         """Backward-compat view of plan Q-values from PolicyStore."""
         snapshot = self._policy_store.snapshot()
-        return {k.split("|", 1)[1]: v for k, v in snapshot.items()
-                if k.startswith(f"{self._PLAN_STATE}|")}
+        return {k.split("|", 1)[1]: v for k, v in snapshot.items() if k.startswith(f"{self._PLAN_STATE}|")}
 
     # ── selection ────────────────────────────────────────────────────────────────
 
@@ -128,7 +133,7 @@ class PlannerPolicy:
             "learning_rate": self._learning_rate,
             "discount_factor": self._discount_factor,
             "algorithm": "contextual_bandit",
-            "avg_q_value": sum(self._q_values.values()) / max(1, len(self._q_values)) if self._q_values else 0.0,
+            "avg_q_value": (sum(self._q_values.values()) / max(1, len(self._q_values)) if self._q_values else 0.0),
         }
 
     def get_best_action(self, objective: str, candidates: list[str]) -> str | None:
@@ -146,6 +151,6 @@ class PlannerPolicy:
             "top_plans": sorted(
                 [(p, self._policy_store.value(self._PLAN_STATE, p)) for p in self._plan_counts],
                 key=lambda x: x[1],
-                reverse=True
-            )[:5]
+                reverse=True,
+            )[:5],
         }

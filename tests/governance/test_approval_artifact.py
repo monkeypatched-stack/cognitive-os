@@ -5,6 +5,7 @@ These are DEV-PROCESS-TOOLING tests, not CognitiveOS security tests —
 they live in tests/governance/, not tests/security/, deliberately, so a
 reader never mistakes this package for a product security boundary.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -65,6 +66,7 @@ def _artifact(handoff: DiscoveryHandoff | None = None, **overrides) -> ApprovalA
 
 # ── Schema ────────────────────────────────────────────────────────────────
 
+
 class TestSchema:
     def test_missing_approval_id_rejected(self):
         with pytest.raises(ApprovalArtifactError):
@@ -119,6 +121,7 @@ class TestSchema:
 
 # ── Expiration ────────────────────────────────────────────────────────────
 
+
 class TestExpiration:
     def test_now_before_expiry_is_valid_window(self):
         artifact = _artifact()
@@ -129,8 +132,11 @@ class TestExpiration:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=artifact.expires_at,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=artifact.expires_at,
             requested_files=("src/monkey_brain/kernel/execution_attempt.py",),
             requested_behaviors=("shared isinstance type-guard utility",),
         )
@@ -142,8 +148,11 @@ class TestExpiration:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=artifact.expires_at + timedelta(hours=1),
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=artifact.expires_at + timedelta(hours=1),
         )
         assert result.within_validity_window is False
         assert result.authorized is False
@@ -153,14 +162,18 @@ class TestExpiration:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=artifact.approved_at - timedelta(seconds=1),
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=artifact.approved_at - timedelta(seconds=1),
         )
         assert result.within_validity_window is False
         assert result.authorized is False
 
 
 # ── Binding ───────────────────────────────────────────────────────────────
+
 
 class TestBinding:
     def test_wrong_handoff_rejected(self, tmp_path):
@@ -169,8 +182,11 @@ class TestBinding:
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         wrong_handoff = _handoff(handoff_id="DH-different-999")
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=wrong_handoff,
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=wrong_handoff,
+            current_revision=artifact.repository_revision,
+            now=NOW,
         )
         assert result.handoff_matches is False
         assert result.authorized is False
@@ -180,8 +196,11 @@ class TestBinding:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision="a" * 40, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision="a" * 40,
+            now=NOW,
         )
         assert result.revision_matches is False
         assert result.authorized is False
@@ -191,8 +210,11 @@ class TestBinding:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=NOW,
             requested_files=("src/monkey_brain/kernel/security_operation.py",),
         )
         assert result.scope_covers_request is False
@@ -201,6 +223,7 @@ class TestBinding:
 
 
 # ── Immutability ──────────────────────────────────────────────────────────
+
 
 class TestImmutability:
     def test_scope_mutation_rejected(self):
@@ -231,6 +254,7 @@ class TestImmutability:
 
 # ── Identity ──────────────────────────────────────────────────────────────
 
+
 class TestIdentity:
     @pytest.mark.parametrize("bad_name", ["agent", "LLM", "Claude", "system", "anonymous", ""])
     def test_disallowed_approver_identity_flagged(self, tmp_path, bad_name):
@@ -243,8 +267,11 @@ class TestIdentity:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=NOW,
         )
         assert result.identity_plausible is False
         assert result.authorized is False
@@ -278,8 +305,11 @@ class TestIdentity:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=NOW,
         )
         assert result.identity_plausible is True
 
@@ -288,7 +318,11 @@ class TestIdentity:
         # updated deliberately — it must never pass silently by accident.
         artifact_fields = {f.name for f in dataclasses.fields(artifact)}
         result_fields = {f.name for f in dataclasses.fields(result)}
-        forbidden = {"identity_authenticated", "approved_by_authenticated", "authenticated_by"}
+        forbidden = {
+            "identity_authenticated",
+            "approved_by_authenticated",
+            "authenticated_by",
+        }
         assert not (artifact_fields & forbidden)
         assert not (result_fields & forbidden)
         assert "identity_plausible" in result_fields
@@ -297,14 +331,18 @@ class TestIdentity:
 
 # ── Scope (in-scope allowed, out-of-scope blocked) ───────────────────────
 
+
 class TestScopeCheck:
     def test_in_scope_change_allowed(self, tmp_path):
         artifact = _artifact()
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=NOW,
             requested_files=("src/monkey_brain/kernel/execution_attempt.py",),
             requested_behaviors=("shared isinstance type-guard utility",),
         )
@@ -315,8 +353,11 @@ class TestScopeCheck:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=NOW,
             requested_files=("src/monkey_brain/kernel/trusted_auth.py",),
         )
         assert result.scope_covers_request is False
@@ -327,8 +368,11 @@ class TestScopeCheck:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=NOW,
             requested_behaviors=("rewrite the OPA policy engine",),
         )
         assert result.scope_covers_request is False
@@ -341,8 +385,11 @@ class TestScopeCheck:
         store = ApprovalRecordStore(tmp_path)
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=NOW,
             requested_files=("src/monkey_brain/kernel/execution_attempt.py",),
             requested_security_boundaries=("MFA requirement",),
         )
@@ -351,6 +398,7 @@ class TestScopeCheck:
 
 
 # ── Renewal ───────────────────────────────────────────────────────────────
+
 
 class TestRenewal:
     def test_expired_artifact_replaced_by_new_one_with_new_window(self, tmp_path):
@@ -361,8 +409,11 @@ class TestRenewal:
 
         renewal_time = old.expires_at + timedelta(hours=2)
         new = create_artifact(
-            handoff=_handoff(), approved_by="prashun", decision=ApprovalDecision.APPROVED,
-            approval_id="APR-test-002", approved_at=renewal_time,
+            handoff=_handoff(),
+            approved_by="prashun",
+            decision=ApprovalDecision.APPROVED,
+            approval_id="APR-test-002",
+            approved_at=renewal_time,
             supersedes_approval_id=old.approval_id,
         )
         assert new.approval_id != old.approval_id
@@ -372,8 +423,11 @@ class TestRenewal:
 
         store.create(new, initial_status=ApprovalStatus.APPROVED)
         result = validate_approval(
-            new.approval_id, store=store, handoff=_handoff(),
-            current_revision=new.repository_revision, now=renewal_time,
+            new.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=new.repository_revision,
+            now=renewal_time,
         )
         assert result.authorized is True
         # The OLD approval_id is still on record as EXPIRED — renewal never
@@ -383,12 +437,16 @@ class TestRenewal:
 
 # ── Persistence (fail-closed) ─────────────────────────────────────────────
 
+
 class TestPersistenceFailClosed:
     def test_missing_approval_record_fails_closed(self, tmp_path):
         store = ApprovalRecordStore(tmp_path)
         result = validate_approval(
-            "APR-does-not-exist", store=store, handoff=_handoff(),
-            current_revision="deadbeef" * 5, now=NOW,
+            "APR-does-not-exist",
+            store=store,
+            handoff=_handoff(),
+            current_revision="deadbeef" * 5,
+            now=NOW,
         )
         assert result.authorized is False
         assert result.schema_valid is False
@@ -422,6 +480,7 @@ class TestPersistenceFailClosed:
 
 # ── Status state machine ──────────────────────────────────────────────────
 
+
 class TestStatusStateMachine:
     def test_valid_transitions(self, tmp_path):
         artifact = _artifact()
@@ -430,9 +489,15 @@ class TestStatusStateMachine:
         record = store.transition_status(artifact.approval_id, ApprovalStatus.REVOKED, reason="scope changed")
         assert record.status is ApprovalStatus.REVOKED
 
-    @pytest.mark.parametrize("terminal", [
-        ApprovalStatus.EXPIRED, ApprovalStatus.REVOKED, ApprovalStatus.SUPERSEDED, ApprovalStatus.REJECTED,
-    ])
+    @pytest.mark.parametrize(
+        "terminal",
+        [
+            ApprovalStatus.EXPIRED,
+            ApprovalStatus.REVOKED,
+            ApprovalStatus.SUPERSEDED,
+            ApprovalStatus.REJECTED,
+        ],
+    )
     def test_terminal_status_cannot_become_approved_again(self, tmp_path, terminal):
         artifact = _artifact()
         store = ApprovalRecordStore(tmp_path)
@@ -458,8 +523,11 @@ class TestStatusStateMachine:
         store.create(artifact, initial_status=ApprovalStatus.APPROVED)
         store.transition_status(artifact.approval_id, ApprovalStatus.EXPIRED)
         result = validate_approval(
-            artifact.approval_id, store=store, handoff=_handoff(),
-            current_revision=artifact.repository_revision, now=NOW,
+            artifact.approval_id,
+            store=store,
+            handoff=_handoff(),
+            current_revision=artifact.repository_revision,
+            now=NOW,
         )
         assert result.decision_approved is True
         assert result.status_approved is False
@@ -467,6 +535,7 @@ class TestStatusStateMachine:
 
 
 # ── Security: this package cannot touch the real security boundary ──────
+
 
 class TestNoCouplingToProductSecurityBoundary:
     def test_governance_package_imports_nothing_from_the_kernel(self):
@@ -492,5 +561,11 @@ class TestNoCouplingToProductSecurityBoundary:
         from governance.validator import ApprovalValidationResult
 
         fields = {f.name for f in dataclasses.fields(ApprovalValidationResult)}
-        forbidden = {"mfa_satisfied", "opa_allowed", "authenticated", "audit_recorded", "authorized_by_opa"}
+        forbidden = {
+            "mfa_satisfied",
+            "opa_allowed",
+            "authenticated",
+            "audit_recorded",
+            "authorized_by_opa",
+        }
         assert not (fields & forbidden)

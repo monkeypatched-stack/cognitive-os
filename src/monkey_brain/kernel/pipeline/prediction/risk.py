@@ -22,15 +22,25 @@ confidence and expected reward back into a Step 11.1 Prediction's
 defaults/unset by Step 11.2, exactly so this step could fill them in with
 real numbers instead of guesses.
 """
+
 from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.monkey_brain.kernel.pipeline.prediction.domain import Prediction, PredictionConfidence
-from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionKind, WorldTransition
-from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationState, SimulationTrajectory
+from src.monkey_brain.kernel.pipeline.prediction.domain import (
+    Prediction,
+    PredictionConfidence,
+)
+from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+    TransitionKind,
+    WorldTransition,
+)
+from src.monkey_brain.kernel.pipeline.prediction.simulation import (
+    SimulationState,
+    SimulationTrajectory,
+)
 
 LOW_PROBABILITY_THRESHOLD = 0.7
 
@@ -38,6 +48,7 @@ LOW_PROBABILITY_THRESHOLD = 0.7
 @dataclass(frozen=True)
 class RiskFactor:
     """One identified source of uncertainty or risk in a trajectory."""
+
     name: str = ""
     description: str = ""
     severity: float = 0.0
@@ -50,6 +61,7 @@ class RiskFactor:
 @dataclass(frozen=True)
 class RiskAssessment:
     """The full risk/uncertainty analysis for one simulated trajectory."""
+
     probability_of_success: float = 0.0
     expected_reward: float = 0.0
     execution_risk: float = 0.0
@@ -79,12 +91,16 @@ class RiskEngine:
 
         if not applied:
             confidence = PredictionConfidence(
-                point_estimate=1.0, lower_bound=1.0, upper_bound=1.0,
+                point_estimate=1.0,
+                lower_bound=1.0,
+                upper_bound=1.0,
                 rationale="empty plan -- nothing to risk",
             )
             return RiskAssessment(
-                probability_of_success=1.0, expected_reward=self._utility_if_success,
-                execution_risk=0.0, confidence=confidence,
+                probability_of_success=1.0,
+                expected_reward=self._utility_if_success,
+                execution_risk=0.0,
+                confidence=confidence,
                 rationale="empty plan: vacuously certain",
             )
 
@@ -162,10 +178,7 @@ class RiskEngine:
         whenever any step is UNKNOWN) to honestly flag "this estimate is
         unsupported," instead of silently double-counting that same
         unsupported-ness as a probability penalty too."""
-        by_step_index = {
-            s.step_index: s.applied_transition
-            for s in states if s.applied_transition is not None
-        }
+        by_step_index = {s.step_index: s.applied_transition for s in states if s.applied_transition is not None}
         probability = 1.0
         for s in states:
             t = s.applied_transition
@@ -210,23 +223,37 @@ class RiskEngine:
         factors: list[RiskFactor] = []
         for i, t in enumerate(applied):
             if t.kind == TransitionKind.UNKNOWN:
-                factors.append(RiskFactor(
-                    name=f"step_{i}_missing_knowledge", description=t.description,
-                    severity=1.0, category="missing_knowledge",
-                ))
+                factors.append(
+                    RiskFactor(
+                        name=f"step_{i}_missing_knowledge",
+                        description=t.description,
+                        severity=1.0,
+                        category="missing_knowledge",
+                    )
+                )
             elif t.kind == TransitionKind.UNCERTAIN:
-                factors.append(RiskFactor(
-                    name=f"step_{i}_uncertain_transition", description=t.description,
-                    severity=round(1.0 - t.confidence, 4), category="uncertain_transition",
-                ))
+                factors.append(
+                    RiskFactor(
+                        name=f"step_{i}_uncertain_transition",
+                        description=t.description,
+                        severity=round(1.0 - t.confidence, 4),
+                        category="uncertain_transition",
+                    )
+                )
             elif t.probability < self._low_probability_threshold:
-                factors.append(RiskFactor(
-                    name=f"step_{i}_low_probability", description=t.description,
-                    severity=round(1.0 - t.probability, 4), category="low_probability",
-                ))
+                factors.append(
+                    RiskFactor(
+                        name=f"step_{i}_low_probability",
+                        description=t.description,
+                        severity=round(1.0 - t.probability, 4),
+                        category="low_probability",
+                    )
+                )
         return tuple(factors)
 
-    def _build_confidence(self, applied: tuple[WorldTransition, ...], risk_factors: tuple[RiskFactor, ...]) -> PredictionConfidence:
+    def _build_confidence(
+        self, applied: tuple[WorldTransition, ...], risk_factors: tuple[RiskFactor, ...]
+    ) -> PredictionConfidence:
         point_estimate = min(t.confidence for t in applied)
         spread = min(0.5, 0.1 * len(risk_factors))
         lower_bound = max(0.0, point_estimate - spread)

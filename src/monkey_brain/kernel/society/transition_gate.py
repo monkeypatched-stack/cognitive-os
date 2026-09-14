@@ -40,6 +40,7 @@ booleans):
   actor's consent before this class of transition may commit. This is what
   actually pauses the tick.
 """
+
 from __future__ import annotations
 
 import time
@@ -132,7 +133,8 @@ def _active_other_holders(attrs: dict[str, Any], self_ids: tuple[str, ...]) -> t
     now = time.time()
     reservations = attrs.get("reservations", []) or []
     others = {
-        r.get("actor_id") for r in reservations
+        r.get("actor_id")
+        for r in reservations
         if r.get("until", 0) > now and r.get("actor_id") and r.get("actor_id") not in self_ids
     }
     return tuple(sorted(others))
@@ -165,7 +167,9 @@ class TransitionGate:
                 owner = attrs.get("owner_id", "")
                 counterparties = tuple(c for c in (owner,) if c and c != transition.actor_id)
                 return GateDecision(
-                    allow=False, requires_negotiation=True, contention=True,
+                    allow=False,
+                    requires_negotiation=True,
+                    contention=True,
                     counterparties=counterparties,
                     reason=f"constraint conflict on {resource_id}: {conflict}",
                 )
@@ -182,7 +186,9 @@ class TransitionGate:
             others_required = tuple(dict.fromkeys(a for a in consent_from if a and a != transition.actor_id))
             if others_required:
                 return GateDecision(
-                    allow=False, requires_negotiation=True, contention=True,
+                    allow=False,
+                    requires_negotiation=True,
+                    contention=True,
                     counterparties=others_required,
                     reason=f"{resource_id} requires consent from {others_required}",
                 )
@@ -200,9 +206,11 @@ class TransitionGate:
 
         if contention:
             return GateDecision(
-                allow=True, requires_negotiation=False, contention=True,
+                allow=True,
+                requires_negotiation=False,
+                contention=True,
                 counterparties=contention_holders,
                 reason=f"another actor holds a live claim on this resource: {contention_holders}; "
-                       f"arbitrated by the existing reservation CAS, no negotiation pause needed",
+                f"arbitrated by the existing reservation CAS, no negotiation pause needed",
             )
         return GateDecision(allow=True, reason="no conflicting claim")

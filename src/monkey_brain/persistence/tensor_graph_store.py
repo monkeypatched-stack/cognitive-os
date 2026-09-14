@@ -25,6 +25,7 @@ Neo4j edge types → tensor features:
     IS_A        → Feature.PROBABILITY
     SIMILAR_TO  → Feature.FREQUENCY
 """
+
 from __future__ import annotations
 
 import logging
@@ -67,7 +68,8 @@ class TensorGraphStore:
         for order, sub in enumerate(sub_capabilities):
             # Use RECENCY to encode order (higher = later in sequence)
             self._tensor.observe(
-                capability, sub,
+                capability,
+                sub,
                 domain="capability",
             )
             # Store order in the cell's last_ts field (repurposed for order)
@@ -122,14 +124,16 @@ class TensorGraphStore:
 
         # Store capability -> provider resolution
         self._tensor.observe(
-            capability, provider_name,
+            capability,
+            provider_name,
             domain="capability",
             confidence=1.0,
         )
 
         # Store provider -> tool exposure
         self._tensor.observe(
-            provider_name, tool_name,
+            provider_name,
+            tool_name,
             domain="provider",
         )
 
@@ -148,13 +152,15 @@ class TensorGraphStore:
                 cell = self._tensor._cells.get((i, j))
                 confidence = self._tensor.feature(capability, dst, Feature.CONFIDENCE)
                 recency = cell.last_ts if cell else 0.0
-                results.append({
-                    "provider": dst,
-                    "tool": dst,
-                    "agent": dst,
-                    "last_confirmed": recency,
-                    "confidence": confidence,
-                })
+                results.append(
+                    {
+                        "provider": dst,
+                        "tool": dst,
+                        "agent": dst,
+                        "last_confirmed": recency,
+                        "confidence": confidence,
+                    }
+                )
         results.sort(key=lambda x: x["last_confirmed"], reverse=True)
         return results
 
@@ -168,12 +174,14 @@ class TensorGraphStore:
         if not specific or not general or specific == general:
             return
         self._tensor.observe(
-            specific, general,
+            specific,
+            general,
             domain="ontology",
         )
         # Also ensure the general capability exists
         self._tensor.observe(
-            general, general,
+            general,
+            general,
             domain="capability",
         )
         logger.info("TensorGraphStore: linked generalization %s -> %s", specific, general)
@@ -214,10 +222,15 @@ class TensorGraphStore:
         """
         for agent in agents:
             self._tensor.observe(
-                graph_id, agent,
+                graph_id,
+                agent,
                 domain="execution",
             )
-        logger.info("TensorGraphStore: recorded execution mesh %s with %d agents", graph_id, len(agents))
+        logger.info(
+            "TensorGraphStore: recorded execution mesh %s with %d agents",
+            graph_id,
+            len(agents),
+        )
 
     def find_similar_execution_graphs(self, agents: list[str], limit: int = 5) -> list[dict[str, Any]]:
         """Find execution graphs with similar agents.
@@ -241,11 +254,13 @@ class TensorGraphStore:
         # Sort by overlap score
         results = []
         for graph_id, score in sorted(graph_scores.items(), key=lambda x: -x[1])[:limit]:
-            results.append({
-                "graph_id": graph_id,
-                "overlap": score,
-                "run_count": 1,  # Simplified
-            })
+            results.append(
+                {
+                    "graph_id": graph_id,
+                    "overlap": score,
+                    "run_count": 1,  # Simplified
+                }
+            )
         return results
 
     # ── Layer views (tensor-native equivalents of GraphStore's Cypher views) ─
@@ -271,10 +286,7 @@ class TensorGraphStore:
             src, dst = self._tensor._state_name[i], self._tensor._state_name[j]
             graph_agents.setdefault(src, set()).add(dst)
             edges.append({"from": src, "to": dst, "type": "HAS_AGENT", "weight": cell.freq})
-        nodes = [
-            {"graph_key": gid, "name": gid, "agent_count": len(agents)}
-            for gid, agents in graph_agents.items()
-        ]
+        nodes = [{"graph_key": gid, "name": gid, "agent_count": len(agents)} for gid, agents in graph_agents.items()]
         return {"nodes": nodes, "edges": edges, "metadata": {"source": "tensor"}}
 
     def get_top_ranked_capabilities(self, limit: int = 10) -> list[dict[str, Any]]:
@@ -282,7 +294,8 @@ class TensorGraphStore:
         Q-value the tensor already uses as its centrality proxy."""
         scores = self.compute_capability_pagerank()
         ranked = [
-            (name, score) for name, score in scores.items()
+            (name, score)
+            for name, score in scores.items()
             if self._tensor._state_index.get(name) is not None
             and self._tensor._state_domain[self._tensor._state_index[name]] == "capability"
         ]
@@ -301,10 +314,7 @@ class TensorGraphStore:
             scores[gid] = scores.get(gid, 0.0) + cell.freq
             agent_counts[gid] = agent_counts.get(gid, 0) + 1
         ranked = sorted(scores.items(), key=lambda kv: -kv[1])[:limit]
-        return [
-            {"graph_key": gid, "score": score, "agent_count": agent_counts[gid]}
-            for gid, score in ranked
-        ]
+        return [{"graph_key": gid, "score": score, "agent_count": agent_counts[gid]} for gid, score in ranked]
 
     def get_execution_graph_view(self, graph_key: str) -> dict[str, Any]:
         """Layer 2: one execution graph's agents (its recorded successors).
@@ -344,11 +354,13 @@ class TensorGraphStore:
                 cap = self._tensor._state_name[i]
                 if dst not in providers or cap in self._EXTERNAL_PROVIDERS:
                     continue
-                capabilities.append({
-                    "capability": cap,
-                    "providers": [{"provider": dst, "tool": agent_name}],
-                    "confidence": self._tensor.feature(cap, dst, Feature.CONFIDENCE),
-                })
+                capabilities.append(
+                    {
+                        "capability": cap,
+                        "providers": [{"provider": dst, "tool": agent_name}],
+                        "confidence": self._tensor.feature(cap, dst, Feature.CONFIDENCE),
+                    }
+                )
         return {"agent": agent_name, "capabilities": capabilities}
 
     def get_ontology_view(self) -> dict[str, Any]:
@@ -421,7 +433,10 @@ class TensorGraphStore:
         successors = self._tensor.successors(run_id)
         if not successors:
             return None
-        return {"nodes": [{"id": run_id}], "edges": [{"from": run_id, "to": d} for d, _ in successors]}
+        return {
+            "nodes": [{"id": run_id}],
+            "edges": [{"from": run_id, "to": d} for d, _ in successors],
+        }
 
     async def add_query_paths(self, paths: list[dict[str, Any]]) -> None:
         """Compatibility method — merge entity graph paths."""

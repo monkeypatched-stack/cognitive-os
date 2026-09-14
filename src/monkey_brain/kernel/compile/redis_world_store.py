@@ -73,7 +73,13 @@ class RedisWorldStore:
     bounded in-memory LRU — same shape as ShardedWorldStore, different
     persistence tier."""
 
-    def __init__(self, *, max_resident: int = 128, learning_rate: float = 0.1, discount: float = 0.95) -> None:
+    def __init__(
+        self,
+        *,
+        max_resident: int = 128,
+        learning_rate: float = 0.1,
+        discount: float = 0.95,
+    ) -> None:
         self._max = max(1, max_resident)
         self._lr = learning_rate
         self._discount = discount
@@ -167,7 +173,11 @@ class RedisWorldStore:
             old_tenant, old_t = self._resident.popitem(last=False)  # least-recently-used
             self._persist(old_tenant, old_t)
             self._evictions += 1
-            logger.info("[redis_world] evicted tenant %s to Redis (resident=%d)", old_tenant, len(self._resident))
+            logger.info(
+                "[redis_world] evicted tenant %s to Redis (resident=%d)",
+                old_tenant,
+                len(self._resident),
+            )
 
     def _persist(self, tenant: str, t: SparseTransitionTensor) -> None:
         """Write a tenant's tensor to Redis — guarded by a per-tenant
@@ -220,7 +230,11 @@ class RedisWorldStore:
             self._client.sadd(_TENANTS_SET_KEY, tenant)
             self._loaded_revision[tenant] = t.revision
         except Exception as exc:
-            logger.warning("RedisWorldStore: persist failed for tenant %r (non-fatal): %s", tenant, exc)
+            logger.warning(
+                "RedisWorldStore: persist failed for tenant %r (non-fatal): %s",
+                tenant,
+                exc,
+            )
         finally:
             try:
                 self._client.eval(_RELEASE_LOCK_IF_OWNER_SCRIPT, 1, lock_key, token)
@@ -239,7 +253,11 @@ class RedisWorldStore:
             remote = self._fetch_raw(tenant)
             return int(remote.get("revision", 0)) if remote is not None else 0
         except Exception as exc:
-            logger.debug("RedisWorldStore: revision peek failed for tenant %r (%s) — assuming 0", tenant, exc)
+            logger.debug(
+                "RedisWorldStore: revision peek failed for tenant %r (%s) — assuming 0",
+                tenant,
+                exc,
+            )
             return 0
 
     def _raise_conflict(
@@ -256,7 +274,10 @@ class RedisWorldStore:
         resolve_world_tensor_conflict(), below. This replica's local
         snapshot is attached in full so nothing is lost even though it
         isn't applied automatically."""
-        from src.monkey_brain.kernel.pipeline.negotiation_store import PendingNegotiation, save_pending_negotiation
+        from src.monkey_brain.kernel.pipeline.negotiation_store import (
+            PendingNegotiation,
+            save_pending_negotiation,
+        )
 
         execution_id = f"world_tensor:{tenant}:{int(time.time())}:{uuid.uuid4().hex[:8]}"
         negotiation = PendingNegotiation(

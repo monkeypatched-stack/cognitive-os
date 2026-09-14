@@ -70,10 +70,7 @@ class OPCUAConnectionPool(ConnectionPool):
         try:
             from asyncua import Client
         except ImportError as exc:
-            raise ImportError(
-                "asyncua is required for OPCUAConnectionPool. "
-                "Install with: pip install asyncua"
-            ) from exc
+            raise ImportError("asyncua is required for OPCUAConnectionPool. Install with: pip install asyncua") from exc
 
         client = Client(url=self.endpoint, timeout=self.timeout)
 

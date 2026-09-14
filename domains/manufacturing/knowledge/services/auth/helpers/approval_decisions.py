@@ -14,7 +14,6 @@ from services.common.compliance import (
 )
 from services.common.config import settings
 
-
 PROPOSED_CHANGE_COLLECTION = "gxp_proposed_changes"
 TERMINAL_APPROVAL_STATUSES = {"Approved", "Rejected"}
 
@@ -36,23 +35,37 @@ def record_lookup_query(record_id: str) -> dict:
 async def _approval_records_for_source(db: Any, source_id: str | None) -> list[dict]:
     if not source_id:
         return []
-    return await db["approvals"].find({"source_id": source_id}, {"_id": 0}).to_list(length=200)
+    return (
+        await db["approvals"]
+        .find({"source_id": source_id}, {"_id": 0})
+        .to_list(length=200)
+    )
 
 
-async def promote_proposed_changes(db: Any, change_control_id: str, decided_at: datetime) -> list[dict]:
-    proposed_nodes = await db[PROPOSED_CHANGE_COLLECTION].find(
-        {
-            "change_control_id": change_control_id,
-            "status": {"$in": ["Pending Approval", "Approved"]},
-            "archived": {"$ne": True},
-        },
-        {"_id": 0},
-    ).to_list(length=200)
+async def promote_proposed_changes(
+    db: Any, change_control_id: str, decided_at: datetime
+) -> list[dict]:
+    proposed_nodes = (
+        await db[PROPOSED_CHANGE_COLLECTION]
+        .find(
+            {
+                "change_control_id": change_control_id,
+                "status": {"$in": ["Pending Approval", "Approved"]},
+                "archived": {"$ne": True},
+            },
+            {"_id": 0},
+        )
+        .to_list(length=200)
+    )
     promoted: list[dict] = []
     for node in proposed_nodes:
         collection = node.get("source_collection")
         source_id = node.get("source_id")
-        pending_properties = node.get("pending_properties") if isinstance(node.get("pending_properties"), dict) else {}
+        pending_properties = (
+            node.get("pending_properties")
+            if isinstance(node.get("pending_properties"), dict)
+            else {}
+        )
         if not collection or not source_id:
             continue
         set_values = {
@@ -61,7 +74,9 @@ async def promote_proposed_changes(db: Any, change_control_id: str, decided_at: 
             "change_control_effective_at": decided_at,
             "last_approved_change_control_id": change_control_id,
         }
-        await db[str(collection)].update_one(record_lookup_query(str(source_id)), {"$set": set_values})
+        await db[str(collection)].update_one(
+            record_lookup_query(str(source_id)), {"$set": set_values}
+        )
         await db[PROPOSED_CHANGE_COLLECTION].update_one(
             {"proposed_change_id": node.get("proposed_change_id")},
             {
@@ -93,9 +108,17 @@ async def promote_proposed_changes(db: Any, change_control_id: str, decided_at: 
     return promoted
 
 
-async def rollback_proposed_changes(db: Any, change_control_id: str, decided_at: datetime, reason: str | None) -> dict:
-    proposed_nodes = await db[PROPOSED_CHANGE_COLLECTION].find({"change_control_id": change_control_id}, {"_id": 0}).to_list(length=200)
-    await db[PROPOSED_CHANGE_COLLECTION].delete_many({"change_control_id": change_control_id})
+async def rollback_proposed_changes(
+    db: Any, change_control_id: str, decided_at: datetime, reason: str | None
+) -> dict:
+    proposed_nodes = (
+        await db[PROPOSED_CHANGE_COLLECTION]
+        .find({"change_control_id": change_control_id}, {"_id": 0})
+        .to_list(length=200)
+    )
+    await db[PROPOSED_CHANGE_COLLECTION].delete_many(
+        {"change_control_id": change_control_id}
+    )
     return {
         "rolled_back": len(proposed_nodes),
         "deleted": len(proposed_nodes),
@@ -105,12 +128,16 @@ async def rollback_proposed_changes(db: Any, change_control_id: str, decided_at:
     }
 
 
-async def _apply_approval_decision_to_source(db: Any, approval: dict, decision: str, reason: str | None, decided_at: datetime) -> None:
+async def _apply_approval_decision_to_source(
+    db: Any, approval: dict, decision: str, reason: str | None, decided_at: datetime
+) -> None:
     source_collection = approval.get("source_collection")
     source_id = approval.get("source_id")
     if not source_collection or not source_id:
         return
-    record = await db[source_collection].find_one(record_lookup_query(str(source_id)), {"_id": 0})
+    record = await db[source_collection].find_one(
+        record_lookup_query(str(source_id)), {"_id": 0}
+    )
     if not record:
         return
     chain = record.get("approval_chain") or record.get("approval_workflow") or []
@@ -118,7 +145,9 @@ async def _apply_approval_decision_to_source(db: Any, approval: dict, decision: 
         return
     updated_chain = []
     for step in chain:
-        if isinstance(step, dict) and int(step.get("sequence") or 0) == int(approval.get("sequence") or 0):
+        if isinstance(step, dict) and int(step.get("sequence") or 0) == int(
+            approval.get("sequence") or 0
+        ):
             step = {
                 **step,
                 "status": decision,
@@ -132,17 +161,28 @@ async def _apply_approval_decision_to_source(db: Any, approval: dict, decision: 
     source_status = record.get("status")
     if decision == "Rejected":
         source_status = "Rejected"
-    elif updated_chain and all(str(step.get("status")) == "Approved" for step in updated_chain if isinstance(step, dict)):
+    elif updated_chain and all(
+        str(step.get("status")) == "Approved"
+        for step in updated_chain
+        if isinstance(step, dict)
+    ):
         source_status = "Approved"
     promotion_result = None
     rollback_result = None
     if source_collection == CHANGE_CONTROL_COLLECTION and source_id:
         if decision == "Rejected":
-            rollback_result = await rollback_proposed_changes(db, str(source_id), decided_at, reason)
+            rollback_result = await rollback_proposed_changes(
+                db, str(source_id), decided_at, reason
+            )
         elif source_status == "Approved":
-            promotion_result = await promote_proposed_changes(db, str(source_id), decided_at)
+            promotion_result = await promote_proposed_changes(
+                db, str(source_id), decided_at
+            )
             try:
-                from services.pm.helpers.sop_cdc import apply_approved_change_control_to_sop
+                from services.pm.helpers.sop_cdc import (
+                    apply_approved_change_control_to_sop,
+                )
+
                 cc = await db[CHANGE_CONTROL_COLLECTION].find_one(
                     {"change_control_id": str(source_id)}, {"_id": 0}
                 )
@@ -164,7 +204,11 @@ async def _apply_approval_decision_to_source(db: Any, approval: dict, decision: 
                 "status": source_status,
                 "proposed_change_promotion": promotion_result,
                 "proposed_change_rollback": rollback_result,
-                "effective_at": decided_at if source_status == "Approved" else record.get("effective_at"),
+                "effective_at": (
+                    decided_at
+                    if source_status == "Approved"
+                    else record.get("effective_at")
+                ),
                 "updated_at": utc_now(),
             }
         },
@@ -202,7 +246,9 @@ async def record_approval_decision(
     if update_result.modified_count != 1:
         raise ApprovalAlreadyDecidedError("Approval has already been decided.")
     updated_approval = {**approval, **update}
-    await _apply_approval_decision_to_source(db, updated_approval, normalized_decision, reason, decided_at)
+    await _apply_approval_decision_to_source(
+        db, updated_approval, normalized_decision, reason, decided_at
+    )
     approvals = await _approval_records_for_source(db, approval.get("source_id"))
 
     decision_event = {
@@ -228,7 +274,9 @@ async def record_approval_decision(
     }
     decision_subject = None
     try:
-        decision_subject = await nats_store.publish_approval_decision_event(decision_event)
+        decision_subject = await nats_store.publish_approval_decision_event(
+            decision_event
+        )
     except Exception:
         pass
 
@@ -245,7 +293,8 @@ async def record_approval_decision(
             "signature_meaning": signature_meaning,
         },
         result={
-            "downstream_decision_subject": decision_subject or settings.NATS_APPROVAL_DECISIONS_SUBJECT,
+            "downstream_decision_subject": decision_subject
+            or settings.NATS_APPROVAL_DECISIONS_SUBJECT,
             "approval_audit_status": "pending_electronic_signature",
             "target_node": "Electronic Signature",
         },
@@ -254,7 +303,8 @@ async def record_approval_decision(
         "approval": updated_approval,
         "decision_event": decision_event,
         "audit_event": None,
-        "decision_subject": decision_subject or settings.NATS_APPROVAL_DECISIONS_SUBJECT,
+        "decision_subject": decision_subject
+        or settings.NATS_APPROVAL_DECISIONS_SUBJECT,
         "audit_subject": None,
         "approval_audit_status": "pending_electronic_signature",
         "approvals": approvals,

@@ -20,6 +20,7 @@ naming an action that is NOT registered on the capability bus, so the
 real ActionExecutor genuinely reports "Capability not found" -- a real
 rejection, not a fabricated one.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,7 +32,17 @@ from typing import Any
 
 BRIDGE_DIR = Path(os.environ.get("LLM_BRIDGE_DIR", "/tmp/mb-llm-bridge"))
 
-_DRONE_KEYWORDS = ("drone", "fly", "flight", "takeoff", "take off", "waypoint", "arm the", "land the", "vehicle")
+_DRONE_KEYWORDS = (
+    "drone",
+    "fly",
+    "flight",
+    "takeoff",
+    "take off",
+    "waypoint",
+    "arm the",
+    "land the",
+    "vehicle",
+)
 
 _TAKEOFF_RE = re.compile(r"take[\s-]*off\s*(?:to|at)?\s*(\d+(?:\.\d+)?)\s*m(?:eters?)?\b", re.IGNORECASE)
 _WAYPOINT_RE = re.compile(r"x\s*=\s*(-?\d+(?:\.\d+)?)\D+y\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -54,19 +65,31 @@ def _should_answer(prompt: str) -> bool:
     return any(kw in goal_line for kw in _DRONE_KEYWORDS)
 
 
-def _step(action: str, description: str, parameters: dict[str, Any], depends_on: list[int],
-          *, cost: float = 0.0, confidence: float = 0.9) -> dict[str, Any]:
+def _step(
+    action: str,
+    description: str,
+    parameters: dict[str, Any],
+    depends_on: list[int],
+    *,
+    cost: float = 0.0,
+    confidence: float = 0.9,
+) -> dict[str, Any]:
     return {
-        "action": action, "description": description, "expected_outcome": f"{action} completed",
-        "cost": cost, "confidence": confidence, "required_permission": "",
-        "parameters": parameters, "depends_on": depends_on,
+        "action": action,
+        "description": description,
+        "expected_outcome": f"{action} completed",
+        "cost": cost,
+        "confidence": confidence,
+        "required_permission": "",
+        "parameters": parameters,
+        "depends_on": depends_on,
     }
 
 
 def _extract_goal_text(prompt: str) -> str:
     for line in prompt.splitlines():
         if line.startswith("Goal:"):
-            return line[len("Goal:"):].strip()
+            return line[len("Goal:") :].strip()
     return prompt.strip()
 
 
@@ -88,12 +111,14 @@ def build_plan(mission_text: str) -> dict[str, Any]:
         # grocery.py::build_default_capability_bus never registers this),
         # so ActionExecutor's own discover() genuinely fails to find it.
         return {
-            "steps": [_step(
-                "UnsupportedMission",
-                f"Could not map {mission_text!r} to a supported PX4 capability "
-                "(Arm/Takeoff/Waypoint/Land)",
-                {"requested": mission_text}, [],
-            )],
+            "steps": [
+                _step(
+                    "UnsupportedMission",
+                    f"Could not map {mission_text!r} to a supported PX4 capability (Arm/Takeoff/Waypoint/Land)",
+                    {"requested": mission_text},
+                    [],
+                )
+            ],
             "summary": f"Rejected: no supported PX4 capability for {mission_text!r}",
             "confidence": 0.0,
         }
@@ -107,20 +132,34 @@ def build_plan(mission_text: str) -> dict[str, Any]:
         side = float(size_match.group(1)) if size_match else 5.0
         corners = [(side, 0.0), (side, side), (0.0, side)]
         for x, y in corners:
-            steps.append(_step(
-                "Waypoint", f"Fly to ({x}, {y})", {"x": x, "y": y, "height_m": height_m}, [len(steps) - 1],
-            ))
+            steps.append(
+                _step(
+                    "Waypoint",
+                    f"Fly to ({x}, {y})",
+                    {"x": x, "y": y, "height_m": height_m},
+                    [len(steps) - 1],
+                )
+            )
     elif waypoint_match:
         x, y = float(waypoint_match.group(1)), float(waypoint_match.group(2))
-        steps.append(_step(
-            "Waypoint", f"Fly to ({x}, {y})", {"x": x, "y": y, "height_m": height_m}, [len(steps) - 1],
-        ))
+        steps.append(
+            _step(
+                "Waypoint",
+                f"Fly to ({x}, {y})",
+                {"x": x, "y": y, "height_m": height_m},
+                [len(steps) - 1],
+            )
+        )
 
     if wants_return:
-        steps.append(_step(
-            "Waypoint", "Return to the starting point", {"x": 0.0, "y": 0.0, "height_m": height_m},
-            [len(steps) - 1],
-        ))
+        steps.append(
+            _step(
+                "Waypoint",
+                "Return to the starting point",
+                {"x": 0.0, "y": 0.0, "height_m": height_m},
+                [len(steps) - 1],
+            )
+        )
 
     if wants_land:
         steps.append(_step("Land", "Land the vehicle", {}, [len(steps) - 1]))
@@ -156,8 +195,7 @@ def main() -> None:
             plan = build_plan(mission_text)
             resp.write_text(json.dumps(plan, indent=2))
             seen.add(rid)
-            print(f"answered {rid}: {mission_text!r} -> "
-                  f"{[s['action'] for s in plan['steps']]}")
+            print(f"answered {rid}: {mission_text!r} -> {[s['action'] for s in plan['steps']]}")
         time.sleep(0.3)
 
 

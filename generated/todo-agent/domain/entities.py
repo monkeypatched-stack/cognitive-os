@@ -1,18 +1,26 @@
 from typing import Optional, List
 
+
 class Status:
     def __init__(self, value: str):
         self.value = value
 
     def is_valid(self) -> bool:
-        return self.value in ['pending', 'completed']
+        return self.value in ["pending", "completed"]
+
 
 class Reference:
     def __init__(self, id: str):
         self.id = id
 
+
 class TodoAgentItem:
-    def __init__(self, description: str, status: Status, references: Optional[List[Reference]] = None):
+    def __init__(
+        self,
+        description: str,
+        status: Status,
+        references: Optional[List[Reference]] = None,
+    ):
         self.description = description
         self.status = status
         self.references = references if references else []
@@ -22,6 +30,7 @@ class TodoAgentItem:
             return False
         self.status = new_status
         return True
+
 
 class TodoAgent:
     def __init__(self, id: str, items: Optional[List[TodoAgentItem]] = None):
@@ -39,11 +48,14 @@ class TodoAgent:
                 return True
         return False
 
+
 class TodoAgentCreatedEvent:
     pass
 
+
 class TodoAgentUpdatedEvent:
     pass
+
 
 class TodoAgentDeletedEvent:
     pass

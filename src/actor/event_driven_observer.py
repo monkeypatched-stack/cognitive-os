@@ -19,6 +19,7 @@ from enum import Enum
 
 class EventType(str, Enum):
     """Context Stream event types"""
+
     ENTITY_CREATED = "entity_created"
     ENTITY_UPDATED = "entity_updated"
     ENTITY_DELETED = "entity_deleted"
@@ -34,6 +35,7 @@ class EventType(str, Enum):
 @dataclass
 class ContextEvent:
     """Event emitted to Context Stream"""
+
     event_type: EventType
     source_actor_id: str
     affected_entity_id: str
@@ -41,7 +43,7 @@ class ContextEvent:
     timestamp: datetime = field(default_factory=datetime.now)
     version: int = 1
 
-    def matches_filter(self, event_filter: 'EventFilter') -> bool:
+    def matches_filter(self, event_filter: "EventFilter") -> bool:
         """Check if event matches subscription filter"""
         if event_filter.event_types and self.event_type not in event_filter.event_types:
             return False
@@ -61,6 +63,7 @@ class ContextEvent:
 @dataclass
 class EventFilter:
     """Filter for event subscriptions"""
+
     event_types: Optional[Set[EventType]] = None
     source_actors: Optional[Set[str]] = None
     affected_entities: Optional[Set[str]] = None
@@ -75,7 +78,7 @@ class EventSubscription:
         actor_id: str,
         event_filter: EventFilter,
         callback: Callable[[ContextEvent], None],
-        auto_believe: bool = True
+        auto_believe: bool = True,
     ):
         self.actor_id = actor_id
         self.event_filter = event_filter
@@ -118,7 +121,7 @@ class ContextStreamBroker:
         actor_id: str,
         event_filter: EventFilter,
         callback: Callable[[ContextEvent], None],
-        auto_believe: bool = True
+        auto_believe: bool = True,
     ) -> EventSubscription:
         """Subscribe actor to Context Stream events
 
@@ -135,7 +138,7 @@ class ContextStreamBroker:
             actor_id=actor_id,
             event_filter=event_filter,
             callback=callback,
-            auto_believe=auto_believe
+            auto_believe=auto_believe,
         )
 
         if actor_id not in self._subscriptions:
@@ -166,7 +169,7 @@ class ContextStreamBroker:
 
         # Trim history if too large
         if len(self._event_history) > self._max_history:
-            self._event_history = self._event_history[-self._max_history:]
+            self._event_history = self._event_history[-self._max_history :]
 
         # Dispatch to subscribed actors
         relevant_subscriptions = []
@@ -205,18 +208,20 @@ class ContextStreamBroker:
 
         subscriptions = self._subscriptions[actor_id]
         stats = {
-            'actor_id': actor_id,
-            'subscription_count': len(subscriptions),
-            'total_events_received': sum(s.event_count for s in subscriptions),
-            'subscriptions': []
+            "actor_id": actor_id,
+            "subscription_count": len(subscriptions),
+            "total_events_received": sum(s.event_count for s in subscriptions),
+            "subscriptions": [],
         }
 
         for sub in subscriptions:
-            stats['subscriptions'].append({
-                'event_types': list(sub.event_filter.event_types) if sub.event_filter.event_types else None,
-                'event_count': sub.event_count,
-                'last_event': sub.last_event.timestamp if sub.last_event else None,
-            })
+            stats["subscriptions"].append(
+                {
+                    "event_types": (list(sub.event_filter.event_types) if sub.event_filter.event_types else None),
+                    "event_count": sub.event_count,
+                    "last_event": sub.last_event.timestamp if sub.last_event else None,
+                }
+            )
 
         return stats
 
@@ -224,7 +229,7 @@ class ContextStreamBroker:
         self,
         event_type: Optional[EventType] = None,
         actor_id: Optional[str] = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[ContextEvent]:
         """Retrieve event history with filters"""
         results = []
@@ -243,10 +248,10 @@ class ContextStreamBroker:
     def get_stats(self) -> Dict[str, Any]:
         """Get broker statistics"""
         return {
-            'total_events_published': self._event_count,
-            'event_history_size': len(self._event_history),
-            'active_actors': len(self._subscriptions),
-            'total_subscriptions': sum(len(subs) for subs in self._subscriptions.values()),
+            "total_events_published": self._event_count,
+            "event_history_size": len(self._event_history),
+            "active_actors": len(self._subscriptions),
+            "total_subscriptions": sum(len(subs) for subs in self._subscriptions.values()),
         }
 
 
@@ -268,7 +273,7 @@ class EventDrivenActor:
     async def subscribe_to_events(
         self,
         event_filter: EventFilter,
-        callback: Optional[Callable[[ContextEvent], None]] = None
+        callback: Optional[Callable[[ContextEvent], None]] = None,
     ) -> EventSubscription:
         """Subscribe to Context Stream events
 
@@ -285,7 +290,7 @@ class EventDrivenActor:
             actor_id=self.id,
             event_filter=event_filter,
             callback=callback,
-            auto_believe=True
+            auto_believe=True,
         )
 
         self._subscriptions.append(subscription)
@@ -299,17 +304,14 @@ class EventDrivenActor:
                 EventType.ENTITY_UPDATED,
                 EventType.ACTION_EXECUTED,
             },
-            affected_entities={entity_id}
+            affected_entities={entity_id},
         )
 
         return await self.subscribe_to_events(event_filter)
 
     async def subscribe_to_actor_actions(self, source_actor_id: str) -> EventSubscription:
         """Subscribe to actions from specific actor"""
-        event_filter = EventFilter(
-            event_types={EventType.ACTION_EXECUTED},
-            source_actors={source_actor_id}
-        )
+        event_filter = EventFilter(event_types={EventType.ACTION_EXECUTED}, source_actors={source_actor_id})
 
         return await self.subscribe_to_events(event_filter)
 
@@ -335,7 +337,7 @@ class EventDrivenActor:
                 observations.append(event)
 
                 # Auto-update belief from event
-                if hasattr(self, 'beliefs'):
+                if hasattr(self, "beliefs"):
                     await self._update_belief_from_event(event)
 
             except asyncio.QueueEmpty:
@@ -350,22 +352,22 @@ class EventDrivenActor:
         Replaces polling-based worldexplorer.observe().
         """
         if event.event_type == EventType.ENTITY_UPDATED:
-            if hasattr(self, 'beliefs'):
+            if hasattr(self, "beliefs"):
                 self.beliefs.update_entity(
                     entity_id=event.affected_entity_id,
-                    state=event.data.get('new_state')
+                    state=event.data.get("new_state"),
                 )
 
         elif event.event_type == EventType.ACTION_EXECUTED:
-            if hasattr(self, 'beliefs'):
+            if hasattr(self, "beliefs"):
                 self.beliefs.update_from_action(
                     actor_id=event.source_actor_id,
-                    action=event.data.get('action'),
-                    result=event.data.get('result')
+                    action=event.data.get("action"),
+                    result=event.data.get("result"),
                 )
 
         elif event.event_type == EventType.WORLD_STATE_CHANGED:
-            if hasattr(self, 'beliefs'):
+            if hasattr(self, "beliefs"):
                 self.beliefs.update_world_state(event.data)
 
     def unsubscribe_all(self) -> None:
@@ -378,16 +380,16 @@ class EventDrivenActor:
     def get_observation_stats(self) -> Dict[str, Any]:
         """Get event subscription statistics"""
         return {
-            'actor_id': self.id,
-            'active_subscriptions': len(self._subscriptions),
-            'pending_observations': self._pending_observations.qsize(),
-            'subscriptions': [
+            "actor_id": self.id,
+            "active_subscriptions": len(self._subscriptions),
+            "pending_observations": self._pending_observations.qsize(),
+            "subscriptions": [
                 {
-                    'event_types': list(sub.event_filter.event_types) if sub.event_filter.event_types else None,
-                    'events_received': sub.event_count,
+                    "event_types": (list(sub.event_filter.event_types) if sub.event_filter.event_types else None),
+                    "events_received": sub.event_count,
                 }
                 for sub in self._subscriptions
-            ]
+            ],
         }
 
 
@@ -407,13 +409,13 @@ class ReactiveAutonomousActor(EventDrivenActor):
         events = await self.process_pending_observations()
 
         observations = {
-            'event_count': len(events),
-            'events': events,
-            'timestamp': datetime.now(),
+            "event_count": len(events),
+            "events": events,
+            "timestamp": datetime.now(),
         }
 
         if events:
-            observations['event_types'] = list(set(e.event_type for e in events))
+            observations["event_types"] = list(set(e.event_type for e in events))
 
         return observations
 
@@ -422,27 +424,31 @@ class ReactiveAutonomousActor(EventDrivenActor):
 
         Part of reactive observe→believe flow.
         """
-        if not events or not hasattr(self, 'beliefs'):
+        if not events or not hasattr(self, "beliefs"):
             return False
 
         belief_updated = False
         for event in events:
             try:
                 if event.event_type == EventType.ENTITY_UPDATED:
-                    self.beliefs.incorporate_observation({
-                        'type': 'entity_update',
-                        'entity': event.affected_entity_id,
-                        'state': event.data.get('new_state'),
-                    })
+                    self.beliefs.incorporate_observation(
+                        {
+                            "type": "entity_update",
+                            "entity": event.affected_entity_id,
+                            "state": event.data.get("new_state"),
+                        }
+                    )
                     belief_updated = True
 
                 elif event.event_type == EventType.ACTION_EXECUTED:
-                    self.beliefs.incorporate_observation({
-                        'type': 'action_execution',
-                        'actor': event.source_actor_id,
-                        'action': event.data.get('action'),
-                        'result': event.data.get('result'),
-                    })
+                    self.beliefs.incorporate_observation(
+                        {
+                            "type": "action_execution",
+                            "actor": event.source_actor_id,
+                            "action": event.data.get("action"),
+                            "result": event.data.get("result"),
+                        }
+                    )
                     belief_updated = True
 
             except Exception as e:

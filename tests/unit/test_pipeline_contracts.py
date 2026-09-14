@@ -3,6 +3,7 @@
 Validates construction, immutability, validation, and defaults
 for all pipeline contract types.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -20,10 +21,10 @@ from src.monkey_brain.kernel.pipeline.contracts import (
     PipelineError,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # PipelineRequest
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPipelineRequest:
     def test_construction_minimal(self):
@@ -78,6 +79,7 @@ class TestPipelineRequest:
 # PipelineAttachment
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPipelineAttachment:
     def test_construction(self):
         att = PipelineAttachment(name="doc.pdf", content_type="application/pdf", data=b"%PDF")
@@ -94,6 +96,7 @@ class TestPipelineAttachment:
 # ═══════════════════════════════════════════════════════════════════════════
 # CompiledRequest
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCompiledRequest:
     def test_construction(self):
@@ -114,7 +117,11 @@ class TestCompiledRequest:
     def test_immutable(self):
         req = PipelineRequest(question="test")
         compiled = CompiledRequest(
-            request=req, intent={}, goal={}, intent_ir={}, goal_ir={},
+            request=req,
+            intent={},
+            goal={},
+            intent_ir={},
+            goal_ir={},
             execution_context={},
         )
         with pytest.raises(FrozenInstanceError):
@@ -124,6 +131,7 @@ class TestCompiledRequest:
 # ═══════════════════════════════════════════════════════════════════════════
 # RuntimeContext
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRuntimeContext:
     def test_construction_empty(self):
@@ -157,6 +165,7 @@ class TestRuntimeContext:
     def test_no_runtime_imports(self):
         """RuntimeContext must not import any concrete runtime class."""
         import src.monkey_brain.kernel.pipeline.contracts as mod
+
         source = open(mod.__file__).read()
         assert "from src.monkey_brain.kernel.compile" not in source
         assert "from src.monkey_brain.kernel.execute" not in source
@@ -166,6 +175,7 @@ class TestRuntimeContext:
 # ═══════════════════════════════════════════════════════════════════════════
 # PipelineResponse
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPipelineResponse:
     def test_construction_minimal(self):
@@ -211,6 +221,7 @@ class TestPipelineResponse:
 # PipelineStatus
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPipelineStatus:
     def test_constants(self):
         assert PipelineStatus.SUCCESS == "success"
@@ -222,6 +233,7 @@ class TestPipelineStatus:
 # ═══════════════════════════════════════════════════════════════════════════
 # PipelineArtifact
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPipelineArtifact:
     def test_construction(self):
@@ -239,6 +251,7 @@ class TestPipelineArtifact:
 # PipelineTraceEntry
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPipelineTraceEntry:
     def test_construction(self):
         entry = PipelineTraceEntry(step="planning", status="ok", duration_ms=42.5)
@@ -254,6 +267,7 @@ class TestPipelineTraceEntry:
 # ═══════════════════════════════════════════════════════════════════════════
 # PipelineError
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPipelineError:
     def test_construction(self):
@@ -271,11 +285,13 @@ class TestPipelineError:
 # Dependency direction verification
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDependencyDirection:
     def test_contracts_import_no_runtime(self):
         """contracts.py must not import any runtime implementation."""
         import inspect
         import src.monkey_brain.kernel.pipeline.contracts as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "from src.monkey_brain.kernel.compile.",
@@ -293,7 +309,11 @@ class TestDependencyDirection:
         """CompiledRequest contains PipelineRequest, not a copy."""
         req = PipelineRequest(question="test")
         compiled = CompiledRequest(
-            request=req, intent={}, goal={}, intent_ir={}, goal_ir={},
+            request=req,
+            intent={},
+            goal={},
+            intent_ir={},
+            goal_ir={},
             execution_context={},
         )
         assert compiled.request is req

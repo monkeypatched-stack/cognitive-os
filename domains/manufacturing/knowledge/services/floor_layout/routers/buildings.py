@@ -17,6 +17,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedBuildingResponse)
 async def list_buildings(
     page: int = Query(1, ge=1),
@@ -35,6 +36,7 @@ async def list_buildings(
 
 # ── Get by facility ───────────────────────────────────────────────────────────
 
+
 @router.get("/by-facility/{facility_id}", response_model=list[BuildingResponse])
 async def list_buildings_by_facility(
     facility_id: str,
@@ -45,6 +47,7 @@ async def list_buildings_by_facility(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{building_id}", response_model=BuildingResponse)
 async def get_building(
@@ -63,6 +66,7 @@ async def get_building(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 @router.post("/", response_model=BuildingResponse, status_code=status.HTTP_201_CREATED)
 async def create_building(
     data: BuildingCreate,
@@ -78,6 +82,7 @@ async def create_building(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{building_id}", response_model=BuildingResponse)
 async def update_building(
@@ -96,6 +101,7 @@ async def update_building(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{building_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_building(

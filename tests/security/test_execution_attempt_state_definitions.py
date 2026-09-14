@@ -10,6 +10,7 @@ the boundary between execution-attempt state and its neighbors
 See docs/security/execution-attempt-state-machine.md for the narrative
 model this enforces.
 """
+
 from __future__ import annotations
 
 import ast
@@ -34,10 +35,20 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # plausibly define all of these under one class — NodeState/ProcessState/
 # TransactionStatus/CapabilityState etc. (real, separate lifecycles found
 # in this repo) each lack at least one of these.
-_CANONICAL_MEMBER_NAMES = frozenset({
-    "NOT_STARTED", "READY", "STARTED", "SUBMITTED", "SUCCEEDED", "FAILED",
-    "UNKNOWN", "RECONCILIATION_REQUIRED", "RECONCILING", "CANCELLED",
-})
+_CANONICAL_MEMBER_NAMES = frozenset(
+    {
+        "NOT_STARTED",
+        "READY",
+        "STARTED",
+        "SUBMITTED",
+        "SUCCEEDED",
+        "FAILED",
+        "UNKNOWN",
+        "RECONCILIATION_REQUIRED",
+        "RECONCILING",
+        "CANCELLED",
+    }
+)
 
 _SEARCH_DIRS = ("src", "packages", "domains", "services", "tests")
 _SKIP_PARTS = {"__pycache__", ".venv", "venv", "node_modules", ".git"}
@@ -153,10 +164,15 @@ class TestCanonicalTransitionMechanism:
         )
 
         ledger = OperationLedger()
-        ledger.create(SecurityOperation(
-            operation_id="op-ledger-cross-enum", action="orders.create", resource="o",
-            state=SecurityOperationState.AUTHORIZED, transaction_class=TransactionClass.CLASS_A_INTERNAL,
-        ))
+        ledger.create(
+            SecurityOperation(
+                operation_id="op-ledger-cross-enum",
+                action="orders.create",
+                resource="o",
+                state=SecurityOperationState.AUTHORIZED,
+                transaction_class=TransactionClass.CLASS_A_INTERNAL,
+            )
+        )
         with pytest.raises(TypeError):
             ledger.transition("op-ledger-cross-enum", ExecutionAttemptState.SUCCEEDED)
 
@@ -165,7 +181,9 @@ class TestSerializationRoundTrip:
     def test_to_dict_and_reconstruct_from_audit_preserve_canonical_state(self):
         reset_attempt_store_for_tests()
         attempt = ExecutionAttempt(
-            execution_attempt_id="op-serialize-ATT-1", operation_id="op-serialize", attempt_number=1,
+            execution_attempt_id="op-serialize-ATT-1",
+            operation_id="op-serialize",
+            attempt_number=1,
             state=ExecutionAttemptState.SUCCEEDED,
         )
         payload = attempt.to_dict()
@@ -174,19 +192,25 @@ class TestSerializationRoundTrip:
         # that exists today (audit-log reconstruction — there is no direct
         # Mongo/Redis persistence of ExecutionAttempt yet, so that boundary
         # is not exercised here; see the final report's remaining limitations).
-        recovered = reconstruct_attempts_from_audit([{
-            "action": "orders.create.result",
-            "details": {
-                "execution_attempt_id": payload["execution_attempt_id"],
-                "state": payload["state"],
-            },
-        }])
+        recovered = reconstruct_attempts_from_audit(
+            [
+                {
+                    "action": "orders.create.result",
+                    "details": {
+                        "execution_attempt_id": payload["execution_attempt_id"],
+                        "state": payload["state"],
+                    },
+                }
+            ]
+        )
         assert recovered[payload["execution_attempt_id"]] is ExecutionAttemptState.SUCCEEDED
         assert recovered[payload["execution_attempt_id"]] is ExecutionAttemptState(payload["state"])
 
 
 class TestProviderStatusDoesNotLeakIntoExecutionAttemptState:
-    def test_reservation_status_and_execution_attempt_state_share_no_member_identity(self):
+    def test_reservation_status_and_execution_attempt_state_share_no_member_identity(
+        self,
+    ):
         """External provider status (payment_provider.ReservationStatus) is
         a distinct vocabulary at the integration boundary — it must be
         mapped through classify_external_exception, never assigned directly
@@ -206,7 +230,9 @@ class TestProviderStatusDoesNotLeakIntoExecutionAttemptState:
             assert not isinstance(member, ReservationStatus)
 
     def test_classify_external_exception_is_the_only_provider_to_attempt_bridge(self):
-        from src.monkey_brain.kernel.security_operation import classify_external_exception
+        from src.monkey_brain.kernel.security_operation import (
+            classify_external_exception,
+        )
 
         assert classify_external_exception(TimeoutError("x")) == "unknown"
         assert classify_external_exception(RuntimeError("declined")) == "failed"
@@ -219,7 +245,8 @@ class TestCommitmentStateCannotBeReadAsAnAttemptState:
         of the reconciliation policy). AUTHORIZED / AUDIT_INTENT_RECORDED /
         EXECUTING have no ExecutionAttemptState counterpart at all."""
         commitment_only = {
-            SecurityOperationState.AUTHORIZED, SecurityOperationState.AUDIT_INTENT_RECORDED,
+            SecurityOperationState.AUTHORIZED,
+            SecurityOperationState.AUDIT_INTENT_RECORDED,
             SecurityOperationState.EXECUTING,
         }
         for member in commitment_only:
@@ -237,8 +264,7 @@ class TestCommitmentStateCannotBeReadAsAnAttemptState:
         assert "RECONCILIATION_REQUIRED" in ExecutionAttemptState.__members__
         assert "RECONCILIATION_REQUIRED" in SecurityOperationState.__members__
         assert (
-            ExecutionAttemptState.RECONCILIATION_REQUIRED.value
-            == SecurityOperationState.RECONCILIATION_REQUIRED.value
+            ExecutionAttemptState.RECONCILIATION_REQUIRED.value == SecurityOperationState.RECONCILIATION_REQUIRED.value
         )
 
 
@@ -247,7 +273,14 @@ class TestAuditEventNamesAreNotExecutionStates:
         """'reconciliation_succeeded' (an audit action suffix) must never be
         confused with ExecutionAttemptState.SUCCEEDED (a state value) —
         they are different vocabularies at different layers."""
-        audit_event_names = {"required", "started", "succeeded", "failed", "unresolved", "retry_authorized"}
+        audit_event_names = {
+            "required",
+            "started",
+            "succeeded",
+            "failed",
+            "unresolved",
+            "retry_authorized",
+        }
         state_values = {s.value for s in ExecutionAttemptState}
         # 'succeeded'/'failed' happen to share spelling with two audit event
         # suffixes, but the AUDIT ACTION is always "<action>.reconciliation.<event>",

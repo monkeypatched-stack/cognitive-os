@@ -27,13 +27,15 @@ async def worker_question_answer(client, question, force=False):
                 if wos:
                     lines.append(f"  Assigned Work Orders ({len(wos)}):")
                     for wo in wos:
-                        lines.append(f"    - {wo.get('work_order_id', '?')}: {wo.get('title', 'N/A')} [{wo.get('status', '?')}]")
+                        lines.append(
+                            f"    - {wo.get('work_order_id', '?')}: {wo.get('title', 'N/A')} [{wo.get('status', '?')}]"
+                        )
                 else:
                     lines.append("  No work orders currently assigned.")
                 return ("\n".join(lines), [], [], False)
 
         # Department filter
-        dept_match = re.search(r'(?:in|for|from)\s+(.+?)(?:\?|$)', question, re.IGNORECASE)
+        dept_match = re.search(r"(?:in|for|from)\s+(.+?)(?:\?|$)", question, re.IGNORECASE)
         if dept_match:
             # Workers don't have department field directly, list all
             cursor = collection.find().limit(20)
@@ -63,6 +65,19 @@ async def worker_question_answer(client, question, force=False):
 
 def is_worker_question(question):
     q = question.lower()
-    return any(kw in q for kw in ("worker", "worker", "employee", "staff", "team member",
-                                    "operator", "technician", "assigned to", "tasks for",
-                                    "who is", "who works"))
+    return any(
+        kw in q
+        for kw in (
+            "worker",
+            "worker",
+            "employee",
+            "staff",
+            "team member",
+            "operator",
+            "technician",
+            "assigned to",
+            "tasks for",
+            "who is",
+            "who works",
+        )
+    )

@@ -6,6 +6,7 @@ supporting type — the same pattern Step 8.1's ValidationStatus and Step
 9.1's RetryPolicy/RetryStrategy used). Pure data — no algorithm, no mocking
 needed.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -23,10 +24,10 @@ from src.monkey_brain.kernel.pipeline.learning import (
     LearningResult,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # LearningEvent
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLearningEvent:
     def test_construction(self):
@@ -47,9 +48,16 @@ class TestLearningEvent:
 # LearningObservation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearningObservation:
     def test_construction(self):
-        obs = LearningObservation(entity="Store A", attribute="stocks_whole_milk", value=True, confidence=0.9, source="execution_outcome")
+        obs = LearningObservation(
+            entity="Store A",
+            attribute="stocks_whole_milk",
+            value=True,
+            confidence=0.9,
+            source="execution_outcome",
+        )
         assert obs.entity == "Store A"
         assert obs.value is True
         assert obs.confidence == 0.9
@@ -69,9 +77,15 @@ class TestLearningObservation:
 # LearningSignal
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearningSignal:
     def test_construction(self):
-        signal = LearningSignal(kind="belief", subject="Store A.stocks_whole_milk", direction=1.0, strength=0.8)
+        signal = LearningSignal(
+            kind="belief",
+            subject="Store A.stocks_whole_milk",
+            direction=1.0,
+            strength=0.8,
+        )
         assert signal.kind == "belief"
         assert signal.direction == 1.0
         assert signal.signal_id  # auto-generated
@@ -94,6 +108,7 @@ class TestLearningSignal:
 # LearningOutcome
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearningOutcome:
     def test_construction(self):
         outcome = LearningOutcome(goal_achieved=True, partial=False, cost=0.25, duration_seconds=360.0)
@@ -115,9 +130,15 @@ class TestLearningOutcome:
 # Provenance
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestProvenance:
     def test_construction(self):
-        prov = Provenance(actor_id="alice", tenant_id="acme", run_id="run-001", source="execution_outcome")
+        prov = Provenance(
+            actor_id="alice",
+            tenant_id="acme",
+            run_id="run-001",
+            source="execution_outcome",
+        )
         assert prov.actor_id == "alice"
         assert prov.source == "execution_outcome"
 
@@ -136,6 +157,7 @@ class TestProvenance:
 # LearningExperience — the central type; matches the acceptance-criteria example
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearningExperience:
     def test_construction_minimal(self):
         experience = LearningExperience()
@@ -153,7 +175,11 @@ class TestLearningExperience:
         """Deliberately Any-typed — must work for both belief_state.Plan-shaped
         data (the default LLMPlanner path) and planning.domain.Plan-
         shaped data (the IntegratedPlanningEngine path), or anything else."""
-        experience = LearningExperience(goal="acquire_milk", plan={"strategy": "walk_to_store"}, execution={"success_count": 4})
+        experience = LearningExperience(
+            goal="acquire_milk",
+            plan={"strategy": "walk_to_store"},
+            execution={"success_count": 4},
+        )
         assert experience.goal == "acquire_milk"
         assert experience.plan == {"strategy": "walk_to_store"}
         assert experience.execution == {"success_count": 4}
@@ -162,12 +188,25 @@ class TestLearningExperience:
         """'Successfully purchased milk from Store A in 6 minutes' — the
         exact illustrative example from Step 10's acceptance criteria."""
         observation = LearningObservation(
-            entity="Store A", attribute="stocks_whole_milk", value=True,
-            confidence=0.9, source="execution_outcome",
+            entity="Store A",
+            attribute="stocks_whole_milk",
+            value=True,
+            confidence=0.9,
+            source="execution_outcome",
         )
         outcome = LearningOutcome(goal_achieved=True, partial=False, cost=0.25, duration_seconds=360.0)
-        provenance = Provenance(actor_id="alice", tenant_id="acme", run_id="run-001", source="execution_outcome")
-        signal = LearningSignal(kind="belief", subject="Store A.stocks_whole_milk", direction=1.0, strength=0.8)
+        provenance = Provenance(
+            actor_id="alice",
+            tenant_id="acme",
+            run_id="run-001",
+            source="execution_outcome",
+        )
+        signal = LearningSignal(
+            kind="belief",
+            subject="Store A.stocks_whole_milk",
+            direction=1.0,
+            strength=0.8,
+        )
         event = LearningEvent(event_type="goal_achieved", description="Purchased milk from Store A")
 
         experience = LearningExperience(
@@ -199,9 +238,14 @@ class TestLearningExperience:
 # LearningPolicy
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearningPolicy:
     def test_construction(self):
-        policy = LearningPolicy(name="default_rl", strategy="reinforcement", parameters={"learning_rate": 0.1})
+        policy = LearningPolicy(
+            name="default_rl",
+            strategy="reinforcement",
+            parameters={"learning_rate": 0.1},
+        )
         assert policy.strategy == "reinforcement"
         assert policy.parameters["learning_rate"] == 0.1
 
@@ -219,6 +263,7 @@ class TestLearningPolicy:
 # ═══════════════════════════════════════════════════════════════════════════
 # LearningContext / LearningResult
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLearningContext:
     def test_composes_experience_and_policy(self):
@@ -244,8 +289,12 @@ class TestLearningResult:
     def test_construction(self):
         signal = LearningSignal(kind="belief")
         result = LearningResult(
-            experience_id="exp-1", reward=0.92, signals_applied=(signal,),
-            belief_updated=True, world_updated=True, rationale="Goal achieved quickly and within budget.",
+            experience_id="exp-1",
+            reward=0.92,
+            signals_applied=(signal,),
+            belief_updated=True,
+            world_updated=True,
+            rationale="Goal achieved quickly and within budget.",
         )
         assert result.reward == 0.92
         assert result.belief_updated is True
@@ -267,6 +316,7 @@ class TestLearningResult:
 # Ownership boundary — model-only, no coupling to runtime/execution engine
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     """Actual `import X` / `from X import ...` module names — not a bare
     substring scan, so an explanatory docstring mentioning a filename by
@@ -275,6 +325,7 @@ def _imported_modules(mod) -> list[str]:
     already uses for the same reason."""
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -290,8 +341,13 @@ class TestOwnershipBoundary:
         """Step 10.1 must not import ExecutionEngine or CognitiveRuntime —
         those stay untouched until Step 10.7."""
         import src.monkey_brain.kernel.pipeline.learning.domain as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "kernel.pipeline.execution", "action_executor"):
+        for forbidden in (
+            "belief_runtime",
+            "kernel.pipeline.execution",
+            "action_executor",
+        ):
             assert forbidden not in imports, f"learning/domain.py must not import: {forbidden}"
 
     def test_pure_stdlib_dependencies_only(self):
@@ -299,6 +355,7 @@ class TestOwnershipBoundary:
         docstring) — domain.py has no reason to import planning.domain or
         execution_runtime.domain at all."""
         import src.monkey_brain.kernel.pipeline.learning.domain as mod
+
         imports = _imported_modules(mod)
         for module_name in imports:
             assert not module_name.startswith("src.monkey_brain.kernel.pipeline.planning"), module_name

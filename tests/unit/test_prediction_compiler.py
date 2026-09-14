@@ -4,21 +4,35 @@ Validates that PredictionCompiler produces deterministic, serializable
 artifacts from prediction pipeline outputs. Follows the same testing
 pattern as test_prediction_domain.py / test_prediction_scenarios.py.
 """
+
 from __future__ import annotations
 
 import dataclasses
 import pytest
 
 from src.monkey_brain.kernel.pipeline.prediction.compiler import (
-    PredictionCompiler, PredictionSummary, ScenarioSet, ScenarioSummary,
-    ConfidenceReport, DecisionRecommendation, prediction_summary_to_dict,
+    PredictionCompiler,
+    PredictionSummary,
+    ScenarioSet,
+    ScenarioSummary,
+    ConfidenceReport,
+    DecisionRecommendation,
+    prediction_summary_to_dict,
     compile_prediction,
 )
 from src.monkey_brain.kernel.pipeline.prediction.domain import (
-    Prediction, PredictionCandidate, PredictionConfidence, PredictionOutcome, PredictionResult,
+    Prediction,
+    PredictionCandidate,
+    PredictionConfidence,
+    PredictionOutcome,
+    PredictionResult,
 )
 from src.monkey_brain.kernel.pipeline.prediction.risk import RiskAssessment, RiskFactor
-from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel, TransitionPredictionEngine, WorldTransition
+from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+    TransitionModel,
+    TransitionPredictionEngine,
+    WorldTransition,
+)
 from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationEngine
 
 
@@ -33,10 +47,18 @@ class _Plan:
 
 
 def _trajectory_at_probability(probability: float):
-    model = TransitionModel(known_transitions={
-        ("", "purchase_milk"): (WorldTransition(description="result", probability=probability, confidence=0.9,
-                                           resulting_world_delta={"x": 1}),),
-    })
+    model = TransitionModel(
+        known_transitions={
+            ("", "purchase_milk"): (
+                WorldTransition(
+                    description="result",
+                    probability=probability,
+                    confidence=0.9,
+                    resulting_world_delta={"x": 1},
+                ),
+            ),
+        }
+    )
     plan = _Plan(steps=(_Step("purchase_milk"),))
     return SimulationEngine(TransitionPredictionEngine(model)).simulate_plan(None, None, plan)
 
@@ -44,23 +66,39 @@ def _trajectory_at_probability(probability: float):
 def _acceptance_result() -> PredictionResult:
     """Reproduces the acceptance criteria: Scenario A (96%), B (12%), C (81%)."""
     a = PredictionCandidate(
-        prediction=Prediction(predicted_outcomes=(PredictionOutcome(description="Store open, milk purchased", success=True, probability=0.96),),
-                              confidence=PredictionConfidence(point_estimate=0.96, rationale="high confidence"),
-                              assumptions=("Store open",)),
-        scenario_label="Scenario A", probability=0.96,
+        prediction=Prediction(
+            predicted_outcomes=(
+                PredictionOutcome(
+                    description="Store open, milk purchased",
+                    success=True,
+                    probability=0.96,
+                ),
+            ),
+            confidence=PredictionConfidence(point_estimate=0.96, rationale="high confidence"),
+            assumptions=("Store open",),
+        ),
+        scenario_label="Scenario A",
+        probability=0.96,
     )
     b = PredictionCandidate(
-        prediction=Prediction(predicted_outcomes=(PredictionOutcome(description="Store closed", success=False, probability=0.12),),
-                              confidence=PredictionConfidence(point_estimate=0.3, rationale="low confidence"),
-                              assumptions=("Store closed",)),
-        scenario_label="Scenario B", probability=0.12, rejected=True,
+        prediction=Prediction(
+            predicted_outcomes=(PredictionOutcome(description="Store closed", success=False, probability=0.12),),
+            confidence=PredictionConfidence(point_estimate=0.3, rationale="low confidence"),
+            assumptions=("Store closed",),
+        ),
+        scenario_label="Scenario B",
+        probability=0.12,
+        rejected=True,
         rejection_reason="Success probability 12% below acceptance threshold 30%",
     )
     c = PredictionCandidate(
-        prediction=Prediction(predicted_outcomes=(PredictionOutcome(description="Traffic delay", success=True, probability=0.81),),
-                              confidence=PredictionConfidence(point_estimate=0.81, rationale="medium confidence"),
-                              assumptions=("Traffic delay",)),
-        scenario_label="Scenario C", probability=0.81,
+        prediction=Prediction(
+            predicted_outcomes=(PredictionOutcome(description="Traffic delay", success=True, probability=0.81),),
+            confidence=PredictionConfidence(point_estimate=0.81, rationale="medium confidence"),
+            assumptions=("Traffic delay",),
+        ),
+        scenario_label="Scenario C",
+        probability=0.81,
     )
     return PredictionResult(
         candidates=(a, b, c),
@@ -73,6 +111,7 @@ def _acceptance_result() -> PredictionResult:
 # ═══════════════════════════════════════════════════════════════════════════
 # PredictionCompiler.compile
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCompile:
     def test_produces_prediction_summary(self):
@@ -129,7 +168,10 @@ class TestCompile:
         result = _acceptance_result()
         assessments = (
             RiskAssessment(probability_of_success=0.96, risk_factors=()),
-            RiskAssessment(probability_of_success=0.12, risk_factors=(RiskFactor(name="store_closed", category="missing_knowledge"),)),
+            RiskAssessment(
+                probability_of_success=0.12,
+                risk_factors=(RiskFactor(name="store_closed", category="missing_knowledge"),),
+            ),
             RiskAssessment(probability_of_success=0.81, risk_factors=()),
         )
         summary = PredictionCompiler().compile(result, assessments=assessments)
@@ -168,6 +210,7 @@ class TestCompile:
 # Determinism
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDeterminism:
     def test_same_inputs_produce_same_output(self):
         result = _acceptance_result()
@@ -181,6 +224,7 @@ class TestDeterminism:
 # ═══════════════════════════════════════════════════════════════════════════
 # Serialization
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSerialization:
     def test_prediction_summary_to_dict_is_json_safe(self):
@@ -197,6 +241,7 @@ class TestSerialization:
         produce output json.dumps() actually accepts, not just a dict
         that happens to embed a raw non-serializable object."""
         import json
+
         result = _acceptance_result()
         plan = _Plan(steps=(_Step("purchase_milk"),))
         summary = PredictionCompiler().compile(result, plan=plan)
@@ -215,6 +260,7 @@ class TestSerialization:
 
     def test_frozen_dataclasses(self):
         from dataclasses import FrozenInstanceError
+
         with pytest.raises(FrozenInstanceError):
             PredictionSummary().scenario_set = ScenarioSet()
         with pytest.raises(FrozenInstanceError):
@@ -229,6 +275,7 @@ class TestSerialization:
 # Module-level convenience
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCompilePrediction:
     def test_module_level_wrapper(self):
         result = _acceptance_result()
@@ -241,9 +288,11 @@ class TestCompilePrediction:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -257,12 +306,19 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_runtime_or_execution_coupling(self):
         import src.monkey_brain.kernel.pipeline.prediction.compiler as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "kernel.pipeline.execution", "action_executor", "learning."):
+        for forbidden in (
+            "belief_runtime",
+            "kernel.pipeline.execution",
+            "action_executor",
+            "learning.",
+        ):
             assert forbidden not in imports, f"compiler.py must not import: {forbidden}"
 
     def test_depends_only_on_prediction_subpackage(self):
         import src.monkey_brain.kernel.pipeline.prediction.compiler as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

@@ -13,6 +13,7 @@ from typing import Any
 try:
     from services.common.trace_context import get_trace_id
 except ImportError:
+
     def get_trace_id() -> str:
         return ""
 
@@ -52,11 +53,14 @@ async def emit(
     metadata: dict[str, Any] | None = None,
 ) -> None:
     """Emit an auth audit event. Never raises — audit is best-effort."""
-    event = _build_event(action, outcome, principal, policy_path=policy_path, metadata=metadata)
+    event = _build_event(
+        action, outcome, principal, policy_path=policy_path, metadata=metadata
+    )
 
     # Route through introspection audit framework first
     try:
         from src.introspection.audit import record
+
         await record(event)
     except Exception:
         pass
@@ -64,12 +68,17 @@ async def emit(
     # Transport via cerebellum NATS capability
     try:
         from cerebellum.capabilities.security.nats_audit import publish
+
         await publish(event)
     except Exception:
         # Last-resort structured log
         import logging
+
         logging.getLogger(__name__).info(
             "AUTH_AUDIT action=%s outcome=%s subject=%s trace=%s",
-            event["action"], event["outcome"], event["subject"], event["trace_id"],
+            event["action"],
+            event["outcome"],
+            event["subject"],
+            event["trace_id"],
             extra={"audit_event": event},
         )

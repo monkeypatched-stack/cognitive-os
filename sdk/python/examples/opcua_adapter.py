@@ -58,9 +58,7 @@ class OPCUASensorAdapter(CapabilityAdapter):
     async def initialize(self) -> None:
         endpoint = self.config.get("endpoint")
         if not endpoint:
-            raise AdapterInitializationError(
-                "OPCUASensorAdapter requires 'endpoint' in configuration."
-            )
+            raise AdapterInitializationError("OPCUASensorAdapter requires 'endpoint' in configuration.")
 
         credentials = self.config.get("credentials", {})
         pool_size = int(self.config.get("pool_size", 3))
@@ -100,9 +98,7 @@ class OPCUASensorAdapter(CapabilityAdapter):
         node_ids: Optional[List[str]] = inputs.get("node_ids")
 
         if not node_id and not node_ids:
-            return AdapterResponse.fail(
-                "Provide either 'node_id' (single) or 'node_ids' (batch)."
-            )
+            return AdapterResponse.fail("Provide either 'node_id' (single) or 'node_ids' (batch).")
 
         if self._pool is None:
             return AdapterResponse.fail("Connection pool not initialized.")
@@ -114,9 +110,7 @@ class OPCUASensorAdapter(CapabilityAdapter):
                         # Single read
                         span.set_tag("node_id", node_id)
                         value = await self._read_node(client, node_id)
-                        await self.emit_metric(
-                            "opcua_reads", 1.0, tags={"node": node_id}
-                        )
+                        await self.emit_metric("opcua_reads", 1.0, tags={"node": node_id})
                         return AdapterResponse.ok(
                             {
                                 "node_id": node_id,
@@ -136,9 +130,7 @@ class OPCUASensorAdapter(CapabilityAdapter):
                                     {
                                         "node_id": nid,
                                         "value": val,
-                                        "timestamp": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
+                                        "timestamp": datetime.now(timezone.utc).isoformat(),
                                         "error": None,
                                     }
                                 )
@@ -147,16 +139,12 @@ class OPCUASensorAdapter(CapabilityAdapter):
                                     {
                                         "node_id": nid,
                                         "value": None,
-                                        "timestamp": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
+                                        "timestamp": datetime.now(timezone.utc).isoformat(),
                                         "error": str(exc),
                                     }
                                 )
 
-                        await self.emit_metric(
-                            "opcua_batch_reads", float(len(node_ids))
-                        )
+                        await self.emit_metric("opcua_batch_reads", float(len(node_ids)))
                         return AdapterResponse.ok({"readings": readings})
 
         except Exception as exc:

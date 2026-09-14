@@ -1,4 +1,5 @@
 """CCB-500 — recall traceability and shortage option preparation."""
+
 from src.monkey_brain.kernel.domains.recall import recall_batch
 from src.monkey_brain.kernel.domains.supply_chain import shortage_options
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
@@ -6,13 +7,27 @@ from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
 def test_recall_traces_inventory_contacts_households_and_issues_refunds():
     kg = KnowledgeGraph()
-    kg.add_entity("store-stock", EntityType.ASSET, "Store milk stock", {
-        "batch_id": "MILK-42", "quantity": 12, "store_id": "costco",
-    })
-    kg.add_entity("household-purchase", EntityType.ASSET, "Household milk", {
-        "batch_id": "MILK-42", "quantity": 2, "household_id": "household-1",
-        "purchase_amount": 8.50,
-    })
+    kg.add_entity(
+        "store-stock",
+        EntityType.ASSET,
+        "Store milk stock",
+        {
+            "batch_id": "MILK-42",
+            "quantity": 12,
+            "store_id": "costco",
+        },
+    )
+    kg.add_entity(
+        "household-purchase",
+        EntityType.ASSET,
+        "Household milk",
+        {
+            "batch_id": "MILK-42",
+            "quantity": 2,
+            "household_id": "household-1",
+            "purchase_amount": 8.50,
+        },
+    )
 
     result = recall_batch(kg, "MILK-42", "supplier contamination")
 

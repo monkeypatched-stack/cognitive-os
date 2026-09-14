@@ -44,6 +44,7 @@ logger = logging.getLogger("agentos.hybrid.handlers")
 @dataclass
 class HandlerResponse:
     """Response from any handler"""
+
     status: str  # "success" | "error" | "partial"
     handler_type: str
     response_text: str
@@ -89,6 +90,7 @@ class ActionHandler(BaseHandler):
     async def handle(self, question: str, context: Optional[Dict[str, Any]] = None) -> HandlerResponse:
         """Process action query through PipelineOrchestrator → CognitiveRuntime."""
         import time
+
         start_time = time.time()
 
         try:
@@ -98,6 +100,7 @@ class ActionHandler(BaseHandler):
 
             # Build PipelineRequest from transport data
             from src.monkey_brain.kernel.pipeline.contracts import PipelineRequest
+
             request = PipelineRequest(
                 question=question,
                 actor_id=(context or {}).get("actor_id", "unknown"),
@@ -121,7 +124,7 @@ class ActionHandler(BaseHandler):
                     "trace": [t.step for t in pipeline_response.trace],
                     "errors": [e.code for e in pipeline_response.errors],
                 },
-                latency_ms=latency
+                latency_ms=latency,
             )
 
         except Exception as e:
@@ -131,12 +134,13 @@ class ActionHandler(BaseHandler):
                 status="error",
                 handler_type="ActionHandler",
                 response_text=f"Action failed: {str(e)}",
-                latency_ms=latency
+                latency_ms=latency,
             )
 
     async def _mock_execution(self, question: str, context: Optional[Dict[str, Any]]) -> HandlerResponse:
         """Mock execution when pipeline not configured"""
         import time
+
         start_time = time.time()
         await asyncio.sleep(0.1)  # Simulate some work
         latency = (time.time() - start_time) * 1000
@@ -146,7 +150,7 @@ class ActionHandler(BaseHandler):
             handler_type="ActionHandler",
             response_text=f"[MOCK] Action executed for: {question}",
             data={"message": "Mock execution", "goal_achieved": True},
-            latency_ms=latency
+            latency_ms=latency,
         )
 
 
@@ -156,12 +160,16 @@ class RetrievalHandler(BaseHandler):
     def __init__(self, knowledge_base: Optional[Any] = None):
         super().__init__("RetrievalHandler")
         self.kb = knowledge_base
-        from src.monkey_brain.kernel.knowledge.sittingface_retrieval import SittingFaceKnowledgeRetriever
+        from src.monkey_brain.kernel.knowledge.sittingface_retrieval import (
+            SittingFaceKnowledgeRetriever,
+        )
+
         self._retriever = SittingFaceKnowledgeRetriever()
 
     async def handle(self, question: str, context: Optional[Dict[str, Any]] = None) -> HandlerResponse:
         """Retrieve information from knowledge base"""
         import time
+
         start_time = time.time()
 
         try:
@@ -179,7 +187,7 @@ class RetrievalHandler(BaseHandler):
                     status="partial",
                     handler_type="RetrievalHandler",
                     response_text="No results found in knowledge base",
-                    latency_ms=latency
+                    latency_ms=latency,
                 )
 
             # Format response
@@ -194,7 +202,7 @@ class RetrievalHandler(BaseHandler):
                 response_text=response_text,
                 data=results,
                 confidence=0.9,
-                latency_ms=latency
+                latency_ms=latency,
             )
 
         except Exception as e:
@@ -204,7 +212,7 @@ class RetrievalHandler(BaseHandler):
                 status="error",
                 handler_type="RetrievalHandler",
                 response_text=f"Retrieval failed: {str(e)}",
-                latency_ms=latency
+                latency_ms=latency,
             )
 
     def _extract_search_terms(self, question: str) -> List[str]:
@@ -212,8 +220,7 @@ class RetrievalHandler(BaseHandler):
         # Simple extraction - in production use NLP
         stop_words = {"what", "is", "the", "a", "an", "are", "be", "do", "how"}
         terms = [
-            word for word in question.lower().split()
-            if word.isalpha() and word not in stop_words and len(word) > 2
+            word for word in question.lower().split() if word.isalpha() and word not in stop_words and len(word) > 2
         ]
         return terms[:5]  # Limit to 5 terms
 
@@ -254,6 +261,7 @@ class ReasoningHandler(BaseHandler):
     async def handle(self, question: str, context: Optional[Dict[str, Any]] = None) -> HandlerResponse:
         """Process reasoning query with LLM"""
         import time
+
         start_time = time.time()
 
         try:
@@ -274,7 +282,7 @@ to open-ended questions. Consider multiple perspectives and explain your thinkin
                 handler_type="ReasoningHandler",
                 response_text=response,
                 confidence=0.85,
-                latency_ms=latency
+                latency_ms=latency,
             )
 
         except Exception as e:
@@ -284,7 +292,7 @@ to open-ended questions. Consider multiple perspectives and explain your thinkin
                 status="error",
                 handler_type="ReasoningHandler",
                 response_text=f"Reasoning failed: {str(e)}",
-                latency_ms=latency
+                latency_ms=latency,
             )
 
     async def _get_llm_response(self, system_prompt: str, question: str) -> str:
@@ -300,11 +308,7 @@ to open-ended questions. Consider multiple perspectives and explain your thinkin
         if self.llm:
             try:
                 self.logger.debug("[reasoning] Using provided LLM provider")
-                response = await self.llm.complete(
-                    system=system_prompt,
-                    user_message=question,
-                    max_tokens=1000
-                )
+                response = await self.llm.complete(system=system_prompt, user_message=question, max_tokens=1000)
                 return response
             except Exception as e:
                 self.logger.warning(f"[reasoning] Provided LLM failed: {e}, trying factory")
@@ -322,11 +326,7 @@ to open-ended questions. Consider multiple perspectives and explain your thinkin
             provider = LLMProviderFactory.get_provider()
             self.logger.debug(f"[reasoning] Using {llm_config.provider} provider")
 
-            response = await provider.complete(
-                system=system_prompt,
-                user_message=question,
-                max_tokens=1000
-            )
+            response = await provider.complete(system=system_prompt, user_message=question, max_tokens=1000)
             return response
 
         except Exception as e:
@@ -359,6 +359,7 @@ class ConversationalHandler(BaseHandler):
     async def handle(self, question: str, context: Optional[Dict[str, Any]] = None) -> HandlerResponse:
         """Process conversational query with full context"""
         import time
+
         start_time = time.time()
 
         try:
@@ -397,7 +398,7 @@ class ConversationalHandler(BaseHandler):
                 response_text=response_text,
                 confidence=0.9,
                 latency_ms=latency,
-                metadata={"session_id": session_id}
+                metadata={"session_id": session_id},
             )
 
         except Exception as e:
@@ -407,7 +408,7 @@ class ConversationalHandler(BaseHandler):
                 status="error",
                 handler_type="ConversationalHandler",
                 response_text=f"Conversation failed: {str(e)}",
-                latency_ms=latency
+                latency_ms=latency,
             )
 
     async def _get_response(self, question: str, session_id: Optional[str]) -> str:
@@ -438,11 +439,7 @@ Respond to the user's latest message."""
         if self.llm:
             try:
                 self.logger.debug("[conversational] Using provided LLM provider")
-                response = await self.llm.complete(
-                    system=system_prompt,
-                    user_message=question,
-                    max_tokens=500
-                )
+                response = await self.llm.complete(system=system_prompt, user_message=question, max_tokens=500)
                 return response
             except Exception as e:
                 self.logger.warning(f"[conversational] Provided LLM failed: {e}, trying factory")
@@ -460,11 +457,7 @@ Respond to the user's latest message."""
             provider = LLMProviderFactory.get_provider()
             self.logger.debug(f"[conversational] Using {llm_config.provider} provider")
 
-            response = await provider.complete(
-                system=system_prompt,
-                user_message=question,
-                max_tokens=500
-            )
+            response = await provider.complete(system=system_prompt, user_message=question, max_tokens=500)
             return response
 
         except Exception as e:
@@ -487,6 +480,7 @@ class RealtimeHandler(BaseHandler):
     async def handle(self, question: str, context: Optional[Dict[str, Any]] = None) -> HandlerResponse:
         """Fetch real-time data for query"""
         import time
+
         start_time = time.time()
 
         try:
@@ -501,7 +495,7 @@ class RealtimeHandler(BaseHandler):
                     status="partial",
                     handler_type="RealtimeHandler",
                     response_text="No real-time data source matched for this query",
-                    latency_ms=latency
+                    latency_ms=latency,
                 )
 
             # Fetch data
@@ -520,7 +514,7 @@ class RealtimeHandler(BaseHandler):
                 data=data,
                 confidence=0.95,
                 latency_ms=latency,
-                metadata={"source": source, "timestamp": datetime.now().isoformat()}
+                metadata={"source": source, "timestamp": datetime.now().isoformat()},
             )
 
         except Exception as e:
@@ -530,7 +524,7 @@ class RealtimeHandler(BaseHandler):
                 status="error",
                 handler_type="RealtimeHandler",
                 response_text=f"Real-time data fetch failed: {str(e)}",
-                latency_ms=latency
+                latency_ms=latency,
             )
 
     def _detect_source(self, question: str) -> Optional[str]:
@@ -543,7 +537,7 @@ class RealtimeHandler(BaseHandler):
             "traffic": "traffic_api",
             "price": "price_api",
             "availability": "availability_api",
-            "status": "status_api"
+            "status": "status_api",
         }
 
         for keyword, source in source_keywords.items():
@@ -559,7 +553,11 @@ class RealtimeHandler(BaseHandler):
 
         # Simulate async fetch
         await asyncio.sleep(0.1)
-        return {"source": source, "data": "Real-time data", "timestamp": datetime.now().isoformat()}
+        return {
+            "source": source,
+            "data": "Real-time data",
+            "timestamp": datetime.now().isoformat(),
+        }
 
     def _format_realtime_data(self, question: str, source: str, data: Any) -> str:
         """Format real-time data for display"""
@@ -567,5 +565,5 @@ class RealtimeHandler(BaseHandler):
             return "No data available"
 
         return f"""Real-time data from {source}:
-{data.get('data', 'N/A')}
-Last updated: {data.get('timestamp', 'Unknown')}"""
+{data.get("data", "N/A")}
+Last updated: {data.get("timestamp", "Unknown")}"""

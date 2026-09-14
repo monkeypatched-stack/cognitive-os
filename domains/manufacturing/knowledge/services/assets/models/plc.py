@@ -137,23 +137,35 @@ class DiagnosticEvent(BaseModel):
 
 
 class PLC(BaseModel):
-    plc_id: str = Field(..., min_length=1, description="Unique identifier for this PLC instance")
-    name: str = Field(..., min_length=1, description="Human-readable name, e.g. 'Line-3 Conveyor PLC'")
+    plc_id: str = Field(
+        ..., min_length=1, description="Unique identifier for this PLC instance"
+    )
+    name: str = Field(
+        ..., min_length=1, description="Human-readable name, e.g. 'Line-3 Conveyor PLC'"
+    )
     description: Optional[str] = None
-    location: Optional[str] = Field(None, description="Physical location, e.g. 'Panel CP-03, Building 2'")
+    location: Optional[str] = Field(
+        None, description="Physical location, e.g. 'Panel CP-03, Building 2'"
+    )
     asset_tag: Optional[str] = None
-    plant_area: Optional[str] = Field(None, description="Plant / production area, e.g. 'Filling Line', 'HVAC'")
+    plant_area: Optional[str] = Field(
+        None, description="Plant / production area, e.g. 'Filling Line', 'HVAC'"
+    )
     status: PLCStatus = PLCStatus.UNKNOWN
     last_status_change: Optional[datetime] = None
     is_online: bool = False
     last_seen: Optional[datetime] = None
     cpu: CPUInfo
     io_modules: list[IOModule] = Field(default_factory=list)
-    power_supply_voltage: Optional[float] = Field(None, description="Measured supply voltage (V)")
+    power_supply_voltage: Optional[float] = Field(
+        None, description="Measured supply voltage (V)"
+    )
     programs: list[Program] = Field(default_factory=list)
     project_name: Optional[str] = None
     project_version: Optional[str] = None
-    programming_software: Optional[str] = Field(None, description="E.g. 'TIA Portal V17', 'GX Works3'")
+    programming_software: Optional[str] = Field(
+        None, description="E.g. 'TIA Portal V17', 'GX Works3'"
+    )
     last_download: Optional[datetime] = None
     tags: list[Tag] = Field(default_factory=list)
     communication_ports: list[CommunicationPort] = Field(default_factory=list)
@@ -176,7 +188,9 @@ class PLC(BaseModel):
     def maintenance_date_order(self) -> "PLC":
         if self.last_maintenance_date and self.next_maintenance_date:
             if self.next_maintenance_date <= self.last_maintenance_date:
-                raise ValueError("next_maintenance_date must be after last_maintenance_date")
+                raise ValueError(
+                    "next_maintenance_date must be after last_maintenance_date"
+                )
         return self
 
     @model_validator(mode="after")
@@ -185,7 +199,8 @@ class PLC(BaseModel):
             self.active_fault_count = sum(
                 1
                 for event in self.diagnostic_events
-                if event.severity in (DiagnosticSeverity.ERROR, DiagnosticSeverity.CRITICAL)
+                if event.severity
+                in (DiagnosticSeverity.ERROR, DiagnosticSeverity.CRITICAL)
                 and not event.is_acknowledged
             )
         return self

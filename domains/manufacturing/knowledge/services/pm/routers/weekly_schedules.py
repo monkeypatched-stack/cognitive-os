@@ -65,7 +65,9 @@ async def get_weekly_schedule(
     return record
 
 
-@router.post("/", response_model=WeeklyScheduleResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=WeeklyScheduleResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_weekly_schedule(
     data: WeeklyScheduleCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

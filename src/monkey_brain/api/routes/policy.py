@@ -54,17 +54,22 @@ def _get_principal_optional():
         from services.common.agent_auth import get_current_principal, _bearer
         from fastapi.security import HTTPAuthorizationCredentials
 
-        async def _dep(credentials: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> dict | None:
+        async def _dep(
+            credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+        ) -> dict | None:
             if credentials is None:
                 return None
             try:
                 return await get_current_principal(credentials)
             except Exception:
                 return None
+
         return _dep
     except ImportError:
+
         async def _no_auth() -> dict | None:
             return None
+
         return _no_auth
 
 
@@ -123,6 +128,7 @@ async def evaluate_policy(
     # Run AuthPolicyAgent
     try:
         from broca.agents.auth_policy import AuthPolicyAgent
+
         agent = AuthPolicyAgent()
         result = await agent.handle(context)
         payload = result.payload if hasattr(result, "payload") else result
@@ -130,23 +136,35 @@ async def evaluate_policy(
     except Exception as exc:
         logger.warning("AuthPolicyAgent unavailable: %s", exc)
         from src.monkey_brain.api.dependencies import auth_required
+
         if auth_required():
             return JSONResponse(
                 status_code=503,
-                content={"decision": {"allowed": False, "reason": "agent_unavailable"}, "fallback": True},
+                content={
+                    "decision": {"allowed": False, "reason": "agent_unavailable"},
+                    "fallback": True,
+                },
             )
-        return JSONResponse({
-            "decision": {"allowed": True, "reason": "agent_unavailable_dev_fallback"},
-            "fallback": True,
-        })
+        return JSONResponse(
+            {
+                "decision": {
+                    "allowed": True,
+                    "reason": "agent_unavailable_dev_fallback",
+                },
+                "fallback": True,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
 # Policy Control Plane endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/policy/trust-domains", tags=["Policy"])
-async def list_trust_domains(request: Request, user_id: str = Depends(require_permission("perm-view-policy"))) -> JSONResponse:
+async def list_trust_domains(
+    request: Request, user_id: str = Depends(require_permission("perm-view-policy"))
+) -> JSONResponse:
     """List all registered federated trust domains."""
     pcp = getattr(request.app.state, "_pcp", None)
     if not pcp:
@@ -156,7 +174,9 @@ async def list_trust_domains(request: Request, user_id: str = Depends(require_pe
 
 
 @router.get("/policy/roles", tags=["Policy"])
-async def list_policy_roles(request: Request, user_id: str = Depends(require_permission("perm-view-policy"))) -> JSONResponse:
+async def list_policy_roles(
+    request: Request, user_id: str = Depends(require_permission("perm-view-policy"))
+) -> JSONResponse:
     """List all active roles as seen by the Policy Control Plane."""
     pcp = getattr(request.app.state, "_pcp", None)
     if not pcp:

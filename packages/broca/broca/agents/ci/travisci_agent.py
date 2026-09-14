@@ -1,4 +1,5 @@
 """TravisCIAgent — triggers Travis CI builds via REST API."""
+
 from __future__ import annotations
 
 import logging
@@ -30,16 +31,20 @@ class TravisCIAgent(BaseETASSAgent):
 
         if not token or not repo_slug:
             self._reward(False, 0.0)
-            return self._result(payload={"triggered": False}, observations=["missing travis_token or repo_slug"])
+            return self._result(
+                payload={"triggered": False},
+                observations=["missing travis_token or repo_slug"],
+            )
 
         import httpx
+
         api = "https://api.travis-ci.com/repo/requests"
         headers = {
             "Authorization": f"token {token}",
             "Travis-API-Version": "3",
             "Content-Type": "application/json",
         }
-        body = {"request": {"branch": branch, "config": config} if config else {"branch": branch}}
+        body = {"request": ({"branch": branch, "config": config} if config else {"branch": branch})}
 
         try:
             async with httpx.AsyncClient(timeout=30) as client:
@@ -48,15 +53,31 @@ class TravisCIAgent(BaseETASSAgent):
             success = resp.status_code in (200, 201)
         except Exception as e:
             self._reward(False, 0.1)
-            return self._result(payload={"triggered": False, "error": str(e)}, observations=[f"Travis API error: {e}"])
+            return self._result(
+                payload={"triggered": False, "error": str(e)},
+                observations=[f"Travis API error: {e}"],
+            )
 
         request_id = data.get("id", "")
         build_url = f"https://travis-ci.com/{repo_slug}"
         self._reward(success, 0.6)
-        artifacts = [Artifact(kind="ci_pipeline", name=f"Travis:{request_id}", uri=build_url)] if Artifact and success else []
+        artifacts = (
+            [Artifact(kind="ci_pipeline", name=f"Travis:{request_id}", uri=build_url)] if Artifact and success else []
+        )
 
         return self._result(
-            payload={"triggered": success, "request_id": request_id, "build_url": build_url, "branch": branch},
+            payload={
+                "triggered": success,
+                "request_id": request_id,
+                "build_url": build_url,
+                "branch": branch,
+            },
             artifacts=artifacts,
-            observations=[f"Travis CI build request {request_id} created" if success else f"Travis trigger failed: {data.get('@type', '')}"],
+            observations=[
+                (
+                    f"Travis CI build request {request_id} created"
+                    if success
+                    else f"Travis trigger failed: {data.get('@type', '')}"
+                )
+            ],
         )

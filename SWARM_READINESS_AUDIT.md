@@ -317,9 +317,9 @@ def observe(actor_id, world):
 #### 5.1 Belief Model
 
 ```python
-CognitiveActor.belief           # SparseTransitionTensor (this actor only)
-CognitiveActor._actor_belief    # ActorBelief (compile-layer, this actor)
-CognitiveActor._pipeline_belief # PipelineBeliefState (persistent, actor_id-keyed)
+CognitiveActor.belief  # SparseTransitionTensor (this actor only)
+CognitiveActor._actor_belief  # ActorBelief (compile-layer, this actor)
+CognitiveActor._pipeline_belief  # PipelineBeliefState (persistent, actor_id-keyed)
 ```
 
 **Key Property:** No shared belief object. Each actor has its own tensor.
@@ -369,9 +369,9 @@ authorized swarm observations
 ```python
 # From CognitiveActor:
 plan = actor.plan()  # Compute next plan (graph pathfinding)
-simulate(plan)       # Predict outcomes (propagation)
-execute(plan)        # Send to action executor
-learn(outcomes)      # Update belief
+simulate(plan)  # Predict outcomes (propagation)
+execute(plan)  # Send to action executor
+learn(outcomes)  # Update belief
 ```
 
 **Ownership:** Plan is computed by one actor, executed by that actor, learned by that actor.
@@ -580,9 +580,7 @@ swarm_state = {
     ],
     "world_state": {...},
     "coordination": {
-        "pending_asks": [
-            {"from": "drone-1", "to": "drone-2", "status": "waiting"}
-        ],
+        "pending_asks": [{"from": "drone-1", "to": "drone-2", "status": "waiting"}],
     },
 }
 ```
@@ -734,6 +732,7 @@ commitment_1 = Commitment(
 # 2. Cloud publishes to actor's inbox
 publish(f"monkeybrain.actor.drone-1.inbox", commitment_1)
 
+
 # 3. Drone processes commitment
 class DroneBrain(CognitiveActor):
     def plan(self):
@@ -741,6 +740,7 @@ class DroneBrain(CognitiveActor):
             return self.plan_for_commitment()
         else:
             return self.explore_autonomously()
+
 
 # 4. Drone executes, reports back
 ```

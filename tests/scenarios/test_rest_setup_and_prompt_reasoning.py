@@ -43,6 +43,7 @@ price, and quantity correctly reflecting the earlier order's real
 reservation — proving REST-built world and prompt-driven reasoning now
 share the same graph, not two disconnected ones.
 """
+
 from __future__ import annotations
 
 import os
@@ -63,18 +64,24 @@ def _ollama_reachable(base_url: str = "http://localhost:11434") -> bool:
         return False
 
 
-def test_rest_setup_builds_a_real_commerce_graph_and_prompt_reasons_over_it(monkeypatch):
+def test_rest_setup_builds_a_real_commerce_graph_and_prompt_reasons_over_it(
+    monkeypatch,
+):
     if not _ollama_reachable():
         pytest.skip("no local Ollama server reachable at localhost:11434")
 
-    from src.monkey_brain.kernel.execute.provider import model_backend as model_backend_module
+    from src.monkey_brain.kernel.execute.provider import (
+        model_backend as model_backend_module,
+    )
+
     # Patching get_backend() itself (not _default_backend) is required —
     # see test_mb3002_browse_catalog.py's fix for the full account: the
     # autouse _default_test_llm_backend fixture already patches get_backend
     # to a fake, synchronous backend, which _default_backend alone never
     # overrides.
     monkeypatch.setattr(
-        model_backend_module, "get_backend",
+        model_backend_module,
+        "get_backend",
         lambda: model_backend_module.ModelBackend(provider="ollama"),
     )
 
@@ -84,22 +91,38 @@ def test_rest_setup_builds_a_real_commerce_graph_and_prompt_reasons_over_it(monk
         assert r.status_code == 200, r.text
         actor_id = r.json()["actor_id"]
 
-        r = client.post("/api/v1/agentos/merchants", json={
-            "merchant_id": "merchant_bob", "store_name": "Bob's Store", "delivery_fee": 0.0,
-        })
+        r = client.post(
+            "/api/v1/agentos/merchants",
+            json={
+                "merchant_id": "merchant_bob",
+                "store_name": "Bob's Store",
+                "delivery_fee": 0.0,
+            },
+        )
         assert r.status_code == 200, r.text
         store_id = r.json()["store_id"]
 
-        r = client.post("/api/v1/agentos/products", json={
-            "store_id": store_id, "merchant_id": "merchant_bob",
-            "name": "Wireless Gaming Mouse", "price": 59.99, "quantity": 25,
-        })
+        r = client.post(
+            "/api/v1/agentos/products",
+            json={
+                "store_id": store_id,
+                "merchant_id": "merchant_bob",
+                "name": "Wireless Gaming Mouse",
+                "price": 59.99,
+                "quantity": 25,
+            },
+        )
         assert r.status_code == 200, r.text
         product_id = r.json()["product_id"]
 
-        r = client.post("/api/v1/agentos/wallets", json={
-            "owner": actor_id, "balance": 500.0, "account_type": "debit",
-        })
+        r = client.post(
+            "/api/v1/agentos/wallets",
+            json={
+                "owner": actor_id,
+                "balance": 500.0,
+                "account_type": "debit",
+            },
+        )
         assert r.status_code == 200, r.text
 
         r = client.get("/api/v1/agentos/products", params={"query": "gaming mouse"})
@@ -110,17 +133,29 @@ def test_rest_setup_builds_a_real_commerce_graph_and_prompt_reasons_over_it(monk
         assert r.status_code == 200, r.text
         assert r.json()["inventory"] == 25
 
-        r = client.post(f"/api/v1/agentos/cart/{actor_id}/items", json={"product_id": product_id, "quantity": 1})
+        r = client.post(
+            f"/api/v1/agentos/cart/{actor_id}/items",
+            json={"product_id": product_id, "quantity": 1},
+        )
         assert r.status_code == 200, r.text
         assert r.json()["lines"][0]["product_id"] == product_id
 
-        r = client.post("/api/v1/agentos/orders", json={
-            "actor_id": actor_id,
-            "items": [{
-                "id": product_id, "name": "Wireless Gaming Mouse", "price": 59.99, "qty": 1,
-                "store_id": store_id, "store_name": "Bob's Store",
-            }],
-        })
+        r = client.post(
+            "/api/v1/agentos/orders",
+            json={
+                "actor_id": actor_id,
+                "items": [
+                    {
+                        "id": product_id,
+                        "name": "Wireless Gaming Mouse",
+                        "price": 59.99,
+                        "qty": 1,
+                        "store_id": store_id,
+                        "store_name": "Bob's Store",
+                    }
+                ],
+            },
+        )
         assert r.status_code == 200, r.text
         order_id = r.json()["order_id"]
         assert r.json()["total"] == 64.79
@@ -130,13 +165,19 @@ def test_rest_setup_builds_a_real_commerce_graph_and_prompt_reasons_over_it(monk
         assert r.json()["status"] == "completed"
         assert r.json()["wallet_balance_after"] == 435.21
 
-        r = client.post("/api/v1/agentos/fulfillment/pack", json={
-            "items": [{"id": product_id, "name": "Wireless Gaming Mouse", "qty": 1}],
-        })
+        r = client.post(
+            "/api/v1/agentos/fulfillment/pack",
+            json={
+                "items": [{"id": product_id, "name": "Wireless Gaming Mouse", "qty": 1}],
+            },
+        )
         assert r.status_code == 200, r.text
         packages = r.json()["packages"]
 
-        r = client.post("/api/v1/agentos/shipments", json={"order_id": order_id, "packages": packages})
+        r = client.post(
+            "/api/v1/agentos/shipments",
+            json={"order_id": order_id, "packages": packages},
+        )
         assert r.status_code == 200, r.text
         shipment_id = r.json()["shipment_id"]
 
@@ -145,7 +186,10 @@ def test_rest_setup_builds_a_real_commerce_graph_and_prompt_reasons_over_it(monk
         assert r.json()["shipment_count"] == 1
         assert r.json()["shipments"][0]["shipment_id"] == shipment_id
 
-        r = client.post("/api/v1/agentos/events", json={"type": "promotion", "description": "Flash sale on gaming mice"})
+        r = client.post(
+            "/api/v1/agentos/events",
+            json={"type": "promotion", "description": "Flash sale on gaming mice"},
+        )
         assert r.status_code == 200, r.text
 
         # ── Phase 2: Reasoning (Prompt) — the graph already exists ──
@@ -176,14 +220,9 @@ def test_rest_setup_builds_a_real_commerce_graph_and_prompt_reasons_over_it(monk
         # check had, fixed the same way there).
         actions = execution["actions"]
         product_selection_results = [
-            a["result"] for a in actions
-            if isinstance(a.get("result"), dict) and a["result"].get("selected")
+            a["result"] for a in actions if isinstance(a.get("result"), dict) and a["result"].get("selected")
         ]
         assert product_selection_results, "no step returned a real product selection"
-        found = {
-            p["id"]: p
-            for outcome in product_selection_results
-            for p in outcome["selected"]
-        }
+        found = {p["id"]: p for outcome in product_selection_results for p in outcome["selected"]}
         assert product_id in found
         assert found[product_id]["price"] == 59.99

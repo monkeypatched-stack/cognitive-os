@@ -22,7 +22,9 @@ async def list_supplier_shipping(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedSupplierShippingResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedSupplierShippingResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-supplier/{supplier_id}", response_model=list[SupplierShippingResponse])
@@ -60,11 +62,16 @@ async def get_supplier_shipping(
 ):
     record = await crud.get_by_id(db, supplier_shipping_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier shipping '{supplier_shipping_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier shipping '{supplier_shipping_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=SupplierShippingResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=SupplierShippingResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_supplier_shipping(
     data: SupplierShippingCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -82,7 +89,10 @@ async def update_supplier_shipping(
 ):
     updated = await crud.update(db, supplier_shipping_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier shipping '{supplier_shipping_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier shipping '{supplier_shipping_id}' not found",
+        )
     return updated
 
 
@@ -93,4 +103,7 @@ async def delete_supplier_shipping(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, supplier_shipping_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier shipping '{supplier_shipping_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier shipping '{supplier_shipping_id}' not found",
+        )

@@ -4,11 +4,15 @@ from src.monkey_brain.kernel.society.runtime import SocietyRuntime
 
 
 def _affiliation(actor, target, *, kind="employment"):
-    actor.affiliations.add(Affiliation(
-        affiliation_id=f"{actor.entity_id}-{target}",
-        affiliation_type=kind, target_id=target, target_name=target,
-        permissions=("communicate",),
-    ))
+    actor.affiliations.add(
+        Affiliation(
+            affiliation_id=f"{actor.entity_id}-{target}",
+            affiliation_type=kind,
+            target_id=target,
+            target_name=target,
+            permissions=("communicate",),
+        )
+    )
 
 
 def test_messages_route_through_society_and_affiliation():

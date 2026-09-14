@@ -10,6 +10,7 @@ has used all session, and verify the plumbing carries that decision
 through to a real Plan/PlanStep — not that any particular arithmetic is
 "correct" (there is none left in this code path to test).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -30,8 +31,11 @@ class FakeBackend:
 
 
 def _basket_goal():
-    return Goal(name="acquire_basket", description="milk eggs bread",
-                success_criteria=("milk", "eggs", "bread"))
+    return Goal(
+        name="acquire_basket",
+        description="milk eggs bread",
+        success_criteria=("milk", "eggs", "bread"),
+    )
 
 
 def _basket_belief():
@@ -59,19 +63,36 @@ def test_consolidated_decision_flows_through_to_plan():
     these facts would have to consolidate at cornerstore (the only store
     covering the whole basket) despite it being pricier per item — this
     stands in for that decision via a canned response."""
-    response = json.dumps({
-        "steps": [
-            {"action": "buy_milk", "description": "Buy milk at cornerstore: $3.20 (consolidated)",
-             "expected_outcome": "milk acquired", "cost": 0.1, "confidence": 0.85},
-            {"action": "buy_eggs", "description": "Buy eggs at cornerstore: $3.50 (consolidated)",
-             "expected_outcome": "eggs acquired", "cost": 0.1, "confidence": 0.85},
-            {"action": "buy_bread", "description": "Buy bread at cornerstore: $2.80 (consolidated)",
-             "expected_outcome": "bread acquired", "cost": 0.1, "confidence": 0.85},
-        ],
-        "summary": "Consolidated at cornerstore — costco doesn't stock bread and is far enough "
-                    "that the extra trip isn't worth the per-item savings.",
-        "confidence": 0.85,
-    })
+    response = json.dumps(
+        {
+            "steps": [
+                {
+                    "action": "buy_milk",
+                    "description": "Buy milk at cornerstore: $3.20 (consolidated)",
+                    "expected_outcome": "milk acquired",
+                    "cost": 0.1,
+                    "confidence": 0.85,
+                },
+                {
+                    "action": "buy_eggs",
+                    "description": "Buy eggs at cornerstore: $3.50 (consolidated)",
+                    "expected_outcome": "eggs acquired",
+                    "cost": 0.1,
+                    "confidence": 0.85,
+                },
+                {
+                    "action": "buy_bread",
+                    "description": "Buy bread at cornerstore: $2.80 (consolidated)",
+                    "expected_outcome": "bread acquired",
+                    "cost": 0.1,
+                    "confidence": 0.85,
+                },
+            ],
+            "summary": "Consolidated at cornerstore — costco doesn't stock bread and is far enough "
+            "that the extra trip isn't worth the per-item savings.",
+            "confidence": 0.85,
+        }
+    )
     plan = asyncio.run(LLMPlanner(backend=FakeBackend(response)).plan(_basket_belief(), _basket_goal(), None))
 
     assert len(plan.steps) == 3
@@ -83,18 +104,35 @@ def test_split_decision_flows_through_to_plan():
     """With costco close enough, a real model could instead decide
     splitting (cheaper items at costco, bread at cornerstore) beats
     consolidating — this stands in for that opposite decision."""
-    response = json.dumps({
-        "steps": [
-            {"action": "buy_milk", "description": "Buy milk at costco: $2.10",
-             "expected_outcome": "milk acquired", "cost": 0.1, "confidence": 0.9},
-            {"action": "buy_eggs", "description": "Buy eggs at costco: $2.50",
-             "expected_outcome": "eggs acquired", "cost": 0.1, "confidence": 0.9},
-            {"action": "buy_bread", "description": "Buy bread at cornerstore: $2.80",
-             "expected_outcome": "bread acquired", "cost": 0.1, "confidence": 0.9},
-        ],
-        "summary": "Split across costco and cornerstore — cheaper overall even with two stops.",
-        "confidence": 0.9,
-    })
+    response = json.dumps(
+        {
+            "steps": [
+                {
+                    "action": "buy_milk",
+                    "description": "Buy milk at costco: $2.10",
+                    "expected_outcome": "milk acquired",
+                    "cost": 0.1,
+                    "confidence": 0.9,
+                },
+                {
+                    "action": "buy_eggs",
+                    "description": "Buy eggs at costco: $2.50",
+                    "expected_outcome": "eggs acquired",
+                    "cost": 0.1,
+                    "confidence": 0.9,
+                },
+                {
+                    "action": "buy_bread",
+                    "description": "Buy bread at cornerstore: $2.80",
+                    "expected_outcome": "bread acquired",
+                    "cost": 0.1,
+                    "confidence": 0.9,
+                },
+            ],
+            "summary": "Split across costco and cornerstore — cheaper overall even with two stops.",
+            "confidence": 0.9,
+        }
+    )
     plan = asyncio.run(LLMPlanner(backend=FakeBackend(response)).plan(_basket_belief(), _basket_goal(), None))
 
     steps_by_action = {s.action: s.description for s in plan.steps}
@@ -104,11 +142,13 @@ def test_split_decision_flows_through_to_plan():
 
 
 def test_unfulfillable_basket_decision_flows_through_to_plan():
-    response = json.dumps({
-        "steps": [],
-        "summary": "Bread is unavailable at every known store — basket cannot be completed.",
-        "confidence": 0.0,
-    })
+    response = json.dumps(
+        {
+            "steps": [],
+            "summary": "Bread is unavailable at every known store — basket cannot be completed.",
+            "confidence": 0.0,
+        }
+    )
     belief = BeliefState(actor_id="alice")
     belief.add_fact(entity="costco:milk", attribute="price", value=2.10, confidence=0.9)
     belief.add_fact(entity="costco:milk", attribute="stock", value=50, confidence=0.9)

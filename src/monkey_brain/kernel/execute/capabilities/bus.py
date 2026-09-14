@@ -1,4 +1,5 @@
 """Minimal CapabilityBus stub for cognitive kernel wiring."""
+
 from __future__ import annotations
 
 import logging
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CapabilityResult:
     """Standardised result envelope from capability execution."""
+
     name: str
     success: bool
     produced: dict[str, Any] = field(default_factory=dict)
@@ -85,7 +87,7 @@ class CapabilityBus:
                 name=capability_name,
                 success=False,
                 produced={"error": "capability_not_found"},
-                latency_ms=0.0
+                latency_ms=0.0,
             )
 
         t0 = time.monotonic()
@@ -101,7 +103,7 @@ class CapabilityBus:
             return CapabilityResult(
                 name=capability_name,
                 success=True,
-                produced=produced if isinstance(produced, dict) else {"result": produced},
+                produced=(produced if isinstance(produced, dict) else {"result": produced}),
                 latency_ms=latency,
             )
         except Exception as e:

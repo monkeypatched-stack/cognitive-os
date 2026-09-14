@@ -5,6 +5,7 @@ Pure and deterministic: compile() reads only its argument — no I/O, no globals
 clock — so equal (topology, strengths) yields byte-identical CSR and compile_hash.
 This is what makes the operator a safe, cacheable artifact outside the learning loop.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -48,8 +49,12 @@ class GraphCompiler:
     Caches compiled operators by graph hash to avoid redundant compilation.
     """
 
-    def __init__(self, dangling: DanglingPolicy = DanglingPolicy.DROP, prior: float = DEFAULT_STRENGTH_PRIOR,
-                 cache_size: int = DEFAULT_COMPILE_CACHE_SIZE) -> None:
+    def __init__(
+        self,
+        dangling: DanglingPolicy = DanglingPolicy.DROP,
+        prior: float = DEFAULT_STRENGTH_PRIOR,
+        cache_size: int = DEFAULT_COMPILE_CACHE_SIZE,
+    ) -> None:
         self._dangling = dangling
         self._prior = prior
         # LRU by insertion/access order: most-recently-used at the end.
@@ -62,8 +67,9 @@ class GraphCompiler:
     def _graph_hash(self, graph: SemanticGraphSnapshot) -> str:
         """Compute a deterministic hash of the graph's topology + strengths."""
         import hashlib
+
         nodes = sorted([str(n.get("id", n.get("name", ""))) for n in graph.nodes if isinstance(n, dict)])
-        edges = sorted([f"{e.get('from','')}-{e.get('to','')}" for e in graph.edges if isinstance(e, dict)])
+        edges = sorted([f"{e.get('from', '')}-{e.get('to', '')}" for e in graph.edges if isinstance(e, dict)])
         strengths = sorted([f"{k}:{v}" for k, v in graph.strengths.items()])
         blob = "|".join(nodes) + "||" + "|".join(edges) + "||" + "|".join(strengths)
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
@@ -79,7 +85,7 @@ class GraphCompiler:
         cached = self._cache.get(ghash)
         if cached is not None:
             self._cache_hits += 1
-            self._cache.move_to_end(ghash)          # mark as most-recently-used
+            self._cache.move_to_end(ghash)  # mark as most-recently-used
             return cached
         self._cache_misses += 1
 
@@ -87,11 +93,14 @@ class GraphCompiler:
         self._cache[ghash] = result
         self._cache.move_to_end(ghash)
         while len(self._cache) > self._cache_size:
-            evicted_hash, _ = self._cache.popitem(last=False)   # drop least-recently-used
+            evicted_hash, _ = self._cache.popitem(last=False)  # drop least-recently-used
             self._cache_evictions += 1
             _obs.counter("compile.cache_evict")
-            logger.debug("[compile] cache full (%d) — evicted LRU operator %s",
-                         self._cache_size, evicted_hash)
+            logger.debug(
+                "[compile] cache full (%d) — evicted LRU operator %s",
+                self._cache_size,
+                evicted_hash,
+            )
         _obs.gauge("compile.cache_size", float(len(self._cache)))
         return result
 
@@ -170,10 +179,15 @@ class GraphCompiler:
         _obs.counter("compile.full")
         _obs.event("compile", mode="full", nodes=n, nnz=len(data), revision=graph.revision)
         return CompiledOperator(
-            indptr=indptr, indices=indices, data=data,
-            index_of=index_of, node_of=node_of, agent_of=agent_of,
+            indptr=indptr,
+            indices=indices,
+            data=data,
+            index_of=index_of,
+            node_of=node_of,
+            agent_of=agent_of,
             dangling=frozenset(dangling),
-            source_graph_id=graph.graph_id, source_revision=graph.revision,
+            source_graph_id=graph.graph_id,
+            source_revision=graph.revision,
             compile_hash=chash,
         )
 
@@ -194,12 +208,13 @@ class GraphCompiler:
             "nodes": sorted(node_of),
             "agents": sorted(set(agent_of)),
             "edges": sorted(
-                [str(e.get("from") or e.get("src", "")) + ">" + str(e.get("to") or e.get("dst", ""))
-                 for e in graph.edges if isinstance(e, dict)]
+                [
+                    str(e.get("from") or e.get("src", "")) + ">" + str(e.get("to") or e.get("dst", ""))
+                    for e in graph.edges
+                    if isinstance(e, dict)
+                ]
             ),
-            "strengths": sorted(
-                [f"{a}>{b}={round(float(w), 6)}" for (a, b), w in graph.strengths.items()]
-            ),
+            "strengths": sorted([f"{a}>{b}={round(float(w), 6)}" for (a, b), w in graph.strengths.items()]),
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
 
@@ -218,6 +233,7 @@ class GraphCompiler:
         strength) into a small domain-level `mesh` operator. Each block is an ordinary
         CompiledOperator — independently verifiable, recompilable, and federatable.
         """
+
         def _dom(node: Mapping[str, Any]) -> str:
             if domain_of is not None:
                 return str(domain_of(node) or "default")
@@ -260,8 +276,11 @@ class GraphCompiler:
         domains: dict[str, CompiledOperator] = {}
         for d, nodes in by_domain_nodes.items():
             sub = SemanticGraphSnapshot(
-                nodes=nodes, edges=by_domain_edges.get(d, []),
-                strengths=graph.strengths, graph_id=f"{graph.graph_id}:{d}", revision=graph.revision,
+                nodes=nodes,
+                edges=by_domain_edges.get(d, []),
+                strengths=graph.strengths,
+                graph_id=f"{graph.graph_id}:{d}",
+                revision=graph.revision,
             )
             domains[d] = self.compile(sub)
 
@@ -278,10 +297,15 @@ class GraphCompiler:
         mesh_nodes = [{"id": d, "agent": d} for d in domain_names]
         mesh_edges = [{"from": a, "to": b} for (a, b) in cross]
         mesh_strengths = {(a, b): w for (a, b), w in cross.items()}
-        return self.compile(SemanticGraphSnapshot(
-            nodes=mesh_nodes, edges=mesh_edges, strengths=mesh_strengths,
-            graph_id=f"{graph.graph_id}:mesh", revision=graph.revision,
-        ))
+        return self.compile(
+            SemanticGraphSnapshot(
+                nodes=mesh_nodes,
+                edges=mesh_edges,
+                strengths=mesh_strengths,
+                graph_id=f"{graph.graph_id}:mesh",
+                revision=graph.revision,
+            )
+        )
 
     # ── recompile (incremental) ──────────────────────────────────────────────────
 
@@ -305,8 +329,11 @@ class GraphCompiler:
             return self.compile(graph)
 
         # topology must match prev exactly for index reuse; else full recompile
-        node_of = [str(n.get("id", n.get("name", "")))
-                   for n in graph.nodes if isinstance(n, dict) and (n.get("id") or n.get("name"))]
+        node_of = [
+            str(n.get("id", n.get("name", "")))
+            for n in graph.nodes
+            if isinstance(n, dict) and (n.get("id") or n.get("name"))
+        ]
         if list(prev.node_of) != node_of:
             return self.compile(graph)
 
@@ -314,21 +341,44 @@ class GraphCompiler:
         data = list(prev.data)
         for i in range(prev.n):
             if prev.agent_of[i] not in dirty_srcs:
-                continue                                  # clean row — reuse prev data
+                continue  # clean row — reuse prev data
             span = range(prev.indptr[i], prev.indptr[i + 1])
-            raws = [(p, max(0.0, float(graph.strengths.get((prev.agent_of[i], prev.agent_of[prev.indices[p]]), self._prior))))
-                    for p in span]
+            raws = [
+                (
+                    p,
+                    max(
+                        0.0,
+                        float(
+                            graph.strengths.get(
+                                (prev.agent_of[i], prev.agent_of[prev.indices[p]]),
+                                self._prior,
+                            )
+                        ),
+                    ),
+                )
+                for p in span
+            ]
             total = sum(w for _, w in raws)
             if total > 0:
                 for p, w in raws:
                     data[p] = w / total
 
         _obs.counter("compile.incremental")
-        _obs.event("compile", mode="incremental", dirty_rows=len(dirty_srcs), revision=graph.revision)
+        _obs.event(
+            "compile",
+            mode="incremental",
+            dirty_rows=len(dirty_srcs),
+            revision=graph.revision,
+        )
         return CompiledOperator(
-            indptr=prev.indptr, indices=prev.indices, data=data,
-            index_of=prev.index_of, node_of=prev.node_of, agent_of=prev.agent_of,
-            dangling=prev.dangling, source_graph_id=graph.graph_id,
+            indptr=prev.indptr,
+            indices=prev.indices,
+            data=data,
+            index_of=prev.index_of,
+            node_of=prev.node_of,
+            agent_of=prev.agent_of,
+            dangling=prev.dangling,
+            source_graph_id=graph.graph_id,
             source_revision=graph.revision,
             compile_hash=self._compile_hash(graph, prev.node_of, prev.agent_of),
         )
@@ -376,17 +426,28 @@ class GraphCompiler:
 
         chash = hashlib.sha256((op.compile_hash + "|coarsen|" + ",".join(map(str, clusters))).encode()).hexdigest()
         return CompiledOperator(
-            indptr=indptr, indices=indices, data=data,
+            indptr=indptr,
+            indices=indices,
+            data=data,
             index_of={name: k for k, name in enumerate(node_of)},
-            node_of=node_of, agent_of=list(node_of),
+            node_of=node_of,
+            agent_of=list(node_of),
             dangling=frozenset(dangling),
-            source_graph_id=op.source_graph_id, source_revision=op.source_revision,
+            source_graph_id=op.source_graph_id,
+            source_revision=op.source_revision,
             compile_hash=chash,
         )
 
     # ── verify (semantics-preserving test) ───────────────────────────────────────
 
-    def verify(self, graph: SemanticGraphSnapshot, op: CompiledOperator, *, tolerance: float = 1e-9, max_iter: int = 100) -> VerificationReport:
+    def verify(
+        self,
+        graph: SemanticGraphSnapshot,
+        op: CompiledOperator,
+        *,
+        tolerance: float = 1e-9,
+        max_iter: int = 100,
+    ) -> VerificationReport:
         """Check that propagation over M matches the semantic graph's decisions.
 
         DAG regime (exact): forward-pass path sums computed from the graph vs from the
@@ -413,7 +474,17 @@ class GraphCompiler:
             if agreement < 1.0:
                 failures.append(f"policy disagreement: {agreement:.3f} < 1.0")
             ok = not failures
-            return VerificationReport("dag", row_stochastic, 1.0, max_err, agreement, True, 0, ok, tuple(failures))
+            return VerificationReport(
+                "dag",
+                row_stochastic,
+                1.0,
+                max_err,
+                agreement,
+                True,
+                0,
+                ok,
+                tuple(failures),
+            )
 
         # ── cyclic regime ──
         x = [1.0 / n] * n
@@ -431,7 +502,17 @@ class GraphCompiler:
         if not converged:
             failures.append(f"power iteration did not converge in {max_iter} iters")
         ok = row_stochastic and converged
-        return VerificationReport("cyclic", row_stochastic, 1.0, 0.0, 1.0, converged, iters, ok, tuple(failures))
+        return VerificationReport(
+            "cyclic",
+            row_stochastic,
+            1.0,
+            0.0,
+            1.0,
+            converged,
+            iters,
+            ok,
+            tuple(failures),
+        )
 
     # ── verify helpers ───────────────────────────────────────────────────────────
 

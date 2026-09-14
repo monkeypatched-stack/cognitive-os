@@ -2,17 +2,24 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.workorders.models.work_orders import WorkOrderCreate, WorkOrderSubtaskCreate, WorkOrderSubtaskUpdate, WorkOrderUpdate
+from services.workorders.models.work_orders import (
+    WorkOrderCreate,
+    WorkOrderSubtaskCreate,
+    WorkOrderSubtaskUpdate,
+    WorkOrderUpdate,
+)
 
 COLLECTION = "work_orders"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _serialize(doc: dict) -> dict:
     doc = dict(doc)
     doc.pop("_id", None)
     return doc
+
 
 def _to_utc(dt):
     """Normalize any datetime/string → timezone-aware UTC datetime"""
@@ -95,6 +102,7 @@ async def _assigned_to_values(db: AsyncIOMotorDatabase, assigned_to: str) -> lis
 
 # ── Read ──────────────────────────────────────────────────────────────────────
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -124,9 +132,13 @@ async def get_by_machine(db: AsyncIOMotorDatabase, machine_id: str) -> list[dict
     cursor = db[COLLECTION].find({"machine_id": machine_id})
     return [_serialize(d) async for d in cursor]
 
-async def get_by_equipment_id(db: AsyncIOMotorDatabase, equipment_id: str) -> list[dict]:
+
+async def get_by_equipment_id(
+    db: AsyncIOMotorDatabase, equipment_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"equipment_id": equipment_id})
     return [_serialize(d) async for d in cursor]
+
 
 async def get_by_line(db: AsyncIOMotorDatabase, line_id: str) -> list[dict]:
     cursor = db[COLLECTION].find({"line_id": line_id})
@@ -153,17 +165,19 @@ async def get_by_user(db: AsyncIOMotorDatabase, user_id: str) -> list:
         return []
 
     assigned_values = await _assigned_to_values(db, user_id)
-    cursor = db[COLLECTION].find({
-        "$or": [
-            {"assigned_to": {"$in": assigned_values}},
-            {"assigned_to_id": {"$in": assigned_values}},
-            {"assigned_to_name": {"$in": assigned_values}},
-            {"assigned_user_id": {"$in": assigned_values}},
-            {"assigned_user_name": {"$in": assigned_values}},
-            {"assigned_user_email": {"$in": assigned_values}},
-            {"created_by": {"$in": assigned_values}},
-        ]
-    })
+    cursor = db[COLLECTION].find(
+        {
+            "$or": [
+                {"assigned_to": {"$in": assigned_values}},
+                {"assigned_to_id": {"$in": assigned_values}},
+                {"assigned_to_name": {"$in": assigned_values}},
+                {"assigned_user_id": {"$in": assigned_values}},
+                {"assigned_user_name": {"$in": assigned_values}},
+                {"assigned_user_email": {"$in": assigned_values}},
+                {"created_by": {"$in": assigned_values}},
+            ]
+        }
+    )
 
     return [_serialize(d) async for d in cursor]
 
@@ -224,23 +238,27 @@ async def get_for_kanban(
 async def get_count_stats(db: AsyncIOMotorDatabase) -> dict:
     total = await db[COLLECTION].count_documents({})
     completed_statuses = ["Done", "Completed", "Cancelled"]
-    completed = await db[COLLECTION].count_documents({"status": {"$in": completed_statuses}})
+    completed = await db[COLLECTION].count_documents(
+        {"status": {"$in": completed_statuses}}
+    )
     overdue = await db[COLLECTION].count_documents({"is_overdue": True})
 
-    by_status_cursor = db[COLLECTION].aggregate([
-        {"$group": {"_id": "$status", "count": {"$sum": 1}}},
-    ])
-    by_priority_cursor = db[COLLECTION].aggregate([
-        {"$group": {"_id": "$priority", "count": {"$sum": 1}}},
-    ])
+    by_status_cursor = db[COLLECTION].aggregate(
+        [
+            {"$group": {"_id": "$status", "count": {"$sum": 1}}},
+        ]
+    )
+    by_priority_cursor = db[COLLECTION].aggregate(
+        [
+            {"$group": {"_id": "$priority", "count": {"$sum": 1}}},
+        ]
+    )
 
     by_status = {
-        str(doc["_id"] or "Unknown"): doc["count"]
-        async for doc in by_status_cursor
+        str(doc["_id"] or "Unknown"): doc["count"] async for doc in by_status_cursor
     }
     by_priority = {
-        str(doc["_id"] or "Unknown"): doc["count"]
-        async for doc in by_priority_cursor
+        str(doc["_id"] or "Unknown"): doc["count"] async for doc in by_priority_cursor
     }
 
     return {
@@ -254,6 +272,7 @@ async def get_count_stats(db: AsyncIOMotorDatabase) -> dict:
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
+
 
 async def create(db: AsyncIOMotorDatabase, data: WorkOrderCreate) -> dict:
     doc = _prepare(data.model_dump())
@@ -269,6 +288,7 @@ async def create(db: AsyncIOMotorDatabase, data: WorkOrderCreate) -> dict:
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 async def update(
     db: AsyncIOMotorDatabase,
@@ -327,7 +347,10 @@ async def update_subtask(
     fields = _prepare(data.model_dump(exclude_unset=True))
     if not fields:
         doc = await db[COLLECTION].find_one(
-            {"work_order_id": subtask_work_order_id, "parent_work_order_id": work_order_id}
+            {
+                "work_order_id": subtask_work_order_id,
+                "parent_work_order_id": work_order_id,
+            }
         )
         return _serialize(doc) if doc else None
 
@@ -361,6 +384,7 @@ async def remove_subtask(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 async def delete(db: AsyncIOMotorDatabase, work_order_id: str) -> bool:
     result = await db[COLLECTION].delete_one({"work_order_id": work_order_id})

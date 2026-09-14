@@ -9,6 +9,7 @@ instead of 0.0, silently distorting every learning reward) passed all 1000+ mech
 and only surfaced when the behavior was exercised directly. Each test here encodes an
 invariant such a bug would violate. If one fails, a learning signal is wrong at the source.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,21 +27,38 @@ from src.monkey_brain.kernel.learn.policy_learner import PolicyLearner
 # ── helpers: build comparator inputs in the shapes /compare uses ────────────────
 def _sim(nodes, ops, pstate, reward, grounding):
     return {
-        "graph_id": "g", "nodes": [{"id": n} for n in nodes], "edges": [],
+        "graph_id": "g",
+        "nodes": [{"id": n} for n in nodes],
+        "edges": [],
         "execution_order": [list(nodes)],
-        "metadata": {"summary": {
-            "predicted_state": pstate, "operations": ops, "events": [], "artifacts": [],
-            "latency_ms": 100.0, "predicted_reward": reward, "grounding_score": grounding,
-            "answer": "x",
-        }},
+        "metadata": {
+            "summary": {
+                "predicted_state": pstate,
+                "operations": ops,
+                "events": [],
+                "artifacts": [],
+                "latency_ms": 100.0,
+                "predicted_reward": reward,
+                "grounding_score": grounding,
+                "answer": "x",
+            }
+        },
     }
 
 
 def _exec(nodes, ops, state, reward, confidence):
     return {
-        "answer": "x", "state": state, "confidence": confidence, "reward": reward,
-        "latency_ms": 100.0, "operations": ops, "events": [], "artifacts": [],
-        "nodes": [{"id": n} for n in nodes], "edges": [], "execution_order": [list(nodes)],
+        "answer": "x",
+        "state": state,
+        "confidence": confidence,
+        "reward": reward,
+        "latency_ms": 100.0,
+        "operations": ops,
+        "events": [],
+        "artifacts": [],
+        "nodes": [{"id": n} for n in nodes],
+        "edges": [],
+        "execution_order": [list(nodes)],
         "graph_id": "g",
     }
 
@@ -59,8 +77,10 @@ class TestComparatorLossInvariants:
     def test_perfect_prediction_is_zero_loss(self):
         """A flawless prediction must score exactly 0 world/epistemic loss. (This is the
         invariant the confidence-diff sign bug violated — perfect scored 0.2.)"""
-        r = _loss(_sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
-                  _exec(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9))
+        r = _loss(
+            _sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+            _exec(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+        )
         assert r.epistemic_loss == 0.0, f"perfect prediction scored epistemic_loss {r.epistemic_loss}"
         assert r.world_loss == 0.0, f"perfect prediction scored world_loss {r.world_loss}"
         assert r.policy_loss == 0.0, f"perfect prediction scored policy_loss {r.policy_loss}"
@@ -70,31 +90,50 @@ class TestComparatorLossInvariants:
         reward-only miss (structure/state perfect) so it grades cleanly between perfect and a
         total miss rather than saturating world_loss — which a single node mismatch already
         maxes (the loss is deliberately sensitive)."""
-        perfect = _loss(_sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
-                        _exec(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9))
-        partial = _loss(_sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
-                        _exec(["n1", "n2"], self.OPS, self.PS, 0.5, 0.9))     # reward off by 0.5 only
-        total = _loss(_sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
-                      _exec(["xx", "yy"], ["other"], {"nodes_complete": 0, "total_nodes": 2,
-                            "feasibility": "infeasible"}, 0.0, 0.0))
+        perfect = _loss(
+            _sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+            _exec(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+        )
+        partial = _loss(
+            _sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+            _exec(["n1", "n2"], self.OPS, self.PS, 0.5, 0.9),
+        )  # reward off by 0.5 only
+        total = _loss(
+            _sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+            _exec(
+                ["xx", "yy"],
+                ["other"],
+                {"nodes_complete": 0, "total_nodes": 2, "feasibility": "infeasible"},
+                0.0,
+                0.0,
+            ),
+        )
         assert perfect.actor_loss < partial.actor_loss < total.actor_loss
 
     def test_reward_error_moves_policy_loss_only(self):
         """Changing ONLY the reward must move policy_loss and leave world_loss untouched —
         otherwise the world model learns from a policy signal (the split leaks)."""
-        base = _loss(_sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
-                     _exec(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9))
-        reward_off = _loss(_sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
-                           _exec(["n1", "n2"], self.OPS, self.PS, 0.0, 0.9))  # reward mismatch only
+        base = _loss(
+            _sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+            _exec(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+        )
+        reward_off = _loss(
+            _sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+            _exec(["n1", "n2"], self.OPS, self.PS, 0.0, 0.9),
+        )  # reward mismatch only
         assert reward_off.policy_loss > base.policy_loss, "reward error did not raise policy_loss"
         assert reward_off.world_loss == base.world_loss, "reward error leaked into world_loss"
 
     def test_structure_error_moves_world_loss_only(self):
         """Changing ONLY the structure must move world_loss and leave policy_loss untouched."""
-        base = _loss(_sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
-                     _exec(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9))
-        struct_off = _loss(_sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
-                           _exec(["n1", "zz"], ["a"], self.PS, 1.0, 0.9))  # node/op mismatch, same reward
+        base = _loss(
+            _sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+            _exec(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+        )
+        struct_off = _loss(
+            _sim(["n1", "n2"], self.OPS, self.PS, 1.0, 0.9),
+            _exec(["n1", "zz"], ["a"], self.PS, 1.0, 0.9),
+        )  # node/op mismatch, same reward
         assert struct_off.world_loss > base.world_loss, "structure error did not raise world_loss"
         assert struct_off.policy_loss == base.policy_loss, "structure error leaked into policy_loss"
 
@@ -108,7 +147,7 @@ class TestQLearningConvergence:
         toward r/(1-γ)."""
         ps = PolicyStore(lr=0.1, discount=0.95)
         for _ in range(500):
-            ps.update("s", "a", 0.8)                 # terminal (no next_state)
+            ps.update("s", "a", 0.8)  # terminal (no next_state)
         assert abs(ps.value("s", "a") - 0.8) < 0.02
         assert 0.0 <= ps.value("s", "a") <= 1.0
 
@@ -124,8 +163,8 @@ class TestQLearningConvergence:
         is worth more than its own immediate reward."""
         ps = PolicyStore(lr=0.1, discount=0.95)
         for _ in range(500):
-            ps.update("s1", "go", 0.0, next_state="s2")   # bootstraps off s2
-            ps.update("s2", "go", 1.0)                     # terminal, ~1.0
+            ps.update("s1", "go", 0.0, next_state="s2")  # bootstraps off s2
+            ps.update("s2", "go", 1.0)  # terminal, ~1.0
         # Q(s1,go) ≈ 0 + 0.95·Q(s2,go) ≈ 0.95, strictly above its own reward (0)
         assert ps.value("s1", "go") > 0.5
 
@@ -139,13 +178,13 @@ class TestTransitionCompilation:
         t = SparseTransitionTensor()
         for _ in range(3):
             t.observe("a", "b")
-        t.observe("a", "c")                       # a → b:3, c:1
+        t.observe("a", "c")  # a → b:3, c:1
         for _ in range(2):
             t.observe("b", "c")
         op = t.to_operator(f=Feature.PROBABILITY)
         for i in range(len(op.node_of)):
             row = [op.data[p] for p in range(op.indptr[i], op.indptr[i + 1])]
-            if row:                                # non-dangling
+            if row:  # non-dangling
                 assert abs(sum(row) - 1.0) < 1e-9
 
     def test_probability_matches_frequency(self):
@@ -166,7 +205,7 @@ class TestActionOperatorMask:
         w = SparseTransitionTensor()
         for _ in range(4):
             w.observe("s0", "s1")
-        w.observe("s0", "s2")                      # s0 → s1:4, s2:1
+        w.observe("s0", "s2")  # s0 → s1:4, s2:1
         return w
 
     def test_apply_is_rownorm_of_mask_times_world(self):
@@ -183,15 +222,17 @@ class TestActionOperatorMask:
     def test_different_actions_give_different_distributions(self):
         """The whole point of the action axis: two actions from one state differ."""
         w = self._world()
-        a1 = ActionOperator("a1", w); a1.enable("s0", "s1")
-        a2 = ActionOperator("a2", w); a2.enable("s0", "s2")
+        a1 = ActionOperator("a1", w)
+        a1.enable("s0", "s1")
+        a2 = ActionOperator("a2", w)
+        a2.enable("s0", "s2")
         assert a1.apply("s0") != a2.apply("s0")
 
     def test_action_references_only_world_transitions(self):
         """A mask cannot invent a transition the world does not hold."""
         w = self._world()
         op = ActionOperator("bad", w)
-        op.enable("s0", "ghost")                   # not in the world
+        op.enable("s0", "ghost")  # not in the world
         assert "ghost" not in op.apply("s0")
 
 
@@ -202,7 +243,7 @@ class TestLearningIsolation:
     def test_world_learning_never_writes_q(self):
         """WorldLearner updates frequency only — Q stays at whatever it was."""
         t = SparseTransitionTensor()
-        t.bellman_update("s1", "s1", 0.9)          # seed a Q on the self-loop
+        t.bellman_update("s1", "s1", 0.9)  # seed a Q on the self-loop
         q_before = t.feature("s1", "s1", Feature.Q_VALUE)
         WorldLearner(t).observe_transition("s1", "s2")
         assert t.feature("s1", "s1", Feature.Q_VALUE) == q_before

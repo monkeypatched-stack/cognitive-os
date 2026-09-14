@@ -9,6 +9,7 @@ Resolution hierarchy:
 
 The resolver returns an ExecutableAgent that can be called via execute().
 """
+
 from __future__ import annotations
 
 import logging
@@ -52,8 +53,8 @@ def _autocreate_enabled() -> bool:
 
 def _snake_case(agent_name: str) -> str:
     """PascalCase → snake_case. 'LineResolverAgent' → 'line_resolver_agent'."""
-    snake = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', '_', agent_name).lower()
-    return re.sub(r'[^a-z0-9]+', '_', snake).strip('_')
+    snake = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", agent_name).lower()
+    return re.sub(r"[^a-z0-9]+", "_", snake).strip("_")
 
 
 def _strip_agent_suffix(snake: str) -> str:
@@ -98,7 +99,9 @@ def _fuzzy_agent_type(core: str, registered: list[str], agent_name: str = "") ->
         logger.warning(
             "[agent_resolver] %r is ambiguous — matches %d registered agents (%s). Refusing to "
             "guess; falling through to provider/SDLC/CodeGen.",
-            agent_name or core, len(candidates), ", ".join(sorted(candidates)[:5]),
+            agent_name or core,
+            len(candidates),
+            ", ".join(sorted(candidates)[:5]),
         )
     return None
 
@@ -106,6 +109,7 @@ def _fuzzy_agent_type(core: str, registered: list[str], agent_name: str = "") ->
 @dataclass
 class AgentResult:
     """Standardised result envelope from agent execution."""
+
     agent_name: str
     success: bool
     produced: dict[str, Any] = field(default_factory=dict)
@@ -183,7 +187,8 @@ class BrocaAgent(ExecutableAgent):
 
             logger.warning(
                 "[agent_resolver] %s returned an unrecognised result type %s — no payload to read",
-                self._agent_name, type(raw).__name__,
+                self._agent_name,
+                type(raw).__name__,
             )
             return AgentResult(
                 agent_name=self._agent_name,
@@ -212,6 +217,7 @@ class ProviderAgent(ExecutableAgent):
         t0 = time.monotonic()
         try:
             from src.monkey_brain.kernel.provider_registry import init_providers
+
             registry = init_providers()
             result = await registry.execute_agent(self._agent_name, state)
             elapsed = (time.monotonic() - t0) * 1000
@@ -254,6 +260,7 @@ class CodeGenAgent(ExecutableAgent):
         try:
             # Use the graph generator's LLM to generate a plan for this agent
             from broca.agents.graph_generator_agent import GraphGeneratorAgent
+
             generator = GraphGeneratorAgent()
 
             if generator._llm is None:
@@ -266,6 +273,7 @@ class CodeGenAgent(ExecutableAgent):
 
             # Load knowledge packs for grounded data, scoped to the caller identity
             from src.monkey_brain.runtime.agent_middleware import _identity_from_state
+
             knowledge_context = self._load_knowledge_context(question, identity=_identity_from_state(state))
 
             # Last-resort fallback: no real implementation backs this agent, so it
@@ -393,7 +401,7 @@ Return JSON:
                     with open(kp_file) as f:
                         data = yaml.safe_load(f)
                     if not _pack_permitted(data.get("pack", {}) or {}, identity):
-                        continue                  # caller not authorized for this pack
+                        continue  # caller not authorized for this pack
                     items = data.get("items", [])
                     for item in items[:5]:  # Limit to 5 items per pack
                         content = item.get("content", "")
@@ -424,7 +432,9 @@ class AgentResolver:
         self._cache: dict[str, ExecutableAgent] = {}
         self._cache_size = cache_size
 
-    async def resolve(self, agent_name: str, *, allow_create: bool = True, question: str = "") -> ExecutableAgent | None:
+    async def resolve(
+        self, agent_name: str, *, allow_create: bool = True, question: str = ""
+    ) -> ExecutableAgent | None:
         """Resolve an agent name to an ExecutableAgent.
 
         `allow_create=False` disables tier 4 (n8n auto-create) and tier 5
@@ -473,6 +483,7 @@ class AgentResolver:
         # already imports from this module inside its own functions.
         try:
             from src.monkey_brain.runtime.agent_middleware import AgentMiddleware
+
             general = await AgentMiddleware._lookup_generalization(agent_name)
             discovered_now = False
             if general is None:
@@ -483,7 +494,11 @@ class AgentResolver:
                 if general_agent is not None and not isinstance(general_agent, CodeGenAgent):
                     if discovered_now:
                         await AgentMiddleware._link_capability_generalization(agent_name, general)
-                    logger.info("[agent_resolver] %r resolved via generalization to real agent %r", agent_name, general)
+                    logger.info(
+                        "[agent_resolver] %r resolved via generalization to real agent %r",
+                        agent_name,
+                        general,
+                    )
                     self._cache_put(agent_name, general_agent)
                     return general_agent
         except Exception as e:
@@ -491,7 +506,10 @@ class AgentResolver:
 
         # 3. Provider Registry (tier 4 n8n auto-create inside it is gated by allow_create)
         provider_agent = await self._resolve_provider(
-            agent_name, diagnostics, allow_create=allow_create, question=question,
+            agent_name,
+            diagnostics,
+            allow_create=allow_create,
+            question=question,
         )
         if provider_agent is not None:
             self._cache_put(agent_name, provider_agent)
@@ -509,7 +527,10 @@ class AgentResolver:
                 return sdlc_agent
 
         # 6. CodeGen fallback — warns but allows pipeline to continue
-        logger.warning("[agent_resolver] Agent %r not found in Broca, providers, or via SDLC build — falling back to CodeGen", agent_name)
+        logger.warning(
+            "[agent_resolver] Agent %r not found in Broca, providers, or via SDLC build — falling back to CodeGen",
+            agent_name,
+        )
         codegen_agent = CodeGenAgent(agent_name, resolution_diagnostics=diagnostics)
         self._cache_put(agent_name, codegen_agent)
         return codegen_agent
@@ -529,11 +550,19 @@ class AgentResolver:
         """
         try:
             from src.monkey_brain.runtime.agent_middleware import AgentMiddleware
+
             await AgentMiddleware._register_capability_provider(provider_identifier, capability)
         except Exception as e:
-            logger.debug("[agent_resolver] mesh provider registration failed for %s/%s: %s", provider_identifier, capability, e)
+            logger.debug(
+                "[agent_resolver] mesh provider registration failed for %s/%s: %s",
+                provider_identifier,
+                capability,
+                e,
+            )
 
-    async def _try_sdlc_build(self, agent_name: str, question: str, diagnostics: dict[str, Any] | None) -> ExecutableAgent | None:
+    async def _try_sdlc_build(
+        self, agent_name: str, question: str, diagnostics: dict[str, Any] | None
+    ) -> ExecutableAgent | None:
         """Build a real agent via the SDLC runtime (spec → ... → serve →
         client_gen → register) and return it if registration succeeded.
 
@@ -543,15 +572,25 @@ class AgentResolver:
         advisory is what the caller falls back to, same as an n8n failure.
         """
         try:
-            from src.monkey_brain.kernel.codegen_runtime import get_codegen_runtime_instance, _slugify_question
+            from src.monkey_brain.kernel.codegen_runtime import (
+                get_codegen_runtime_instance,
+                _slugify_question,
+            )
 
             codegen = get_codegen_runtime_instance()
             if codegen is None:
-                logger.debug("[agent_resolver] SDLC build skipped for %r: CodeGenRuntime not booted", agent_name)
+                logger.debug(
+                    "[agent_resolver] SDLC build skipped for %r: CodeGenRuntime not booted",
+                    agent_name,
+                )
                 return None
 
             service_slug = _slugify_question(agent_name)
-            logger.info("[agent_resolver] Attempting SDLC build for %r (slug=%r) — this can take several minutes", agent_name, service_slug)
+            logger.info(
+                "[agent_resolver] Attempting SDLC build for %r (slug=%r) — this can take several minutes",
+                agent_name,
+                service_slug,
+            )
 
             # run_question() -> compile_intent() -> create_goal() requires the
             # question to match a registered INTENT_REGISTRY predicate — the
@@ -562,7 +601,11 @@ class AgentResolver:
             # codegen pipeline for this question, there is nothing to
             # classify.
             from uuid import uuid4
-            from src.monkey_brain.kernel.plan.goals.goal import Goal, GoalType, GoalSource
+            from src.monkey_brain.kernel.plan.goals.goal import (
+                Goal,
+                GoalType,
+                GoalSource,
+            )
             from src.monkey_brain.kernel.plan.goals.intent_ir import build_intent_ir
 
             run_id = uuid4().hex
@@ -575,19 +618,27 @@ class AgentResolver:
                 metadata={"agent_name": agent_name, "service_slug": service_slug},
             )
             intent_ir = build_intent_ir(
-                intent={"intent": "codegen", "confidence": 1.0, "workload_id": service_slug},
+                intent={
+                    "intent": "codegen",
+                    "confidence": 1.0,
+                    "workload_id": service_slug,
+                },
                 goal=goal,
                 run_id=run_id,
                 question=question,
             )
 
             result = await codegen.run(
-                intent_ir, include_release=False, service_slug=service_slug,
+                intent_ir,
+                include_release=False,
+                service_slug=service_slug,
             )
             if result.get("state") != "completed":
                 logger.warning(
                     "[agent_resolver] SDLC build for %r ended in state=%s error=%s",
-                    agent_name, result.get("state"), result.get("error"),
+                    agent_name,
+                    result.get("state"),
+                    result.get("error"),
                 )
                 if diagnostics is not None:
                     diagnostics["sdlc_build_failed"] = result.get("state")
@@ -595,15 +646,21 @@ class AgentResolver:
 
             registered_type = f"{service_slug}-client-agent"
             from broca.registry import get_registry
+
             built = get_registry().discover(registered_type)
             if built is None:
                 logger.warning(
                     "[agent_resolver] SDLC build for %r completed but %r was never registered",
-                    agent_name, registered_type,
+                    agent_name,
+                    registered_type,
                 )
                 return None
 
-            logger.info("[agent_resolver] SDLC-built agent %r registered as %r", agent_name, registered_type)
+            logger.info(
+                "[agent_resolver] SDLC-built agent %r registered as %r",
+                agent_name,
+                registered_type,
+            )
             # Close the "Register New Capability -> Update Capability Graph"
             # loop for the SDLC path specifically: ClientCapabilityRegisterAgent
             # only registers into Broca's in-memory registry (see its own
@@ -654,7 +711,11 @@ class AgentResolver:
         # workflow is a real, visible side effect and has no place here.
         provider_agent = await self._resolve_provider(agent_name, diagnostics, allow_create=False)
         if provider_agent is not None:
-            return {"available": True, "source": f"provider:{provider_agent._provider_name}", **diagnostics}
+            return {
+                "available": True,
+                "source": f"provider:{provider_agent._provider_name}",
+                **diagnostics,
+            }
 
         # Generalization check — lookup, then discovery if nothing's linked
         # yet. Without attempting discovery here too, this would only ever
@@ -668,6 +729,7 @@ class AgentResolver:
         # read-only contract even though it costs a real LLM call.
         try:
             from src.monkey_brain.runtime.agent_middleware import AgentMiddleware
+
             general = await AgentMiddleware._lookup_generalization(agent_name)
             discovered_now = False
             if general is None:
@@ -678,9 +740,17 @@ class AgentResolver:
                 if general_available.get("available"):
                     if discovered_now:
                         await AgentMiddleware._link_capability_generalization(agent_name, general)
-                    return {"available": True, "source": f"generalization:{general}", **diagnostics}
+                    return {
+                        "available": True,
+                        "source": f"generalization:{general}",
+                        **diagnostics,
+                    }
         except Exception as e:
-            logger.debug("[agent_resolver] check_availability generalization check failed for %r: %s", agent_name, e)
+            logger.debug(
+                "[agent_resolver] check_availability generalization check failed for %r: %s",
+                agent_name,
+                e,
+            )
 
         return {"available": False, "source": None, **diagnostics}
 
@@ -693,6 +763,7 @@ class AgentResolver:
         """
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
 
             # 1. Exact match
@@ -715,8 +786,11 @@ class AgentResolver:
             if match:
                 agent = registry.discover(match)
                 if agent is not None:
-                    logger.info("[agent_resolver] %r resolved to registered agent %r by fuzzy match",
-                                agent_name, match)
+                    logger.info(
+                        "[agent_resolver] %r resolved to registered agent %r by fuzzy match",
+                        agent_name,
+                        match,
+                    )
                     return BrocaAgent(agent, agent_name)
 
         except Exception as e:
@@ -748,13 +822,17 @@ class AgentResolver:
             provider_registry_error — the registry itself could not be reached
         """
         try:
-            from src.monkey_brain.kernel.provider_registry import init_providers, _provider_registry
+            from src.monkey_brain.kernel.provider_registry import (
+                init_providers,
+                _provider_registry,
+            )
 
             # Force re-init if no provider has a URL (stale singleton from before .env)
             if _provider_registry is not None:
                 has_urls = any(p.url for p in _provider_registry._providers.values())
                 if not has_urls:
                     import src.monkey_brain.kernel.provider_registry as pr
+
                     pr._provider_registry = None
 
             registry = init_providers()
@@ -771,6 +849,7 @@ class AgentResolver:
             # init_providers() registered them, which doesn't reflect this
             # priority, so iterate an explicit order instead.
             import httpx
+
             _PROVIDER_PRIORITY = ("ard", "openclaw", "n8n")
             by_name = {p.name: p for p in registry._providers.values()}
             ordered_providers = [by_name[name] for name in _PROVIDER_PRIORITY if name in by_name]
@@ -789,11 +868,20 @@ class AgentResolver:
                     if provider.name == "n8n" and provider.url:
                         api_key = os.environ.get("N8N_API_KEY", "")
                         headers = {"X-N8N-API-KEY": api_key} if api_key else {}
-                        resp = httpx.get(f"{provider.url}/api/v1/workflows", headers=headers, timeout=3)
+                        resp = httpx.get(
+                            f"{provider.url}/api/v1/workflows",
+                            headers=headers,
+                            timeout=3,
+                        )
                         if resp.status_code == 200:
                             for wf in resp.json().get("data", []):
                                 if wf.get("active"):
-                                    agent_info = {"name": wf["name"], "description": wf.get("description", ""), "provider": "n8n", "workflow_id": wf["id"]}
+                                    agent_info = {
+                                        "name": wf["name"],
+                                        "description": wf.get("description", ""),
+                                        "provider": "n8n",
+                                        "workflow_id": wf["id"],
+                                    }
                                     provider.register_agent(agent_info)
                     elif provider.name == "openclaw":
                         # Reuse OpenClawProvider.discover_agents() itself —
@@ -820,7 +908,11 @@ class AgentResolver:
 
                 agent_info = registry.find_agent(agent_name)
                 if agent_info is not None:
-                    logger.info("[agent_resolver] Found %r in provider %s", agent_name, provider.name)
+                    logger.info(
+                        "[agent_resolver] Found %r in provider %s",
+                        agent_name,
+                        provider.name,
+                    )
                     return ProviderAgent(provider.name, agent_name)
 
             # 3. n8n auto-create workflow if n8n is available
@@ -844,15 +936,17 @@ class AgentResolver:
     # existing hand-built "MonkeyBrain — *" workflows). executeCommand and
     # similar shell/SSH nodes are deliberately excluded — an LLM-generated
     # workflow must never be able to shell out.
-    _N8N_ALLOWED_NODE_TYPES = frozenset({
-        "n8n-nodes-base.webhook",
-        "n8n-nodes-base.respondToWebhook",
-        "n8n-nodes-base.code",
-        "n8n-nodes-base.set",
-        "n8n-nodes-base.if",
-        "n8n-nodes-base.httpRequest",
-        "n8n-nodes-base.noOp",
-    })
+    _N8N_ALLOWED_NODE_TYPES = frozenset(
+        {
+            "n8n-nodes-base.webhook",
+            "n8n-nodes-base.respondToWebhook",
+            "n8n-nodes-base.code",
+            "n8n-nodes-base.set",
+            "n8n-nodes-base.if",
+            "n8n-nodes-base.httpRequest",
+            "n8n-nodes-base.noOp",
+        }
+    )
 
     async def _generate_n8n_workflow_json(self, agent_name: str, question: str, webhook_path: str) -> dict | None:
         """Ask the LLM to synthesize a real n8n workflow for this agent.
@@ -863,6 +957,7 @@ class AgentResolver:
         otherwise just talk about doing.
         """
         from broca.agents.graph_generator_agent import GraphGeneratorAgent
+
         generator = GraphGeneratorAgent()
         if generator._llm is None:
             return None
@@ -872,6 +967,7 @@ class AgentResolver:
         # real schema, and forbid inventing what isn't in it.
         try:
             from src.monkey_brain.kernel.data_catalog import prompt_fragment
+
             data_context = await prompt_fragment()
         except Exception as exc:
             logger.debug("[agent_resolver] data catalog unavailable for %r: %s", agent_name, exc)
@@ -884,7 +980,7 @@ class AgentResolver:
         # connections list instead of n8n's nested {source: {main: [[...]]}}
         # object, until this example was added.
         example = (
-            '{\n'
+            "{\n"
             '  "name": "MonkeyBrain — ExampleAgent",\n'
             '  "nodes": [\n'
             '    {"parameters": {"httpMethod": "POST", "path": "exampleagent", "responseMode": "responseNode"}, '
@@ -893,13 +989,13 @@ class AgentResolver:
             '"name": "Code", "type": "n8n-nodes-base.code", "typeVersion": 1, "position": [500, 300]},\n'
             '    {"parameters": {"respondWith": "json", "responseBody": "={{ $json }}"}, '
             '"name": "Respond", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1, "position": [750, 300]}\n'
-            '  ],\n'
+            "  ],\n"
             '  "connections": {\n'
             '    "Webhook": {"main": [[{"node": "Code", "type": "main", "index": 0}]]},\n'
             '    "Code": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}\n'
-            '  },\n'
+            "  },\n"
             '  "settings": {}\n'
-            '}'
+            "}"
         )
         system_prompt = (
             "You generate n8n public API (v1) workflow JSON for a self-hosted n8n instance. "
@@ -907,8 +1003,8 @@ class AgentResolver:
             "Never use n8n-nodes-base.executeCommand, ssh, or any node that runs shell "
             "commands or reads local files — those are disabled here.\n\n"
             "Return strictly valid JSON, no markdown fences. Follow this exact shape — the "
-            "same keys, same nesting, at every level (node config goes under \"parameters\", "
-            "never \"settings\"; \"connections\" is an object keyed by source node name, "
+            'same keys, same nesting, at every level (node config goes under "parameters", '
+            'never "settings"; "connections" is an object keyed by source node name, '
             "never a list):\n\n"
             f"{example}\n\n"
             "Adapt this example to the agent below: keep the same Webhook → Code → Respond "
@@ -939,12 +1035,19 @@ class AgentResolver:
         def _parse_and_validate(response: str) -> dict | None:
             m = re.search(r"\{.*\}", response, re.DOTALL)
             if not m:
-                logger.warning("[agent_resolver] LLM did not return JSON for n8n workflow %r", agent_name)
+                logger.warning(
+                    "[agent_resolver] LLM did not return JSON for n8n workflow %r",
+                    agent_name,
+                )
                 return None
             try:
                 workflow = json.loads(m.group(0))
             except json.JSONDecodeError as e:
-                logger.warning("[agent_resolver] LLM returned invalid JSON for n8n workflow %r: %s", agent_name, e)
+                logger.warning(
+                    "[agent_resolver] LLM returned invalid JSON for n8n workflow %r: %s",
+                    agent_name,
+                    e,
+                )
                 return None
 
             if not isinstance(workflow, dict) or not workflow.get("nodes"):
@@ -982,7 +1085,10 @@ class AgentResolver:
                     )
                 connections = normalized
             if not isinstance(connections, dict) or not connections:
-                logger.warning("[agent_resolver] LLM workflow for %r missing/malformed connections", agent_name)
+                logger.warning(
+                    "[agent_resolver] LLM workflow for %r missing/malformed connections",
+                    agent_name,
+                )
                 return None
             workflow["connections"] = connections
 
@@ -998,7 +1104,8 @@ class AgentResolver:
                 if node_type not in self._N8N_ALLOWED_NODE_TYPES:
                     logger.warning(
                         "[agent_resolver] LLM-generated workflow for %r used disallowed node type %r — rejecting",
-                        agent_name, node_type,
+                        agent_name,
+                        node_type,
                     )
                     return None
                 sanitized = {k: node[k] for k in _NODE_FIELDS if k in node}
@@ -1009,7 +1116,12 @@ class AgentResolver:
             settings = workflow.get("settings") or {}
             # Same additionalProperties strictness applies at the workflow
             # level — only pass through what the create schema accepts.
-            return {"name": name, "nodes": sanitized_nodes, "connections": workflow["connections"], "settings": settings}
+            return {
+                "name": name,
+                "nodes": sanitized_nodes,
+                "connections": workflow["connections"],
+                "settings": settings,
+            }
 
         # The local Ollama model is flaky at strict JSON/schema compliance on
         # the first try (unescaped quotes in generated JS, missing required
@@ -1019,7 +1131,11 @@ class AgentResolver:
             workflow = _parse_and_validate(response)
             if workflow is not None:
                 return workflow
-            logger.info("[agent_resolver] retrying n8n workflow generation for %r (attempt %d failed)", agent_name, attempt + 1)
+            logger.info(
+                "[agent_resolver] retrying n8n workflow generation for %r (attempt %d failed)",
+                agent_name,
+                attempt + 1,
+            )
         return None
 
     async def _find_active_n8n_workflow_by_path(self, n8n_url: str, headers: dict, webhook_path: str) -> dict | None:
@@ -1032,17 +1148,29 @@ class AgentResolver:
         activate, since two active workflows can't share a webhook path).
         """
         import httpx
+
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get(f"{n8n_url}/api/v1/workflows", headers=headers, params={"active": "true"})
+                resp = await client.get(
+                    f"{n8n_url}/api/v1/workflows",
+                    headers=headers,
+                    params={"active": "true"},
+                )
                 if resp.status_code != 200:
                     return None
                 for wf in resp.json().get("data", []):
                     for node in wf.get("nodes", []):
-                        if node.get("type") == "n8n-nodes-base.webhook" and node.get("parameters", {}).get("path") == webhook_path:
+                        if (
+                            node.get("type") == "n8n-nodes-base.webhook"
+                            and node.get("parameters", {}).get("path") == webhook_path
+                        ):
                             return {"id": wf.get("id", ""), "name": wf.get("name", "")}
         except Exception as e:
-            logger.debug("[agent_resolver] active n8n workflow lookup failed for path %r: %s", webhook_path, e)
+            logger.debug(
+                "[agent_resolver] active n8n workflow lookup failed for path %r: %s",
+                webhook_path,
+                e,
+            )
         return None
 
     async def _create_n8n_workflow(self, n8n_provider, agent_name: str, question: str = "") -> bool:
@@ -1065,15 +1193,19 @@ class AgentResolver:
         if existing is not None:
             logger.info(
                 "[agent_resolver] Reusing already-active n8n workflow %r (id=%s) for %r instead of creating a duplicate",
-                existing["name"], existing["id"], agent_name,
+                existing["name"],
+                existing["id"],
+                agent_name,
             )
-            n8n_provider.register_agent({
-                "name": agent_name,
-                "description": f"Reused existing n8n workflow {existing['name']!r}",
-                "provider": "n8n",
-                "workflow_id": existing["id"],
-                "webhook_path": webhook_path,
-            })
+            n8n_provider.register_agent(
+                {
+                    "name": agent_name,
+                    "description": f"Reused existing n8n workflow {existing['name']!r}",
+                    "provider": "n8n",
+                    "workflow_id": existing["id"],
+                    "webhook_path": webhook_path,
+                }
+            )
             return True
 
         try:
@@ -1088,7 +1220,9 @@ class AgentResolver:
                 if resp.status_code not in (200, 201):
                     logger.warning(
                         "[agent_resolver] n8n workflow create failed for %r: %s %s",
-                        agent_name, resp.status_code, resp.text[:300],
+                        agent_name,
+                        resp.status_code,
+                        resp.text[:300],
                     )
                     return False
                 wf = resp.json()
@@ -1097,7 +1231,8 @@ class AgentResolver:
                 # This n8n version doesn't honor "active" at create time — a
                 # separate activate call is required before the webhook is live.
                 activate_resp = await client.post(
-                    f"{n8n_url}/api/v1/workflows/{workflow_id}/activate", headers=headers,
+                    f"{n8n_url}/api/v1/workflows/{workflow_id}/activate",
+                    headers=headers,
                 )
                 if activate_resp.status_code not in (200, 201):
                     # Most likely cause: a race with another resolve() call
@@ -1108,19 +1243,26 @@ class AgentResolver:
                     if fallback is not None:
                         logger.info(
                             "[agent_resolver] Activate conflict for %r — reusing %r (id=%s) created concurrently",
-                            agent_name, fallback["name"], fallback["id"],
+                            agent_name,
+                            fallback["name"],
+                            fallback["id"],
                         )
-                        n8n_provider.register_agent({
-                            "name": agent_name,
-                            "description": f"Reused concurrently-created n8n workflow {fallback['name']!r}",
-                            "provider": "n8n",
-                            "workflow_id": fallback["id"],
-                            "webhook_path": webhook_path,
-                        })
+                        n8n_provider.register_agent(
+                            {
+                                "name": agent_name,
+                                "description": f"Reused concurrently-created n8n workflow {fallback['name']!r}",
+                                "provider": "n8n",
+                                "workflow_id": fallback["id"],
+                                "webhook_path": webhook_path,
+                            }
+                        )
                         return True
                     logger.warning(
                         "[agent_resolver] n8n workflow activate failed for %r (id=%s): %s %s",
-                        agent_name, workflow_id, activate_resp.status_code, activate_resp.text[:300],
+                        agent_name,
+                        workflow_id,
+                        activate_resp.status_code,
+                        activate_resp.text[:300],
                     )
                     return False
 
@@ -1132,7 +1274,11 @@ class AgentResolver:
                 "webhook_path": webhook_path,
             }
             n8n_provider.register_agent(agent_info)
-            logger.info("[agent_resolver] Created + activated n8n workflow for %r (id=%s)", agent_name, workflow_id)
+            logger.info(
+                "[agent_resolver] Created + activated n8n workflow for %r (id=%s)",
+                agent_name,
+                workflow_id,
+            )
 
             # Register into Broca too (tier 1, checked before providers) so
             # this process resolves it instantly next time instead of
@@ -1142,9 +1288,14 @@ class AgentResolver:
             try:
                 from broca.registry import get_registry
                 from broca.agents.provider_proxy import ProviderProxyAgent
+
                 get_registry().register(ProviderProxyAgent(agent_info, "n8n"))
             except Exception as e:
-                logger.debug("[agent_resolver] Broca registration failed for %r (n8n workflow still usable via provider lookup): %s", agent_name, e)
+                logger.debug(
+                    "[agent_resolver] Broca registration failed for %r (n8n workflow still usable via provider lookup): %s",
+                    agent_name,
+                    e,
+                )
 
             return True
         except Exception as e:

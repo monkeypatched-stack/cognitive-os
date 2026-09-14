@@ -13,10 +13,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 import os
 from pathlib import Path
-from typing import Any
 
 
 def _derive_key(password: str, salt: bytes) -> bytes:
@@ -54,6 +52,7 @@ class CodeVault:
         key = _derive_key(self._password, salt)
 
         from cryptography.fernet import Fernet
+
         self._fernet = Fernet(key)
         return self._fernet
 
@@ -151,7 +150,7 @@ class CodeVault:
 
         self._password = password
         self._fernet = None
-        fernet = self._get_fernet()
+        self._get_fernet()
 
         enc_file = self.vault_dir / "test.enc"
         if enc_file.exists():

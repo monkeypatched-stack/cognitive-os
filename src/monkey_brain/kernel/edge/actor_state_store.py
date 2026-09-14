@@ -18,6 +18,7 @@ authority" applies equally here: this store never manufactures actor
 state that was never actually checkpointed locally, and it never claims
 to be the multi-node-authoritative record).
 """
+
 from __future__ import annotations
 
 import time
@@ -65,10 +66,16 @@ class EdgeActorStateStore:
             "last_model_name": actor_state.last_model_name,
         }
         provenance = CacheProvenance(
-            source="edge_local:actor_state", observed_at=time.time(),
+            source="edge_local:actor_state",
+            observed_at=time.time(),
             freshness_requirement="safe_offline",
         )
-        self._store.put(_NAMESPACE, _key(actor_state.actor_id, actor_state.tenant_id), payload, provenance)
+        self._store.put(
+            _NAMESPACE,
+            _key(actor_state.actor_id, actor_state.tenant_id),
+            payload,
+            provenance,
+        )
 
     def load(self, actor_id: str, tenant_id: str) -> PersistedActorState | None:
         import base64
@@ -78,15 +85,18 @@ class EdgeActorStateStore:
             return None
         doc = entry.value
         return PersistedActorState(
-            actor_id=doc["actor_id"], tenant_id=doc["tenant_id"],
+            actor_id=doc["actor_id"],
+            tenant_id=doc["tenant_id"],
             belief_state=base64.b64decode(doc["belief_state"]),
             bellman_policy=base64.b64decode(doc["bellman_policy"]),
             phi_compiled=base64.b64decode(doc["phi_compiled"]),
             memory_kv=doc.get("memory_kv", {}),
             world_snapshot=base64.b64decode(doc.get("world_snapshot", "")),
             world_version=doc.get("world_version", 0),
-            last_updated=doc["last_updated"], version=doc["version"],
-            is_active=doc.get("is_active", True), cycle_count=doc.get("cycle_count", 0),
+            last_updated=doc["last_updated"],
+            version=doc["version"],
+            is_active=doc.get("is_active", True),
+            cycle_count=doc.get("cycle_count", 0),
             last_cycle=doc.get("last_cycle", 0.0),
             last_model_provider=doc.get("last_model_provider", ""),
             last_model_name=doc.get("last_model_name", ""),

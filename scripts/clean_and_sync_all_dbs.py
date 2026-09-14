@@ -104,10 +104,16 @@ def _has_critical_fields(doc: dict, coll_name: str) -> bool:
         "cleaning_records": ("cleaning_id", "equipment_id"),
         "batch_production_execution_records": ("batch_execution_record_id", "batch_id"),
         "batch_step_executions": ("step_execution_id", "batch_execution_record_id"),
-        "dispense_weighing_records": ("dispense_weighing_id", "batch_execution_record_id"),
+        "dispense_weighing_records": (
+            "dispense_weighing_id",
+            "batch_execution_record_id",
+        ),
         "area_room_usage_ledger": ("usage_id", "batch_execution_record_id"),
         "equipment_usage_ledger": ("usage_id", "batch_execution_record_id"),
-        "yield_reconciliation_records": ("reconciliation_id", "batch_execution_record_id"),
+        "yield_reconciliation_records": (
+            "reconciliation_id",
+            "batch_execution_record_id",
+        ),
         "cpp_cqa_registry": ("registry_id", "batch_execution_record_id"),
         "part11_audit_trail": ("audit_id", "collection"),
         "part11_record_versions": ("version_id", "collection"),
@@ -129,6 +135,7 @@ def _has_critical_fields(doc: dict, coll_name: str) -> bool:
 
 
 # ─── Phase 1: MongoDB (master) ────────────────────────────────────────────
+
 
 async def clean_mongo_master() -> dict[str, Any]:
     logger.info("=" * 60)
@@ -153,7 +160,9 @@ async def clean_mongo_master() -> dict[str, Any]:
             if not DRY_RUN:
                 await master_db[coll_name].delete_many({"_id": {"$in": docs_to_delete}})
             results[coll_name] = len(docs_to_delete)
-            logger.info(f"  {'[DRY] ' if DRY_RUN else ''}{coll_name}: removed {len(docs_to_delete)}/{before} incomplete")
+            logger.info(
+                f"  {'[DRY] ' if DRY_RUN else ''}{coll_name}: removed {len(docs_to_delete)}/{before} incomplete"
+            )
 
     total = sum(results.values())
     logger.info(f"  MongoDB master: cleaned {total} docs across {len(results)} collections")
@@ -163,6 +172,7 @@ async def clean_mongo_master() -> dict[str, Any]:
 
 # ─── Phase 2: MongoDB (semantic) ──────────────────────────────────────────
 
+
 async def clean_mongo_semantic() -> dict[str, Any]:
     logger.info("=" * 60)
     logger.info("PHASE 2: Clean MongoDB (semantic) - embeddings & mem0 states")
@@ -171,7 +181,11 @@ async def clean_mongo_semantic() -> dict[str, Any]:
     client, master_db, agentos_db = await get_mongo_clients()
     results = {}
 
-    for coll_name in ["mem0_semantic_states", "document_embeddings", "canonical_state_snapshots"]:
+    for coll_name in [
+        "mem0_semantic_states",
+        "document_embeddings",
+        "canonical_state_snapshots",
+    ]:
         db_to_use = agentos_db if coll_name in ("mem0_semantic_states",) else master_db
         before = await db_to_use[coll_name].count_documents({})
         if before == 0:
@@ -197,6 +211,7 @@ async def clean_mongo_semantic() -> dict[str, Any]:
 
 # ─── Phase 3: Neo4j (relationships) ───────────────────────────────────────
 
+
 async def clean_neo4j() -> dict[str, Any]:
     logger.info("=" * 60)
     logger.info("PHASE 3: Clean Neo4j - wipe all nodes and relationships")
@@ -220,11 +235,19 @@ async def clean_neo4j() -> dict[str, Any]:
 
     await close_neo4j_mirror_driver()
 
-    logger.info(f"  {'[DRY] ' if DRY_RUN else ''}Neo4j: {nodes_before}→{nodes_after} nodes, {rels_before}→{rels_after} rels")
-    return {"nodes_before": nodes_before, "nodes_after": nodes_after, "rels_before": rels_before, "rels_after": rels_after}
+    logger.info(
+        f"  {'[DRY] ' if DRY_RUN else ''}Neo4j: {nodes_before}→{nodes_after} nodes, {rels_before}→{rels_after} rels"
+    )
+    return {
+        "nodes_before": nodes_before,
+        "nodes_after": nodes_after,
+        "rels_before": rels_before,
+        "rels_after": rels_after,
+    }
 
 
 # ─── Phase 4: InfluxDB (event logs) ──────────────────────────────────────
+
 
 async def clean_influxdb() -> dict[str, Any]:
     logger.info("=" * 60)
@@ -234,7 +257,11 @@ async def clean_influxdb() -> dict[str, Any]:
     try:
         from influxdb_client import InfluxDBClient
 
-        client = InfluxDBClient(url=settings.INFLUXDB_URL, token=settings.INFLUXDB_TOKEN, org=settings.INFLUXDB_ORG)
+        client = InfluxDBClient(
+            url=settings.INFLUXDB_URL,
+            token=settings.INFLUXDB_TOKEN,
+            org=settings.INFLUXDB_ORG,
+        )
         delete_api = client.delete_api()
 
         if not DRY_RUN:
@@ -255,6 +282,7 @@ async def clean_influxdb() -> dict[str, Any]:
 
 
 # ─── Phase 5: Redis (session data) ────────────────────────────────────────
+
 
 async def clean_redis() -> dict[str, Any]:
     logger.info("=" * 60)
@@ -281,6 +309,7 @@ async def clean_redis() -> dict[str, Any]:
 
 # ─── Phase 6: Elasticsearch (search & audit) ─────────────────────────────
 
+
 async def clean_elasticsearch() -> dict[str, Any]:
     logger.info("=" * 60)
     logger.info("PHASE 6: Clean Elasticsearch - wipe search and audit indexes")
@@ -306,7 +335,10 @@ async def clean_elasticsearch() -> dict[str, Any]:
                     count = count_resp.json().get("count", 0) if count_resp.status_code == 200 else 0
 
                     if not DRY_RUN:
-                        await client.post(f"/{index}/_delete_by_query", json={"query": {"match_all": {}}})
+                        await client.post(
+                            f"/{index}/_delete_by_query",
+                            json={"query": {"match_all": {}}},
+                        )
 
                     results[index] = {"before": count, "after": 0}
                     logger.info(f"  {'[DRY] ' if DRY_RUN else ''}Cleared '{index}': {count} docs")
@@ -320,6 +352,7 @@ async def clean_elasticsearch() -> dict[str, Any]:
 
 # ─── Phase 7: Sync Neo4j from MongoDB (master → relationships) ────────────
 
+
 async def sync_neo4j_from_master() -> dict[str, Any]:
     logger.info("=" * 60)
     logger.info("PHASE 7: Sync Neo4j from MongoDB (master → relationships)")
@@ -329,14 +362,24 @@ async def sync_neo4j_from_master() -> dict[str, Any]:
     collections = await master_db.list_collection_names()
 
     skip_collections = {
-        "event_store", "event_reduced_state", "event_reducer_audits",
-        "part11_audit_trail", "part11_audit_outbox", "part11_record_versions",
-        "part11_electronic_signatures", "part11_login_events", "part11_export_jobs",
+        "event_store",
+        "event_reduced_state",
+        "event_reducer_audits",
+        "part11_audit_trail",
+        "part11_audit_outbox",
+        "part11_record_versions",
+        "part11_electronic_signatures",
+        "part11_login_events",
+        "part11_export_jobs",
         "part11_audit_search_sync_state",
-        "agentos_api_keys", "agentos_api_key_email_otps",
-        "agent_registry", "canonical_state_snapshots",
-        "integration_transformation_audits", "external_ingestion_audits",
-        "integration_connection_manifest_audit", "module_control_audit",
+        "agentos_api_keys",
+        "agentos_api_key_email_otps",
+        "agent_registry",
+        "canonical_state_snapshots",
+        "integration_transformation_audits",
+        "external_ingestion_audits",
+        "integration_connection_manifest_audit",
+        "module_control_audit",
     }
 
     total_mirrored = 0
@@ -383,6 +426,7 @@ async def sync_neo4j_from_master() -> dict[str, Any]:
 
 # ─── Phase 8: Sync Elasticsearch from MongoDB (master → search/audit) ─────
 
+
 async def sync_elasticsearch_from_master() -> dict[str, Any]:
     logger.info("=" * 60)
     logger.info("PHASE 8: Sync Elasticsearch from MongoDB (master → search/audit)")
@@ -401,7 +445,9 @@ async def sync_elasticsearch_from_master() -> dict[str, Any]:
         await sync_state.delete_many({"_id": "elasticsearch"})
         logger.info("  Reset ES sync cursor in MongoDB")
 
-    from services.auth.helpers.audit_elasticsearch_sync import sync_part11_audit_to_elasticsearch
+    from services.auth.helpers.audit_elasticsearch_sync import (
+        sync_part11_audit_to_elasticsearch,
+    )
 
     try:
         result = await sync_part11_audit_to_elasticsearch(master_db, batch_size=1000)
@@ -415,6 +461,7 @@ async def sync_elasticsearch_from_master() -> dict[str, Any]:
 
 
 # ─── Phase 9: Reset Mem0 state store ──────────────────────────────────────
+
 
 async def clean_mem0() -> dict[str, Any]:
     logger.info("=" * 60)
@@ -435,6 +482,7 @@ async def clean_mem0() -> dict[str, Any]:
 
 
 # ─── Main ──────────────────────────────────────────────────────────────────
+
 
 async def main():
     global DRY_RUN, SKIP_SYNC, ONLY_PHASE

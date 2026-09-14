@@ -27,60 +27,59 @@ from dataclasses import dataclass
 
 from cortex.knowledge.confidence import ConfidenceVector
 
-
 # ---------------------------------------------------------------------------
 # Retrieval cost table
 # ---------------------------------------------------------------------------
 
 RETRIEVAL_COSTS: dict[str, float] = {
-    "sensor_read":     0.02,
-    "cache_hit":       0.01,
-    "db_query":        0.05,
-    "file_read":       0.03,
-    "vector_search":   0.08,
+    "sensor_read": 0.02,
+    "cache_hit": 0.01,
+    "db_query": 0.05,
+    "file_read": 0.03,
+    "vector_search": 0.08,
     "graph_traversal": 0.10,
-    "web_search":      0.20,
-    "llm_inference":   0.35,
-    "external_api":    0.25,
-    "simulation_run":  0.50,
-    "human_review":    0.90,
+    "web_search": 0.20,
+    "llm_inference": 0.35,
+    "external_api": 0.25,
+    "simulation_run": 0.50,
+    "human_review": 0.90,
 }
 
 # Latency estimate in seconds per source type
 RETRIEVAL_LATENCY: dict[str, float] = {
-    "sensor_read":     0.01,
-    "cache_hit":       0.001,
-    "db_query":        0.05,
-    "file_read":       0.02,
-    "vector_search":   0.20,
+    "sensor_read": 0.01,
+    "cache_hit": 0.001,
+    "db_query": 0.05,
+    "file_read": 0.02,
+    "vector_search": 0.20,
     "graph_traversal": 0.15,
-    "web_search":      2.00,
-    "llm_inference":   5.00,
-    "external_api":    1.50,
-    "simulation_run":  30.0,
-    "human_review":    3600.0,
+    "web_search": 2.00,
+    "llm_inference": 5.00,
+    "external_api": 1.50,
+    "simulation_run": 30.0,
+    "human_review": 3600.0,
 }
 
 # Modality → which confidence components it primarily raises if retrieved
 _MODALITY_IG_PROFILE: dict[str, dict[str, float]] = {
     #                 P     F     S     V     E     M     R
-    "ontology":  {"semantic": 0.8, "verification": 0.6, "provenance": 0.4},
-    "fact":      {"empirical": 0.7, "semantic": 0.5},
-    "rule":      {"semantic": 0.9, "verification": 0.7},
+    "ontology": {"semantic": 0.8, "verification": 0.6, "provenance": 0.4},
+    "fact": {"empirical": 0.7, "semantic": 0.5},
+    "rule": {"semantic": 0.9, "verification": 0.7},
     "procedure": {"semantic": 0.7, "verification": 0.6, "empirical": 0.4},
-    "policy":    {"semantic": 0.8, "provenance": 0.6},
-    "constraint":{"semantic": 0.9, "verification": 0.8},
-    "world_model":{"empirical": 0.7, "semantic": 0.5},
+    "policy": {"semantic": 0.8, "provenance": 0.6},
+    "constraint": {"semantic": 0.9, "verification": 0.8},
+    "world_model": {"empirical": 0.7, "semantic": 0.5},
     "simulator": {"empirical": 0.9, "verification": 0.6},
     "embedding": {"retrieval": 0.9, "semantic": 0.4},
-    "code":      {"verification": 0.8, "semantic": 0.7, "empirical": 0.5},
-    "test":      {"verification": 0.95, "empirical": 0.85},
-    "image":     {"empirical": 0.6, "modality": 0.5},
-    "video":     {"empirical": 0.7, "modality": 0.5},
-    "cad":       {"semantic": 0.7, "verification": 0.6, "empirical": 0.5},
+    "code": {"verification": 0.8, "semantic": 0.7, "empirical": 0.5},
+    "test": {"verification": 0.95, "empirical": 0.85},
+    "image": {"empirical": 0.6, "modality": 0.5},
+    "video": {"empirical": 0.7, "modality": 0.5},
+    "cad": {"semantic": 0.7, "verification": 0.6, "empirical": 0.5},
     "telemetry": {"empirical": 0.95, "freshness": 0.90},
-    "provenance":{"provenance": 0.95, "verification": 0.7},
-    "evidence":  {"empirical": 0.90, "verification": 0.75},
+    "provenance": {"provenance": 0.95, "verification": 0.7},
+    "evidence": {"empirical": 0.90, "verification": 0.75},
 }
 
 
@@ -88,21 +87,24 @@ _MODALITY_IG_PROFILE: dict[str, dict[str, float]] = {
 # RetrievalDecision — the structured output of ShouldRetrieve
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RetrievalDecision:
     """Outcome of a retrieval policy decision."""
+
     should_retrieve: bool
     reason: str
-    expected_ig: float              # ΔL_sim if retrieved
+    expected_ig: float  # ΔL_sim if retrieved
     retrieval_cost: float
-    net_value: float                # expected_ig − retrieval_cost
-    recommended_modality: str       # which modality to retrieve
-    recommended_source: str         # which source type to use
+    net_value: float  # expected_ig − retrieval_cost
+    recommended_modality: str  # which modality to retrieve
+    recommended_source: str  # which source type to use
 
 
 # ---------------------------------------------------------------------------
 # Information Gain computation
 # ---------------------------------------------------------------------------
+
 
 def expected_information_gain(
     current_confidence: ConfidenceVector,
@@ -123,18 +125,18 @@ def expected_information_gain(
 
     # Simulation loss component → confidence component mapping
     _LOSS_TO_CONF = {
-        "state":      ["empirical", "freshness"],
-        "action":     ["semantic", "verification"],
+        "state": ["empirical", "freshness"],
+        "action": ["semantic", "verification"],
         "affordance": ["semantic", "ontology"],
         "constraint": ["verification", "semantic"],
-        "goal":       ["empirical", "freshness"],
-        "knowledge":  ["provenance", "verification", "retrieval"],
+        "goal": ["empirical", "freshness"],
+        "knowledge": ["provenance", "verification", "retrieval"],
     }
 
     total_gain = 0.0
     for conf_component, ig_strength in ig_profile.items():
         current_val = getattr(current_confidence, conf_component, 1.0)
-        headroom = 1.0 - current_val   # max possible improvement
+        headroom = 1.0 - current_val  # max possible improvement
 
         # Which simulation loss components does improving this confidence help?
         loss_relevance = sum(
@@ -151,6 +153,7 @@ def expected_information_gain(
 # ---------------------------------------------------------------------------
 # ShouldRetrieve — the decision function
 # ---------------------------------------------------------------------------
+
 
 def should_retrieve(
     current_confidence: ConfidenceVector,

@@ -6,6 +6,7 @@ needs execution state receives one ExecutionContext instead of reassembling
 it from scratch, which is what caused goal re-derivation drift in the first
 place (see IntentIR / GoalExecutor.execute).
 """
+
 from __future__ import annotations
 
 import time

@@ -51,29 +51,31 @@ logger = logging.getLogger("agentos.adversarial")
 # Solver Selection Constitution — encoded as a dispatch table
 # ---------------------------------------------------------------------------
 
+
 class ProblemType:
     """Problem classification: determines solver priority (Rules 1–14)."""
-    GRAPH_REACHABILITY = "graph_reachability"   # BFS primary, MC cross-check
-    GRAPH_COVERAGE     = "graph_coverage"        # coverage analysis, LLM review
-    FINITE_STATE       = "finite_state"          # model checker, MC exploration
-    CONSTRAINT_SAT     = "constraint_sat"        # SAT/SMT primary, LLM explains
-    ARCHITECTURE       = "architecture"          # constraint propagation, LLM critique
-    OPTIMIZATION       = "optimization"          # M/M/c queuing, LLM trade-off
-    STATISTICAL        = "statistical"           # MC primary, coherence distribution check
-    SEMANTIC           = "semantic"              # LLM primary (only valid use), coherence grounds
+
+    GRAPH_REACHABILITY = "graph_reachability"  # BFS primary, MC cross-check
+    GRAPH_COVERAGE = "graph_coverage"  # coverage analysis, LLM review
+    FINITE_STATE = "finite_state"  # model checker, MC exploration
+    CONSTRAINT_SAT = "constraint_sat"  # SAT/SMT primary, LLM explains
+    ARCHITECTURE = "architecture"  # constraint propagation, LLM critique
+    OPTIMIZATION = "optimization"  # M/M/c queuing, LLM trade-off
+    STATISTICAL = "statistical"  # MC primary, coherence distribution check
+    SEMANTIC = "semantic"  # LLM primary (only valid use), coherence grounds
 
 
 # Problem type → (primary_solver, secondary_solver)
 # Deterministic solvers always run before probabilistic or heuristic.
 SOLVER_DISPATCH: dict[str, tuple[str, str]] = {
-    ProblemType.GRAPH_REACHABILITY: ("graph",         "monte_carlo"),
-    ProblemType.GRAPH_COVERAGE:     ("graph",         "heuristic"),
-    ProblemType.FINITE_STATE:       ("model_checker", "monte_carlo"),
-    ProblemType.CONSTRAINT_SAT:     ("sat_smt",       "heuristic"),
-    ProblemType.ARCHITECTURE:       ("constraint",    "heuristic"),
-    ProblemType.OPTIMIZATION:       ("optimizer",     "heuristic"),
-    ProblemType.STATISTICAL:        ("monte_carlo",   "coherence"),
-    ProblemType.SEMANTIC:           ("heuristic",     "coherence"),
+    ProblemType.GRAPH_REACHABILITY: ("graph", "monte_carlo"),
+    ProblemType.GRAPH_COVERAGE: ("graph", "heuristic"),
+    ProblemType.FINITE_STATE: ("model_checker", "monte_carlo"),
+    ProblemType.CONSTRAINT_SAT: ("sat_smt", "heuristic"),
+    ProblemType.ARCHITECTURE: ("constraint", "heuristic"),
+    ProblemType.OPTIMIZATION: ("optimizer", "heuristic"),
+    ProblemType.STATISTICAL: ("monte_carlo", "coherence"),
+    ProblemType.SEMANTIC: ("heuristic", "coherence"),
 }
 
 
@@ -81,15 +83,16 @@ SOLVER_DISPATCH: dict[str, tuple[str, str]] = {
 # Data types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AdversarialFinding:
     agent: str
-    solver: str         # primary or secondary solver that produced this
+    solver: str  # primary or secondary solver that produced this
     finding_type: str
     description: str
-    witness: str        # concrete counter-example
-    severity: str       # "critical" | "high" | "medium" | "low"
-    confidence: float   # 0.0 – 1.0
+    witness: str  # concrete counter-example
+    severity: str  # "critical" | "high" | "medium" | "low"
+    confidence: float  # 0.0 – 1.0
 
 
 @dataclass
@@ -116,24 +119,25 @@ class SimulationLoss:
     Domain-agnostic: robotics, enterprise, manufacturing, OS, digital twins,
     financial markets, multi-agent systems. Only the encoding of S changes.
     """
+
     # ── 6 empirical terms (implementation decomposition) ─────────────────────
-    state: float = 0.0        # L_state:     S_{t+1} prediction error
-    action: float = 0.0       # L_action:    policy prediction (contributes to L_A)
-    affordance: float = 0.0   # L_affordance: ΔA prediction error (contributes to L_A)
-    constraint: float = 0.0   # L_constraint: invariant violations (contributes to L_B)
-    goal: float = 0.0         # L_goal:      legacy term; prefer GoalState.progress()
-    knowledge: float = 0.0    # L_knowledge: epistemic uncertainty (contributes to L_B)
-    mesh: float = 0.0         # L_mesh:      agent organisation prediction error (NEW)
+    state: float = 0.0  # L_state:     S_{t+1} prediction error
+    action: float = 0.0  # L_action:    policy prediction (contributes to L_A)
+    affordance: float = 0.0  # L_affordance: ΔA prediction error (contributes to L_A)
+    constraint: float = 0.0  # L_constraint: invariant violations (contributes to L_B)
+    goal: float = 0.0  # L_goal:      legacy term; prefer GoalState.progress()
+    knowledge: float = 0.0  # L_knowledge: epistemic uncertainty (contributes to L_B)
+    mesh: float = 0.0  # L_mesh:      agent organisation prediction error (NEW)
     total: float = 0.0
 
     # Weights (α…η sum to 1.0) — tune per deployment
-    _ALPHA:   ClassVar[float] = 0.25   # state
-    _BETA:    ClassVar[float] = 0.15   # action
-    _GAMMA:   ClassVar[float] = 0.20   # affordance
-    _DELTA:   ClassVar[float] = 0.15   # constraint
-    _EPSILON: ClassVar[float] = 0.05   # goal (reduced — G_t now conditions the transition)
-    _ZETA:    ClassVar[float] = 0.12   # knowledge
-    _ETA:     ClassVar[float] = 0.08   # mesh (new term)
+    _ALPHA: ClassVar[float] = 0.25  # state
+    _BETA: ClassVar[float] = 0.15  # action
+    _GAMMA: ClassVar[float] = 0.20  # affordance
+    _DELTA: ClassVar[float] = 0.15  # constraint
+    _EPSILON: ClassVar[float] = 0.05  # goal (reduced — G_t now conditions the transition)
+    _ZETA: ClassVar[float] = 0.12  # knowledge
+    _ETA: ClassVar[float] = 0.08  # mesh (new term)
 
     # ── 4 EPA projections (mathematical formalism) ────────────────────────────
 
@@ -171,13 +175,13 @@ class SimulationLoss:
 
     def compute_total(self) -> "SimulationLoss":
         self.total = round(
-            self._ALPHA   * self.state +
-            self._BETA    * self.action +
-            self._GAMMA   * self.affordance +
-            self._DELTA   * self.constraint +
-            self._EPSILON * self.goal +
-            self._ZETA    * self.knowledge +
-            self._ETA     * self.mesh,
+            self._ALPHA * self.state
+            + self._BETA * self.action
+            + self._GAMMA * self.affordance
+            + self._DELTA * self.constraint
+            + self._EPSILON * self.goal
+            + self._ZETA * self.knowledge
+            + self._ETA * self.mesh,
             4,
         )
         return self
@@ -236,49 +240,69 @@ class AdversarialResult:
 
 _STATUS_MACHINES: dict[str, dict[str, list[str]]] = {
     "pharmaceutical_machines": {
-        "Operational":    ["Maintenance", "Calibration", "Decommissioned"],
-        "Maintenance":    ["Operational", "Decommissioned"],
-        "Calibration":    ["Operational", "Maintenance"],
+        "Operational": ["Maintenance", "Calibration", "Decommissioned"],
+        "Maintenance": ["Operational", "Decommissioned"],
+        "Calibration": ["Operational", "Maintenance"],
         "Decommissioned": [],
     },
     "industrial_lines": {
-        "Running":           ["Stopped", "Under Maintenance"],
-        "Stopped":           ["Running", "Under Maintenance"],
+        "Running": ["Stopped", "Under Maintenance"],
+        "Stopped": ["Running", "Under Maintenance"],
         "Under Maintenance": ["Running", "Stopped"],
     },
     "work_orders": {
-        "Open":        ["In Progress", "Cancelled"],
+        "Open": ["In Progress", "Cancelled"],
         "In Progress": ["Completed", "On Hold"],
-        "On Hold":     ["In Progress", "Cancelled"],
-        "Completed":   [],
-        "Cancelled":   [],
+        "On Hold": ["In Progress", "Cancelled"],
+        "Completed": [],
+        "Cancelled": [],
     },
     "production_batches": {
-        "Planned":         ["In Progress"],
-        "In Progress":     ["Under QA Review", "Failed"],
+        "Planned": ["In Progress"],
+        "In Progress": ["Under QA Review", "Failed"],
         "Under QA Review": ["Released", "Failed"],
-        "Released":        [],
-        "Failed":          [],
+        "Released": [],
+        "Failed": [],
     },
 }
 
 # States that are *intended* to have no outgoing transitions.
-_TERMINAL_STATES: frozenset[str] = frozenset({
-    "decommissioned", "released", "completed", "cancelled",
-    "failed", "closed", "archived", "retired",
-})
+_TERMINAL_STATES: frozenset[str] = frozenset(
+    {
+        "decommissioned",
+        "released",
+        "completed",
+        "cancelled",
+        "failed",
+        "closed",
+        "archived",
+        "retired",
+    }
+)
 
 # Cross-entity invariants: (type_A, bad_status_A, type_B, bad_status_B, description)
 _CROSS_INVARIANTS: list[tuple[str, str, str, str, str]] = [
-    ("production_batches", "In Progress",
-     "pharmaceutical_machines", "Decommissioned",
-     "Batch in production but its machine is decommissioned"),
-    ("production_batches", "Released",
-     "industrial_lines", "Stopped",
-     "Batch released while its production line is stopped"),
-    ("work_orders", "In Progress",
-     "pharmaceutical_machines", "Maintenance",
-     "Work order active while target machine is under maintenance"),
+    (
+        "production_batches",
+        "In Progress",
+        "pharmaceutical_machines",
+        "Decommissioned",
+        "Batch in production but its machine is decommissioned",
+    ),
+    (
+        "production_batches",
+        "Released",
+        "industrial_lines",
+        "Stopped",
+        "Batch released while its production line is stopped",
+    ),
+    (
+        "work_orders",
+        "In Progress",
+        "pharmaceutical_machines",
+        "Maintenance",
+        "Work order active while target machine is under maintenance",
+    ),
 ]
 
 
@@ -286,9 +310,11 @@ _CROSS_INVARIANTS: list[tuple[str, str, str, str, str]] = [
 # Solver: Heuristic (LLM) — Rule 7: semantic problems only
 # ---------------------------------------------------------------------------
 
+
 async def _llm_call(prompt: str, system: str, timeout: float = 60.0) -> str:
     try:
         import httpx
+
         payload = {
             "model": "qwen2.5-coder:7b",
             "prompt": f"{system}\n\n{prompt}",
@@ -303,12 +329,15 @@ async def _llm_call(prompt: str, system: str, timeout: float = 60.0) -> str:
         logger.debug("[adversarial] ollama call failed: %s", exc)
     try:
         import anthropic, os
+
         key = os.environ.get("ANTHROPIC_API_KEY", "")
         if key:
             client = anthropic.Anthropic(api_key=key)
             msg = client.messages.create(
-                model="claude-haiku-4-5-20251001", max_tokens=512,
-                system=system, messages=[{"role": "user", "content": prompt}],
+                model="claude-haiku-4-5-20251001",
+                max_tokens=512,
+                system=system,
+                messages=[{"role": "user", "content": prompt}],
             )
             return msg.content[0].text
     except Exception as exc:
@@ -319,6 +348,7 @@ async def _llm_call(prompt: str, system: str, timeout: float = 60.0) -> str:
 # ---------------------------------------------------------------------------
 # Solver: Graph (BFS/DFS) — Rules 3, 4: reachability and coverage
 # ---------------------------------------------------------------------------
+
 
 def _bfs_reachable(entity_type: str) -> set[str]:
     """BFS from all source states (no incoming edges) — deterministic, complete."""
@@ -354,21 +384,24 @@ def _graph_missing_transitions(world_state: dict[str, Any]) -> list[dict[str, An
         for src, targets in machine.items():
             for tgt in targets:
                 if tgt not in observed:
-                    findings.append({
-                        "entity": etype,
-                        "transition": f"{src} → {tgt}",
-                        "target_state": tgt,
-                        "description": (
-                            f"{etype}: transition '{src} → {tgt}' may never fire — "
-                            f"target state '{tgt}' has 0 observed records"
-                        ),
-                    })
+                    findings.append(
+                        {
+                            "entity": etype,
+                            "transition": f"{src} → {tgt}",
+                            "target_state": tgt,
+                            "description": (
+                                f"{etype}: transition '{src} → {tgt}' may never fire — "
+                                f"target state '{tgt}' has 0 observed records"
+                            ),
+                        }
+                    )
     return findings
 
 
 # ---------------------------------------------------------------------------
 # Solver: Model checker — Rule 4: FSM deadlock / livelock detection
 # ---------------------------------------------------------------------------
+
 
 def _model_check_deadlocks() -> list[dict[str, Any]]:
     """
@@ -381,27 +414,35 @@ def _model_check_deadlocks() -> list[dict[str, Any]]:
     for etype, machine in _STATUS_MACHINES.items():
         for state, transitions in machine.items():
             if not transitions and state.lower() not in _TERMINAL_STATES:
-                findings.append({
-                    "entity": etype, "state": state, "kind": "unintended_sink",
-                    "description": (
-                        f"{etype}: state '{state}' has no outgoing transitions "
-                        f"and is not a recognised terminal — potential deadlock"
-                    ),
-                })
+                findings.append(
+                    {
+                        "entity": etype,
+                        "state": state,
+                        "kind": "unintended_sink",
+                        "description": (
+                            f"{etype}: state '{state}' has no outgoing transitions "
+                            f"and is not a recognised terminal — potential deadlock"
+                        ),
+                    }
+                )
 
     for et_a, bad_a, et_b, bad_b, desc in _CROSS_INVARIANTS:
         a_exits = _STATUS_MACHINES.get(et_a, {}).get(bad_a, [])
         b_exits = _STATUS_MACHINES.get(et_b, {}).get(bad_b, [])
         if not a_exits and not b_exits:
-            findings.append({
-                "entity_a": et_a, "state_a": bad_a,
-                "entity_b": et_b, "state_b": bad_b,
-                "kind": "multi_entity_deadlock",
-                "description": (
-                    f"Deadlock: {et_a}='{bad_a}' and {et_b}='{bad_b}' — "
-                    f"neither can exit, invariant '{desc}' traps the system"
-                ),
-            })
+            findings.append(
+                {
+                    "entity_a": et_a,
+                    "state_a": bad_a,
+                    "entity_b": et_b,
+                    "state_b": bad_b,
+                    "kind": "multi_entity_deadlock",
+                    "description": (
+                        f"Deadlock: {et_a}='{bad_a}' and {et_b}='{bad_b}' — "
+                        f"neither can exit, invariant '{desc}' traps the system"
+                    ),
+                }
+            )
 
     for etype, machine in _STATUS_MACHINES.items():
         visited: set[str] = set()
@@ -424,13 +465,16 @@ def _model_check_deadlocks() -> list[dict[str, Any]]:
             if start not in visited:
                 cycle = _dfs_cycle(start)
                 if cycle:
-                    findings.append({
-                        "entity": etype, "kind": "livelock_cycle", "cycle": cycle,
-                        "description": (
-                            f"{etype}: state cycle {' → '.join(cycle)} — "
-                            f"system can spin without making progress"
-                        ),
-                    })
+                    findings.append(
+                        {
+                            "entity": etype,
+                            "kind": "livelock_cycle",
+                            "cycle": cycle,
+                            "description": (
+                                f"{etype}: state cycle {' → '.join(cycle)} — system can spin without making progress"
+                            ),
+                        }
+                    )
                     break
 
     return findings
@@ -439,6 +483,7 @@ def _model_check_deadlocks() -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Solver: SAT/SMT — Rule 2: contradictory constraints
 # ---------------------------------------------------------------------------
+
 
 def _sat_check() -> list[dict[str, Any]]:
     """Uses z3 when available; falls back to exhaustive brute-force."""
@@ -450,6 +495,7 @@ def _sat_check() -> list[dict[str, Any]]:
 
 def _z3_check() -> list[dict[str, Any]]:
     import z3
+
     findings: list[dict[str, Any]] = []
     state_lists: dict[str, list[str]] = {et: list(m) for et, m in _STATUS_MACHINES.items()}
     vars_: dict[str, Any] = {et: z3.Int(et) for et in state_lists}
@@ -469,11 +515,13 @@ def _z3_check() -> list[dict[str, Any]]:
         solver.add(expr)
     result = solver.check()
     if result == z3.unsat:
-        findings.append({
-            "kind": "over_constrained",
-            "description": "SAT: all invariants combined leave no valid global state — system is over-constrained",
-            "severity": "critical",
-        })
+        findings.append(
+            {
+                "kind": "over_constrained",
+                "description": "SAT: all invariants combined leave no valid global state — system is over-constrained",
+                "severity": "critical",
+            }
+        )
     else:
         for i in range(len(constraint_exprs)):
             for j in range(i + 1, len(constraint_exprs)):
@@ -489,12 +537,15 @@ def _z3_check() -> list[dict[str, Any]]:
                     if et in state_lists and bad in state_lists[et]:
                         s2.add(vars_[et] == state_lists[et].index(bad))
                 if s2.check() == z3.unsat:
-                    findings.append({
-                        "kind": "contradictory_pair",
-                        "inv_a": desc_a, "inv_b": desc_b,
-                        "description": f"SAT: invariants cannot both be enforced — '{desc_a}' contradicts '{desc_b}'",
-                        "severity": "high",
-                    })
+                    findings.append(
+                        {
+                            "kind": "contradictory_pair",
+                            "inv_a": desc_a,
+                            "inv_b": desc_b,
+                            "description": f"SAT: invariants cannot both be enforced — '{desc_a}' contradicts '{desc_b}'",
+                            "severity": "high",
+                        }
+                    )
     return findings
 
 
@@ -514,36 +565,44 @@ def _brute_force_sat() -> list[dict[str, Any]]:
         if ok:
             valid_count += 1
     if valid_count == 0:
-        findings.append({
-            "kind": "over_constrained",
-            "description": (
-                f"Brute-force SAT ({len(states_product)} assignments checked): "
-                f"no valid global state exists — system is over-constrained"
-            ),
-            "severity": "critical",
-        })
+        findings.append(
+            {
+                "kind": "over_constrained",
+                "description": (
+                    f"Brute-force SAT ({len(states_product)} assignments checked): "
+                    f"no valid global state exists — system is over-constrained"
+                ),
+                "severity": "critical",
+            }
+        )
     for i, (et_a_i, bad_a_i, et_b_i, bad_b_i, desc_i) in enumerate(_CROSS_INVARIANTS):
         for j, (et_a_j, bad_a_j, et_b_j, bad_b_j, desc_j) in enumerate(_CROSS_INVARIANTS):
             if j <= i:
                 continue
-            required = {et_a_i: bad_a_i, et_b_i: bad_b_i, et_a_j: bad_a_j, et_b_j: bad_b_j}
-            conflict = any(
-                required.get(et) and required[et] != required.get(et)
-                for et in required
-            )
+            required = {
+                et_a_i: bad_a_i,
+                et_b_i: bad_b_i,
+                et_a_j: bad_a_j,
+                et_b_j: bad_b_j,
+            }
+            conflict = any(required.get(et) and required[et] != required.get(et) for et in required)
             if conflict:
-                findings.append({
-                    "kind": "contradictory_pair",
-                    "inv_a": desc_i, "inv_b": desc_j,
-                    "description": f"Brute-force SAT: '{desc_i}' conflicts with '{desc_j}'",
-                    "severity": "high",
-                })
+                findings.append(
+                    {
+                        "kind": "contradictory_pair",
+                        "inv_a": desc_i,
+                        "inv_b": desc_j,
+                        "description": f"Brute-force SAT: '{desc_i}' conflicts with '{desc_j}'",
+                        "severity": "high",
+                    }
+                )
     return findings
 
 
 # ---------------------------------------------------------------------------
 # Solver: Constraint — Rule 8: aggregate and referential consistency
 # ---------------------------------------------------------------------------
+
 
 def _constraint_check(world_state: dict[str, Any]) -> list[dict[str, Any]]:
     """Constraint propagation over counts and cross-collection references. No external deps."""
@@ -554,37 +613,49 @@ def _constraint_check(world_state: dict[str, Any]) -> list[dict[str, Any]]:
         statuses = info.get("statuses") or {}
         status_sum = sum(statuses.values())
         if total > 0 and status_sum != total:
-            findings.append({
-                "collection": col, "kind": "count_mismatch",
-                "total": total, "status_sum": status_sum,
-                "description": (
-                    f"{col}: {total} total records but status counts sum to "
-                    f"{status_sum} (gap={total - status_sum}) — data may be inconsistent"
-                ),
-            })
+            findings.append(
+                {
+                    "collection": col,
+                    "kind": "count_mismatch",
+                    "total": total,
+                    "status_sum": status_sum,
+                    "description": (
+                        f"{col}: {total} total records but status counts sum to "
+                        f"{status_sum} (gap={total - status_sum}) — data may be inconsistent"
+                    ),
+                }
+            )
         machine = _STATUS_MACHINES.get(col, {})
         for state in machine:
             if total > 0 and state not in statuses:
-                findings.append({
-                    "collection": col, "kind": "unobserved_state", "state": state,
-                    "description": (
-                        f"{col}: state '{state}' is defined but has 0 observed "
-                        f"records (total={total}) — dead branch or bootstrap gap"
-                    ),
-                })
+                findings.append(
+                    {
+                        "collection": col,
+                        "kind": "unobserved_state",
+                        "state": state,
+                        "description": (
+                            f"{col}: state '{state}' is defined but has 0 observed "
+                            f"records (total={total}) — dead branch or bootstrap gap"
+                        ),
+                    }
+                )
     for et_a, _, et_b, _, desc in _CROSS_INVARIANTS:
         count_a = entities.get(et_a, {}).get("count", 0)
         count_b = entities.get(et_b, {}).get("count", 0)
         if count_a > 0 and count_b == 0:
-            findings.append({
-                "kind": "referential_gap",
-                "entity_a": et_a, "count_a": count_a,
-                "entity_b": et_b, "count_b": count_b,
-                "description": (
-                    f"Referential gap: {count_a} {et_a} records but 0 {et_b} "
-                    f"records — invariant '{desc}' can never be checked"
-                ),
-            })
+            findings.append(
+                {
+                    "kind": "referential_gap",
+                    "entity_a": et_a,
+                    "count_a": count_a,
+                    "entity_b": et_b,
+                    "count_b": count_b,
+                    "description": (
+                        f"Referential gap: {count_a} {et_a} records but 0 {et_b} "
+                        f"records — invariant '{desc}' can never be checked"
+                    ),
+                }
+            )
     return findings
 
 
@@ -598,8 +669,14 @@ def _constraint_check(world_state: dict[str, Any]) -> list[dict[str, Any]]:
 
 # Actions that update epistemic state k_{t+1} — reduce L_knowledge proportionally
 _EPISTEMIC_BENEFIT: dict[str, float] = {
-    "test": 0.05, "verify": 0.06, "validate": 0.07, "simulate": 0.06,
-    "audit": 0.08, "inspect": 0.05, "measure": 0.04, "compile": 0.03,
+    "test": 0.05,
+    "verify": 0.06,
+    "validate": 0.07,
+    "simulate": 0.06,
+    "audit": 0.08,
+    "inspect": 0.05,
+    "measure": 0.04,
+    "compile": 0.03,
     "release": 0.02,
 }
 
@@ -611,7 +688,10 @@ def _l_knowledge(world_state: dict[str, Any], action_verb: str | None = None) ->
     running them generates k_{t+1} confidence regardless of the result.
     Returns 0.0 when no knowledge context is present.
     """
-    from cortex.epistemic import EpistemicState  # local — avoids circular import at module level
+    from cortex.epistemic import (
+        EpistemicState,
+    )  # local — avoids circular import at module level
+
     epistemic = EpistemicState.from_world_state(world_state)
     if not epistemic.items:
         return 0.0
@@ -638,21 +718,84 @@ def _l_knowledge(world_state: dict[str, Any], action_verb: str | None = None) ->
 
 # Action model: verb → {req, next, gain, lose} where all sets contain state names / verb names
 _ACTION_MODEL: dict[str, dict[str, set[str]]] = {
-    "create":   {"req": set(),                                               "next": {"Open", "Planned"},                  "gain": {"assign", "cancel", "update", "schedule"},      "lose": set()},
-    "assign":   {"req": {"Open", "Planned"},                                 "next": {"In Progress"},                      "gain": {"start", "complete", "reassign"},               "lose": {"assign", "delete"}},
-    "start":    {"req": {"Planned", "Open", "Stopped", "On Hold"},           "next": {"In Progress", "Running"},           "gain": {"stop", "complete", "pause"},                   "lose": {"start", "delete"}},
-    "complete": {"req": {"In Progress", "Running", "Calibration"},           "next": {"Completed"},                        "gain": {"archive", "invoice", "review"},                "lose": {"complete", "assign", "start", "stop"}},
-    "cancel":   {"req": {"Open", "Planned", "In Progress", "On Hold"},       "next": {"Cancelled"},                        "gain": {"delete"},                                      "lose": {"assign", "complete", "start"}},
-    "stop":     {"req": {"In Progress", "Running"},                          "next": {"Stopped", "On Hold"},               "gain": {"start", "cancel"},                             "lose": {"stop", "complete"}},
-    "release":  {"req": {"Under QA Review"},                                 "next": {"Released"},                         "gain": {"deploy", "archive"},                           "lose": {"release", "test"}},
-    "maintain": {"req": {"Operational", "Running", "Stopped"},               "next": {"Maintenance", "Under Maintenance"}, "gain": {"repair", "calibrate", "restore"},              "lose": {"maintain", "operate"}},
-    "deploy":   {"req": {"Released"},                                        "next": {"Operational", "Running"},           "gain": {"maintain", "monitor", "scale"},                "lose": {"deploy", "release"}},
-    "generate": {"req": set(),                                               "next": set(),                                "gain": {"compile", "test", "deploy"},                   "lose": set()},
-    "seed":     {"req": set(),                                               "next": set(),                                "gain": {"query", "update", "delete"},                   "lose": set()},
+    "create": {
+        "req": set(),
+        "next": {"Open", "Planned"},
+        "gain": {"assign", "cancel", "update", "schedule"},
+        "lose": set(),
+    },
+    "assign": {
+        "req": {"Open", "Planned"},
+        "next": {"In Progress"},
+        "gain": {"start", "complete", "reassign"},
+        "lose": {"assign", "delete"},
+    },
+    "start": {
+        "req": {"Planned", "Open", "Stopped", "On Hold"},
+        "next": {"In Progress", "Running"},
+        "gain": {"stop", "complete", "pause"},
+        "lose": {"start", "delete"},
+    },
+    "complete": {
+        "req": {"In Progress", "Running", "Calibration"},
+        "next": {"Completed"},
+        "gain": {"archive", "invoice", "review"},
+        "lose": {"complete", "assign", "start", "stop"},
+    },
+    "cancel": {
+        "req": {"Open", "Planned", "In Progress", "On Hold"},
+        "next": {"Cancelled"},
+        "gain": {"delete"},
+        "lose": {"assign", "complete", "start"},
+    },
+    "stop": {
+        "req": {"In Progress", "Running"},
+        "next": {"Stopped", "On Hold"},
+        "gain": {"start", "cancel"},
+        "lose": {"stop", "complete"},
+    },
+    "release": {
+        "req": {"Under QA Review"},
+        "next": {"Released"},
+        "gain": {"deploy", "archive"},
+        "lose": {"release", "test"},
+    },
+    "maintain": {
+        "req": {"Operational", "Running", "Stopped"},
+        "next": {"Maintenance", "Under Maintenance"},
+        "gain": {"repair", "calibrate", "restore"},
+        "lose": {"maintain", "operate"},
+    },
+    "deploy": {
+        "req": {"Released"},
+        "next": {"Operational", "Running"},
+        "gain": {"maintain", "monitor", "scale"},
+        "lose": {"deploy", "release"},
+    },
+    "generate": {
+        "req": set(),
+        "next": set(),
+        "gain": {"compile", "test", "deploy"},
+        "lose": set(),
+    },
+    "seed": {
+        "req": set(),
+        "next": set(),
+        "gain": {"query", "update", "delete"},
+        "lose": set(),
+    },
 }
 
-_TERMINAL_STATES = {"Completed", "Released", "Operational", "Closed", "Done", "Archived", "Deployed"}
-_INITIAL_STATES  = {"Open", "Planned", "Draft", "Pending", "New", "Created"}
+_TERMINAL_STATES = {
+    "Completed",
+    "Released",
+    "Operational",
+    "Closed",
+    "Done",
+    "Archived",
+    "Deployed",
+}
+_INITIAL_STATES = {"Open", "Planned", "Draft", "Pending", "New", "Created"}
 
 
 def _merge_capability_registry() -> None:
@@ -664,9 +807,11 @@ def _merge_capability_registry() -> None:
     """
     try:
         from cerebellum.graph import CapabilityGraph
+
         # Module-level graph is populated by the application at startup.
         # Access via a well-known module attribute if set.
         import cerebellum.graph as _cg
+
         graph: CapabilityGraph | None = getattr(_cg, "_GLOBAL_GRAPH", None)
         if graph is None or not graph._descriptors:
             return
@@ -676,7 +821,7 @@ def _merge_capability_registry() -> None:
                 _ACTION_MODEL[verb] = entry
             else:
                 existing = _ACTION_MODEL[verb]
-                existing["req"]  = existing["req"]  | entry["req"]
+                existing["req"] = existing["req"] | entry["req"]
                 existing["next"] = existing["next"] | entry["next"]
                 existing["gain"] = existing["gain"] | entry["gain"]
                 existing["lose"] = existing["lose"] | entry["lose"]
@@ -708,10 +853,7 @@ def _l_action(action_verb: str | None, entities: dict) -> float:
     required = model.get("req", set())
     if not required:
         return 0.0  # action valid from any state
-    invalid = sum(
-        1 for info in entities.values()
-        if (dom := _dominant_state(info)) is not None and dom not in required
-    )
+    invalid = sum(1 for info in entities.values() if (dom := _dominant_state(info)) is not None and dom not in required)
     return round(invalid / max(len(entities), 1), 4)
 
 
@@ -794,10 +936,22 @@ def _coherence_check(world_state: dict[str, Any], prompt: str = "") -> tuple[lis
         return [], SimulationLoss()
 
     _KNOWN_STATUSES = [
-        "Operational", "Maintenance", "Calibration", "Decommissioned",
-        "Running", "Stopped", "Under Maintenance",
-        "In Progress", "Completed", "On Hold", "Open", "Cancelled",
-        "Planned", "Under QA Review", "Released", "Failed",
+        "Operational",
+        "Maintenance",
+        "Calibration",
+        "Decommissioned",
+        "Running",
+        "Stopped",
+        "Under Maintenance",
+        "In Progress",
+        "Completed",
+        "On Hold",
+        "Open",
+        "Cancelled",
+        "Planned",
+        "Under QA Review",
+        "Released",
+        "Failed",
     ]
 
     def _embed(info: dict) -> list[float]:
@@ -822,18 +976,22 @@ def _coherence_check(world_state: dict[str, Any], prompt: str = "") -> tuple[lis
 
     # 1. Semantic duplicates — cosine > 0.95
     for i, col_a in enumerate(cols):
-        for col_b in cols[i + 1:]:
+        for col_b in cols[i + 1 :]:
             sim = _cosine(embeddings[col_a], embeddings[col_b])
             if sim > 0.95:
                 duplicate_pairs += 1
-                findings.append({
-                    "kind": "semantic_duplicate",
-                    "entity_a": col_a, "entity_b": col_b, "similarity": round(sim, 3),
-                    "description": (
-                        f"'{col_a}' and '{col_b}' have nearly identical "
-                        f"status-distribution embeddings (cosine={sim:.3f})"
-                    ),
-                })
+                findings.append(
+                    {
+                        "kind": "semantic_duplicate",
+                        "entity_a": col_a,
+                        "entity_b": col_b,
+                        "similarity": round(sim, 3),
+                        "description": (
+                            f"'{col_a}' and '{col_b}' have nearly identical "
+                            f"status-distribution embeddings (cosine={sim:.3f})"
+                        ),
+                    }
+                )
 
     # 2. Leave-one-out prediction residuals → L_state
     dim = len(next(iter(embeddings.values())))
@@ -847,14 +1005,16 @@ def _coherence_check(world_state: dict[str, Any], prompt: str = "") -> tuple[lis
         residual = sum((t - m) ** 2 for t, m in zip(embeddings[col], mean_ctx)) ** 0.5
         residuals.append(residual)
         if residual > 0.40:
-            findings.append({
-                "kind": "high_prediction_error",
-                "entity": col, "residual": round(residual, 3),
-                "description": (
-                    f"'{col}' state distribution deviates from entity-space context "
-                    f"(residual={residual:.3f})"
-                ),
-            })
+            findings.append(
+                {
+                    "kind": "high_prediction_error",
+                    "entity": col,
+                    "residual": round(residual, 3),
+                    "description": (
+                        f"'{col}' state distribution deviates from entity-space context (residual={residual:.3f})"
+                    ),
+                }
+            )
 
     # ── Five-component SimulationLoss ─────────────────────────────────────────
     max_residual = (dim + 1) ** 0.5 or 1.0
@@ -867,7 +1027,15 @@ def _coherence_check(world_state: dict[str, Any], prompt: str = "") -> tuple[lis
         state=round(min(1.0, mean_pred_error + duplicate_density * 0.3), 4),
         action=_l_action(action_verb, entities),
         affordance=_l_affordance(action_verb, entities),
-        constraint=round(min(1.0, duplicate_density * 0.7 + (len([f for f in findings if f.get("kind") == "high_prediction_error"]) / max(len(entities), 1)) * 0.3), 4),
+        constraint=round(
+            min(
+                1.0,
+                duplicate_density * 0.7
+                + (len([f for f in findings if f.get("kind") == "high_prediction_error"]) / max(len(entities), 1))
+                * 0.3,
+            ),
+            4,
+        ),
         goal=_l_goal(entities),
     ).compute_total()
 
@@ -877,6 +1045,7 @@ def _coherence_check(world_state: dict[str, Any], prompt: str = "") -> tuple[lis
 # ---------------------------------------------------------------------------
 # Solver: Optimizer — M/M/c queuing MC for performance trade-offs (Rule 5)
 # ---------------------------------------------------------------------------
+
 
 def _mc_performance(world_state: dict[str, Any], trials: int = 400) -> dict[str, Any]:
     """M/M/c queuing model with Monte Carlo perturbation."""
@@ -888,14 +1057,13 @@ def _mc_performance(world_state: dict[str, Any], trials: int = 400) -> dict[str,
             return info.get("count", 0)
         return (info.get("statuses") or {}).get(status, 0)
 
-    machines_total  = _count("pharmaceutical_machines") or 1
-    lines_total     = _count("industrial_lines") or 1
+    machines_total = _count("pharmaceutical_machines") or 1
+    lines_total = _count("industrial_lines") or 1
     machines_active = _count("pharmaceutical_machines", "Operational")
-    lines_active    = _count("industrial_lines", "Running")
-    demand          = (_count("work_orders", "In Progress") +
-                       _count("production_batches", "In Progress"))
+    lines_active = _count("industrial_lines", "Running")
+    demand = _count("work_orders", "In Progress") + _count("production_batches", "In Progress")
 
-    capacity     = machines_total + lines_total
+    capacity = machines_total + lines_total
     arrival_rate = demand / capacity
     service_rate = (machines_active + lines_active) / capacity
 
@@ -916,21 +1084,23 @@ def _mc_performance(world_state: dict[str, Any], trials: int = 400) -> dict[str,
     elif lines_active < 0.5 * lines_total:
         bottleneck = "industrial_lines (< 50% running)"
 
-    saturation_risk = ("critical" if p99_u > 1.5 else
-                       "high"     if p99_u > 1.0 else
-                       "medium"   if p95_u > 0.85 else "low")
+    saturation_risk = "critical" if p99_u > 1.5 else "high" if p99_u > 1.0 else "medium" if p95_u > 0.85 else "low"
     return {
-        "avg_utilisation": round(avg_u, 3), "p95_utilisation": round(p95_u, 3),
+        "avg_utilisation": round(avg_u, 3),
+        "p95_utilisation": round(p95_u, 3),
         "p99_utilisation": round(p99_u, 3),
         "machines_utilisation": round(machines_active / machines_total, 3),
         "lines_utilisation": round(lines_active / lines_total, 3),
-        "bottleneck": bottleneck, "saturation_risk": saturation_risk, "trials": trials,
+        "bottleneck": bottleneck,
+        "saturation_risk": saturation_risk,
+        "trials": trials,
     }
 
 
 # ---------------------------------------------------------------------------
 # Solver: Monte Carlo — random walk + invariant sampling (Rule 5)
 # ---------------------------------------------------------------------------
+
 
 def _random_walk(entity_type: str, steps: int = 6) -> list[str]:
     machine = _STATUS_MACHINES.get(entity_type, {})
@@ -953,10 +1123,7 @@ def _mc_invariant_violations(world_state: dict[str, Any], trials: int = 300) -> 
     unique: list[dict[str, Any]] = []
     for _ in range(trials):
         scenario = {
-            et: random.choice(list(
-                (info.get("statuses") or {}).keys()
-                or list(_STATUS_MACHINES.get(et, {}).keys())
-            ))
+            et: random.choice(list((info.get("statuses") or {}).keys() or list(_STATUS_MACHINES.get(et, {}).keys())))
             for et, info in entities.items()
             if (info.get("statuses") or _STATUS_MACHINES.get(et))
         }
@@ -972,6 +1139,7 @@ def _mc_invariant_violations(world_state: dict[str, Any], trials: int = 300) -> 
 # Dispatch layer — runs primary then secondary per SOLVER_DISPATCH (Rule 10)
 # ---------------------------------------------------------------------------
 
+
 async def _run_heuristic(
     agent: "_AdversarialAgent",
     prompt: str,
@@ -984,13 +1152,17 @@ async def _run_heuristic(
         agent._heuristic_system,
     )
     if raw and "NO_FINDING" not in raw and len(raw) > 30:
-        return [AdversarialFinding(
-            agent=agent.name, solver="heuristic",
-            finding_type=agent.finding_type,
-            description=f"LLM: {agent._heuristic_description}",
-            witness=raw[:600],
-            severity=_infer_severity(raw), confidence=0.55,
-        )]
+        return [
+            AdversarialFinding(
+                agent=agent.name,
+                solver="heuristic",
+                finding_type=agent.finding_type,
+                description=f"LLM: {agent._heuristic_description}",
+                witness=raw[:600],
+                severity=_infer_severity(raw),
+                confidence=0.55,
+            )
+        ]
     return []
 
 
@@ -1008,16 +1180,20 @@ def _run_mc_cross_validate(
             path = _random_walk(etype, steps=8)
             for state in path:
                 if state in unreachable:
-                    findings.append(AdversarialFinding(
-                        agent=agent.name, solver="monte_carlo",
-                        finding_type=agent.finding_type,
-                        description=(
-                            f"MC cross-validation: '{state}' reached via random walk "
-                            f"but BFS marks it unreachable — state machine model may be incomplete"
-                        ),
-                        witness=f"entity={etype} path={path}",
-                        severity="low", confidence=0.40,
-                    ))
+                    findings.append(
+                        AdversarialFinding(
+                            agent=agent.name,
+                            solver="monte_carlo",
+                            finding_type=agent.finding_type,
+                            description=(
+                                f"MC cross-validation: '{state}' reached via random walk "
+                                f"but BFS marks it unreachable — state machine model may be incomplete"
+                            ),
+                            witness=f"entity={etype} path={path}",
+                            severity="low",
+                            confidence=0.40,
+                        )
+                    )
                     break
     return findings
 
@@ -1029,10 +1205,14 @@ def _run_coherence_secondary(
 ) -> tuple[list[AdversarialFinding], SimulationLoss]:
     """Coherence secondary: five-component simulation loss + embedding-space findings."""
     coherence_findings, sim_loss = _coherence_check(world_state, prompt)
-    sev_map = {"semantic_duplicate": ("medium", 0.70), "high_prediction_error": ("medium", 0.65)}
+    sev_map = {
+        "semantic_duplicate": ("medium", 0.70),
+        "high_prediction_error": ("medium", 0.65),
+    }
     findings = [
         AdversarialFinding(
-            agent=agent.name, solver="coherence",
+            agent=agent.name,
+            solver="coherence",
             finding_type=agent.finding_type,
             description=f["description"],
             witness=json.dumps({k: v for k, v in f.items() if k != "description"}),
@@ -1064,6 +1244,7 @@ async def _dispatch_secondary(
 # Base agent — template method pattern
 # ---------------------------------------------------------------------------
 
+
 class _AdversarialAgent:
     """Base for all adversarial agents.
 
@@ -1088,9 +1269,7 @@ class _AdversarialAgent:
     _heuristic_question: str = ""
     _heuristic_description: str = ""
 
-    async def run(
-        self, prompt: str, world_state: dict[str, Any]
-    ) -> tuple[list[AdversarialFinding], SimulationLoss]:
+    async def run(self, prompt: str, world_state: dict[str, Any]) -> tuple[list[AdversarialFinding], SimulationLoss]:
         """Returns (findings, SimulationLoss). Loss is non-zero only when coherence check runs."""
         primary_solver, secondary_solver = SOLVER_DISPATCH[self.problem_type]
         findings: list[AdversarialFinding] = []
@@ -1103,9 +1282,7 @@ class _AdversarialAgent:
         else:
             # Deterministic-first: exact solver → cross-validate (Rules 1, 10, 12)
             findings.extend(self._primary_findings(world_state))
-            secondary_findings, sim_loss = await _dispatch_secondary(
-                secondary_solver, self, prompt, world_state
-            )
+            secondary_findings, sim_loss = await _dispatch_secondary(secondary_solver, self, prompt, world_state)
             findings.extend(secondary_findings)
             return findings, sim_loss
 
@@ -1119,6 +1296,7 @@ class _AdversarialAgent:
 # ---------------------------------------------------------------------------
 # Concrete agents
 # ---------------------------------------------------------------------------
+
 
 class UnreachableStateFinder(_AdversarialAgent):
     name = "unreachable_state"
@@ -1139,13 +1317,17 @@ class UnreachableStateFinder(_AdversarialAgent):
                 continue
             orphans = _graph_unreachable(etype)
             if orphans:
-                findings.append(AdversarialFinding(
-                    agent=self.name, solver="graph",
-                    finding_type=self.finding_type,
-                    description=f"BFS: {etype} states unreachable from any source",
-                    witness=f"entity={etype} unreachable={sorted(orphans)}",
-                    severity="medium", confidence=0.95,
-                ))
+                findings.append(
+                    AdversarialFinding(
+                        agent=self.name,
+                        solver="graph",
+                        finding_type=self.finding_type,
+                        description=f"BFS: {etype} states unreachable from any source",
+                        witness=f"entity={etype} unreachable={sorted(orphans)}",
+                        severity="medium",
+                        confidence=0.95,
+                    )
+                )
         return findings
 
 
@@ -1162,14 +1344,20 @@ class DeadlockFinder(_AdversarialAgent):
     _heuristic_description = "deadlock scenario identified"
 
     def _primary_findings(self, world_state: dict[str, Any]) -> list[AdversarialFinding]:
-        sev_map = {"unintended_sink": "high", "multi_entity_deadlock": "critical", "livelock_cycle": "medium"}
+        sev_map = {
+            "unintended_sink": "high",
+            "multi_entity_deadlock": "critical",
+            "livelock_cycle": "medium",
+        }
         return [
             AdversarialFinding(
-                agent=self.name, solver="model_checker",
+                agent=self.name,
+                solver="model_checker",
                 finding_type=self.finding_type,
                 description=d["description"],
                 witness=json.dumps({k: v for k, v in d.items() if k != "description"}),
-                severity=sev_map.get(d.get("kind", ""), "medium"), confidence=0.90,
+                severity=sev_map.get(d.get("kind", ""), "medium"),
+                confidence=0.90,
             )
             for d in _model_check_deadlocks()
         ]
@@ -1190,11 +1378,13 @@ class ContradictoryRequirementsFinder(_AdversarialAgent):
     def _primary_findings(self, world_state: dict[str, Any]) -> list[AdversarialFinding]:
         return [
             AdversarialFinding(
-                agent=self.name, solver="sat_smt",
+                agent=self.name,
+                solver="sat_smt",
                 finding_type=self.finding_type,
                 description=f["description"],
                 witness=json.dumps({k: v for k, v in f.items() if k not in ("description", "severity")}),
-                severity=f.get("severity", "high"), confidence=0.90,
+                severity=f.get("severity", "high"),
+                confidence=0.90,
             )
             for f in _sat_check()
         ]
@@ -1216,11 +1406,13 @@ class MissingTransitionFinder(_AdversarialAgent):
     def _primary_findings(self, world_state: dict[str, Any]) -> list[AdversarialFinding]:
         return [
             AdversarialFinding(
-                agent=self.name, solver="graph",
+                agent=self.name,
+                solver="graph",
                 finding_type=self.finding_type,
                 description=m["description"],
                 witness=f"transition={m['transition']} target_state={m['target_state']}",
-                severity="low", confidence=0.80,
+                severity="low",
+                confidence=0.80,
             )
             for m in _graph_missing_transitions(world_state)[:4]
         ]
@@ -1240,14 +1432,20 @@ class AggregateConsistencyChecker(_AdversarialAgent):
     _heuristic_description = "aggregate inconsistency identified"
 
     def _primary_findings(self, world_state: dict[str, Any]) -> list[AdversarialFinding]:
-        sev_map = {"count_mismatch": "high", "referential_gap": "high", "unobserved_state": "medium"}
+        sev_map = {
+            "count_mismatch": "high",
+            "referential_gap": "high",
+            "unobserved_state": "medium",
+        }
         return [
             AdversarialFinding(
-                agent=self.name, solver="constraint",
+                agent=self.name,
+                solver="constraint",
                 finding_type=self.finding_type,
                 description=v["description"],
                 witness=json.dumps({k: v2 for k, v2 in v.items() if k != "description"}),
-                severity=sev_map.get(v.get("kind", ""), "medium"), confidence=0.85,
+                severity=sev_map.get(v.get("kind", ""), "medium"),
+                confidence=0.85,
             )
             for v in _constraint_check(world_state)
         ]
@@ -1270,22 +1468,27 @@ class PerformanceTradeoffFinder(_AdversarialAgent):
         perf = _mc_performance(world_state, trials=400)
         if perf["saturation_risk"] not in ("critical", "high"):
             return []
-        return [AdversarialFinding(
-            agent=self.name, solver="optimizer",
-            finding_type=self.finding_type,
-            description=(
-                f"MC queuing: saturation_risk={perf['saturation_risk']} — "
-                f"avg={perf['avg_utilisation']:.2f} p95={perf['p95_utilisation']:.2f} "
-                f"p99={perf['p99_utilisation']:.2f}"
-                + (f", bottleneck={perf['bottleneck']}" if perf["bottleneck"] else "")
-            ),
-            witness=json.dumps(perf),
-            severity=perf["saturation_risk"], confidence=0.75,
-        )]
+        return [
+            AdversarialFinding(
+                agent=self.name,
+                solver="optimizer",
+                finding_type=self.finding_type,
+                description=(
+                    f"MC queuing: saturation_risk={perf['saturation_risk']} — "
+                    f"avg={perf['avg_utilisation']:.2f} p95={perf['p95_utilisation']:.2f} "
+                    f"p99={perf['p99_utilisation']:.2f}"
+                    + (f", bottleneck={perf['bottleneck']}" if perf["bottleneck"] else "")
+                ),
+                witness=json.dumps(perf),
+                severity=perf["saturation_risk"],
+                confidence=0.75,
+            )
+        ]
 
 
 class BreakingUseCaseFinder(_AdversarialAgent):
     """Semantic agent — LLM is primary (Rule 7); coherence check grounds findings in entity space."""
+
     name = "breaking_use_case"
     problem_type = ProblemType.SEMANTIC
     finding_type = "breaking_use_case"
@@ -1300,6 +1503,7 @@ class BreakingUseCaseFinder(_AdversarialAgent):
 
 class InvariantViolationFinder(_AdversarialAgent):
     """Statistical agent — MC samples invariant violations; coherence check cross-validates distribution."""
+
     name = "invariant_violation"
     problem_type = ProblemType.STATISTICAL
     finding_type = "violated_invariant"
@@ -1314,11 +1518,13 @@ class InvariantViolationFinder(_AdversarialAgent):
     def _primary_findings(self, world_state: dict[str, Any]) -> list[AdversarialFinding]:
         return [
             AdversarialFinding(
-                agent=self.name, solver="monte_carlo",
+                agent=self.name,
+                solver="monte_carlo",
                 finding_type=self.finding_type,
                 description=f"MC: cross-entity invariant can be violated — {v['invariant']}",
                 witness=json.dumps(v["scenario"]),
-                severity="high", confidence=0.80,
+                severity="high",
+                confidence=0.80,
             )
             for v in _mc_invariant_violations(world_state, trials=400)[:2]
         ]
@@ -1326,6 +1532,7 @@ class InvariantViolationFinder(_AdversarialAgent):
 
 class MissingEntityFinder(_AdversarialAgent):
     """Semantic agent — LLM discovers; coherence check grounds by checking embedding-space gaps."""
+
     name = "missing_entity"
     problem_type = ProblemType.SEMANTIC
     finding_type = "missing_entity"
@@ -1342,15 +1549,18 @@ class MissingEntityFinder(_AdversarialAgent):
         entities = world_state.get("entities", {})
         findings = []
         for et_a, _, et_b, _, desc in _CROSS_INVARIANTS:
-            if (entities.get(et_a, {}).get("count", 0) > 0 and
-                    entities.get(et_b, {}).get("count", -1) == 0):
-                findings.append(AdversarialFinding(
-                    agent=self.name, solver="constraint",
-                    finding_type=self.finding_type,
-                    description=f"Constraint: invariant references {et_b} but collection is empty",
-                    witness=f"{et_a}={entities[et_a]['count']} records, {et_b}=0 records",
-                    severity="high", confidence=0.70,
-                ))
+            if entities.get(et_a, {}).get("count", 0) > 0 and entities.get(et_b, {}).get("count", -1) == 0:
+                findings.append(
+                    AdversarialFinding(
+                        agent=self.name,
+                        solver="constraint",
+                        finding_type=self.finding_type,
+                        description=f"Constraint: invariant references {et_b} but collection is empty",
+                        witness=f"{et_a}={entities[et_a]['count']} records, {et_b}=0 records",
+                        severity="high",
+                        confidence=0.70,
+                    )
+                )
         return findings
 
 
@@ -1370,8 +1580,16 @@ _AGENTS: list[_AdversarialAgent] = [
     MissingEntityFinder(),
 ]
 
-_ALL_SOLVERS = ["graph", "model_checker", "sat_smt", "constraint", "coherence", "optimizer",
-                "monte_carlo", "heuristic"]
+_ALL_SOLVERS = [
+    "graph",
+    "model_checker",
+    "sat_smt",
+    "constraint",
+    "coherence",
+    "optimizer",
+    "monte_carlo",
+    "heuristic",
+]
 
 
 async def run_adversarial_pass(
@@ -1386,7 +1604,9 @@ async def run_adversarial_pass(
         solvers_run=_ALL_SOLVERS,
     )
 
-    async def _guarded(agent: _AdversarialAgent) -> tuple[list[AdversarialFinding], SimulationLoss]:
+    async def _guarded(
+        agent: _AdversarialAgent,
+    ) -> tuple[list[AdversarialFinding], SimulationLoss]:
         try:
             return await asyncio.wait_for(agent.run(prompt, world_state), timeout=timeout)
         except asyncio.TimeoutError:
@@ -1419,10 +1639,7 @@ async def run_adversarial_pass(
     result.confidence_delta = round(bonus - penalty, 4)
 
     if not result.findings:
-        result.summary = (
-            f"All {len(_AGENTS)} adversarial agents found no flaws — "
-            f"design confidence +{bonus:.2f}"
-        )
+        result.summary = f"All {len(_AGENTS)} adversarial agents found no flaws — design confidence +{bonus:.2f}"
     else:
         critical = sum(1 for f in result.findings if f.severity in ("critical", "high"))
         result.summary = (
@@ -1438,6 +1655,7 @@ async def run_adversarial_pass(
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _summarise_entities(world_state: dict[str, Any]) -> str:
     lines = []
     for col, info in list((world_state.get("entities") or {}).items())[:12]:
@@ -1451,7 +1669,18 @@ def _infer_severity(text: str) -> str:
     t = text.lower()
     if any(w in t for w in ("critical", "catastrophic", "data loss", "security", "corrupt")):
         return "critical"
-    if any(w in t for w in ("cannot", "impossible", "breaks", "violation", "fail", "crash", "deadlock")):
+    if any(
+        w in t
+        for w in (
+            "cannot",
+            "impossible",
+            "breaks",
+            "violation",
+            "fail",
+            "crash",
+            "deadlock",
+        )
+    ):
         return "high"
     if any(w in t for w in ("unlikely", "edge case", "rare", "may", "could")):
         return "low"

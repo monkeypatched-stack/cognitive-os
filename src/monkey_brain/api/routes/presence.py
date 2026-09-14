@@ -9,6 +9,7 @@ GET /presence/spaces/{id}           — who_is_in(space) — current occupants
 GET /presence/history/{actor}       — history(actor) — full presence timeline
 GET /presence/history/space/{space} — every actor who has ever occupied this space
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,8 +19,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    OccupancyResponse, PresenceHistoryResponse, PresenceRecordResponse,
-    SpaceOccupantsResponse, SpacePresenceHistoryResponse,
+    OccupancyResponse,
+    PresenceHistoryResponse,
+    PresenceRecordResponse,
+    SpaceOccupantsResponse,
+    SpacePresenceHistoryResponse,
 )
 
 logger = logging.getLogger("agentos.gateway.presence")
@@ -47,7 +51,11 @@ async def get_current_occupancy(
     return {"occupancy": [{"actor_id": a, "space_id": s} for a, s in occupancy.items()]}
 
 
-@router.get("/presence/actors/{actor_id}", tags=["Presence"], response_model=PresenceRecordResponse)
+@router.get(
+    "/presence/actors/{actor_id}",
+    tags=["Presence"],
+    response_model=PresenceRecordResponse,
+)
 async def where_is(
     actor_id: str,
     request: Request,
@@ -60,7 +68,11 @@ async def where_is(
     return presence.to_dict()
 
 
-@router.get("/presence/spaces/{space_id}", tags=["Presence"], response_model=SpaceOccupantsResponse)
+@router.get(
+    "/presence/spaces/{space_id}",
+    tags=["Presence"],
+    response_model=SpaceOccupantsResponse,
+)
 async def who_is_in(
     space_id: str,
     request: Request,
@@ -69,10 +81,18 @@ async def who_is_in(
 ) -> dict[str, Any]:
     pr = _pr(request)
     occupant_ids = pr.presence.occupants(space_id, timestamp)
-    return {"space_id": space_id, "timestamp": timestamp, "actor_ids": list(occupant_ids)}
+    return {
+        "space_id": space_id,
+        "timestamp": timestamp,
+        "actor_ids": list(occupant_ids),
+    }
 
 
-@router.get("/presence/history/{actor_id}", tags=["Presence"], response_model=PresenceHistoryResponse)
+@router.get(
+    "/presence/history/{actor_id}",
+    tags=["Presence"],
+    response_model=PresenceHistoryResponse,
+)
 async def actor_presence_history(
     actor_id: str,
     request: Request,
@@ -93,7 +113,11 @@ async def actor_presence_history(
     return {"actor_id": actor_id, "history": [p.to_dict() for p in history]}
 
 
-@router.get("/presence/history/space/{space_id}", tags=["Presence"], response_model=SpacePresenceHistoryResponse)
+@router.get(
+    "/presence/history/space/{space_id}",
+    tags=["Presence"],
+    response_model=SpacePresenceHistoryResponse,
+)
 async def space_presence_history(
     space_id: str,
     request: Request,

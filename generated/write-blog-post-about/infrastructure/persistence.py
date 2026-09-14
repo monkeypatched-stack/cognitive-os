@@ -1,6 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 
+
 class MongoDBClient:
     def __init__(self, uri: str):
         self.client = AsyncIOMotorClient(uri)
@@ -8,6 +9,7 @@ class MongoDBClient:
 
     async def close(self):
         await self.client.close()
+
 
 async def get_mongodb_client():
     uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")

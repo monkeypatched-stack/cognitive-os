@@ -75,7 +75,10 @@ async def add_key(body: AddKeyRequest, user_id: str = Depends(require_permission
 
 
 @router.get("/keys", response_model=list[KeyResponse])
-async def list_keys(user_id: str = Depends(require_permission("perm-view-keys")), service: str | None = None):
+async def list_keys(
+    user_id: str = Depends(require_permission("perm-view-keys")),
+    service: str | None = None,
+):
     """List keys for current user only."""
     keystore = get_keystore()
     return keystore.list_keys(user_id=user_id, service=service)

@@ -30,7 +30,10 @@ async def get_by_resource(db: AsyncIOMotorDatabase, resource: str) -> list[dict]
     cursor = db[COLLECTION].find({"resource": resource})
     return [_serialize(d) async for d in cursor]
 
-async def get_by_permission_id(db: AsyncIOMotorDatabase, permission_id: str) -> list[dict]:
+
+async def get_by_permission_id(
+    db: AsyncIOMotorDatabase, permission_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"permission_id": permission_id})
     return [_serialize(d) async for d in cursor]
 

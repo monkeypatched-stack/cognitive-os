@@ -6,6 +6,7 @@ Saves plans to:
 
 Unlike RunStore (process-local, ephemeral), PlanStore survives restarts.
 """
+
 from __future__ import annotations
 
 import json
@@ -49,9 +50,7 @@ class PlanStore:
             with cls._instance_lock:
                 if cls._instance is None:
                     instance = super().__new__(cls)
-                    instance._plans_dir = Path(
-                        os.environ.get("PLANS_DIR", _DEFAULT_PLANS_DIR)
-                    )
+                    instance._plans_dir = Path(os.environ.get("PLANS_DIR", _DEFAULT_PLANS_DIR))
                     cls._instance = instance
         return cls._instance
 
@@ -104,11 +103,7 @@ class PlanStore:
         """List all locally stored run_ids."""
         if not self._plans_dir.exists():
             return []
-        return [
-            d.name
-            for d in self._plans_dir.iterdir()
-            if d.is_dir() and (d / "graph.json").exists()
-        ]
+        return [d.name for d in self._plans_dir.iterdir() if d.is_dir() and (d / "graph.json").exists()]
 
     async def save_neo4j(self, graph: dict[str, Any], graph_store: Any = None) -> bool:
         """Save plan graph to Neo4j via GraphStore (append mode).
@@ -169,7 +164,9 @@ class PlanStore:
 
         logger.info(
             "Plan persistence: run=%s local=%s neo4j=%s",
-            run_id, result["local"], result["neo4j"],
+            run_id,
+            result["local"],
+            result["neo4j"],
         )
         return result
 

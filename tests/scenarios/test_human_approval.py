@@ -18,21 +18,28 @@ logic behind a real, Redis-persisted PendingApproval
 automatically -- WORLD-001..005 (unmodified, still passing) prove the
 default, no-flag-set behavior is exactly what it always was.
 """
+
 from __future__ import annotations
 
 import uuid
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 from src.monkey_brain.kernel.pipeline.approval_store import (
-    load_pending_approval, resolve_pending_approval,
+    load_pending_approval,
+    resolve_pending_approval,
 )
 from src.monkey_brain.kernel.pipeline.execution import Action
-from src.monkey_brain.kernel.testing.mutation_hooks import clear_mutations, register_mutation
+from src.monkey_brain.kernel.testing.mutation_hooks import (
+    clear_mutations,
+    register_mutation,
+)
 
 ACTOR_ID = "approval_test_actor"
 
@@ -47,19 +54,51 @@ def _clean_registries():
 def _seed_catalog():
     kg = KnowledgeGraph()
     store = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99)["store_id"]
-    milk_id = list_product(kg, store, "merchant_a", "Milk", price=3.99, quantity=5, store_name="Trader Joe's")["product_id"]
-    milk_alt_id = list_product(kg, store, "merchant_a", "Oat Milk", price=3.49, quantity=5, store_name="Trader Joe's")["product_id"]
+    milk_id = list_product(
+        kg,
+        store,
+        "merchant_a",
+        "Milk",
+        price=3.99,
+        quantity=5,
+        store_name="Trader Joe's",
+    )["product_id"]
+    milk_alt_id = list_product(
+        kg,
+        store,
+        "merchant_a",
+        "Oat Milk",
+        price=3.49,
+        quantity=5,
+        store_name="Trader Joe's",
+    )["product_id"]
     return kg, milk_id, milk_alt_id
 
 
 def _actions(execution_id, milk_id):
     return (
-        Action(action_id="a0", capability="ProductSelection", step_index=0, depends_on=(),
-               correlation_id=execution_id, parameters={"selection": [{"id": milk_id, "qty": 1}]}),
-        Action(action_id="a1", capability="OrderCreation", step_index=1, depends_on=(0,),
-               correlation_id=execution_id),
-        Action(action_id="a2", capability="OrderConfirmation", step_index=2, depends_on=(1,),
-               correlation_id=execution_id),
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            depends_on=(),
+            correlation_id=execution_id,
+            parameters={"selection": [{"id": milk_id, "qty": 1}]},
+        ),
+        Action(
+            action_id="a1",
+            capability="OrderCreation",
+            step_index=1,
+            depends_on=(0,),
+            correlation_id=execution_id,
+        ),
+        Action(
+            action_id="a2",
+            capability="OrderConfirmation",
+            step_index=2,
+            depends_on=(1,),
+            correlation_id=execution_id,
+        ),
     )
 
 
@@ -78,13 +117,16 @@ async def test_approval001_stale_substitution_enters_waiting_for_human():
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
     context = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "",
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "",
         "approval_required_for_substitution": True,
     }
     result = await executor.execute(_actions(execution_id, milk_id), context)
@@ -121,13 +163,15 @@ async def test_approval005_real_prompt_text_alone_triggers_approval_no_flag_set(
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
     context = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID,
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
         "question": "Buy milk; if unavailable, ask me before buying a substitute.",
     }
     result = await executor.execute(_actions(execution_id, milk_id), context)
@@ -153,13 +197,16 @@ async def test_approval002_approving_resumes_and_completes_the_same_execution():
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
     context1 = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "",
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "",
         "approval_required_for_substitution": True,
     }
     first = await executor.execute(_actions(execution_id, milk_id), context1)
@@ -170,7 +217,9 @@ async def test_approval002_approving_resumes_and_completes_the_same_execution():
     assert resolved.decided is True
 
     context2 = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "",
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "",
         "approval_required_for_substitution": True,
     }
     second = await executor.execute(_actions(execution_id, milk_id), context2)
@@ -197,13 +246,16 @@ async def test_approval003_rejecting_is_a_real_honest_failure_no_purchase():
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
     context1 = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "",
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "",
         "approval_required_for_substitution": True,
     }
     first = await executor.execute(_actions(execution_id, milk_id), context1)
@@ -212,7 +264,9 @@ async def test_approval003_rejecting_is_a_real_honest_failure_no_purchase():
     resolve_pending_approval(execution_id, False)
 
     context2 = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "",
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "",
         "approval_required_for_substitution": True,
     }
     second = await executor.execute(_actions(execution_id, milk_id), context2)
@@ -244,13 +298,16 @@ async def test_approval004_pending_approval_survives_a_real_restart():
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
     context1 = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "",
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "",
         "approval_required_for_substitution": True,
     }
     await executor.execute(_actions(execution_id, milk_id), context1)
@@ -265,7 +322,9 @@ async def test_approval004_pending_approval_survives_a_real_restart():
     resolve_pending_approval(execution_id, True)
 
     context2 = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "",
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "",
         "approval_required_for_substitution": True,
     }
     result = await executor.execute(_actions(execution_id, milk_id), context2)
@@ -303,20 +362,34 @@ async def test_approval006_independent_sibling_step_still_runs_while_one_step_pa
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
     context = {
-        "knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "",
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "",
         "approval_required_for_substitution": True,
     }
     actions = _actions(execution_id, milk_id) + (
-        Action(action_id="b0", capability="ProductSelection", step_index=3, depends_on=(),
-               correlation_id=execution_id, parameters={"selection": [{"id": pizza_id, "qty": 1}]}),
-        Action(action_id="b1", capability="OrderCreation", step_index=4, depends_on=(3,),
-               correlation_id=execution_id),
+        Action(
+            action_id="b0",
+            capability="ProductSelection",
+            step_index=3,
+            depends_on=(),
+            correlation_id=execution_id,
+            parameters={"selection": [{"id": pizza_id, "qty": 1}]},
+        ),
+        Action(
+            action_id="b1",
+            capability="OrderCreation",
+            step_index=4,
+            depends_on=(3,),
+            correlation_id=execution_id,
+        ),
     )
     result = await executor.execute(actions, context)
 

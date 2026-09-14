@@ -27,6 +27,7 @@ Known, deliberate gaps this file documents rather than works around:
   same real string directly, from this feature's own verification
   perspective, rather than re-deriving the whole scripted scenario.
 """
+
 from __future__ import annotations
 
 import os
@@ -40,10 +41,17 @@ os.environ["RATE_LIMIT_RPS"] = "100000"
 os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.transaction import TransactionCoordinator
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
-from src.monkey_brain.kernel.domains.negotiation import negotiate_terms, record_agreement
+from src.monkey_brain.kernel.domains.negotiation import (
+    negotiate_terms,
+    record_agreement,
+)
 from src.monkey_brain.kernel.domains.grocery import negotiate_price
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph, EntityType
 from src.monkey_brain.kernel.affiliations.manager import AffiliationManager
@@ -55,25 +63,37 @@ def _register(pr, name, society_id=None):
     if society_id is not None:
         kwargs["society_id"] = society_id
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)),
+        **kwargs,
     )
 
 
 @pytest.fixture(scope="module")
 def client():
     import subprocess
+
     try:
         subprocess.run(
-            ["redis-cli", "-h", os.getenv("REDIS_HOST", "localhost"),
-             "-p", os.getenv("REDIS_PORT", "6379"), "flushdb"],
-            timeout=2, capture_output=True, check=False,
+            [
+                "redis-cli",
+                "-h",
+                os.getenv("REDIS_HOST", "localhost"),
+                "-p",
+                os.getenv("REDIS_PORT", "6379"),
+                "flushdb",
+            ],
+            timeout=2,
+            capture_output=True,
+            check=False,
         )
     except Exception:
         pass
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -103,10 +123,15 @@ class TestTransactionRouteReturnsRealShape:
     multi-round LLM loop) — this is the one full-stack test in this file."""
 
     def test_live_transaction_returns_transaction_id_and_stream_url(self, client):
-        r = client.post("/api/v1/agentos/actors", json={
-            "name": "Negotiation Route Test Actor", "actor_type": "human",
-            "goals": ["negotiate"], "capabilities": [{"name": "general"}],
-        })
+        r = client.post(
+            "/api/v1/agentos/actors",
+            json={
+                "name": "Negotiation Route Test Actor",
+                "actor_type": "human",
+                "goals": ["negotiate"],
+                "capabilities": [{"name": "general"}],
+            },
+        )
         assert r.status_code == 200, r.text
         actor_id = r.json()["actor_id"]
 
@@ -135,18 +160,24 @@ class TestTransactionStreamsToEventHubAndContextStream:
         alice = _register(pr, "Alice Stream")
         bob = _register(pr, "Bob Stream")
 
-        from src.monkey_brain.kernel.society.transaction_event_hub import get_transaction_event_hub
+        from src.monkey_brain.kernel.society.transaction_event_hub import (
+            get_transaction_event_hub,
+        )
+
         transaction_id = f"test-txn-{time.time_ns()}"
         socket = _FakeSocket()
         get_transaction_event_hub().subscribe(transaction_id, socket)
 
         coordinator = TransactionCoordinator(planetary=_FakePlanetary(pr.context_stream))
         try:
-            await coordinator._stream_event(transaction_id, {
-                "type": "step_completed",
-                "originating_actor_id": alice.actor_id,
-                "target_actor_id": bob.actor_id,
-            })
+            await coordinator._stream_event(
+                transaction_id,
+                {
+                    "type": "step_completed",
+                    "originating_actor_id": alice.actor_id,
+                    "target_actor_id": bob.actor_id,
+                },
+            )
         finally:
             get_transaction_event_hub().unsubscribe(transaction_id, socket)
 
@@ -155,8 +186,10 @@ class TestTransactionStreamsToEventHubAndContextStream:
 
         events = pr.context_stream.events(limit=1000)
         matching = [
-            e for e in events
-            if e.event_type == ContextEventType.INTERACTION and e.provenance == "society:transaction"
+            e
+            for e in events
+            if e.event_type == ContextEventType.INTERACTION
+            and e.provenance == "society:transaction"
             and (e.payload or {}).get("transaction_id") == transaction_id
         ]
         assert len(matching) == 2, "one INTERACTION event per real actor_id involved (originator + target)"
@@ -168,10 +201,15 @@ class TestNegotiationRecordViaTimelineRoute:
     that never negotiated, not a fabricated record."""
 
     def test_negotiation_not_required_for_non_negotiating_execution(self, client):
-        r = client.post("/api/v1/agentos/actors", json={
-            "name": "Negotiation Record Test Actor", "actor_type": "human",
-            "goals": ["greet"], "capabilities": [{"name": "general"}],
-        })
+        r = client.post(
+            "/api/v1/agentos/actors",
+            json={
+                "name": "Negotiation Record Test Actor",
+                "actor_type": "human",
+                "goals": ["greet"],
+                "capabilities": [{"name": "general"}],
+            },
+        )
         assert r.status_code == 200, r.text
         actor_id = r.json()["actor_id"]
 
@@ -192,10 +230,15 @@ class TestTrustUpdatesFromNegotiationOutcome:
 
     def test_trust_increases_after_goal_achieved_outcome(self):
         manager = AffiliationManager()
-        manager.add(Affiliation(
-            affiliation_id="aff-trust-1", affiliation_type="customer",
-            target_id="target-actor", target_name="Target", trust_level=0.5,
-        ))
+        manager.add(
+            Affiliation(
+                affiliation_id="aff-trust-1",
+                affiliation_type="customer",
+                target_id="target-actor",
+                target_name="Target",
+                trust_level=0.5,
+            )
+        )
         before = manager.get_trust("target-actor")
         manager.update_trust_from_outcome("target-actor", goal_achieved=True)
         after = manager.get_trust("target-actor")
@@ -206,11 +249,14 @@ class TestGroceryNegotiatePriceSettlesWithinBounds:
     """Zero prior coverage per this feature's own audit — the real
     bounded bilateral bargain never crosses either side's real limit."""
 
-    @pytest.mark.parametrize("listed,floor,target", [
-        (5.99, 4.50, 4.75),
-        (10.00, 8.00, 9.50),
-        (3.29, 3.00, 3.10),
-    ])
+    @pytest.mark.parametrize(
+        "listed,floor,target",
+        [
+            (5.99, 4.50, 4.75),
+            (10.00, 8.00, 9.50),
+            (3.29, 3.00, 3.10),
+        ],
+    )
     def test_settles_within_seller_floor_and_listed_price(self, listed, floor, target):
         result = negotiate_price(listed, floor, target, max_rounds=3)
         if result["agreed"]:
@@ -234,12 +280,22 @@ class TestGroceryNegotiateTermsSettlesWithinBounds:
     bound guarantee, zero prior coverage."""
 
     def test_settles_within_bounds(self):
-        result = negotiate_terms(high_side_opening=3.0, high_side_floor=1.0, low_side_opening=0.0, max_rounds=3)
+        result = negotiate_terms(
+            high_side_opening=3.0,
+            high_side_floor=1.0,
+            low_side_opening=0.0,
+            max_rounds=3,
+        )
         if result["agreed"]:
             assert 0.0 <= result["term"] <= 3.0
 
     def test_immediate_deal_when_low_side_already_meets_floor(self):
-        result = negotiate_terms(high_side_opening=3.0, high_side_floor=1.0, low_side_opening=1.5, max_rounds=3)
+        result = negotiate_terms(
+            high_side_opening=3.0,
+            high_side_floor=1.0,
+            low_side_opening=1.5,
+            max_rounds=3,
+        )
         assert result["agreed"] is True
         assert result["rounds"] == []
 
@@ -251,9 +307,18 @@ class TestRecordAgreementPersistsDurably:
 
     def test_agreement_is_durably_recorded_and_rereadable(self):
         kg = KnowledgeGraph()
-        kg.add_entity("negotiated-deal-1", entity_type=EntityType.OTHER, name="Milk Deal", attributes={"agreements": []})
+        kg.add_entity(
+            "negotiated-deal-1",
+            entity_type=EntityType.OTHER,
+            name="Milk Deal",
+            attributes={"agreements": []},
+        )
 
-        ok, msg = record_agreement(kg, "negotiated-deal-1", {"price": 4.75, "buyer": "alice", "seller": "safeway"})
+        ok, msg = record_agreement(
+            kg,
+            "negotiated-deal-1",
+            {"price": 4.75, "buyer": "alice", "seller": "safeway"},
+        )
         assert ok is True, msg
 
         entity = kg.get_entity("negotiated-deal-1")
@@ -273,11 +338,18 @@ class TestCoordinationEngineConfirmedUnused:
     calls it."""
 
     def test_coordination_engine_session_lifecycle_works_standalone(self):
-        from src.monkey_brain.kernel.society.coordination import CoordinationEngine, NegotiationType
+        from src.monkey_brain.kernel.society.coordination import (
+            CoordinationEngine,
+            NegotiationType,
+        )
 
         engine = CoordinationEngine()
         negotiation = engine.propose(
-            NegotiationType.BILATERAL, "alice", ("alice", "bob"), "split the rent", {"amount": 500},
+            NegotiationType.BILATERAL,
+            "alice",
+            ("alice", "bob"),
+            "split the rent",
+            {"amount": 500},
         )
         assert negotiation.status.value == "proposed"
 
@@ -303,9 +375,13 @@ class TestInteractionManagerLifecycleGapUnwired:
         sr = pr.get_society_runtime(club.society.society_id)
 
         from src.monkey_brain.kernel.society.interaction import InteractionType
+
         interaction = sr.route_interaction(
-            InteractionType.NEGOTIATE, alice.actor_id, (alice.actor_id, bob.actor_id),
-            topic="split the rent", proposal={"amount": 500},
+            InteractionType.NEGOTIATE,
+            alice.actor_id,
+            (alice.actor_id, bob.actor_id),
+            topic="split the rent",
+            proposal={"amount": 500},
         )
 
         responded = sr.respond_to_interaction(interaction.interaction_id, bob.actor_id, accept=True, message="ok")
@@ -318,7 +394,7 @@ class TestInteractionManagerLifecycleGapUnwired:
 
 
 class TestNoRemainingCandidatesIsTheRealDeadlockEquivalent:
-    """"Deadlock" is not a concept this codebase implements. The real
+    """ "Deadlock" is not a concept this codebase implements. The real
     terminal state a user would call "deadlocked" is TerminalState(...,
     "no eligible affiliates remain") — already proven end-to-end by
     test_transaction_coordinator.py::TestNoAffiliateCanSolve. This test
@@ -326,12 +402,18 @@ class TestNoRemainingCandidatesIsTheRealDeadlockEquivalent:
     own module, for this feature's verification perspective."""
 
     def test_no_remaining_candidates_terminal_reason_string(self):
-        from src.monkey_brain.kernel.society.negotiation_planning import TerminalStateEvaluator, TransactionState
+        from src.monkey_brain.kernel.society.negotiation_planning import (
+            TerminalStateEvaluator,
+            TransactionState,
+        )
         from src.monkey_brain.kernel.society.transaction import TransactionStatus
 
         evaluator = TerminalStateEvaluator()
         state = TransactionState(
-            originating_actor_id="alice", objective="find milk", candidates=(), max_steps=8,
+            originating_actor_id="alice",
+            objective="find milk",
+            candidates=(),
+            max_steps=8,
         )
         terminal = evaluator.evaluate(state)
         assert terminal.is_terminal is True

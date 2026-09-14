@@ -6,6 +6,7 @@ POST /actors/{id}/ask route itself now enforces resolve_communication()
 from the LLM-planner-driven AskActorCapability MB-3400/3401/3402
 exercise).
 """
+
 from __future__ import annotations
 
 import sys
@@ -23,8 +24,7 @@ def main() -> int:
         customer_id, ceo_id = actors["Customer"], actors["CEO"]
 
         section('Customer attempts: "Message the CEO directly"')
-        status, body = ask_actor(c, customer_id, "Customer", ceo_id,
-                                  "I need a refund approved right now.")
+        status, body = ask_actor(c, customer_id, "Customer", ceo_id, "I need a refund approved right now.")
         kv("HTTP status", status)
         kv("Denied", status == 403)
         reason = body.get("detail", "")
@@ -33,9 +33,14 @@ def main() -> int:
         section("Verification")
         checks = [
             ("Request is DENIED (403)", status == 403),
-            ("Denial includes a real, specific reason", bool(reason) and reason != "denied"),
-            ("Reason names the actual gap (no shared affiliation/society)",
-             "affiliation" in reason.lower() or "society" in reason.lower()),
+            (
+                "Denial includes a real, specific reason",
+                bool(reason) and reason != "denied",
+            ),
+            (
+                "Reason names the actual gap (no shared affiliation/society)",
+                "affiliation" in reason.lower() or "society" in reason.lower(),
+            ),
         ]
         ok = True
         for label, passed in checks:

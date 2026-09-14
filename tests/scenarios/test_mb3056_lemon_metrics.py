@@ -32,6 +32,7 @@ listing -> order-creation flow with the Recorder sink installed and
 confirming it captures nothing — a genuine gap, not fixed in this
 ticket.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -40,7 +41,11 @@ from src.monkey_brain.kernel.compile import _obs
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.grocery import OrderCreationCapability
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -64,8 +69,12 @@ async def test_mb3056_planetary_metrics_are_published():
     planetary = {n for n in recorder.names() if n.startswith("planetary.")}
 
     assert {
-        "planetary.cycle_duration_ms", "planetary.entities_ticked", "planetary.societies_ticked",
-        "planetary.actors_observed", "planetary.context_events_published", "planetary.simulation_time_seconds",
+        "planetary.cycle_duration_ms",
+        "planetary.entities_ticked",
+        "planetary.societies_ticked",
+        "planetary.actors_observed",
+        "planetary.context_events_published",
+        "planetary.simulation_time_seconds",
         "planetary.peak_queue_depth",
     } <= planetary
 
@@ -77,10 +86,14 @@ async def test_mb3056_society_metrics_are_published():
     governance = {n for n in recorder.names() if n.startswith("governance.")}
 
     assert {
-        "governance.permanent_memberships", "governance.temporary_memberships_created",
-        "governance.temporary_memberships_revoked", "governance.effective_membership_calculations",
-        "governance.membership_events_published", "governance.spaces_with_societies",
-        "governance.spaces_without_societies", "governance.societies_without_spaces",
+        "governance.permanent_memberships",
+        "governance.temporary_memberships_created",
+        "governance.temporary_memberships_revoked",
+        "governance.effective_membership_calculations",
+        "governance.membership_events_published",
+        "governance.spaces_with_societies",
+        "governance.spaces_without_societies",
+        "governance.societies_without_spaces",
     } <= governance
 
 
@@ -90,7 +103,11 @@ async def test_mb3056_movement_metrics_are_published():
 
     presence = {n for n in recorder.names() if n.startswith("presence.")}
 
-    assert {"presence.updates", "presence.actor_movements", "presence.timeline_entries"} <= presence
+    assert {
+        "presence.updates",
+        "presence.actor_movements",
+        "presence.timeline_entries",
+    } <= presence
 
 
 @pytest.mark.asyncio
@@ -111,13 +128,24 @@ def test_mb3056_business_kpis_are_not_yet_instrumented():
         store_id = onboard_merchant(kg, "merchant_bob", "Bob's Store")["store_id"]
         product_id = list_product(kg, store_id, "merchant_bob", "Oat Milk", price=4.5, quantity=10)["product_id"]
         cap = OrderCreationCapability()
-        result = cap.handle({"context": {
-            "knowledge_graph": kg, "actor_id": "alice",
-            "selected_product": [{
-                "id": product_id, "name": "Oat Milk", "price": 4.5, "qty": 1,
-                "store_id": store_id, "store_name": "Bob's Store",
-            }],
-        }})
+        result = cap.handle(
+            {
+                "context": {
+                    "knowledge_graph": kg,
+                    "actor_id": "alice",
+                    "selected_product": [
+                        {
+                            "id": product_id,
+                            "name": "Oat Milk",
+                            "price": 4.5,
+                            "qty": 1,
+                            "store_id": store_id,
+                            "store_name": "Bob's Store",
+                        }
+                    ],
+                }
+            }
+        )
 
         assert result["success"] is True
         assert recorder.names() == set()

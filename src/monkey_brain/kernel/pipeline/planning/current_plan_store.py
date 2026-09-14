@@ -16,6 +16,7 @@ Keyed by (actor_id, goal_key), not actor_id alone — a standing plan for
 one goal must never suppress or be returned for an unrelated goal (see
 kernel/pipeline/planning/goal_key.py::canonicalize_goal).
 """
+
 from __future__ import annotations
 
 import json
@@ -47,8 +48,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -75,6 +78,7 @@ class CurrentPlanRecord:
     shaped rendering keeps working untouched on a CurrentPlanRecord,
     with only additive optional fields for the new score/replacement
     data (see InspectorPanel.tsx's PlanRecord type extension)."""
+
     plan_id: str
     actor_id: str
     goal: str = ""
@@ -126,29 +130,45 @@ class CurrentPlanRecord:
     def to_dict(self) -> dict[str, Any]:
         return {
             # PlanRecord-compatible superset:
-            "entry_id": self.plan_id, "actor_id": self.actor_id,
-            "start_time": self.created_at, "end_time": None,
-            "confidence": self.confidence, "source": "plan_hysteresis",
+            "entry_id": self.plan_id,
+            "actor_id": self.actor_id,
+            "start_time": self.created_at,
+            "end_time": None,
+            "confidence": self.confidence,
+            "source": "plan_hysteresis",
             "metadata": {},
-            "plan_id": self.plan_id, "goal": self.goal,
-            "steps": list(self.steps), "step_descriptions": list(self.step_descriptions),
-            "node_count": len(self.steps), "completed_nodes": 0,
-            "cost": self.cost, "risk": self.risk, "status": "current", "result": "",
+            "plan_id": self.plan_id,
+            "goal": self.goal,
+            "steps": list(self.steps),
+            "step_descriptions": list(self.step_descriptions),
+            "node_count": len(self.steps),
+            "completed_nodes": 0,
+            "cost": self.cost,
+            "risk": self.risk,
+            "status": "current",
+            "result": "",
             # CurrentPlanRecord-only fields:
-            "score": self.score, "score_components": dict(self.score_components),
-            "created_at": self.created_at, "kept_count": self.kept_count,
-            "last_kept_at": self.last_kept_at, "replaced_plan_id": self.replaced_plan_id,
-            "plan": self.plan, "last_execution_failed": self.last_execution_failed,
+            "score": self.score,
+            "score_components": dict(self.score_components),
+            "created_at": self.created_at,
+            "kept_count": self.kept_count,
+            "last_kept_at": self.last_kept_at,
+            "replaced_plan_id": self.replaced_plan_id,
+            "plan": self.plan,
+            "last_execution_failed": self.last_execution_failed,
             "entity_versions": dict(self.entity_versions),
         }
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "CurrentPlanRecord":
         return CurrentPlanRecord(
-            plan_id=d.get("plan_id", ""), actor_id=d.get("actor_id", ""),
-            goal=d.get("goal", ""), steps=tuple(d.get("steps", ())),
+            plan_id=d.get("plan_id", ""),
+            actor_id=d.get("actor_id", ""),
+            goal=d.get("goal", ""),
+            steps=tuple(d.get("steps", ())),
             step_descriptions=tuple(d.get("step_descriptions", ())),
-            cost=float(d.get("cost", 0.0) or 0.0), risk=float(d.get("risk", 0.0) or 0.0),
+            cost=float(d.get("cost", 0.0) or 0.0),
+            risk=float(d.get("risk", 0.0) or 0.0),
             confidence=float(d.get("confidence", 0.0) or 0.0),
             score=float(d.get("score", 0.0) or 0.0),
             score_components=dict(d.get("score_components", {}) or {}),
@@ -166,6 +186,7 @@ def plan_to_dict(plan: Any) -> dict[str, Any]:
     """belief_state.Plan -> plain JSON-safe dict, full fidelity (every
     PlanStep field, not a summary)."""
     import dataclasses as _dc
+
     return _dc.asdict(plan)
 
 
@@ -178,7 +199,8 @@ def plan_from_dict(d: dict[str, Any]) -> Any:
 
     steps = tuple(
         PlanStep(
-            action=s.get("action", ""), description=s.get("description", ""),
+            action=s.get("action", ""),
+            description=s.get("description", ""),
             preconditions=tuple(s.get("preconditions", ()) or ()),
             expected_outcome=s.get("expected_outcome", ""),
             cost=float(s.get("cost", 0.0) or 0.0),
@@ -198,11 +220,16 @@ def plan_from_dict(d: dict[str, Any]) -> Any:
         for s in (d.get("steps") or ())
     )
     return Plan(
-        goal=d.get("goal", ""), preconditions=tuple(d.get("preconditions", ()) or ()),
-        steps=steps, expected_outcomes=tuple(d.get("expected_outcomes", ()) or ()),
-        cost=float(d.get("cost", 0.0) or 0.0), confidence=float(d.get("confidence", 0.0) or 0.0),
-        risk=float(d.get("risk", 0.0) or 0.0), start_state=d.get("start_state", ""),
-        goal_state=d.get("goal_state", ""), planner=d.get("planner", "default"),
+        goal=d.get("goal", ""),
+        preconditions=tuple(d.get("preconditions", ()) or ()),
+        steps=steps,
+        expected_outcomes=tuple(d.get("expected_outcomes", ()) or ()),
+        cost=float(d.get("cost", 0.0) or 0.0),
+        confidence=float(d.get("confidence", 0.0) or 0.0),
+        risk=float(d.get("risk", 0.0) or 0.0),
+        start_state=d.get("start_state", ""),
+        goal_state=d.get("goal_state", ""),
+        planner=d.get("planner", "default"),
         metadata=dict(d.get("metadata", {}) or {}),
     )
 

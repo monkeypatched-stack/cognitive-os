@@ -10,4 +10,5 @@ def get_db(mongo_client: Any) -> Any:
     if mongo_client is None:
         return None
     from services.common.config import settings
+
     return mongo_client[settings.DB_NAME]

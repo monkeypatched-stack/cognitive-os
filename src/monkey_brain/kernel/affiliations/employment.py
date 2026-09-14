@@ -9,6 +9,7 @@ class EmploymentAffiliation(Affiliation):
 
     Covers: employment, contractor, volunteer, board_member, shareholder
     """
+
     role: str = ""
     start_date: str = ""
     end_date: str = ""

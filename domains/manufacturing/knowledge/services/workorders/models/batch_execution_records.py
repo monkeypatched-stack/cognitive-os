@@ -3,7 +3,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
 BatchExecutionStatus = Literal[
     "Draft",
     "Released",
@@ -25,8 +24,12 @@ BatchExecutionStepStatus = Literal[
     "Rejected",
 ]
 
-IpcResultStatus = Literal["Pending", "Pass", "Fail", "Retest Required", "Not Applicable"]
-YieldDisposition = Literal["Pending", "Accepted", "Rejected", "Rework", "Investigation Required"]
+IpcResultStatus = Literal[
+    "Pending", "Pass", "Fail", "Retest Required", "Not Applicable"
+]
+YieldDisposition = Literal[
+    "Pending", "Accepted", "Rejected", "Rework", "Investigation Required"
+]
 YieldExecutionStatus = Literal["Planned", "In Progress", "Executed", "Voided"]
 DispenseWeighingStatus = Literal[
     "Planned",
@@ -50,17 +53,35 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     return dt.astimezone(timezone.utc)
 
 
-def required_cleaning_coverage(metadata: dict[str, Any], cleaning_record_ids: list[str]) -> tuple[list[str], list[str]]:
-    required = [str(item) for item in metadata.get("required_cleaning_requirement_ids") or [] if item]
-    coverage = metadata.get("cleaning_requirement_record_map") if isinstance(metadata.get("cleaning_requirement_record_map"), dict) else {}
-    missing = [requirement_id for requirement_id in required if not coverage.get(requirement_id)]
+def required_cleaning_coverage(
+    metadata: dict[str, Any], cleaning_record_ids: list[str]
+) -> tuple[list[str], list[str]]:
+    required = [
+        str(item)
+        for item in metadata.get("required_cleaning_requirement_ids") or []
+        if item
+    ]
+    coverage = (
+        metadata.get("cleaning_requirement_record_map")
+        if isinstance(metadata.get("cleaning_requirement_record_map"), dict)
+        else {}
+    )
+    missing = [
+        requirement_id
+        for requirement_id in required
+        if not coverage.get(requirement_id)
+    ]
     referenced_records = {str(value) for value in coverage.values() if value}
     missing_records = sorted(referenced_records.difference(set(cleaning_record_ids)))
     return missing, missing_records
 
 
-def missing_required_equipment_usage(metadata: dict[str, Any], equipment_usage_ids: list[str]) -> list[str]:
-    required = {str(item) for item in metadata.get("required_equipment_usage_ids") or [] if item}
+def missing_required_equipment_usage(
+    metadata: dict[str, Any], equipment_usage_ids: list[str]
+) -> list[str]:
+    required = {
+        str(item) for item in metadata.get("required_equipment_usage_ids") or [] if item
+    }
     attached = {str(item) for item in equipment_usage_ids if item}
     return sorted(required.difference(attached))
 
@@ -85,8 +106,14 @@ class BatchExecutionStep(BaseModel):
     def normalize_and_validate(self) -> "BatchExecutionStep":
         self.started_at = ensure_utc(self.started_at)
         self.completed_at = ensure_utc(self.completed_at)
-        if self.completed_at and self.started_at and self.completed_at < self.started_at:
-            raise ValueError("completed_at cannot be before started_at for a batch execution step.")
+        if (
+            self.completed_at
+            and self.started_at
+            and self.completed_at < self.started_at
+        ):
+            raise ValueError(
+                "completed_at cannot be before started_at for a batch execution step."
+            )
         return self
 
 
@@ -173,29 +200,47 @@ class DispenseWeighingExecution(BaseModel):
         self.weighed_at = ensure_utc(self.weighed_at)
         self.verified_at = ensure_utc(self.verified_at)
 
-        if self.net_weight is None and self.gross_weight is not None and self.tare_weight is not None:
+        if (
+            self.net_weight is None
+            and self.gross_weight is not None
+            and self.tare_weight is not None
+        ):
             self.net_weight = round(self.gross_weight - self.tare_weight, 6)
 
         if self.net_weight is not None and self.net_weight < 0:
-            raise ValueError("net_weight cannot be negative for GMP dispense/weighing execution.")
+            raise ValueError(
+                "net_weight cannot be negative for GMP dispense/weighing execution."
+            )
 
         if self.status in ("Weighed", "Verified") and self.net_weight is None:
-            raise ValueError("weighed or verified dispense/weighing entries must include net_weight.")
+            raise ValueError(
+                "weighed or verified dispense/weighing entries must include net_weight."
+            )
 
         if self.status in ("Weighed", "Verified") and not self.weighed_by:
-            raise ValueError("weighed or verified dispense/weighing entries must include weighed_by.")
+            raise ValueError(
+                "weighed or verified dispense/weighing entries must include weighed_by."
+            )
 
         if self.status == "Verified" and not self.verified_by:
-            raise ValueError("verified dispense/weighing entries must include verified_by.")
+            raise ValueError(
+                "verified dispense/weighing entries must include verified_by."
+            )
 
         if self.status == "Verified" and not self.signature_ids:
-            raise ValueError("verified dispense/weighing entries must include signature_ids.")
+            raise ValueError(
+                "verified dispense/weighing entries must include signature_ids."
+            )
 
         if self.status == "Verified" and not self.evidence_document_ids:
-            raise ValueError("verified dispense/weighing entries must include BMR evidence_document_ids.")
+            raise ValueError(
+                "verified dispense/weighing entries must include BMR evidence_document_ids."
+            )
 
         if self.within_tolerance is False and not self.deviation_id:
-            raise ValueError("out-of-tolerance dispense/weighing entries must include deviation_id.")
+            raise ValueError(
+                "out-of-tolerance dispense/weighing entries must include deviation_id."
+            )
 
         return self
 
@@ -228,9 +273,16 @@ class YieldReconciliation(BaseModel):
         if self.variance_percent is None and self.theoretical_yield:
             actual = self.actual_batch_quantity or 0
             planned = self.planned_batch_quantity or self.theoretical_yield
-            self.variance_percent = round(((actual - planned) / planned) * 100, 4) if planned else 0
-        if self.planned_batch_quantity is not None and self.actual_batch_quantity is not None:
-            variance_quantity = round(self.actual_batch_quantity - self.planned_batch_quantity, 6)
+            self.variance_percent = (
+                round(((actual - planned) / planned) * 100, 4) if planned else 0
+            )
+        if (
+            self.planned_batch_quantity is not None
+            and self.actual_batch_quantity is not None
+        ):
+            variance_quantity = round(
+                self.actual_batch_quantity - self.planned_batch_quantity, 6
+            )
             self.planned_vs_actual_comparison = {
                 **self.planned_vs_actual_comparison,
                 "planned_batch_quantity": self.planned_batch_quantity,
@@ -238,10 +290,18 @@ class YieldReconciliation(BaseModel):
                 "variance_quantity": variance_quantity,
                 "variance_percent": self.variance_percent,
                 "unit": self.unit,
-                "comparison_result": "Within tolerance" if abs(self.variance_percent or 0) <= 2 else "Outside tolerance",
+                "comparison_result": (
+                    "Within tolerance"
+                    if abs(self.variance_percent or 0) <= 2
+                    else "Outside tolerance"
+                ),
             }
-        if self.execution_status == "Executed" and (not self.executed_by or not self.executed_at):
-            raise ValueError("executed embedded yield reconciliation must include executed_by and executed_at.")
+        if self.execution_status == "Executed" and (
+            not self.executed_by or not self.executed_at
+        ):
+            raise ValueError(
+                "executed embedded yield reconciliation must include executed_by and executed_at."
+            )
         return self
 
 
@@ -285,7 +345,9 @@ class BatchProductionExecutionRecord(BaseModel):
         description="GMP raw material dispense/weighing entries captured into the BMR for this batch.",
     )
     ipc_results: list[BatchIpcResult] = Field(default_factory=list)
-    yield_reconciliation: YieldReconciliation = Field(default_factory=YieldReconciliation)
+    yield_reconciliation: YieldReconciliation = Field(
+        default_factory=YieldReconciliation
+    )
 
     deviation_ids: list[str] = Field(default_factory=list)
     change_control_ids: list[str] = Field(default_factory=list)
@@ -315,32 +377,61 @@ class BatchProductionExecutionRecord(BaseModel):
         self.created_at = ensure_utc(self.created_at) or utc_now()
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
 
-        if self.completed_at and self.started_at and self.completed_at < self.started_at:
-            raise ValueError("completed_at cannot be before started_at for a batch execution record.")
+        if (
+            self.completed_at
+            and self.started_at
+            and self.completed_at < self.started_at
+        ):
+            raise ValueError(
+                "completed_at cannot be before started_at for a batch execution record."
+            )
 
-        if self.status in ("Completed", "Under QA Review", "Approved") and not self.execution_steps:
-            raise ValueError("completed batch execution records must include execution_steps.")
+        if (
+            self.status in ("Completed", "Under QA Review", "Approved")
+            and not self.execution_steps
+        ):
+            raise ValueError(
+                "completed batch execution records must include execution_steps."
+            )
 
         if self.status == "Approved" and not self.signature_ids:
-            raise ValueError("approved batch execution records must include signature_ids.")
+            raise ValueError(
+                "approved batch execution records must include signature_ids."
+            )
 
         has_dispensing_step = any(
-            "dispens" in f"{step.process_step_id} {step.name}".lower() or
-            "weigh" in f"{step.process_step_id} {step.name}".lower()
+            "dispens" in f"{step.process_step_id} {step.name}".lower()
+            or "weigh" in f"{step.process_step_id} {step.name}".lower()
             for step in self.execution_steps
         )
-        if self.status in ("Completed", "Under QA Review", "Approved") and has_dispensing_step and not self.dispense_weighing_records:
-            raise ValueError("completed batch records with dispensing/weighing steps must include dispense_weighing_records.")
+        if (
+            self.status in ("Completed", "Under QA Review", "Approved")
+            and has_dispensing_step
+            and not self.dispense_weighing_records
+        ):
+            raise ValueError(
+                "completed batch records with dispensing/weighing steps must include dispense_weighing_records."
+            )
 
         if self.status in ("Completed", "Under QA Review", "Approved"):
-            missing_requirements, missing_records = required_cleaning_coverage(self.metadata, self.cleaning_record_ids)
+            missing_requirements, missing_records = required_cleaning_coverage(
+                self.metadata, self.cleaning_record_ids
+            )
             if missing_requirements:
-                raise ValueError(f"completed batch records missing required cleaning coverage: {', '.join(missing_requirements)}.")
+                raise ValueError(
+                    f"completed batch records missing required cleaning coverage: {', '.join(missing_requirements)}."
+                )
             if missing_records:
-                raise ValueError(f"completed batch records reference cleaning records not attached to package: {', '.join(missing_records)}.")
-            missing_equipment_usage = missing_required_equipment_usage(self.metadata, self.equipment_usage_ids)
+                raise ValueError(
+                    f"completed batch records reference cleaning records not attached to package: {', '.join(missing_records)}."
+                )
+            missing_equipment_usage = missing_required_equipment_usage(
+                self.metadata, self.equipment_usage_ids
+            )
             if missing_equipment_usage:
-                raise ValueError(f"completed batch records missing required regulated equipment usage: {', '.join(missing_equipment_usage)}.")
+                raise ValueError(
+                    f"completed batch records missing required regulated equipment usage: {', '.join(missing_equipment_usage)}."
+                )
 
         bmr_evidence_ids = set(self.evidence_document_ids) | set(self.sop_document_ids)
         for record in self.dispense_weighing_records:
@@ -352,7 +443,9 @@ class BatchProductionExecutionRecord(BaseModel):
             self.metadata["bmr_package"]["dispense_weighing_record_ids"] = [
                 record.dispense_weighing_id for record in self.dispense_weighing_records
             ]
-            self.metadata["bmr_package"]["dispense_weighing_evidence_document_ids"] = sorted(bmr_evidence_ids)
+            self.metadata["bmr_package"]["dispense_weighing_evidence_document_ids"] = (
+                sorted(bmr_evidence_ids)
+            )
 
         return self
 
@@ -453,15 +546,22 @@ class YieldReconciliationRecord(BaseModel):
         self.reviewed_at = ensure_utc(self.reviewed_at)
         self.created_at = ensure_utc(self.created_at) or utc_now()
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
-        
+
         if self.planned_batch_quantity is None:
             self.planned_batch_quantity = self.theoretical_yield
         if self.variance_percent is None and self.theoretical_yield:
             actual = self.actual_batch_quantity or 0
             planned = self.planned_batch_quantity or self.theoretical_yield
-            self.variance_percent = round(((actual - planned) / planned) * 100, 4) if planned else 0
-        if self.planned_batch_quantity is not None and self.actual_batch_quantity is not None:
-            variance_quantity = round(self.actual_batch_quantity - self.planned_batch_quantity, 6)
+            self.variance_percent = (
+                round(((actual - planned) / planned) * 100, 4) if planned else 0
+            )
+        if (
+            self.planned_batch_quantity is not None
+            and self.actual_batch_quantity is not None
+        ):
+            variance_quantity = round(
+                self.actual_batch_quantity - self.planned_batch_quantity, 6
+            )
             self.planned_vs_actual_comparison = {
                 **self.planned_vs_actual_comparison,
                 "planned_batch_quantity": self.planned_batch_quantity,
@@ -469,10 +569,18 @@ class YieldReconciliationRecord(BaseModel):
                 "variance_quantity": variance_quantity,
                 "variance_percent": self.variance_percent,
                 "unit": self.unit,
-                "comparison_result": "Within tolerance" if abs(self.variance_percent or 0) <= 2 else "Outside tolerance",
+                "comparison_result": (
+                    "Within tolerance"
+                    if abs(self.variance_percent or 0) <= 2
+                    else "Outside tolerance"
+                ),
             }
-        if self.execution_status == "Executed" and (not self.executed_by or not self.executed_at):
-            raise ValueError("executed yield reconciliation must include executed_by and executed_at.")
+        if self.execution_status == "Executed" and (
+            not self.executed_by or not self.executed_at
+        ):
+            raise ValueError(
+                "executed yield reconciliation must include executed_by and executed_at."
+            )
         return self
 
 

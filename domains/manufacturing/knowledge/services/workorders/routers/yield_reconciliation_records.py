@@ -11,7 +11,6 @@ from services.workorders.models.yield_reconciliation_records import (
     YieldReconciliationRecordUpdate,
 )
 
-
 router = APIRouter()
 
 
@@ -35,10 +34,14 @@ async def list_yield_reconciliation_records(
         status=status_filter,
         disposition=disposition,
     )
-    return PaginatedYieldReconciliationRecordResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedYieldReconciliationRecordResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
-@router.get("/{yield_reconciliation_id}", response_model=YieldReconciliationRecordResponse)
+@router.get(
+    "/{yield_reconciliation_id}", response_model=YieldReconciliationRecordResponse
+)
 async def get_yield_reconciliation_record(
     yield_reconciliation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -46,24 +49,36 @@ async def get_yield_reconciliation_record(
 ):
     record = await crud.get_by_id(db, yield_reconciliation_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Yield reconciliation record '{yield_reconciliation_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Yield reconciliation record '{yield_reconciliation_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=YieldReconciliationRecordResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=YieldReconciliationRecordResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_yield_reconciliation_record(
     data: YieldReconciliationRecordCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-tasks")),
 ):
     if await crud.get_by_id(db, data.yield_reconciliation_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Yield reconciliation record '{data.yield_reconciliation_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Yield reconciliation record '{data.yield_reconciliation_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
 
 
-@router.patch("/{yield_reconciliation_id}", response_model=YieldReconciliationRecordResponse)
+@router.patch(
+    "/{yield_reconciliation_id}", response_model=YieldReconciliationRecordResponse
+)
 async def update_yield_reconciliation_record(
     yield_reconciliation_id: str,
     data: YieldReconciliationRecordUpdate,
@@ -72,7 +87,10 @@ async def update_yield_reconciliation_record(
 ):
     updated = await crud.update(db, yield_reconciliation_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Yield reconciliation record '{yield_reconciliation_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Yield reconciliation record '{yield_reconciliation_id}' not found",
+        )
     return updated
 
 
@@ -83,4 +101,7 @@ async def delete_yield_reconciliation_record(
     _: dict = Depends(require_permission("perm-delete-tasks")),
 ):
     if not await crud.delete(db, yield_reconciliation_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Yield reconciliation record '{yield_reconciliation_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Yield reconciliation record '{yield_reconciliation_id}' not found",
+        )

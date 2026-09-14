@@ -40,13 +40,16 @@ ActionExecutor.execute() directly, bypassing PlanetaryRuntime's own
 _tick_lock -- deliberately, since the CAS logic being qualified here is
 the layer that must hold even when that lock doesn't apply.
 """
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
@@ -56,14 +59,19 @@ from src.monkey_brain.kernel.pipeline.execution import Action
 def _seed_scarce_product(quantity: int) -> tuple[KnowledgeGraph, str]:
     kg = KnowledgeGraph()
     store = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99)["store_id"]
-    product_id = list_product(kg, store, "merchant_a", "Limited Edition Mug", price=9.99, quantity=quantity)["product_id"]
+    product_id = list_product(kg, store, "merchant_a", "Limited Edition Mug", price=9.99, quantity=quantity)[
+        "product_id"
+    ]
     return kg, product_id
 
 
 def _order_actions(product_id: str) -> tuple[Action, ...]:
     return (
         Action(
-            action_id="a0", capability="ProductSelection", step_index=0, depends_on=(),
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            depends_on=(),
             parameters={"selection": [{"id": product_id, "qty": 1}]},
         ),
         Action(action_id="a1", capability="OrderCreation", step_index=1, depends_on=(0,)),
@@ -105,6 +113,7 @@ async def test_concur001_two_actors_racing_for_the_last_unit():
     # World-state truth, not just each capability's self-reported result:
     # exactly one active reservation exists on the product itself.
     import time
+
     entity = kg.get_entity(product_id)
     active_reservations = [r for r in entity.attributes.get("reservations", []) if r.get("until", 0) > time.time()]
     assert len(active_reservations) == 1
@@ -125,13 +134,10 @@ async def test_concur002_scale_no_oversell_across_many_actors():
 
     actor_count = 8
     contexts = [
-        {"knowledge_graph": kg, "actor_id": f"concur_scale_actor_{i}", "question": ""}
-        for i in range(actor_count)
+        {"knowledge_graph": kg, "actor_id": f"concur_scale_actor_{i}", "question": ""} for i in range(actor_count)
     ]
 
-    results = await asyncio.gather(*(
-        executor.execute(_order_actions(product_id), ctx) for ctx in contexts
-    ))
+    results = await asyncio.gather(*(executor.execute(_order_actions(product_id), ctx) for ctx in contexts))
 
     granted = 0
     backordered = 0
@@ -148,6 +154,7 @@ async def test_concur002_scale_no_oversell_across_many_actors():
     assert backordered == 5
 
     import time
+
     entity = kg.get_entity(product_id)
     active_reservations = [r for r in entity.attributes.get("reservations", []) if r.get("until", 0) > time.time()]
     # Never more than the real 3 units that exist -- the oversell case this

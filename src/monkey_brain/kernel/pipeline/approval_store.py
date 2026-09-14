@@ -16,6 +16,7 @@ returning {"requires_approval": True, "proposed_action": {...}, "reason":
 per-action loop Phases 1-4's own hooks already use) is the only caller
 that reads it.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,8 +48,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -97,24 +100,36 @@ class PendingApproval:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "execution_id": self.execution_id, "actor_id": self.actor_id,
-            "step_index": self.step_index, "capability": self.capability,
-            "action_id": self.action_id, "proposed_action": self.proposed_action,
-            "reason": self.reason, "correlation_id": self.correlation_id,
-            "causation_id": self.causation_id, "created_at": self.created_at,
-            "decided": self.decided, "decided_at": self.decided_at,
+            "execution_id": self.execution_id,
+            "actor_id": self.actor_id,
+            "step_index": self.step_index,
+            "capability": self.capability,
+            "action_id": self.action_id,
+            "proposed_action": self.proposed_action,
+            "reason": self.reason,
+            "correlation_id": self.correlation_id,
+            "causation_id": self.causation_id,
+            "created_at": self.created_at,
+            "decided": self.decided,
+            "decided_at": self.decided_at,
             "original_question": self.original_question,
         }
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "PendingApproval":
         return PendingApproval(
-            execution_id=d.get("execution_id", ""), actor_id=d.get("actor_id", ""),
-            step_index=int(d.get("step_index", -1)), capability=d.get("capability", ""),
-            action_id=d.get("action_id", ""), proposed_action=dict(d.get("proposed_action", {}) or {}),
-            reason=d.get("reason", ""), correlation_id=d.get("correlation_id", ""),
-            causation_id=d.get("causation_id", ""), created_at=float(d.get("created_at", time.time())),
-            decided=d.get("decided"), decided_at=d.get("decided_at"),
+            execution_id=d.get("execution_id", ""),
+            actor_id=d.get("actor_id", ""),
+            step_index=int(d.get("step_index", -1)),
+            capability=d.get("capability", ""),
+            action_id=d.get("action_id", ""),
+            proposed_action=dict(d.get("proposed_action", {}) or {}),
+            reason=d.get("reason", ""),
+            correlation_id=d.get("correlation_id", ""),
+            causation_id=d.get("causation_id", ""),
+            created_at=float(d.get("created_at", time.time())),
+            decided=d.get("decided"),
+            decided_at=d.get("decided_at"),
             original_question=d.get("original_question", ""),
         )
 
@@ -128,10 +143,18 @@ def save_pending_approval(approval: PendingApproval) -> bool:
     if client is None or not approval.execution_id:
         return False
     try:
-        client.set(f"{_APPROVAL_KEY_PREFIX}{approval.execution_id}", json.dumps(approval.to_dict()))
+        client.set(
+            f"{_APPROVAL_KEY_PREFIX}{approval.execution_id}",
+            json.dumps(approval.to_dict()),
+        )
         return True
     except Exception as exc:
-        logger.warning("save_pending_approval(%s) failed: %s", approval.execution_id, exc, exc_info=True)
+        logger.warning(
+            "save_pending_approval(%s) failed: %s",
+            approval.execution_id,
+            exc,
+            exc_info=True,
+        )
         return False
 
 

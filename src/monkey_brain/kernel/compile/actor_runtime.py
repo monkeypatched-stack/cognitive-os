@@ -19,6 +19,7 @@ Layer 3 (Decision):
 Dependency INVERTED: all three kernels are injected INTO the actor.
 The actor OWNS its reasoning, trust fabric, and belief formation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ from src.monkey_brain.kernel.compile.society import Actor, CycleResult
 from src.monkey_brain.kernel.compile.tensor import Feature, SparseTransitionTensor
 from src.monkey_brain.kernel.compile.belief_runtime import BeliefRuntime
 from src.monkey_brain.kernel.compile.trust_runtime import TrustRuntime
+
 # PerActorCognitiveRuntime removed - use society.py Actor directly
 
 logger = logging.getLogger("agentos.compile.actor_runtime")
@@ -92,23 +94,27 @@ class ActorRuntime:
     The actor OWNS its reasoning, belief, and trust.
     """
 
-    def __init__(self, actor_id: str, *,
-                 cognitive_runtime: Any = None,
-                 belief_runtime: BeliefRuntime | None = None,
-                 trust_runtime: TrustRuntime | None = None,
-                 context: Context | None = None,
-                 local_belief: SparseTransitionTensor | None = None,
-                 world_view: Any = None,
-                 existing_actor: Any = None,
-                 execution_context: Any = None,
-                 authorization_view: AuthorizationView | None = None,
-                 capability_registry: Any = None,
-                 agent_registry: Any = None,
-                 goal_queue: Any = None,
-                 resources: dict[str, Any] | None = None,
-                 identity: Any = None,
-                 memory: Any = None) -> None:
-        
+    def __init__(
+        self,
+        actor_id: str,
+        *,
+        cognitive_runtime: Any = None,
+        belief_runtime: BeliefRuntime | None = None,
+        trust_runtime: TrustRuntime | None = None,
+        context: Context | None = None,
+        local_belief: SparseTransitionTensor | None = None,
+        world_view: Any = None,
+        existing_actor: Any = None,
+        execution_context: Any = None,
+        authorization_view: AuthorizationView | None = None,
+        capability_registry: Any = None,
+        agent_registry: Any = None,
+        goal_queue: Any = None,
+        resources: dict[str, Any] | None = None,
+        identity: Any = None,
+        memory: Any = None,
+    ) -> None:
+
         assert isinstance(actor_id, str) and actor_id, "actor_id must be non-empty string"
         self.actor_id = actor_id
         self.context = context or Context(tenant_id=actor_id)
@@ -130,17 +136,13 @@ class ActorRuntime:
         shared_belief = local_belief or SparseTransitionTensor()
 
         if belief_runtime is None:
-            belief_runtime = BeliefRuntime(
-                shared_belief,
-                self.context,
-                trust_runtime=trust_runtime
-            )
+            belief_runtime = BeliefRuntime(shared_belief, self.context, trust_runtime=trust_runtime)
         # Local state
         self.belief = shared_belief
         # Memory is actor-owned state. The injected belief is the compatibility
         # default because it is already the canonical local memory model.
         self.memory = memory if memory is not None else self.belief
-        self._world_view = world_view               # read-only view of the global world
+        self._world_view = world_view  # read-only view of the global world
 
         # cognitive_runtime is now handled by society.py Actor directly
         # The Actor class IS the cognitive runtime - it owns plan → simulate → execute → learn
@@ -161,8 +163,8 @@ class ActorRuntime:
 
         # cognitive attribute points to the injected cognitive runtime (dependency inverted)
         self.cognitive = cognitive_runtime if cognitive_runtime is not None else self._actor
-        self.belief_system = belief_runtime         # BeliefRuntime (Layer 2: fusion)
-        self.trust_fabric = trust_runtime           # TrustRuntime (trust weighting)
+        self.belief_system = belief_runtime  # BeliefRuntime (Layer 2: fusion)
+        self.trust_fabric = trust_runtime  # TrustRuntime (trust weighting)
 
     @property
     def actor(self) -> Any:
@@ -210,8 +212,11 @@ class ActorRuntime:
         concurrently-ticked actor in that cycle.
         """
         from src.monkey_brain.kernel.trusted_auth import (
-            bind_trusted_auth, evidence_for_service, get_trusted_auth,
+            bind_trusted_auth,
+            evidence_for_service,
+            get_trusted_auth,
         )
+
         if not get_trusted_auth().authenticated:
             bind_trusted_auth(evidence_for_service(f"actor-runtime:{self.actor_id}"))
         return await self._cognitive_os.tick(prompt_request)
@@ -287,13 +292,18 @@ class ActorRuntime:
             return []
         return list(self._context_events)[-limit:]
 
-    def record_action(self, action: str, state: str, *, domain: str = "default",
-                      weight: float = 1.0) -> None:
+    def record_action(self, action: str, state: str, *, domain: str = "default", weight: float = 1.0) -> None:
         """Record an action/state pair in real-time. Updates belief, trust, and emits telemetry."""
         self.belief.observe(action, state, domain=domain, weight=weight)
         _obs.counter("runtime.action_recorded", actor=self.actor_id)
-        _obs.event("runtime.record_action", actor=self.actor_id,
-                   action=action, state=state, domain=domain, weight=weight)
+        _obs.event(
+            "runtime.record_action",
+            actor=self.actor_id,
+            action=action,
+            state=state,
+            domain=domain,
+            weight=weight,
+        )
 
     def get_world_state(self) -> dict:
         """Return the current world state and internal context."""
@@ -309,7 +319,7 @@ class ActorRuntime:
 
         Avoids fragile deep reference chain: _owner._actor_runtime._actor.policy.size
         """
-        if self._actor and hasattr(self._actor, 'policy'):
+        if self._actor and hasattr(self._actor, "policy"):
             try:
                 return self._actor.policy.size
             except AttributeError:
@@ -339,8 +349,14 @@ class ActorRuntime:
     # ── LAYER 3: DECISION ─────────────────────────────────────────────────────────
     # Action_a = π(Belief_a) — policy operates on fused belief
 
-    def act(self, request: Any, actor: Any = None, *, reward: float = 1.0,
-            society_runtime: Any = None) -> Any:
+    def act(
+        self,
+        request: Any,
+        actor: Any = None,
+        *,
+        reward: float = 1.0,
+        society_runtime: Any = None,
+    ) -> Any:
         """Record an action into local belief.
 
         ``actor``/``society_runtime`` are accepted for signature compatibility with
@@ -382,6 +398,7 @@ class ActorRuntime:
         simulation, not a real capability.
         """
         import math
+
         assert isinstance(start, str) and start, "start must be non-empty string"
         assert isinstance(goal, str) and goal, "goal must be non-empty string"
         assert isinstance(reward, (int, float)) and math.isfinite(reward), "reward must be finite numeric"
@@ -393,20 +410,35 @@ class ActorRuntime:
         try:
             result = self._actor.cognitive_cycle(start, goal, self._world_view, reward=reward)
         except (ValueError, TypeError, RuntimeError, AssertionError) as e:
-            logger.error("[actor_runtime] %s cognitive cycle failed: %s", self.actor_id, e, exc_info=True)
+            logger.error(
+                "[actor_runtime] %s cognitive cycle failed: %s",
+                self.actor_id,
+                e,
+                exc_info=True,
+            )
             raise
 
         logger.info(
             "[actor_runtime] %s cognitive cycle: %s→%s (fused %d obs, loss=%.4f, reached=%s)",
-            self.actor_id, start, goal, fusion_result["fused_count"],
-            result.epistemic_loss, result.reached_goal
+            self.actor_id,
+            start,
+            goal,
+            fusion_result["fused_count"],
+            result.epistemic_loss,
+            result.reached_goal,
         )
 
         _obs.counter("actor.cognitive_cycle", actor=self.actor_id)
         _obs.gauge("actor.epistemic_loss", result.epistemic_loss, actor=self.actor_id)
-        _obs.event("cognitive.cycle", actor=self.actor_id, start=start, goal=goal,
-                   reached=result.reached_goal, loss=round(result.epistemic_loss, 4),
-                   fused_observations=fusion_result["fused_count"])
+        _obs.event(
+            "cognitive.cycle",
+            actor=self.actor_id,
+            start=start,
+            goal=goal,
+            reached=result.reached_goal,
+            loss=round(result.epistemic_loss, 4),
+            fused_observations=fusion_result["fused_count"],
+        )
         return result
 
     # ── knowledge exchange (import / revoke, provenance-tracked) ─────────────────
@@ -418,12 +450,15 @@ class ActorRuntime:
         if not hasattr(self, "_imported"):
             self._imported: dict[str, dict[tuple[str, str], float]] = {}
         added: list[tuple[str, str]] = []
-        for (src, dst) in self._world_view:
+        for src, dst in self._world_view:
             if self.belief.has_edge(src, dst):
-                continue                                  # keep the actor's own copy
-            self.belief.observe(src, dst,
-                                domain=self._world_view.domain_of(src),
-                                dst_domain=self._world_view.domain_of(dst))
+                continue  # keep the actor's own copy
+            self.belief.observe(
+                src,
+                dst,
+                domain=self._world_view.domain_of(src),
+                dst_domain=self._world_view.domain_of(dst),
+            )
             # Remember the observation count this edge had the moment it was imported.
             # revoke() compares against it to tell "purely borrowed" from "the actor has
             # since made this its own" — see revoke().
@@ -431,7 +466,12 @@ class ActorRuntime:
         bucket = self._imported.setdefault(tag, {})
         for edge in added:
             bucket[edge] = self.belief.feature(edge[0], edge[1], Feature.FREQUENCY)
-        logger.info("[actor_runtime] %s imported %d %r transition(s)", self.actor_id, len(added), tag)
+        logger.info(
+            "[actor_runtime] %s imported %d %r transition(s)",
+            self.actor_id,
+            len(added),
+            tag,
+        )
         _obs.event("knowledge.import", actor=self.actor_id, tag=tag, count=len(added))
         return added
 
@@ -452,16 +492,26 @@ class ActorRuntime:
         retained = 0
         for (s, d), freq_at_import in imported.items():
             if self.belief.feature(s, d, Feature.FREQUENCY) > freq_at_import:
-                retained += 1                       # the actor made this its own — keep it
+                retained += 1  # the actor made this its own — keep it
                 continue
             if self.belief.remove(s, d):
                 removed += 1
         self._imported[tag] = {}
-        logger.info("[actor_runtime] %s revoked %d %r transition(s), retained %d personally "
-                    "reinforced; personal knowledge intact",
-                    self.actor_id, removed, tag, retained)
-        _obs.event("knowledge.revoke", actor=self.actor_id, tag=tag,
-                   removed=removed, retained=retained)
+        logger.info(
+            "[actor_runtime] %s revoked %d %r transition(s), retained %d personally "
+            "reinforced; personal knowledge intact",
+            self.actor_id,
+            removed,
+            tag,
+            retained,
+        )
+        _obs.event(
+            "knowledge.revoke",
+            actor=self.actor_id,
+            tag=tag,
+            removed=removed,
+            retained=retained,
+        )
         return removed
 
     # ── checkpoint / restore (runtime lifecycle) ─────────────────────────────────
@@ -488,29 +538,42 @@ class ActorRuntime:
         4. Belief runtime state (observations, fusions)
         """
         import os
+
         try:
             os.makedirs(base_path, exist_ok=True)
 
             belief_path = os.path.join(base_path, "belief.pkl")
             self.belief.save(belief_path)
-            logger.debug("[actor_runtime] %s checkpointed belief (%d transitions) to %s",
-                        self.actor_id, self.belief.nnz(), belief_path)
+            logger.debug(
+                "[actor_runtime] %s checkpointed belief (%d transitions) to %s",
+                self.actor_id,
+                self.belief.nnz(),
+                belief_path,
+            )
 
-            if hasattr(self.cognitive, 'checkpoint'):
+            if hasattr(self.cognitive, "checkpoint"):
                 self.cognitive.checkpoint(os.path.join(base_path, "cognitive"))
                 logger.debug("[actor_runtime] %s checkpointed cognitive runtime", self.actor_id)
 
-            if hasattr(self.trust_fabric, 'checkpoint'):
+            if hasattr(self.trust_fabric, "checkpoint"):
                 self.trust_fabric.checkpoint(os.path.join(base_path, "trust.json"))
                 logger.debug("[actor_runtime] %s checkpointed trust runtime", self.actor_id)
 
-            if hasattr(self.belief_system, 'checkpoint'):
+            if hasattr(self.belief_system, "checkpoint"):
                 self.belief_system.checkpoint(os.path.join(base_path, "belief_runtime.json"))
                 logger.debug("[actor_runtime] %s checkpointed belief runtime", self.actor_id)
 
-            logger.info("[actor_runtime] %s checkpointed all state to %s", self.actor_id, base_path)
-            _obs.event("runtime.checkpoint", actor=self.actor_id,
-                       transitions=self.belief.nnz(), path=base_path)
+            logger.info(
+                "[actor_runtime] %s checkpointed all state to %s",
+                self.actor_id,
+                base_path,
+            )
+            _obs.event(
+                "runtime.checkpoint",
+                actor=self.actor_id,
+                transitions=self.belief.nnz(),
+                path=base_path,
+            )
         except (IOError, OSError) as e:
             logger.error("[actor_runtime] checkpoint failed: %s", e, exc_info=True)
             raise
@@ -530,31 +593,44 @@ class ActorRuntime:
         4. Belief runtime state (observations, fusions)
         """
         import os
+
         try:
             belief_path = os.path.join(base_path, "belief.pkl")
             self.belief.load(belief_path)
             self._actor.world = self.belief
             self._actor.actions = ActorModel(self.actor_id, self.belief, runtime=self)
-            logger.debug("[actor_runtime] %s restored belief (%d transitions) from %s",
-                        self.actor_id, self.belief.nnz(), belief_path)
+            logger.debug(
+                "[actor_runtime] %s restored belief (%d transitions) from %s",
+                self.actor_id,
+                self.belief.nnz(),
+                belief_path,
+            )
 
-            if hasattr(self.cognitive, 'restore'):
+            if hasattr(self.cognitive, "restore"):
                 self.cognitive.restore(os.path.join(base_path, "cognitive"))
                 logger.debug("[actor_runtime] %s restored cognitive runtime", self.actor_id)
 
-            if hasattr(self.trust_fabric, 'restore'):
+            if hasattr(self.trust_fabric, "restore"):
                 self.trust_fabric.restore(os.path.join(base_path, "trust.json"))
                 logger.debug("[actor_runtime] %s restored trust runtime", self.actor_id)
 
-            if hasattr(self.belief_system, 'restore'):
+            if hasattr(self.belief_system, "restore"):
                 self.belief_system.restore(os.path.join(base_path, "belief_runtime.json"))
                 logger.debug("[actor_runtime] %s restored belief runtime", self.actor_id)
 
             self._validate_belief_world_compatibility()
 
-            logger.info("[actor_runtime] %s restored all state from %s", self.actor_id, base_path)
-            _obs.event("runtime.restore", actor=self.actor_id,
-                       transitions=self.belief.nnz(), path=base_path)
+            logger.info(
+                "[actor_runtime] %s restored all state from %s",
+                self.actor_id,
+                base_path,
+            )
+            _obs.event(
+                "runtime.restore",
+                actor=self.actor_id,
+                transitions=self.belief.nnz(),
+                path=base_path,
+            )
         except (IOError, OSError) as e:
             logger.error("[actor_runtime] restore failed: %s", e, exc_info=True)
             raise
@@ -579,11 +655,17 @@ class ActorRuntime:
         try:
             coverage = coverage_fn(world)
         except Exception as e:
-            logger.warning("[actor_runtime] %s belief/world compatibility check failed: %s",
-                           self.actor_id, e)
+            logger.warning(
+                "[actor_runtime] %s belief/world compatibility check failed: %s",
+                self.actor_id,
+                e,
+            )
             return
-        logger.info("[actor_runtime] %s restored belief covers %.1f%% of current world",
-                    self.actor_id, coverage * 100)
+        logger.info(
+            "[actor_runtime] %s restored belief covers %.1f%% of current world",
+            self.actor_id,
+            coverage * 100,
+        )
 
     # ── introspection ────────────────────────────────────────────────────────────
 

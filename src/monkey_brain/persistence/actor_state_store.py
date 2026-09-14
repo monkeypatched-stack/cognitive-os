@@ -4,6 +4,7 @@ Architectural invariant:
     Actor state persists across requests.
     Belief, Bellman, Φ are all persisted to MongoDB.
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +26,7 @@ class PersistedActorState:
     not a pickled SparseTransitionTensor. bellman_policy/phi_compiled
     remain unpopulated by that consolidation (Decision-layer/PolicyStore
     concern, out of scope) — left here, ready for a future step."""
+
     actor_id: str
     tenant_id: str
     belief_state: bytes
@@ -97,7 +99,10 @@ class ActorStateStore:
             collection.create_index([("world_version", -1)])
 
             self._schema_initialized = True
-            logger.info("[actor_state_store] MongoDB collection initialized: %s", self._collection_name)
+            logger.info(
+                "[actor_state_store] MongoDB collection initialized: %s",
+                self._collection_name,
+            )
         except Exception as e:
             logger.error("[actor_state_store] Schema init failed: %s", e)
             raise
@@ -135,18 +140,17 @@ class ActorStateStore:
             }
 
             # Upsert (insert or update)
-            collection.replace_one(
-                {"_id": document["_id"]},
-                document,
-                upsert=True
-            )
+            collection.replace_one({"_id": document["_id"]}, document, upsert=True)
 
-            logger.debug("[actor_state_store] Saved actor %s (tenant=%s, v%d, world_v%d)",
-                         actor_state.actor_id, actor_state.tenant_id,
-                         actor_state.version, actor_state.world_version)
+            logger.debug(
+                "[actor_state_store] Saved actor %s (tenant=%s, v%d, world_v%d)",
+                actor_state.actor_id,
+                actor_state.tenant_id,
+                actor_state.version,
+                actor_state.world_version,
+            )
         except Exception as e:
-            logger.error("[actor_state_store] Save failed for %s: %s",
-                        actor_state.actor_id, e)
+            logger.error("[actor_state_store] Save failed for %s: %s", actor_state.actor_id, e)
             raise
 
     def load(self, actor_id: str, tenant_id: str) -> PersistedActorState | None:
@@ -164,15 +168,20 @@ class ActorStateStore:
             collection = db[self._collection_name]
 
             # MongoDB query with tenant isolation
-            doc = collection.find_one({
-                "_id": f"{tenant_id}:{actor_id}",
-                "tenant_id": tenant_id,
-                "actor_id": actor_id
-            })
+            doc = collection.find_one(
+                {
+                    "_id": f"{tenant_id}:{actor_id}",
+                    "tenant_id": tenant_id,
+                    "actor_id": actor_id,
+                }
+            )
 
             if doc is None:
-                logger.debug("[actor_state_store] Actor %s not found in tenant %s",
-                            actor_id, tenant_id)
+                logger.debug(
+                    "[actor_state_store] Actor %s not found in tenant %s",
+                    actor_id,
+                    tenant_id,
+                )
                 return None
 
             # Decode base64-encoded binary fields
@@ -194,12 +203,16 @@ class ActorStateStore:
                 last_model_name=doc.get("last_model_name", ""),
             )
 
-            logger.debug("[actor_state_store] Loaded actor %s (tenant=%s, v%d, world_v%d)",
-                         actor_id, tenant_id, result.version, result.world_version)
+            logger.debug(
+                "[actor_state_store] Loaded actor %s (tenant=%s, v%d, world_v%d)",
+                actor_id,
+                tenant_id,
+                result.version,
+                result.world_version,
+            )
             return result
         except Exception as e:
-            logger.error("[actor_state_store] Load failed for %s: %s",
-                        actor_id, e)
+            logger.error("[actor_state_store] Load failed for %s: %s", actor_id, e)
             return None
 
     def list_actors(self, tenant_id: str, active_only: bool = True) -> list[str]:
@@ -224,12 +237,14 @@ class ActorStateStore:
             docs = collection.find(query).sort("last_updated", -1)
             actors = [doc["actor_id"] for doc in docs]
 
-            logger.debug("[actor_state_store] Listed %d actors in tenant %s",
-                        len(actors), tenant_id)
+            logger.debug(
+                "[actor_state_store] Listed %d actors in tenant %s",
+                len(actors),
+                tenant_id,
+            )
             return actors
         except Exception as e:
-            logger.error("[actor_state_store] List failed for tenant %s: %s",
-                        tenant_id, e)
+            logger.error("[actor_state_store] List failed for tenant %s: %s", tenant_id, e)
             return []
 
     def delete(self, actor_id: str, tenant_id: str) -> bool:
@@ -252,19 +267,21 @@ class ActorStateStore:
                 {
                     "$set": {
                         "is_active": False,
-                        "last_updated": datetime.now().isoformat()
+                        "last_updated": datetime.now().isoformat(),
                     }
-                }
+                },
             )
 
             if result.matched_count > 0:
-                logger.debug("[actor_state_store] Deleted actor %s (tenant=%s)",
-                            actor_id, tenant_id)
+                logger.debug(
+                    "[actor_state_store] Deleted actor %s (tenant=%s)",
+                    actor_id,
+                    tenant_id,
+                )
                 return True
             return False
         except Exception as e:
-            logger.error("[actor_state_store] Delete failed for %s: %s",
-                        actor_id, e)
+            logger.error("[actor_state_store] Delete failed for %s: %s", actor_id, e)
             return False
 
     def increment_cycle_count(self, actor_id: str, tenant_id: str) -> None:
@@ -282,8 +299,8 @@ class ActorStateStore:
                 {"_id": f"{tenant_id}:{actor_id}", "tenant_id": tenant_id},
                 {
                     "$inc": {"cycle_count": 1},
-                    "$set": {"last_cycle": datetime.now().timestamp()}
-                }
+                    "$set": {"last_cycle": datetime.now().timestamp()},
+                },
             )
         except Exception as e:
             logger.error("[actor_state_store] Cycle increment failed: %s", e)
@@ -307,10 +324,7 @@ class ActorStateStore:
             collection = db[self._collection_name]
 
             # MongoDB batch query with tenant isolation
-            docs = collection.find({
-                "tenant_id": tenant_id,
-                "actor_id": {"$in": actor_ids}
-            })
+            docs = collection.find({"tenant_id": tenant_id, "actor_id": {"$in": actor_ids}})
 
             for doc in docs:
                 state = PersistedActorState(
@@ -332,8 +346,12 @@ class ActorStateStore:
                 )
                 result[doc["actor_id"]] = state
 
-            logger.debug("[actor_state_store] Batch loaded %d/%d actors (tenant=%s)",
-                        len(result), len(actor_ids), tenant_id)
+            logger.debug(
+                "[actor_state_store] Batch loaded %d/%d actors (tenant=%s)",
+                len(result),
+                len(actor_ids),
+                tenant_id,
+            )
         except Exception as e:
             logger.error("[actor_state_store] Batch load failed: %s", e)
 
@@ -375,19 +393,17 @@ class ActorStateStore:
                 }
 
                 from pymongo import ReplaceOne
-                operations.append(
-                    ReplaceOne(
-                        {"_id": document["_id"]},
-                        document,
-                        upsert=True
-                    )
-                )
+
+                operations.append(ReplaceOne({"_id": document["_id"]}, document, upsert=True))
 
             # Batch write
             if operations:
                 collection.bulk_write(operations)
                 tenant_id = states[0].tenant_id if states else "unknown"
-                logger.debug("[actor_state_store] Batch saved %d actors (tenant=%s)",
-                            len(states), tenant_id)
+                logger.debug(
+                    "[actor_state_store] Batch saved %d actors (tenant=%s)",
+                    len(states),
+                    tenant_id,
+                )
         except Exception as e:
             logger.error("[actor_state_store] Batch save failed: %s", e)

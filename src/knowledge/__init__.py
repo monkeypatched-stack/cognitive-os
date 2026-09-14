@@ -5,7 +5,12 @@ from src.knowledge.pack import KnowledgePack, FusionResult, ModalityEvidence
 from src.knowledge.interface import KnowledgeRelation, KnowledgeEdge
 
 __all__ = [
-    "KnowledgeItem", "Modality", "MODALITY_WEIGHTS",
-    "KnowledgePack", "FusionResult", "ModalityEvidence",
-    "KnowledgeRelation", "KnowledgeEdge",
+    "KnowledgeItem",
+    "Modality",
+    "MODALITY_WEIGHTS",
+    "KnowledgePack",
+    "FusionResult",
+    "ModalityEvidence",
+    "KnowledgeRelation",
+    "KnowledgeEdge",
 ]

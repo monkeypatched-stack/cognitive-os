@@ -18,6 +18,7 @@ The compiler is:
 It depends only on compilation components (intent classification,
 goal resolution, IR builders). It never touches runtime services.
 """
+
 from __future__ import annotations
 
 import logging
@@ -106,7 +107,8 @@ class RequestCompiler:
         execution_graph = None
         if belief is not None:
             execution_graph = self._compile_execution_graph(
-                goal_ir, belief,
+                goal_ir,
+                belief,
             )
 
         compilation_ms = (time.time() - start) * 1000
@@ -143,11 +145,14 @@ class RequestCompiler:
         # Check IR cache first
         try:
             from src.monkey_brain.persistence.ir_cache import get_ir_cache
+
             cached = get_ir_cache().get_intent_ir(request.question)
             if cached is not None:
                 return cached
         except Exception:
-            logger.debug("_resolve_intent: suppressed exception", exc_info=True)  # Cache unavailable — proceed with classification
+            logger.debug(
+                "_resolve_intent: suppressed exception", exc_info=True
+            )  # Cache unavailable — proceed with classification
 
         result = resolve_intent(request.question)
 
@@ -168,7 +173,9 @@ class RequestCompiler:
         """Attempt to auto-register an unseen domain intent."""
         try:
             from src.shared.config import DOMAIN_HINTS
-            from src.monkey_brain.kernel.plan.intents.intent_registry import register_domain_intent
+            from src.monkey_brain.kernel.plan.intents.intent_registry import (
+                register_domain_intent,
+            )
 
             question_lower = question.lower()
             for token in question_lower.split():
@@ -196,7 +203,9 @@ class RequestCompiler:
         Raises:
             CompilationError: If goal cannot be resolved
         """
-        from src.monkey_brain.kernel.execute.orchestration.routing import resolve_goal_from_intent
+        from src.monkey_brain.kernel.execute.orchestration.routing import (
+            resolve_goal_from_intent,
+        )
 
         try:
             result = resolve_goal_from_intent(request.question, intent)
@@ -289,10 +298,12 @@ class RequestCompiler:
         # "value" key, so the limit is whichever key isn't "type".
         for c in DEFAULT_CONSTRAINTS:
             limit_value = next(v for k, v in c.items() if k != "type")
-            constraints.append(Constraint(
-                constraint_type=c["type"],
-                value=limit_value,
-            ))
+            constraints.append(
+                Constraint(
+                    constraint_type=c["type"],
+                    value=limit_value,
+                )
+            )
 
         # Handle unseen domains
         is_unseen = domain == "general" and not entities
@@ -300,7 +311,9 @@ class RequestCompiler:
 
         if is_unseen:
             web_search_results = self._explore_unseen_domain(
-                request.question, domain, entities,
+                request.question,
+                domain,
+                entities,
             )
             if web_search_results and web_search_results.get("domain"):
                 domain = web_search_results["domain"]
@@ -343,28 +356,32 @@ class RequestCompiler:
         entity_name = entities[0].name if entities else "item"
 
         try:
-            from src.monkey_brain.kernel.plan.intents.intent_registry import get_somatic_compiler
+            from src.monkey_brain.kernel.plan.intents.intent_registry import (
+                get_somatic_compiler,
+            )
+
             compiler = get_somatic_compiler()
             if compiler is not None and hasattr(compiler, "search"):
                 knowledge = compiler.search(question)
                 results = knowledge if isinstance(knowledge, list) else []
                 if results:
-                        from src.shared.config import GENERIC_FALLBACK_TRANSITIONS
-                        transitions = [
-                            (
-                                s.format(entity=entity_name),
-                                d.format(entity=entity_name),
-                                dom.format(domain=domain),
-                            )
-                            for s, d, dom in GENERIC_FALLBACK_TRANSITIONS
-                        ]
-                        return {
-                            "domain": domain,
-                            "source": "knowledge_base",
-                            "confidence": 0.7,
-                            "transitions_generated": True,
-                            "transitions": transitions,
-                        }
+                    from src.shared.config import GENERIC_FALLBACK_TRANSITIONS
+
+                    transitions = [
+                        (
+                            s.format(entity=entity_name),
+                            d.format(entity=entity_name),
+                            dom.format(domain=domain),
+                        )
+                        for s, d, dom in GENERIC_FALLBACK_TRANSITIONS
+                    ]
+                    return {
+                        "domain": domain,
+                        "source": "knowledge_base",
+                        "confidence": 0.7,
+                        "transitions_generated": True,
+                        "transitions": transitions,
+                    }
         except Exception as e:
             logger.debug("[compiler] knowledge base exploration failed: %s", e)
 
@@ -475,6 +492,7 @@ class RequestCompiler:
 @dataclass(frozen=True)
 class _DefaultGoal:
     """Fallback goal when resolution fails."""
+
     name: str = "world_graph_traversal"
     description: str = ""
     required_inputs: list = field(default_factory=list)
@@ -486,6 +504,7 @@ class _DefaultGoal:
 @dataclass(frozen=True)
 class _GoalIR:
     """Internal GoalIR — same shape as actor.layers.GoalIR."""
+
     intent_type: str
     domain: str
     goal: str

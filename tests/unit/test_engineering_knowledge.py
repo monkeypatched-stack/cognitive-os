@@ -1,10 +1,11 @@
 """Tests for Engineering Knowledge Pack Publishing."""
+
 import sys
 import os
 import json
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -55,8 +56,13 @@ def test_search():
 
 def test_retrieval_items():
     pub = EngineeringKnowledgePublisher()
-    pub.publish(spec_id="s1", goal="Build Work Order Service", domain="manufacturing",
-                generated_files={"a.py": "code"}, workflow_topology=["Create", "Notify"])
+    pub.publish(
+        spec_id="s1",
+        goal="Build Work Order Service",
+        domain="manufacturing",
+        generated_files={"a.py": "code"},
+        workflow_topology=["Create", "Notify"],
+    )
     items = pub.get_knowledge_items_for_retrieval("work order")
     assert len(items) >= 2
 
@@ -85,9 +91,14 @@ def test_to_dict_json_safe():
 
 
 if __name__ == "__main__":
-    ok = 0; f = []
-    for name, fn in sorted((k, v) for k, v in globals().items() if k.startswith('test_') and callable(v)):
-        try: fn(); ok += 1
-        except Exception as e: f.append(f"{name}: {e}")
-    print(f"\nEngineeringKnowledge: {ok}/{ok+len(f)} passed")
-    for e in f: print(f"  FAIL: {e}")
+    ok = 0
+    f = []
+    for name, fn in sorted((k, v) for k, v in globals().items() if k.startswith("test_") and callable(v)):
+        try:
+            fn()
+            ok += 1
+        except Exception as e:
+            f.append(f"{name}: {e}")
+    print(f"\nEngineeringKnowledge: {ok}/{ok + len(f)} passed")
+    for e in f:
+        print(f"  FAIL: {e}")

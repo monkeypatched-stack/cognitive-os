@@ -28,6 +28,7 @@ Per this session's standing convention, this file is written but not
 executed by the assistant. Run with:
     python -m pytest tests/unit/test_execution_boundary_hardening.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -83,8 +84,12 @@ def _plan(steps: tuple[PlanStep, ...], goal: str = "buy groceries") -> Plan:
     return Plan(goal=goal, steps=steps, cost=0.0, confidence=0.8, risk=0.0, planner="llm")
 
 
-def _state(plan: Plan, actor_id: str = "arjun", execution_id: str = "exec-1",
-           resolved_permissions: frozenset = frozenset()) -> CognitiveState:
+def _state(
+    plan: Plan,
+    actor_id: str = "arjun",
+    execution_id: str = "exec-1",
+    resolved_permissions: frozenset = frozenset(),
+) -> CognitiveState:
     actor = Actor(actor_id=actor_id, tenant_id="acme")
     belief = BeliefState(actor_id=actor_id, tenant_id="acme")
     belief.plan = plan
@@ -97,6 +102,7 @@ def _state(plan: Plan, actor_id: str = "arjun", execution_id: str = "exec-1",
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 1: Selected plan becomes execution plan.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSelectedPlanBecomesExecutionPlan:
     @pytest.mark.asyncio
@@ -112,15 +118,18 @@ class TestSelectedPlanBecomesExecutionPlan:
         cap_a = _StubCapability(success=True)
         cap_b = _StubCapability(success=True)
         bus = _SpyBus({"StepA": cap_a, "StepB": cap_b})
-        plan = _plan((
-            PlanStep(action="StepA", description="a"),
-            PlanStep(action="StepB", description="b"),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="StepA", description="a"),
+                PlanStep(action="StepB", description="b"),
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
         assert [a.action_id for a in result_state.actions] == [
-            f"{state.actor.actor_id}_step_0", f"{state.actor.actor_id}_step_1",
+            f"{state.actor.actor_id}_step_0",
+            f"{state.actor.actor_id}_step_1",
         ]
         # Compilation-hardening pass: _execute_plan now probes each step's
         # capability resolvability via ActionExecutor.resolve_capability
@@ -135,9 +144,12 @@ class TestSelectedPlanBecomesExecutionPlan:
 # Test 2: Execution identity remains stable.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExecutionIdentity:
     @pytest.mark.asyncio
-    async def test_execution_id_is_stable_across_every_action_and_the_timeline_record(self):
+    async def test_execution_id_is_stable_across_every_action_and_the_timeline_record(
+        self,
+    ):
         from src.monkey_brain.kernel.timeline.store import TimelineStore
         from src.monkey_brain.kernel.timeline.entry import TimelineKind
 
@@ -165,16 +177,21 @@ class TestExecutionIdentity:
 # ActionExecutor's simulated-success fallback.)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDependenciesAreRespected:
     @pytest.mark.asyncio
-    async def test_dependent_step_blocked_when_dependency_fails_capability_never_invoked(self):
+    async def test_dependent_step_blocked_when_dependency_fails_capability_never_invoked(
+        self,
+    ):
         cap_a = _StubCapability(success=False, error="out of stock")
         cap_b = _StubCapability(success=True)
         bus = _SpyBus({"Milk": cap_a, "OrderCreation": cap_b})
-        plan = _plan((
-            PlanStep(action="Milk", description="find milk"),
-            PlanStep(action="OrderCreation", description="place order", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="Milk", description="find milk"),
+                PlanStep(action="OrderCreation", description="place order", depends_on=(0,)),
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -192,10 +209,16 @@ class TestDependenciesAreRespected:
         what's being prevented either way."""
         cap_b = _StubCapability(success=True)
         bus = _SpyBus({"OrderCreation": cap_b})
-        plan = _plan((
-            PlanStep(action="ReserveFunds", description="reserve", required_permission="perm-finance"),
-            PlanStep(action="OrderCreation", description="place order", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(
+                    action="ReserveFunds",
+                    description="reserve",
+                    required_permission="perm-finance",
+                ),
+                PlanStep(action="OrderCreation", description="place order", depends_on=(0,)),
+            )
+        )
         state = _state(plan, resolved_permissions=frozenset())
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -210,10 +233,12 @@ class TestDependenciesAreRespected:
         cap_a = _StubCapability(success=True)
         cap_b = _StubCapability(success=True)
         bus = _SpyBus({"Milk": cap_a, "OrderCreation": cap_b})
-        plan = _plan((
-            PlanStep(action="Milk", description="find milk"),
-            PlanStep(action="OrderCreation", description="place order", depends_on=(0,)),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="Milk", description="find milk"),
+                PlanStep(action="OrderCreation", description="place order", depends_on=(0,)),
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -229,10 +254,12 @@ class TestDependenciesAreRespected:
         cap_a = _StubCapability(success=False, error="boom")
         cap_b = _StubCapability(success=True)
         bus = _SpyBus({"A": cap_a, "B": cap_b})
-        plan = _plan((
-            PlanStep(action="A", description="a"),
-            PlanStep(action="B", description="b"),  # no depends_on -- independent item
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="A", description="a"),
+                PlanStep(action="B", description="b"),  # no depends_on -- independent item
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -246,16 +273,19 @@ class TestDependenciesAreRespected:
 # Test 4: Independent nodes can execute independently.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestIndependentNodesExecuteIndependently:
     @pytest.mark.asyncio
     async def test_two_independent_steps_both_run_regardless_of_order_of_outcome(self):
         cap_milk = _StubCapability(success=True)
         cap_eggs = _StubCapability(success=False, error="out of stock")
         bus = _SpyBus({"Milk": cap_milk, "Eggs": cap_eggs})
-        plan = _plan((
-            PlanStep(action="Milk", description="milk"),
-            PlanStep(action="Eggs", description="eggs"),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="Milk", description="milk"),
+                PlanStep(action="Eggs", description="eggs"),
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -275,6 +305,7 @@ class TestIndependentNodesExecuteIndependently:
 # failure never produces success=True.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNodeOutcomeIntegrity:
     @pytest.mark.asyncio
     async def test_failed_capability_never_produces_a_fabricated_success(self):
@@ -290,7 +321,9 @@ class TestNodeOutcomeIntegrity:
         assert result_state.execution_result.goal_achieved is False
 
     @pytest.mark.asyncio
-    async def test_capability_raising_an_exception_is_captured_as_failure_not_propagated(self):
+    async def test_capability_raising_an_exception_is_captured_as_failure_not_propagated(
+        self,
+    ):
         class RaisingCapability:
             def handle(self, args):
                 raise RuntimeError("boom")
@@ -309,9 +342,12 @@ class TestNodeOutcomeIntegrity:
 # Test 7: Capability invocation uses the canonical CapabilityBus.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCapabilityDispatchIsCanonical:
     @pytest.mark.asyncio
-    async def test_execution_only_ever_calls_bus_discover_never_a_direct_instantiation(self):
+    async def test_execution_only_ever_calls_bus_discover_never_a_direct_instantiation(
+        self,
+    ):
         cap = _StubCapability(success=True)
         bus = _SpyBus({"ProductSelection": cap})
         plan = _plan((PlanStep(action="ProductSelection", description="select"),))
@@ -338,28 +374,53 @@ class TestCapabilityDispatchIsCanonical:
 # request for a small deterministic fresh-execution trace.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOutputPropagation:
     @pytest.mark.asyncio
-    async def test_buy_two_liters_of_whole_milk_output_flows_from_selection_to_order(self):
+    async def test_buy_two_liters_of_whole_milk_output_flows_from_selection_to_order(
+        self,
+    ):
         from src.monkey_brain.kernel.domains.grocery import (
-            build_default_capability_bus, project_action_result_to_context,
+            build_default_capability_bus,
+            project_action_result_to_context,
         )
         from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
         kg = KnowledgeGraph()
-        kg.add_entity("prod_milk", EntityType.ASSET, "Whole Milk (2L)", {"price": 4.5, "quantity": 20})
+        kg.add_entity(
+            "prod_milk",
+            EntityType.ASSET,
+            "Whole Milk (2L)",
+            {"price": 4.5, "quantity": 20},
+        )
 
         bus = build_default_capability_bus()
         executor = ActionExecutor(capability_bus=bus, context_projector=project_action_result_to_context)
 
-        plan = _plan((
-            PlanStep(action="ProductSelection", description="select milk",
-                     parameters={"selection": [{"id": "prod_milk", "qty": 2}]}, confidence=0.9),
-            PlanStep(action="OrderCreation", description="create order", depends_on=(0,), confidence=0.9),
-        ), goal="buy 2 liters of whole milk")
+        plan = _plan(
+            (
+                PlanStep(
+                    action="ProductSelection",
+                    description="select milk",
+                    parameters={"selection": [{"id": "prod_milk", "qty": 2}]},
+                    confidence=0.9,
+                ),
+                PlanStep(
+                    action="OrderCreation",
+                    description="create order",
+                    depends_on=(0,),
+                    confidence=0.9,
+                ),
+            ),
+            goal="buy 2 liters of whole milk",
+        )
 
         state = _state(plan, actor_id="milk_buyer", execution_id="exec-milk-trace")
-        state.context = {"knowledge_graph": kg, "actor_id": "milk_buyer", "question": "Buy 2 liters of whole milk"}
+        state.context = {
+            "knowledge_graph": kg,
+            "actor_id": "milk_buyer",
+            "question": "Buy 2 liters of whole milk",
+        }
         rt = CognitiveRuntime(execution_engine=executor)
         result_state = await rt._execute_plan(state)
 
@@ -382,6 +443,7 @@ class TestOutputPropagation:
 # does not incorrectly produce success.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestFailureHandling:
     @pytest.mark.asyncio
     async def test_a_to_b_to_c_b_fails_c_independent_still_runs_result_is_partial(self):
@@ -392,11 +454,13 @@ class TestFailureHandling:
         cap_b = _StubCapability(success=False, error="out of stock")
         cap_c = _StubCapability(success=True)
         bus = _SpyBus({"A": cap_a, "B": cap_b, "C": cap_c})
-        plan = _plan((
-            PlanStep(action="A", description="a"),
-            PlanStep(action="B", description="b"),
-            PlanStep(action="C", description="c"),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="A", description="a"),
+                PlanStep(action="B", description="b"),
+                PlanStep(action="C", description="c"),
+            )
+        )
         state = _state(plan, actor_id="partial_actor", execution_id="exec-partial-1")
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -418,13 +482,17 @@ class TestFailureHandling:
 # Test 11: Partial execution remains PARTIAL (all three tri-state values).
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPartialExecutionTriState:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("outcomes,expected", [
-        ((True, True), "success"),
-        ((False, False), "failure"),
-        ((True, False), "partial"),
-    ])
+    @pytest.mark.parametrize(
+        "outcomes,expected",
+        [
+            ((True, True), "success"),
+            ((False, False), "failure"),
+            ((True, False), "partial"),
+        ],
+    )
     async def test_outcome_tri_state_matches_actual_results(self, outcomes, expected):
         from src.monkey_brain.kernel.timeline.store import TimelineStore
         from src.monkey_brain.kernel.timeline.entry import TimelineKind
@@ -432,7 +500,12 @@ class TestPartialExecutionTriState:
         cap_a = _StubCapability(success=outcomes[0])
         cap_b = _StubCapability(success=outcomes[1])
         bus = _SpyBus({"A": cap_a, "B": cap_b})
-        plan = _plan((PlanStep(action="A", description="a"), PlanStep(action="B", description="b")))
+        plan = _plan(
+            (
+                PlanStep(action="A", description="a"),
+                PlanStep(action="B", description="b"),
+            )
+        )
         execution_id = f"exec-tristate-{expected}"
         state = _state(plan, actor_id=f"tristate_{expected}", execution_id=execution_id)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
@@ -452,6 +525,7 @@ class TestPartialExecutionTriState:
 # capability exists anywhere in this file. A single ActionOutcome is
 # produced per action, once, always.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRetryIsCalledExactlyOnce:
     """Not "retry works" (it doesn't exist) -- the real, testable
@@ -480,13 +554,19 @@ class TestRetryIsCalledExactlyOnce:
 # same action_id.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNoDuplicateExecution:
     @pytest.mark.asyncio
     async def test_no_duplicate_outcomes_for_the_same_action(self):
         cap_a = _StubCapability(success=True)
         cap_b = _StubCapability(success=True)
         bus = _SpyBus({"A": cap_a, "B": cap_b})
-        plan = _plan((PlanStep(action="A", description="a"), PlanStep(action="B", description="b")))
+        plan = _plan(
+            (
+                PlanStep(action="A", description="a"),
+                PlanStep(action="B", description="b"),
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)
@@ -502,6 +582,7 @@ class TestNoDuplicateExecution:
 # ActionOutcome; the loop cannot return early leaving some actions
 # unaccounted for.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExecutionCompletion:
     @pytest.mark.asyncio
@@ -521,9 +602,12 @@ class TestExecutionCompletion:
 # Test 15: Observation represents actual execution result.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestObservationFidelity:
     @pytest.mark.asyncio
-    async def test_observed_outcome_reflects_a_real_failure_not_fabricated_success(self):
+    async def test_observed_outcome_reflects_a_real_failure_not_fabricated_success(
+        self,
+    ):
         cap = _StubCapability(success=False, error="capability genuinely failed")
         bus = _SpyBus({"Eggs": cap})
         plan = _plan((PlanStep(action="Eggs", description="eggs"),))
@@ -543,6 +627,7 @@ class TestObservationFidelity:
 # benchmark).
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExecutionIsolation:
     @pytest.mark.asyncio
     async def test_two_concurrent_executions_do_not_cross_contaminate(self):
@@ -550,7 +635,12 @@ class TestExecutionIsolation:
             cap_x = _StubCapability(success=True)
             cap_y = _StubCapability(success=not fail)
             bus = _SpyBus({"X": cap_x, "Y": cap_y})
-            plan = _plan((PlanStep(action="X", description="x"), PlanStep(action="Y", description="y")))
+            plan = _plan(
+                (
+                    PlanStep(action="X", description="x"),
+                    PlanStep(action="Y", description="y"),
+                )
+            )
             state = _state(plan, actor_id=actor_id, execution_id=execution_id)
             rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
             return await rt._execute_plan(state)
@@ -574,16 +664,19 @@ class TestExecutionIsolation:
 # to a real plan.steps entry by position).
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestResultTraceableToExecutedPlan:
     @pytest.mark.asyncio
     async def test_each_outcome_traces_back_to_its_originating_plan_step(self):
         cap_a = _StubCapability(success=True, result={"success": True, "picked": "milk"})
         cap_b = _StubCapability(success=True, result={"success": True, "picked": "eggs"})
         bus = _SpyBus({"PickMilk": cap_a, "PickEggs": cap_b})
-        plan = _plan((
-            PlanStep(action="PickMilk", description="milk"),
-            PlanStep(action="PickEggs", description="eggs"),
-        ))
+        plan = _plan(
+            (
+                PlanStep(action="PickMilk", description="milk"),
+                PlanStep(action="PickEggs", description="eggs"),
+            )
+        )
         state = _state(plan)
         rt = CognitiveRuntime(execution_engine=ActionExecutor(capability_bus=bus))
         result_state = await rt._execute_plan(state)

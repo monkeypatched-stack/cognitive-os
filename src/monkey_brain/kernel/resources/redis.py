@@ -14,6 +14,7 @@ path, a missing driver or an unreachable/unauthenticated server are exactly
 as terminal as a config exception here, so both branches below use FAILED
 instead so the required-resource contract actually fires.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.resource_manager import (
@@ -54,16 +55,21 @@ class RedisResource:
                 await self._adapter.connect()
             except Exception as exc:
                 return ResourceHealth(
-                    name=self.name, state=ResourceState.FAILED,
-                    reason=str(exc)[:200], category=ErrorCategory.INTERNAL, required=True,
+                    name=self.name,
+                    state=ResourceState.FAILED,
+                    reason=str(exc)[:200],
+                    category=ErrorCategory.INTERNAL,
+                    required=True,
                 )
             client = getattr(self._adapter, "_client", None)
 
         if client is None:
             return ResourceHealth(
-                name=self.name, state=ResourceState.FAILED,
+                name=self.name,
+                state=ResourceState.FAILED,
                 reason="Redis client not constructed — redis package not installed?",
-                category=ErrorCategory.DEPENDENCY_MISSING, required=True,
+                category=ErrorCategory.DEPENDENCY_MISSING,
+                required=True,
             )
 
         try:
@@ -73,6 +79,9 @@ class RedisResource:
             msg = str(exc).lower()
             category = ErrorCategory.AUTHENTICATION if ("auth" in msg or "noauth" in msg) else ErrorCategory.NETWORK
             return ResourceHealth(
-                name=self.name, state=ResourceState.FAILED,
-                reason=str(exc)[:200], category=category, required=True,
+                name=self.name,
+                state=ResourceState.FAILED,
+                reason=str(exc)[:200],
+                category=category,
+                required=True,
             )

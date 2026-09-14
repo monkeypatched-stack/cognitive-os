@@ -11,6 +11,7 @@ The society continuously evolves through:
 SocietyRuntime coordinates this continuous cycle without centralizing
 cognition.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,40 +25,84 @@ from enum import Enum
 from typing import Any, Callable, Awaitable
 from uuid import uuid4
 
-from src.monkey_brain.kernel.society.actor_lifecycle import ActorDesiredState, ObservedActorState
-from src.monkey_brain.kernel.society.actor_scheduler import ActorPlacementRequirements, ActorScheduler, ExecutionNode, NodeClass
-from src.monkey_brain.kernel.society.redis_index_reconstruction import ConsistencyCheckResult, RedisReconstructionResult
+from src.monkey_brain.kernel.society.actor_lifecycle import (
+    ActorDesiredState,
+    ObservedActorState,
+)
+from src.monkey_brain.kernel.society.actor_scheduler import (
+    ActorPlacementRequirements,
+    ActorScheduler,
+    ExecutionNode,
+    NodeClass,
+)
+from src.monkey_brain.kernel.society.redis_index_reconstruction import (
+    ConsistencyCheckResult,
+    RedisReconstructionResult,
+)
 from src.monkey_brain.kernel.timeline.presence import PresenceTimeline
 from src.monkey_brain.kernel.society.domain import Society, ActorProfile, Team
-from src.monkey_brain.kernel.society.world import SharedWorld, WorldEntity, WorldEvent, EventType
+from src.monkey_brain.kernel.society.world import (
+    SharedWorld,
+    WorldEntity,
+    WorldEvent,
+    EventType,
+)
 from src.monkey_brain.kernel.society.perturbation_queue import PerturbationQueue
-from src.monkey_brain.kernel.society.cycle_performance import CyclePerformanceReport, ActorPerformanceReport
+from src.monkey_brain.kernel.society.cycle_performance import (
+    CyclePerformanceReport,
+    ActorPerformanceReport,
+)
 from src.monkey_brain.kernel.society.interaction import InteractionType, Interaction
 from src.monkey_brain.kernel.society.coordination import CoordinationEngine
 from src.monkey_brain.kernel.society.game_theory import GameTheoryRuntime
-from src.monkey_brain.kernel.society.context_stream import SocietyContextStream, ContextEvent, ContextEventType
+from src.monkey_brain.kernel.society.context_stream import (
+    SocietyContextStream,
+    ContextEvent,
+    ContextEventType,
+)
 from src.monkey_brain.kernel.society.learning import (
-    CollectiveLearningEngine, SharedExperience, CollectiveLearningResult,
+    CollectiveLearningEngine,
+    SharedExperience,
+    CollectiveLearningResult,
 )
 from src.monkey_brain.kernel.society.governance import SocietyGovernanceEngine
-from src.monkey_brain.kernel.society.observability import SocietyObservability, SocietyTrace
+from src.monkey_brain.kernel.society.observability import (
+    SocietyObservability,
+    SocietyTrace,
+)
 from src.monkey_brain.kernel.society.runtime import SocietyRuntime, ActorRuntimeState
 from src.monkey_brain.kernel.society.communication import CommunicationDecision
 from src.monkey_brain.kernel.society.federation import Federation, FederationManager
-from src.monkey_brain.kernel.geography.entity import GeographicEntity, GeographicEntityType, Country, City
+from src.monkey_brain.kernel.geography.entity import (
+    GeographicEntity,
+    GeographicEntityType,
+    Country,
+    City,
+)
 from src.monkey_brain.kernel.geography.registry import GeographicRegistry
-from src.monkey_brain.kernel.geography.runtime import GeographicEntityRuntime, GeographicTickResult
+from src.monkey_brain.kernel.geography.runtime import (
+    GeographicEntityRuntime,
+    GeographicTickResult,
+)
 from src.monkey_brain.kernel.compile.world_model_runtime import WorldModelRuntime
 from src.monkey_brain.kernel.compile import _obs
 from src.monkey_brain.kernel.timeline.store import TimelineStore
-from src.monkey_brain.kernel.society.membership import SocietyMembershipRegistry, MembershipGovernor
-from src.monkey_brain.kernel.society.movement_perturbation import MovementPerturbationEngine
-from src.monkey_brain.kernel.society.activation import SocietyActivationEngine, SocietyActivationResult
+from src.monkey_brain.kernel.society.membership import (
+    SocietyMembershipRegistry,
+    MembershipGovernor,
+)
+from src.monkey_brain.kernel.society.movement_perturbation import (
+    MovementPerturbationEngine,
+)
+from src.monkey_brain.kernel.society.activation import (
+    SocietyActivationEngine,
+    SocietyActivationResult,
+)
 from src.monkey_brain.kernel.society.commerce_network import CommerceNetwork
 from src.monkey_brain.kernel.relationships import RelationshipGraph, RelationshipKind
 from src.monkey_brain.kernel.society.actor_lifecycle_controller import (
-            ActorLifecycleController,
-        )
+    ActorLifecycleController,
+)
 
 logger = logging.getLogger("agentos.planetary_runtime")
 
@@ -67,6 +112,7 @@ StageFn = Callable[[Any], Awaitable[Any]]
 @dataclass(frozen=True)
 class PlanetaryCycleResult:
     """Result of one complete planetary cycle."""
+
     cycle_id: str = field(default_factory=lambda: uuid4().hex)
     cycle_number: int = 0
     actors_observed: int = 0
@@ -82,6 +128,7 @@ class PlanetaryCycleResult:
 class FederatedCycleResult:
     """Result of one federated cycle — every locally-registered member
     society of a Federation ticked once, in one coordinated pass."""
+
     cycle_id: str = field(default_factory=lambda: uuid4().hex)
     federation_id: str = ""
     societies_ticked: tuple[str, ...] = ()
@@ -103,6 +150,7 @@ class CityTickResult:
     GeographicTickResult (one generic result for all 8 tiers); this remains
     only as the return shape tick_city()'s compat wrapper builds from a
     GeographicTickResult, so existing callers of tick_city() see no change."""
+
     cycle_id: str = field(default_factory=lambda: uuid4().hex)
     city_id: str = ""
     societies_ticked: tuple[str, ...] = ()
@@ -115,6 +163,7 @@ class CityTickResult:
 @dataclass(frozen=True)
 class CountryTickResult:
     """Backward-compat shape for tick_country() — see CityTickResult."""
+
     cycle_id: str = field(default_factory=lambda: uuid4().hex)
     country_id: str = ""
     cities_ticked: tuple[str, ...] = ()
@@ -130,6 +179,7 @@ class GeographyReconciliationResult:
     """Result of PlanetaryRuntime.reconcile_default_geography() — what, if
     anything, got migrated off the synthetic bootstrap "Default Planet"
     chain and onto a real canonical root (e.g. "Earth")."""
+
     performed: bool
     reason: str = ""
     canonical_root_id: str | None = None
@@ -149,6 +199,7 @@ class ActorRegistryEntry:
     _load_actors() persistence: that mechanism could always rebuild an
     actor's full cognition from Redis, but nothing let a caller cheaply
     ask "does this actor exist, and where" without doing so."""
+
     actor_id: str
     actor_type: str
     name: str
@@ -174,6 +225,7 @@ class ActorRegistryEntry:
 class _ActorTickOutcome:
     """Result of PlanetaryRuntime._run_actor_tick() — named fields instead
     of a 4-tuple, handed to _finalize_actor_execution()."""
+
     actor_execution_result: Any
     actors_coordinated: set[str]
     spaces_coordinated: set[str]
@@ -197,6 +249,7 @@ class PropagationMode(str, Enum):
     original execution thread. Appropriate for notification/telemetry/
     observation-sharing fan-out that the caller doesn't need to wait on.
     """
+
     SYNCHRONOUS = "SYNCHRONOUS"
     ASYNCHRONOUS = "ASYNCHRONOUS"
 
@@ -218,6 +271,7 @@ class PropagationScope(str, Enum):
     originating actor (shared affiliation, or same-society membership),
     never an indiscriminate whole-society blast.
     """
+
     POINT_TO_POINT = "POINT_TO_POINT"
     BROADCAST = "BROADCAST"
 
@@ -283,19 +337,23 @@ class PlanetaryRuntime:
 
     SocietyRuntime coordinates this cycle without centralizing cognition.
 
-    Architecturally this is similar to Kubernetes and extends the kubernetees infra to help manage actors 
+    Architecturally this is similar to Kubernetes and extends the kubernetees infra to help manage actors
     where each actor is analogus to a pod with multiple runtimes for resiliency purposes
-    
-    NOTE: Ideally this should be in go . python is ok for now right now 
+
+    NOTE: Ideally this should be in go . python is ok for now right now
 
     """
 
-    def __init__(self, society: Society | None = None, default_bootstrap_space_id: str | None = None) -> None:
-        
+    def __init__(
+        self,
+        society: Society | None = None,
+        default_bootstrap_space_id: str | None = None,
+    ) -> None:
+
         self._boot_time = time.time()
 
         self._peak_queue_depth = 0
-        
+
         # Identify this runtime instance for actor ownership, node registration,
         # and distributed lease/lock coordination. Operators can provide a stable
         # node identity; otherwise each process receives a unique execution-node ID.
@@ -314,9 +372,7 @@ class PlanetaryRuntime:
         # during bootstrap. This can be supplied programmatically or configured
         # globally through the environment.
         self._default_bootstrap_space_id: str | None = (
-            default_bootstrap_space_id
-            or os.getenv("PLANETARY_DEFAULT_BOOTSTRAP_SPACE_ID")
-            or None
+            default_bootstrap_space_id or os.getenv("PLANETARY_DEFAULT_BOOTSTRAP_SPACE_ID") or None
         )
 
         # Create the single shared semantic world for this Planetary runtime.
@@ -383,9 +439,7 @@ class PlanetaryRuntime:
         # Strategic negotiation runtime used by the society to evaluate and
         # maintain agreements between actors. Planetary agreements are part of
         # the strategic world state shared with the society runtime.
-        self._game_theory = GameTheoryRuntime(
-            world_state={"planetary_agreements": {}}
-        )
+        self._game_theory = GameTheoryRuntime(world_state={"planetary_agreements": {}})
 
         # Initialize the society runtime. The society owns coordination at the
         # social level while delegating strategic reasoning to the game-theory
@@ -485,10 +539,16 @@ class PlanetaryRuntime:
         self._geo_registry = GeographicRegistry()
 
         from src.monkey_brain.kernel.learn.memory.manager import MemoryManager
-        from src.monkey_brain.kernel.learn.memory.vector_backend import RedisBackedVectorBackend
-        from src.monkey_brain.kernel.learn.memory.graph_adapter import KnowledgeGraphMemoryAdapter
+        from src.monkey_brain.kernel.learn.memory.vector_backend import (
+            RedisBackedVectorBackend,
+        )
+        from src.monkey_brain.kernel.learn.memory.graph_adapter import (
+            KnowledgeGraphMemoryAdapter,
+        )
         from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
-        from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+        from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+            ContextConstructionEngine,
+        )
 
         # In-memory semantic knowledge graph for the actor/society runtime.
         # This is the structured representation of entities and relationships
@@ -513,9 +573,7 @@ class PlanetaryRuntime:
         # Registry of society membership and membership history. The registry
         # uses the memory subsystem to persist/retrieve membership-related
         # context rather than maintaining an independent persistence mechanism.
-        self._membership_registry = SocietyMembershipRegistry(
-            memory_manager=self._memory_manager
-        )
+        self._membership_registry = SocietyMembershipRegistry(memory_manager=self._memory_manager)
 
         # Timeline of actor geographic presence. Presence is maintained separately
         # from the geographic registry: the registry describes geographic context,
@@ -548,7 +606,7 @@ class PlanetaryRuntime:
         # interactions between actors. This is maintained as a separate domain
         # subsystem from the actor runtime and can evolve independently.
 
-        #TODO: this must not be injected here the two systems must be completely separated 
+        # TODO: this must not be injected here the two systems must be completely separated
         self._commerce_network = CommerceNetwork()
 
         from src.monkey_brain.kernel.society.delegation import DelegationRegistry
@@ -558,7 +616,8 @@ class PlanetaryRuntime:
 
         # Coordinates activation and lifecycle of societies available to this actor.
         self._society_activation = SocietyActivationEngine(
-            self.societies_for_actor, self.get_society_runtime,
+            self.societies_for_actor,
+            self.get_society_runtime,
         )
 
         # Graph representing relationships between actors and other entities.
@@ -566,7 +625,8 @@ class PlanetaryRuntime:
 
         # Builds the contextual state used by cognition from memory and knowledge.
         self._context_engine = ContextConstructionEngine(
-            planetary_runtime=self, memory_manager=self._memory_manager,
+            planetary_runtime=self,
+            memory_manager=self._memory_manager,
             knowledge_graph=self._knowledge_graph,
         )
 
@@ -586,8 +646,10 @@ class PlanetaryRuntime:
         self._perturbation_queue = PerturbationQueue()
 
         # Factory for constructing the execution engine used by domain-specific capabilities.
-        from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
-        
+        from src.monkey_brain.kernel.domains.vertical_router import (
+            build_execution_engine,
+        )
+
         # In-memory registry of all society runtimes managed by this planetary runtime.
         self._societies: dict[str, SocietyRuntime] = {}
 
@@ -608,17 +670,18 @@ class PlanetaryRuntime:
         # edge node's very first boot).
         node_class_hint = os.getenv("ACTOR_NODE_CLASS", "cloud").strip().lower()
         offline_safety_default = "true" if node_class_hint in ("edge", "device", "robot") else "false"
-        offline_safety_enabled = (
-            os.getenv("OFFLINE_SAFETY_GATE_ENABLED", offline_safety_default).strip().lower()
-            not in ("false", "0", "no")
-        )
+        offline_safety_enabled = os.getenv(
+            "OFFLINE_SAFETY_GATE_ENABLED", offline_safety_default
+        ).strip().lower() not in ("false", "0", "no")
         self._edge_local_store = None
         self._edge_policy_cache = None
         self._local_governance = None
         if offline_safety_enabled:
             from src.monkey_brain.kernel.edge.local_store import get_edge_local_store
             from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache
-            from src.monkey_brain.kernel.edge.local_governance import LocalGovernanceEvaluator
+            from src.monkey_brain.kernel.edge.local_governance import (
+                LocalGovernanceEvaluator,
+            )
 
             self._edge_local_store = get_edge_local_store()
             self._edge_policy_cache = EdgePolicyCache(self._edge_local_store)
@@ -660,7 +723,10 @@ class PlanetaryRuntime:
             # accepted an edge_governance parameter since it was built;
             # nothing in this factory chain ever constructed one to pass
             # in until now.
-            from src.monkey_brain.kernel.pipeline.offline_safety import make_connectivity_check
+            from src.monkey_brain.kernel.pipeline.offline_safety import (
+                make_connectivity_check,
+            )
+
             connectivity_check = make_connectivity_check(self)
             edge_governance = self._local_governance
         self._connectivity_check = connectivity_check
@@ -668,11 +734,15 @@ class PlanetaryRuntime:
         # Grocery registers itself on import (vertical_router does not import
         # verticals). Boot used to hit this before any grocery import, so
         # resolve_vertical("grocery") failed with an empty registry.
-        from src.monkey_brain.kernel.domains import grocery as _grocery_vertical  # noqa: F401
+        from src.monkey_brain.kernel.domains import (
+            grocery as _grocery_vertical,
+        )  # noqa: F401
 
         # Build the domain execution engine with the current context stream and safety checks.
         self._execution_engine = build_execution_engine(
-            "grocery", context_stream=self.context_stream, connectivity_check=connectivity_check,
+            "grocery",
+            context_stream=self.context_stream,
+            connectivity_check=connectivity_check,
             edge_governance=edge_governance,
         )
 
@@ -702,37 +772,51 @@ class PlanetaryRuntime:
 
             # Create the country within the default planet.
             self._default_country = self._geo_registry.create(
-                GeographicEntityType.COUNTRY, "Default Country", parent_id=self._default_planet.entity_id,
+                GeographicEntityType.COUNTRY,
+                "Default Country",
+                parent_id=self._default_planet.entity_id,
             )
 
             # Create the state within the default country.
             self._default_state = self._geo_registry.create(
-                GeographicEntityType.STATE, "Default State", parent_id=self._default_country.entity_id,
+                GeographicEntityType.STATE,
+                "Default State",
+                parent_id=self._default_country.entity_id,
             )
 
             # Create the county within the default state.
             self._default_county = self._geo_registry.create(
-                GeographicEntityType.COUNTY, "Default County", parent_id=self._default_state.entity_id,
+                GeographicEntityType.COUNTY,
+                "Default County",
+                parent_id=self._default_state.entity_id,
             )
 
             # Create the city within the default county.
             self._default_city = self._geo_registry.create(
-                GeographicEntityType.CITY, "Default City", parent_id=self._default_county.entity_id,
+                GeographicEntityType.CITY,
+                "Default City",
+                parent_id=self._default_county.entity_id,
             )
 
             # Create the default street within the city.
             default_street = self._geo_registry.create(
-                GeographicEntityType.STREET, "Default Street", parent_id=self._default_city.entity_id,
+                GeographicEntityType.STREET,
+                "Default Street",
+                parent_id=self._default_city.entity_id,
             )
 
             # Create the default building within the street.
             default_building = self._geo_registry.create(
-                GeographicEntityType.BUILDING, "Default Building", parent_id=default_street.entity_id,
+                GeographicEntityType.BUILDING,
+                "Default Building",
+                parent_id=default_street.entity_id,
             )
 
             # Create the default space used as the runtime's bootstrap location.
             self._default_space = self._geo_registry.create(
-                GeographicEntityType.SPACE, "Default Space", parent_id=default_building.entity_id,
+                GeographicEntityType.SPACE,
+                "Default Space",
+                parent_id=default_building.entity_id,
             )
 
             # Record the default space as the bootstrap location when one has not been configured.
@@ -765,17 +849,23 @@ class PlanetaryRuntime:
             if self._default_space is None and self._default_city is not None:
                 # Create the missing default street.
                 default_street = self._geo_registry.create(
-                    GeographicEntityType.STREET, "Default Street", parent_id=self._default_city.entity_id,
+                    GeographicEntityType.STREET,
+                    "Default Street",
+                    parent_id=self._default_city.entity_id,
                 )
 
                 # Create the missing default building.
                 default_building = self._geo_registry.create(
-                    GeographicEntityType.BUILDING, "Default Building", parent_id=default_street.entity_id,
+                    GeographicEntityType.BUILDING,
+                    "Default Building",
+                    parent_id=default_street.entity_id,
                 )
 
                 # Create the missing default space.
                 self._default_space = self._geo_registry.create(
-                    GeographicEntityType.SPACE, "Default Space", parent_id=default_building.entity_id,
+                    GeographicEntityType.SPACE,
+                    "Default Space",
+                    parent_id=default_building.entity_id,
                 )
 
                 # Persist the reconstructed geographic hierarchy.
@@ -817,16 +907,24 @@ class PlanetaryRuntime:
         """Initialize Redis client for world/actor/society persistence."""
         try:
             import redis as _redis
+
             retry = _redis.retry.Retry(_redis.backoff.ExponentialBackoff(cap=2, base=0.1), 3)
             retry_kwargs = dict(
                 retry=retry,
-                retry_on_error=[_redis.exceptions.ConnectionError, _redis.exceptions.TimeoutError],
-                socket_timeout=5, health_check_interval=30,
+                retry_on_error=[
+                    _redis.exceptions.ConnectionError,
+                    _redis.exceptions.TimeoutError,
+                ],
+                socket_timeout=5,
+                health_check_interval=30,
             )
             redis_url = os.getenv("REDIS_URL", "").strip()
             if redis_url and "REDIS_HOST" not in os.environ:
                 self._redis = _redis.Redis.from_url(
-                    redis_url, decode_responses=True, socket_connect_timeout=2, **retry_kwargs,
+                    redis_url,
+                    decode_responses=True,
+                    socket_connect_timeout=2,
+                    **retry_kwargs,
                 )
             else:
                 self._redis = _redis.Redis(
@@ -840,28 +938,36 @@ class PlanetaryRuntime:
             self._redis.ping()
             self._persistence_manager = None
             logger.info("Redis connected for PlanetaryRuntime persistence")
-            from src.monkey_brain.kernel.production_gates import validate_production_gates
+            from src.monkey_brain.kernel.production_gates import (
+                validate_production_gates,
+            )
+
             validate_production_gates(
                 redis_available=True,
                 opa_configured=bool(os.getenv("OPA_URL", "").strip()),
             )
-            
+
             from src.monkey_brain.kernel.society.redis_index_reconstruction import (
                 RedisIndexReconstructor,
             )
+
             self._redis_reconstructor = RedisIndexReconstructor(self)
-            
+
             from src.monkey_brain.kernel.society.actor_state_rehydrator import (
                 ActorStateRehydrator,
             )
+
             self._actor_state_rehydrator = ActorStateRehydrator(self)
             # Rehydrate actors from MongoDB (must happen before _load_actors)
             # Non-blocking; errors are logged but don't block startup
             try:
                 rehydration_result = self._actor_state_rehydrator.rehydrate_from_mongodb()
                 if rehydration_result.success:
-                    logger.info("Actor state rehydration complete: %s", rehydration_result.summary())
-                    
+                    logger.info(
+                        "Actor state rehydration complete: %s",
+                        rehydration_result.summary(),
+                    )
+
                     # Enforce desired state for rehydrated actors immediately
                     # This ensures actors don't unexpectedly become active if
                     # they were previously PAUSED/SUSPENDED/TERMINATED.
@@ -869,15 +975,17 @@ class PlanetaryRuntime:
                         lifecycle = self.lifecycle
                         lifecycle_results = lifecycle.reconcile_rehydrated_actors()
                         logger.info(
-                            "Rehydrated actor lifecycle reconciliation: %d total, "
-                            "%d enforced desired state",
+                            "Rehydrated actor lifecycle reconciliation: %d total, %d enforced desired state",
                             len(lifecycle_results),
                             sum(1 for r in lifecycle_results if r.action != "none"),
                         )
                     except Exception as exc:
                         logger.warning("Rehydrated actor lifecycle reconciliation failed: %s", exc)
                 else:
-                    logger.warning("Actor state rehydration failed: %d errors", len(rehydration_result.errors))
+                    logger.warning(
+                        "Actor state rehydration failed: %d errors",
+                        len(rehydration_result.errors),
+                    )
             except Exception as exc:
                 logger.warning("Actor state rehydration failed: %s", exc)
 
@@ -886,13 +994,16 @@ class PlanetaryRuntime:
                 logger.info("Redis actor index rebuilt from MongoDB: %s", rebuild.summary())
             except Exception as exc:
                 logger.warning("Redis index rebuild from MongoDB failed: %s", exc)
-            
+
         except Exception as exc:
             logger.warning("Redis not available: %s", exc)
             self._redis = None
             self._persistence_manager = None
             self._redis_reconstructor = None
-            from src.monkey_brain.kernel.production_gates import validate_production_gates
+            from src.monkey_brain.kernel.production_gates import (
+                validate_production_gates,
+            )
+
             validate_production_gates(
                 redis_available=False,
                 opa_configured=bool(os.getenv("OPA_URL", "").strip()),
@@ -902,6 +1013,7 @@ class PlanetaryRuntime:
         """Initialize the event persistence layer."""
         try:
             from src.monkey_brain.persistence.context_event_store import get_event_store
+
             self._event_store = get_event_store()
             if self._redis:
                 self._event_store.set_redis(self._redis)
@@ -929,7 +1041,8 @@ class PlanetaryRuntime:
             if loaded:
                 logger.info(
                     "CollectiveLearningEngine restored %d experiences for society %s",
-                    loaded, society_runtime.society.society_id,
+                    loaded,
+                    society_runtime.society.society_id,
                 )
 
     _KG_ENTITIES_HASH_KEY = "monkeybrain:knowledge_graph:entities"
@@ -953,7 +1066,12 @@ class PlanetaryRuntime:
             return
         try:
             from src.monkey_brain.kernel.edge.freshness import CacheProvenance
-            provenance = CacheProvenance(source="edge_local:planetary_runtime", observed_at=time.time(), freshness_requirement="safe_offline")
+
+            provenance = CacheProvenance(
+                source="edge_local:planetary_runtime",
+                observed_at=time.time(),
+                freshness_requirement="safe_offline",
+            )
             self._edge_local_store.put(namespace, key, value, provenance)
         except Exception as exc:
             logger.debug("edge-local put failed for %s/%s: %s", namespace, key, exc)
@@ -1030,7 +1148,9 @@ class PlanetaryRuntime:
                 relationships_data = self._redis.hgetall(self._KG_RELATIONSHIPS_HASH_KEY)
             else:
                 entities_data = {d["entity_id"]: json.dumps(d) for d in self._edge_local_list("kg_entity")}
-                relationships_data = {d["relationship_id"]: json.dumps(d) for d in self._edge_local_list("kg_relationship")}
+                relationships_data = {
+                    d["relationship_id"]: json.dumps(d) for d in self._edge_local_list("kg_relationship")
+                }
 
             for entity_id, raw in entities_data.items():
                 entity = Entity.from_dict(json.loads(raw))
@@ -1046,7 +1166,8 @@ class PlanetaryRuntime:
             if entities_data or relationships_data:
                 logger.info(
                     "KnowledgeGraph loaded: %d entities, %d relationships",
-                    len(entities_data), len(relationships_data),
+                    len(entities_data),
+                    len(relationships_data),
                 )
         except Exception as exc:
             logger.warning("KnowledgeGraph load failed: %s", exc)
@@ -1080,8 +1201,11 @@ class PlanetaryRuntime:
                 semantic_world._version = new_world._version
                 self._society_runtime._world = self._world
                 self._society_runtime._observation_provider._world = self._world
-                logger.info("World refreshed: %d entities, version %d",
-                            len(list(self._world.entities())), self._world.version)
+                logger.info(
+                    "World refreshed: %d entities, version %d",
+                    len(list(self._world.entities())),
+                    self._world.version,
+                )
         except Exception as exc:
             logger.warning("World load failed: %s", exc)
 
@@ -1125,7 +1249,8 @@ class PlanetaryRuntime:
         try:
             if not society_id:
                 society_id = next(
-                    (sid for sid, s in self._societies.items() if state in s.all_actors()), "",
+                    (sid for sid, s in self._societies.items() if state in s.all_actors()),
+                    "",
                 )
             actor_data = self._actor_state_to_dict(state, society_id)
             if self._redis:
@@ -1159,7 +1284,11 @@ class PlanetaryRuntime:
                     seen.add(state.actor_id)
                     actor_data = self._actor_state_to_dict(state, sid)
                     if pipe is not None:
-                        pipe.hset(self._ACTORS_HASH_KEY, state.actor_id, json.dumps(actor_data))
+                        pipe.hset(
+                            self._ACTORS_HASH_KEY,
+                            state.actor_id,
+                            json.dumps(actor_data),
+                        )
                         wrote_any = True
                     self._edge_local_put("actor", state.actor_id, actor_data)
             if wrote_any and pipe is not None:
@@ -1214,10 +1343,7 @@ class PlanetaryRuntime:
             # control-plane pod, tests) that never sets ACTOR_ID.
             scope_actor_id = os.getenv("ACTOR_ID", "").strip()
             if scope_actor_id:
-                actors = [
-                    a for a in actors
-                    if a.get("identity", {}).get("actor_id") == scope_actor_id
-                ]
+                actors = [a for a in actors if a.get("identity", {}).get("actor_id") == scope_actor_id]
             if actors:
                 loaded = 0
                 skipped = 0
@@ -1230,8 +1356,10 @@ class PlanetaryRuntime:
                         # Check if actor already exists (by name + society)
                         existing = None
                         for state in target_sr.all_actors():
-                            if (state.profile.identity.name == profile.identity.name and
-                                state.profile.identity.actor_type == profile.identity.actor_type):
+                            if (
+                                state.profile.identity.name == profile.identity.name
+                                and state.profile.identity.actor_type == profile.identity.actor_type
+                            ):
                                 existing = state
                                 break
 
@@ -1253,7 +1381,10 @@ class PlanetaryRuntime:
                         self._subscribe_actor_inbox(profile.identity.actor_id, profile)
 
                         if "belief_state" in actor_data and actor_data["belief_state"]:
-                            from src.monkey_brain.kernel.society.belief import BeliefState
+                            from src.monkey_brain.kernel.society.belief import (
+                                BeliefState,
+                            )
+
                             state = target_sr.get_actor(profile.identity.actor_id)
                             if state:
                                 state.belief_state = BeliefState.from_dict(actor_data["belief_state"])
@@ -1268,19 +1399,29 @@ class PlanetaryRuntime:
                         # rather than guessed.
                         persisted_status = actor_data.get("status")
                         if persisted_status:
-                            from src.monkey_brain.kernel.society.domain import ActorStatus
+                            from src.monkey_brain.kernel.society.domain import (
+                                ActorStatus,
+                            )
+
                             state = target_sr.get_actor(profile.identity.actor_id)
                             if state:
                                 try:
                                     state.status = ActorStatus(persisted_status)
                                 except ValueError:
-                                    logger.debug("Unknown persisted actor status %r for %s", persisted_status, profile.identity.actor_id)
+                                    logger.debug(
+                                        "Unknown persisted actor status %r for %s",
+                                        persisted_status,
+                                        profile.identity.actor_id,
+                                    )
 
                         restored_state = target_sr.get_actor(profile.identity.actor_id)
                         restored_runtime = restored_state.actor_runtime if restored_state else None
                         restored_affiliations = getattr(restored_runtime, "affiliations", None)
                         if actor_data.get("affiliations") and restored_affiliations is not None:
-                            from src.monkey_brain.kernel.affiliations.manager import AffiliationManager
+                            from src.monkey_brain.kernel.affiliations.manager import (
+                                AffiliationManager,
+                            )
+
                             restored = AffiliationManager.from_dict(actor_data["affiliations"])
                             for aff in restored.all():
                                 restored_affiliations.add(aff)
@@ -1294,7 +1435,11 @@ class PlanetaryRuntime:
                         # empty after any one bad record, breaking prompt
                         # execution for every actor, not just the bad one.
                         bad_id = actor_data.get("identity", {}).get("actor_id", "<unknown>")
-                        logger.warning("Skipping malformed persisted actor %s: %s", bad_id, actor_exc)
+                        logger.warning(
+                            "Skipping malformed persisted actor %s: %s",
+                            bad_id,
+                            actor_exc,
+                        )
                         continue
 
                 logger.info("Actors loaded: %d, skipped (already exist): %d", loaded, skipped)
@@ -1341,6 +1486,7 @@ class PlanetaryRuntime:
                 from src.monkey_brain.kernel.society.redis_index_reconstruction import (
                     RedisIndexReconstructor,
                 )
+
                 recon = RedisIndexReconstructor(self)
             except Exception:
                 return None
@@ -1465,7 +1611,11 @@ class PlanetaryRuntime:
         status = getattr(state, "status", None)
         return ActorRegistryEntry(
             actor_id=actor_id,
-            actor_type=state.profile.identity.actor_type.value if hasattr(state.profile.identity.actor_type, "value") else str(state.profile.identity.actor_type),
+            actor_type=(
+                state.profile.identity.actor_type.value
+                if hasattr(state.profile.identity.actor_type, "value")
+                else str(state.profile.identity.actor_type)
+            ),
             name=state.profile.identity.name,
             society_id=sr.society.society_id,
             status=status.value if hasattr(status, "value") else str(status or ""),
@@ -1497,41 +1647,44 @@ class PlanetaryRuntime:
             try:
                 hash_data = self._redis.hgetall(self._ACTORS_HASH_KEY)
                 if hash_data:
-                    return tuple(
-                        self._registry_entry_from_dict(json.loads(raw))
-                        for raw in hash_data.values()
-                    )
+                    return tuple(self._registry_entry_from_dict(json.loads(raw)) for raw in hash_data.values())
             except Exception as exc:
                 logger.debug("list_registry(): Redis scan failed: %s", exc)
         entries: list[ActorRegistryEntry] = []
         for sid, sr in self._societies.items():
             for state in sr.all_actors():
                 status = getattr(state, "status", None)
-                entries.append(ActorRegistryEntry(
-                    actor_id=state.actor_id,
-                    actor_type=state.profile.identity.actor_type.value if hasattr(state.profile.identity.actor_type, "value") else str(state.profile.identity.actor_type),
-                    name=state.profile.identity.name,
-                    society_id=sid,
-                    status=status.value if hasattr(status, "value") else str(status or ""),
-                    node_id=self._node_id,
-                    updated_at=state.last_cycle or self._boot_time,
-                    artifact_version=self._artifact_version,
-                    runtime_version=self._runtime_version,
-                ))
+                entries.append(
+                    ActorRegistryEntry(
+                        actor_id=state.actor_id,
+                        actor_type=(
+                            state.profile.identity.actor_type.value
+                            if hasattr(state.profile.identity.actor_type, "value")
+                            else str(state.profile.identity.actor_type)
+                        ),
+                        name=state.profile.identity.name,
+                        society_id=sid,
+                        status=(status.value if hasattr(status, "value") else str(status or "")),
+                        node_id=self._node_id,
+                        updated_at=state.last_cycle or self._boot_time,
+                        artifact_version=self._artifact_version,
+                        runtime_version=self._runtime_version,
+                    )
+                )
         return tuple(entries)
 
     def rebuild_redis_index_from_mongodb(self) -> "RedisReconstructionResult":
         """Rebuild Redis actor registry from MongoDB source of truth.
-        
+
         Closes ephemeral storage gap: when Redis is lost (pod crash,
         emptyDir recreation), actors persist in MongoDB but become invisible
         to registry lookups. This method deterministically reconstructs the
         Redis index from MongoDB, enabling discovery again.
-        
+
         **Automatic:** Called during boot if inconsistency detected.
         **Manual:** Call explicitly to force rebuild or verify recovery.
         **Idempotent:** Safe to run multiple times; skips recent entries.
-        
+
         Returns:
             RedisReconstructionResult with reconstruction statistics
         """
@@ -1540,6 +1693,7 @@ class PlanetaryRuntime:
             from src.monkey_brain.kernel.society.redis_index_reconstruction import (
                 RedisReconstructionResult,
             )
+
             return RedisReconstructionResult(
                 success=False,
                 actors_scanned=0,
@@ -1548,19 +1702,19 @@ class PlanetaryRuntime:
                 errors=[],
                 duration_seconds=0.0,
             )
-        
+
         return self._redis_reconstructor.rebuild_from_mongodb()
-    
+
     def verify_redis_mongodb_consistency(self) -> "ConsistencyCheckResult":
         """Verify consistency between Redis and MongoDB actor registries.
-        
+
         Detects:
         • Actors in MongoDB but missing from Redis (needs rebuild)
         • Actors in Redis but missing from MongoDB (corruption)
         • Stale Redis entries (not updated recently)
-        
+
         **Use case:** Diagnostic tool; call before/after Redis recovery.
-        
+
         Returns:
             ConsistencyCheckResult with detailed findings
         """
@@ -1569,6 +1723,7 @@ class PlanetaryRuntime:
             from src.monkey_brain.kernel.society.redis_index_reconstruction import (
                 ConsistencyCheckResult,
             )
+
             return ConsistencyCheckResult(
                 is_consistent=False,
                 total_in_mongodb=0,
@@ -1578,7 +1733,7 @@ class PlanetaryRuntime:
                 stale_entries=[],
                 issues=["Redis reconstructor not available"],
             )
-        
+
         return self._redis_reconstructor.verify_consistency()
 
     # ── Actor Lifecycle Controller: desired state ──────────────────────────
@@ -1599,12 +1754,17 @@ class PlanetaryRuntime:
         Never raises — a failed write degrades to the in-memory fallback
         (this process only), never blocks the caller."""
         payload = {
-            "state": desired.value, "reason": reason,
-            "set_at": time.time(), "set_by": self._node_id,
+            "state": desired.value,
+            "reason": reason,
+            "set_at": time.time(),
+            "set_by": self._node_id,
         }
         if self._redis is not None:
             try:
-                self._redis.set(f"{self._ACTOR_DESIRED_STATE_KEY_PREFIX}{actor_id}", json.dumps(payload))
+                self._redis.set(
+                    f"{self._ACTOR_DESIRED_STATE_KEY_PREFIX}{actor_id}",
+                    json.dumps(payload),
+                )
                 self._enqueue_reconciliation(actor_id)
                 return
             except Exception as exc:
@@ -1673,9 +1833,7 @@ class PlanetaryRuntime:
                 raw = self._redis.get(f"{_ACTOR_LEASE_KEY_PREFIX}{actor_id}")
                 if raw:
                     lease_held = True
-                    lease_held_by_other = not (
-                        reconcile_lease_token is not None and raw == reconcile_lease_token
-                    )
+                    lease_held_by_other = not (reconcile_lease_token is not None and raw == reconcile_lease_token)
             except Exception as exc:
                 logger.debug("observe_actor(%r) lease check failed: %s", actor_id, exc)
         desired = self.get_actor_desired_state(actor_id)
@@ -1685,9 +1843,15 @@ class PlanetaryRuntime:
             and (time.time() - updated_at) > self._ACTOR_STALE_SECONDS
         )
         return ObservedActorState(
-            actor_id=actor_id, exists=True, status=status, node_id=node_id,
-            updated_at=updated_at, is_stale=is_stale, resident_here=resident_here,
-            lease_held=lease_held, desired_node_id=self.get_actor_desired_node(actor_id),
+            actor_id=actor_id,
+            exists=True,
+            status=status,
+            node_id=node_id,
+            updated_at=updated_at,
+            is_stale=is_stale,
+            resident_here=resident_here,
+            lease_held=lease_held,
+            desired_node_id=self.get_actor_desired_node(actor_id),
         )
 
     @property
@@ -1699,7 +1863,10 @@ class PlanetaryRuntime:
         self._coordination_engine: a facilitator holding a back-reference
         to this PlanetaryRuntime, owning none of its state directly."""
         if self._lifecycle_controller is None:
-            from src.monkey_brain.kernel.society.actor_lifecycle_controller import ActorLifecycleController
+            from src.monkey_brain.kernel.society.actor_lifecycle_controller import (
+                ActorLifecycleController,
+            )
+
             self._lifecycle_controller = ActorLifecycleController(self)
         return self._lifecycle_controller
 
@@ -1867,12 +2034,20 @@ return new_count
         node = self.get_node(node_id)
         if node is None:
             return
-        from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode, NodeHealth
+        from src.monkey_brain.kernel.society.actor_scheduler import (
+            ExecutionNode,
+            NodeHealth,
+        )
+
         refreshed = ExecutionNode(
-            node_id=node.node_id, node_class=node.node_class, capacity=node.capacity,
-            current_actor_count=node.current_actor_count if current_actor_count is None else current_actor_count,
-            capabilities=node.capabilities, region=node.region,
-            reported_health=NodeHealth.HEALTHY, updated_at=time.time(),
+            node_id=node.node_id,
+            node_class=node.node_class,
+            capacity=node.capacity,
+            current_actor_count=(node.current_actor_count if current_actor_count is None else current_actor_count),
+            capabilities=node.capabilities,
+            region=node.region,
+            reported_health=NodeHealth.HEALTHY,
+            updated_at=time.time(),
         )
         self.register_node(refreshed)
 
@@ -1886,13 +2061,24 @@ return new_count
         atomically rather than as a Python read-then-write."""
         if self._redis is not None:
             try:
-                result = int(self._redis.eval(
-                    self._RESERVE_NODE_CAPACITY_SCRIPT, 1, self._NODES_HASH_KEY,
-                    node_id, delta, time.time(),
-                ))
+                result = int(
+                    self._redis.eval(
+                        self._RESERVE_NODE_CAPACITY_SCRIPT,
+                        1,
+                        self._NODES_HASH_KEY,
+                        node_id,
+                        delta,
+                        time.time(),
+                    )
+                )
                 return None if result < 0 else result
             except Exception as exc:
-                logger.warning("_reserve_node_capacity(%r, %r) Redis eval failed: %s", node_id, delta, exc)
+                logger.warning(
+                    "_reserve_node_capacity(%r, %r) Redis eval failed: %s",
+                    node_id,
+                    delta,
+                    exc,
+                )
                 return None
         raw = self._node_registry_fallback.get(node_id)
         if raw is None:
@@ -1944,24 +2130,35 @@ return new_count
                 logger.debug("list_nodes() Redis read failed: %s", exc)
         for node_id, raw in self._node_registry_fallback.items():
             raws.setdefault(node_id, raw)
-        return tuple(
-            self._node_with_computed_health(ExecutionNode.from_dict(raw))
-            for raw in raws.values()
-        )
+        return tuple(self._node_with_computed_health(ExecutionNode.from_dict(raw)) for raw in raws.values())
 
     def _node_with_computed_health(self, node: "ExecutionNode") -> "ExecutionNode":
-        from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode, NodeHealth
+        from src.monkey_brain.kernel.society.actor_scheduler import (
+            ExecutionNode,
+            NodeHealth,
+        )
 
         if node.reported_health == NodeHealth.HEALTHY and (time.time() - node.updated_at) > self._NODE_STALE_SECONDS:
             return ExecutionNode(
-                node_id=node.node_id, node_class=node.node_class, capacity=node.capacity,
-                current_actor_count=node.current_actor_count, capabilities=node.capabilities,
-                region=node.region, reported_health=NodeHealth.UNKNOWN, updated_at=node.updated_at,
+                node_id=node.node_id,
+                node_class=node.node_class,
+                capacity=node.capacity,
+                current_actor_count=node.current_actor_count,
+                capabilities=node.capabilities,
+                region=node.region,
+                reported_health=NodeHealth.UNKNOWN,
+                updated_at=node.updated_at,
             )
         return node
 
-    def register_self_as_node(self, *, node_class: "NodeClass | None" = None, capacity: int | None = None,
-                              capabilities: tuple[str, ...] | None = None, region: str | None = None) -> None:
+    def register_self_as_node(
+        self,
+        *,
+        node_class: "NodeClass | None" = None,
+        capacity: int | None = None,
+        capabilities: tuple[str, ...] | None = None,
+        region: str | None = None,
+    ) -> None:
         """Self-register this process as an execution node, using its own
         already-stable self._node_id (the same identity actor-registry
         records and leases already key on) — called once at boot
@@ -1972,7 +2169,10 @@ return new_count
         an env var (SCHEDULER_NODE_CLASS/_CAPACITY/_CAPABILITIES/_REGION)
         so an operator can describe this deployment's node without a code
         change — SCHEDULER_NODE_CAPABILITIES is comma-separated."""
-        from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode, NodeClass
+        from src.monkey_brain.kernel.society.actor_scheduler import (
+            ExecutionNode,
+            NodeClass,
+        )
 
         if node_class is None:
             try:
@@ -1988,10 +2188,16 @@ return new_count
             region = os.getenv("SCHEDULER_NODE_REGION", "")
 
         current_actor_count = sum(len(sr.all_actors()) for sr in self._societies.values())
-        self.register_node(ExecutionNode(
-            node_id=self._node_id, node_class=node_class, capacity=capacity,
-            current_actor_count=current_actor_count, capabilities=capabilities, region=region,
-        ))
+        self.register_node(
+            ExecutionNode(
+                node_id=self._node_id,
+                node_class=node_class,
+                capacity=capacity,
+                current_actor_count=current_actor_count,
+                capabilities=capabilities,
+                region=region,
+            )
+        )
 
     @property
     def scheduler(self) -> "ActorScheduler":
@@ -2000,6 +2206,7 @@ return new_count
         Lazily constructed, same composition pattern as self.lifecycle."""
         if self._scheduler is None:
             from src.monkey_brain.kernel.society.actor_scheduler import ActorScheduler
+
             self._scheduler = ActorScheduler(self)
         return self._scheduler
 
@@ -2013,7 +2220,10 @@ return new_count
         unless KUBERNETES_PROVISIONING_ENABLED=true AND kubectl is on
         PATH."""
         if self._kubernetes_provisioner is None:
-            from src.monkey_brain.kernel.society.kubernetes_provisioner import KubernetesProvisioner
+            from src.monkey_brain.kernel.society.kubernetes_provisioner import (
+                KubernetesProvisioner,
+            )
+
             self._kubernetes_provisioner = KubernetesProvisioner(self)
         return self._kubernetes_provisioner
 
@@ -2027,6 +2237,7 @@ return new_count
         EDGE_PROVISIONING_ENABLED=true."""
         if self._edge_provisioner is None:
             from src.monkey_brain.kernel.society.edge_provisioner import EdgeProvisioner
+
             self._edge_provisioner = EdgeProvisioner(self)
         return self._edge_provisioner
 
@@ -2046,7 +2257,10 @@ return new_count
         payload = {"node_id": node_id, "set_at": time.time()}
         if self._redis is not None:
             try:
-                self._redis.set(f"{self._ACTOR_DESIRED_NODE_KEY_PREFIX}{actor_id}", json.dumps(payload))
+                self._redis.set(
+                    f"{self._ACTOR_DESIRED_NODE_KEY_PREFIX}{actor_id}",
+                    json.dumps(payload),
+                )
                 if self._should_enqueue_placement_change(current, node_id):
                     self._enqueue_reconciliation(actor_id)
                 return
@@ -2061,7 +2275,7 @@ return new_count
         return current != node_id and (bool(current) or node_id != self._node_id)
 
     def get_actor_desired_node(self, actor_id: str) -> str:
-        """"" means "never scheduled" — no placement requirement has ever
+        """ "" means "never scheduled" — no placement requirement has ever
         been expressed for this actor, matching today's implicit
         single-node behavior for every actor that never opts in."""
         payload: dict[str, Any] | None = None
@@ -2080,14 +2294,23 @@ return new_count
         payload = requirements.to_dict()
         if self._redis is not None:
             try:
-                self._redis.set(f"{self._ACTOR_PLACEMENT_REQ_KEY_PREFIX}{actor_id}", json.dumps(payload))
+                self._redis.set(
+                    f"{self._ACTOR_PLACEMENT_REQ_KEY_PREFIX}{actor_id}",
+                    json.dumps(payload),
+                )
                 return
             except Exception as exc:
-                logger.warning("set_actor_placement_requirements(%r) Redis write failed: %s", actor_id, exc)
+                logger.warning(
+                    "set_actor_placement_requirements(%r) Redis write failed: %s",
+                    actor_id,
+                    exc,
+                )
         self._placement_requirements_fallback[actor_id] = payload
 
     def get_actor_placement_requirements(self, actor_id: str) -> "ActorPlacementRequirements":
-        from src.monkey_brain.kernel.society.actor_scheduler import ActorPlacementRequirements
+        from src.monkey_brain.kernel.society.actor_scheduler import (
+            ActorPlacementRequirements,
+        )
 
         payload: dict[str, Any] | None = None
         if self._redis is not None:
@@ -2096,7 +2319,11 @@ return new_count
                 if raw:
                     payload = json.loads(raw)
             except Exception as exc:
-                logger.debug("get_actor_placement_requirements(%r) Redis read failed: %s", actor_id, exc)
+                logger.debug(
+                    "get_actor_placement_requirements(%r) Redis read failed: %s",
+                    actor_id,
+                    exc,
+                )
         if payload is None:
             payload = self._placement_requirements_fallback.get(actor_id)
         if payload is None:
@@ -2121,6 +2348,7 @@ return new_count
         if observed.node_id and observed.node_id != self._node_id:
             # Registry names another owner; deactivate the stale local copy only.
             from src.monkey_brain.kernel.society.domain import ActorStatus
+
             sr = self._home_society_runtime(actor_id)
             state = sr.get_actor(actor_id) if sr is not None else None
             if state is not None:
@@ -2162,11 +2390,15 @@ return new_count
             for sid, sr in self._societies.items():
                 sr_latest = sr.context_stream.events(limit=1)
                 if sr_latest:
-                    self._redis.rpush(f"{self._CONTEXT_LIST_KEY}:{sid}", json.dumps(sr_latest[-1].to_dict()))
+                    self._redis.rpush(
+                        f"{self._CONTEXT_LIST_KEY}:{sid}",
+                        json.dumps(sr_latest[-1].to_dict()),
+                    )
 
             # Also persist to event store for durable storage
             if self._event_store:
                 from src.monkey_brain.persistence.context_event_store import StoredEvent
+
                 # Save events for all societies — only events newer than the
                 # last-persisted version. events(limit=100) returns the last
                 # 100 events in the stream's whole history, not "events since
@@ -2190,7 +2422,7 @@ return new_count
                         )
                         self._redis.rpush(
                             f"{self._event_store._KEY_PREFIX}:{stored.society_id}",
-                            json.dumps(stored.to_dict())
+                            json.dumps(stored.to_dict()),
                         )
                     if new_events:
                         self._context_persisted_version[sid] = new_events[-1].version
@@ -2295,70 +2527,89 @@ return new_count
         try:
             societies = []
             for society_id, sr in self._societies.items():
-                societies.append({
-                    "society_id": society_id,
-                    "name": sr.society.name,
-                    "description": sr.society.description,
-                    "society_type": sr.society.society_type,
-                    "activation_tags": list(sr.society.activation_tags),
-                    "always_active": sr.society.always_active,
-                    "metadata": dict(sr.society.metadata),
-                    "shared_goals": list(sr.society.shared_goals),
-                    "policies": list(sr.society.policies),
-                    "governance_policies": [
-                        {
-                            "policy_id": p.policy_id, "name": p.name, "description": p.description,
-                            "policy_type": p.policy_type.value, "level": p.level.value,
-                            "rules": list(p.rules), "scope": p.scope,
-                            "enabled": p.enabled, "priority": p.priority,
-                        }
-                        for p in sr.governance.policies(enabled_only=False)
-                    ],
-                    "permissions": [
-                        {
-                            "permission_id": p.permission_id, "actor_id": p.actor_id,
-                            "resource": p.resource, "action": p.action,
-                            "granted_by": p.granted_by, "expires_at": p.expires_at,
-                        }
-                        for p in sr.governance.all_permissions()
-                    ],
-                    # SocietyGovernanceEngine cross-process gap: policies/
-                    # permissions above were already persisted (this same
-                    # blob), but trust_records/safety_constraints/audit_log
-                    # had NO persisted fields at all before this fix -- a
-                    # process restart, or a second process reading this
-                    # same Redis key, saw none of them.
-                    "trust_records": [
-                        {
-                            "actor_id": t.actor_id, "trust_score": t.trust_score,
-                            "evidence_count": t.evidence_count, "factors": dict(t.factors),
-                        }
-                        for t in sr.governance.all_trust_records()
-                    ],
-                    "safety_constraints": [
-                        {
-                            "constraint_id": c.constraint_id, "name": c.name,
-                            "description": c.description, "rule": c.rule,
-                            "severity": c.severity, "applies_to": list(c.applies_to),
-                        }
-                        for c in sr.governance.safety_constraints()
-                    ],
-                    # Bounded, not the full unbounded history: matches
-                    # audit_log()'s own existing limit=100 read convention.
-                    # A full permanent audit trail is a heavier concern
-                    # this dormant-in-production governance layer does not
-                    # need to solve to close the cross-process gap; a
-                    # bounded recent window is real, durable, and correct
-                    # for what audit_log() itself already promises callers.
-                    "audit_log": [
-                        {
-                            "entry_id": e.entry_id, "actor_id": e.actor_id, "action": e.action,
-                            "policy_id": e.policy_id, "compliance_status": e.compliance_status.value,
-                            "details": e.details, "timestamp": e.timestamp,
-                        }
-                        for e in sr.governance.audit_log(limit=200)
-                    ],
-                })
+                societies.append(
+                    {
+                        "society_id": society_id,
+                        "name": sr.society.name,
+                        "description": sr.society.description,
+                        "society_type": sr.society.society_type,
+                        "activation_tags": list(sr.society.activation_tags),
+                        "always_active": sr.society.always_active,
+                        "metadata": dict(sr.society.metadata),
+                        "shared_goals": list(sr.society.shared_goals),
+                        "policies": list(sr.society.policies),
+                        "governance_policies": [
+                            {
+                                "policy_id": p.policy_id,
+                                "name": p.name,
+                                "description": p.description,
+                                "policy_type": p.policy_type.value,
+                                "level": p.level.value,
+                                "rules": list(p.rules),
+                                "scope": p.scope,
+                                "enabled": p.enabled,
+                                "priority": p.priority,
+                            }
+                            for p in sr.governance.policies(enabled_only=False)
+                        ],
+                        "permissions": [
+                            {
+                                "permission_id": p.permission_id,
+                                "actor_id": p.actor_id,
+                                "resource": p.resource,
+                                "action": p.action,
+                                "granted_by": p.granted_by,
+                                "expires_at": p.expires_at,
+                            }
+                            for p in sr.governance.all_permissions()
+                        ],
+                        # SocietyGovernanceEngine cross-process gap: policies/
+                        # permissions above were already persisted (this same
+                        # blob), but trust_records/safety_constraints/audit_log
+                        # had NO persisted fields at all before this fix -- a
+                        # process restart, or a second process reading this
+                        # same Redis key, saw none of them.
+                        "trust_records": [
+                            {
+                                "actor_id": t.actor_id,
+                                "trust_score": t.trust_score,
+                                "evidence_count": t.evidence_count,
+                                "factors": dict(t.factors),
+                            }
+                            for t in sr.governance.all_trust_records()
+                        ],
+                        "safety_constraints": [
+                            {
+                                "constraint_id": c.constraint_id,
+                                "name": c.name,
+                                "description": c.description,
+                                "rule": c.rule,
+                                "severity": c.severity,
+                                "applies_to": list(c.applies_to),
+                            }
+                            for c in sr.governance.safety_constraints()
+                        ],
+                        # Bounded, not the full unbounded history: matches
+                        # audit_log()'s own existing limit=100 read convention.
+                        # A full permanent audit trail is a heavier concern
+                        # this dormant-in-production governance layer does not
+                        # need to solve to close the cross-process gap; a
+                        # bounded recent window is real, durable, and correct
+                        # for what audit_log() itself already promises callers.
+                        "audit_log": [
+                            {
+                                "entry_id": e.entry_id,
+                                "actor_id": e.actor_id,
+                                "action": e.action,
+                                "policy_id": e.policy_id,
+                                "compliance_status": e.compliance_status.value,
+                                "details": e.details,
+                                "timestamp": e.timestamp,
+                            }
+                            for e in sr.governance.audit_log(limit=200)
+                        ],
+                    }
+                )
             if self._redis:
                 self._redis.set("monkeybrain:societies", json.dumps(societies))
             self._edge_local_put("society", "all", {"societies": societies})
@@ -2374,124 +2625,150 @@ return new_count
                 edge_value = self._edge_local_get("society", "all")
                 societies_raw = edge_value.get("societies") if edge_value is not None else None
             if societies_raw:
-                    import dataclasses
-                    from src.monkey_brain.kernel.society.governance import (
-                        GovernancePolicy, PolicyType, GovernanceLevel, Permission,
-                        TrustRecord, SafetyConstraint, AuditEntry, ComplianceStatus,
-                    )
-                    societies = societies_raw
-                    for soc_data in societies:
-                        sid = soc_data.get("society_id", "")
-                        if sid and sid not in self._societies:
-                            from src.monkey_brain.kernel.society.domain import Society
-                            society = Society(
-                                society_id=sid,
-                                name=soc_data.get("name", ""),
-                                description=soc_data.get("description", ""),
-                                society_type=soc_data.get("society_type", "generic"),
-                                activation_tags=tuple(soc_data.get("activation_tags", [])),
-                                always_active=soc_data.get("always_active", False),
-                                metadata=dict(soc_data.get("metadata", {})),
-                                shared_goals=tuple(soc_data.get("shared_goals", [])),
-                                policies=tuple(soc_data.get("policies", [])),
-                            )
-                            sr = SocietyRuntime(society, strategic_runtime=self._game_theory)
-                            sr._world = self._world
-                            sr._observation_provider._world = self._world
-                            self._societies[sid] = sr
-                        elif sid and sid in self._societies:
-                            sr = self._societies[sid]
-                            sr._society = dataclasses.replace(
-                                sr._society,
-                                society_type=soc_data.get("society_type", sr._society.society_type),
-                                activation_tags=tuple(soc_data.get("activation_tags", [])) or sr._society.activation_tags,
-                                always_active=soc_data.get("always_active", sr._society.always_active),
-                                metadata=dict(soc_data.get("metadata", sr._society.metadata)),
-                                shared_goals=tuple(soc_data.get("shared_goals", [])),
-                                policies=tuple(soc_data.get("policies", [])),
-                            )
+                import dataclasses
+                from src.monkey_brain.kernel.society.governance import (
+                    GovernancePolicy,
+                    PolicyType,
+                    GovernanceLevel,
+                    Permission,
+                    TrustRecord,
+                    SafetyConstraint,
+                    AuditEntry,
+                    ComplianceStatus,
+                )
+
+                societies = societies_raw
+                for soc_data in societies:
+                    sid = soc_data.get("society_id", "")
+                    if sid and sid not in self._societies:
+                        from src.monkey_brain.kernel.society.domain import Society
+
+                        society = Society(
+                            society_id=sid,
+                            name=soc_data.get("name", ""),
+                            description=soc_data.get("description", ""),
+                            society_type=soc_data.get("society_type", "generic"),
+                            activation_tags=tuple(soc_data.get("activation_tags", [])),
+                            always_active=soc_data.get("always_active", False),
+                            metadata=dict(soc_data.get("metadata", {})),
+                            shared_goals=tuple(soc_data.get("shared_goals", [])),
+                            policies=tuple(soc_data.get("policies", [])),
+                        )
+                        sr = SocietyRuntime(society, strategic_runtime=self._game_theory)
+                        sr._world = self._world
+                        sr._observation_provider._world = self._world
+                        self._societies[sid] = sr
+                    elif sid and sid in self._societies:
                         sr = self._societies[sid]
-                        for gp_data in soc_data.get("governance_policies", []):
-                            try:
-                                policy = GovernancePolicy(
-                                    policy_id=gp_data.get("policy_id", ""),
-                                    name=gp_data.get("name", ""),
-                                    description=gp_data.get("description", ""),
-                                    policy_type=PolicyType(gp_data.get("policy_type", "guideline")),
-                                    level=GovernanceLevel(gp_data.get("level", "global")),
-                                    rules=tuple(gp_data.get("rules", [])),
-                                    scope=gp_data.get("scope", ""),
-                                    enabled=gp_data.get("enabled", True),
-                                    priority=gp_data.get("priority", 0),
-                                )
-                                sr.governance.add_policy(policy)
-                                # Same versioned-world mirroring as the live
-                                # POST /societies/{id}/governance-policies
-                                # route (api/routes/societies.py) -- keeps
-                                # SharedWorld.policies() populated across a
-                                # process restart's rehydration too, not
-                                # only for policies added after boot.
-                                #
-                                # record_policy() asserts
-                                # assert_state_mutation_allowed() -- outside
-                                # insecure-dev-mode this raised
-                                # SecurityBoundaryDenied on EVERY boot for
-                                # ANY society with a persisted governance
-                                # policy, caught by this method's own broad
-                                # except-Exception below, which meant
-                                # societies silently failed to load AT ALL
-                                # (not just this one policy) for the rest of
-                                # this method. This is boot-time state
-                                # rehydration, not an agent action.
-                                from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
-                                with privileged_infrastructure(reason="boot: rehydrating a persisted governance policy, not an agent action"):
-                                    sr.world.record_policy(
-                                        policy_id=policy.policy_id, name=policy.name,
-                                        description=policy.description, rules=policy.rules,
-                                        scope=policy.scope,
-                                    )
-                            except ValueError:
-                                continue
-                        for perm_data in soc_data.get("permissions", []):
-                            permission = Permission(
-                                permission_id=perm_data.get("permission_id", ""),
-                                actor_id=perm_data.get("actor_id", ""),
-                                resource=perm_data.get("resource", ""),
-                                action=perm_data.get("action", ""),
-                                granted_by=perm_data.get("granted_by", ""),
-                                expires_at=perm_data.get("expires_at", 0.0),
+                        sr._society = dataclasses.replace(
+                            sr._society,
+                            society_type=soc_data.get("society_type", sr._society.society_type),
+                            activation_tags=tuple(soc_data.get("activation_tags", [])) or sr._society.activation_tags,
+                            always_active=soc_data.get("always_active", sr._society.always_active),
+                            metadata=dict(soc_data.get("metadata", sr._society.metadata)),
+                            shared_goals=tuple(soc_data.get("shared_goals", [])),
+                            policies=tuple(soc_data.get("policies", [])),
+                        )
+                    sr = self._societies[sid]
+                    for gp_data in soc_data.get("governance_policies", []):
+                        try:
+                            policy = GovernancePolicy(
+                                policy_id=gp_data.get("policy_id", ""),
+                                name=gp_data.get("name", ""),
+                                description=gp_data.get("description", ""),
+                                policy_type=PolicyType(gp_data.get("policy_type", "guideline")),
+                                level=GovernanceLevel(gp_data.get("level", "global")),
+                                rules=tuple(gp_data.get("rules", [])),
+                                scope=gp_data.get("scope", ""),
+                                enabled=gp_data.get("enabled", True),
+                                priority=gp_data.get("priority", 0),
                             )
-                            sr.governance.grant_permission(permission)
-                        for tr_data in soc_data.get("trust_records", []):
-                            sr.governance.restore_trust_record(TrustRecord(
+                            sr.governance.add_policy(policy)
+                            # Same versioned-world mirroring as the live
+                            # POST /societies/{id}/governance-policies
+                            # route (api/routes/societies.py) -- keeps
+                            # SharedWorld.policies() populated across a
+                            # process restart's rehydration too, not
+                            # only for policies added after boot.
+                            #
+                            # record_policy() asserts
+                            # assert_state_mutation_allowed() -- outside
+                            # insecure-dev-mode this raised
+                            # SecurityBoundaryDenied on EVERY boot for
+                            # ANY society with a persisted governance
+                            # policy, caught by this method's own broad
+                            # except-Exception below, which meant
+                            # societies silently failed to load AT ALL
+                            # (not just this one policy) for the rest of
+                            # this method. This is boot-time state
+                            # rehydration, not an agent action.
+                            from src.monkey_brain.kernel.security_boundary import (
+                                privileged_infrastructure,
+                            )
+
+                            with privileged_infrastructure(
+                                reason="boot: rehydrating a persisted governance policy, not an agent action"
+                            ):
+                                sr.world.record_policy(
+                                    policy_id=policy.policy_id,
+                                    name=policy.name,
+                                    description=policy.description,
+                                    rules=policy.rules,
+                                    scope=policy.scope,
+                                )
+                        except ValueError:
+                            continue
+                    for perm_data in soc_data.get("permissions", []):
+                        permission = Permission(
+                            permission_id=perm_data.get("permission_id", ""),
+                            actor_id=perm_data.get("actor_id", ""),
+                            resource=perm_data.get("resource", ""),
+                            action=perm_data.get("action", ""),
+                            granted_by=perm_data.get("granted_by", ""),
+                            expires_at=perm_data.get("expires_at", 0.0),
+                        )
+                        sr.governance.grant_permission(permission)
+                    for tr_data in soc_data.get("trust_records", []):
+                        sr.governance.restore_trust_record(
+                            TrustRecord(
                                 actor_id=tr_data.get("actor_id", ""),
                                 trust_score=tr_data.get("trust_score", 0.5),
                                 evidence_count=tr_data.get("evidence_count", 0),
                                 factors=dict(tr_data.get("factors", {})),
-                            ))
-                        for sc_data in soc_data.get("safety_constraints", []):
-                            sr.governance.add_safety_constraint(SafetyConstraint(
+                            )
+                        )
+                    for sc_data in soc_data.get("safety_constraints", []):
+                        sr.governance.add_safety_constraint(
+                            SafetyConstraint(
                                 constraint_id=sc_data.get("constraint_id", ""),
-                                name=sc_data.get("name", ""), description=sc_data.get("description", ""),
-                                rule=sc_data.get("rule", ""), severity=sc_data.get("severity", "high"),
+                                name=sc_data.get("name", ""),
+                                description=sc_data.get("description", ""),
+                                rule=sc_data.get("rule", ""),
+                                severity=sc_data.get("severity", "high"),
                                 applies_to=tuple(sc_data.get("applies_to", [])),
-                            ))
-                        # Oldest-first, same order they were saved in, so
-                        # restore_audit_entry's append-only log stays
-                        # chronological (audit_log()'s own log[-limit:]
-                        # slicing assumes this).
-                        for ae_data in soc_data.get("audit_log", []):
-                            try:
-                                compliance_status = ComplianceStatus(ae_data.get("compliance_status", "compliant"))
-                            except ValueError:
-                                compliance_status = ComplianceStatus.COMPLIANT
-                            sr.governance.restore_audit_entry(AuditEntry(
-                                entry_id=ae_data.get("entry_id", ""), actor_id=ae_data.get("actor_id", ""),
-                                action=ae_data.get("action", ""), policy_id=ae_data.get("policy_id", ""),
-                                compliance_status=compliance_status, details=ae_data.get("details", ""),
+                            )
+                        )
+                    # Oldest-first, same order they were saved in, so
+                    # restore_audit_entry's append-only log stays
+                    # chronological (audit_log()'s own log[-limit:]
+                    # slicing assumes this).
+                    for ae_data in soc_data.get("audit_log", []):
+                        try:
+                            compliance_status = ComplianceStatus(ae_data.get("compliance_status", "compliant"))
+                        except ValueError:
+                            compliance_status = ComplianceStatus.COMPLIANT
+                        sr.governance.restore_audit_entry(
+                            AuditEntry(
+                                entry_id=ae_data.get("entry_id", ""),
+                                actor_id=ae_data.get("actor_id", ""),
+                                action=ae_data.get("action", ""),
+                                policy_id=ae_data.get("policy_id", ""),
+                                compliance_status=compliance_status,
+                                details=ae_data.get("details", ""),
                                 timestamp=ae_data.get("timestamp", 0.0),
-                            ))
-                    logger.info("Societies loaded: %d", len(societies))
+                            )
+                        )
+                logger.info("Societies loaded: %d", len(societies))
         except Exception as exc:
             logger.warning("Societies load failed: %s", exc)
 
@@ -2543,10 +2820,14 @@ return new_count
             raise ValueError(f"{space_id!r} does not resolve to a real Space")
         self._default_bootstrap_space_id = space_id
 
-    def register_actor(self, profile: ActorProfile,
-                       cognitive_stages: dict[str, StageFn] | None = None,
-                       actor: Any = None, home_space_id: str | None = None,
-                       society_id: str | None = None) -> ActorRuntimeState:
+    def register_actor(
+        self,
+        profile: ActorProfile,
+        cognitive_stages: dict[str, StageFn] | None = None,
+        actor: Any = None,
+        home_space_id: str | None = None,
+        society_id: str | None = None,
+    ) -> ActorRuntimeState:
         """The single canonical actor-registration workflow — Registration
         Entry Points (Governance/Membership/Registration Model refactor):
         "the world must expose a single canonical actor registration
@@ -2636,17 +2917,17 @@ return new_count
             # unregister_actor(), which only ever knows how to remove from
             # self._society_runtime, the HOME society specifically).
             target_runtime.unregister_actor(actor_id)
-            raise RuntimeError(
-                f"Failed to place Actor {actor_id!r} at its home Space {effective_home_space_id!r}"
-            )
+            raise RuntimeError(f"Failed to place Actor {actor_id!r} at its home Space {effective_home_space_id!r}")
 
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            actor_id=actor_id,
-            description=f"Actor registered: {profile.identity.name}",
-            payload=profile.to_dict(),
-            provenance="api:actors",
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                actor_id=actor_id,
+                description=f"Actor registered: {profile.identity.name}",
+                payload=profile.to_dict(),
+                provenance="api:actors",
+            )
+        )
         # _save_actor(), not _save_actors(): the hot path for bulk/scale
         # registration — see _save_actor()'s docstring for the O(n^2) bug
         # this replaced (confirmed live: 200 actors via the old
@@ -2679,6 +2960,7 @@ return new_count
         try:
             import asyncio
             from src.monkey_brain.kernel.domains.grocery import subscribe_actor_inbox
+
             goals = list(profile.goals) if getattr(profile, "goals", None) else []
             name = profile.identity.name
             actor_role = f"{name}, whose responsibilities include: {', '.join(goals)}" if goals else name
@@ -2686,7 +2968,11 @@ return new_count
             self._inbox_subscription_tasks.add(task)
             task.add_done_callback(self._inbox_subscription_tasks.discard)
         except Exception:
-            logger.debug("_subscribe_actor_inbox: suppressed exception for %s", actor_id, exc_info=True)
+            logger.debug(
+                "_subscribe_actor_inbox: suppressed exception for %s",
+                actor_id,
+                exc_info=True,
+            )
 
     async def wait_for_inbox_subscriptions(self) -> None:
         """Wait for all subscriptions scheduled during startup/registration."""
@@ -2725,13 +3011,15 @@ return new_count
                 result = True
                 break
         if result:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                actor_id=actor_id,
-                description=f"Actor unregistered: {actor_id}",
-                payload={"actor_id": actor_id},
-                provenance="api:actors/{id}",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    actor_id=actor_id,
+                    description=f"Actor unregistered: {actor_id}",
+                    payload={"actor_id": actor_id},
+                    provenance="api:actors/{id}",
+                )
+            )
             if self._redis:
                 try:
                     self._redis.hdel(self._ACTORS_HASH_KEY, actor_id)
@@ -2752,7 +3040,10 @@ return new_count
     # them (kernel/geography/registry.py).
 
     def _home_society_runtime(self, actor_id: str) -> SocietyRuntime | None:
-        return next((sr for sr in self._societies.values() if sr.get_actor(actor_id) is not None), None)
+        return next(
+            (sr for sr in self._societies.values() if sr.get_actor(actor_id) is not None),
+            None,
+        )
 
     async def _tick_present_actor(self, actor_id: str) -> bool:
         """ActorTicker (kernel/geography/runtime.py) for Prompt 4's
@@ -2792,8 +3083,12 @@ return new_count
         return tuple(self._membership_governor.effective_societies(actor_id))
 
     def _publish_lemon_metrics(
-        self, geo_result: GeographicTickResult, perturbations: list[dict[str, Any]],
-        actors_observed: int, interactions_routed: int, duration_ms: float,
+        self,
+        geo_result: GeographicTickResult,
+        perturbations: list[dict[str, Any]],
+        actors_observed: int,
+        interactions_routed: int,
+        duration_ms: float,
     ) -> None:
         """Prompt 8 — Lemon Observability: publishes both the previously
         proposed planetary-cycle metrics and this prompt's new governance/
@@ -2822,12 +3117,16 @@ return new_count
         _obs.gauge("planetary.context_events_published", float(self.context_stream.event_count))
         _obs.gauge("planetary.simulation_time_seconds", time.time() - self._boot_time)
 
-        queue_depth = max((len(getattr(sr, "_message_queue", ())) for sr in self._societies.values()), default=0)
+        queue_depth = max(
+            (len(getattr(sr, "_message_queue", ())) for sr in self._societies.values()),
+            default=0,
+        )
         self._peak_queue_depth = max(self._peak_queue_depth, queue_depth)
         _obs.gauge("planetary.peak_queue_depth", float(self._peak_queue_depth))
 
         try:
             import resource
+
             usage = resource.getrusage(resource.RUSAGE_SELF)
             _obs.gauge("planetary.memory_usage_bytes", float(usage.ru_maxrss) * 1024)
             # Gate 5 (Observability): CPU time consumed so far (user + system),
@@ -2864,35 +3163,52 @@ return new_count
         # somewhere, registering rules alone still alerts on nothing.
         try:
             from src.introspection.lemon import get_lemon
+
             lemon = get_lemon()
             if lemon is not None:
-                for alert in lemon.alerts.evaluate({
-                    "duration_ms": duration_ms,
-                    "actors_observed": actors_observed,
-                }):
-                    logger.warning("ALERT FIRED: %s [%s] %s", alert.name, alert.severity.value, alert.message)
+                for alert in lemon.alerts.evaluate(
+                    {
+                        "duration_ms": duration_ms,
+                        "actors_observed": actors_observed,
+                    }
+                ):
+                    logger.warning(
+                        "ALERT FIRED: %s [%s] %s",
+                        alert.name,
+                        alert.severity.value,
+                        alert.message,
+                    )
         except Exception:
             logger.debug("_publish_lemon_metrics: suppressed exception", exc_info=True)
 
         # -- Prompt 8 — governance and presence metrics --
-        _obs.gauge("governance.permanent_memberships",
-                   float(len(self._membership_registry.active_memberships())))
-        _obs.gauge("governance.temporary_memberships_created",
-                   float(self._membership_governor.created_count))
-        _obs.gauge("governance.temporary_memberships_revoked",
-                   float(self._membership_governor.revoked_count))
-        _obs.gauge("governance.effective_membership_calculations",
-                   float(self._membership_governor.effective_calculation_count))
-        _obs.gauge("governance.membership_events_published",
-                   float(self._membership_governor.events_published_count))
+        _obs.gauge(
+            "governance.permanent_memberships",
+            float(len(self._membership_registry.active_memberships())),
+        )
+        _obs.gauge(
+            "governance.temporary_memberships_created",
+            float(self._membership_governor.created_count),
+        )
+        _obs.gauge(
+            "governance.temporary_memberships_revoked",
+            float(self._membership_governor.revoked_count),
+        )
+        _obs.gauge(
+            "governance.effective_membership_calculations",
+            float(self._membership_governor.effective_calculation_count),
+        )
+        _obs.gauge(
+            "governance.membership_events_published",
+            float(self._membership_governor.events_published_count),
+        )
 
         spaces = self._geo_registry.all(GeographicEntityType.SPACE)
         spaces_with = sum(1 for s in spaces if self._geo_registry.societies_at_or_above(s.entity_id))
         _obs.gauge("governance.spaces_with_societies", float(spaces_with))
         _obs.gauge("governance.spaces_without_societies", float(len(spaces) - spaces_with))
         societies_without_spaces = sum(
-            1 for society_id in self._societies
-            if not self._geo_registry.spaces_for_society(society_id)
+            1 for society_id in self._societies if not self._geo_registry.spaces_for_society(society_id)
         )
         _obs.gauge("governance.societies_without_spaces", float(societies_without_spaces))
 
@@ -2914,12 +3230,14 @@ return new_count
         self._relationships.add(actor_id, society_id, RelationshipKind.MEMBER_OF)
         self._mirror_membership_affiliation(actor_id, society_id)
         self._save_relationships()
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            actor_id=actor_id,
-            description=f"Actor {actor_id} joined society {society_id}",
-            payload={"actor_id": actor_id, "society_id": society_id, "role": role},
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                actor_id=actor_id,
+                description=f"Actor {actor_id} joined society {society_id}",
+                payload={"actor_id": actor_id, "society_id": society_id, "role": role},
+            )
+        )
         return True
 
     def _mirror_membership_affiliation(self, actor_id: str, society_id: str) -> None:
@@ -2946,19 +3264,21 @@ return new_count
                     break
         if affiliations is None:
             return
-        if any(
-            a.target_id == society_id and a.affiliation_type == "member_of"
-            for a in affiliations.all()
-        ):
+        if any(a.target_id == society_id and a.affiliation_type == "member_of" for a in affiliations.all()):
             return
         sr = self.get_society_runtime(society_id)
         society_name = sr.society.name if sr is not None else society_id
         from uuid import uuid4
         from src.monkey_brain.kernel.affiliations.affiliation import Affiliation
-        affiliations.add(Affiliation(
-            affiliation_id=uuid4().hex, affiliation_type="member_of",
-            target_id=society_id, target_name=society_name,
-        ))
+
+        affiliations.add(
+            Affiliation(
+                affiliation_id=uuid4().hex,
+                affiliation_type="member_of",
+                target_id=society_id,
+                target_name=society_name,
+            )
+        )
 
     def _unmirror_membership_affiliation(self, actor_id: str, society_id: str) -> None:
         """Symmetric counterpart to _mirror_membership_affiliation — removes
@@ -3051,7 +3371,10 @@ return new_count
     def attach_semantic_memory(self, semantic_memory: Any) -> None:
         """Wire vector retrieval for SittingFace external knowledge."""
         if self._context_engine is not None and hasattr(self._context_engine, "set_external_knowledge_retriever"):
-            from src.monkey_brain.kernel.knowledge.sittingface_retrieval import SittingFaceKnowledgeRetriever
+            from src.monkey_brain.kernel.knowledge.sittingface_retrieval import (
+                SittingFaceKnowledgeRetriever,
+            )
+
             retriever = SittingFaceKnowledgeRetriever(semantic_memory=semantic_memory)
             self._context_engine.set_external_knowledge_retriever(retriever)
 
@@ -3084,101 +3407,119 @@ return new_count
 
     def add_world_entity(self, entity: WorldEntity) -> None:
         self._world_model.add_entity(entity)
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            description=f"Entity added: {entity.name}",
-            payload=entity.to_dict(),
-            provenance="api:world/entities",
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                description=f"Entity added: {entity.name}",
+                payload=entity.to_dict(),
+                provenance="api:world/entities",
+            )
+        )
         self._save_world()
 
     def update_world_entity(self, entity_id: str, **attributes: Any) -> WorldEntity | None:
         result = self._world_model.update_entity(entity_id, **attributes)
         if result:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Entity updated: {entity_id}",
-                payload=result.to_dict(),
-                provenance="api:world/entities/{id}",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Entity updated: {entity_id}",
+                    payload=result.to_dict(),
+                    provenance="api:world/entities/{id}",
+                )
+            )
             self._save_world()
         return result
 
     def remove_world_entity(self, entity_id: str) -> bool:
         result = self._world_model.remove_entity(entity_id)
         if result:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Entity removed: {entity_id}",
-                payload={"entity_id": entity_id},
-                provenance="api:world/entities/{id}",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Entity removed: {entity_id}",
+                    payload={"entity_id": entity_id},
+                    provenance="api:world/entities/{id}",
+                )
+            )
             self._save_world()
         return result
 
     def add_world_relationship(self, relationship: Any) -> None:
         self._world_model.add_relationship(relationship)
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            description=f"Relationship added: {relationship.source_id} -> {relationship.target_id}",
-            payload=relationship.to_dict(),
-            provenance="api:world/relationships",
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                description=f"Relationship added: {relationship.source_id} -> {relationship.target_id}",
+                payload=relationship.to_dict(),
+                provenance="api:world/relationships",
+            )
+        )
         self._save_world()
 
     def remove_world_relationship(self, relationship_id: str) -> bool:
         result = self._world_model.remove_relationship(relationship_id)
         if result:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Relationship removed: {relationship_id}",
-                payload={"relationship_id": relationship_id},
-                provenance="api:world/relationships/{id}",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Relationship removed: {relationship_id}",
+                    payload={"relationship_id": relationship_id},
+                    provenance="api:world/relationships/{id}",
+                )
+            )
             self._save_world()
         return result
 
     def record_world_event(self, event: Any) -> None:
         self._world_model.record_event(event)
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            description=f"Event recorded: {event.description}",
-            payload=event.to_dict(),
-            provenance="api:world/events",
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                description=f"Event recorded: {event.description}",
+                payload=event.to_dict(),
+                provenance="api:world/events",
+            )
+        )
         self._save_world()
 
     def remove_world_event(self, event_id: str) -> bool:
         result = self._world_model.remove_event(event_id)
         if result:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Event removed: {event_id}",
-                payload={"event_id": event_id},
-                provenance="api:world/events/{id}",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Event removed: {event_id}",
+                    payload={"event_id": event_id},
+                    provenance="api:world/events/{id}",
+                )
+            )
             self._save_world()
         return result
 
     def add_world_resource(self, resource: Any) -> None:
         self._world_model.add_resource(resource)
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            description=f"Resource added: {resource.name}",
-            payload=resource.to_dict(),
-            provenance="api:world/resources",
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                description=f"Resource added: {resource.name}",
+                payload=resource.to_dict(),
+                provenance="api:world/resources",
+            )
+        )
         self._save_world()
 
     def remove_world_resource(self, resource_id: str) -> bool:
         result = self._world_model.remove_resource(resource_id)
         if result:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Resource removed: {resource_id}",
-                payload={"resource_id": resource_id},
-                provenance="api:world/resources/{id}",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Resource removed: {resource_id}",
+                    payload={"resource_id": resource_id},
+                    provenance="api:world/resources/{id}",
+                )
+            )
             self._save_world()
         return result
 
@@ -3186,35 +3527,41 @@ return new_count
 
     def add_world_location(self, location: Any) -> None:
         self._world_model.add_location(location)
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            description=f"Location added: {location.name}",
-            payload=location.to_dict(),
-            provenance="api:world/locations",
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                description=f"Location added: {location.name}",
+                payload=location.to_dict(),
+                provenance="api:world/locations",
+            )
+        )
         self._save_world()
 
     def update_world_location(self, location_id: str, **kwargs: Any) -> Any | None:
         result = self._world_model.update_location(location_id, **kwargs)
         if result:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Location updated: {location_id}",
-                payload=result.to_dict(),
-                provenance="api:world/locations/{id}",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Location updated: {location_id}",
+                    payload=result.to_dict(),
+                    provenance="api:world/locations/{id}",
+                )
+            )
             self._save_world()
         return result
 
     def remove_world_location(self, location_id: str) -> bool:
         result = self._world_model.remove_location(location_id)
         if result:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Location removed: {location_id}",
-                payload={"location_id": location_id},
-                provenance="api:world/locations/{id}",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Location removed: {location_id}",
+                    payload={"location_id": location_id},
+                    provenance="api:world/locations/{id}",
+                )
+            )
             self._save_world()
         return result
 
@@ -3230,9 +3577,14 @@ return new_count
 
     # ── Interaction ──────────────────────────────────────────────────────
 
-    def send_interaction(self, interaction_type: InteractionType,
-                         initiator_id: str, participant_ids: tuple[str, ...],
-                         topic: str = "", proposal: Any = None) -> Interaction:
+    def send_interaction(
+        self,
+        interaction_type: InteractionType,
+        initiator_id: str,
+        participant_ids: tuple[str, ...],
+        topic: str = "",
+        proposal: Any = None,
+    ) -> Interaction:
         """Step 12.7: delegates to SocietyRuntime.route_interaction() (fixed
         this same sprint — was raising NameError on every call) instead of
         maintaining a second InteractionManager. route_interaction() already
@@ -3256,13 +3608,18 @@ return new_count
         result = self._society_runtime.share_experience(experience)
         applied = self._world_model.apply_learning(experience.world_impact)
         if applied:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                actor_id=experience.actor_id,
-                description=f"Learning refined {applied} world entr{'y' if applied == 1 else 'ies'}",
-                payload={"experience_id": experience.experience_id, "applied": applied},
-                provenance="planetary:learning",
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    actor_id=experience.actor_id,
+                    description=f"Learning refined {applied} world entr{'y' if applied == 1 else 'ies'}",
+                    payload={
+                        "experience_id": experience.experience_id,
+                        "applied": applied,
+                    },
+                    provenance="planetary:learning",
+                )
+            )
             self._save_world()
         return result
 
@@ -3279,8 +3636,7 @@ return new_count
                 return True
         return False
 
-    def authorize(self, actor_id: str, resource: str, action: str,
-                  amount: float | None = None) -> bool:
+    def authorize(self, actor_id: str, resource: str, action: str, amount: float | None = None) -> bool:
         """Membership-aware governance check with optional amount limits."""
         for society_id in self._membership_registry.societies_for_actor(actor_id):
             governance = self.governance_for(society_id)
@@ -3307,7 +3663,9 @@ return new_count
             society_runtime.collective_learning.set_redis(self._redis, society_runtime.society.society_id)
             society_runtime.collective_learning.load_recent()
         if getattr(self, "_default_city", None) is not None:
-            self._default_city = self._geo_registry.host_society(self._default_city.entity_id, society_runtime.society.society_id)
+            self._default_city = self._geo_registry.host_society(
+                self._default_city.entity_id, society_runtime.society.society_id
+            )
             self._save_geography()
         self._save_societies()
 
@@ -3359,6 +3717,7 @@ return new_count
         same as every other optional dependency in this boot sequence."""
         try:
             import nats
+
             url = os.getenv("NATS_URL", "nats://localhost:4222")
             self._nats_client = await nats.connect(url)
             self.context_stream.set_nats(self._nats_client, "monkeybrain.context.planetary")
@@ -3412,7 +3771,10 @@ return new_count
                     continue
                 self.world.record_capability(capability_id=name, name=name, description=description)
         except Exception:
-            logger.debug("_sync_world_capabilities: capability introspection failed (non-fatal)", exc_info=True)
+            logger.debug(
+                "_sync_world_capabilities: capability introspection failed (non-fatal)",
+                exc_info=True,
+            )
 
     def _attach_society(self, society_runtime: SocietyRuntime) -> None:
         """Attach a society to Planetary's single world and context owners."""
@@ -3445,8 +3807,12 @@ return new_count
         society_runtime._observation_provider._membership_lookup = self._effective_is_member
 
     def create_society(
-        self, name: str, description: str = "", society_type: str = "generic",
-        activation_tags: tuple[str, ...] = (), always_active: bool = False,
+        self,
+        name: str,
+        description: str = "",
+        society_type: str = "generic",
+        activation_tags: tuple[str, ...] = (),
+        always_active: bool = False,
         subscribed_events: tuple[str, ...] = (),
     ) -> SocietyRuntime:
         """Convenience: builds a new SocietyRuntime, registers it, returns
@@ -3458,11 +3824,17 @@ return new_count
         goal-relevance matching — see activation.py. subscribed_events
         (True Multi-Actor Coordination) feeds _propagate_coordination's
         event-to-society matching below — see that method's docstring."""
-        society_runtime = SocietyRuntime(Society(
-            name=name, description=description, society_type=society_type,
-            activation_tags=activation_tags, always_active=always_active,
-            subscribed_events=subscribed_events,
-        ), strategic_runtime=self._game_theory)
+        society_runtime = SocietyRuntime(
+            Society(
+                name=name,
+                description=description,
+                society_type=society_type,
+                activation_tags=activation_tags,
+                always_active=always_active,
+                subscribed_events=subscribed_events,
+            ),
+            strategic_runtime=self._game_theory,
+        )
         self.add_society(society_runtime)
         return society_runtime
 
@@ -3516,19 +3888,31 @@ return new_count
         node_class_hint = os.getenv("ACTOR_NODE_CLASS", "cloud").strip().lower()
         if node_class_hint in ("edge", "device", "robot"):
             try:
-                from src.monkey_brain.kernel.edge.actor_state_store import EdgeActorStateStore
-                from src.monkey_brain.kernel.edge.local_store import get_edge_local_store
+                from src.monkey_brain.kernel.edge.actor_state_store import (
+                    EdgeActorStateStore,
+                )
+                from src.monkey_brain.kernel.edge.local_store import (
+                    get_edge_local_store,
+                )
+
                 self._actor_state_store = EdgeActorStateStore(get_edge_local_store())
             except Exception as exc:
-                logger.warning("[planetary] EdgeActorStateStore unavailable, belief persistence disabled: %s", exc)
+                logger.warning(
+                    "[planetary] EdgeActorStateStore unavailable, belief persistence disabled: %s",
+                    exc,
+                )
                 return None
             return self._actor_state_store
         try:
             from src.monkey_brain.persistence.actor_state_store import ActorStateStore
             from src.monkey_brain.persistence.db_pool import get_db_pool
+
             self._actor_state_store = ActorStateStore(get_db_pool())
         except Exception as exc:
-            logger.warning("[planetary] ActorStateStore unavailable, belief persistence disabled: %s", exc)
+            logger.warning(
+                "[planetary] ActorStateStore unavailable, belief persistence disabled: %s",
+                exc,
+            )
             return None
         return self._actor_state_store
 
@@ -3548,14 +3932,18 @@ return new_count
             persisted = store.load(actor_id, tenant_id)
             if persisted is None or not persisted.belief_state:
                 return False
-            from src.monkey_brain.kernel.pipeline.belief_state import BeliefState as PipelineBeliefState
+            from src.monkey_brain.kernel.pipeline.belief_state import (
+                BeliefState as PipelineBeliefState,
+            )
+
             data = json.loads(persisted.belief_state.decode())
             actor.restore_pipeline_belief(PipelineBeliefState.from_dict(data))
             return True
         except Exception as exc:
             logger.warning(
                 "[planetary] %s belief restore failed, continuing with fresh belief: %s",
-                actor_id, exc,
+                actor_id,
+                exc,
             )
             return False
 
@@ -3573,7 +3961,10 @@ return new_count
         if store is None:
             return
         try:
-            from src.monkey_brain.persistence.actor_state_store import PersistedActorState
+            from src.monkey_brain.persistence.actor_state_store import (
+                PersistedActorState,
+            )
+
             belief = actor.pipeline_belief()
             pipeline_actor = actor.pipeline_actor() if hasattr(actor, "pipeline_actor") else None
             tenant_id = getattr(actor, "tenant_id", None) or "default"
@@ -3586,13 +3977,20 @@ return new_count
             # completed successfully.
             model_provider, model_name = "", ""
             try:
-                from src.monkey_brain.kernel.execute.provider.model_backend import get_backend
+                from src.monkey_brain.kernel.execute.provider.model_backend import (
+                    get_backend,
+                )
+
                 backend_stats = get_backend().stats()
                 model_provider = backend_stats.get("provider", "")
                 model_name = backend_stats.get("model", "")
             except Exception:
-                logger.debug("[planetary] %s model backend stats unavailable (non-fatal)", actor_id, exc_info=True)
-            
+                logger.debug(
+                    "[planetary] %s model backend stats unavailable (non-fatal)",
+                    actor_id,
+                    exc_info=True,
+                )
+
             # Capture complete actor metadata for rehydration on restart
             # (name, actor_type, society_id, status, etc.)
             sr = self._home_society_runtime(actor_id)
@@ -3606,12 +4004,14 @@ return new_count
                         logger.warning(
                             "[planetary] %s belief checkpoint skipped — lease fence superseded "
                             "(current=%d tick=%d); another node may own this actor",
-                            actor_id, current_fence, lease_fence,
+                            actor_id,
+                            current_fence,
+                            lease_fence,
                         )
                         return
                 except Exception as exc:
                     logger.debug("[planetary] lease fence check failed (non-fatal): %s", exc)
-            
+
             actor_metadata = {}
             if registry_state and hasattr(registry_state, "profile"):
                 profile = registry_state.profile
@@ -3627,14 +4027,12 @@ return new_count
                     # Same normalization already used for desired_state
                     # a few lines down.
                     actor_type = profile.identity.actor_type
-                    actor_metadata["actor_type"] = (
-                        actor_type.value if hasattr(actor_type, "value") else str(actor_type)
-                    )
+                    actor_metadata["actor_type"] = actor_type.value if hasattr(actor_type, "value") else str(actor_type)
                 actor_metadata["description"] = getattr(profile, "description", "")
                 actor_metadata["capabilities"] = getattr(profile, "capabilities", [])
                 actor_metadata["constraints"] = getattr(profile, "constraints", [])
                 actor_metadata["metadata"] = getattr(profile, "metadata", {})
-            
+
             if sr is not None:
                 actor_metadata["society_id"] = sr.society.society_id
 
@@ -3663,12 +4061,12 @@ return new_count
                         actor_metadata["affiliations"] = registry_state.actor_runtime.affiliations.to_dict()
                     except Exception:
                         pass
-            
+
             # Capture desired state from Redis (if available)
             try:
                 desired_state = self.get_actor_desired_state(actor_id)
                 actor_metadata["desired_state"] = {
-                    "state": desired_state.value if hasattr(desired_state, "value") else str(desired_state),
+                    "state": (desired_state.value if hasattr(desired_state, "value") else str(desired_state)),
                     "reason": "Persisted from control-plane",
                 }
             except Exception:
@@ -3676,7 +4074,7 @@ return new_count
 
             if lease_fence:
                 actor_metadata["lease_fence"] = lease_fence
-            
+
             state = PersistedActorState(
                 actor_id=actor_id,
                 tenant_id=tenant_id,
@@ -3693,8 +4091,7 @@ return new_count
             )
             store.save(state)
         except Exception as exc:
-            logger.warning("[planetary] %s belief checkpoint failed (non-fatal): %s",
-                           actor_id, exc)
+            logger.warning("[planetary] %s belief checkpoint failed (non-fatal): %s", actor_id, exc)
 
         # Actor Registry (Deployment Architecture, Section 7): every real
         # request cycle already reaches this method after commit, so it's
@@ -3741,8 +4138,12 @@ return new_count
         return tuple(result)
 
     def resolve_communication(
-        self, sender_id: str, recipient_id: str,
-        *, correlation_id: str = "", causation_id: str = "",
+        self,
+        sender_id: str,
+        recipient_id: str,
+        *,
+        correlation_id: str = "",
+        causation_id: str = "",
     ) -> CommunicationDecision:
         """Affiliation/society-governed eligibility check spanning every
         managed society, not just one. If sender and recipient currently
@@ -3763,8 +4164,10 @@ return new_count
         if shared_societies:
             decisions = [
                 sr._communication_router.resolve(
-                    sender_id, recipient_id,
-                    correlation_id=correlation_id, causation_id=causation_id,
+                    sender_id,
+                    recipient_id,
+                    correlation_id=correlation_id,
+                    causation_id=causation_id,
                 )
                 for sr in shared_societies
             ]
@@ -3780,7 +4183,11 @@ return new_count
         return decision
 
     async def execute_transaction(
-        self, originating_actor_id: str, objective: str, *, max_steps: int = 8,
+        self,
+        originating_actor_id: str,
+        objective: str,
+        *,
+        max_steps: int = 8,
     ) -> Any:
         """Required Transaction Execution Logic's entry point: delegates
         entirely to TransactionCoordinator (kernel/society/transaction.py)
@@ -3789,7 +4196,9 @@ return new_count
         workflow itself, same "Rule 4" separation every other coordinator
         here (GameTheoryRuntime, CoordinationEngine) already follows."""
         return await self._transaction_coordinator.execute(
-            originating_actor_id, objective, max_steps=max_steps,
+            originating_actor_id,
+            objective,
+            max_steps=max_steps,
         )
 
     def activate_society(self, society_id: str) -> bool:
@@ -3817,8 +4226,9 @@ return new_count
     def federation_manager(self) -> FederationManager:
         return self._federation_manager
 
-    def create_federation(self, name: str, description: str = "",
-                          member_society_ids: tuple[str, ...] = ()) -> Federation:
+    def create_federation(
+        self, name: str, description: str = "", member_society_ids: tuple[str, ...] = ()
+    ) -> Federation:
         """Creates a federation. This society (`self.society.society_id`) is
         NOT automatically a member — call `join_federation()` to add it, same
         as any other member society, since a Federation may be created and
@@ -3832,11 +4242,16 @@ return new_count
         federation = self._federation_manager.add_member(federation_id, self.society.society_id)
         if federation is not None:
             self._commerce_network.attach_federation(federation_id, federation.member_society_ids)
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Society {self.society.society_id} joined federation {federation_id}",
-                payload={"federation_id": federation_id, "society_id": self.society.society_id},
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Society {self.society.society_id} joined federation {federation_id}",
+                    payload={
+                        "federation_id": federation_id,
+                        "society_id": self.society.society_id,
+                    },
+                )
+            )
             self._society_runtime.record_coordination(f"joined federation {federation_id}")
         return federation
 
@@ -3889,7 +4304,12 @@ return new_count
                     f"{tick_result.interactions_routed} interaction(s)",
                 )
             except Exception as e:
-                logger.error("Society %s tick failed in federation %s: %s", society_id, federation_id, e)
+                logger.error(
+                    "Society %s tick failed in federation %s: %s",
+                    society_id,
+                    federation_id,
+                    e,
+                )
 
         result = FederatedCycleResult(
             federation_id=federation_id,
@@ -3900,15 +4320,17 @@ return new_count
             duration_ms=(time.time() - start) * 1000,
         )
 
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.SOCIETY_TICK,
-            description=(
-                f"Federated cycle: {len(ticked)} society(ies) ticked, "
-                f"{len(unregistered)} unregistered"
-            ),
-            payload={"federation_id": federation_id, "societies_ticked": ticked,
-                     "unregistered_society_ids": unregistered},
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.SOCIETY_TICK,
+                description=(f"Federated cycle: {len(ticked)} society(ies) ticked, {len(unregistered)} unregistered"),
+                payload={
+                    "federation_id": federation_id,
+                    "societies_ticked": ticked,
+                    "unregistered_society_ids": unregistered,
+                },
+            )
+        )
 
         return result
 
@@ -3931,8 +4353,12 @@ return new_count
         return self._geo_registry
 
     def create_geographic_entity(
-        self, entity_type: GeographicEntityType, name: str, parent_id: str,
-        description: str = "", **type_kwargs: Any,
+        self,
+        entity_type: GeographicEntityType,
+        name: str,
+        parent_id: str,
+        description: str = "",
+        **type_kwargs: Any,
     ) -> GeographicEntity | None:
         """Create any-tier geographic entity under an existing parent.
         Returns None if parent_id doesn't resolve or the tier pairing is
@@ -3999,21 +4425,32 @@ return new_count
         see MembershipGovernor.effective_societies."""
         return self._membership_governor.effective_societies(actor_id)
 
-    def move_actor(self, actor_id: str, space_id: str, activity: str = "",
-                    confidence: float = 1.0, source: str = "") -> bool:
+    def move_actor(
+        self,
+        actor_id: str,
+        space_id: str,
+        activity: str = "",
+        confidence: float = 1.0,
+        source: str = "",
+    ) -> bool:
         """Record actor_id's presence at space_id — closes any prior open
         Presence and opens a new one (PresenceTimeline.move_actor's own
         invariant enforcement). Returns False if space_id isn't a real
         Space in this PlanetaryRuntime's geography."""
-        result = self.presence.move_actor(actor_id, space_id, activity=activity,
-                                           confidence=confidence, source=source)
+        result = self.presence.move_actor(actor_id, space_id, activity=activity, confidence=confidence, source=source)
         if result is not None:
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                actor_id=actor_id,
-                description=f"Actor {actor_id} moved to space {space_id}",
-                payload={"actor_id": actor_id, "space_id": space_id, "activity": activity},
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    actor_id=actor_id,
+                    description=f"Actor {actor_id} moved to space {space_id}",
+                    payload={
+                        "actor_id": actor_id,
+                        "space_id": space_id,
+                        "activity": activity,
+                    },
+                )
+            )
         return result is not None
 
     def host_society(self, entity_id: str, society_id: str) -> GeographicEntity | None:
@@ -4027,17 +4464,21 @@ return new_count
         if entity is not None:
             if prior_entity is not None and prior_entity.entity_id != entity_id:
                 for rel in self._relationships.relationships_between(
-                    society_id, prior_entity.entity_id, RelationshipKind.HOSTED_BY,
+                    society_id,
+                    prior_entity.entity_id,
+                    RelationshipKind.HOSTED_BY,
                 ):
                     self._relationships.remove(rel.relationship_id)
             self._relationships.add(society_id, entity_id, RelationshipKind.HOSTED_BY)
             self._save_relationships()
             self._save_geography()
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Society {society_id} hosted by {entity_id}",
-                payload={"entity_id": entity_id, "society_id": society_id},
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Society {society_id} hosted by {entity_id}",
+                    payload={"entity_id": entity_id, "society_id": society_id},
+                )
+            )
         return entity
 
     def unhost_society(self, entity_id: str, society_id: str) -> GeographicEntity | None:
@@ -4049,7 +4490,9 @@ return new_count
         entity = self._geo_registry.unhost_society(entity_id, society_id)
         if entity is not None:
             for rel in self._relationships.relationships_between(
-                society_id, entity_id, RelationshipKind.HOSTED_BY,
+                society_id,
+                entity_id,
+                RelationshipKind.HOSTED_BY,
             ):
                 self._relationships.remove(rel.relationship_id)
             self._save_relationships()
@@ -4072,17 +4515,31 @@ return new_count
         entity = self._geo_registry.set_world_location(entity_id, world_location_id)
         if entity is not None:
             self._save_geography()
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Entity {entity_id} linked to world_location {world_location_id}",
-                payload={"entity_id": entity_id, "world_location_id": world_location_id},
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Entity {entity_id} linked to world_location {world_location_id}",
+                    payload={
+                        "entity_id": entity_id,
+                        "world_location_id": world_location_id,
+                    },
+                )
+            )
         return entity
 
     def create_geo_from_address(
-        self, *, country: str, state: str = "", county: str = "", city: str = "",
-        street: str = "", building_name: str = "", latitude: float, longitude: float,
-        display_address: str = "", attributes: dict[str, Any] | None = None,
+        self,
+        *,
+        country: str,
+        state: str = "",
+        county: str = "",
+        city: str = "",
+        street: str = "",
+        building_name: str = "",
+        latitude: float,
+        longitude: float,
+        display_address: str = "",
+        attributes: dict[str, Any] | None = None,
     ) -> GeographicEntity | None:
         """Real-world address ingestion (a geocoded search result, not
         manual tier-by-tier entity creation): finds-or-creates the real
@@ -4117,37 +4574,64 @@ return new_count
         if planet is None:
             return None
         country_entity = self._geo_registry.find_or_create(GeographicEntityType.COUNTRY, country, planet.entity_id)
-        state_entity = self._geo_registry.find_or_create(GeographicEntityType.STATE, state, country_entity.entity_id) if country_entity else None
-        county_entity = self._geo_registry.find_or_create(GeographicEntityType.COUNTY, county, state_entity.entity_id) if state_entity else None
-        city_entity = self._geo_registry.find_or_create(GeographicEntityType.CITY, city, county_entity.entity_id) if county_entity else None
-        street_entity = self._geo_registry.find_or_create(GeographicEntityType.STREET, street, city_entity.entity_id) if city_entity else None
+        state_entity = (
+            self._geo_registry.find_or_create(GeographicEntityType.STATE, state, country_entity.entity_id)
+            if country_entity
+            else None
+        )
+        county_entity = (
+            self._geo_registry.find_or_create(GeographicEntityType.COUNTY, county, state_entity.entity_id)
+            if state_entity
+            else None
+        )
+        city_entity = (
+            self._geo_registry.find_or_create(GeographicEntityType.CITY, city, county_entity.entity_id)
+            if county_entity
+            else None
+        )
+        street_entity = (
+            self._geo_registry.find_or_create(GeographicEntityType.STREET, street, city_entity.entity_id)
+            if city_entity
+            else None
+        )
         if street_entity is None:
             return None
 
         building = self._geo_registry.create(
-            GeographicEntityType.BUILDING, building_name.strip() or street, parent_id=street_entity.entity_id,
+            GeographicEntityType.BUILDING,
+            building_name.strip() or street,
+            parent_id=street_entity.entity_id,
         )
         if building is None:
             return None
 
         from src.monkey_brain.kernel.society.world import WorldLocation
+
         location = WorldLocation(
-            name=building.name, address=display_address or street,
-            latitude=latitude, longitude=longitude,
+            name=building.name,
+            address=display_address or street,
+            latitude=latitude,
+            longitude=longitude,
             attributes=attributes or {},
         )
         self.add_world_location(location)
         building = self._geo_registry.set_world_location(building.entity_id, location.location_id)
         self._save_geography()
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            description=f"Created {building.name} from real address: {display_address or street}",
-            payload={"entity_id": building.entity_id, "world_location_id": location.location_id},
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                description=f"Created {building.name} from real address: {display_address or street}",
+                payload={
+                    "entity_id": building.entity_id,
+                    "world_location_id": location.location_id,
+                },
+            )
+        )
         return building
 
     def _ensure_city_and_space_under(
-        self, canonical_root: "GeographicEntity",
+        self,
+        canonical_root: "GeographicEntity",
     ) -> tuple["GeographicEntity", "GeographicEntity", list[str]]:
         """Find (never duplicate) or create the minimal real City-tier
         entity under canonical_root, and a real Space under that City —
@@ -4158,6 +4642,7 @@ return new_count
         whether a synthetic bootstrap chain exists to migrate away from
         (see ensure_default_bootstrap_space's own docstring for why that
         independence matters)."""
+
         def _find_city(root_id: str) -> GeographicEntity | None:
             stack = list(self._geo_registry.children_of(root_id))
             while stack:
@@ -4171,36 +4656,55 @@ return new_count
         target_city = _find_city(canonical_root.entity_id)
         if target_city is None:
             current = canonical_root
-            for tier in (GeographicEntityType.COUNTRY, GeographicEntityType.STATE,
-                         GeographicEntityType.COUNTY, GeographicEntityType.CITY):
+            for tier in (
+                GeographicEntityType.COUNTRY,
+                GeographicEntityType.STATE,
+                GeographicEntityType.COUNTY,
+                GeographicEntityType.CITY,
+            ):
                 child = next(
                     (c for c in self._geo_registry.children_of(current.entity_id) if c.entity_type == tier),
                     None,
                 )
                 if child is None:
                     child = self._geo_registry.create(
-                        tier, f"{canonical_root.name} {tier.value.capitalize()}", parent_id=current.entity_id,
+                        tier,
+                        f"{canonical_root.name} {tier.value.capitalize()}",
+                        parent_id=current.entity_id,
                     )
                     created_ids.append(child.entity_id)
                 current = child
             target_city = current
 
         target_space = next(
-            (c for c in self._geo_registry.children_of(target_city.entity_id)
-             if c.entity_type == GeographicEntityType.SPACE),
+            (
+                c
+                for c in self._geo_registry.children_of(target_city.entity_id)
+                if c.entity_type == GeographicEntityType.SPACE
+            ),
             None,
         )
         if target_space is None:
             street = self._geo_registry.create(
-                GeographicEntityType.STREET, f"{target_city.name} Street", parent_id=target_city.entity_id,
+                GeographicEntityType.STREET,
+                f"{target_city.name} Street",
+                parent_id=target_city.entity_id,
             )
             building = self._geo_registry.create(
-                GeographicEntityType.BUILDING, f"{target_city.name} Building", parent_id=street.entity_id,
+                GeographicEntityType.BUILDING,
+                f"{target_city.name} Building",
+                parent_id=street.entity_id,
             )
             target_space = self._geo_registry.create(
-                GeographicEntityType.SPACE, f"{target_city.name} Space", parent_id=building.entity_id,
+                GeographicEntityType.SPACE,
+                f"{target_city.name} Space",
+                parent_id=building.entity_id,
             )
-            created_ids += [street.entity_id, building.entity_id, target_space.entity_id]
+            created_ids += [
+                street.entity_id,
+                building.entity_id,
+                target_space.entity_id,
+            ]
 
         return target_city, target_space, created_ids
 
@@ -4237,8 +4741,11 @@ return new_count
                 return self._default_bootstrap_space_id
 
         canonical_root = next(
-            (e for e in self._geo_registry.all(GeographicEntityType.PLANET)
-             if e.name.strip().lower() == canonical_root_name.strip().lower()),
+            (
+                e
+                for e in self._geo_registry.all(GeographicEntityType.PLANET)
+                if e.name.strip().lower() == canonical_root_name.strip().lower()
+            ),
             None,
         )
         if canonical_root is None:
@@ -4283,15 +4790,19 @@ return new_count
         now-unreferenced synthetic chain via delete_geo_entity (which
         already refuses safely if anything still hosts a Society there)."""
         canonical_root = next(
-            (e for e in self._geo_registry.all(GeographicEntityType.PLANET)
-             if e.name.strip().lower() == canonical_root_name.strip().lower()),
+            (
+                e
+                for e in self._geo_registry.all(GeographicEntityType.PLANET)
+                if e.name.strip().lower() == canonical_root_name.strip().lower()
+            ),
             None,
         )
         if canonical_root is None:
             return GeographyReconciliationResult(performed=False, reason=f"no {canonical_root_name!r} root found")
         if self._default_planet is None:
             return GeographyReconciliationResult(
-                performed=False, canonical_root_id=canonical_root.entity_id,
+                performed=False,
+                canonical_root_id=canonical_root.entity_id,
                 reason="no synthetic Default Planet chain present",
             )
 
@@ -4323,16 +4834,21 @@ return new_count
         deleted = self.delete_geo_entity(self._default_planet.entity_id)
         if deleted is None:
             return GeographyReconciliationResult(
-                performed=False, canonical_root_id=canonical_root.entity_id,
-                target_city_id=target_city.entity_id, migrated_society_ids=tuple(hosted_society_ids),
+                performed=False,
+                canonical_root_id=canonical_root.entity_id,
+                target_city_id=target_city.entity_id,
+                migrated_society_ids=tuple(hosted_society_ids),
                 created_entity_ids=tuple(created_ids),
                 reason="synthetic chain still hosts a society after migration — not deleted",
             )
         self._save_geography()
         return GeographyReconciliationResult(
-            performed=True, canonical_root_id=canonical_root.entity_id,
-            target_city_id=target_city.entity_id, migrated_society_ids=tuple(hosted_society_ids),
-            created_entity_ids=tuple(created_ids), deleted_entity_ids=deleted,
+            performed=True,
+            canonical_root_id=canonical_root.entity_id,
+            target_city_id=target_city.entity_id,
+            migrated_society_ids=tuple(hosted_society_ids),
+            created_entity_ids=tuple(created_ids),
+            deleted_entity_ids=deleted,
         )
 
     def delete_geo_entity(self, entity_id: str) -> tuple[str, ...] | None:
@@ -4380,18 +4896,26 @@ return new_count
             # Drop stale references to whatever was just deleted — a live
             # PlanetaryRuntime keeps these as direct object handles, not
             # id lookups, so deletion alone wouldn't clear them.
-            for attr in ("_default_planet", "_default_country", "_default_state",
-                         "_default_county", "_default_city", "_default_space"):
+            for attr in (
+                "_default_planet",
+                "_default_country",
+                "_default_state",
+                "_default_county",
+                "_default_city",
+                "_default_space",
+            ):
                 current = getattr(self, attr, None)
                 if current is not None and current.entity_id in removed_set:
                     setattr(self, attr, None)
             if self._default_bootstrap_space_id in removed_set:
                 self._default_bootstrap_space_id = None
-            self.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.WORLD_UPDATE,
-                description=f"Deleted {entity.name} and {len(removed) - 1} descendant(s)",
-                payload={"entity_id": entity_id, "removed_ids": list(removed)},
-            ))
+            self.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.WORLD_UPDATE,
+                    description=f"Deleted {entity.name} and {len(removed) - 1} descendant(s)",
+                    payload={"entity_id": entity_id, "removed_ids": list(removed)},
+                )
+            )
         return removed
 
     async def tick_geographic_entity(self, entity_id: str) -> GeographicTickResult:
@@ -4401,28 +4925,35 @@ return new_count
             return GeographicTickResult(entity_id=entity_id)
         result = await GeographicEntityRuntime(
             self._geo_registry,
-            entity_id, 
+            entity_id,
             self._societies.get,
-            presence=self._presence, 
+            presence=self._presence,
             actor_ticker=self._tick_present_actor,
             membership_reconciler=self._membership_governor.reconcile,
             temporary_membership_lookup=self._temporary_membership_lookup,
             effective_membership_lookup=self._effective_membership_lookup,
         ).tick()
-        self.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.SOCIETY_TICK,
-            description=(
-                f"Geographic tick ({entity_id}): {len(result.societies_ticked)} society(ies), "
-                f"{len(result.children_ticked)} child entity(ies)"
-            ),
-            payload={"entity_id": entity_id, "societies_ticked": list(result.societies_ticked)},
-        ))
+        self.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.SOCIETY_TICK,
+                description=(
+                    f"Geographic tick ({entity_id}): {len(result.societies_ticked)} society(ies), "
+                    f"{len(result.children_ticked)} child entity(ies)"
+                ),
+                payload={
+                    "entity_id": entity_id,
+                    "societies_ticked": list(result.societies_ticked),
+                },
+            )
+        )
         return result
-
 
     def create_country(self, name: str, description: str = "") -> Country:
         return self.create_geographic_entity(
-            GeographicEntityType.COUNTRY, name, self._default_planet.entity_id, description,
+            GeographicEntityType.COUNTRY,
+            name,
+            self._default_planet.entity_id,
+            description,
         )
 
     def create_city(self, name: str, country_id: str, description: str = "") -> City | None:
@@ -4458,7 +4989,6 @@ return new_count
         if entity is None:
             return None
         return self._geo_registry.ancestor_of_type(entity.entity_id, GeographicEntityType.COUNTRY)
-    
 
     async def tick_city(self, city_id: str) -> CityTickResult:
         """Backward-compat wrapper: tick_geographic_entity() now does the
@@ -4485,7 +5015,6 @@ return new_count
             interactions_routed_total=result.interactions_routed_total,
             duration_ms=result.duration_ms,
         )
-
 
     async def execute_actor_request(self, actor_id: str, prompt_request: Any) -> Any:
         """
@@ -4516,7 +5045,10 @@ return new_count
         try:
             outcome = await self._run_actor_tick(actor_id, prompt_request, society_ids)
             return await self._finalize_actor_execution(
-                actor_id, society_ids, outcome, propagation_mode=propagation_mode,
+                actor_id,
+                society_ids,
+                outcome,
+                propagation_mode=propagation_mode,
                 propagation_scope=propagation_scope,
                 propagation_target_actor_id=propagation_target_actor_id,
             )
@@ -4546,12 +5078,15 @@ return new_count
             return PropagationMode(str(raw).upper())
         except ValueError:
             logger.warning(
-                "execute_actor_request: unknown propagation_mode %r — defaulting to SYNCHRONOUS", raw,
+                "execute_actor_request: unknown propagation_mode %r — defaulting to SYNCHRONOUS",
+                raw,
             )
             return PropagationMode.SYNCHRONOUS
 
     @staticmethod
-    def _resolve_propagation_scope(prompt_request: Any) -> tuple["PropagationScope", str | None]:
+    def _resolve_propagation_scope(
+        prompt_request: Any,
+    ) -> tuple["PropagationScope", str | None]:
         """Resolve the propagation scope (and, for POINT_TO_POINT, the
         target actor) for this request's post-tick coordination fan-out.
         Same meta-override pattern as _resolve_propagation_mode: callers
@@ -4571,7 +5106,8 @@ return new_count
             scope = PropagationScope(str(raw).upper())
         except ValueError:
             logger.warning(
-                "execute_actor_request: unknown propagation_scope %r — defaulting to BROADCAST", raw,
+                "execute_actor_request: unknown propagation_scope %r — defaulting to BROADCAST",
+                raw,
             )
             return PropagationScope.BROADCAST, None
         if scope is PropagationScope.POINT_TO_POINT and not target_actor_id:
@@ -4626,9 +5162,7 @@ return new_count
             self._membership_governor.reconcile(actor_id)
             temporary_society_ids = set(self._temporary_membership_lookup(actor_id))
         if not temporary_society_ids.issubset(associated_society_ids):
-            raise LookupError(
-                f"Actor {actor_id!r} has temporary membership outside its current space"
-            )
+            raise LookupError(f"Actor {actor_id!r} has temporary membership outside its current space")
 
         # validate that each society has a  the geographic hierarchy and has at least one
         # space associated with it, if not raise an error
@@ -4638,10 +5172,7 @@ return new_count
             self._geo_registry.validate_society_has_space(society_id)
 
         # get the runtime for each of the soceties that the actor belongs to
-        actor_societies = [
-            self.get_society_runtime(society_id)
-            for society_id in society_ids
-        ]
+        actor_societies = [self.get_society_runtime(society_id) for society_id in society_ids]
 
         # check that society runtime is not none
         actor_societies = [sr for sr in actor_societies if sr is not None]
@@ -4715,7 +5246,10 @@ return new_count
             await asyncio.sleep(self._CYCLE_LOCK_POLL_INTERVAL_SECONDS)
 
     async def _run_actor_tick(
-        self, actor_id: str, prompt_request: Any, society_ids: tuple[str, ...],
+        self,
+        actor_id: str,
+        prompt_request: Any,
+        society_ids: tuple[str, ...],
     ) -> _ActorTickOutcome:
         """Load the latest world state and tick this actor through every
         society it belongs to. Caller (execute_actor_request) already
@@ -4774,7 +5308,8 @@ return new_count
 
             # tick all the actors in the society that the actor belongs to, and get the result of the tick
             tick_result = await society_runtime.tick(
-                target_actor_id=actor_id, prompt_request=prompt_request,
+                target_actor_id=actor_id,
+                prompt_request=prompt_request,
                 exclude_actor_ids=frozenset(already_ticked) or None,
                 single_actor_only=single_actor_only,
             )
@@ -4791,9 +5326,7 @@ return new_count
                 already_ticked.add(actor_id)
 
         if actor_execution_result is None:
-            raise RuntimeError(
-                f"Actor {actor_id!r} was not reached by its effective societies"
-            )
+            raise RuntimeError(f"Actor {actor_id!r} was not reached by its effective societies")
 
         return _ActorTickOutcome(
             actor_execution_result=actor_execution_result,
@@ -4807,7 +5340,10 @@ return new_count
     #############################################################################################
 
     async def _finalize_actor_execution(
-        self, actor_id: str, society_ids: tuple[str, ...], outcome: _ActorTickOutcome,
+        self,
+        actor_id: str,
+        society_ids: tuple[str, ...],
+        outcome: _ActorTickOutcome,
         propagation_mode: PropagationMode = PropagationMode.SYNCHRONOUS,
         propagation_scope: PropagationScope = PropagationScope.BROADCAST,
         propagation_target_actor_id: str | None = None,
@@ -4838,7 +5374,6 @@ return new_count
         # domain events the initiating actor's own tick(s) just
         # published to OTHER societies that subscribed to them.
 
-
         # TODO: the cordination trace should be stored in the context stream, so that it can be queried later for debugging and analysis.
         #  It should also be stored in the actor execution result, so that it can be returned to the caller for debugging and analysis.
         #  The cordination trace should be streamed via NATS to Elasticsearch for analysis and visualization.
@@ -4851,7 +5386,7 @@ return new_count
 
         # builds the full negotiation and reasoning trace for the actor's execution result, if any negotiation happened
 
-        #TODO: negotiation trace should be streamed via NATS to Elasticsearch for analysis and visualization.
+        # TODO: negotiation trace should be streamed via NATS to Elasticsearch for analysis and visualization.
         # The negotiation trace should be published to websocket for real time visualization and debugging,
         # and the websocket should be secured with authentication and authorization.
         # and the websocket should be rate limited to prevent denial of service attacks.
@@ -4860,7 +5395,8 @@ return new_count
         if negotiation_scope is not None:
             self._publish_negotiation_metrics(negotiation_scope)
             self._record_decision(
-                actor_id, negotiation_scope,
+                actor_id,
+                negotiation_scope,
                 execution_id=getattr(actor_execution_result, "execution_id", ""),
             )
 
@@ -4889,27 +5425,29 @@ return new_count
                 "termination_reason": None,
                 "domain_events_seen": [],
             }
-            task = asyncio.create_task(self._propagate_coordination_background(
-                actor_id=actor_id, society_ids=society_ids,
-                context_events_before=context_events_before,
-                actors_coordinated=set(actors_coordinated),
-                propagation_scope=propagation_scope,
-                propagation_target_actor_id=propagation_target_actor_id,
-            ))
+            task = asyncio.create_task(
+                self._propagate_coordination_background(
+                    actor_id=actor_id,
+                    society_ids=society_ids,
+                    context_events_before=context_events_before,
+                    actors_coordinated=set(actors_coordinated),
+                    propagation_scope=propagation_scope,
+                    propagation_target_actor_id=propagation_target_actor_id,
+                )
+            )
             self._background_propagation_tasks.add(task)
             task.add_done_callback(self._background_propagation_tasks.discard)
             coordination_trace: tuple[dict[str, Any], ...] = ()
         else:
             report = await self._propagate_and_report(
-                actor_id=actor_id, society_ids=society_ids,
+                actor_id=actor_id,
+                society_ids=society_ids,
                 context_events_before=context_events_before,
                 actors_coordinated=actors_coordinated,
                 propagation_scope=propagation_scope,
                 propagation_target_actor_id=propagation_target_actor_id,
             )
-            execution_scope["context_events_produced"] = (
-                self.context_stream.event_count - context_events_before
-            )
+            execution_scope["context_events_produced"] = self.context_stream.event_count - context_events_before
             execution_scope["propagation"] = {
                 "mode": PropagationMode.SYNCHRONOUS.value,
                 "status": "completed",
@@ -4918,6 +5456,7 @@ return new_count
             coordination_trace = tuple(report["coordination_trace"])
 
         import dataclasses
+
         if dataclasses.is_dataclass(actor_execution_result):
             return dataclasses.replace(
                 actor_execution_result,
@@ -4927,7 +5466,10 @@ return new_count
         return actor_execution_result
 
     async def _propagate_and_report(
-        self, actor_id: str, society_ids: tuple[str, ...], context_events_before: int,
+        self,
+        actor_id: str,
+        society_ids: tuple[str, ...],
+        context_events_before: int,
         actors_coordinated: set[str],
         propagation_scope: PropagationScope = PropagationScope.BROADCAST,
         propagation_target_actor_id: str | None = None,
@@ -4939,7 +5481,9 @@ return new_count
         propagation_start = time.time()
         coordination_trace: list[dict[str, Any]] = []
         (
-            propagated_actors, propagated_societies, termination_reason,
+            propagated_actors,
+            propagated_societies,
+            termination_reason,
             domain_events_seen,
         ) = await self._propagate_coordination(
             from_version=context_events_before,
@@ -4982,8 +5526,11 @@ return new_count
         }
 
     async def _propagate_coordination_background(
-        self, actor_id: str, society_ids: tuple[str, ...],
-        context_events_before: int, actors_coordinated: set[str],
+        self,
+        actor_id: str,
+        society_ids: tuple[str, ...],
+        context_events_before: int,
+        actors_coordinated: set[str],
         propagation_scope: PropagationScope = PropagationScope.BROADCAST,
         propagation_target_actor_id: str | None = None,
     ) -> None:
@@ -4995,7 +5542,8 @@ return new_count
         original execution thread."""
         try:
             report = await self._propagate_and_report(
-                actor_id=actor_id, society_ids=society_ids,
+                actor_id=actor_id,
+                society_ids=society_ids,
                 context_events_before=context_events_before,
                 actors_coordinated=actors_coordinated,
                 propagation_scope=propagation_scope,
@@ -5004,7 +5552,8 @@ return new_count
         except Exception:
             logger.exception(
                 "background propagation failed for actor %r (society_ids=%r)",
-                actor_id, society_ids,
+                actor_id,
+                society_ids,
             )
             return
 
@@ -5012,11 +5561,13 @@ return new_count
             try:
                 self._redis.publish(
                     f"monkeybrain.propagation.completed.{actor_id}",
-                    json.dumps({
-                        "actor_id": actor_id,
-                        "mode": PropagationMode.ASYNCHRONOUS.value,
-                        **report["propagation_summary"],
-                    }),
+                    json.dumps(
+                        {
+                            "actor_id": actor_id,
+                            "mode": PropagationMode.ASYNCHRONOUS.value,
+                            **report["propagation_summary"],
+                        }
+                    ),
                 )
             except Exception:
                 logger.debug(
@@ -5025,8 +5576,11 @@ return new_count
                 )
 
     async def _propagate_coordination(
-        self, from_version: int, trace: list[dict[str, Any]],
-        already_visited: set[str], max_depth: int = 6,
+        self,
+        from_version: int,
+        trace: list[dict[str, Any]],
+        already_visited: set[str],
+        max_depth: int = 6,
         scope: PropagationScope = PropagationScope.BROADCAST,
         target_actor_id: str | None = None,
         originating_actor_id: str | None = None,
@@ -5053,8 +5607,10 @@ return new_count
         """
         if scope is PropagationScope.POINT_TO_POINT:
             return await self._propagate_point_to_point(
-                from_version=from_version, trace=trace,
-                target_actor_id=target_actor_id, originating_actor_id=originating_actor_id,
+                from_version=from_version,
+                trace=trace,
+                target_actor_id=target_actor_id,
+                originating_actor_id=originating_actor_id,
             )
 
         visited_society_ids: set[str] = set(already_visited)
@@ -5064,10 +5620,9 @@ return new_count
         termination_reason = "stable"
 
         for depth in range(1, max_depth + 1):
+            # TODO: replay latest from stored events in the event store or consume from the event stream
 
-            #TODO: replay latest from stored events in the event store or consume from the event stream
-
-            #TODO: NO need to make this so complicated just consume the stream in batches
+            # TODO: NO need to make this so complicated just consume the stream in batches
             # 1. find the relavant socities to which the actor belongs
             # 2. find the actor affiliations
             # 3. find if the affilation is in the allowed society
@@ -5096,7 +5651,8 @@ return new_count
                 break
 
             round_societies = [
-                sr for sr in self._societies.values()
+                sr
+                for sr in self._societies.values()
                 if sr.society.society_id not in visited_society_ids
                 and set(sr.society.subscribed_events) & domain_events
             ]
@@ -5113,15 +5669,23 @@ return new_count
                 if self._redis is not None:
                     try:
                         import json as _json
+
                         self._redis.publish(
                             f"monkeybrain.society.{sr.society.society_id}.broadcast",
-                            _json.dumps({
-                                "society_id": sr.society.society_id, "society_name": sr.society.name,
-                                "matched_events": matched_events, "question": broadcast_question,
-                            }),
+                            _json.dumps(
+                                {
+                                    "society_id": sr.society.society_id,
+                                    "society_name": sr.society.name,
+                                    "matched_events": matched_events,
+                                    "question": broadcast_question,
+                                }
+                            ),
                         )
                     except Exception:
-                        logger.debug("_propagate_coordination: redis publish failed (non-fatal)", exc_info=True)
+                        logger.debug(
+                            "_propagate_coordination: redis publish failed (non-fatal)",
+                            exc_info=True,
+                        )
 
                 # Policy-driven recipient selection: only actors
                 # resolve_communication() actually authorizes to hear from
@@ -5144,18 +5708,18 @@ return new_count
                     exclude_actor_ids=frozenset(excluded_actor_ids) or None,
                 )
                 visited_society_ids.add(sr.society.society_id)
-                reacted_actors = tuple(
-                    a.actor_id for a in sr.active_actors() if a.actor_id not in excluded_actor_ids
-                )
+                reacted_actors = tuple(a.actor_id for a in sr.active_actors() if a.actor_id not in excluded_actor_ids)
                 actors_coordinated.update(reacted_actors)
-                trace.append({
-                    "depth": depth,
-                    "events": matched_events,
-                    "society_id": sr.society.society_id,
-                    "society_name": sr.society.name,
-                    "actors_ticked": list(reacted_actors),
-                    "actors_excluded": sorted(excluded_actor_ids),
-                })
+                trace.append(
+                    {
+                        "depth": depth,
+                        "events": matched_events,
+                        "society_id": sr.society.society_id,
+                        "society_name": sr.society.name,
+                        "actors_ticked": list(reacted_actors),
+                        "actors_excluded": sorted(excluded_actor_ids),
+                    }
+                )
         else:
             termination_reason = "max_depth"
 
@@ -5167,8 +5731,11 @@ return new_count
         )
 
     async def _propagate_point_to_point(
-        self, from_version: int, trace: list[dict[str, Any]],
-        target_actor_id: str | None, originating_actor_id: str | None,
+        self,
+        from_version: int,
+        trace: list[dict[str, Any]],
+        target_actor_id: str | None,
+        originating_actor_id: str | None,
     ) -> tuple[set[str], set[str], str, set[str]]:
         """POINT_TO_POINT propagation scope: deliver directly to exactly
         one target actor — a single hop, no multi-society cascade. Gated
@@ -5206,31 +5773,49 @@ return new_count
         if self._redis is not None:
             try:
                 import json as _json
+
                 self._redis.publish(
                     f"monkeybrain.actor.{target_actor_id}.direct",
-                    _json.dumps({
-                        "actor_id": target_actor_id, "from_actor_id": originating_actor_id,
-                        "matched_events": matched_events, "question": direct_question,
-                    }),
+                    _json.dumps(
+                        {
+                            "actor_id": target_actor_id,
+                            "from_actor_id": originating_actor_id,
+                            "matched_events": matched_events,
+                            "question": direct_question,
+                        }
+                    ),
                 )
             except Exception:
-                logger.debug("_propagate_point_to_point: redis publish failed (non-fatal)", exc_info=True)
+                logger.debug(
+                    "_propagate_point_to_point: redis publish failed (non-fatal)",
+                    exc_info=True,
+                )
 
-        await sr.tick(target_actor_id=target_actor_id, prompt_request={"question": direct_question})
+        await sr.tick(
+            target_actor_id=target_actor_id,
+            prompt_request={"question": direct_question},
+        )
 
-        trace.append({
-            "depth": 1,
-            "events": matched_events,
-            "society_id": sr.society.society_id,
-            "society_name": sr.society.name,
-            "actors_ticked": [target_actor_id],
-        })
+        trace.append(
+            {
+                "depth": 1,
+                "events": matched_events,
+                "society_id": sr.society.society_id,
+                "society_name": sr.society.name,
+                "actors_ticked": [target_actor_id],
+            }
+        )
         return {target_actor_id}, set(), "stable", domain_events
 
     def _publish_coordination_metrics(
-        self, societies_coordinated: int, actors_coordinated: int,
-        events_published: int, events_consumed: int, propagation_steps: int,
-        propagation_depth: int, propagation_latency_ms: float,
+        self,
+        societies_coordinated: int,
+        actors_coordinated: int,
+        events_published: int,
+        events_consumed: int,
+        propagation_steps: int,
+        propagation_depth: int,
+        propagation_latency_ms: float,
     ) -> None:
         """True Multi-Actor Coordination — Lemon metrics, published every
         request through the same _obs sink every other subsystem in this
@@ -5254,10 +5839,10 @@ return new_count
             float(events_published),
         )
 
-    # TODO: each message that is exchanged between actors must first be intercepted and passed through this negotion engine to 
+    # TODO: each message that is exchanged between actors must first be intercepted and passed through this negotion engine to
     # improve the messgae quality the negotiation trace is used by the main actor to manage the negotiation messages to be
-    # sent to affiliates based in the current context so this message also needs full context from sitting face knowledge packs 
-    # and from belief state 
+    # sent to affiliates based in the current context so this message also needs full context from sitting face knowledge packs
+    # and from belief state
     def _build_negotiation_trace(self, actor_id: str, actor_execution_result: Any) -> dict[str, Any] | None:
         """Game-Theoretic Reasoning: builds the explainable
         `{actor, goals, candidate_strategies, utility_evaluation"""
@@ -5366,7 +5951,10 @@ return new_count
             _obs.counter("negotiation.utility_evaluations")
             _obs.gauge("negotiation.strategies_considered", float(len(evaluations)))
 
-        _obs.gauge("negotiation.average_negotiation_time_ms", negotiation_scope.get("negotiation_latency_ms", 0.0))
+        _obs.gauge(
+            "negotiation.average_negotiation_time_ms",
+            negotiation_scope.get("negotiation_latency_ms", 0.0),
+        )
         _obs.gauge(
             "negotiation.avg_actors_per_negotiation",
             float(1 + len(negotiation_scope.get("colleagues_involved") or ())),
@@ -5374,8 +5962,13 @@ return new_count
 
     # TODO: this must update the trust nework based on sucessful execution history
     def _record_decision(
-        self, actor_id: str, scope: dict[str, Any], execution_id: str = "",
-        *, correlation_id: str = "", causation_id: str = "",
+        self,
+        actor_id: str,
+        scope: dict[str, Any],
+        execution_id: str = "",
+        *,
+        correlation_id: str = "",
+        causation_id: str = "",
     ) -> None:
         from src.monkey_brain.kernel.timeline.entry import TimelineKind
         from src.monkey_brain.kernel.timeline.store import TimelineStore
@@ -5391,7 +5984,8 @@ return new_count
         correlation_id = correlation_id or execution_id
 
         TimelineStore().record(
-            TimelineKind.DECISION, actor_id=actor_id,
+            TimelineKind.DECISION,
+            actor_id=actor_id,
             selected_strategy=str(chosen_strategy),
             reason=str(scope.get("reason") or ""),
             utility=float(chosen.get("utility", 0.0)) if chosen else 0.0,
@@ -5400,7 +5994,8 @@ return new_count
             correlation_id=correlation_id,
             causation_id=causation_id,
             metadata={
-                "decision_kind": "negotiation", "execution_id": execution_id,
+                "decision_kind": "negotiation",
+                "execution_id": execution_id,
                 "negotiation_outcome": scope.get("negotiation_outcome"),
                 "is_competitive": scope.get("is_competitive"),
                 "is_cooperative": scope.get("is_cooperative"),
@@ -5411,10 +6006,9 @@ return new_count
         _obs.counter("cognitive.decisions_made")
         _obs.gauge("cognitive.candidate_futures_evaluated", float(len(candidates)))
 
+    # Full cycle runs only when planetary or world pretubtions take place
+    # TODO : add NATS stream for world level preturbtions that kick the planetary cyle off
 
-    # Full cycle runs only when planetary or world pretubtions take place 
-    # TODO : add NATS stream for world level preturbtions that kick the planetary cyle off 
-    
     # ── Full Planetary Cycle ─────────────────────────────────────────────
 
     async def cycle(self, timeout_seconds: float = 300.0) -> PlanetaryCycleResult | None:
@@ -5425,22 +6019,22 @@ return new_count
         Iterates over all active societies and ticks each one. Each society
         coordinates its own actors' complete cognitive lifecycle.
 
-        the society must not be associated with all geographic entities, 
+        the society must not be associated with all geographic entities,
         it must become a level in the geographic hierarchy, and the actor must be associated with multiple society,
 
-        1. the societey is associated with at least one space what that means is of an actor is in a space it becomes a temporary member of the associated society to which the space is associated . 
+        1. the societey is associated with at least one space what that means is of an actor is in a space it becomes a temporary member of the associated society to which the space is associated .
         2. If the society is not associated with any spaces , raise an error.
-        3. The actors can belong to multiple Society but only one space 
+        3. The actors can belong to multiple Society but only one space
         4. ie we must have a one to many relationship between society and space, but a one to one relationship between actor and space.
         5. this ensures that the actor can be grouped by geographic location while the societes are indipendent of location.
         6. importtant to note that the societey provides membership and governance, while the space provides physical location and presence.
         7. we want to be able to track change in membership and location over time, so we need to be able to track the history of the actor's membership and location.
-        
+
         Safeguards:
         - Tick lock prevents overlapping cycles
         - Configurable timeout (default 5 minutes)
         - Metrics for monitoring duration and actor count
-        
+
         """
         # Prevent overlapping ticks WITHIN this process.
         if self._tick_lock.locked():
@@ -5480,7 +6074,6 @@ return new_count
             )
 
     async def _run_cycle(self) -> PlanetaryCycleResult:
-    
         """Internal cycle execution."""
         start = time.time()
         # Performance analysis instrumentation only (measurement, not a
@@ -5532,7 +6125,8 @@ return new_count
         severity = severity_total / severity_count if severity_count else 0.0
         perturbation_magnitude = min(0.35, 0.15 + severity * 0.20)
         perturbation_chance = min(
-            0.60, 0.30 + min(world_signal_count, 10) * 0.02 + severity * 0.20,
+            0.60,
+            0.30 + min(world_signal_count, 10) * 0.02 + severity * 0.20,
         )
         _world_reconciliation_started = time.perf_counter()
         perturbations = self._world_model.perturb(
@@ -5546,7 +6140,10 @@ return new_count
         # This simulates actors evacuating or moving due to environmental changes or other external factors.
         movement_perturbations = self._movement_perturbation.perturb(event_chance=0.05)
         if movement_perturbations:
-            logger.info("Movement perturbation: %d actor(s) evacuated", len(movement_perturbations))
+            logger.info(
+                "Movement perturbation: %d actor(s) evacuated",
+                len(movement_perturbations),
+            )
             perturbations.extend(movement_perturbations)
         world_reconciliation_ms = (time.perf_counter() - _world_reconciliation_started) * 1000
 
@@ -5560,20 +6157,25 @@ return new_count
         _perturbation_queue_started = time.perf_counter()
         touched_entity_ids: set[str] = set()
         for queued in self._perturbation_queue.drain():
-            self._world_model.record_event(WorldEvent(
-                event_type=EventType.WORLD_UPDATE,
-                entity_id=queued.entity_id,
-                description=queued.description,
-                attributes=dict(queued.attributes),
-                source_actor_id=queued.source,
-            ))
+            self._world_model.record_event(
+                WorldEvent(
+                    event_type=EventType.WORLD_UPDATE,
+                    entity_id=queued.entity_id,
+                    description=queued.description,
+                    attributes=dict(queued.attributes),
+                    source_actor_id=queued.source,
+                )
+            )
             if queued.entity_id:
                 touched_entity_ids.add(queued.entity_id)
         perturbation_queue_ms = (time.perf_counter() - _perturbation_queue_started) * 1000
 
         deja_vu_ms = 0.0
         if touched_entity_ids:
-            from src.monkey_brain.kernel.pipeline.planning.deja_vu import replay_affected_actors
+            from src.monkey_brain.kernel.pipeline.planning.deja_vu import (
+                replay_affected_actors,
+            )
+
             _deja_vu_started = time.perf_counter()
             try:
                 replayed = await asyncio.to_thread(replay_affected_actors, self, touched_entity_ids)
@@ -5640,10 +6242,10 @@ return new_count
 
         # Publish Context Stream events for observed actors
 
-        # NOTE: where are the published events consumed?  
-        # They are not consumed by the planetary runtime itself, 
-        # but they are consumed by the observability engine and the context stream.  
-        # The context stream is a pub/sub system that allows other systems to subscribe to events and react to them.  
+        # NOTE: where are the published events consumed?
+        # They are not consumed by the planetary runtime itself,
+        # but they are consumed by the observability engine and the context stream.
+        # The context stream is a pub/sub system that allows other systems to subscribe to events and react to them.
         # The observability engine consumes the events to build a trace of the society's activity over time.
 
         # GeographicEntityRuntime returns the deduplicated, presence-based
@@ -5652,52 +6254,55 @@ return new_count
             home = self._home_society_runtime(actor_id)
             actor_state = home.get_actor(actor_id) if home is not None else None
             if actor_state is not None:
-
                 # publish an observation event for each actor observed in this cycle, including their belief state if available
-               
-                # NOTE: we have no idea where the subscriber is, but we are publishing the event to the context stream so that any subscriber can consume it.  
+
+                # NOTE: we have no idea where the subscriber is, but we are publishing the event to the context stream so that any subscriber can consume it.
                 # The subscriber could be a logging system, a monitoring system, or any other system that wants to react to the actors observations.
                 # this makes the planetary runtime observable and allows other systems to react to the actors observations.
-                # 1. an observation is a snapshot of the actor's observation of its known world at a given point in time.  it is the actors snapshot of the global world and is immutable 
-                # 2. a belief is the state of the actor's knowledge about the world, it is mutable and can change over time as the actor learns new information so an actors observations update its learnings and beliefs 
+                # 1. an observation is a snapshot of the actor's observation of its known world at a given point in time.  it is the actors snapshot of the global world and is immutable
+                # 2. a belief is the state of the actor's knowledge about the world, it is mutable and can change over time as the actor learns new information so an actors observations update its learnings and beliefs
                 # a context event must update the local belief system based on the actor policies and prefrences This allows other systems to react to the actor's observations and make decisions based on them.
 
-                self.context_stream.publish(ContextEvent(
-                    event_type=ContextEventType.OBSERVATION,
-                    actor_id=actor_state.actor_id,
-                    description=f"Actor {actor_state.actor_id} observed and coordinated",
-                    payload={
-                        "actor_id": actor_state.actor_id,
-                        "name": actor_state.profile.identity.name,
-                        "cycle_count": actor_state.cycle_count,
-                        "status": actor_state.status.value,
-                    },
-                ))
-                if actor_state.belief_state is not None:
-                    beliefs = {
-                        b.subject: 
-                            {
-                                "confidence": b.confidence, 
-                                "predicate": b.best_hypothesis.predicate if b.best_hypothesis else ""
-                             }
-                               for b in actor_state.belief_state.beliefs}
-                    
-                    # publish a belief update event for each actor observed in this cycle, including their belief state if available
-                    # this must be done after the observation event so that the belief update is based on the latest observation
-                    # each actor must take its own observations and update its own beliefs based on its own policies and preferences, 
-                    # this is the core of the planetary runtime's cognitive engine so actors subscribe to the context stream and update their beliefs.
-
-                    self.context_stream.publish(ContextEvent(
-                        event_type=ContextEventType.BELIEF_UPDATE,
+                self.context_stream.publish(
+                    ContextEvent(
+                        event_type=ContextEventType.OBSERVATION,
                         actor_id=actor_state.actor_id,
-                        description=f"Beliefs updated: {len(actor_state.belief_state.beliefs)} beliefs",
+                        description=f"Actor {actor_state.actor_id} observed and coordinated",
                         payload={
                             "actor_id": actor_state.actor_id,
-                            "belief_count": len(actor_state.belief_state.beliefs),
-                            "beliefs": beliefs,
-                            "uncertainty_level": actor_state.belief_state.uncertainty_level,
+                            "name": actor_state.profile.identity.name,
+                            "cycle_count": actor_state.cycle_count,
+                            "status": actor_state.status.value,
                         },
-                    ))
+                    )
+                )
+                if actor_state.belief_state is not None:
+                    beliefs = {
+                        b.subject: {
+                            "confidence": b.confidence,
+                            "predicate": (b.best_hypothesis.predicate if b.best_hypothesis else ""),
+                        }
+                        for b in actor_state.belief_state.beliefs
+                    }
+
+                    # publish a belief update event for each actor observed in this cycle, including their belief state if available
+                    # this must be done after the observation event so that the belief update is based on the latest observation
+                    # each actor must take its own observations and update its own beliefs based on its own policies and preferences,
+                    # this is the core of the planetary runtime's cognitive engine so actors subscribe to the context stream and update their beliefs.
+
+                    self.context_stream.publish(
+                        ContextEvent(
+                            event_type=ContextEventType.BELIEF_UPDATE,
+                            actor_id=actor_state.actor_id,
+                            description=f"Beliefs updated: {len(actor_state.belief_state.beliefs)} beliefs",
+                            payload={
+                                "actor_id": actor_state.actor_id,
+                                "belief_count": len(actor_state.belief_state.beliefs),
+                                "beliefs": beliefs,
+                                "uncertainty_level": actor_state.belief_state.uncertainty_level,
+                            },
+                        )
+                    )
 
                 # Performance analysis instrumentation only (measurement,
                 # not a behavior change): last_tick_result is set by
@@ -5706,26 +6311,23 @@ return new_count
                 # None if the tick failed before the cognitive engine ran
                 # (e.g. belief fusion raised in tick_one_actor).
                 last_result = actor_state.last_tick_result
-                actor_reports.append(ActorPerformanceReport.from_stage_timings(
-                    actor_id=actor_state.actor_id,
-                    actor_name=actor_state.profile.identity.name,
-                    total_ms=self._cycle_actor_timing_ms.get(actor_id, 0.0),
-                    stage_timings_ms=getattr(last_result, "stage_timings_ms", None) or {},
-                    belief_updated=bool(getattr(last_result, "belief_updated", False)),
-                    ticked=last_result is not None,
-                ))
+                actor_reports.append(
+                    ActorPerformanceReport.from_stage_timings(
+                        actor_id=actor_state.actor_id,
+                        actor_name=actor_state.profile.identity.name,
+                        total_ms=self._cycle_actor_timing_ms.get(actor_id, 0.0),
+                        stage_timings_ms=getattr(last_result, "stage_timings_ms", None) or {},
+                        belief_updated=bool(getattr(last_result, "belief_updated", False)),
+                        ticked=last_result is not None,
+                    )
+                )
 
         cleanup_ms = (time.perf_counter() - _cleanup_started) * 1000
 
         duration_ms = (time.time() - start) * 1000
         self._last_tick_duration_ms = duration_ms
         self._last_tick_timestamp = time.time()
-        self._publish_lemon_metrics(
-            geo_result, perturbations,
-            actors_observed,
-            interactions_routed,
-            duration_ms
-        )
+        self._publish_lemon_metrics(geo_result, perturbations, actors_observed, interactions_routed, duration_ms)
 
         context_events_published = self.context_stream.event_count - context_events_before
         logger.info(
@@ -5751,7 +6353,11 @@ return new_count
             actors=tuple(actor_reports),
         )
         self._last_cycle_report = cycle_report
-        logger.info("Runtime Performance Audit — cycle %d:\n%s", self._cycle_count, cycle_report.format_summary())
+        logger.info(
+            "Runtime Performance Audit — cycle %d:\n%s",
+            self._cycle_count,
+            cycle_report.format_summary(),
+        )
 
         return PlanetaryCycleResult(
             cycle_number=self._cycle_count,
@@ -5762,10 +6368,8 @@ return new_count
             duration_ms=duration_ms,
         )
 
-
-
     # ── Auto-Tick Scheduler ──────────────────────────────────────────────
-    # planetary runtime can be configured to automatically tick every N seconds, with a default of 5 minutes (300 seconds). 
+    # planetary runtime can be configured to automatically tick every N seconds, with a default of 5 minutes (300 seconds).
     # This is useful for running the planetary runtime in a background task or service.
 
     def _acquire_planetary_cycle_lock(self, timeout_seconds: float = 300.0) -> bool:
@@ -5791,15 +6395,20 @@ return new_count
             return True
         token = f"{os.getpid()}:{uuid4().hex}"
         try:
-            acquired = bool(self._redis.set(
-                _PLANETARY_CYCLE_LOCK_KEY, token,
-                nx=True, ex=max(1, int(timeout_seconds) + 30),
-            ))
+            acquired = bool(
+                self._redis.set(
+                    _PLANETARY_CYCLE_LOCK_KEY,
+                    token,
+                    nx=True,
+                    ex=max(1, int(timeout_seconds) + 30),
+                )
+            )
         except Exception as exc:
             logger.error(
                 "Planetary cycle lock check failed (%s) — refusing to proceed: an "
                 "unreachable Redis must not be treated as proof no other replica "
-                "currently holds the lock", exc,
+                "currently holds the lock",
+                exc,
             )
             return False
         if acquired:
@@ -5824,7 +6433,10 @@ return new_count
         try:
             self._redis.eval(_RELEASE_LOCK_IF_OWNER_SCRIPT, 1, _PLANETARY_CYCLE_LOCK_KEY, token)
         except Exception as exc:
-            logger.warning("Planetary cycle lock release failed (%s) — TTL will expire it eventually", exc)
+            logger.warning(
+                "Planetary cycle lock release failed (%s) — TTL will expire it eventually",
+                exc,
+            )
         finally:
             self._cycle_lock_token = None
 
@@ -5843,8 +6455,7 @@ return new_count
     # concurrently, across nodes, for DIFFERENT actor_ids) rather than one
     # global lock serializing every actor behind a single key.
 
-    def acquire_actor_lease(self, actor_id: str,
-                            ttl_seconds: float = _ACTOR_LEASE_DEFAULT_TTL_SECONDS) -> str | None:
+    def acquire_actor_lease(self, actor_id: str, ttl_seconds: float = _ACTOR_LEASE_DEFAULT_TTL_SECONDS) -> str | None:
         """Try to become the node that runs this actor's next cognitive
         cycle. Returns a token to pass to release_actor_lease() on success,
         or None if another node currently holds the lease (skip this tick)
@@ -5863,10 +6474,14 @@ return new_count
         if self._redis is None:
             return token
         try:
-            acquired = bool(self._redis.set(
-                f"{_ACTOR_LEASE_KEY_PREFIX}{actor_id}", token,
-                nx=True, ex=max(1, int(ttl_seconds)),
-            ))
+            acquired = bool(
+                self._redis.set(
+                    f"{_ACTOR_LEASE_KEY_PREFIX}{actor_id}",
+                    token,
+                    nx=True,
+                    ex=max(1, int(ttl_seconds)),
+                )
+            )
             if acquired:
                 fence = int(self._redis.incr(f"{_ACTOR_FENCE_KEY_PREFIX}{actor_id}"))
                 self._actor_lease_fences[actor_id] = fence
@@ -5889,13 +6504,16 @@ return new_count
                     "Actor lease check failed for %r (%s) — "
                     "ACTOR_LEASE_FAIL_OPEN_SINGLE_NODE is set, proceeding "
                     "WITHOUT a lease (operator-accepted split-brain risk)",
-                    actor_id, exc,
+                    actor_id,
+                    exc,
                 )
                 return token
             logger.warning(
                 "Actor lease check failed for %r (%s) — refusing to tick: an "
                 "unreachable Redis must not be treated as proof no other node "
-                "currently owns this actor", actor_id, exc,
+                "currently owns this actor",
+                actor_id,
+                exc,
             )
             return None
         return token if acquired else None
@@ -5906,7 +6524,11 @@ return new_count
 
     @staticmethod
     def _lease_fail_open_single_node() -> bool:
-        return os.getenv("ACTOR_LEASE_FAIL_OPEN_SINGLE_NODE", "false").lower() not in ("false", "0", "no")
+        return os.getenv("ACTOR_LEASE_FAIL_OPEN_SINGLE_NODE", "false").lower() not in (
+            "false",
+            "0",
+            "no",
+        )
 
     def release_actor_lease(self, actor_id: str, token: str | None) -> None:
         """Release actor_id's lease as soon as its tick actually finishes,
@@ -5921,9 +6543,18 @@ return new_count
         if self._redis is None or not token:
             return
         try:
-            self._redis.eval(_RELEASE_LOCK_IF_OWNER_SCRIPT, 1, f"{_ACTOR_LEASE_KEY_PREFIX}{actor_id}", token)
+            self._redis.eval(
+                _RELEASE_LOCK_IF_OWNER_SCRIPT,
+                1,
+                f"{_ACTOR_LEASE_KEY_PREFIX}{actor_id}",
+                token,
+            )
         except Exception as exc:
-            logger.debug("Actor lease release failed for %r (non-fatal, TTL will expire it): %s", actor_id, exc)
+            logger.debug(
+                "Actor lease release failed for %r (non-fatal, TTL will expire it): %s",
+                actor_id,
+                exc,
+            )
         finally:
             self._actor_lease_fences.pop(actor_id, None)
 
@@ -5998,11 +6629,14 @@ return new_count
     # LIFECYCLE (desired vs. observed state) and never touches planning,
     # belief, or capability dispatch.
 
-    def start_actor_lifecycle_reconciliation(self, interval_seconds: float = 300.0,
-                                             queue_interval_seconds: float = 2.0,
-                                             queue_batch_size: int = 50,
-                                             queue_concurrency: int = 10,
-                                             scope_actor_id: str | None = None) -> None:
+    def start_actor_lifecycle_reconciliation(
+        self,
+        interval_seconds: float = 300.0,
+        queue_interval_seconds: float = 2.0,
+        queue_batch_size: int = 50,
+        queue_concurrency: int = 10,
+        scope_actor_id: str | None = None,
+    ) -> None:
         """Start the Actor Lifecycle Controller's background reconciliation.
 
         scope_actor_id (Gap Remediation audit fix): a single-actor Actor
@@ -6084,13 +6718,19 @@ return new_count
         # registration for this exact node_id instead of blindly
         # re-deriving from env-var defaults; only a genuinely new node_id
         # (no prior registration at all) falls back to those.
-        if os.getenv("SCHEDULER_SELF_REGISTER", "true").lower() not in ("false", "0", "no"):
+        if os.getenv("SCHEDULER_SELF_REGISTER", "true").lower() not in (
+            "false",
+            "0",
+            "no",
+        ):
             try:
                 existing = self.get_node(self._node_id)
                 if existing is not None:
                     self.register_self_as_node(
-                        node_class=existing.node_class, capacity=existing.capacity,
-                        capabilities=existing.capabilities, region=existing.region,
+                        node_class=existing.node_class,
+                        capacity=existing.capacity,
+                        capabilities=existing.capabilities,
+                        region=existing.region,
                     )
                 else:
                     self.register_self_as_node()
@@ -6101,7 +6741,10 @@ return new_count
         logger.info(
             "Actor lifecycle reconciliation started: backstop sweep every %ds, "
             "event-driven queue drain every %.1fs (batch=%d, concurrency=%d)",
-            interval_seconds, queue_interval_seconds, queue_batch_size, queue_concurrency,
+            interval_seconds,
+            queue_interval_seconds,
+            queue_batch_size,
+            queue_concurrency,
         )
 
     async def stop_actor_lifecycle_reconciliation(self) -> None:
@@ -6124,10 +6767,23 @@ return new_count
         async with self._reconcile_queue_semaphore:
             try:
                 result = await asyncio.to_thread(self.lifecycle.reconcile, actor_id)
-                if result.action not in ("none", "skipped_lease_held", "skipped_unknown_actor"):
-                    logger.info("Actor lifecycle reconciliation (event-driven): %s -> %s", actor_id, result.action)
+                if result.action not in (
+                    "none",
+                    "skipped_lease_held",
+                    "skipped_unknown_actor",
+                ):
+                    logger.info(
+                        "Actor lifecycle reconciliation (event-driven): %s -> %s",
+                        actor_id,
+                        result.action,
+                    )
             except Exception as exc:
-                logger.error("Event-driven reconcile(%r) raised: %s", actor_id, exc, exc_info=True)
+                logger.error(
+                    "Event-driven reconcile(%r) raised: %s",
+                    actor_id,
+                    exc,
+                    exc_info=True,
+                )
 
     async def _reconcile_queue_loop(self) -> None:
         """The fast, event-driven path (Section 26). Drains in batches
@@ -6167,7 +6823,8 @@ return new_count
                 if acted:
                     logger.info(
                         "Actor lifecycle reconciliation (backstop sweep): %d actor(s) acted on (%s)",
-                        len(acted), ", ".join(f"{r.actor_id}:{r.action}" for r in acted),
+                        len(acted),
+                        ", ".join(f"{r.actor_id}:{r.action}" for r in acted),
                     )
             except asyncio.CancelledError:
                 break
@@ -6195,8 +6852,7 @@ return new_count
             logger.info("Auto-tick scheduler stopped")
 
     async def _auto_tick_loop(self) -> None:
-        """Background loop that ticks every interval_seconds.
-        """
+        """Background loop that ticks every interval_seconds."""
         while True:
             try:
                 await asyncio.sleep(self._auto_tick_interval)
@@ -6208,7 +6864,9 @@ return new_count
                 if result is not None:
                     logger.info(
                         "Auto-tick cycle %d completed: %d actors, %.1fms",
-                        result.cycle_number, result.actors_observed, result.duration_ms,
+                        result.cycle_number,
+                        result.actors_observed,
+                        result.duration_ms,
                     )
                     self._save_context()
             except asyncio.CancelledError:
@@ -6239,7 +6897,11 @@ return new_count
             # Scheduler stops offering it for new placements right away.
             self.deregister_node(self._node_id)
         except Exception as exc:
-            logger.debug("deregister_node(%r) at shutdown failed (non-fatal): %s", self._node_id, exc)
+            logger.debug(
+                "deregister_node(%r) at shutdown failed (non-fatal): %s",
+                self._node_id,
+                exc,
+            )
         for task in list(self._background_propagation_tasks):
             if not task.done():
                 task.cancel()
@@ -6269,7 +6931,11 @@ return new_count
                 logger.warning("Redis client close failed: %s", exc)
         if getattr(app.state, "planetary_runtime", None) is self:
             app.state.planetary_runtime = None
-        from src.monkey_brain.api.routes.payments import get_default_planetary_runtime, set_default_planetary_runtime
+        from src.monkey_brain.api.routes.payments import (
+            get_default_planetary_runtime,
+            set_default_planetary_runtime,
+        )
+
         if get_default_planetary_runtime() is self:
             set_default_planetary_runtime(None)
         logger.info("PlanetaryRuntime shutdown complete")

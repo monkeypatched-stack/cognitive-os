@@ -10,8 +10,8 @@ from typing import Any, Dict
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
@@ -475,22 +475,22 @@ Your objective is continuous, governed, evidence-driven evolution of software sy
 
 async def call_unified_prompt():
     """Call the unified prompt endpoint with the ETASS specification."""
-    
+
     print("=" * 80)
     print("🚀 ETASS v1.0 — Cognitive Orchestration Prompt")
     print("=" * 80)
     print()
-    
+
     # Show that we're calling the unified prompt endpoint
     print("📡 Calling unified /prompt endpoint...")
     print()
-    
+
     # Display the endpoint information
     print("📍 Endpoint: POST /api/v1/agentos/prompt")
     print("🎯 Objective: Execute complete engineering lifecycle")
     print("🔄 Method: Orchestrate /query and /simulate endpoints")
     print()
-    
+
     # Show the prompt being sent
     print("📜 Prompt being sent:")
     print("-" * 40)
@@ -498,15 +498,15 @@ async def call_unified_prompt():
     print("(Full specification loaded - see above)")
     print("-" * 40)
     print()
-    
+
     # Simulate the call (since we can't actually run the FastAPI server in this context)
     print("⏳ Executing engineering lifecycle...")
     print()
-    
+
     # Show the phases being executed
     phases = [
         "Phase 1 — Load Specification",
-        "Phase 2 — Compile Specification", 
+        "Phase 2 — Compile Specification",
         "Phase 3 — Governance Review",
         "Phase 4 — Engineering",
         "Phase 5 — Source Control",
@@ -519,18 +519,18 @@ async def call_unified_prompt():
         "Phase 12 — Operational Evidence",
         "Phase 13 — Governance Review",
         "Phase 14 — Chart Evolution",
-        "Phase 15 — Repeat"
+        "Phase 15 — Repeat",
     ]
-    
+
     for i, phase in enumerate(phases, 1):
         print(f"   ✅ {phase}")
         if i % 3 == 0:
             print()
-    
+
     print()
     print("🎉 Engineering lifecycle execution initiated!")
     print()
-    
+
     # Show expected response structure
     print("📩 Expected Response Structure:")
     print("   • question: ETASS orchestration prompt")
@@ -538,12 +538,12 @@ async def call_unified_prompt():
     print("   • simulation_result: Predicted system behavior and outcomes")
     print("   • execution_summary: Performance metrics and execution details")
     print()
-    
+
     print("🔄 The unified /prompt endpoint successfully orchestrated the call to both")
     print("   /query and /simulate endpoints, combining their results for")
     print("   complete CI/CD pipeline execution.")
     print()
-    
+
     print("=" * 80)
     print("✅ UNIFIED PROMPT ENDPOINT CALL COMPLETED")
     print("=" * 80)

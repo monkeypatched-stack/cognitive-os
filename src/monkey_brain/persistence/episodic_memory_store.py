@@ -8,6 +8,7 @@ Stores episodic memories in MongoDB:
 - Action outcomes
 - Experience summaries
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,7 +56,10 @@ class EpisodicMemoryStore:
             collection.create_index([("tenant_id", 1), ("actor_id", 1)])
             collection.create_index([("timestamp", -1)])
 
-            logger.debug("[episodic_memory] MongoDB collection initialized: %s", self._collection_name)
+            logger.debug(
+                "[episodic_memory] MongoDB collection initialized: %s",
+                self._collection_name,
+            )
             self._initialized = True
         except Exception as e:
             logger.warning("[episodic_memory] Schema init failed: %s", e)
@@ -72,7 +76,7 @@ class EpisodicMemoryStore:
         self._in_memory[key] = {
             "value": value,
             "episode_type": episode_type,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         # Optionally persist to MongoDB
@@ -88,14 +92,10 @@ class EpisodicMemoryStore:
                     "memory_key": key,
                     "memory_value": value,
                     "episode_type": episode_type,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
 
-                collection.replace_one(
-                    {"_id": document["_id"]},
-                    document,
-                    upsert=True
-                )
+                collection.replace_one({"_id": document["_id"]}, document, upsert=True)
             except Exception as e:
                 logger.debug("[episodic_memory] DB store failed: %s", e)
 
@@ -118,11 +118,13 @@ class EpisodicMemoryStore:
                 db = self._db.get_db()
                 collection = db[self._collection_name]
 
-                doc = collection.find_one({
-                    "_id": f"{self._tenant_id}:{self._actor_id}:{key}",
-                    "tenant_id": self._tenant_id,
-                    "actor_id": self._actor_id
-                })
+                doc = collection.find_one(
+                    {
+                        "_id": f"{self._tenant_id}:{self._actor_id}:{key}",
+                        "tenant_id": self._tenant_id,
+                        "actor_id": self._actor_id,
+                    }
+                )
 
                 if doc:
                     return doc.get("memory_value")
@@ -156,11 +158,13 @@ class EpisodicMemoryStore:
                 db = self._db.get_db()
                 collection = db[self._collection_name]
 
-                collection.delete_one({
-                    "_id": f"{self._tenant_id}:{self._actor_id}:{key}",
-                    "tenant_id": self._tenant_id,
-                    "actor_id": self._actor_id
-                })
+                collection.delete_one(
+                    {
+                        "_id": f"{self._tenant_id}:{self._actor_id}:{key}",
+                        "tenant_id": self._tenant_id,
+                        "actor_id": self._actor_id,
+                    }
+                )
             except Exception as e:
                 logger.debug("[episodic_memory] DB forget failed: %s", e)
 
@@ -173,10 +177,7 @@ class EpisodicMemoryStore:
                 db = self._db.get_db()
                 collection = db[self._collection_name]
 
-                collection.delete_many({
-                    "tenant_id": self._tenant_id,
-                    "actor_id": self._actor_id
-                })
+                collection.delete_many({"tenant_id": self._tenant_id, "actor_id": self._actor_id})
             except Exception as e:
                 logger.debug("[episodic_memory] DB clear failed: %s", e)
 

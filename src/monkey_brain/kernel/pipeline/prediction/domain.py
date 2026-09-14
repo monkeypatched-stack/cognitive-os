@@ -36,6 +36,7 @@ not a new near-duplicate type). This is reuse of a pure-data type Step
 10.1 already proved has zero runtime coupling, not a dependency on
 LearningEngine.
 """
+
 from __future__ import annotations
 
 import time
@@ -53,6 +54,7 @@ class PredictionConfidence:
     (Risk & Uncertainty Analysis) needs somewhere to attach confidence
     intervals and named uncertainty sources; this is that shape, defined
     now as data, filled in with real interval math later."""
+
     point_estimate: float = 0.5
     lower_bound: float = 0.0
     upper_bound: float = 1.0
@@ -63,6 +65,7 @@ class PredictionConfidence:
 @dataclass(frozen=True)
 class PredictionOutcome:
     """One predicted outcome of a candidate future."""
+
     description: str = ""
     success: bool = False
     probability: float = 0.0
@@ -74,6 +77,7 @@ class PredictionOutcome:
 class Prediction:
     """The central type — one complete predicted future, given a belief
     state, a world snapshot, and a set of assumptions."""
+
     prediction_id: str = field(default_factory=lambda: uuid4().hex)
     belief_state: Any = None
     world_snapshot: Any = None
@@ -94,6 +98,7 @@ class PredictionRequest:
     were (see module docstring): must work with whatever the actual
     planning/execution engines in use produced, not just the rich Step
     8.7/9.7 pipelines."""
+
     request_id: str = field(default_factory=lambda: uuid4().hex)
     goal: Any = None
     plan: Any = None
@@ -111,6 +116,7 @@ class PredictionContext:
     mirrors PlanningContext (8.1) / ExecutionContext (9.1) /
     LearningContext (10.1): the request plus whatever assumptions and
     candidates have accumulated so far in this cycle."""
+
     request: PredictionRequest = field(default_factory=PredictionRequest)
     assumptions: tuple[str, ...] = ()
     candidates: tuple[PredictionCandidate, ...] = ()
@@ -123,6 +129,7 @@ class PredictionCandidate:
     is and whether it was rejected. Mirrors PlanCandidate (8.1) wrapping
     Plan, and matches the acceptance criteria's "Scenario A / Scenario B /
     Scenario C" shape (scenario_label + probability)."""
+
     candidate_id: str = field(default_factory=lambda: uuid4().hex)
     prediction: Prediction = field(default_factory=Prediction)
     scenario_label: str = ""
@@ -139,6 +146,7 @@ class PredictionTrace:
     invented early here"). Step 11.9 builds the real explainability
     engine (scenarios explored, rejected futures, confidence rationale)
     on top of this shape."""
+
     trace_id: str = field(default_factory=lambda: uuid4().hex)
     entries: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -149,6 +157,7 @@ class PredictionResult:
     """The prediction subsystem's final output — mirrors LearningResult
     (10.1) as "the enhanced stage output": which candidate was selected,
     every candidate considered, and why."""
+
     prediction_id: str = ""
     candidates: tuple[PredictionCandidate, ...] = ()
     selected: PredictionCandidate | None = None

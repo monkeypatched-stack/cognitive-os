@@ -39,6 +39,7 @@ the eligible set by trust_level afterward
 architecture requires: Affiliation Graph -> Eligible Participants ->
 Trust Network Ranking.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -86,13 +87,20 @@ class AffiliationGraph:
             if result is not None:
                 reason, extra = result
                 return CommunicationDecision(
-                    allowed=True, sender_id=sender_id, recipient_id=recipient_id,
-                    sender_affiliations=sender_targets, recipient_affiliations=recipient_targets,
-                    reason=reason, **extra,
+                    allowed=True,
+                    sender_id=sender_id,
+                    recipient_id=recipient_id,
+                    sender_affiliations=sender_targets,
+                    recipient_affiliations=recipient_targets,
+                    reason=reason,
+                    **extra,
                 )
         return CommunicationDecision(
-            allowed=False, sender_id=sender_id, recipient_id=recipient_id,
-            sender_affiliations=sender_targets, recipient_affiliations=recipient_targets,
+            allowed=False,
+            sender_id=sender_id,
+            recipient_id=recipient_id,
+            sender_affiliations=sender_targets,
+            recipient_affiliations=recipient_targets,
             reason="no eligible communication pattern",
         )
 
@@ -110,7 +118,8 @@ class AffiliationGraph:
         if affiliations is None:
             return []
         return [
-            a for a in affiliations.by_target(target_id)
+            a
+            for a in affiliations.by_target(target_id)
             if getattr(a, "affiliation_type", "") not in _NON_NEGOTIABLE_TYPES
         ]
 
@@ -119,7 +128,8 @@ class AffiliationGraph:
         if affiliations is None:
             return set()
         return {
-            a.target_id for a in affiliations.active()
+            a.target_id
+            for a in affiliations.active()
             if a.target_id and getattr(a, "affiliation_type", "") not in _NON_NEGOTIABLE_TYPES
         }
 
@@ -147,7 +157,10 @@ class AffiliationGraph:
         # bidirectional=True is sufficient even when the mirroring bridge
         # never ran (e.g. bootstrap-seeded data) — covers real relationships
         # without requiring a perfectly mirrored copy on both sides.
-        for source_id, target_id in ((sender_id, recipient_id), (recipient_id, sender_id)):
+        for source_id, target_id in (
+            (sender_id, recipient_id),
+            (recipient_id, sender_id),
+        ):
             for a in self._negotiable(self._affiliations_for(source_id), target_id):
                 type_info = getattr(a, "type_info", None)
                 if type_info is not None and type_info.bidirectional:
@@ -223,7 +236,10 @@ class AffiliationGraph:
         if registry is None or membership_registry is None:
             return None
         delegations = getattr(registry, "_delegations", {})
-        for delegate_id, owner_id in ((sender_id, recipient_id), (recipient_id, sender_id)):
+        for delegate_id, owner_id in (
+            (sender_id, recipient_id),
+            (recipient_id, sender_id),
+        ):
             for delegation in delegations.values():
                 if delegation.delegate_actor_id != delegate_id:
                     continue

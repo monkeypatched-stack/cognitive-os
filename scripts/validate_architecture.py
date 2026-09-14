@@ -5,6 +5,7 @@ PLAN → EXECUTE → SIMULATE → LEARN
 
 Validates all architectural invariants for each scenario.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,12 +18,36 @@ BASE_URL = "http://localhost:8031/api/v1/agentos"
 
 SCENARIOS = [
     {"name": "Todo Management", "query": "todo agent", "domain": "personal"},
-    {"name": "Ecommerce – Place Order", "query": "place an ecommerce order", "domain": "ecommerce"},
-    {"name": "Ecommerce – Order Management", "query": "manage ecommerce orders", "domain": "ecommerce"},
-    {"name": "Ecommerce – Warehouse Management", "query": "manage ecommerce warehouse", "domain": "ecommerce"},
-    {"name": "Ecommerce – Inventory Management", "query": "manage ecommerce inventory", "domain": "ecommerce"},
-    {"name": "Ecommerce – Shipping Management", "query": "manage ecommerce shipping", "domain": "ecommerce"},
-    {"name": "Robotics / AMR Fleet Management", "query": "manage autonomous mobile robots", "domain": "robotics"},
+    {
+        "name": "Ecommerce – Place Order",
+        "query": "place an ecommerce order",
+        "domain": "ecommerce",
+    },
+    {
+        "name": "Ecommerce – Order Management",
+        "query": "manage ecommerce orders",
+        "domain": "ecommerce",
+    },
+    {
+        "name": "Ecommerce – Warehouse Management",
+        "query": "manage ecommerce warehouse",
+        "domain": "ecommerce",
+    },
+    {
+        "name": "Ecommerce – Inventory Management",
+        "query": "manage ecommerce inventory",
+        "domain": "ecommerce",
+    },
+    {
+        "name": "Ecommerce – Shipping Management",
+        "query": "manage ecommerce shipping",
+        "domain": "ecommerce",
+    },
+    {
+        "name": "Robotics / AMR Fleet Management",
+        "query": "manage autonomous mobile robots",
+        "domain": "robotics",
+    },
 ]
 
 
@@ -63,8 +88,11 @@ def run_scenario(scenario: dict) -> dict[str, Any]:
         planning_ok = bool(graph_id) and bool(run_id) and len(nodes) > 0
         result["planning"]["status"] = "PASS" if planning_ok else "FAIL"
         result["planning"]["details"] = {
-            "graph_id": graph_id, "run_id": run_id,
-            "nodes": len(nodes), "edges": len(edges), "layers": len(order),
+            "graph_id": graph_id,
+            "run_id": run_id,
+            "nodes": len(nodes),
+            "edges": len(edges),
+            "layers": len(order),
             "latency_ms": round(plan_latency, 2),
             "intent_ir": "present" if plan.get("intent_ir") else "missing",
         }
@@ -86,9 +114,7 @@ def run_scenario(scenario: dict) -> dict[str, Any]:
         exec_edges = exec_graph.get("edges", [])
         exec_order = exec_graph.get("execution_order", [])
 
-        exec_ok = (exec_graph_id == graph_id and
-                   len(exec_nodes) == len(nodes) and
-                   len(exec_edges) == len(edges))
+        exec_ok = exec_graph_id == graph_id and len(exec_nodes) == len(nodes) and len(exec_edges) == len(edges)
         result["execution"]["status"] = "PASS" if exec_ok else "FAIL"
         result["execution"]["details"] = {
             "graph_id_match": exec_graph_id == graph_id,
@@ -114,9 +140,7 @@ def run_scenario(scenario: dict) -> dict[str, Any]:
         sim_edges = sim_graph.get("edges", [])
         sim_order = sim_graph.get("execution_order", [])
 
-        sim_ok = (sim_graph_id == graph_id and
-                  len(sim_nodes) == len(nodes) and
-                  len(sim_edges) == len(edges))
+        sim_ok = sim_graph_id == graph_id and len(sim_nodes) == len(nodes) and len(sim_edges) == len(edges)
         result["simulation"]["status"] = "PASS" if sim_ok else "FAIL"
         result["simulation"]["details"] = {
             "graph_id_match": sim_graph_id == graph_id,
@@ -206,7 +230,9 @@ def main():
 
         details = result["planning"]["details"]
         if details:
-            print(f"  Graph: {details.get('graph_id', '?')[:12]}... nodes={details.get('nodes', 0)} edges={details.get('edges', 0)}")
+            print(
+                f"  Graph: {details.get('graph_id', '?')[:12]}... nodes={details.get('nodes', 0)} edges={details.get('edges', 0)}"
+            )
         print()
 
     print("=" * 70)
@@ -254,7 +280,9 @@ def main():
         p = r["planning"]["details"]
         e = r["execution"]["details"]
         l = r["learning"]["details"]
-        print(f"    {r['scenario'][:30]:30} plan={p.get('latency_ms', 0):>8.0f}ms  exec={e.get('latency_ms', 0):>8.0f}ms  Q={l.get('final_q_value', 0):.3f}  ppl={l.get('final_perplexity', 0):.3f}")
+        print(
+            f"    {r['scenario'][:30]:30} plan={p.get('latency_ms', 0):>8.0f}ms  exec={e.get('latency_ms', 0):>8.0f}ms  Q={l.get('final_q_value', 0):.3f}  ppl={l.get('final_perplexity', 0):.3f}"
+        )
 
     print()
     if failed == 0:

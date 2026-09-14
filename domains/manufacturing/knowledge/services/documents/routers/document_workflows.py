@@ -42,7 +42,9 @@ async def list_document_workflows_by_document(
     return await crud.get_by_document_id(db, document_id)
 
 
-@router.get("/by-status/{workflow_status}", response_model=list[DocumentWorkflowResponse])
+@router.get(
+    "/by-status/{workflow_status}", response_model=list[DocumentWorkflowResponse]
+)
 async def list_document_workflows_by_status(
     workflow_status: DocumentWorkflowStatus,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -75,7 +77,9 @@ async def get_document_workflow(
     return record
 
 
-@router.post("/", response_model=DocumentWorkflowResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=DocumentWorkflowResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_document_workflow(
     data: DocumentWorkflowCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

@@ -2,8 +2,11 @@
 
 No hardcoded prompts. The spec defines the agent's reasoning, constraints, and output format.
 """
+
 from __future__ import annotations
-import json, logging, re
+import json
+import logging
+import re
 from typing import Any
 from ._base import BaseETASSAgent
 
@@ -23,6 +26,7 @@ class CingulateAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
@@ -41,6 +45,7 @@ class CingulateAgent(BaseETASSAgent):
     async def _spec_llm(self, context: dict):
         """Compile governance_review.yaml spec and call ModelBackend."""
         import os
+
         if not os.environ.get("ANTHROPIC_API_KEY"):
             self._reward(True)
             return self._result(
@@ -64,7 +69,7 @@ class CingulateAgent(BaseETASSAgent):
                 ),
                 max_tokens=1024,
             )
-            m = re.search(r'\{.*\}', raw, re.DOTALL)
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
             data = json.loads(m.group(0)) if m else {"compliant": True}
             compliant = data.get("compliant", True)
             self._reward(compliant)

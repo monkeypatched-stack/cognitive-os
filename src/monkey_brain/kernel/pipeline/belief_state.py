@@ -17,6 +17,7 @@ This is NOT the same as ActorBelief (compile/actor_belief.py).
 ActorBelief is a tensor-based belief model for the world graph.
 BeliefState is the pipeline's cognitive state abstraction.
 """
+
 from __future__ import annotations
 
 import time
@@ -76,6 +77,7 @@ def _json_safe(value: Any) -> Any:
 @dataclass(frozen=True)
 class Intent:
     """Classified intent from the compiler."""
+
     type: str = ""
     confidence: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -84,6 +86,7 @@ class Intent:
 @dataclass(frozen=True)
 class Goal:
     """Resolved goal from the compiler."""
+
     name: str = ""
     description: str = ""
     success_criteria: tuple[str, ...] = ()
@@ -94,6 +97,7 @@ class Goal:
 @dataclass(frozen=True)
 class Observation:
     """A raw observation from the world."""
+
     entity: str = ""
     description: str = ""
     source: str = "world"
@@ -109,6 +113,7 @@ class Observation:
 @dataclass(frozen=True)
 class Fact:
     """A grounded fact about the world."""
+
     entity: str = ""
     attribute: str = ""
     value: Any = None
@@ -120,6 +125,7 @@ class Fact:
 @dataclass(frozen=True)
 class Hypothesis:
     """An inferred belief that may or may not be true."""
+
     claim: str = ""
     confidence: float = 0.5
     evidence: tuple[str, ...] = ()
@@ -129,6 +135,7 @@ class Hypothesis:
 @dataclass(frozen=True)
 class Assumption:
     """Something taken for granted unless challenged."""
+
     statement: str = ""
     confidence: float = 0.8
     source: str = "default"
@@ -138,6 +145,7 @@ class Assumption:
 @dataclass
 class Uncertainty:
     """Quantified uncertainty about the belief state."""
+
     confidence: float = 0.5
     confidence_by_source: dict[str, float] = field(default_factory=dict)
     entropy: float = 0.0
@@ -146,6 +154,7 @@ class Uncertainty:
 @dataclass
 class WorkingMemoryEntry:
     """A temporary entry in working memory."""
+
     key: str = ""
     value: Any = None
     expires_at: float = 0.0
@@ -154,6 +163,7 @@ class WorkingMemoryEntry:
 @dataclass(frozen=True)
 class LongTermMemoryEntry:
     """A retained entry across reasoning cycles."""
+
     key: str = ""
     value: Any = None
     confidence: float = 1.0
@@ -167,6 +177,7 @@ class Plan:
     Plans are semantic objects — they describe WHAT to do,
     not HOW to execute. Execution is a separate concern.
     """
+
     goal: str = ""
     """What the plan aims to achieve."""
     preconditions: tuple[str, ...] = ()
@@ -194,6 +205,7 @@ class Plan:
 @dataclass(frozen=True)
 class PlanStep:
     """A single step in a plan."""
+
     action: str = ""
     """What to do (e.g. 'find_milk', 'add_to_cart')."""
     description: str = ""
@@ -242,6 +254,7 @@ class PlanStep:
 @dataclass(frozen=True)
 class PlanEvaluation:
     """Result of evaluating a plan."""
+
     plan: Plan
     """The evaluated plan."""
     feasible: bool = True
@@ -257,6 +270,7 @@ class PlanEvaluation:
 @dataclass(frozen=True)
 class Prediction:
     """A predicted future state."""
+
     description: str = ""
     confidence: float = 0.5
     based_on: tuple[str, ...] = ()
@@ -265,6 +279,7 @@ class Prediction:
 @dataclass(frozen=True)
 class LearnedUpdate:
     """Knowledge acquired during a reasoning cycle."""
+
     what: str = ""
     evidence: tuple[str, ...] = ()
     confidence: float = 0.5
@@ -274,6 +289,7 @@ class LearnedUpdate:
 @dataclass(frozen=True)
 class BeliefSnapshot:
     """Immutable snapshot of a belief state at a point in time."""
+
     version: int = 0
     actor_id: str = ""
     tenant_id: str = ""
@@ -293,6 +309,7 @@ class BeliefSnapshot:
 # BeliefState — the canonical cognitive model
 # ════════════════════════════════════════════════════════════════════════════
 
+
 def _normalize_goal_key(name: str) -> str:
     """Thin wrapper over kernel/pipeline/planning/goal_key.py::canonicalize_goal
     — the SAME normalization every other goal-scoped lookup in the planning/
@@ -306,6 +323,7 @@ def _normalize_goal_key(name: str) -> str:
     This is the same lazy-import convention belief_runtime.py already uses
     for its own kernel.pipeline.planning.* imports."""
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
+
     return canonicalize_goal(name)
 
 
@@ -414,11 +432,13 @@ class BeliefState:
         every single tick, forever."""
         from src.monkey_brain.kernel.timeline.entry import TimelineKind
         from src.monkey_brain.kernel.timeline.store import TimelineStore
+
         record = TimelineStore().current(self.actor_id, TimelineKind.GOAL)
         if record is None or getattr(record, "status", "active") != "active":
             return Goal()
         return Goal(
-            name=record.name, description=record.description,
+            name=record.name,
+            description=record.description,
             success_criteria=record.success_criteria,
             optimization_objective=record.optimization_objective,
         )
@@ -430,7 +450,8 @@ class BeliefState:
         rather than calling update_goal() — route it through the same
         idempotent timeline-append path."""
         self.update_goal(
-            name=value.name, description=value.description,
+            name=value.name,
+            description=value.description,
             success_criteria=list(value.success_criteria),
             optimization_objective=value.optimization_objective,
         )
@@ -439,49 +460,83 @@ class BeliefState:
     # Semantic API
     # ══════════════════════════════════════════════════════════════════════
 
-    def add_observation(self, entity: str, description: str,
-                        source: str = "world", confidence: float = 1.0) -> None:
-        self.observations.append(Observation(
-            entity=entity, description=description,
-            source=source, confidence=confidence,
-        ))
+    def add_observation(
+        self,
+        entity: str,
+        description: str,
+        source: str = "world",
+        confidence: float = 1.0,
+    ) -> None:
+        self.observations.append(
+            Observation(
+                entity=entity,
+                description=description,
+                source=source,
+                confidence=confidence,
+            )
+        )
         self._touch()
 
-    def add_fact(self, entity: str, attribute: str, value: Any,
-                 confidence: float = 1.0, source: str = "observation") -> None:
-        self.facts.append(Fact(
-            entity=entity, attribute=attribute, value=value,
-            confidence=confidence, source=source,
-        ))
+    def add_fact(
+        self,
+        entity: str,
+        attribute: str,
+        value: Any,
+        confidence: float = 1.0,
+        source: str = "observation",
+    ) -> None:
+        self.facts.append(
+            Fact(
+                entity=entity,
+                attribute=attribute,
+                value=value,
+                confidence=confidence,
+                source=source,
+            )
+        )
         self._touch()
 
-    def add_hypothesis(self, claim: str, confidence: float = 0.5,
-                       evidence: list[str] | None = None) -> None:
+    def add_hypothesis(self, claim: str, confidence: float = 0.5, evidence: list[str] | None = None) -> None:
         # Hypothesis.evidence is tuple[str, ...] — same class of bug as
         # update_plan()'s (see its own comment): passing the caller's
         # list straight through violates the dataclass's own declared
         # type from the moment of construction, not only on a later
         # serialize/deserialize round trip.
-        self.hypotheses.append(Hypothesis(
-            claim=claim, confidence=confidence, evidence=tuple(evidence or ()),
-        ))
+        self.hypotheses.append(
+            Hypothesis(
+                claim=claim,
+                confidence=confidence,
+                evidence=tuple(evidence or ()),
+            )
+        )
         self._touch()
 
-    def add_assumption(self, statement: str, confidence: float = 0.8,
-                       source: str = "default") -> None:
-        self.assumptions.append(Assumption(
-            statement=statement, confidence=confidence, source=source,
-        ))
+    def add_assumption(self, statement: str, confidence: float = 0.8, source: str = "default") -> None:
+        self.assumptions.append(
+            Assumption(
+                statement=statement,
+                confidence=confidence,
+                source=source,
+            )
+        )
         self._touch()
 
-    def update_intent(self, intent_type: str, confidence: float = 1.0,
-                      metadata: dict[str, Any] | None = None) -> None:
+    def update_intent(
+        self,
+        intent_type: str,
+        confidence: float = 1.0,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         self.intent = Intent(type=intent_type, confidence=confidence, metadata=metadata or {})
         self._touch()
 
-    def update_goal(self, name: str, description: str = "",
-                    success_criteria: list[str] | None = None,
-                    optimization_objective: str = "") -> None:
+    def update_goal(
+        self,
+        name: str,
+        description: str = "",
+        success_criteria: list[str] | None = None,
+        optimization_objective: str = "",
+    ) -> None:
         """Append a new GoalRecord to the actor's GoalTimeline — replaces
         the old "self.goal = Goal(...)" wholesale overwrite. _update_beliefs
         (belief_runtime.py) calls this every tick even when the goal hasn't
@@ -518,22 +573,28 @@ class BeliefState:
         # docstring) -- description needs exact comparison, since two
         # different one-off questions are never "the same goal" just
         # because they happen to share punctuation-normalized text.
-        if (_normalize_goal_key(current.name) == _normalize_goal_key(name)
-                and current.description == description
-                and current.success_criteria == criteria
-                and current.optimization_objective == optimization_objective):
+        if (
+            _normalize_goal_key(current.name) == _normalize_goal_key(name)
+            and current.description == description
+            and current.success_criteria == criteria
+            and current.optimization_objective == optimization_objective
+        ):
             return
         from src.monkey_brain.kernel.timeline.entry import TimelineKind
         from src.monkey_brain.kernel.timeline.store import TimelineStore
+
         TimelineStore().record(
-            TimelineKind.GOAL, actor_id=self.actor_id, name=name, description=description,
-            success_criteria=criteria, optimization_objective=optimization_objective,
+            TimelineKind.GOAL,
+            actor_id=self.actor_id,
+            name=name,
+            description=description,
+            success_criteria=criteria,
+            optimization_objective=optimization_objective,
             status="active",
         )
         self._touch()
 
-    def update_plan(self, steps: list[str], start_state: str = "",
-                    goal_state: str = "") -> None:
+    def update_plan(self, steps: list[str], start_state: str = "", goal_state: str = "") -> None:
         # Plan.steps is tuple[PlanStep, ...] — every real production
         # planner (llm_planner.py, current_plan_store.py::plan_from_dict)
         # already constructs real PlanStep objects. Storing bare action
@@ -547,32 +608,47 @@ class BeliefState:
         # restored.
         self.plan = Plan(
             steps=tuple(PlanStep(action=s, description=s) for s in steps),
-            start_state=start_state, goal_state=goal_state,
+            start_state=start_state,
+            goal_state=goal_state,
         )
         self._touch()
 
-    def record_prediction(self, description: str, confidence: float = 0.5,
-                          based_on: list[str] | None = None) -> None:
+    def record_prediction(
+        self,
+        description: str,
+        confidence: float = 0.5,
+        based_on: list[str] | None = None,
+    ) -> None:
         # Prediction.based_on is tuple[str, ...] — same construction-time
         # type-contract gap as add_hypothesis/update_plan above.
-        self.predictions.append(Prediction(
-            description=description, confidence=confidence, based_on=tuple(based_on or ()),
-        ))
+        self.predictions.append(
+            Prediction(
+                description=description,
+                confidence=confidence,
+                based_on=tuple(based_on or ()),
+            )
+        )
         self._touch()
 
-    def record_learning(self, what: str, evidence: list[str] | None = None,
-                        confidence: float = 0.5) -> None:
+    def record_learning(self, what: str, evidence: list[str] | None = None, confidence: float = 0.5) -> None:
         # LearnedUpdate.evidence is tuple[str, ...] — same gap.
-        self.learned_updates.append(LearnedUpdate(
-            what=what, evidence=tuple(evidence or ()), confidence=confidence,
-        ))
+        self.learned_updates.append(
+            LearnedUpdate(
+                what=what,
+                evidence=tuple(evidence or ()),
+                confidence=confidence,
+            )
+        )
         self._touch()
 
-    def add_to_working_memory(self, key: str, value: Any,
-                               ttl_seconds: float = 300.0) -> None:
-        self.working_memory.append(WorkingMemoryEntry(
-            key=key, value=value, expires_at=time.time() + ttl_seconds,
-        ))
+    def add_to_working_memory(self, key: str, value: Any, ttl_seconds: float = 300.0) -> None:
+        self.working_memory.append(
+            WorkingMemoryEntry(
+                key=key,
+                value=value,
+                expires_at=time.time() + ttl_seconds,
+            )
+        )
         self._touch()
 
     # ══════════════════════════════════════════════════════════════════════
@@ -654,11 +730,16 @@ class BeliefState:
             # the clamped value).
             clamped = max(decayed, fact_confidence_floor)
             if decayed >= fact_prune_threshold:
-                new_facts.append(Fact(
-                    entity=fact.entity, attribute=fact.attribute,
-                    value=fact.value, confidence=round(clamped, 4),
-                    source=fact.source, observed_at=fact.observed_at,
-                ))
+                new_facts.append(
+                    Fact(
+                        entity=fact.entity,
+                        attribute=fact.attribute,
+                        value=fact.value,
+                        confidence=round(clamped, 4),
+                        source=fact.source,
+                        observed_at=fact.observed_at,
+                    )
+                )
             else:
                 pruned_facts += 1
         self.facts = new_facts
@@ -676,10 +757,14 @@ class BeliefState:
             age_ticks = max(1, (now - hyp.created_at) / 10.0)
             decayed = hyp.confidence * ((1.0 - decay_rate) ** age_ticks)
             if decayed >= hypothesis_prune_threshold:
-                new_hypotheses.append(Hypothesis(
-                    claim=hyp.claim, confidence=round(decayed, 4),
-                    evidence=hyp.evidence, created_at=hyp.created_at,
-                ))
+                new_hypotheses.append(
+                    Hypothesis(
+                        claim=hyp.claim,
+                        confidence=round(decayed, 4),
+                        evidence=hyp.evidence,
+                        created_at=hyp.created_at,
+                    )
+                )
             else:
                 pruned_hypotheses += 1
         self.hypotheses = new_hypotheses
@@ -720,7 +805,8 @@ class BeliefState:
 
         self._touch()
         return {
-            "pruned_facts": pruned_facts, "pruned_hypotheses": pruned_hypotheses,
+            "pruned_facts": pruned_facts,
+            "pruned_hypotheses": pruned_hypotheses,
             "pruned_working_memory": pruned_working_memory,
             "pruned_observations": pruned_observations,
             "pruned_learned_updates": pruned_learned_updates,
@@ -747,9 +833,13 @@ class BeliefState:
 
     def snapshot(self) -> BeliefSnapshot:
         return BeliefSnapshot(
-            version=self.version, actor_id=self.actor_id, tenant_id=self.tenant_id,
-            intent_type=self.intent.type, goal_name=self.goal.name,
-            facts_count=len(self.facts), hypotheses_count=len(self.hypotheses),
+            version=self.version,
+            actor_id=self.actor_id,
+            tenant_id=self.tenant_id,
+            intent_type=self.intent.type,
+            goal_name=self.goal.name,
+            facts_count=len(self.facts),
+            hypotheses_count=len(self.hypotheses),
             observations_count=len(self.observations),
             confidence=self.uncertainty.confidence,
             plan_steps=len(self.plan.steps),
@@ -759,8 +849,11 @@ class BeliefState:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "version": self.version, "actor_id": self.actor_id, "tenant_id": self.tenant_id,
-            "intent": asdict(self.intent), "goal": asdict(self.goal),
+            "version": self.version,
+            "actor_id": self.actor_id,
+            "tenant_id": self.tenant_id,
+            "intent": asdict(self.intent),
+            "goal": asdict(self.goal),
             "observations": [asdict(o) for o in self.observations],
             "facts": [asdict(f) for f in self.facts],
             "hypotheses": [asdict(h) for h in self.hypotheses],
@@ -778,7 +871,8 @@ class BeliefState:
             "working_memory_count": len(self.working_memory),
             "long_term_memory_count": len(self.long_term_memory),
             "metadata": _json_safe(self.metadata),
-            "created_at": self.created_at, "updated_at": self.updated_at,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
         }
 
     @classmethod
@@ -803,11 +897,13 @@ class BeliefState:
         # same fix current_plan_store.py::plan_from_dict already applies
         # to its own PlanStep reconstruction, for the identical reason.
         plan_data["steps"] = tuple(
-            PlanStep(**{
-                **s,
-                "preconditions": tuple(s.get("preconditions", ()) or ()),
-                "depends_on": tuple(s.get("depends_on", ()) or ()),
-            })
+            PlanStep(
+                **{
+                    **s,
+                    "preconditions": tuple(s.get("preconditions", ()) or ()),
+                    "depends_on": tuple(s.get("depends_on", ()) or ()),
+                }
+            )
             for s in plan_data.get("steps", ())
         )
         plan_data["preconditions"] = tuple(plan_data.get("preconditions", ()))
@@ -820,8 +916,7 @@ class BeliefState:
             observations=[Observation(**o) for o in data.get("observations", ())],
             facts=[Fact(**f) for f in data.get("facts", ())],
             hypotheses=[
-                Hypothesis(**{**h, "evidence": tuple(h.get("evidence", ()) or ())})
-                for h in data.get("hypotheses", ())
+                Hypothesis(**{**h, "evidence": tuple(h.get("evidence", ()) or ())}) for h in data.get("hypotheses", ())
             ],
             assumptions=[Assumption(**a) for a in data.get("assumptions", ())],
             uncertainty=Uncertainty(**data.get("uncertainty", {})),
@@ -829,8 +924,7 @@ class BeliefState:
             long_term_memory=[LongTermMemoryEntry(**l) for l in data.get("long_term_memory", ())],
             plan=Plan(**plan_data),
             predictions=[
-                Prediction(**{**p, "based_on": tuple(p.get("based_on", ()) or ())})
-                for p in data.get("predictions", ())
+                Prediction(**{**p, "based_on": tuple(p.get("based_on", ()) or ())}) for p in data.get("predictions", ())
             ],
             learned_updates=[
                 LearnedUpdate(**{**l, "evidence": tuple(l.get("evidence", ()) or ())})
@@ -844,14 +938,20 @@ class BeliefState:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "actor_id": self.actor_id, "tenant_id": self.tenant_id,
-            "intent": self.intent.type, "goal": self.goal.name,
-            "observations": len(self.observations), "facts": len(self.facts),
-            "hypotheses": len(self.hypotheses), "assumptions": len(self.assumptions),
+            "actor_id": self.actor_id,
+            "tenant_id": self.tenant_id,
+            "intent": self.intent.type,
+            "goal": self.goal.name,
+            "observations": len(self.observations),
+            "facts": len(self.facts),
+            "hypotheses": len(self.hypotheses),
+            "assumptions": len(self.assumptions),
             "confidence": round(self.uncertainty.confidence, 3),
-            "plan_steps": len(self.plan.steps), "predictions": len(self.predictions),
+            "plan_steps": len(self.plan.steps),
+            "predictions": len(self.predictions),
             "learned": len(self.learned_updates),
-            "working_memory": len(self.working_memory), "version": self.version,
+            "working_memory": len(self.working_memory),
+            "version": self.version,
         }
 
     def _touch(self) -> None:

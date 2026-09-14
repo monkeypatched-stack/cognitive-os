@@ -29,7 +29,11 @@ Example usage:
     router.print_stats()
 """
 
-from src.hybrid.query_classifier import QueryTypeClassifier, QueryType, QueryClassification
+from src.hybrid.query_classifier import (
+    QueryTypeClassifier,
+    QueryType,
+    QueryClassification,
+)
 from src.hybrid.session_manager import SessionManager, ConversationContext, Message
 from src.hybrid.handlers import (
     BaseHandler,
@@ -38,7 +42,7 @@ from src.hybrid.handlers import (
     ReasoningHandler,
     ConversationalHandler,
     RealtimeHandler,
-    HandlerResponse
+    HandlerResponse,
 )
 from src.hybrid.hybrid_router import HybridRouter, RoutingDecision, RouterResponse
 
@@ -58,5 +62,5 @@ __all__ = [
     "ReasoningHandler",
     "ConversationalHandler",
     "RealtimeHandler",
-    "HandlerResponse"
+    "HandlerResponse",
 ]

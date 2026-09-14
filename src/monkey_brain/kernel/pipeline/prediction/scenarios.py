@@ -17,13 +17,17 @@ fields were built specifically to match "Scenario A: Store open, Success
 96%" -- this step is what finally populates them from a real
 RiskAssessment (Step 11.5) instead of leaving them at defaults.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 from src.monkey_brain.kernel.pipeline.prediction.domain import (
-    Prediction, PredictionCandidate, PredictionOutcome, PredictionResult,
+    Prediction,
+    PredictionCandidate,
+    PredictionOutcome,
+    PredictionResult,
 )
 from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationTrajectory
 from src.monkey_brain.kernel.pipeline.prediction.risk import RiskEngine
@@ -46,6 +50,7 @@ every multi-step plan for having multiple steps."""
 class ScenarioInput:
     """One candidate future to evaluate: a label plus the trajectory that
     represents it, however it was produced."""
+
     label: str = ""
     trajectory: SimulationTrajectory = field(default_factory=SimulationTrajectory)
     assumptions: tuple[str, ...] = ()
@@ -62,6 +67,7 @@ class ScenarioParticipation:
     registered CounterfactualAssumption) were independently run through
     that one algorithm. This record makes that observable without relying
     on logs alone."""
+
     scenarios_required: tuple[str, ...] = ()
     scenarios_invoked: tuple[str, ...] = ()
     scenarios_succeeded: tuple[str, ...] = ()
@@ -83,7 +89,9 @@ class ScenarioParticipation:
 
 
 def build_scenario_participation(
-    baseline_label: str, assumption_labels: tuple[str, ...], branches: tuple[Any, ...],
+    baseline_label: str,
+    assumption_labels: tuple[str, ...],
+    branches: tuple[Any, ...],
 ) -> ScenarioParticipation:
     """Pure. `branches` is duck-typed exactly like scenarios_from_
     counterfactuals() below (`.assumption.description`/`.category`,
@@ -117,13 +125,17 @@ def build_scenario_participation(
         status = "failed"
 
     return ScenarioParticipation(
-        scenarios_required=required, scenarios_invoked=tuple(invoked),
-        scenarios_succeeded=tuple(succeeded), scenarios_failed=tuple(failed),
+        scenarios_required=required,
+        scenarios_invoked=tuple(invoked),
+        scenarios_succeeded=tuple(succeeded),
+        scenarios_failed=tuple(failed),
         aggregation_status=status,
     )
 
 
-def scenarios_from_counterfactuals(baseline_label: str, baseline: SimulationTrajectory, branches: tuple[Any, ...]) -> tuple[ScenarioInput, ...]:
+def scenarios_from_counterfactuals(
+    baseline_label: str, baseline: SimulationTrajectory, branches: tuple[Any, ...]
+) -> tuple[ScenarioInput, ...]:
     """Convenience bridge from Step 11.4's CounterfactualEngine output:
     the baseline trajectory plus every branch, each becoming its own
     ScenarioInput. `branches` is duck-typed (`.assumption.description`/
@@ -154,13 +166,21 @@ class ScenarioEvaluator:
     """Risk-assesses, ranks, and recommends among multiple candidate
     scenarios for the same plan."""
 
-    def __init__(self, risk_engine: RiskEngine | None = None, rejection_threshold: float = DEFAULT_REJECTION_THRESHOLD) -> None:
+    def __init__(
+        self,
+        risk_engine: RiskEngine | None = None,
+        rejection_threshold: float = DEFAULT_REJECTION_THRESHOLD,
+    ) -> None:
         self._risk_engine = risk_engine or RiskEngine()
         self._rejection_threshold = rejection_threshold
 
     def evaluate(
-        self, scenario: ScenarioInput, *, time_horizon: float = 0.0,
-        provenance: Provenance | None = None, prediction_id: str | None = None,
+        self,
+        scenario: ScenarioInput,
+        *,
+        time_horizon: float = 0.0,
+        provenance: Provenance | None = None,
+        prediction_id: str | None = None,
     ) -> PredictionCandidate:
         """One scenario -> one risk-assessed PredictionCandidate.
 
@@ -191,7 +211,8 @@ class ScenarioEvaluator:
         rejection_reason = (
             f"Success probability {assessment.probability_of_success:.0%} "
             f"below acceptance threshold {self._rejection_threshold:.0%}"
-            if rejected else ""
+            if rejected
+            else ""
         )
         return PredictionCandidate(
             prediction=prediction,
@@ -202,11 +223,20 @@ class ScenarioEvaluator:
         )
 
     def evaluate_all(
-        self, scenarios: tuple[ScenarioInput, ...], *, time_horizon: float = 0.0,
-        provenance: Provenance | None = None, prediction_id: str | None = None,
+        self,
+        scenarios: tuple[ScenarioInput, ...],
+        *,
+        time_horizon: float = 0.0,
+        provenance: Provenance | None = None,
+        prediction_id: str | None = None,
     ) -> tuple[PredictionCandidate, ...]:
         return tuple(
-            self.evaluate(s, time_horizon=time_horizon, provenance=provenance, prediction_id=prediction_id)
+            self.evaluate(
+                s,
+                time_horizon=time_horizon,
+                provenance=provenance,
+                prediction_id=prediction_id,
+            )
             for s in scenarios
         )
 
@@ -217,8 +247,11 @@ class ScenarioEvaluator:
         return tuple(sorted(candidates, key=lambda c: (c.rejected, -c.probability)))
 
     def recommend(
-        self, candidates: tuple[PredictionCandidate, ...], *,
-        prediction_id: str | None = None, participation: ScenarioParticipation | None = None,
+        self,
+        candidates: tuple[PredictionCandidate, ...],
+        *,
+        prediction_id: str | None = None,
+        participation: ScenarioParticipation | None = None,
     ) -> PredictionResult:
         ranked = self.rank(candidates)
         eligible = [c for c in ranked if not c.rejected]
@@ -243,8 +276,12 @@ class ScenarioEvaluator:
         )
 
     def evaluate_and_recommend(
-        self, scenarios: tuple[ScenarioInput, ...], *, time_horizon: float = 0.0,
-        provenance: Provenance | None = None, prediction_id: str | None = None,
+        self,
+        scenarios: tuple[ScenarioInput, ...],
+        *,
+        time_horizon: float = 0.0,
+        provenance: Provenance | None = None,
+        prediction_id: str | None = None,
         participation: ScenarioParticipation | None = None,
     ) -> PredictionResult:
         """The full pipeline in one call: evaluate every scenario, rank,
@@ -253,7 +290,10 @@ class ScenarioEvaluator:
         returned PredictionResult itself -- PredictionResult.prediction_id
         was declared but never actually set before this change."""
         candidates = self.evaluate_all(
-            scenarios, time_horizon=time_horizon, provenance=provenance, prediction_id=prediction_id,
+            scenarios,
+            time_horizon=time_horizon,
+            provenance=provenance,
+            prediction_id=prediction_id,
         )
         return self.recommend(candidates, prediction_id=prediction_id, participation=participation)
 
@@ -265,24 +305,33 @@ class ScenarioEvaluator:
             t = state.applied_transition
             if t is None:
                 continue
-            outcomes.append(PredictionOutcome(
-                description=t.description,
-                # Cognitive Loop Verification: this omitted the kind !=
-                # UNKNOWN check transitions.py's own _build_prediction
-                # already applies — an "Unknown effect... (no knowledge
-                # registered)" transition (probability defaults to 0.5,
-                # see _unknown_transition) must never independently read
-                # as success=true; there's no knowledge to claim it.
-                success=t.kind != TransitionKind.UNKNOWN and t.probability >= 0.5,
-                probability=t.probability, utility=0.0,
-                metadata={"kind": t.kind.value, "step_index": state.step_index},
-            ))
+            outcomes.append(
+                PredictionOutcome(
+                    description=t.description,
+                    # Cognitive Loop Verification: this omitted the kind !=
+                    # UNKNOWN check transitions.py's own _build_prediction
+                    # already applies — an "Unknown effect... (no knowledge
+                    # registered)" transition (probability defaults to 0.5,
+                    # see _unknown_transition) must never independently read
+                    # as success=true; there's no knowledge to claim it.
+                    success=t.kind != TransitionKind.UNKNOWN and t.probability >= 0.5,
+                    probability=t.probability,
+                    utility=0.0,
+                    metadata={"kind": t.kind.value, "step_index": state.step_index},
+                )
+            )
         return tuple(outcomes)
 
-    def _build_rationale(self, ranked: tuple[PredictionCandidate, ...], selected: PredictionCandidate | None) -> str:
+    def _build_rationale(
+        self,
+        ranked: tuple[PredictionCandidate, ...],
+        selected: PredictionCandidate | None,
+    ) -> str:
         if not ranked:
             return "No scenarios evaluated."
-        summary = ", ".join(f"{c.scenario_label} {c.probability:.0%}" + (" (rejected)" if c.rejected else "") for c in ranked)
+        summary = ", ".join(
+            f"{c.scenario_label} {c.probability:.0%}" + (" (rejected)" if c.rejected else "") for c in ranked
+        )
         if selected is None:
             return f"All scenarios rejected: {summary}."
         return f"{selected.scenario_label} has the highest viable success probability ({selected.probability:.0%}). Scenarios considered: {summary}."

@@ -8,6 +8,7 @@ without needing git/filesystem machinery. End-to-end CLI-level coverage
 (the one row that requires a real audit call — "valid + audit fails") is
 in test_cli.py.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -20,9 +21,15 @@ from governance.validator import ApprovalValidationResult
 
 def _valid_result(**overrides) -> ApprovalValidationResult:
     base = dict(
-        schema_valid=True, decision_approved=True, status_approved=True,
-        handoff_matches=True, revision_matches=True, within_validity_window=True,
-        scope_covers_request=True, identity_plausible=True, integrity_valid=True,
+        schema_valid=True,
+        decision_approved=True,
+        status_approved=True,
+        handoff_matches=True,
+        revision_matches=True,
+        within_validity_window=True,
+        scope_covers_request=True,
+        identity_plausible=True,
+        integrity_valid=True,
     )
     base.update(overrides)
     return ApprovalValidationResult(**base)
@@ -32,17 +39,30 @@ class TestGovernanceDecisionStructuralInvariant:
     def test_cannot_construct_executable_true_with_failure_reasons(self):
         with pytest.raises(ValueError):
             GovernanceDecision(
-                approval_valid=True, audit_durable=True, authorized=True,
-                executable=True, failure_reasons=("X",),
+                approval_valid=True,
+                audit_durable=True,
+                authorized=True,
+                executable=True,
+                failure_reasons=("X",),
             )
 
     def test_cannot_construct_executable_true_when_a_gate_is_false(self):
         with pytest.raises(ValueError):
-            GovernanceDecision(approval_valid=True, audit_durable=False, authorized=True, executable=True)
+            GovernanceDecision(
+                approval_valid=True,
+                audit_durable=False,
+                authorized=True,
+                executable=True,
+            )
 
     def test_cannot_construct_executable_false_without_any_reason(self):
         with pytest.raises(ValueError):
-            GovernanceDecision(approval_valid=False, audit_durable=True, authorized=False, executable=False)
+            GovernanceDecision(
+                approval_valid=False,
+                audit_durable=True,
+                authorized=False,
+                executable=False,
+            )
 
     def test_valid_construction_succeeds(self):
         d = GovernanceDecision(approval_valid=True, audit_durable=True, authorized=True, executable=True)
@@ -153,14 +173,17 @@ class TestMonotonicity:
     otherwise-executable decision can only ever flip executable to False,
     never leave it True or somehow re-enable it."""
 
-    @pytest.mark.parametrize("field,value", [
-        ("within_validity_window", False),   # approval expired
-        ("scope_covers_request", False),      # scope mismatch
-        ("revision_matches", False),           # revision mismatch
-        ("decision_approved", False),          # authorization denied
-        ("handoff_matches", False),
-        ("identity_plausible", False),
-    ])
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("within_validity_window", False),  # approval expired
+            ("scope_covers_request", False),  # scope mismatch
+            ("revision_matches", False),  # revision mismatch
+            ("decision_approved", False),  # authorization denied
+            ("handoff_matches", False),
+            ("identity_plausible", False),
+        ],
+    )
     def test_introducing_a_single_failure_flips_executable_to_false(self, field, value):
         before = decide(_valid_result(), audit_durable=True)
         assert before.executable is True
@@ -175,7 +198,9 @@ class TestMonotonicity:
         after = decide(_valid_result(), audit_durable=False)
         assert after.executable is False
 
-    def test_no_combination_of_starting_false_ever_becomes_true_by_adding_more_failures(self):
+    def test_no_combination_of_starting_false_ever_becomes_true_by_adding_more_failures(
+        self,
+    ):
         """Adding failures to an already-false decision must never surface
         executable=True — monotonicity is one-directional."""
         already_bad = _valid_result(revision_matches=False)

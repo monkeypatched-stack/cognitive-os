@@ -35,21 +35,22 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # MeshNodeState — lifecycle of a slot in the mesh
 # ---------------------------------------------------------------------------
 
+
 class MeshNodeState(Enum):
-    IDLE       = auto()   # spawned, awaiting task
-    RUNNING    = auto()   # executing
-    MERGING    = auto()   # writing knowledge back before exit
-    TERMINATED = auto()   # done; knowledge merged
+    IDLE = auto()  # spawned, awaiting task
+    RUNNING = auto()  # executing
+    MERGING = auto()  # writing knowledge back before exit
+    TERMINATED = auto()  # done; knowledge merged
 
 
 # ---------------------------------------------------------------------------
 # MeshNode — a running slot (wraps agent_type from BrocaAgentRegistry)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class MeshNode:
@@ -59,16 +60,17 @@ class MeshNode:
     All behaviour comes from the BrocaAgent resolved at runtime.
     MeshNode only adds mesh-level metadata: lifecycle, knowledge, loss contribution.
     """
+
     agent_type: str
-    node_id: str                    = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    state: MeshNodeState            = MeshNodeState.IDLE
-    spawned_by: str                 = ""      # trigger type ("load" | "knowledge" | "solver" | ...)
-    spawned_for: str                = ""      # capability gap or domain
-    spawned_at: float               = field(default_factory=time.monotonic)
-    knowledge_pack: dict[str, Any]  = field(default_factory=dict)
-    simulation_loss: dict[str, float]= field(default_factory=dict)
-    tasks_completed: int            = 0
-    ephemeral: bool                 = True    # if True → terminate after task completes
+    node_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    state: MeshNodeState = MeshNodeState.IDLE
+    spawned_by: str = ""  # trigger type ("load" | "knowledge" | "solver" | ...)
+    spawned_for: str = ""  # capability gap or domain
+    spawned_at: float = field(default_factory=time.monotonic)
+    knowledge_pack: dict[str, Any] = field(default_factory=dict)
+    simulation_loss: dict[str, float] = field(default_factory=dict)
+    tasks_completed: int = 0
+    ephemeral: bool = True  # if True → terminate after task completes
 
     @property
     def age_s(self) -> float:
@@ -84,9 +86,12 @@ class MeshNode:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "node_id": self.node_id, "agent_type": self.agent_type,
-            "state": self.state.name, "age_s": round(self.age_s, 2),
-            "spawned_by": self.spawned_by, "spawned_for": self.spawned_for,
+            "node_id": self.node_id,
+            "agent_type": self.agent_type,
+            "state": self.state.name,
+            "age_s": round(self.age_s, 2),
+            "spawned_by": self.spawned_by,
+            "spawned_for": self.spawned_for,
             "tasks_completed": self.tasks_completed,
             "simulation_loss": self.simulation_loss,
             "ephemeral": self.ephemeral,
@@ -97,13 +102,15 @@ class MeshNode:
 # ReplicationTrigger variants
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class LoadTrigger:
     """Horizontal scaling — too much work for the current executor count."""
+
     type: str = "load"
     metric: str = "queue_length"
     threshold: float = 100.0
-    spawn_agent_type: str = "executor"    # BrocaAgentRegistry agent_type to spawn
+    spawn_agent_type: str = "executor"  # BrocaAgentRegistry agent_type to spawn
 
     def fires(self, metrics: dict[str, float]) -> bool:
         return metrics.get(self.metric, 0.0) > self.threshold
@@ -112,9 +119,10 @@ class LoadTrigger:
 @dataclass
 class KnowledgeTrigger:
     """Missing knowledge domain — spawn a specialist that loads the right packs."""
+
     type: str = "knowledge"
     missing_domain: str = ""
-    spawn_agent_type: str = ""            # e.g. "fda_compliance", "robotics_planning"
+    spawn_agent_type: str = ""  # e.g. "fda_compliance", "robotics_planning"
 
     def fires(self, knowledge_domains: set[str]) -> bool:
         return self.missing_domain not in knowledge_domains
@@ -123,8 +131,9 @@ class KnowledgeTrigger:
 @dataclass
 class SolverTrigger:
     """Missing solver capability — spawn an agent that owns it."""
+
     type: str = "solver"
-    required_solver: str = ""            # e.g. "sat_smt", "monte_carlo"
+    required_solver: str = ""  # e.g. "sat_smt", "monte_carlo"
     spawn_agent_type: str = ""
 
     def fires(self, active_solvers: set[str]) -> bool:
@@ -134,11 +143,12 @@ class SolverTrigger:
 @dataclass
 class ExplorationTrigger:
     """Simulation loss too high — spawn a temporary adversarial swarm."""
+
     type: str = "exploration"
     loss_threshold: float = 0.30
     adversarial_count: int = 20
     spawn_agent_type: str = "adversarial"
-    ephemeral: bool = True               # always terminated after search
+    ephemeral: bool = True  # always terminated after search
 
     def fires(self, simulation_loss: float) -> bool:
         return simulation_loss > self.loss_threshold
@@ -147,6 +157,7 @@ class ExplorationTrigger:
 @dataclass
 class SpecializationTrigger:
     """Planner identifies a capability gap — spawn a domain specialist."""
+
     type: str = "specialization"
     capability_gap: str = ""
     spawn_agent_type: str = ""
@@ -155,15 +166,13 @@ class SpecializationTrigger:
         return self.capability_gap not in available_capabilities
 
 
-ReplicationTrigger = (
-    LoadTrigger | KnowledgeTrigger | SolverTrigger |
-    ExplorationTrigger | SpecializationTrigger
-)
+ReplicationTrigger = LoadTrigger | KnowledgeTrigger | SolverTrigger | ExplorationTrigger | SpecializationTrigger
 
 
 # ---------------------------------------------------------------------------
 # AgentMesh — the current topology
 # ---------------------------------------------------------------------------
+
 
 class AgentMesh:
     """The running agent topology — generated, not hardcoded.
@@ -178,9 +187,9 @@ class AgentMesh:
     """
 
     def __init__(self) -> None:
-        self._nodes: dict[str, MeshNode] = {}           # node_id → MeshNode
-        self._knowledge_pool: dict[str, Any] = {}        # shared persistent store
-        self._capability_map: dict[str, str] = {}        # capability → node_id
+        self._nodes: dict[str, MeshNode] = {}  # node_id → MeshNode
+        self._knowledge_pool: dict[str, Any] = {}  # shared persistent store
+        self._capability_map: dict[str, str] = {}  # capability → node_id
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -201,7 +210,7 @@ class AgentMesh:
             ephemeral=ephemeral,
         )
         self._nodes[node.node_id] = node
-        for cap in (capabilities or []):
+        for cap in capabilities or []:
             self._capability_map[cap] = node.node_id
         return node
 
@@ -213,10 +222,7 @@ class AgentMesh:
         node.transition(MeshNodeState.MERGING)
         self._merge_knowledge(node.knowledge_pack)
         node.transition(MeshNodeState.TERMINATED)
-        self._capability_map = {
-            cap: nid for cap, nid in self._capability_map.items()
-            if nid != node_id
-        }
+        self._capability_map = {cap: nid for cap, nid in self._capability_map.items() if nid != node_id}
         del self._nodes[node_id]
         return dict(node.knowledge_pack)
 
@@ -282,6 +288,7 @@ class AgentMesh:
 # MeshSynthesizer — problem → mesh topology
 # ---------------------------------------------------------------------------
 
+
 class MeshSynthesizer:
     """Generate an AgentMesh from a problem description.
 
@@ -303,6 +310,7 @@ class MeshSynthesizer:
             return self._registry
         try:
             from broca.registry import get_registry
+
             return get_registry()
         except ImportError:
             return None
@@ -377,6 +385,7 @@ class MeshSynthesizer:
 # MeshOptimizer — loss-driven mesh optimization
 # ---------------------------------------------------------------------------
 
+
 class MeshOptimizer:
     """Optimize the agent mesh by minimizing SimulationLoss.
 
@@ -410,6 +419,7 @@ class MeshOptimizer:
             return self._registry
         try:
             from broca.registry import get_registry
+
             return get_registry()
         except ImportError:
             return None
@@ -420,7 +430,7 @@ class MeshOptimizer:
         world_state: dict[str, Any],
         *,
         prompt: str = "",
-        graph=None,   # CapabilityGraph for action model
+        graph=None,  # CapabilityGraph for action model
     ) -> dict[str, Any]:
         """Greedy mesh optimization against SimulationLoss.
 
@@ -433,7 +443,6 @@ class MeshOptimizer:
                 "converged": bool,
             }
         """
-        from cortex.adversarial_agents import _jepa_check
 
         initial_loss = self._estimate_loss(world_state, prompt, graph)
         current_loss = initial_loss
@@ -442,9 +451,7 @@ class MeshOptimizer:
         for _ in range(self.max_iterations):
             if current_loss < self.convergence_threshold:
                 break
-            best_agent, best_delta = self._find_best_addition(
-                mesh, world_state, prompt, current_loss, graph
-            )
+            best_agent, best_delta = self._find_best_addition(mesh, world_state, prompt, current_loss, graph)
             if best_agent is None or best_delta < 0.01:
                 break
             registry = self._get_registry()
@@ -473,11 +480,10 @@ class MeshOptimizer:
             "converged": current_loss < self.convergence_threshold,
         }
 
-    def _estimate_loss(
-        self, world_state: dict, prompt: str, graph
-    ) -> float:
+    def _estimate_loss(self, world_state: dict, prompt: str, graph) -> float:
         try:
             from cortex.adversarial_agents import _jepa_check
+
             _, sim_loss = _jepa_check(world_state, prompt)
             sim_loss.compute_total()
             return sim_loss.total
@@ -511,16 +517,17 @@ class MeshOptimizer:
 
         return best_type, best_delta
 
-    def _estimate_delta(
-        self, agent_type: str, world_state: dict, prompt: str, graph
-    ) -> float:
+    def _estimate_delta(self, agent_type: str, world_state: dict, prompt: str, graph) -> float:
         """Estimate how much L_sim would drop if agent_type were added to the mesh."""
         # Use graph to enrich action model if available
         if graph is not None:
             try:
                 action_model_contribution = graph.to_action_model()
-                enriched_ws = {**world_state, "_candidate_agent": agent_type,
-                               "_action_model_hint": action_model_contribution}
+                enriched_ws = {
+                    **world_state,
+                    "_candidate_agent": agent_type,
+                    "_action_model_hint": action_model_contribution,
+                }
             except Exception:
                 enriched_ws = world_state
         else:
@@ -528,6 +535,7 @@ class MeshOptimizer:
 
         try:
             from cortex.adversarial_agents import _jepa_check
+
             _, candidate_loss = _jepa_check(enriched_ws, prompt)
             candidate_loss.compute_total()
             # Heuristic: each new agent reduces epistemic + goal loss by its min threshold

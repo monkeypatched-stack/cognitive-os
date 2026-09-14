@@ -11,7 +11,6 @@ from services.workorders.models.batch_step_executions import (
     PaginatedBatchStepExecutionResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -37,7 +36,9 @@ async def list_batch_step_executions(
         operator_id=operator_id,
         status=status_filter,
     )
-    return PaginatedBatchStepExecutionResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedBatchStepExecutionResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{batch_step_execution_id}", response_model=BatchStepExecutionResponse)
@@ -48,18 +49,26 @@ async def get_batch_step_execution(
 ):
     record = await crud.get_by_id(db, batch_step_execution_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Batch step execution '{batch_step_execution_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Batch step execution '{batch_step_execution_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=BatchStepExecutionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=BatchStepExecutionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_batch_step_execution(
     data: BatchStepExecutionCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-tasks")),
 ):
     if await crud.get_by_id(db, data.batch_step_execution_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Batch step execution '{data.batch_step_execution_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Batch step execution '{data.batch_step_execution_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
@@ -74,7 +83,10 @@ async def update_batch_step_execution(
 ):
     updated = await crud.update(db, batch_step_execution_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Batch step execution '{batch_step_execution_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Batch step execution '{batch_step_execution_id}' not found",
+        )
     return updated
 
 
@@ -85,4 +97,7 @@ async def delete_batch_step_execution(
     _: dict = Depends(require_permission("perm-delete-tasks")),
 ):
     if not await crud.delete(db, batch_step_execution_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Batch step execution '{batch_step_execution_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Batch step execution '{batch_step_execution_id}' not found",
+        )

@@ -5,12 +5,18 @@ dimensions (cost, duration, confidence, risk, policy), PlanScorer's
 selection logic, and pluggability (a different policy/weighting can flip
 which candidate wins).
 """
+
 from __future__ import annotations
 
 from dataclasses import replace
 
 from src.monkey_brain.kernel.pipeline.planning.domain import (
-    Goal, Plan, PlanCandidate, PlanStep, PlanningOperator, ValidationStatus,
+    Goal,
+    Plan,
+    PlanCandidate,
+    PlanStep,
+    PlanningOperator,
+    ValidationStatus,
 )
 from src.monkey_brain.kernel.pipeline.planning.candidates import CandidateGenerator
 from src.monkey_brain.kernel.pipeline.planning.scoring import (
@@ -21,16 +27,21 @@ from src.monkey_brain.kernel.pipeline.planning.scoring import (
 )
 
 
-def _candidate(cost: float, duration: float, confidence: float = 0.0,
-               validation_status: ValidationStatus = ValidationStatus.UNVALIDATED,
-               operator_names: tuple[str, ...] = ()) -> PlanCandidate:
-    steps = tuple(
-        PlanStep(sequence=i, operator=PlanningOperator(name=name))
-        for i, name in enumerate(operator_names)
-    )
+def _candidate(
+    cost: float,
+    duration: float,
+    confidence: float = 0.0,
+    validation_status: ValidationStatus = ValidationStatus.UNVALIDATED,
+    operator_names: tuple[str, ...] = (),
+) -> PlanCandidate:
+    steps = tuple(PlanStep(sequence=i, operator=PlanningOperator(name=name)) for i, name in enumerate(operator_names))
     plan = Plan(
-        goal=Goal(name="x"), steps=steps, estimated_cost=cost, estimated_duration=duration,
-        confidence=confidence, validation_status=validation_status,
+        goal=Goal(name="x"),
+        steps=steps,
+        estimated_cost=cost,
+        estimated_duration=duration,
+        confidence=confidence,
+        validation_status=validation_status,
     )
     return PlanCandidate(plan=plan)
 
@@ -38,6 +49,7 @@ def _candidate(cost: float, duration: float, confidence: float = 0.0,
 # ═══════════════════════════════════════════════════════════════════════════
 # Acquire-milk scenario — Step 8's own acceptance example
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAcquireMilkScoring:
     def test_all_candidates_get_a_score_after_scoring(self):
@@ -72,11 +84,18 @@ class TestAcquireMilkScoring:
 # Individual scoring dimensions
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCostAndDurationScoring:
     def test_cheaper_candidate_scores_higher_on_cost_when_duration_tied(self):
         cheap = _candidate(cost=0.1, duration=100.0)
         expensive = _candidate(cost=0.9, duration=100.0)
-        policy = DefaultScoringPolicy(cost_weight=1.0, duration_weight=0.0, confidence_weight=0.0, risk_weight=0.0, policy_weight=0.0)
+        policy = DefaultScoringPolicy(
+            cost_weight=1.0,
+            duration_weight=0.0,
+            confidence_weight=0.0,
+            risk_weight=0.0,
+            policy_weight=0.0,
+        )
         scorer = PlanScorer(policy=policy)
         scored = scorer.score_candidates((cheap, expensive))
         by_cost = {round(c.plan.estimated_cost, 1): c.score for c in scored}
@@ -85,7 +104,13 @@ class TestCostAndDurationScoring:
     def test_faster_candidate_scores_higher_on_duration_when_cost_tied(self):
         fast = _candidate(cost=0.1, duration=10.0)
         slow = _candidate(cost=0.1, duration=1000.0)
-        policy = DefaultScoringPolicy(cost_weight=0.0, duration_weight=1.0, confidence_weight=0.0, risk_weight=0.0, policy_weight=0.0)
+        policy = DefaultScoringPolicy(
+            cost_weight=0.0,
+            duration_weight=1.0,
+            confidence_weight=0.0,
+            risk_weight=0.0,
+            policy_weight=0.0,
+        )
         scorer = PlanScorer(policy=policy)
         scored = scorer.score_candidates((fast, slow))
         by_duration = {c.plan.estimated_duration: c.score for c in scored}
@@ -94,7 +119,13 @@ class TestCostAndDurationScoring:
     def test_identical_costs_normalize_to_perfect_score(self):
         a = _candidate(cost=0.5, duration=1.0)
         b = _candidate(cost=0.5, duration=1.0)
-        policy = DefaultScoringPolicy(cost_weight=1.0, duration_weight=0.0, confidence_weight=0.0, risk_weight=0.0, policy_weight=0.0)
+        policy = DefaultScoringPolicy(
+            cost_weight=1.0,
+            duration_weight=0.0,
+            confidence_weight=0.0,
+            risk_weight=0.0,
+            policy_weight=0.0,
+        )
         breakdown = policy.score(a, (a, b))
         assert breakdown.cost_score == 1.0
 
@@ -103,7 +134,13 @@ class TestConfidenceScoring:
     def test_higher_confidence_scores_higher(self):
         confident = _candidate(cost=0.1, duration=1.0, confidence=0.9)
         unsure = _candidate(cost=0.1, duration=1.0, confidence=0.1)
-        policy = DefaultScoringPolicy(cost_weight=0.0, duration_weight=0.0, confidence_weight=1.0, risk_weight=0.0, policy_weight=0.0)
+        policy = DefaultScoringPolicy(
+            cost_weight=0.0,
+            duration_weight=0.0,
+            confidence_weight=1.0,
+            risk_weight=0.0,
+            policy_weight=0.0,
+        )
         breakdown_confident = policy.score(confident, (confident, unsure))
         breakdown_unsure = policy.score(unsure, (confident, unsure))
         assert breakdown_confident.confidence_score > breakdown_unsure.confidence_score
@@ -157,8 +194,12 @@ class TestPolicyScoring:
         and duration — the whole point of 'keep scoring pluggable'."""
         candidates = CandidateGenerator().generate(Goal(name="acquire_milk"))
         policy_dominant = DefaultScoringPolicy(
-            cost_weight=0.05, duration_weight=0.05, confidence_weight=0.0, risk_weight=0.0,
-            policy_weight=0.9, penalized_operators=frozenset({"Navigate"}),
+            cost_weight=0.05,
+            duration_weight=0.05,
+            confidence_weight=0.0,
+            risk_weight=0.0,
+            policy_weight=0.9,
+            penalized_operators=frozenset({"Navigate"}),
         )
         best = PlanScorer(policy=policy_dominant).select_best(candidates)
         assert best.plan.metadata["strategy"] == "delivery_service"
@@ -167,6 +208,7 @@ class TestPolicyScoring:
 # ═══════════════════════════════════════════════════════════════════════════
 # PlanScorer.select_best — selection edge cases
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSelectBest:
     def test_empty_candidates_returns_none(self):
@@ -181,8 +223,7 @@ class TestSelectBest:
         candidates = CandidateGenerator().generate(Goal(name="acquire_milk"))
         # Reject everything except delivery_service, even though it scores worst.
         mixed = tuple(
-            c if c.plan.metadata["strategy"] == "delivery_service" else replace(c, rejected=True)
-            for c in candidates
+            (c if c.plan.metadata["strategy"] == "delivery_service" else replace(c, rejected=True)) for c in candidates
         )
         best = PlanScorer().select_best(mixed)
         assert best.plan.metadata["strategy"] == "delivery_service"
@@ -192,6 +233,7 @@ class TestSelectBest:
 # Interface conformance
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestScoringPolicyInterface:
     def test_default_policy_satisfies_protocol(self):
         assert isinstance(DefaultScoringPolicy(), ScoringPolicy)
@@ -199,6 +241,7 @@ class TestScoringPolicyInterface:
     def test_score_breakdown_is_immutable(self):
         import pytest
         from dataclasses import FrozenInstanceError
+
         breakdown = ScoreBreakdown(total=0.5)
         with pytest.raises(FrozenInstanceError):
             breakdown.total = 0.9
@@ -208,10 +251,12 @@ class TestScoringPolicyInterface:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_runtime_or_execution_imports(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.planning.scoring as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

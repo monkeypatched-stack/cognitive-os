@@ -14,6 +14,7 @@ Immutability:
 - Only ContextStream may call update()
 - Version tracking for change detection
 """
+
 from __future__ import annotations
 
 import logging
@@ -52,7 +53,7 @@ class GPUWorld:
         self._last_build_time = time.time()
 
     def _rebuild(self) -> None:
-        if self._source is None or (hasattr(self._source, 'nnz') and self._source.nnz() == 0):
+        if self._source is None or (hasattr(self._source, "nnz") and self._source.nnz() == 0):
             self._state_index = {}
             self._index_state = []
             self._transition_matrix = np.zeros((0, 0), dtype=np.float32)
@@ -66,12 +67,15 @@ class GPUWorld:
         n = len(states)
 
         mat = np.zeros((n, n), dtype=np.float32)
-        if hasattr(self._source, '__iter__'):
+        if hasattr(self._source, "__iter__"):
             from src.monkey_brain.kernel.compile.tensor import Feature
+
             for src, dst in self._source:
                 if src in self._state_index and dst in self._state_index:
                     i, j = self._state_index[src], self._state_index[dst]
-                    feat = self._source.feature(src, dst, Feature.PROBABILITY) if hasattr(self._source, 'feature') else 1.0
+                    feat = (
+                        self._source.feature(src, dst, Feature.PROBABILITY) if hasattr(self._source, "feature") else 1.0
+                    )
                     mat[i, j] = float(feat)
 
         self._transition_matrix = mat
@@ -86,7 +90,12 @@ class GPUWorld:
         emb = emb / (np.linalg.norm(emb, axis=1, keepdims=True) + 1e-8)
         self._state_embeddings = emb
 
-        logger.debug("[gpu_world] rebuilt: %d states, %d transitions, dim=%d", n, int(mat.sum()), dim)
+        logger.debug(
+            "[gpu_world] rebuilt: %d states, %d transitions, dim=%d",
+            n,
+            int(mat.sum()),
+            dim,
+        )
 
     # ── Read-only queries (actors call these) ─────────────────────────────────
 

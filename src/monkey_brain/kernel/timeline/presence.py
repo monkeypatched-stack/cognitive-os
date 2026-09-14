@@ -14,6 +14,7 @@ When an actor enters or leaves a space, PresenceTimeline should publish
 movement events that other systems (such as the membership manager) can
 consume.
 """
+
 from __future__ import annotations
 
 import logging
@@ -48,6 +49,7 @@ class MovementEvent:
     can react to physical movement without PresenceTimeline knowing
     anything about what a "reaction" means (no society/membership import
     here — see module docstring)."""
+
     event_type: MovementEventType
     actor_id: str
     space_id: str
@@ -93,8 +95,13 @@ class PresenceTimeline:
                 logger.exception("presence movement subscriber raised for %s", event)
 
     def move_actor(
-        self, actor_id: str, space_id: str, activity: str = "",
-        confidence: float = 1.0, source: str = "", metadata: dict[str, Any] | None = None,
+        self,
+        actor_id: str,
+        space_id: str,
+        activity: str = "",
+        confidence: float = 1.0,
+        source: str = "",
+        metadata: dict[str, Any] | None = None,
     ) -> Presence | None:
         """Close the actor's current open Presence (if any) and open a new
         one at space_id. Returns None (no write performed) if space_id
@@ -125,7 +132,8 @@ class PresenceTimeline:
                 prior_parent = self._geo_registry.parent_of(current.space_id)
                 new_parent = self._geo_registry.parent_of(space_id)
                 is_lateral_move = (
-                    prior_parent is not None and new_parent is not None
+                    prior_parent is not None
+                    and new_parent is not None
                     and prior_parent.entity_id == new_parent.entity_id
                 )
             if is_lateral_move:
@@ -133,27 +141,47 @@ class PresenceTimeline:
             self._store.close(current, TimelineKind.PRESENCE, end_time=now)
             self._presence_update_count += 1
             if not is_lateral_move:
-                self._publish(MovementEvent(
-                    event_type=MovementEventType.LEAVE, actor_id=actor_id,
-                    space_id=current.space_id, timestamp=now, activity=current.activity,
-                ))
+                self._publish(
+                    MovementEvent(
+                        event_type=MovementEventType.LEAVE,
+                        actor_id=actor_id,
+                        space_id=current.space_id,
+                        timestamp=now,
+                        activity=current.activity,
+                    )
+                )
 
         recorded = self._store.record(
-            TimelineKind.PRESENCE, actor_id=actor_id, space_id=space_id, activity=activity,
-            confidence=confidence, source=source, metadata=metadata or {}, start_time=now,
+            TimelineKind.PRESENCE,
+            actor_id=actor_id,
+            space_id=space_id,
+            activity=activity,
+            confidence=confidence,
+            source=source,
+            metadata=metadata or {},
+            start_time=now,
         )
         self._presence_update_count += 1
         self._movement_count += 1
-        self._publish(MovementEvent(
-            event_type=MovementEventType.MOVE if is_lateral_move else MovementEventType.ENTER,
-            actor_id=actor_id, space_id=space_id, timestamp=now, activity=activity,
-            prior_space_id=prior_space_id,
-        ))
+        self._publish(
+            MovementEvent(
+                event_type=(MovementEventType.MOVE if is_lateral_move else MovementEventType.ENTER),
+                actor_id=actor_id,
+                space_id=space_id,
+                timestamp=now,
+                activity=activity,
+                prior_space_id=prior_space_id,
+            )
+        )
         return recorded
 
     def begin_activity(
-        self, actor_id: str, activity: str,
-        confidence: float = 1.0, source: str = "", metadata: dict[str, Any] | None = None,
+        self,
+        actor_id: str,
+        activity: str,
+        confidence: float = 1.0,
+        source: str = "",
+        metadata: dict[str, Any] | None = None,
     ) -> Presence | None:
         """Change the actor's activity without moving -- closes the
         current open Presence and reopens one at the SAME space_id with
@@ -170,19 +198,33 @@ class PresenceTimeline:
         self._store.close(current, TimelineKind.PRESENCE, end_time=now)
         self._presence_update_count += 1
         recorded = self._store.record(
-            TimelineKind.PRESENCE, actor_id=actor_id, space_id=current.space_id, activity=activity,
-            confidence=confidence, source=source, metadata=metadata or {}, start_time=now,
+            TimelineKind.PRESENCE,
+            actor_id=actor_id,
+            space_id=current.space_id,
+            activity=activity,
+            confidence=confidence,
+            source=source,
+            metadata=metadata or {},
+            start_time=now,
         )
         self._presence_update_count += 1
-        self._publish(MovementEvent(
-            event_type=MovementEventType.BEGIN_ACTIVITY, actor_id=actor_id,
-            space_id=current.space_id, timestamp=now, activity=activity,
-        ))
+        self._publish(
+            MovementEvent(
+                event_type=MovementEventType.BEGIN_ACTIVITY,
+                actor_id=actor_id,
+                space_id=current.space_id,
+                timestamp=now,
+                activity=activity,
+            )
+        )
         return recorded
 
     def end_activity(
-        self, actor_id: str,
-        confidence: float = 1.0, source: str = "", metadata: dict[str, Any] | None = None,
+        self,
+        actor_id: str,
+        confidence: float = 1.0,
+        source: str = "",
+        metadata: dict[str, Any] | None = None,
     ) -> Presence | None:
         """Clears the actor's current activity (back to "") without
         moving -- same close-then-reopen-at-the-same-Space pattern as
@@ -195,14 +237,25 @@ class PresenceTimeline:
         self._store.close(current, TimelineKind.PRESENCE, end_time=now)
         self._presence_update_count += 1
         recorded = self._store.record(
-            TimelineKind.PRESENCE, actor_id=actor_id, space_id=current.space_id, activity="",
-            confidence=confidence, source=source, metadata=metadata or {}, start_time=now,
+            TimelineKind.PRESENCE,
+            actor_id=actor_id,
+            space_id=current.space_id,
+            activity="",
+            confidence=confidence,
+            source=source,
+            metadata=metadata or {},
+            start_time=now,
         )
         self._presence_update_count += 1
-        self._publish(MovementEvent(
-            event_type=MovementEventType.END_ACTIVITY, actor_id=actor_id,
-            space_id=current.space_id, timestamp=now, activity=ended_activity,
-        ))
+        self._publish(
+            MovementEvent(
+                event_type=MovementEventType.END_ACTIVITY,
+                actor_id=actor_id,
+                space_id=current.space_id,
+                timestamp=now,
+                activity=ended_activity,
+            )
+        )
         return recorded
 
     @property
@@ -223,7 +276,10 @@ class PresenceTimeline:
         return self._store.query(actor_id, TimelineKind.PRESENCE, since, until)
 
     def enriched_history(
-        self, actor_id: str, since: float | None = None, until: float | None = None,
+        self,
+        actor_id: str,
+        since: float | None = None,
+        until: float | None = None,
     ) -> list[dict[str, Any]]:
         """Presence History enrichment: for each visit from history(),
         joins in associated_societies (GeographicRegistry.
@@ -241,9 +297,7 @@ class PresenceTimeline:
             goals = self._store.query(actor_id, TimelineKind.GOAL, record.start_time, visit_end)
             d = record.to_dict()
             d["associated_societies"] = sorted(self._geo_registry.societies_at_or_above(record.space_id))
-            d["nearby_actors"] = tuple(
-                a for a in self.occupants(record.space_id, record.start_time) if a != actor_id
-            )
+            d["nearby_actors"] = tuple(a for a in self.occupants(record.space_id, record.start_time) if a != actor_id)
             d["goals_active_during"] = tuple(g.to_dict() for g in goals)
             enriched.append(d)
         return enriched

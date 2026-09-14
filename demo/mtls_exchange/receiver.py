@@ -5,6 +5,7 @@ configure_exchange) behind uvicorn with client-certificate verification required
 presenting a CA-issued client cert can even open the connection; the proposal is then verified
 through the full trust pipeline before anything is accepted.
 """
+
 from __future__ import annotations
 
 import os
@@ -13,12 +14,15 @@ import ssl
 import uvicorn
 from fastapi import FastAPI
 
-from src.monkey_brain.kernel.compile.network import configure_exchange, secure_mode_preflight
+from src.monkey_brain.kernel.compile.network import (
+    configure_exchange,
+    secure_mode_preflight,
+)
 from src.monkey_brain.kernel.compile import Relationship, TrustNetwork
 
 
 def build_app() -> FastAPI:
-    secure_mode_preflight()                            # log/verify the security posture at boot
+    secure_mode_preflight()  # log/verify the security posture at boot
     tenant = os.environ.get("AGENTOS_TENANT_ID", "default")
     # Grant the sender permission to publish beliefs to this runtime.
     net = TrustNetwork()
@@ -32,10 +36,11 @@ def build_app() -> FastAPI:
 if __name__ == "__main__":
     uvicorn.run(
         build_app(),
-        host="127.0.0.1", port=int(os.environ["PORT"]),
+        host="127.0.0.1",
+        port=int(os.environ["PORT"]),
         ssl_certfile=os.environ["TLS_SERVER_CERT"],
         ssl_keyfile=os.environ["TLS_SERVER_KEY"],
         ssl_ca_certs=os.environ["TLS_CA"],
-        ssl_cert_reqs=ssl.CERT_REQUIRED,               # mTLS: require a client certificate
+        ssl_cert_reqs=ssl.CERT_REQUIRED,  # mTLS: require a client certificate
         log_level="warning",
     )

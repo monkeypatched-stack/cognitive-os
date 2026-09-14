@@ -11,6 +11,7 @@ generic "memory trace" member, so every memory node is added as
 EntityType.OTHER and the caller-supplied label is preserved as data
 instead of forced into that enum).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,7 +24,11 @@ class KnowledgeGraphMemoryAdapter:
         self._graph = knowledge_graph
 
     def insert_node(
-        self, node_id: str, payload: dict[str, Any], label: str = "", name: str = "",
+        self,
+        node_id: str,
+        payload: dict[str, Any],
+        label: str = "",
+        name: str = "",
     ) -> None:
         # `label` stays the structural marker (Neo4j-style node label,
         # e.g. "EpisodicTrace"/"ProceduralPolicy") that cognitive_gc.py /
@@ -33,6 +38,8 @@ class KnowledgeGraphMemoryAdapter:
         # actually find what was recorded, instead of every node sharing
         # one indistinguishable constant name.
         self._graph.add_entity(
-            entity_id=node_id, entity_type=EntityType.OTHER,
-            name=name or label, attributes={"label": label, **payload},
+            entity_id=node_id,
+            entity_type=EntityType.OTHER,
+            name=name or label,
+            attributes={"label": label, **payload},
         )

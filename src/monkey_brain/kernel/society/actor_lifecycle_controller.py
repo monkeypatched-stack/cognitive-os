@@ -40,13 +40,18 @@ problem), or a full replay/resume-arbitrary-business-action mechanism —
 crash recovery restarts the Actor's cognition from its last checkpoint;
 it does not, and must not, re-invoke a specific capability call.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
 
 from src.monkey_brain.kernel.society.actor_lifecycle import (
-    ActorDesiredState, LifecycleEvent, LifecycleEventType, ObservedActorState, ReconciliationResult,
+    ActorDesiredState,
+    LifecycleEvent,
+    LifecycleEventType,
+    ObservedActorState,
+    ReconciliationResult,
 )
 from src.monkey_brain.kernel.society.domain import ActorStatus
 
@@ -115,16 +120,26 @@ class ActorLifecycleController:
         action = self._decide(desired, observed)
         if action in (_ACTION_NONE, _ACTION_SKIPPED_UNKNOWN):
             return ReconciliationResult(
-                actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-                action=action, succeeded=(action == _ACTION_NONE),
-                reason="" if action == _ACTION_NONE else "actor was never registered — the controller does not create new actors",
+                actor_id=actor_id,
+                desired_state=desired.value,
+                observed_before=observed.status,
+                action=action,
+                succeeded=(action == _ACTION_NONE),
+                reason=(
+                    ""
+                    if action == _ACTION_NONE
+                    else "actor was never registered — the controller does not create new actors"
+                ),
             )
 
         token = self._planetary.acquire_actor_lease(actor_id)
         if token is None:
             return ReconciliationResult(
-                actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-                action=_ACTION_SKIPPED_LEASE, succeeded=True,
+                actor_id=actor_id,
+                desired_state=desired.value,
+                observed_before=observed.status,
+                action=_ACTION_SKIPPED_LEASE,
+                succeeded=True,
                 reason="another node or an in-flight tick currently owns this actor's lease",
             )
         try:
@@ -135,8 +150,11 @@ class ActorLifecycleController:
             action = self._decide(desired, observed)
             if action in (_ACTION_NONE, _ACTION_SKIPPED_UNKNOWN):
                 return ReconciliationResult(
-                    actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-                    action=action, succeeded=(action == _ACTION_NONE),
+                    actor_id=actor_id,
+                    desired_state=desired.value,
+                    observed_before=observed.status,
+                    action=action,
+                    succeeded=(action == _ACTION_NONE),
                 )
             dispatch = {
                 _ACTION_START: self._do_start,
@@ -163,24 +181,35 @@ class ActorLifecycleController:
             try:
                 results.append(self.reconcile(entry.actor_id))
             except Exception as exc:
-                logger.error("reconcile_all: reconcile(%r) raised: %s", entry.actor_id, exc, exc_info=True)
-                results.append(ReconciliationResult(
-                    actor_id=entry.actor_id, desired_state="", observed_before="",
-                    action="error", succeeded=False, reason=str(exc),
-                ))
+                logger.error(
+                    "reconcile_all: reconcile(%r) raised: %s",
+                    entry.actor_id,
+                    exc,
+                    exc_info=True,
+                )
+                results.append(
+                    ReconciliationResult(
+                        actor_id=entry.actor_id,
+                        desired_state="",
+                        observed_before="",
+                        action="error",
+                        succeeded=False,
+                        reason=str(exc),
+                    )
+                )
         return results
 
     def reconcile_rehydrated_actors(self) -> list[ReconciliationResult]:
         """Enforce desired state for rehydrated actors at boot time.
-        
+
         After actor state rehydration from MongoDB, this method immediately
         reconciles all actors to enforce their persisted desired state,
         ensuring actors don't unexpectedly become active if they were
         previously PAUSED/SUSPENDED/TERMINATED.
-        
+
         This is called automatically from PlanetaryRuntime._init_persistence()
         after rehydration completes. Non-blocking: exceptions don't crash boot.
-        
+
         Returns:
             List of ReconciliationResult for each rehydrated actor
         """
@@ -194,20 +223,29 @@ class ActorLifecycleController:
                     if result.succeeded and result.action != _ACTION_NONE:
                         logger.info(
                             "Rehydrated actor %s: applied action %s (desired: %s)",
-                            entry.actor_id, result.action, result.desired_state,
+                            entry.actor_id,
+                            result.action,
+                            result.desired_state,
                         )
                 except Exception as exc:
                     logger.warning(
                         "reconcile_rehydrated_actors: reconcile(%r) raised: %s",
-                        entry.actor_id, exc,
+                        entry.actor_id,
+                        exc,
                     )
-                    results.append(ReconciliationResult(
-                        actor_id=entry.actor_id, desired_state="", observed_before="",
-                        action="error", succeeded=False, reason=str(exc),
-                    ))
+                    results.append(
+                        ReconciliationResult(
+                            actor_id=entry.actor_id,
+                            desired_state="",
+                            observed_before="",
+                            action="error",
+                            succeeded=False,
+                            reason=str(exc),
+                        )
+                    )
         except Exception as exc:
             logger.error("reconcile_rehydrated_actors failed: %s", exc)
-        
+
         return results
 
     def _decide(self, desired: ActorDesiredState, observed: ObservedActorState) -> str:
@@ -233,8 +271,11 @@ class ActorLifecycleController:
             # place _decide() itself, rather than _do_start/_do_resume,
             # must consult placement -- everywhere else, START/RESUME
             # naturally consult the scheduler themselves before acting.
-            if (observed.resident_here and observed.desired_node_id
-                    and observed.desired_node_id != self._planetary._node_id):
+            if (
+                observed.resident_here
+                and observed.desired_node_id
+                and observed.desired_node_id != self._planetary._node_id
+            ):
                 return _ACTION_MIGRATE_AWAY
             # Fast-restart detection (Actor Artifact model, Section 11:
             # "process killed -> same Actor binary starts -> Actor
@@ -262,12 +303,24 @@ class ActorLifecycleController:
     #    makes them safe under concurrency; these methods trust the caller
     #    already holds it) ────────────────────────────────────────────────
 
-    def _do_start(self, actor_id: str, desired: ActorDesiredState, observed: ObservedActorState,
-                  *, reason: str = "") -> ReconciliationResult:
+    def _do_start(
+        self,
+        actor_id: str,
+        desired: ActorDesiredState,
+        observed: ObservedActorState,
+        *,
+        reason: str = "",
+    ) -> ReconciliationResult:
         placement = self._consult_scheduler(actor_id, desired, observed)
         if placement is not None:
             return placement
-        self._publish(actor_id, LifecycleEventType.ACTOR_STARTING, observed.status, "starting", reason)
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_STARTING,
+            observed.status,
+            "starting",
+            reason,
+        )
         # Ensure the actor is actually loaded before touching it — reuse
         # the existing reconstruction path (profile + belief + affiliations
         # from the Redis actor registry), never a parallel one.
@@ -276,11 +329,20 @@ class ActorLifecycleController:
         sr = self._planetary._home_society_runtime(actor_id)
         state = sr.get_actor(actor_id) if sr is not None else None
         if state is None:
-            self._publish(actor_id, LifecycleEventType.ACTOR_FAILED, "starting",
-                          ActorStatus.FAILED.value, "actor could not be reconstructed from the registry")
+            self._publish(
+                actor_id,
+                LifecycleEventType.ACTOR_FAILED,
+                "starting",
+                ActorStatus.FAILED.value,
+                "actor could not be reconstructed from the registry",
+            )
             return ReconciliationResult(
-                actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-                action=_ACTION_START, succeeded=False, reason="reconstruction failed — actor not found in registry",
+                actor_id=actor_id,
+                desired_state=desired.value,
+                observed_before=observed.status,
+                action=_ACTION_START,
+                succeeded=False,
+                reason="reconstruction failed — actor not found in registry",
             )
         # Distinguish "process started" from "Actor ready" from "Actor
         # operational" (Section 9): restore its last committed belief
@@ -290,18 +352,40 @@ class ActorLifecycleController:
         self._publish(actor_id, LifecycleEventType.ACTOR_READY, "starting", "ready", reason)
         sr.activate_actor(actor_id)
         self._refresh_registry(actor_id)
-        self._publish(actor_id, LifecycleEventType.ACTOR_STARTED, "ready", ActorStatus.ACTIVE.value, reason)
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_STARTED,
+            "ready",
+            ActorStatus.ACTIVE.value,
+            reason,
+        )
         return ReconciliationResult(
-            actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-            action=_ACTION_START, succeeded=True, reason=reason,
+            actor_id=actor_id,
+            desired_state=desired.value,
+            observed_before=observed.status,
+            action=_ACTION_START,
+            succeeded=True,
+            reason=reason,
         )
 
-    def _do_resume(self, actor_id: str, desired: ActorDesiredState, observed: ObservedActorState,
-                   *, reason: str = "") -> ReconciliationResult:
+    def _do_resume(
+        self,
+        actor_id: str,
+        desired: ActorDesiredState,
+        observed: ObservedActorState,
+        *,
+        reason: str = "",
+    ) -> ReconciliationResult:
         placement = self._consult_scheduler(actor_id, desired, observed)
         if placement is not None:
             return placement
-        self._publish(actor_id, LifecycleEventType.ACTOR_RESUMING, observed.status, "resuming", reason)
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_RESUMING,
+            observed.status,
+            "resuming",
+            reason,
+        )
         if self._planetary.get_actor_runtime(actor_id) is None:
             self._planetary.reconcile_actors_from_redis()
         # SUSPENDED->RUNNING restores from the same checkpoint mechanism
@@ -310,23 +394,54 @@ class ActorLifecycleController:
         self._planetary.restore_actor_belief(actor_id)
         sr = self._planetary._home_society_runtime(actor_id)
         if sr is None or sr.get_actor(actor_id) is None:
-            self._publish(actor_id, LifecycleEventType.ACTOR_FAILED, "resuming",
-                          ActorStatus.FAILED.value, "actor not found while resuming")
+            self._publish(
+                actor_id,
+                LifecycleEventType.ACTOR_FAILED,
+                "resuming",
+                ActorStatus.FAILED.value,
+                "actor not found while resuming",
+            )
             return ReconciliationResult(
-                actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-                action=_ACTION_RESUME, succeeded=False, reason="actor not found while resuming",
+                actor_id=actor_id,
+                desired_state=desired.value,
+                observed_before=observed.status,
+                action=_ACTION_RESUME,
+                succeeded=False,
+                reason="actor not found while resuming",
             )
         sr.activate_actor(actor_id)
         self._refresh_registry(actor_id)
-        self._publish(actor_id, LifecycleEventType.ACTOR_RESUMED, "resuming", ActorStatus.ACTIVE.value, reason)
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_RESUMED,
+            "resuming",
+            ActorStatus.ACTIVE.value,
+            reason,
+        )
         return ReconciliationResult(
-            actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-            action=_ACTION_RESUME, succeeded=True, reason=reason,
+            actor_id=actor_id,
+            desired_state=desired.value,
+            observed_before=observed.status,
+            action=_ACTION_RESUME,
+            succeeded=True,
+            reason=reason,
         )
 
-    def _do_suspend(self, actor_id: str, desired: ActorDesiredState, observed: ObservedActorState,
-                    *, reason: str = "") -> ReconciliationResult:
-        self._publish(actor_id, LifecycleEventType.ACTOR_SUSPENDING, observed.status, "suspending", reason)
+    def _do_suspend(
+        self,
+        actor_id: str,
+        desired: ActorDesiredState,
+        observed: ObservedActorState,
+        *,
+        reason: str = "",
+    ) -> ReconciliationResult:
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_SUSPENDING,
+            observed.status,
+            "suspending",
+            reason,
+        )
         # Checkpoint BEFORE marking suspended — RUNNING -> checkpoint/
         # persist -> SUSPENDED (Section 11), never the reverse order.
         self._planetary.checkpoint_actor_belief(actor_id)
@@ -334,8 +449,12 @@ class ActorLifecycleController:
         state = sr.get_actor(actor_id) if sr is not None else None
         if state is None:
             return ReconciliationResult(
-                actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-                action=_ACTION_SUSPEND, succeeded=False, reason="actor not resident in this process",
+                actor_id=actor_id,
+                desired_state=desired.value,
+                observed_before=observed.status,
+                action=_ACTION_SUSPEND,
+                succeeded=False,
+                reason="actor not resident in this process",
             )
         state.is_active = False
         state.status = ActorStatus.SUSPENDED
@@ -344,15 +463,37 @@ class ActorLifecycleController:
         # again now so a cross-process locate_actor()/list_registry() read
         # sees SUSPENDED, not stale ACTIVE.
         self._refresh_registry(actor_id)
-        self._publish(actor_id, LifecycleEventType.ACTOR_SUSPENDED, "suspending", ActorStatus.SUSPENDED.value, reason)
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_SUSPENDED,
+            "suspending",
+            ActorStatus.SUSPENDED.value,
+            reason,
+        )
         return ReconciliationResult(
-            actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-            action=_ACTION_SUSPEND, succeeded=True, reason=reason,
+            actor_id=actor_id,
+            desired_state=desired.value,
+            observed_before=observed.status,
+            action=_ACTION_SUSPEND,
+            succeeded=True,
+            reason=reason,
         )
 
-    def _do_terminate(self, actor_id: str, desired: ActorDesiredState, observed: ObservedActorState,
-                      *, reason: str = "") -> ReconciliationResult:
-        self._publish(actor_id, LifecycleEventType.ACTOR_TERMINATING, observed.status, "terminating", reason)
+    def _do_terminate(
+        self,
+        actor_id: str,
+        desired: ActorDesiredState,
+        observed: ObservedActorState,
+        *,
+        reason: str = "",
+    ) -> ReconciliationResult:
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_TERMINATING,
+            observed.status,
+            "terminating",
+            reason,
+        )
         self._warn_if_negotiation_pending(actor_id)
         # checkpoint-before-terminate now lives INSIDE unregister_actor()
         # itself (PlanetaryRuntime), not duplicated here — every caller
@@ -368,14 +509,30 @@ class ActorLifecycleController:
         placed_node = self._planetary.get_actor_desired_node(actor_id)
         if placed_node:
             self._planetary._reserve_node_capacity(placed_node, -1)
-        self._publish(actor_id, LifecycleEventType.ACTOR_TERMINATED, "terminating", ActorStatus.TERMINATED.value, reason)
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_TERMINATED,
+            "terminating",
+            ActorStatus.TERMINATED.value,
+            reason,
+        )
         return ReconciliationResult(
-            actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-            action=_ACTION_TERMINATE, succeeded=ok, reason=reason,
+            actor_id=actor_id,
+            desired_state=desired.value,
+            observed_before=observed.status,
+            action=_ACTION_TERMINATE,
+            succeeded=ok,
+            reason=reason,
         )
 
-    def _do_recover(self, actor_id: str, desired: ActorDesiredState, observed: ObservedActorState,
-                    *, reason: str = "") -> ReconciliationResult:
+    def _do_recover(
+        self,
+        actor_id: str,
+        desired: ActorDesiredState,
+        observed: ObservedActorState,
+        *,
+        reason: str = "",
+    ) -> ReconciliationResult:
         """Crash recovery (Section 12): the controller restarts the
         ACTOR — it never replays a specific business action. Reuses
         _do_start's exact reconstruct-and-restore path; the actor's next
@@ -383,24 +540,43 @@ class ActorLifecycleController:
         belief. Nothing here re-invokes a capability, resubmits a plan,
         or touches negotiation/execution-checkpoint state directly."""
         effective_reason = reason or (
-            f"registry record stale since {observed.updated_at:.0f} with no lease held "
-            "— treating as crashed"
+            f"registry record stale since {observed.updated_at:.0f} with no lease held — treating as crashed"
         )
-        self._publish(actor_id, LifecycleEventType.ACTOR_FAILED, observed.status,
-                      ActorStatus.FAILED.value, effective_reason)
-        self._publish(actor_id, LifecycleEventType.ACTOR_RECOVERING,
-                      ActorStatus.FAILED.value, "recovering", effective_reason)
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_FAILED,
+            observed.status,
+            ActorStatus.FAILED.value,
+            effective_reason,
+        )
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_RECOVERING,
+            ActorStatus.FAILED.value,
+            "recovering",
+            effective_reason,
+        )
         result = self._do_start(actor_id, desired, observed, reason=effective_reason)
         if result.succeeded:
-            self._publish(actor_id, LifecycleEventType.ACTOR_RECOVERED,
-                          "recovering", ActorStatus.ACTIVE.value, effective_reason)
+            self._publish(
+                actor_id,
+                LifecycleEventType.ACTOR_RECOVERED,
+                "recovering",
+                ActorStatus.ACTIVE.value,
+                effective_reason,
+            )
         return ReconciliationResult(
-            actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-            action=_ACTION_RECOVER, succeeded=result.succeeded, reason=effective_reason,
+            actor_id=actor_id,
+            desired_state=desired.value,
+            observed_before=observed.status,
+            action=_ACTION_RECOVER,
+            succeeded=result.succeeded,
+            reason=effective_reason,
         )
 
-    def _consult_scheduler(self, actor_id: str, desired: ActorDesiredState,
-                           observed: ObservedActorState) -> ReconciliationResult | None:
+    def _consult_scheduler(
+        self, actor_id: str, desired: ActorDesiredState, observed: ObservedActorState
+    ) -> ReconciliationResult | None:
         """Ask the Scheduler where this actor belongs before actually
         starting/resuming it here (Actor Scheduler spec, Section 12:
         strict Scheduler <-> Lifecycle Controller separation — the
@@ -418,8 +594,13 @@ class ActorLifecycleController:
         requirements = self._planetary.get_actor_placement_requirements(actor_id)
         decision = self._planetary.scheduler.schedule(actor_id, requirements)
         if not decision.scheduled:
-            self._publish(actor_id, LifecycleEventType.ACTOR_UNSCHEDULABLE,
-                          observed.status, observed.status, decision.reason)
+            self._publish(
+                actor_id,
+                LifecycleEventType.ACTOR_UNSCHEDULABLE,
+                observed.status,
+                observed.status,
+                decision.reason,
+            )
             # Gap Remediation audit finding (Priority 1 — Scheduler ->
             # Kubernetes gap): the ONE UNSCHEDULABLE cause this can
             # actually fix is "no healthy node exists at all" -- every
@@ -430,7 +611,10 @@ class ActorLifecycleController:
             # zero behavior change for any deployment that never enables
             # it or has no kubectl configured; a failed/skipped
             # provisioning attempt leaves UNSCHEDULABLE exactly as before.
-            from src.monkey_brain.kernel.society import kubernetes_provisioner as _k8s_provisioner
+            from src.monkey_brain.kernel.society import (
+                kubernetes_provisioner as _k8s_provisioner,
+            )
+
             if _k8s_provisioner.provisioning_enabled() and _k8s_provisioner.should_provision(decision.reason):
                 # Actors default to edge: an actor with no explicit
                 # required_node_class gets a dedicated EDGE Pod, not a
@@ -441,7 +625,8 @@ class ActorLifecycleController:
                 # node under a different name instead of giving this
                 # actor the dedicated Pod it actually needs.
                 provisioned = self._planetary.kubernetes_provisioner.provision(
-                    actor_id, node_class=requirements.required_node_class.value if requirements.required_node_class else "edge",
+                    actor_id,
+                    node_class=(requirements.required_node_class.value if requirements.required_node_class else "edge"),
                 )
                 if provisioned:
                     # Wake the fast path instead of waiting for the 300s
@@ -450,13 +635,22 @@ class ActorLifecycleController:
                     # scheduled_elsewhere re-enqueue below documents.
                     self._planetary._enqueue_reconciliation(actor_id)
             return ReconciliationResult(
-                actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-                action=_ACTION_UNSCHEDULABLE, succeeded=False, reason=decision.reason,
+                actor_id=actor_id,
+                desired_state=desired.value,
+                observed_before=observed.status,
+                action=_ACTION_UNSCHEDULABLE,
+                succeeded=False,
+                reason=decision.reason,
             )
         if decision.node_id and decision.node_id != self._planetary._node_id:
             reason = f"scheduled to {decision.node_id}, not this node ({self._planetary._node_id})"
-            self._publish(actor_id, LifecycleEventType.ACTOR_SCHEDULED_ELSEWHERE,
-                          observed.status, observed.status, reason)
+            self._publish(
+                actor_id,
+                LifecycleEventType.ACTOR_SCHEDULED_ELSEWHERE,
+                observed.status,
+                observed.status,
+                reason,
+            )
             # Edge Deployment: the Kubernetes-only analog of this problem
             # doesn't exist there -- a Pod's own actor_runtime.py process
             # boots itself and self-claims via ACTOR_CLAIM_PLACEMENT, so
@@ -471,13 +665,25 @@ class ActorLifecycleController:
             # alone here; its own target node's normal reconcile (or,
             # for Kubernetes, its own Pod boot) handles that case
             # already, unchanged.
-            from src.monkey_brain.kernel.society import edge_provisioner as _edge_provisioner
-            if (_edge_provisioner.provisioning_enabled()
-                    and observed.status not in (ActorStatus.ACTIVE.value, ActorStatus.SUSPENDED.value, ActorStatus.IDLE.value)):
+            from src.monkey_brain.kernel.society import (
+                edge_provisioner as _edge_provisioner,
+            )
+
+            if _edge_provisioner.provisioning_enabled() and observed.status not in (
+                ActorStatus.ACTIVE.value,
+                ActorStatus.SUSPENDED.value,
+                ActorStatus.IDLE.value,
+            ):
                 target_node = self._planetary.get_node(decision.node_id)
-                if target_node is not None and target_node.node_class.value in ("edge", "device", "robot"):
+                if target_node is not None and target_node.node_class.value in (
+                    "edge",
+                    "device",
+                    "robot",
+                ):
                     provisioned = self._planetary.edge_provisioner.provision(
-                        actor_id, device_id=decision.node_id, node_class=target_node.node_class.value,
+                        actor_id,
+                        device_id=decision.node_id,
+                        node_class=target_node.node_class.value,
                     )
                     if provisioned:
                         self._planetary._enqueue_reconciliation(actor_id)
@@ -498,13 +704,23 @@ class ActorLifecycleController:
             # returns NONE, doing nothing further).
             self._planetary._enqueue_reconciliation(actor_id)
             return ReconciliationResult(
-                actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-                action=_ACTION_SCHEDULED_ELSEWHERE, succeeded=True, reason=reason,
+                actor_id=actor_id,
+                desired_state=desired.value,
+                observed_before=observed.status,
+                action=_ACTION_SCHEDULED_ELSEWHERE,
+                succeeded=True,
+                reason=reason,
             )
         return None
 
-    def _do_migrate_away(self, actor_id: str, desired: ActorDesiredState, observed: ObservedActorState,
-                         *, reason: str = "") -> ReconciliationResult:
+    def _do_migrate_away(
+        self,
+        actor_id: str,
+        desired: ActorDesiredState,
+        observed: ObservedActorState,
+        *,
+        reason: str = "",
+    ) -> ReconciliationResult:
         """Evacuate an actor from THIS node because the scheduler now
         places it elsewhere — checkpoint + local suspend only (Section
         14: safe checkpoint-and-restart, never unsafe live migration).
@@ -513,8 +729,13 @@ class ActorLifecycleController:
         reconcile loop resumes it from the same checkpoint via the
         ordinary SUSPENDED+RUNNING-desired -> _ACTION_RESUME path."""
         effective_reason = reason or f"scheduler placed this actor on {observed.desired_node_id}, evacuating this node"
-        self._publish(actor_id, LifecycleEventType.ACTOR_SCHEDULED_ELSEWHERE,
-                      observed.status, "suspending_for_migration", effective_reason)
+        self._publish(
+            actor_id,
+            LifecycleEventType.ACTOR_SCHEDULED_ELSEWHERE,
+            observed.status,
+            "suspending_for_migration",
+            effective_reason,
+        )
         ok = self._planetary.suspend_actor_for_migration(actor_id)
         if ok:
             # Live Deployment Validation finding: confirmed live -- an
@@ -535,8 +756,12 @@ class ActorLifecycleController:
             # loop.
             self._planetary._enqueue_reconciliation(actor_id)
         return ReconciliationResult(
-            actor_id=actor_id, desired_state=desired.value, observed_before=observed.status,
-            action=_ACTION_MIGRATE_AWAY, succeeded=ok, reason=effective_reason,
+            actor_id=actor_id,
+            desired_state=desired.value,
+            observed_before=observed.status,
+            action=_ACTION_MIGRATE_AWAY,
+            succeeded=ok,
+            reason=effective_reason,
         )
 
     def _refresh_registry(self, actor_id: str) -> None:
@@ -581,42 +806,71 @@ class ActorLifecycleController:
                 if isinstance(result, dict) and result.get("requires_negotiation"):
                     logger.warning(
                         "terminate_actor(%r): last tick left a negotiation pending — "
-                        "terminating anyway (best-effort check only)", actor_id,
+                        "terminating anyway (best-effort check only)",
+                        actor_id,
                     )
                     return
         except Exception:
-            logger.debug("_warn_if_negotiation_pending(%r) check failed (non-fatal)", actor_id, exc_info=True)
+            logger.debug(
+                "_warn_if_negotiation_pending(%r) check failed (non-fatal)",
+                actor_id,
+                exc_info=True,
+            )
 
     # ── Events + history ─────────────────────────────────────────────────
 
-    def _publish(self, actor_id: str, event_type: LifecycleEventType,
-                previous_state: str, new_state: str, reason: str) -> None:
+    def _publish(
+        self,
+        actor_id: str,
+        event_type: LifecycleEventType,
+        previous_state: str,
+        new_state: str,
+        reason: str,
+    ) -> None:
         event = LifecycleEvent(
-            actor_id=actor_id, event_type=event_type, previous_state=previous_state,
-            new_state=new_state, reason=reason,
+            actor_id=actor_id,
+            event_type=event_type,
+            previous_state=previous_state,
+            new_state=new_state,
+            reason=reason,
         )
         try:
-            from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+            from src.monkey_brain.kernel.society.context_stream import (
+                ContextEvent,
+                ContextEventType,
+            )
+
             description = f"{actor_id}: {event_type.value} ({previous_state} → {new_state})"
             if reason:
                 description += f" — {reason}"
-            self._planetary.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.ACTOR_LIFECYCLE, actor_id=actor_id,
-                description=description,
-                payload={
-                    "event_type": event_type.value, "previous_state": previous_state,
-                    "new_state": new_state, "reason": reason,
-                },
-                provenance="actor_lifecycle_controller",
-            ))
+            self._planetary.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.ACTOR_LIFECYCLE,
+                    actor_id=actor_id,
+                    description=description,
+                    payload={
+                        "event_type": event_type.value,
+                        "previous_state": previous_state,
+                        "new_state": new_state,
+                        "reason": reason,
+                    },
+                    provenance="actor_lifecycle_controller",
+                )
+            )
         except Exception:
             logger.debug("_publish: context_stream publish failed (non-fatal)", exc_info=True)
         try:
-            from src.monkey_brain.kernel.pipeline.audit_trail import record_decision_event
+            from src.monkey_brain.kernel.pipeline.audit_trail import (
+                record_decision_event,
+            )
+
             record_decision_event(
-                f"actor_lifecycle:{event_type.value}", actor_id=actor_id, reason=reason,
+                f"actor_lifecycle:{event_type.value}",
+                actor_id=actor_id,
+                reason=reason,
                 metadata={
-                    "previous_state": previous_state, "new_state": new_state,
+                    "previous_state": previous_state,
+                    "new_state": new_state,
                     "source": "ActorLifecycleController",
                 },
             )
@@ -632,13 +886,13 @@ class ActorLifecycleController:
         try:
             from src.monkey_brain.kernel.timeline.entry import TimelineKind
             from src.monkey_brain.kernel.timeline.store import TimelineStore
+
             entries = TimelineStore().query(actor_id, TimelineKind.DECISION)
         except Exception as exc:
             logger.debug("lifecycle_history(%r) query failed: %s", actor_id, exc)
             return []
         history = [
-            e.to_dict() for e in entries
-            if str(getattr(e, "selected_strategy", "")).startswith("actor_lifecycle:")
+            e.to_dict() for e in entries if str(getattr(e, "selected_strategy", "")).startswith("actor_lifecycle:")
         ]
         history.sort(key=lambda d: d.get("start_time", 0))
         return history[-limit:]

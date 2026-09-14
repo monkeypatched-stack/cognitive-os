@@ -34,7 +34,7 @@ from src.cortex.world_model import WorldModel
 @dataclass
 class SimulationResult:
     """Result of a simulation."""
-    
+
     simulation_id: str = field(default_factory=lambda: f"sim-{uuid4().hex[:8]}")
     pipeline_id: str = ""
     expected_reward: float = 0.0
@@ -48,13 +48,13 @@ class SimulationResult:
 
 class Simulator:
     """Evaluates candidate execution strategies.
-    
+
     Simulation shall never produce side effects.
     """
-    
+
     def __init__(self, world_model: WorldModel):
         self._world = world_model
-    
+
     def simulate(
         self,
         pipeline_id: str,
@@ -63,12 +63,12 @@ class Simulator:
     ) -> SimulationResult:
         """Simulate a pipeline execution without side effects."""
         result = SimulationResult(pipeline_id=pipeline_id)
-        
+
         # Estimate based on world model
         total_latency = 0.0
         total_cost = 0.0
         success_prob = 1.0
-        
+
         for cap_name in capabilities:
             cap_state = self._world.get_capability(cap_name)
             if cap_state:
@@ -79,15 +79,15 @@ class Simulator:
                 total_latency += 50.0
                 total_cost += 0.01
                 success_prob *= 0.8
-        
+
         result.expected_latency_ms = total_latency
         result.expected_cost = total_cost
         result.success_probability = success_prob
         result.expected_reward = success_prob * 0.8
         result.expected_confidence = success_prob
-        
+
         return result
-    
+
     def simulate_alternative(
         self,
         original_pipeline: str,

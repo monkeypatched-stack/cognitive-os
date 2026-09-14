@@ -3,6 +3,7 @@
 Every operation records: runtime, proposal, signature, policy decision,
 trust decision, merge decision, execution graph, world revision.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,10 +17,21 @@ from uuid import uuid4
 
 logger = logging.getLogger("agentos.audit")
 
-SECURITY_CRITICAL_EVENT_TYPES = frozenset({
-    "execute", "governance", "security", "auth", "world_mutation",
-    "plan", "authorization", "policy", "login", "token", "delegation",
-})
+SECURITY_CRITICAL_EVENT_TYPES = frozenset(
+    {
+        "execute",
+        "governance",
+        "security",
+        "auth",
+        "world_mutation",
+        "plan",
+        "authorization",
+        "policy",
+        "login",
+        "token",
+        "delegation",
+    }
+)
 
 
 class AuditPersistenceError(RuntimeError):
@@ -45,16 +57,18 @@ class MemoryDurableAuditStore:
                 raise AuditPersistenceError("audit records are append-only; refuse overwrite")
             self._docs[entry_id] = doc
 
-    def find(self, runtime_id: str | None = None, event_type: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+    def find(
+        self,
+        runtime_id: str | None = None,
+        event_type: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
         with self._lock:
             rows = list(self._docs.values())
         if runtime_id:
             rows = [r for r in rows if r.get("runtime_id") == runtime_id]
         if event_type:
-            rows = [
-                r for r in rows
-                if r.get("event_type") in (event_type, f"audit.{event_type}")
-            ]
+            rows = [r for r in rows if r.get("event_type") in (event_type, f"audit.{event_type}")]
         return rows[-limit:]
 
 
@@ -69,6 +83,7 @@ class MongoAuditStore:
             return self._collection
         from src.monkey_brain.persistence.db_pool import get_db_pool
         import os
+
         pool = get_db_pool()
         name = os.getenv("AUDIT_COLLECTION", "audit_records")
         return pool.get_collection(name)
@@ -82,13 +97,20 @@ class MongoAuditStore:
         col = self._col()
         if col.find_one({"entry_id": entry_id}):
             raise AuditPersistenceError("audit records are append-only; refuse overwrite")
-        col.insert_one({
-            **payload,
-            "tenant_id": tenant_id,
-            "_immutable": True,
-        })
+        col.insert_one(
+            {
+                **payload,
+                "tenant_id": tenant_id,
+                "_immutable": True,
+            }
+        )
 
-    def find(self, runtime_id: str | None = None, event_type: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+    def find(
+        self,
+        runtime_id: str | None = None,
+        event_type: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
         query: dict[str, Any] = {}
         if runtime_id:
             query["runtime_id"] = runtime_id
@@ -98,46 +120,63 @@ class MongoAuditStore:
         return list(cursor)
 
 
-
 @dataclass
 class AuditEntry:
     """A single immutable audit record."""
+
     entry_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: float = field(default_factory=time.time)
     runtime_id: str = ""
-    event_type: str = ""       # proposal | trust | merge | execute | governance | security
+    event_type: str = ""  # proposal | trust | merge | execute | governance | security
     action: str = ""
-    actor: str = ""            # who performed the action
-    target: str = ""           # what was affected
-    outcome: str = ""          # success | failure | denied
+    actor: str = ""  # who performed the action
+    target: str = ""  # what was affected
+    outcome: str = ""  # success | failure | denied
     details: dict[str, Any] = field(default_factory=dict)
     proposal_id: str = ""
     signature: str = ""
     world_revision: int = 0
-    prev_hash: str = ""        # hash of previous entry (chain integrity)
-    entry_hash: str = ""       # hash of this entry
+    prev_hash: str = ""  # hash of previous entry (chain integrity)
+    entry_hash: str = ""  # hash of this entry
 
     def compute_hash(self) -> str:
         """Compute SHA-256 hash of this entry's content."""
-        blob = json.dumps({
-            "entry_id": self.entry_id, "timestamp": self.timestamp,
-            "runtime_id": self.runtime_id, "event_type": self.event_type,
-            "action": self.action, "actor": self.actor, "target": self.target,
-            "outcome": self.outcome, "details": self.details,
-            "proposal_id": self.proposal_id, "world_revision": self.world_revision,
-            "prev_hash": self.prev_hash,
-        }, sort_keys=True, default=str).encode()
+        blob = json.dumps(
+            {
+                "entry_id": self.entry_id,
+                "timestamp": self.timestamp,
+                "runtime_id": self.runtime_id,
+                "event_type": self.event_type,
+                "action": self.action,
+                "actor": self.actor,
+                "target": self.target,
+                "outcome": self.outcome,
+                "details": self.details,
+                "proposal_id": self.proposal_id,
+                "world_revision": self.world_revision,
+                "prev_hash": self.prev_hash,
+            },
+            sort_keys=True,
+            default=str,
+        ).encode()
         return hashlib.sha256(blob).hexdigest()
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "entry_id": self.entry_id, "timestamp": self.timestamp,
-            "runtime_id": self.runtime_id, "event_type": self.event_type,
-            "action": self.action, "actor": self.actor, "target": self.target,
-            "outcome": self.outcome, "details": self.details,
-            "proposal_id": self.proposal_id, "signature": self.signature,
+            "entry_id": self.entry_id,
+            "timestamp": self.timestamp,
+            "runtime_id": self.runtime_id,
+            "event_type": self.event_type,
+            "action": self.action,
+            "actor": self.actor,
+            "target": self.target,
+            "outcome": self.outcome,
+            "details": self.details,
+            "proposal_id": self.proposal_id,
+            "signature": self.signature,
             "world_revision": self.world_revision,
-            "prev_hash": self.prev_hash, "entry_hash": self.entry_hash,
+            "prev_hash": self.prev_hash,
+            "entry_hash": self.entry_hash,
         }
 
     @classmethod
@@ -167,14 +206,24 @@ class AuditLog:
         """Attach an AppendOnlyLog for durable persistence."""
         self._store = store
 
-    def record(self, runtime_id: str, event_type: str, action: str,
-               actor: str = "", target: str = "", outcome: str = "success",
-               details: dict[str, Any] | None = None, proposal_id: str = "",
-               signature: str = "", world_revision: int = 0,
-               *, critical: bool | None = None,
-               principal: str = "",
-               correlation_id: str = "",
-               policy_decision: str = "") -> AuditEntry:
+    def record(
+        self,
+        runtime_id: str,
+        event_type: str,
+        action: str,
+        actor: str = "",
+        target: str = "",
+        outcome: str = "success",
+        details: dict[str, Any] | None = None,
+        proposal_id: str = "",
+        signature: str = "",
+        world_revision: int = 0,
+        *,
+        critical: bool | None = None,
+        principal: str = "",
+        correlation_id: str = "",
+        policy_decision: str = "",
+    ) -> AuditEntry:
         """Append an audit entry. Security-critical types fail closed on persist error."""
         is_critical = event_type in SECURITY_CRITICAL_EVENT_TYPES if critical is None else critical
         details = dict(details or {})
@@ -188,13 +237,19 @@ class AuditLog:
         with self._lock:
             if len(self._entries) >= self._max:
                 logger.warning("Audit log in-memory cache full — rotating cache only; durable store is source of truth")
-                self._entries = self._entries[-self._max // 2:]
+                self._entries = self._entries[-self._max // 2 :]
 
             entry = AuditEntry(
-                runtime_id=runtime_id, event_type=event_type, action=action,
-                actor=actor, target=target, outcome=outcome,
-                details=details, proposal_id=proposal_id,
-                signature=signature, world_revision=world_revision,
+                runtime_id=runtime_id,
+                event_type=event_type,
+                action=action,
+                actor=actor,
+                target=target,
+                outcome=outcome,
+                details=details,
+                proposal_id=proposal_id,
+                signature=signature,
+                world_revision=world_revision,
                 prev_hash=self._last_hash,
             )
             entry.entry_hash = entry.compute_hash()
@@ -215,7 +270,11 @@ class AuditLog:
                 raise AuditPersistenceError(
                     f"failed to durably persist security-critical audit event {event_type}/{action}"
                 ) from exc
-            logger.error("audit persist failed for non-critical event_type=%s: %s", event_type, exc)
+            logger.error(
+                "audit persist failed for non-critical event_type=%s: %s",
+                event_type,
+                exc,
+            )
 
         return entry
 
@@ -229,11 +288,13 @@ class AuditLog:
             return mongo
         except Exception as exc:
             from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
             if required and not insecure_dev_mode():
-                raise AuditPersistenceError(
-                    "durable audit store (MongoDB) is unavailable"
-                ) from exc
-            logger.warning("Mongo audit store unavailable (%s); using process-local durable cache", exc)
+                raise AuditPersistenceError("durable audit store (MongoDB) is unavailable") from exc
+            logger.warning(
+                "Mongo audit store unavailable (%s); using process-local durable cache",
+                exc,
+            )
             self._store = MemoryDurableAuditStore()
             return self._store
 
@@ -276,13 +337,19 @@ class AuditLog:
 
                         # Verify chain link
                         if entry.prev_hash != prev_hash:
-                            logger.warning("[audit] chain break at entry %s — discarding", entry.entry_id)
+                            logger.warning(
+                                "[audit] chain break at entry %s — discarding",
+                                entry.entry_id,
+                            )
                             continue
 
                         # Verify hash
                         expected = entry.compute_hash()
                         if expected != entry.entry_hash:
-                            logger.warning("[audit] hash mismatch at entry %s — discarding", entry.entry_id)
+                            logger.warning(
+                                "[audit] hash mismatch at entry %s — discarding",
+                                entry.entry_id,
+                            )
                             continue
 
                         self._entries.append(entry)
@@ -295,8 +362,12 @@ class AuditLog:
         logger.info("[audit] loaded %d entries from %s", loaded, path)
         return loaded
 
-    def query(self, runtime_id: str | None = None, event_type: str | None = None,
-              limit: int = 100) -> list[AuditEntry]:
+    def query(
+        self,
+        runtime_id: str | None = None,
+        event_type: str | None = None,
+        limit: int = 100,
+    ) -> list[AuditEntry]:
         """Query audit entries with optional filters. Durable store is source of truth."""
         if self._store is not None and hasattr(self._store, "find"):
             try:
@@ -321,15 +392,15 @@ class AuditLog:
 
     def record_policy_decision(self, runtime_id: str, action: str, decision: dict[str, Any]) -> AuditEntry:
         """Record a governance policy decision to the durable audit log.
-        
+
         Policy decisions are security-critical and fail closed on persist error.
-        
+
         Args:
             runtime_id: Runtime/principal ID making the request
             action: Action being evaluated (e.g., "agent.propose_operation")
-            decision: Policy decision dict with keys: allowed, reason, approval_mode, 
+            decision: Policy decision dict with keys: allowed, reason, approval_mode,
                      risk_level, policy_rule, violations, etc.
-        
+
         Returns:
             The AuditEntry that was recorded
         """

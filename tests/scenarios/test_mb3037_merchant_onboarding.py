@@ -14,9 +14,13 @@ wallet _owned_by, grocery.py's pantry _pantry_owned_by). A product is
 owned transitively via its store_id -> store.owner_id (require_store_owner()),
 the foundation MB-3033/3038/3039/3040 all build on.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.domains.commerce import CommerceCapability, onboard_merchant
+from src.monkey_brain.kernel.domains.commerce import (
+    CommerceCapability,
+    onboard_merchant,
+)
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
 MERCHANT_ID = "merchant_bob"

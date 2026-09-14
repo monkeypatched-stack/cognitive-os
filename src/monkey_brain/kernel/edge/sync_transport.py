@@ -29,6 +29,7 @@ no live control-plane sync endpoint to validate against end-to-end --
 that requires a real deployment (Section 11's "requires environment-
 specific validation").
 """
+
 from __future__ import annotations
 
 import logging
@@ -121,8 +122,13 @@ class NetworkSyncTransport:
     """
 
     def __init__(
-        self, client: Any, base_url: str, *,
-        max_retries: int = 3, backoff_seconds: float = 0.5, timeout_seconds: float = 10.0,
+        self,
+        client: Any,
+        base_url: str,
+        *,
+        max_retries: int = 3,
+        backoff_seconds: float = 0.5,
+        timeout_seconds: float = 10.0,
     ) -> None:
         self._client = client
         self._base_url = base_url.rstrip("/")
@@ -137,12 +143,18 @@ class NetworkSyncTransport:
         for attempt in range(self._max_retries):
             try:
                 response = self._client.get(
-                    f"{self._base_url}{path}", params=params, timeout=self._timeout_seconds,
+                    f"{self._base_url}{path}",
+                    params=params,
+                    timeout=self._timeout_seconds,
                 )
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as exc:
+            except (
+                httpx.TimeoutException,
+                httpx.ConnectError,
+                httpx.NetworkError,
+            ) as exc:
                 last_exc = exc
                 if attempt < self._max_retries - 1:
-                    time.sleep(self._backoff_seconds * (2 ** attempt))
+                    time.sleep(self._backoff_seconds * (2**attempt))
                 continue
 
             if response.status_code in (401, 403):
@@ -152,7 +164,7 @@ class NetworkSyncTransport:
             if response.status_code >= 500:
                 last_exc = SyncTransportError(f"control plane error: HTTP {response.status_code}")
                 if attempt < self._max_retries - 1:
-                    time.sleep(self._backoff_seconds * (2 ** attempt))
+                    time.sleep(self._backoff_seconds * (2**attempt))
                 continue
             if response.status_code >= 400:
                 raise SyncTransportMalformedResponseError(f"HTTP {response.status_code}: {response.text[:200]}")
@@ -196,14 +208,18 @@ class NetworkSyncTransport:
     def acknowledge(self, *, stream: str, epoch: int) -> None:
         try:
             self._client.post(
-                f"{self._base_url}/edge-sync/ack", json={"stream": stream, "epoch": epoch},
+                f"{self._base_url}/edge-sync/ack",
+                json={"stream": stream, "epoch": epoch},
                 timeout=self._timeout_seconds,
             )
         except Exception:
             # Best-effort, matching kernel/edge/sync.py::acknowledge_sync's
             # own existing "no-op transport" tolerance -- a failed ack
             # never blocks or fails the sync it's acknowledging.
-            logger.debug("NetworkSyncTransport.acknowledge: best-effort ack failed", exc_info=True)
+            logger.debug(
+                "NetworkSyncTransport.acknowledge: best-effort ack failed",
+                exc_info=True,
+            )
 
 
 class TransportSyncSource:
@@ -259,7 +275,10 @@ async def build_mtls_httpx_client_from_workload_identity(*, verify: str | bool =
     import tempfile
     import os
 
-    from src.monkey_brain.kernel.workload_identity import get_workload_identity_provider, WorkloadIdentityError
+    from src.monkey_brain.kernel.workload_identity import (
+        get_workload_identity_provider,
+        WorkloadIdentityError,
+    )
 
     svid = await get_workload_identity_provider().get_x509_svid()
     if svid is None:
@@ -291,4 +310,5 @@ async def build_mtls_httpx_client_from_workload_identity(*, verify: str | bool =
         ctx.load_verify_locations(cafile=verify)
 
     import httpx
+
     return httpx.Client(verify=ctx)

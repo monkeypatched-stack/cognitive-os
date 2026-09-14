@@ -1,4 +1,5 @@
 """AggregateAgent — enforces invariants and maintains transactional consistency."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -74,4 +75,8 @@ class AggregateAgent(BaseDDDAgent):
 
     def learn(self, outcome: dict[str, Any]) -> None:
         if outcome.get("action") == "state_rejected":
-            logger.debug("[aggregate:%s] invariant violations: %s", self._aggregate_name, self._invariant_violations)
+            logger.debug(
+                "[aggregate:%s] invariant violations: %s",
+                self._aggregate_name,
+                self._invariant_violations,
+            )

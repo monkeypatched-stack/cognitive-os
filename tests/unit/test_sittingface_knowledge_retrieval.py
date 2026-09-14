@@ -1,4 +1,5 @@
 """Tests for SittingFace external knowledge retrieval and prompt injection."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,12 +13,13 @@ from src.monkey_brain.kernel.knowledge.sittingface_retrieval import (
     SittingFaceKnowledgeRetriever,
     should_retrieve_external_knowledge,
 )
-from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+    ContextConstructionEngine,
+)
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningContext
 from src.monkey_brain.kernel.pipeline.belief_state import Goal
 from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-
 
 CAPA_SNIPPET = "CAPA means Corrective and Preventive Action for pharmaceutical quality systems."
 
@@ -44,12 +46,14 @@ class _FakeCompiler:
     def search(self, query: str) -> list[dict]:
         q = query.lower()
         if "capa" in q or "gmp" in q or "compliance" in q:
-            return [{
-                "name": "gmp-compliance",
-                "chart_type": "capability",
-                "matched_in": ["name", "capability.description"],
-                "source_path": "/fake/gmp",
-            }]
+            return [
+                {
+                    "name": "gmp-compliance",
+                    "chart_type": "capability",
+                    "matched_in": ["name", "capability.description"],
+                    "source_path": "/fake/gmp",
+                }
+            ]
         return []
 
     def summary(self) -> dict:
@@ -85,6 +89,7 @@ def _reset_retrieval_cache():
 
 def _wire_compiler(monkeypatch, compiler: _FakeCompiler) -> None:
     from src.monkey_brain.kernel.plan.intents import intent_registry
+
     monkeypatch.setattr(intent_registry, "get_somatic_compiler", lambda: compiler)
 
 
@@ -100,7 +105,8 @@ class TestRetrievalPolicy:
 
     def test_meta_skip_blocks_retrieval(self):
         assert not should_retrieve_external_knowledge(
-            "What is CAPA?", meta={"skip_external_knowledge": True},
+            "What is CAPA?",
+            meta={"skip_external_knowledge": True},
         )
 
 
@@ -223,7 +229,10 @@ class TestPromptCompilerInjection:
         from etass.specification import ETASSSpec
 
         agent = PromptCompilerAgent()
-        spec = ETASSSpec(workload="governance_review", goal="Explain CAPA requirements for batch release")
+        spec = ETASSSpec(
+            workload="governance_review",
+            goal="Explain CAPA requirements for batch release",
+        )
         result = await agent.handle({"spec": spec})
         prompt = result.payload["compiled_prompt"]
         assert "External Knowledge (SittingFace)" in prompt

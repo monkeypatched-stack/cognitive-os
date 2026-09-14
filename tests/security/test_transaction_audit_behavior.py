@@ -2,11 +2,16 @@
 
 Insecure-dev is unset. FAILED and UNKNOWN are distinct.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.audit import AuditPersistenceError, MemoryDurableAuditStore, get_audit_log
+from src.monkey_brain.kernel.audit import (
+    AuditPersistenceError,
+    MemoryDurableAuditStore,
+    get_audit_log,
+)
 from src.monkey_brain.kernel.security_boundary import (
     SecurityBoundaryDenied,
     pipeline_stages,
@@ -21,7 +26,11 @@ from src.monkey_brain.kernel.security_operation import (
     reconcile_operation,
     reset_operation_ledger_for_tests,
 )
-from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trusted_auth, unauthenticated_evidence
+from src.monkey_brain.kernel.trusted_auth import (
+    TrustedAuthEvidence,
+    bind_trusted_auth,
+    unauthenticated_evidence,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +42,10 @@ def _secure(monkeypatch):
 
 
 def _ready_store():
-    from src.monkey_brain.api.idempotency import IdempotencyStore, _InMemoryIdempotencyBackend
+    from src.monkey_brain.api.idempotency import (
+        IdempotencyStore,
+        _InMemoryIdempotencyBackend,
+    )
 
     IdempotencyStore._instance = None
     store = IdempotencyStore.__new__(IdempotencyStore)
@@ -44,10 +56,15 @@ def _ready_store():
 
 
 def _alice():
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id="alice",
-        principal_type="human", mfa_status="satisfied",
-    ))
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id="alice",
+            principal_type="human",
+            mfa_status="satisfied",
+        )
+    )
 
 
 async def _allow(*a, **k):
@@ -191,8 +208,14 @@ class TestOrdering:
         # MUTATION -> AUDIT_RESULT skeleton this test guards is unchanged;
         # only these two approval-lifecycle stages were inserted into it.
         assert stages == [
-            "AUTH", "AUTHZ", "APPROVAL_ARTIFACT_CREATED", "IDEMPOTENCY",
-            "AUDIT_INTENT", "APPROVAL_VALIDATED", "MUTATION", "AUDIT_RESULT",
+            "AUTH",
+            "AUTHZ",
+            "APPROVAL_ARTIFACT_CREATED",
+            "IDEMPOTENCY",
+            "AUDIT_INTENT",
+            "APPROVAL_VALIDATED",
+            "MUTATION",
+            "AUDIT_RESULT",
         ]
         assert recorder == ["EFFECT"]
         assert stages.index("AUDIT_INTENT") < stages.index("MUTATION")
@@ -217,10 +240,15 @@ class TestFailureMatrix:
     @pytest.mark.asyncio
     async def test_missing_mfa_denies(self, opa_allow):
         _ready_store()
-        bind_trusted_auth(TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id="alice",
-            principal_type="human", mfa_status="not_satisfied",
-        ))
+        bind_trusted_auth(
+            TrustedAuthEvidence(
+                authenticated=True,
+                token_valid=True,
+                principal_id="alice",
+                principal_type="human",
+                mfa_status="not_satisfied",
+            )
+        )
         mutations = []
 
         async def mutate():
@@ -265,8 +293,11 @@ class TestIdempotencyReservation:
         # simulate crash expiry
         import time
         from src.monkey_brain.api.idempotency import IdempotencyRecord, _IN_PROGRESS
+
         backend._records["k"] = IdempotencyRecord(
-            state=_IN_PROGRESS, request_hash="h", reserved_at=time.time() - 10_000,
+            state=_IN_PROGRESS,
+            request_hash="h",
+            reserved_at=time.time() - 10_000,
         )
         ok3, abandoned = backend.reserve("k", "h")
         assert ok3 is False
@@ -308,11 +339,15 @@ class TestReconciliation:
             get_operation_ledger,
         )
 
-        op = get_operation_ledger().create(SecurityOperation(
-            operation_id="op-1", action="orders.payment", resource="pay",
-            state=SecurityOperationState.RECONCILIATION_REQUIRED,
-            transaction_class=TransactionClass.CLASS_B_EXTERNAL,
-        ))
+        op = get_operation_ledger().create(
+            SecurityOperation(
+                operation_id="op-1",
+                action="orders.payment",
+                resource="pay",
+                state=SecurityOperationState.RECONCILIATION_REQUIRED,
+                transaction_class=TransactionClass.CLASS_B_EXTERNAL,
+            )
+        )
         with pytest.raises(PermissionError):
             reconcile_operation("op-1", confirmed="succeeded")
         assert get_operation_ledger().get("op-1").state is SecurityOperationState.RECONCILIATION_REQUIRED
@@ -324,27 +359,37 @@ class TestReconciliation:
             TransactionClass,
         )
 
-        get_operation_ledger().create(SecurityOperation(
-            operation_id="op-2", action="orders.payment", resource="pay",
-            state=SecurityOperationState.UNKNOWN,
-            transaction_class=TransactionClass.CLASS_B_EXTERNAL,
-        ))
+        get_operation_ledger().create(
+            SecurityOperation(
+                operation_id="op-2",
+                action="orders.payment",
+                resource="pay",
+                state=SecurityOperationState.UNKNOWN,
+                transaction_class=TransactionClass.CLASS_B_EXTERNAL,
+            )
+        )
         with privileged_infrastructure("test reconcile"):
             out = reconcile_operation("op-2", confirmed="succeeded")
         assert out.state is SecurityOperationState.SUCCEEDED
 
     def test_razorpay_timeout_is_unknown_not_failed(self):
         from src.monkey_brain.kernel.domains.payment_provider import ReservationStatus
+
         assert ReservationStatus.UNKNOWN != ReservationStatus.FAILED
         assert ReservationStatus.UNKNOWN.value == "unknown"
 
     def test_reconstruct_intent_only_is_executing(self):
-        from src.monkey_brain.kernel.security_operation import reconstruct_operations_from_audit
-        recovered = reconstruct_operations_from_audit([
-            {
-                "action": "orders.create.intent",
-                "outcome": "pending",
-                "details": {"operation_id": "x", "stage": "AUDIT_INTENT"},
-            },
-        ])
+        from src.monkey_brain.kernel.security_operation import (
+            reconstruct_operations_from_audit,
+        )
+
+        recovered = reconstruct_operations_from_audit(
+            [
+                {
+                    "action": "orders.create.intent",
+                    "outcome": "pending",
+                    "details": {"operation_id": "x", "stage": "AUDIT_INTENT"},
+                },
+            ]
+        )
         assert recovered["x"].value == "executing"

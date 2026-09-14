@@ -19,6 +19,7 @@ uses) ONLY when nothing better is already bound -- never overwriting a
 real caller/workload identity a request-triggered path already
 established.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -91,8 +92,11 @@ class TestRequestTriggeredIdentityIsNeverOverwritten:
     async def test_an_already_authenticated_identity_survives_tick(self, monkeypatch):
         runtime = ActorRuntime("actor-with-real-caller")
         real_identity = TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id="spiffe://cognitiveos/human/alice",
-            principal_type="human", mfa_status="satisfied",
+            authenticated=True,
+            token_valid=True,
+            principal_id="spiffe://cognitiveos/human/alice",
+            principal_type="human",
+            mfa_status="satisfied",
         )
         bind_trusted_auth(real_identity)
 
@@ -143,12 +147,18 @@ class TestAutoTickCanReachRealGovernedExecution:
             # reach ensure_governed for a capability call, with no prior
             # identity bound by any caller (the real auto-tick condition).
             return await ensure_governed(
-                "capability.grocery.purchase", "grocery.purchase", _capability_effect,
+                "capability.grocery.purchase",
+                "grocery.purchase",
+                _capability_effect,
                 extra={"capability": "grocery.purchase", "parameters": {}},
                 force_authorize=True,
                 local_policy_decision={
-                    "allowed": True, "approval_mode": "AUTO_APPROVE", "reason": "test",
-                    "policy_rule": "test", "risk_level": "LOW", "source": "edge_local_governance",
+                    "allowed": True,
+                    "approval_mode": "AUTO_APPROVE",
+                    "reason": "test",
+                    "policy_rule": "test",
+                    "risk_level": "LOW",
+                    "source": "edge_local_governance",
                 },
             )
 
@@ -187,12 +197,18 @@ class TestAutoTickCanReachRealGovernedExecution:
 
         with pytest.raises(SecurityBoundaryDenied):
             await ensure_governed(
-                "capability.grocery.purchase", "grocery.purchase", _capability_effect,
+                "capability.grocery.purchase",
+                "grocery.purchase",
+                _capability_effect,
                 extra={"capability": "grocery.purchase", "parameters": {}},
                 force_authorize=True,
                 local_policy_decision={
-                    "allowed": True, "approval_mode": "AUTO_APPROVE", "reason": "test",
-                    "policy_rule": "test", "risk_level": "LOW", "source": "edge_local_governance",
+                    "allowed": True,
+                    "approval_mode": "AUTO_APPROVE",
+                    "reason": "test",
+                    "policy_rule": "test",
+                    "risk_level": "LOW",
+                    "source": "edge_local_governance",
                 },
             )
 

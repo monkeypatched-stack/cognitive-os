@@ -4,6 +4,7 @@ Runtimes exchange Q-table summaries (not raw transitions) to improve
 learning without sharing private execution data.  Uses simple averaging
 with outlier rejection (Byzantine fault tolerance lite).
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,6 +17,7 @@ logger = logging.getLogger("agentos.federated")
 @dataclass
 class QTableSummary:
     """A summary of a runtime's Q-table for federated exchange."""
+
     runtime_id: str
     q_values: dict[str, float] = field(default_factory=dict)
     timestamp: float = 0.0
@@ -33,6 +35,7 @@ class QTableSummary:
 @dataclass
 class FederatedResult:
     """Result of federated aggregation."""
+
     merged_count: int = 0
     outlier_count: int = 0
     participants: list[str] = field(default_factory=list)

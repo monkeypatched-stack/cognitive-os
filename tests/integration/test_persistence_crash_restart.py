@@ -46,6 +46,7 @@ test; the guarantee that matters here is whether ActorStateStore's own
 Mongo round-trip survives a restart, which is exactly what silently broke
 during the drone run.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -99,7 +100,10 @@ class TestExecutionCheckpointSurvivesRestart:
     def test_checkpoint_saved_before_crash_is_loaded_after_restart(self):
         run_id = uuid.uuid4().hex[:8]
         execution_id = f"drone-1:mission-step-3:{run_id}"
-        plan = {"goal": "deliver-payload", "steps": ["takeoff", "navigate", "drop-payload"]}
+        plan = {
+            "goal": "deliver-payload",
+            "steps": ["takeoff", "navigate", "drop-payload"],
+        }
         completed_steps = {0: {"action_id": "takeoff", "success": True}}
 
         ok = save_execution_checkpoint(execution_id, plan, completed_steps)  # process A
@@ -120,14 +124,15 @@ class TestCurrentPlanSurvivesRestart:
         actor_id = f"drone-1:{run_id}"
         goal_key = "deliver-payload"
         record = CurrentPlanRecord(
-            plan_id=f"plan-{run_id}", actor_id=actor_id, goal=goal_key,
+            plan_id=f"plan-{run_id}",
+            actor_id=actor_id,
+            goal=goal_key,
             steps=("takeoff", "navigate", "drop-payload"),
         )
 
         ok = save_current_plan(actor_id, goal_key, record)  # process A
         assert ok, (
-            "save_current_plan returned False — Redis unreachable? "
-            "bring it up (`docker compose up -d redis`) first"
+            "save_current_plan returned False — Redis unreachable? bring it up (`docker compose up -d redis`) first"
         )
 
         loaded = load_current_plan(actor_id, goal_key)  # process B, after restart
@@ -148,16 +153,17 @@ class TestApprovalSurvivesRestart:
         run_id = uuid.uuid4().hex[:8]
         execution_id = f"drone-1:mission-step-3:approval:{run_id}"
         approval = PendingApproval(
-            execution_id=execution_id, actor_id=f"drone-1:{run_id}",
-            step_index=2, capability="drone.approach_restricted_zone",
+            execution_id=execution_id,
+            actor_id=f"drone-1:{run_id}",
+            step_index=2,
+            capability="drone.approach_restricted_zone",
             proposed_action={"zone": "restricted-alpha"},
             reason="requires human sign-off before entering restricted airspace",
         )
 
         ok = save_pending_approval(approval)  # process A
         assert ok, (
-            "save_pending_approval returned False — Redis unreachable? "
-            "bring it up (`docker compose up -d redis`) first"
+            "save_pending_approval returned False — Redis unreachable? bring it up (`docker compose up -d redis`) first"
         )
 
         loaded = load_pending_approval(execution_id)  # process B, after restart
@@ -178,8 +184,10 @@ class TestNegotiationSurvivesRestart:
         run_id = uuid.uuid4().hex[:8]
         execution_id = f"drone-1:mission-step-3:negotiation:{run_id}"
         negotiation = PendingNegotiation(
-            execution_id=execution_id, actor_id=f"drone-1:{run_id}",
-            step_index=1, capability="drone.share_airspace",
+            execution_id=execution_id,
+            actor_id=f"drone-1:{run_id}",
+            step_index=1,
+            capability="drone.share_airspace",
             proposed_transition={"altitude_band": "120-150m"},
             counterparties=["drone-2"],
             reason="airspace overlap with drone-2's planned route",
@@ -211,16 +219,19 @@ class TestPaymentSurvivesRestart:
         execution_id = f"drone-1:mission-step-3:payment:{run_id}"
         reservation_id = f"resv-{run_id}"
         payment = PendingPayment(
-            execution_id=execution_id, actor_id=f"drone-1:{run_id}",
-            step_index=0, capability="drone.pay_landing_fee",
-            provider_name="upi_reserve_pay", reservation_id=reservation_id,
-            payer_ref="merchant-landing-pad-1", amount=49.0,
+            execution_id=execution_id,
+            actor_id=f"drone-1:{run_id}",
+            step_index=0,
+            capability="drone.pay_landing_fee",
+            provider_name="upi_reserve_pay",
+            reservation_id=reservation_id,
+            payer_ref="merchant-landing-pad-1",
+            amount=49.0,
         )
 
         ok = save_pending_payment(payment)  # process A
         assert ok, (
-            "save_pending_payment returned False — Redis unreachable? "
-            "bring it up (`docker compose up -d redis`) first"
+            "save_pending_payment returned False — Redis unreachable? bring it up (`docker compose up -d redis`) first"
         )
 
         loaded = load_pending_payment(execution_id)  # process B, after restart
@@ -250,15 +261,18 @@ class TestLearningEventsSurviveRestart:
         execution_id = f"drone-1:mission-step-3:learn:{run_id}"
         actor_id = f"drone-1:{run_id}"
         event = LearningEvent(
-            execution_id=execution_id, actor_id=actor_id,
-            goal_key="deliver-payload", action_key="navigate",
-            success=True, previous=None, updated={"probability": 0.9},
+            execution_id=execution_id,
+            actor_id=actor_id,
+            goal_key="deliver-payload",
+            action_key="navigate",
+            success=True,
+            previous=None,
+            updated={"probability": 0.9},
         )
 
         ok = record_learning_event(event)  # process A
         assert ok, (
-            "record_learning_event returned False — Redis unreachable? "
-            "bring it up (`docker compose up -d redis`) first"
+            "record_learning_event returned False — Redis unreachable? bring it up (`docker compose up -d redis`) first"
         )
 
         by_execution = load_learning_events_for_execution(execution_id)  # process B
@@ -286,19 +300,22 @@ class TestTransitionModelSurvivesRestart:
 
         run_id = uuid.uuid4().hex[:8]
         actor_id = f"drone-1:{run_id}"
-        model = TransitionModel(known_transitions={
-            ("deliver-payload", "navigate"): (
-                WorldTransition(
-                    action="navigate", kind=TransitionKind.PROBABILISTIC,
-                    probability=0.9, confidence=0.7,
+        model = TransitionModel(
+            known_transitions={
+                ("deliver-payload", "navigate"): (
+                    WorldTransition(
+                        action="navigate",
+                        kind=TransitionKind.PROBABILISTIC,
+                        probability=0.9,
+                        confidence=0.7,
+                    ),
                 ),
-            ),
-        })
+            }
+        )
 
         ok = save_transition_model(actor_id, model)  # process A
         assert ok, (
-            "save_transition_model returned False — Redis unreachable? "
-            "bring it up (`docker compose up -d redis`) first"
+            "save_transition_model returned False — Redis unreachable? bring it up (`docker compose up -d redis`) first"
         )
         save_actor_meta(actor_id, "Drone One")
 
@@ -315,7 +332,10 @@ class TestBeliefStateSurvivesRestart:
         import json
         from datetime import datetime
 
-        from src.monkey_brain.persistence.actor_state_store import ActorStateStore, PersistedActorState
+        from src.monkey_brain.persistence.actor_state_store import (
+            ActorStateStore,
+            PersistedActorState,
+        )
         from src.monkey_brain.persistence.db_pool import get_db_pool
 
         run_id = uuid.uuid4().hex[:8]
@@ -325,10 +345,14 @@ class TestBeliefStateSurvivesRestart:
 
         store_a = ActorStateStore(get_db_pool())  # process A
         state = PersistedActorState(
-            actor_id=actor_id, tenant_id=tenant_id,
+            actor_id=actor_id,
+            tenant_id=tenant_id,
             belief_state=json.dumps(belief_payload).encode(),
-            bellman_policy=b"", phi_compiled=b"", memory_kv={},
-            last_updated=datetime.now().isoformat(), version=1,
+            bellman_policy=b"",
+            phi_compiled=b"",
+            memory_kv={},
+            last_updated=datetime.now().isoformat(),
+            version=1,
         )
         store_a.save(state)
 

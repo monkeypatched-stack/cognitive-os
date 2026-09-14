@@ -7,6 +7,7 @@ Python fallback keeps the compile package correct everywhere.
 
 Select explicitly with MB_MATH_BACKEND = cupy | numpy | python | auto (default auto).
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,7 +16,7 @@ from typing import Any, Sequence
 
 logger = logging.getLogger("agentos.compile.backend")
 
-_xp: Any = None          # the array module: cupy, numpy, or None (pure python)
+_xp: Any = None  # the array module: cupy, numpy, or None (pure python)
 _name: str | None = None
 
 
@@ -27,6 +28,7 @@ def _detect() -> None:
     if pref in ("auto", "cupy", "gpu"):
         try:
             import cupy as cp  # type: ignore
+
             _xp, _name = cp, "cupy"
             logger.info("[backend] cupy (GPU) enabled")
             return
@@ -36,6 +38,7 @@ def _detect() -> None:
     if pref in ("auto", "numpy", "cpu"):
         try:
             import numpy as np
+
             _xp, _name = np, "numpy"
             logger.info("[backend] numpy (CPU vectorized) enabled")
             return
@@ -46,7 +49,8 @@ def _detect() -> None:
     if pref not in ("auto", "cupy", "gpu", "numpy", "cpu", "python"):
         logger.warning(
             "[backend] MB_MATH_BACKEND=%r is not one of cupy|gpu|numpy|cpu|python|auto — "
-            "using the pure-Python fallback", pref,
+            "using the pure-Python fallback",
+            pref,
         )
     _xp, _name = None, "python"
     logger.info("[backend] pure-Python fallback")
@@ -68,6 +72,7 @@ def _scatter_add(xp: Any, y: Any, idx: Any, contrib: Any) -> None:
     if _name == "cupy":
         try:
             from cupyx import scatter_add  # type: ignore
+
             scatter_add(y, idx, contrib)
             return
         except Exception:
@@ -94,9 +99,16 @@ class PreparedCSR:
     and on GPU it was a full host→device transfer of the operator on every one of the k
     steps.
     """
+
     __slots__ = ("n", "indptr", "indices", "data", "rows", "empty", "python")
 
-    def __init__(self, indptr: Sequence[int], indices: Sequence[int], data: Sequence[float], n: int) -> None:
+    def __init__(
+        self,
+        indptr: Sequence[int],
+        indices: Sequence[int],
+        data: Sequence[float],
+        n: int,
+    ) -> None:
         if len(indptr) != n + 1:
             raise ValueError(f"spmv: CSR has {len(indptr) - 1} row(s) but x has {n} entries")
         self.n = n
@@ -144,8 +156,12 @@ def prepare_csr(indptr: Sequence[int], indices: Sequence[int], data: Sequence[fl
     return PreparedCSR(indptr, indices, data, n)
 
 
-def spmv_forward(indptr: Sequence[int], indices: Sequence[int], data: Sequence[float],
-                 x: Sequence[float]) -> list[float]:
+def spmv_forward(
+    indptr: Sequence[int],
+    indices: Sequence[int],
+    data: Sequence[float],
+    x: Sequence[float],
+) -> list[float]:
     """Forward propagation  y = Mᵀx  over CSR (row i's nonzeros flow mass to their
     columns). Runs on GPU (cupy) or CPU (numpy) with one vectorized path; pure-Python
     scatter otherwise. Returns a length-n Python list.

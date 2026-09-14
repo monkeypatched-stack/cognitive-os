@@ -4,6 +4,7 @@ Compiles an execution graph from belief using dynamic programming with
 constraint-aware path selection. Decoupled from execution and simulation
 for independent testing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,7 +33,8 @@ class PlanConstraints:
         cost_weights: Per-domain cost multipliers (e.g., {"delivery": 2.0}).
         prefer_domains: Domains to prefer when ties exist (higher rank = preferred).
     """
-    budget: float = float('inf')
+
+    budget: float = float("inf")
     max_steps: int = 64
     risk_threshold: float = 1.0
     min_confidence: float = 0.0
@@ -47,7 +49,7 @@ class PlanConstraints:
         if not d:
             return cls()
         return cls(
-            budget=float(d.get("budget", float('inf'))),
+            budget=float(d.get("budget", float("inf"))),
             max_steps=int(d.get("max_steps", 64)),
             risk_threshold=float(d.get("risk_threshold", 1.0)),
             min_confidence=float(d.get("min_confidence", 0.0)),
@@ -61,11 +63,12 @@ class PlanConstraints:
 @dataclass
 class PathCandidate:
     """A candidate path with its score components."""
+
     path: list[str]
-    probability: float          # cumulative transition probability
-    cost: float                 # cumulative cost along path
-    risk: float                 # max risk encountered
-    domains: list[str]          # domains visited (for preference scoring)
+    probability: float  # cumulative transition probability
+    cost: float  # cumulative cost along path
+    risk: float  # max risk encountered
+    domains: list[str]  # domains visited (for preference scoring)
     constraint_violations: int  # number of constraint violations (0 = valid)
 
     @property
@@ -92,8 +95,14 @@ class RuntimeConstraintEngine:
         self.actor_id = actor_id
         self._plan_history: list[dict] = []
 
-    def plan(self, start: str, goal: str, belief: SparseTransitionTensor,
-             horizon: int = 12, constraints: PlanConstraints | None = None) -> ExecutionPlanSnapshot:
+    def plan(
+        self,
+        start: str,
+        goal: str,
+        belief: SparseTransitionTensor,
+        horizon: int = 12,
+        constraints: PlanConstraints | None = None,
+    ) -> ExecutionPlanSnapshot:
         """Synthesize execution graph: path start→goal through belief.
 
         Uses constraint-aware path selection with beam search:
@@ -151,14 +160,16 @@ class RuntimeConstraintEngine:
 
         # Constraint-aware beam search through the belief graph
         beam_width = 3
-        candidates = [PathCandidate(
-            path=[start],
-            probability=1.0,
-            cost=0.0,
-            risk=0.0,
-            domains=[],
-            constraint_violations=0,
-        )]
+        candidates = [
+            PathCandidate(
+                path=[start],
+                probability=1.0,
+                cost=0.0,
+                risk=0.0,
+                domains=[],
+                constraint_violations=0,
+            )
+        ]
         visited_goals = []  # paths that reached goal
 
         for step in range(horizon):
@@ -208,7 +219,7 @@ class RuntimeConstraintEngine:
                         continue
 
                     # Calculate cost
-                    domain = belief.domain_of(succ) if hasattr(belief, 'domain_of') else ""
+                    domain = belief.domain_of(succ) if hasattr(belief, "domain_of") else ""
                     cost_multiplier = constraints.cost_weights.get(domain, 1.0)
                     step_cost = cost_multiplier * (1.0 - prob)  # higher prob = lower cost
                     new_cost = candidate.cost + step_cost
@@ -288,20 +299,31 @@ class RuntimeConstraintEngine:
             },
         )
 
-        assert graph.predicted_confidence >= 0.0 and graph.predicted_confidence <= 1.0, \
+        assert graph.predicted_confidence >= 0.0 and graph.predicted_confidence <= 1.0, (
             f"predicted_confidence out of bounds: {graph.predicted_confidence}"
+        )
 
         self._record_plan(graph)
 
         logger.debug(
-            "[software_engineering_runtime] %s planned %s→%s: path=%s (%d steps), "
-            "confidence=%.2f, violations=%d",
-            self.actor_id, start, goal, "→".join(best_path), len(best_path),
-            graph.predicted_confidence, violations
+            "[software_engineering_runtime] %s planned %s→%s: path=%s (%d steps), confidence=%.2f, violations=%d",
+            self.actor_id,
+            start,
+            goal,
+            "→".join(best_path),
+            len(best_path),
+            graph.predicted_confidence,
+            violations,
         )
-        _obs.event("plan.synthesized", actor=self.actor_id, start=start, goal=goal,
-                   plan_length=len(best_path), confidence=round(graph.predicted_confidence, 3),
-                   constraint_violations=violations)
+        _obs.event(
+            "plan.synthesized",
+            actor=self.actor_id,
+            start=start,
+            goal=goal,
+            plan_length=len(best_path),
+            confidence=round(graph.predicted_confidence, 3),
+            constraint_violations=violations,
+        )
 
         return graph
 
@@ -309,13 +331,15 @@ class RuntimeConstraintEngine:
         """Record plan for auditing."""
         import time
 
-        self._plan_history.append({
-            "timestamp": time.time(),
-            "graph_id": graph.graph_id,
-            "plan": graph.plan,
-            "goal": graph.goal,
-            "confidence": graph.predicted_confidence,
-        })
+        self._plan_history.append(
+            {
+                "timestamp": time.time(),
+                "graph_id": graph.graph_id,
+                "plan": graph.plan,
+                "goal": graph.goal,
+                "confidence": graph.predicted_confidence,
+            }
+        )
 
     def plan_history(self, limit: int = 10) -> list[dict]:
         """Recent plans."""
@@ -324,12 +348,21 @@ class RuntimeConstraintEngine:
     def checkpoint(self, path: str) -> None:
         """Persist plan history for auditing and recovery."""
         import json
+
         try:
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump(self._plan_history, f)
-            logger.info("[software_engineering_runtime] %s checkpointed %d plans to %s",
-                       self.actor_id, len(self._plan_history), path)
-            _obs.event("planning.checkpoint", actor=self.actor_id, plans=len(self._plan_history))
+            logger.info(
+                "[software_engineering_runtime] %s checkpointed %d plans to %s",
+                self.actor_id,
+                len(self._plan_history),
+                path,
+            )
+            _obs.event(
+                "planning.checkpoint",
+                actor=self.actor_id,
+                plans=len(self._plan_history),
+            )
         except (IOError, OSError) as e:
             logger.error("[software_engineering_runtime] checkpoint failed: %s", e, exc_info=True)
             raise
@@ -337,11 +370,16 @@ class RuntimeConstraintEngine:
     def restore(self, path: str) -> None:
         """Restore plan history from checkpoint."""
         import json
+
         try:
             with open(path) as f:
                 self._plan_history = json.load(f)
-            logger.info("[software_engineering_runtime] %s restored %d plans from %s",
-                       self.actor_id, len(self._plan_history), path)
+            logger.info(
+                "[software_engineering_runtime] %s restored %d plans from %s",
+                self.actor_id,
+                len(self._plan_history),
+                path,
+            )
             _obs.event("planning.restore", actor=self.actor_id, plans=len(self._plan_history))
         except (IOError, OSError, json.JSONDecodeError) as e:
             logger.error("[software_engineering_runtime] restore failed: %s", e, exc_info=True)

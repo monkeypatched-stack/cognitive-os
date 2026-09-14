@@ -30,6 +30,7 @@ from src.monkey_brain.kernel.actor_scheduler import ActorScheduler, ActorTickCon
 @dataclass
 class ActorCoordinationEvent:
     """Event for actor-to-actor coordination"""
+
     event_type: str  # 'observation', 'action', 'learning', 'prediction'
     source_actor_id: str
     data: Dict[str, Any]
@@ -80,11 +81,7 @@ class SocietyRuntimePhase8(ServiceInterface):
             self._scheduler = ActorScheduler(self._world)
 
         # Register with scheduler
-        config = ActorTickConfig(
-            actor_id=actor.id,
-            tick_interval=tick_interval,
-            enabled=True
-        )
+        config = ActorTickConfig(actor_id=actor.id, tick_interval=tick_interval, enabled=True)
         self._scheduler.register_actor(actor, config)
 
         # Track actor
@@ -113,11 +110,11 @@ class SocietyRuntimePhase8(ServiceInterface):
         for actor in self._actors.values():
             actor.set_world(world)
 
-    def set_cognitive_runtime(self, runtime: 'CognitiveRuntimeInterface') -> None:
+    def set_cognitive_runtime(self, runtime: "CognitiveRuntimeInterface") -> None:
         """Set cognitive runtime reference (for backward compatibility)"""
         self._cognitive_runtime = runtime
 
-    def get_cognitive_runtime(self) -> Optional['CognitiveRuntimeInterface']:
+    def get_cognitive_runtime(self) -> Optional["CognitiveRuntimeInterface"]:
         """Get cognitive runtime (for backward compatibility)"""
         return self._cognitive_runtime
 
@@ -128,7 +125,7 @@ class SocietyRuntimePhase8(ServiceInterface):
         Events published here update the global world.
         """
         # Emit to context stream subscribers
-        event_type = event.get('event_type', 'unknown')
+        event_type = event.get("event_type", "unknown")
         subscribers = self._event_subscribers.get(event_type, [])
 
         for subscriber in subscribers:
@@ -197,36 +194,29 @@ class SocietyRuntimePhase8(ServiceInterface):
 
     # Coordination helpers
 
-    async def coordinate_multi_actor_goal(
-        self,
-        goal_description: str,
-        actor_ids: List[str]
-    ) -> bool:
+    async def coordinate_multi_actor_goal(self, goal_description: str, actor_ids: List[str]) -> bool:
         """Coordinate goal execution across multiple actors
 
         Phase 11 feature: Enables collaborative planning
         """
         # Create shared goal event
         coordination_event = {
-            'event_type': 'shared_goal',
-            'goal': goal_description,
-            'actors': actor_ids,
-            'timestamp': datetime.now(),
+            "event_type": "shared_goal",
+            "goal": goal_description,
+            "actors": actor_ids,
+            "timestamp": datetime.now(),
         }
 
         await self.publish_event(coordination_event)
         return True
 
-    async def wait_for_actor_convergence(
-        self,
-        actor_id: str,
-        timeout: float = 30.0
-    ) -> bool:
+    async def wait_for_actor_convergence(self, actor_id: str, timeout: float = 30.0) -> bool:
         """Wait for actor's beliefs to converge
 
         Useful for checking when actor has stabilized its cognition
         """
         import asyncio
+
         start_time = datetime.now()
 
         while True:

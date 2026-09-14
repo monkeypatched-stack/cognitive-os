@@ -3,11 +3,14 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_serializer, model_validator
 
 MaintenanceType = Literal["Preventive", "Corrective", "Predictive", "Inspection"]
-MaintenanceStatus = Literal["Scheduled", "In Progress", "Completed", "Cancelled", "Delayed"]
+MaintenanceStatus = Literal[
+    "Scheduled", "In Progress", "Completed", "Cancelled", "Delayed"
+]
 SeverityLevel = Literal["Low", "Medium", "High", "Critical"]
 
 
 # ─── Nested models ────────────────────────────────────────────────────────────
+
 
 class Downtime(BaseModel):
     start_time: str
@@ -30,6 +33,7 @@ class PartUsed(BaseModel):
 
 # ─── Base ─────────────────────────────────────────────────────────────────────
 
+
 class MaintenanceLog(BaseModel):
     id: str
     machine_id: str
@@ -45,11 +49,11 @@ class MaintenanceLog(BaseModel):
     scheduled_end: Optional[str] = None
     actual_start: Optional[str] = None
     actual_end: Optional[str] = None
-    next_due_date:             Optional[date]    = None
-    maintenance_interval_days: Optional[int]     = Field(None, gt=0)
-    performed_by:              Optional[str]        = None
-    reviewed_by:               Optional[str]        = None
-    approved_by:               Optional[str]        = None
+    next_due_date: Optional[date] = None
+    maintenance_interval_days: Optional[int] = Field(None, gt=0)
+    performed_by: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    approved_by: Optional[str] = None
     downtime: Optional[Downtime] = None
     parts_used: list[PartUsed] = []
     work_order_id: Optional[str] = None
@@ -61,7 +65,7 @@ class MaintenanceLog(BaseModel):
         if value is None:
             return None
         return datetime.combine(value, datetime.min.time())
-    
+
     @model_validator(mode="after")
     def check_constraints(self) -> "MaintenanceLog":
         return self
@@ -79,11 +83,20 @@ class MaintenanceLogCreate(MaintenanceLog):
                 raise ValueError("resolution is required when status is 'Completed'")
         if self.status == "In Progress":
             if not self.actual_start:
-                raise ValueError("actual_start is required when status is 'In Progress'")
+                raise ValueError(
+                    "actual_start is required when status is 'In Progress'"
+                )
             if self.actual_end:
-                raise ValueError("actual_end must be empty when status is 'In Progress'")
-        if self.maintenance_type in ("Corrective", "Predictive") and not self.issue_reported:
-            raise ValueError(f"issue_reported is required for '{self.maintenance_type}' maintenance")
+                raise ValueError(
+                    "actual_end must be empty when status is 'In Progress'"
+                )
+        if (
+            self.maintenance_type in ("Corrective", "Predictive")
+            and not self.issue_reported
+        ):
+            raise ValueError(
+                f"issue_reported is required for '{self.maintenance_type}' maintenance"
+            )
         if self.maintenance_type == "Corrective" and not self.severity:
             raise ValueError("severity is required for 'Corrective' maintenance")
         if self.downtime and not self.actual_start:
@@ -115,11 +128,17 @@ class MaintenanceLogUpdate(BaseModel):
         # Only validate Completed rules when all three fields are present
         if self.status == "Completed":
             if self.actual_start is not None and not self.actual_start:
-                raise ValueError("actual_start cannot be empty when status is 'Completed'")
+                raise ValueError(
+                    "actual_start cannot be empty when status is 'Completed'"
+                )
             if self.actual_end is not None and not self.actual_end:
-                raise ValueError("actual_end cannot be empty when status is 'Completed'")
+                raise ValueError(
+                    "actual_end cannot be empty when status is 'Completed'"
+                )
             if self.resolution is not None and not self.resolution:
-                raise ValueError("resolution cannot be empty when status is 'Completed'")
+                raise ValueError(
+                    "resolution cannot be empty when status is 'Completed'"
+                )
 
         # In Progress — actual_end must not be set
         if self.status == "In Progress" and self.actual_end:
@@ -131,7 +150,9 @@ class MaintenanceLogUpdate(BaseModel):
             and self.issue_reported is not None
             and not self.issue_reported
         ):
-            raise ValueError(f"issue_reported cannot be empty for '{self.maintenance_type}' maintenance")
+            raise ValueError(
+                f"issue_reported cannot be empty for '{self.maintenance_type}' maintenance"
+            )
 
         return self
 

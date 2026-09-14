@@ -8,7 +8,6 @@ from urllib.parse import urlparse
 from services.auth.helpers import nats_store
 from services.common.config import settings
 
-
 log = logging.getLogger("uvicorn.error")
 
 _client = None
@@ -16,7 +15,11 @@ _loop: asyncio.AbstractEventLoop | None = None
 
 
 def _topic_list() -> list[str]:
-    return [topic.strip() for topic in str(settings.MQTT_TOPICS or "").split(",") if topic.strip()]
+    return [
+        topic.strip()
+        for topic in str(settings.MQTT_TOPICS or "").split(",")
+        if topic.strip()
+    ]
 
 
 def _sensor_id_from_topic(topic: str) -> str:
@@ -53,7 +56,9 @@ def _reading_from_message(topic: str, payload: bytes) -> dict[str, Any]:
 
 async def _publish_reading(reading: dict[str, Any]) -> None:
     subject = nats_store.sensor_subject(str(reading.get("sensor_id") or "unknown"))
-    await nats_store.publish_event(json.dumps(reading, default=str).encode("utf-8"), subject=subject)
+    await nats_store.publish_event(
+        json.dumps(reading, default=str).encode("utf-8"), subject=subject
+    )
     log.info(
         "MQTT sensor reading published to NATS subject=%s sensor_id=%s",
         subject,
@@ -95,14 +100,20 @@ async def start_mqtt_bridge() -> None:
     host = parsed.hostname or "localhost"
     port = parsed.port or 1883
     _loop = asyncio.get_running_loop()
-    _client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=settings.MQTT_CLIENT_ID)
+    _client = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION2, client_id=settings.MQTT_CLIENT_ID
+    )
     if settings.MQTT_USERNAME:
         _client.username_pw_set(settings.MQTT_USERNAME, settings.MQTT_PASSWORD or None)
     _client.on_connect = _on_connect
     _client.on_message = _on_message
     _client.connect(host, port, keepalive=60)
     _client.loop_start()
-    log.info("MQTT bridge connecting broker=%s topics=%s", settings.MQTT_BROKER_URL, _topic_list())
+    log.info(
+        "MQTT bridge connecting broker=%s topics=%s",
+        settings.MQTT_BROKER_URL,
+        _topic_list(),
+    )
 
 
 async def stop_mqtt_bridge() -> None:

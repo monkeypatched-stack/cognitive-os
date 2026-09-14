@@ -18,6 +18,7 @@ live) that one customer's order silently overwrote another's
 Fixed by widening the suffix to the full uuid4().hex (128 bits),
 verified at the same 10,000-order scale before this test was written.
 """
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -38,8 +39,12 @@ def _seed_catalog() -> tuple[KnowledgeGraph, list[tuple[str, str, str]]]:
         item_count = 3 if merchant_id == "merchant_bob" else 2
         for item_idx in range(item_count):
             product_id = list_product(
-                kg, store_id, merchant_id, f"Item-{merchant_idx}-{item_idx}",
-                price=20.0, quantity=STOCK_PER_PRODUCT,
+                kg,
+                store_id,
+                merchant_id,
+                f"Item-{merchant_idx}-{item_idx}",
+                price=20.0,
+                quantity=STOCK_PER_PRODUCT,
             )["product_id"]
             products.append((product_id, store_id, f"Item-{merchant_idx}-{item_idx}"))
     return kg, products
@@ -51,13 +56,24 @@ def test_mb3036_10000_simultaneous_orders_scale_verification():
 
     def place_order(i: int) -> dict:
         product_id, store_id, name = products[i % len(products)]
-        return cap.handle({"context": {
-            "knowledge_graph": kg, "actor_id": f"actor_{i}",
-            "selected_product": [{
-                "id": product_id, "name": name, "price": 20.0, "qty": 1,
-                "store_id": store_id, "store_name": name,
-            }],
-        }})
+        return cap.handle(
+            {
+                "context": {
+                    "knowledge_graph": kg,
+                    "actor_id": f"actor_{i}",
+                    "selected_product": [
+                        {
+                            "id": product_id,
+                            "name": name,
+                            "price": 20.0,
+                            "qty": 1,
+                            "store_id": store_id,
+                            "store_name": name,
+                        }
+                    ],
+                }
+            }
+        )
 
     results: list[dict | None] = [None] * ORDER_COUNT
     with ThreadPoolExecutor(max_workers=200) as pool:

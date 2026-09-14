@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from cerebellum.capability import Capability
 
 
@@ -22,8 +21,8 @@ class GitHubCapability(Capability):
     """
 
     def __init__(self, token: str = ""):
-        super().__init__(name='github')
-        self._token = token or __import__('os').environ.get("GITHUB_TOKEN", "")
+        super().__init__(name="github")
+        self._token = token or __import__("os").environ.get("GITHUB_TOKEN", "")
         self._base_url = "https://api.github.com"
 
     def _headers(self) -> dict:
@@ -35,10 +34,11 @@ class GitHubCapability(Capability):
 
     async def execute(self, state, **kwargs):
         import httpx
+
         if not self._token:
             return {"status": "error", "error": "GITHUB_TOKEN not set"}
 
-        operation = state.get('operation', 'list_repos')
+        operation = state.get("operation", "list_repos")
         headers = self._headers()
 
         try:
@@ -52,28 +52,24 @@ class GitHubCapability(Capability):
 
     async def _dispatch(self, operation: str, state: dict, headers: dict):
         import httpx
-        async with httpx.AsyncClient(timeout=30.0) as client:
 
+        async with httpx.AsyncClient(timeout=30.0) as client:
             # ── Repo management ──────────────────────────────────────────────
 
-            if operation == 'create_repo':
-                org = state.get('org', '')
-                url = (
-                    f"{self._base_url}/orgs/{org}/repos"
-                    if org else
-                    f"{self._base_url}/user/repos"
-                )
+            if operation == "create_repo":
+                org = state.get("org", "")
+                url = f"{self._base_url}/orgs/{org}/repos" if org else f"{self._base_url}/user/repos"
                 body = {
-                    "name":        state.get('name', ''),
-                    "description": state.get('description', ''),
-                    "private":     state.get('private', False),
-                    "auto_init":   state.get('auto_init', True),
-                    "default_branch": state.get('default_branch', 'main'),
+                    "name": state.get("name", ""),
+                    "description": state.get("description", ""),
+                    "private": state.get("private", False),
+                    "auto_init": state.get("auto_init", True),
+                    "default_branch": state.get("default_branch", "main"),
                 }
-                if state.get('gitignore_template'):
-                    body['gitignore_template'] = state['gitignore_template']
-                if state.get('license_template'):
-                    body['license_template'] = state['license_template']
+                if state.get("gitignore_template"):
+                    body["gitignore_template"] = state["gitignore_template"]
+                if state.get("license_template"):
+                    body["license_template"] = state["license_template"]
                 response = await client.post(url, headers=headers, json=body)
                 data = response.json()
                 if response.status_code in (200, 201):
@@ -86,76 +82,87 @@ class GitHubCapability(Capability):
                         "default_branch": data.get("default_branch"),
                         "private": data.get("private"),
                     }
-                return {"status": "error", "http_status": response.status_code, "error": data.get("message", str(data))}
+                return {
+                    "status": "error",
+                    "http_status": response.status_code,
+                    "error": data.get("message", str(data)),
+                }
 
-            elif operation == 'delete_repo':
-                owner = state.get('owner', '')
-                repo = state.get('repo', '')
+            elif operation == "delete_repo":
+                owner = state.get("owner", "")
+                repo = state.get("repo", "")
                 response = await client.delete(f"{self._base_url}/repos/{owner}/{repo}", headers=headers)
                 if response.status_code == 204:
                     return {"status": "deleted", "repo": f"{owner}/{repo}"}
                 data = response.json() if response.content else {}
-                return {"status": "error", "http_status": response.status_code, "error": data.get("message", "")}
+                return {
+                    "status": "error",
+                    "http_status": response.status_code,
+                    "error": data.get("message", ""),
+                }
 
-            elif operation == 'get_repo':
-                owner = state.get('owner', '')
-                repo = state.get('repo', '')
+            elif operation == "get_repo":
+                owner = state.get("owner", "")
+                repo = state.get("repo", "")
                 response = await client.get(f"{self._base_url}/repos/{owner}/{repo}", headers=headers)
                 return response.json()
 
-            elif operation == 'list_repos':
+            elif operation == "list_repos":
                 params = {
-                    "type": state.get('type', 'owner'),
-                    "sort": state.get('sort', 'updated'),
-                    "per_page": state.get('per_page', 30),
+                    "type": state.get("type", "owner"),
+                    "sort": state.get("sort", "updated"),
+                    "per_page": state.get("per_page", 30),
                 }
                 response = await client.get(f"{self._base_url}/user/repos", headers=headers, params=params)
                 return response.json()
 
-            elif operation == 'get_authenticated_user':
+            elif operation == "get_authenticated_user":
                 response = await client.get(f"{self._base_url}/user", headers=headers)
                 return response.json()
 
             # ── Issues ───────────────────────────────────────────────────────
 
-            elif operation == 'get_issue':
-                owner = state.get('owner', '')
-                repo = state.get('repo', '')
-                issue_number = state.get('issue_number', '')
-                response = await client.get(f"{self._base_url}/repos/{owner}/{repo}/issues/{issue_number}", headers=headers)
+            elif operation == "get_issue":
+                owner = state.get("owner", "")
+                repo = state.get("repo", "")
+                issue_number = state.get("issue_number", "")
+                response = await client.get(
+                    f"{self._base_url}/repos/{owner}/{repo}/issues/{issue_number}",
+                    headers=headers,
+                )
                 return response.json()
 
-            elif operation == 'create_issue':
-                owner = state.get('owner', '')
-                repo = state.get('repo', '')
+            elif operation == "create_issue":
+                owner = state.get("owner", "")
+                repo = state.get("repo", "")
                 response = await client.post(
                     f"{self._base_url}/repos/{owner}/{repo}/issues",
                     headers=headers,
-                    json=state.get('issue', {})
+                    json=state.get("issue", {}),
                 )
                 return response.json()
 
             # ── Pull requests ────────────────────────────────────────────────
 
-            elif operation == 'list_pull_requests':
-                owner = state.get('owner', '')
-                repo = state.get('repo', '')
+            elif operation == "list_pull_requests":
+                owner = state.get("owner", "")
+                repo = state.get("repo", "")
                 response = await client.get(f"{self._base_url}/repos/{owner}/{repo}/pulls", headers=headers)
                 return response.json()
 
-            elif operation == 'create_pull_request':
-                owner = state.get('owner', '')
-                repo = state.get('repo', '')
+            elif operation == "create_pull_request":
+                owner = state.get("owner", "")
+                repo = state.get("repo", "")
                 response = await client.post(
                     f"{self._base_url}/repos/{owner}/{repo}/pulls",
                     headers=headers,
                     json={
-                        "title": state.get('title', ''),
-                        "head":  state.get('head', ''),
-                        "base":  state.get('base', 'main'),
-                        "body":  state.get('body', ''),
-                        "draft": state.get('draft', False),
-                    }
+                        "title": state.get("title", ""),
+                        "head": state.get("head", ""),
+                        "base": state.get("base", "main"),
+                        "body": state.get("body", ""),
+                        "draft": state.get("draft", False),
+                    },
                 )
                 data = response.json()
                 if response.status_code in (200, 201):
@@ -165,52 +172,61 @@ class GitHubCapability(Capability):
                         "html_url": data.get("html_url"),
                         "state": data.get("state"),
                     }
-                return {"status": "error", "http_status": response.status_code, "error": data.get("message", str(data))}
+                return {
+                    "status": "error",
+                    "http_status": response.status_code,
+                    "error": data.get("message", str(data)),
+                }
 
             return {"status": "unknown_operation", "operation": operation}
 
 
 class GitLabCapability(Capability):
     """GitLab integration via GitLab API v4."""
-    
+
     def __init__(self, token: str = "", base_url: str = "https://gitlab.com/api/v4"):
-        super().__init__(name='gitlab')
+        super().__init__(name="gitlab")
         self._token = token
         self._base_url = base_url
-    
+
     async def execute(self, state, **kwargs):
         import httpx
-        operation = state.get('operation', 'list_projects')
+
+        operation = state.get("operation", "list_projects")
         headers = {"PRIVATE-TOKEN": self._token}
         async with httpx.AsyncClient(timeout=30.0) as client:
-            if operation == 'list_projects':
+            if operation == "list_projects":
                 response = await client.get(f"{self._base_url}/projects", headers=headers)
                 return response.json()
-            elif operation == 'get_merge_request':
-                project_id = state.get('project_id', '')
-                mr_iid = state.get('mr_iid', '')
-                response = await client.get(f"{self._base_url}/projects/{project_id}/merge_requests/{mr_iid}", headers=headers)
+            elif operation == "get_merge_request":
+                project_id = state.get("project_id", "")
+                mr_iid = state.get("mr_iid", "")
+                response = await client.get(
+                    f"{self._base_url}/projects/{project_id}/merge_requests/{mr_iid}",
+                    headers=headers,
+                )
                 return response.json()
             return {"status": "unknown_operation"}
 
 
 class BitbucketCapability(Capability):
     """Bitbucket integration via Bitbucket REST API 2.0."""
-    
+
     def __init__(self, username: str = "", app_password: str = ""):
-        super().__init__(name='bitbucket')
+        super().__init__(name="bitbucket")
         self._username = username
         self._app_password = app_password
         self._base_url = "https://api.bitbucket.org/2.0"
-    
+
     async def execute(self, state, **kwargs):
         import httpx
-        operation = state.get('operation', 'list_repos')
+
+        operation = state.get("operation", "list_repos")
         async with httpx.AsyncClient(timeout=30.0) as client:
-            if operation == 'list_repos':
+            if operation == "list_repos":
                 response = await client.get(
                     f"{self._base_url}/repositories/{self._username}",
-                    auth=(self._username, self._app_password)
+                    auth=(self._username, self._app_password),
                 )
                 return response.json()
             return {"status": "unknown_operation"}
@@ -218,21 +234,22 @@ class BitbucketCapability(Capability):
 
 class AzureDevOpsCapability(Capability):
     """Azure DevOps integration via Azure DevOps REST API."""
-    
+
     def __init__(self, organization: str = "", token: str = ""):
-        super().__init__(name='azure_devops')
+        super().__init__(name="azure_devops")
         self._organization = organization
         self._token = token
         self._base_url = f"https://dev.azure.com/{organization}"
-    
+
     async def execute(self, state, **kwargs):
         import httpx
-        operation = state.get('operation', 'list_projects')
+
+        operation = state.get("operation", "list_projects")
         async with httpx.AsyncClient(timeout=30.0) as client:
-            if operation == 'list_projects':
+            if operation == "list_projects":
                 response = await client.get(
                     f"{self._base_url}/_apis/projects",
-                    headers={"Authorization": f"Basic {self._token}"}
+                    headers={"Authorization": f"Basic {self._token}"},
                 )
                 return response.json()
             return {"status": "unknown_operation"}

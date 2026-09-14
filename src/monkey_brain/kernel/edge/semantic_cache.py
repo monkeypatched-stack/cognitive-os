@@ -20,6 +20,7 @@ hit here means "we already retrieved for this exact query recently," not
 "we skipped verifying whether retrieval would still say the same thing"
 -- the TTL bounds how long that assumption is trusted.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -36,12 +37,25 @@ def _normalize_query(query: str) -> str:
 class CachedSittingFaceRetriever:
     """Drop-in in front of a real SittingFaceKnowledgeRetriever."""
 
-    def __init__(self, retriever: Any, *, max_size: int = 256, ttl_seconds: float = DEFAULT_SEMANTIC_CACHE_TTL_SECONDS) -> None:
+    def __init__(
+        self,
+        retriever: Any,
+        *,
+        max_size: int = 256,
+        ttl_seconds: float = DEFAULT_SEMANTIC_CACHE_TTL_SECONDS,
+    ) -> None:
         self._retriever = retriever
         self._cache: BoundedTTLCache = BoundedTTLCache(max_size=max_size, default_ttl_seconds=ttl_seconds)
         self._ttl = ttl_seconds
 
-    def retrieve_sync(self, query: str, *, cycle_id: str = "", force: bool = False, knowledge_version: str = ""):
+    def retrieve_sync(
+        self,
+        query: str,
+        *,
+        cycle_id: str = "",
+        force: bool = False,
+        knowledge_version: str = "",
+    ):
         key = f"{_normalize_query(query)}|{cycle_id}"
         version_key = knowledge_version
         if not force:
@@ -54,7 +68,15 @@ class CachedSittingFaceRetriever:
             self._cache.put(key, report, version_key=version_key, ttl_seconds=self._ttl)
         return report
 
-    async def retrieve(self, query: str, *, cycle_id: str = "", force: bool = False, meta: dict | None = None, knowledge_version: str = ""):
+    async def retrieve(
+        self,
+        query: str,
+        *,
+        cycle_id: str = "",
+        force: bool = False,
+        meta: dict | None = None,
+        knowledge_version: str = "",
+    ):
         key = f"{_normalize_query(query)}|{cycle_id}"
         version_key = knowledge_version
         if not force:
@@ -77,4 +99,5 @@ def _copy_report_as_cache_hit(report: Any) -> Any:
     SAME provenance the real retrieval established, never re-labeled as
     something else merely because it came from this module's own cache."""
     from dataclasses import replace
+
     return replace(report, cache_hit=True)

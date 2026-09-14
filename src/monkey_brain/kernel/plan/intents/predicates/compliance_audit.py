@@ -10,7 +10,7 @@ async def compliance_audit_question_answer(client, question, force=False):
         collection = db["part11_audit_trail"]
 
         # Count questions
-        if re.search(r'how many|count|total', question, re.IGNORECASE):
+        if re.search(r"how many|count|total", question, re.IGNORECASE):
             total = await collection.count_documents({})
             return (f"Audit trail entries: {total}", [], [], False)
 
@@ -42,5 +42,15 @@ async def compliance_audit_approval_question_answer(client, question, force=Fals
 
 def is_compliance_audit_question(question):
     q = question.lower()
-    return any(kw in q for kw in ("audit", "compliance", "part 11", "audit trail",
-                                    "compliance event", "audit log", "change history"))
+    return any(
+        kw in q
+        for kw in (
+            "audit",
+            "compliance",
+            "part 11",
+            "audit trail",
+            "compliance event",
+            "audit log",
+            "change history",
+        )
+    )

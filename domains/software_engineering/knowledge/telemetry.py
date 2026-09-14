@@ -3,6 +3,7 @@
 Replaces pass/fail with engineering quality:
     Architecture | Quality | Runtime | Knowledge | Simulation | Overall
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,7 +17,11 @@ class ArchitectureMetrics:
     compliance: float = 0.0
 
     def to_dict(self) -> dict:
-        return {"ddd_score": self.ddd_score, "governance": self.governance, "compliance": self.compliance}
+        return {
+            "ddd_score": self.ddd_score,
+            "governance": self.governance,
+            "compliance": self.compliance,
+        }
 
 
 @dataclass
@@ -37,10 +42,13 @@ class QualityMetrics:
 
     def to_dict(self) -> dict:
         return {
-            "tests_passed": self.tests_passed, "tests_healed": self.tests_healed,
-            "tests_failed": self.tests_failed, "total": self.total_tests,
+            "tests_passed": self.tests_passed,
+            "tests_healed": self.tests_healed,
+            "tests_failed": self.tests_failed,
+            "total": self.total_tests,
             "pass_rate": self.pass_rate,
-            "files_generated": self.files_generated, "files_patched": self.files_patched,
+            "files_generated": self.files_generated,
+            "files_patched": self.files_patched,
         }
 
 
@@ -61,7 +69,8 @@ class KnowledgeMetrics:
 
     def to_dict(self) -> dict:
         return {
-            "packs": self.knowledge_packs, "confidence": self.confidence,
+            "packs": self.knowledge_packs,
+            "confidence": self.confidence,
             "dimensions": self.confidence_dimensions,
         }
 
@@ -83,9 +92,12 @@ class SimulationMetrics:
 
     def to_dict(self) -> dict:
         return {
-            "solver_mesh": self.solver_mesh, "counterexamples": self.counterexamples,
-            "prediction_loss": self.prediction_loss, "rounds": self.rounds,
-            "initial_loss": self.initial_loss, "final_loss": self.final_loss,
+            "solver_mesh": self.solver_mesh,
+            "counterexamples": self.counterexamples,
+            "prediction_loss": self.prediction_loss,
+            "rounds": self.rounds,
+            "initial_loss": self.initial_loss,
+            "final_loss": self.final_loss,
             "loss_reduction": self.loss_reduction,
         }
 
@@ -100,15 +112,18 @@ class RepairMetrics:
 
     def to_dict(self) -> dict:
         return {
-            "iterations": self.iterations, "files_patched": self.files_patched,
+            "iterations": self.iterations,
+            "files_patched": self.files_patched,
             "success_rate": self.success_rate,
-            "violations_found": self.violations_found, "violations_fixed": self.violations_fixed,
+            "violations_found": self.violations_found,
+            "violations_fixed": self.violations_fixed,
         }
 
 
 @dataclass
 class EngineeringReport:
     """Full engineering telemetry report."""
+
     architecture: ArchitectureMetrics = field(default_factory=ArchitectureMetrics)
     quality: QualityMetrics = field(default_factory=QualityMetrics)
     runtime: RuntimeMetrics = field(default_factory=RuntimeMetrics)
@@ -120,7 +135,12 @@ class EngineeringReport:
     def overall_confidence(self) -> float:
         """Weighted average of all metric scores."""
         scores = [
-            (self.architecture.ddd_score + self.architecture.governance + self.architecture.compliance) / 300,
+            (
+                self.architecture.ddd_score
+                + self.architecture.governance
+                + self.architecture.compliance
+            )
+            / 300,
             self.quality.pass_rate,
             max(0, 1.0 - self.runtime.latency_ms / 5000),
             self.knowledge.confidence,

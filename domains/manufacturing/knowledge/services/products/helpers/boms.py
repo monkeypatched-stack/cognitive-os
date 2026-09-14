@@ -19,12 +19,7 @@ async def get_all(
     page_size: int = 20,
 ) -> tuple[list[dict], int]:
     total = await db[BOMS_COLLECTION].count_documents({})
-    cursor = (
-        db[BOMS_COLLECTION]
-        .find({})
-        .skip((page - 1) * page_size)
-        .limit(page_size)
-    )
+    cursor = db[BOMS_COLLECTION].find({}).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(doc) async for doc in cursor], total
 
 

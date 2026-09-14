@@ -16,6 +16,7 @@ from src.monkey_brain.kernel.compile.entity import Person, Enterprise
 
 class MockWorld:
     """Mock world for testing"""
+
     def __init__(self):
         self.entities = []
         self.transitions = []
@@ -25,11 +26,12 @@ class MockWorld:
         return self.state.copy()
 
     def apply_action(self, action):
-        self.state.update({'action': action, 'timestamp': datetime.now()})
+        self.state.update({"action": action, "timestamp": datetime.now()})
         return self.state.copy()
 
     def clone(self):
         import copy
+
         clone = MockWorld()
         clone.entities = copy.deepcopy(self.entities)
         clone.transitions = copy.deepcopy(self.transitions)
@@ -97,9 +99,9 @@ class TestCognitiveLoopStages:
         actor.set_world(world)
         observations = await actor.observe(world)
 
-        assert 'visible_entities' in observations
-        assert 'relevant_transitions' in observations
-        assert 'timestamp' in observations
+        assert "visible_entities" in observations
+        assert "relevant_transitions" in observations
+        assert "timestamp" in observations
 
     @pytest.mark.asyncio
     async def test_believe_stage(self):
@@ -107,7 +109,7 @@ class TestCognitiveLoopStages:
         entity = Person(id="actor1", name="John")
         actor = AutonomousActor(entity)
 
-        observations = {'state': 'initialized'}
+        observations = {"state": "initialized"}
         updated = await actor.believe(observations)
 
         # Mock actor has no real belief model, so returns False
@@ -121,10 +123,10 @@ class TestCognitiveLoopStages:
 
         plan = await actor.plan()
 
-        assert 'start_state' in plan
-        assert 'goal_states' in plan
-        assert 'steps' in plan
-        assert 'constraints' in plan
+        assert "start_state" in plan
+        assert "goal_states" in plan
+        assert "steps" in plan
+        assert "constraints" in plan
 
     @pytest.mark.asyncio
     async def test_execute_stage(self):
@@ -132,7 +134,7 @@ class TestCognitiveLoopStages:
         entity = Person(id="actor1", name="John")
         actor = AutonomousActor(entity)
 
-        plan = {'steps': [{'action': 'move'}]}
+        plan = {"steps": [{"action": "move"}]}
         actions = await actor.execute(plan)
 
         assert isinstance(actions, list)
@@ -145,13 +147,13 @@ class TestCognitiveLoopStages:
         world = MockWorld()
 
         actor.set_world(world)
-        actions = [{'action': 'test'}]
+        actions = [{"action": "test"}]
 
         predictions = await actor.simulate(actions)
 
-        assert 'actions_simulated' in predictions
-        assert 'predicted_state_trajectory' in predictions
-        assert 'predicted_rewards' in predictions
+        assert "actions_simulated" in predictions
+        assert "predicted_state_trajectory" in predictions
+        assert "predicted_rewards" in predictions
 
     @pytest.mark.asyncio
     async def test_compare_stage(self):
@@ -160,19 +162,19 @@ class TestCognitiveLoopStages:
         actor = AutonomousActor(entity)
 
         predicted = {
-            'predicted_state_trajectory': [{'state': 'a'}, {'state': 'b'}],
-            'predicted_rewards': [1.0, 2.0]
+            "predicted_state_trajectory": [{"state": "a"}, {"state": "b"}],
+            "predicted_rewards": [1.0, 2.0],
         }
         actual = {
-            'state_trajectory': [{'state': 'a'}, {'state': 'c'}],
-            'actual_rewards': [1.0, 1.5]
+            "state_trajectory": [{"state": "a"}, {"state": "c"}],
+            "actual_rewards": [1.0, 1.5],
         }
 
         comparison = await actor.compare(predicted, actual)
 
-        assert 'trajectory_error' in comparison
-        assert 'reward_error' in comparison
-        assert 'model_accurate' in comparison
+        assert "trajectory_error" in comparison
+        assert "reward_error" in comparison
+        assert "model_accurate" in comparison
 
     @pytest.mark.asyncio
     async def test_learn_stage(self):
@@ -180,7 +182,7 @@ class TestCognitiveLoopStages:
         entity = Person(id="actor1", name="John")
         actor = AutonomousActor(entity)
 
-        comparison = {'trajectory_error': 0.05, 'model_accurate': True}
+        comparison = {"trajectory_error": 0.05, "model_accurate": True}
         learned = await actor.learn(comparison)
 
         assert isinstance(learned, bool)
@@ -205,9 +207,9 @@ class TestCognitiveLoopStages:
         actor.set_world(world)
         prediction = await actor.predict(world)
 
-        assert 'horizon' in prediction
-        assert 'states' in prediction
-        assert 'confidence' in prediction
+        assert "horizon" in prediction
+        assert "states" in prediction
+        assert "confidence" in prediction
 
 
 class TestAutonomousExecution:
@@ -225,9 +227,9 @@ class TestAutonomousExecution:
 
         assert isinstance(result, CognitiveLoopResult)
         assert result.tick == 0
-        assert 'observations' in result.__dict__
-        assert 'plan' in result.__dict__
-        assert 'actions' in result.__dict__
+        assert "observations" in result.__dict__
+        assert "plan" in result.__dict__
+        assert "actions" in result.__dict__
 
     @pytest.mark.asyncio
     async def test_continuous_ticking(self):
@@ -375,8 +377,8 @@ class TestSocietyRuntimePhase8:
         async def test_subscriber(event):
             received_events.append(event)
 
-        society.subscribe_to_events('test', test_subscriber)
-        event = {'event_type': 'test', 'data': 'value'}
+        society.subscribe_to_events("test", test_subscriber)
+        event = {"event_type": "test", "data": "value"}
 
         await society.publish_event(event)
 
@@ -406,8 +408,8 @@ class TestSocietyRuntimePhase8:
         stats = society.get_actor_stats(actor.id)
 
         assert stats is not None
-        assert 'tick_count' in stats
-        assert 'enabled' in stats
+        assert "tick_count" in stats
+        assert "enabled" in stats
 
 
 class TestIndependentActorExecution:
@@ -439,16 +441,10 @@ class TestIndependentActorExecution:
         scheduler = ActorScheduler(world)
 
         # Create 3 actors
-        actors = [
-            AutonomousActor(Person(id=f"actor{i}", name=f"Actor{i}"))
-            for i in range(3)
-        ]
+        actors = [AutonomousActor(Person(id=f"actor{i}", name=f"Actor{i}")) for i in range(3)]
 
         for actor in actors:
-            scheduler.register_actor(
-                actor,
-                ActorTickConfig(actor_id=actor.id, tick_interval=0.05)
-            )
+            scheduler.register_actor(actor, ActorTickConfig(actor_id=actor.id, tick_interval=0.05))
 
         await scheduler.start()
         await asyncio.sleep(0.2)
@@ -468,8 +464,8 @@ class TestBackwardCompatibility:
         actor = AutonomousActor(entity)
 
         # Should work with entity interface expectations
-        assert hasattr(actor, 'id')
-        assert hasattr(actor, 'entity_type')
+        assert hasattr(actor, "id")
+        assert hasattr(actor, "entity_type")
 
     @pytest.mark.asyncio
     async def test_society_runtime_backward_compatible(self):

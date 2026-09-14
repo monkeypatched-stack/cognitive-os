@@ -1,4 +1,5 @@
 """Secure-mode preflight — a pilot must not silently run open."""
+
 from __future__ import annotations
 
 import pytest
@@ -7,11 +8,15 @@ from src.monkey_brain.kernel.compile.network import secure_mode_preflight
 
 
 def test_preflight_flags_insecure_defaults(monkeypatch):
-    for var in ("AGENTOS_CA_STORE", "AGENTOS_EXCHANGE_TOKEN",
-                "AGENTOS_REQUIRE_MTLS", "AGENTOS_KEY_PASSWORD"):
+    for var in (
+        "AGENTOS_CA_STORE",
+        "AGENTOS_EXCHANGE_TOKEN",
+        "AGENTOS_REQUIRE_MTLS",
+        "AGENTOS_KEY_PASSWORD",
+    ):
         monkeypatch.delenv(var, raising=False)
     issues = secure_mode_preflight(strict=False)
-    assert len(issues) == 4                         # every gap surfaced, not hidden
+    assert len(issues) == 4  # every gap surfaced, not hidden
 
 
 def test_preflight_strict_mode_fails_fast(monkeypatch):

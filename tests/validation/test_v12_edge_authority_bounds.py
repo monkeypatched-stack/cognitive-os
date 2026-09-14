@@ -12,13 +12,20 @@ confirm the edge can act ONLY within that exact scope/expiry, and that
 a later central epoch bump (simulating revocation) invalidates it on
 reconnect.
 """
+
 from __future__ import annotations
 
 import time
 
-from src.monkey_brain.kernel.edge.local_governance import GovernanceOrigin, LocalGovernanceEvaluator
+from src.monkey_brain.kernel.edge.local_governance import (
+    GovernanceOrigin,
+    LocalGovernanceEvaluator,
+)
 from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
-from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache, issue_policy_snapshot
+from src.monkey_brain.kernel.edge.policy_cache import (
+    EdgePolicyCache,
+    issue_policy_snapshot,
+)
 
 
 def _cache(tmp_path):
@@ -30,15 +37,20 @@ class TestEdgeOperatesOnlyWithinIssuedScopeAndExpiry:
     def test_in_scope_in_expiry_operation_is_allowed_while_disconnected(self, tmp_path):
         cache = _cache(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-            ttl_seconds=300, authority_epoch=1,
+            ttl_seconds=300,
+            authority_epoch=1,
         )
         cache.store_snapshot(snapshot)
         evaluator = LocalGovernanceEvaluator(cache, current_authority_epoch_fn=lambda: 1)
 
         outcome = evaluator.evaluate(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             authenticated_principal="agent:edge-1",
         )
         assert outcome.allowed is True
@@ -47,32 +59,44 @@ class TestEdgeOperatesOnlyWithinIssuedScopeAndExpiry:
     def test_a_different_resource_outside_scope_is_denied_not_locally_widened(self, tmp_path):
         cache = _cache(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-            ttl_seconds=300, authority_epoch=1,
+            ttl_seconds=300,
+            authority_epoch=1,
         )
         cache.store_snapshot(snapshot)
         evaluator = LocalGovernanceEvaluator(cache, current_authority_epoch_fn=lambda: 1)
 
         outcome = evaluator.evaluate(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-2",  # scope+1
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-2",  # scope+1
             authenticated_principal="agent:edge-1",
         )
         assert outcome.allowed is False
-        assert outcome.escalate is True, "an out-of-scope request must escalate to the control plane, never be locally denied-as-if-decided nor locally allowed"
+        assert outcome.escalate is True, (
+            "an out-of-scope request must escalate to the control plane, never be locally denied-as-if-decided nor locally allowed"
+        )
 
     def test_a_different_action_outside_scope_is_denied(self, tmp_path):
         cache = _cache(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-            ttl_seconds=300, authority_epoch=1,
+            ttl_seconds=300,
+            authority_epoch=1,
         )
         cache.store_snapshot(snapshot)
         evaluator = LocalGovernanceEvaluator(cache, current_authority_epoch_fn=lambda: 1)
 
         outcome = evaluator.evaluate(
-            principal="agent:edge-1", action="capability.bank.transfer", resource="order-1",  # action+1
+            principal="agent:edge-1",
+            action="capability.bank.transfer",
+            resource="order-1",  # action+1
             authenticated_principal="agent:edge-1",
         )
         assert outcome.allowed is False
@@ -81,9 +105,12 @@ class TestEdgeOperatesOnlyWithinIssuedScopeAndExpiry:
     def test_past_expiry_is_denied_not_extended(self, tmp_path):
         cache = _cache(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-            ttl_seconds=1, authority_epoch=1,  # expiry+1 attempted below
+            ttl_seconds=1,
+            authority_epoch=1,  # expiry+1 attempted below
         )
         cache.store_snapshot(snapshot)
         evaluator = LocalGovernanceEvaluator(cache, current_authority_epoch_fn=lambda: 1)
@@ -92,7 +119,9 @@ class TestEdgeOperatesOnlyWithinIssuedScopeAndExpiry:
         # own expires_at while still fully disconnected.
         time.sleep(1.2)
         outcome = evaluator.evaluate(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             authenticated_principal="agent:edge-1",
         )
         assert outcome.allowed is False
@@ -104,15 +133,20 @@ class TestEdgeOperatesOnlyWithinIssuedScopeAndExpiry:
         borrow it."""
         cache = _cache(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-            ttl_seconds=300, authority_epoch=1,
+            ttl_seconds=300,
+            authority_epoch=1,
         )
         cache.store_snapshot(snapshot)
         evaluator = LocalGovernanceEvaluator(cache, current_authority_epoch_fn=lambda: 1)
 
         outcome = evaluator.evaluate(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             authenticated_principal="agent:edge-2",  # different real caller
         )
         assert outcome.allowed is False
@@ -128,25 +162,35 @@ class TestCentralRevocationInvalidatesCachedAuthorityOnReconnect:
         of authority has moved on since this snapshot was issued."""
         cache = _cache(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-            ttl_seconds=300, authority_epoch=1,
+            ttl_seconds=300,
+            authority_epoch=1,
         )
         cache.store_snapshot(snapshot)
 
         # While disconnected, at the SAME epoch it was issued under: allowed.
         still_disconnected = LocalGovernanceEvaluator(cache, current_authority_epoch_fn=lambda: 1)
-        assert still_disconnected.evaluate(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
-            authenticated_principal="agent:edge-1",
-        ).allowed is True
+        assert (
+            still_disconnected.evaluate(
+                principal="agent:edge-1",
+                action="capability.grocery.purchase",
+                resource="order-1",
+                authenticated_principal="agent:edge-1",
+            ).allowed
+            is True
+        )
 
         # Reconnect: the runtime's own last-synced epoch has advanced
         # past what this snapshot was issued under (a real revocation
         # happened centrally in the meantime).
         after_reconnect = LocalGovernanceEvaluator(cache, current_authority_epoch_fn=lambda: 2)
         outcome = after_reconnect.evaluate(
-            principal="agent:edge-1", action="capability.grocery.purchase", resource="order-1",
+            principal="agent:edge-1",
+            action="capability.grocery.purchase",
+            resource="order-1",
             authenticated_principal="agent:edge-1",
         )
         assert outcome.allowed is False
@@ -161,15 +205,23 @@ class TestHumanApprovalRequiredNeverBecomesLocallySatisfiable:
         decide -- the edge has no authority to manufacture that."""
         cache = _cache(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal="agent:edge-1", action="capability.bank.transfer", resource="acct-1",
-            policy_decision={"allowed": False, "approval_mode": "HUMAN_APPROVAL_REQUIRED"},
-            ttl_seconds=300, authority_epoch=1,
+            principal="agent:edge-1",
+            action="capability.bank.transfer",
+            resource="acct-1",
+            policy_decision={
+                "allowed": False,
+                "approval_mode": "HUMAN_APPROVAL_REQUIRED",
+            },
+            ttl_seconds=300,
+            authority_epoch=1,
         )
         cache.store_snapshot(snapshot)
         evaluator = LocalGovernanceEvaluator(cache, current_authority_epoch_fn=lambda: 1)
 
         outcome = evaluator.evaluate(
-            principal="agent:edge-1", action="capability.bank.transfer", resource="acct-1",
+            principal="agent:edge-1",
+            action="capability.bank.transfer",
+            resource="acct-1",
             authenticated_principal="agent:edge-1",
         )
         assert outcome.allowed is False

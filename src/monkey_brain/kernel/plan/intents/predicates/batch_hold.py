@@ -1,8 +1,10 @@
 """batch_hold predicates."""
 
+
 async def batch_hold_question_answer(client, question, force=False):
     """Generate batch hold answer."""
     return None
+
 
 def is_batch_hold_question(question):
     """Check if question is about batch hold."""

@@ -19,6 +19,7 @@ owns/neverOwns/invariants statements against the actual source tree — that
 would require a rule interpreter for arbitrary natural-language invariant
 text, which doesn't exist anywhere in this codebase and isn't invented here.
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,7 +35,7 @@ logger = logging.getLogger("broca.agents.chart_validator")
 _REPO = Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4])))
 _CHARTS_DIR = _REPO / "somatic" / "charts"
 
-_HOOK_SCRIPT = '''#!/usr/bin/env bash
+_HOOK_SCRIPT = """#!/usr/bin/env bash
 # ChartValidatorAgent pre-commit hook
 # Installed by: broca.agents.chart_validator_agent.install_git_hook
 # Validates all somatic/charts/ against constitutional invariants before every commit.
@@ -53,7 +54,7 @@ if [ "$CHART_CHANGE" -gt 0 ] && [ "$VALIDATOR_CHANGE" -eq 0 ]; then
     PYTHONPATH="$REPO_ROOT/packages/broca:$REPO_ROOT/packages/sittingface:$PYTHONPATH" \\
         python3 -m broca.agents.chart_validator_agent
 fi
-'''
+"""
 
 
 def install_git_hook(repo_root: Path | None = None) -> Path:
@@ -80,7 +81,15 @@ def _validate_charts(charts_dir: Path) -> list[str]:
     """
     import yaml
 
-    _CONSTITUTIONAL_MARKERS = ("module", "capability", "agent", "owns", "neverOwns", "invariants", "principles")
+    _CONSTITUTIONAL_MARKERS = (
+        "module",
+        "capability",
+        "agent",
+        "owns",
+        "neverOwns",
+        "invariants",
+        "principles",
+    )
 
     errors: list[str] = []
     if not charts_dir.exists():
@@ -138,7 +147,9 @@ def _architecture_critical_violations() -> list[str]:
     text (see module docstring for why).
     """
     try:
-        from src.cingulate.governance.architecture_validator import ArchitectureValidator
+        from src.cingulate.governance.architecture_validator import (
+            ArchitectureValidator,
+        )
     except ImportError as exc:
         logger.warning("[chart_validator] ArchitectureValidator unavailable, skipping: %s", exc)
         return []
@@ -179,8 +190,7 @@ class ChartValidatorAgent(BaseETASSAgent):
                 "publish_errors": publish_errors,
             },
             observations=(
-                [f"{len(blocking)} blocking issue(s)"] if blocking
-                else [f"all charts valid, {published} published"]
+                [f"{len(blocking)} blocking issue(s)"] if blocking else [f"all charts valid, {published} published"]
             ),
             evidence=[{"blocking": b} for b in blocking],
         )

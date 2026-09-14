@@ -1,4 +1,5 @@
 """Simple test cases for actor-to-actor communication in a world."""
+
 from __future__ import annotations
 
 import pytest
@@ -118,7 +119,7 @@ class TestBasicActorCommunication:
         """Asking about states increases coverage of the world."""
         world = SparseTransitionTensor()
         for i in range(5):
-            world.observe(f"s{i}", f"s{i+1}")
+            world.observe(f"s{i}", f"s{i + 1}")
 
         network = ActorNetwork(world)
         a = network.add("alice")

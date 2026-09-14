@@ -19,6 +19,7 @@ This naturally supports:
     - Human approval (inject approval nodes)
     - Recursive workloads (inject sub-workload nodes)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -102,7 +103,9 @@ class GraphScheduler:
 
         logger.info(
             "Scheduler iteration %d: %d runnable nodes (mode=%s)",
-            iteration, len(runnable), self._execution_mode,
+            iteration,
+            len(runnable),
+            self._execution_mode,
         )
 
         if self._execution_mode == "parallel":
@@ -190,10 +193,16 @@ class GraphScheduler:
                     apply_runtime_projections(result.output, context, projections)
             return payload
         except asyncio.TimeoutError:
-            logger.error("Step %s: capability %r exceeded %ss — cancelled",
-                         node.id, capability_name, self._step_timeout)
-            return {"status": "error",
-                    "error": f"capability_timeout after {self._step_timeout}s"}
+            logger.error(
+                "Step %s: capability %r exceeded %ss — cancelled",
+                node.id,
+                capability_name,
+                self._step_timeout,
+            )
+            return {
+                "status": "error",
+                "error": f"capability_timeout after {self._step_timeout}s",
+            }
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -206,10 +215,7 @@ class GraphScheduler:
         if self._expansion_policy is None:
             return
 
-        failed_nodes = [
-            node for node in graph.get_step_nodes()
-            if graph.get_state(node.id) == NodeState.FAILED
-        ]
+        failed_nodes = [node for node in graph.get_step_nodes() if graph.get_state(node.id) == NodeState.FAILED]
 
         if not failed_nodes:
             return

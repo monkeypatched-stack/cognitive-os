@@ -11,6 +11,7 @@ both), not asserted by the script.
 Usage:
     python3 demo/negotiation/mb3305_delivery_optimization.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -21,9 +22,12 @@ from bootstrap_mb3305 import bootstrap_world
 
 def evaluate_round(c, actor_id: str, actor_name: str, saved_miles: float) -> dict | None:
     steps, actions = force_round(
-        c, actor_id, actor_name, "EvaluateStrategy",
-        f'Another driver has proposed swapping a delivery that is in your usual zone for one that '
-        f'is currently on your route but out of your usual zone. Swapping would save you real '
+        c,
+        actor_id,
+        actor_name,
+        "EvaluateStrategy",
+        f"Another driver has proposed swapping a delivery that is in your usual zone for one that "
+        f"is currently on your route but out of your usual zone. Swapping would save you real "
         f'distance. Evaluate whether swapping is worth it. Use parameters {{"candidates": '
         f'[{{"name": "swap", "attributes": {{"distance_saved": {saved_miles}, "effort": -1.0}}}}, '
         f'{{"name": "keep", "attributes": {{"distance_saved": 0.0, "effort": 0.0}}}}]}}.',
@@ -38,8 +42,11 @@ def evaluate_round(c, actor_id: str, actor_name: str, saved_miles: float) -> dic
 
 def respond_round(c, actor_id: str, actor_name: str, fact: str) -> str:
     steps, actions = force_round(
-        c, actor_id, actor_name, "RespondToInquiry",
-        f'{fact} Reply with your final decision on the route swap, in your own words.',
+        c,
+        actor_id,
+        actor_name,
+        "RespondToInquiry",
+        f"{fact} Reply with your final decision on the route swap, in your own words.",
         extra_context=fact,
     )
     result = first_result("RespondToInquiry", steps, actions)
@@ -64,8 +71,11 @@ def main() -> int:
 
             section("Round 1 — Driver X proposes the swap")
             steps, actions = force_round(
-                c, x_id, "Driver X", "AskActor",
-                f'You have a delivery in Driver Y\'s usual zone (Zone B), and they have one in yours '
+                c,
+                x_id,
+                "Driver X",
+                "AskActor",
+                f"You have a delivery in Driver Y's usual zone (Zone B), and they have one in yours "
                 f'(Zone A). Propose swapping. Use parameters {{"target_actor": "Driver Y", "question": '
                 f'"Would you like to swap our out-of-zone deliveries? It should save us both real distance."}}.',
             )
@@ -83,11 +93,13 @@ def main() -> int:
 
             section("Round 3 — Both drivers confirm")
             x_fact = (
-                "Your own evaluation showed swapping saves you real distance." if x_favors_swap
+                "Your own evaluation showed swapping saves you real distance."
+                if x_favors_swap
                 else "Your own evaluation showed keeping your current route is better for you."
             )
             y_fact = (
-                "Your own evaluation showed swapping saves you real distance." if y_favors_swap
+                "Your own evaluation showed swapping saves you real distance."
+                if y_favors_swap
                 else "Your own evaluation showed keeping your current route is better for you."
             )
             x_answer = respond_round(c, x_id, "Driver X", x_fact)
@@ -95,12 +107,22 @@ def main() -> int:
 
             section("Verification")
             checks = [
-                ("Route exchange proposed in real natural language (AskActor)", bool(ask_result)),
-                ("Both drivers evaluated real strategies with real utility numbers",
-                 bool(x_eval and x_eval.get("evaluations")) and bool(y_eval and y_eval.get("evaluations"))),
-                ("Overall efficiency improves (both drivers' real utility favors swapping)",
-                 x_favors_swap and y_favors_swap),
-                ("Both drivers confirmed in their own words", bool(x_answer) and bool(y_answer)),
+                (
+                    "Route exchange proposed in real natural language (AskActor)",
+                    bool(ask_result),
+                ),
+                (
+                    "Both drivers evaluated real strategies with real utility numbers",
+                    bool(x_eval and x_eval.get("evaluations")) and bool(y_eval and y_eval.get("evaluations")),
+                ),
+                (
+                    "Overall efficiency improves (both drivers' real utility favors swapping)",
+                    x_favors_swap and y_favors_swap,
+                ),
+                (
+                    "Both drivers confirmed in their own words",
+                    bool(x_answer) and bool(y_answer),
+                ),
             ]
             all_pass = True
             for label, ok in checks:

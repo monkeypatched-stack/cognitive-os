@@ -618,7 +618,10 @@ class ConsensusGate:
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
-                logger.error("Cingulate escalation for %s skipped: no running event loop", candidate_key)
+                logger.error(
+                    "Cingulate escalation for %s skipped: no running event loop",
+                    candidate_key,
+                )
                 return
             task = loop.create_task(
                 CingulateReview.escalate(

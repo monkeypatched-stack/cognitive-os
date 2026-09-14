@@ -17,6 +17,7 @@ real round-2 outcome as a fact.
 Usage:
     python3 demo/negotiation/mb3300_competing_customers.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -28,9 +29,12 @@ from bootstrap_mb3300 import TRACKED_PRODUCT_NAME, bootstrap_world
 
 def evaluate_round(c, actor_id: str, actor_name: str) -> dict | None:
     steps, actions = force_round(
-        c, actor_id, actor_name, "EvaluateStrategy",
-        f'Only 1 {TRACKED_PRODUCT_NAME} remains in stock and another customer wants it '
-        f'too. Evaluate whether buying it right now is worth it to you. Use parameters '
+        c,
+        actor_id,
+        actor_name,
+        "EvaluateStrategy",
+        f"Only 1 {TRACKED_PRODUCT_NAME} remains in stock and another customer wants it "
+        f"too. Evaluate whether buying it right now is worth it to you. Use parameters "
         f'{{"candidates": [{{"name": "buy_now", "attributes": {{"speed": 1.0, "cost": -1.0}}}}, '
         f'{{"name": "wait", "attributes": {{"speed": 0.0, "cost": 0.0}}}}]}}.',
     )
@@ -44,8 +48,11 @@ def evaluate_round(c, actor_id: str, actor_name: str) -> dict | None:
 
 def compete_round(c, actor_id: str, actor_name: str, product_id: str) -> dict | None:
     steps, actions = force_round(
-        c, actor_id, actor_name, "CompeteForResource",
-        f'Try to reserve the last {TRACKED_PRODUCT_NAME} for yourself. Use parameters '
+        c,
+        actor_id,
+        actor_name,
+        "CompeteForResource",
+        f"Try to reserve the last {TRACKED_PRODUCT_NAME} for yourself. Use parameters "
         f'{{"resource_id": "{product_id}", "qty": 1}}.',
     )
     result = first_result("CompeteForResource", steps, actions)
@@ -63,8 +70,11 @@ def respond_round(c, actor_id: str, actor_name: str, compete_result: dict | None
     else:
         fact = "Your reservation attempt did not produce a usable result."
     steps, actions = force_round(
-        c, actor_id, actor_name, "RespondToInquiry",
-        f'{fact} Explain what happened and why, in your own words, as your final answer.',
+        c,
+        actor_id,
+        actor_name,
+        "RespondToInquiry",
+        f"{fact} Explain what happened and why, in your own words, as your final answer.",
         extra_context=fact,
     )
     result = first_result("RespondToInquiry", steps, actions)
@@ -74,19 +84,32 @@ def respond_round(c, actor_id: str, actor_name: str, compete_result: dict | None
     return answer
 
 
-def step_verify(alice_compete: dict | None, bob_compete: dict | None,
-                 alice_eval: dict | None, bob_eval: dict | None,
-                 alice_answer: str, bob_answer: str) -> bool:
+def step_verify(
+    alice_compete: dict | None,
+    bob_compete: dict | None,
+    alice_eval: dict | None,
+    bob_eval: dict | None,
+    alice_answer: str,
+    bob_answer: str,
+) -> bool:
     section("Verification")
     checks = [
-        ("Competition detected (both attempted CompeteForResource)",
-         alice_compete is not None and bob_compete is not None),
-        ("Strategies evaluated (both produced real utility numbers)",
-         bool(alice_eval and alice_eval.get("evaluations")) and bool(bob_eval and bob_eval.get("evaluations"))),
-        ("Allocation explained (exactly one real winner, one real loser)",
-         bool(alice_compete) and bool(bob_compete) and (alice_compete.get("won") != bob_compete.get("won"))),
-        ("Losing customer received an appropriate outcome (real explanation, not empty)",
-         bool(alice_answer if not (alice_compete or {}).get("won") else bob_answer)),
+        (
+            "Competition detected (both attempted CompeteForResource)",
+            alice_compete is not None and bob_compete is not None,
+        ),
+        (
+            "Strategies evaluated (both produced real utility numbers)",
+            bool(alice_eval and alice_eval.get("evaluations")) and bool(bob_eval and bob_eval.get("evaluations")),
+        ),
+        (
+            "Allocation explained (exactly one real winner, one real loser)",
+            bool(alice_compete) and bool(bob_compete) and (alice_compete.get("won") != bob_compete.get("won")),
+        ),
+        (
+            "Losing customer received an appropriate outcome (real explanation, not empty)",
+            bool(alice_answer if not (alice_compete or {}).get("won") else bob_answer),
+        ),
     ]
     all_pass = True
     for label, ok in checks:
@@ -123,7 +146,14 @@ def main() -> int:
             alice_answer = respond_round(c, alice_id, "Alice", alice_compete)
             bob_answer = respond_round(c, bob_id, "Bob", bob_compete)
 
-            passed = step_verify(alice_compete, bob_compete, alice_eval, bob_eval, alice_answer, bob_answer)
+            passed = step_verify(
+                alice_compete,
+                bob_compete,
+                alice_eval,
+                bob_eval,
+                alice_answer,
+                bob_answer,
+            )
 
             banner("MB-3300 RESULT: " + ("PASS" if passed else "FAIL"))
             if not passed:

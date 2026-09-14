@@ -118,8 +118,9 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install mypy
+          pip install uv
+          uv export --frozen --group dev --no-hashes --no-emit-project -o requirements.lock.txt
+          uv pip install --system -r requirements.lock.txt
       - name: mypy (full kernel/, informational)
         run: mypy --config-file pyproject.toml --follow-imports=silent src/monkey_brain/kernel
 
@@ -132,8 +133,9 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install pytest-cov pytest-timeout pytest-asyncio
+          pip install uv
+          uv export --frozen --group dev --no-hashes --no-emit-project -o requirements.lock.txt
+          uv pip install --system -r requirements.lock.txt
       - name: Run test suite with coverage
         env:
           ACCESS_TOKEN_SECRET: unit-test-hmac-key-not-a-placeholder!!
@@ -178,8 +180,9 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-timeout
+          pip install uv
+          uv export --frozen --group dev --no-hashes --no-emit-project -o requirements.lock.txt
+          uv pip install --system -r requirements.lock.txt
       - name: Security control tests (blocking)
         env:
           ACCESS_TOKEN_SECRET: unit-test-hmac-key-not-a-placeholder!!

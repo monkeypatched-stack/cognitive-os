@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any
 
 import httpx
 import yaml
@@ -22,7 +20,12 @@ class SittingFaceClient:
         r.raise_for_status()
         return r.json()
 
-    def list_charts(self, chart_type: str | None = None, tag: str | None = None, search: str | None = None) -> list[dict]:
+    def list_charts(
+        self,
+        chart_type: str | None = None,
+        tag: str | None = None,
+        search: str | None = None,
+    ) -> list[dict]:
         params = {}
         if chart_type:
             params["type"] = chart_type
@@ -48,7 +51,17 @@ class SittingFaceClient:
         r.raise_for_status()
         return r.json()
 
-    def publish(self, name: str, version: str, values_yaml: str, description: str = "", tags: list[str] | None = None, chart_type: str = "module", templates: dict[str, str] | None = None, sub_charts: dict[str, dict[str, str]] | None = None) -> dict:
+    def publish(
+        self,
+        name: str,
+        version: str,
+        values_yaml: str,
+        description: str = "",
+        tags: list[str] | None = None,
+        chart_type: str = "module",
+        templates: dict[str, str] | None = None,
+        sub_charts: dict[str, dict[str, str]] | None = None,
+    ) -> dict:
         payload = {
             "name": name,
             "version": version,
@@ -72,16 +85,24 @@ class SittingFaceClient:
         values_yaml = values_file.read_text()
         values = yaml.safe_load(values_yaml) or {}
 
-        name = (values.get("module", {}).get("name") or
-                values.get("capability", {}).get("name") or
-                values.get("agent", {}).get("name") or
-                chart_dir.name)
-        version = (values.get("module", {}).get("version") or
-                   values.get("capability", {}).get("version") or
-                   values.get("agent", {}).get("version") or "1.0.0")
-        description = (values.get("module", {}).get("softwareRole") or
-                       values.get("capability", {}).get("description") or
-                       values.get("agent", {}).get("description") or "")
+        name = (
+            values.get("module", {}).get("name")
+            or values.get("capability", {}).get("name")
+            or values.get("agent", {}).get("name")
+            or chart_dir.name
+        )
+        version = (
+            values.get("module", {}).get("version")
+            or values.get("capability", {}).get("version")
+            or values.get("agent", {}).get("version")
+            or "1.0.0"
+        )
+        description = (
+            values.get("module", {}).get("softwareRole")
+            or values.get("capability", {}).get("description")
+            or values.get("agent", {}).get("description")
+            or ""
+        )
 
         if values.get("capability"):
             chart_type = "capability"
@@ -113,7 +134,16 @@ class SittingFaceClient:
                         "templates": sub_templates,
                     }
 
-        return self.publish(name, version, values_yaml, description, tags, chart_type, templates, sub_charts)
+        return self.publish(
+            name,
+            version,
+            values_yaml,
+            description,
+            tags,
+            chart_type,
+            templates,
+            sub_charts,
+        )
 
     def pull(self, name: str, version: str = "latest", dest: Path | None = None) -> Path | None:
         """Pull a chart from the registry to a local directory."""
@@ -130,7 +160,6 @@ class SittingFaceClient:
         r.raise_for_status()
         envelope = r.json()
 
-        meta = envelope.get("meta", {})
         chart_data = envelope.get("data", {})
 
         if dest is None:

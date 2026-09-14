@@ -22,18 +22,29 @@ different subjective beliefs — all consistent with (subsets of) the same globa
 truth. A society of agents representing real people, each with partial knowledge of one
 shared world.
 """
+
 from __future__ import annotations
 
 import logging
 
 from src.monkey_brain.kernel.compile import _obs
 from src.monkey_brain.kernel.compile.cognitive_actor import (
-    CognitiveActor, CycleResult, Delta,
+    CognitiveActor,
+    CycleResult,
+    Delta,
 )
 from src.monkey_brain.kernel.compile.tensor import Feature, SparseTransitionTensor
 from src.monkey_brain.kernel.compile.trust import TrustNetwork, Relationship, Perm
-from src.monkey_brain.kernel.compile.conflict_resolution import ConflictResolver, ResolutionStrategy
-from src.monkey_brain.kernel.compile.event_sourcing import EventStore, EventType, Event, get_event_store
+from src.monkey_brain.kernel.compile.conflict_resolution import (
+    ConflictResolver,
+    ResolutionStrategy,
+)
+from src.monkey_brain.kernel.compile.event_sourcing import (
+    EventStore,
+    EventType,
+    Event,
+    get_event_store,
+)
 
 logger = logging.getLogger("agentos.compile.society")
 
@@ -56,11 +67,14 @@ class ActorNetwork:
       - Gossip respects trust boundaries
     """
 
-    def __init__(self, global_world: SparseTransitionTensor,
-                 trust_network: TrustNetwork | None = None,
-                 conflict_strategy: ResolutionStrategy = ResolutionStrategy.TRUST_WEIGHTED,
-                 event_store: EventStore | None = None) -> None:
-        self._global = global_world                    # ground truth — never mutated here
+    def __init__(
+        self,
+        global_world: SparseTransitionTensor,
+        trust_network: TrustNetwork | None = None,
+        conflict_strategy: ResolutionStrategy = ResolutionStrategy.TRUST_WEIGHTED,
+        event_store: EventStore | None = None,
+    ) -> None:
+        self._global = global_world  # ground truth — never mutated here
         self.actors: dict[str, Actor] = {}
         self._trust = trust_network or TrustNetwork()  # trust controls gossip
         self._conflict_resolver = ConflictResolver(strategy=conflict_strategy)
@@ -80,16 +94,23 @@ class ActorNetwork:
         """Add an actor to the network. Generates unique ID if not provided."""
         if not actor_id:
             from uuid import uuid4
+
             actor_id = f"actor_{uuid4().hex[:8]}"
-        
+
         actor = self.actors.get(actor_id)
         if actor is None:
             actor = Actor(actor_id)
             self.actors[actor_id] = actor
         return actor
 
-    def connect(self, a_id: str, b_id: str, relationship: Relationship = Relationship.COLLEAGUE,
-                trust: float | None = None, mutual: bool = True) -> None:
+    def connect(
+        self,
+        a_id: str,
+        b_id: str,
+        relationship: Relationship = Relationship.COLLEAGUE,
+        trust: float | None = None,
+        mutual: bool = True,
+    ) -> None:
         """Connect two actors for gossip with a trust relationship.
 
         Creates a trust edge between actors. Gossip propagation respects
@@ -132,42 +153,43 @@ class ActorNetwork:
             return []
 
         trust_score = self._trust.trust(actor_a, actor_b)
-        conflicts = self._conflict_resolver.detect_conflicts(
-            a.belief, b.belief, actor_a, actor_b, trust_score
-        )
+        conflicts = self._conflict_resolver.detect_conflicts(a.belief, b.belief, actor_a, actor_b, trust_score)
 
         resolved = []
         for conflict in conflicts:
-            value, strategy = self._conflict_resolver.resolve(
-                conflict, self._trust
-            )
+            value, strategy = self._conflict_resolver.resolve(conflict, self._trust)
             # Record conflict event
-            self._events.append(Event(
-                event_type=EventType.CONFLICT,
-                actor_id=actor_a,
-                src=conflict.src, dst=conflict.dst,
-                domain=conflict.domain,
-                old_value=conflict.value_a,
-                new_value=value,
-                metadata={
-                    "actor_b": actor_b,
+            self._events.append(
+                Event(
+                    event_type=EventType.CONFLICT,
+                    actor_id=actor_a,
+                    src=conflict.src,
+                    dst=conflict.dst,
+                    domain=conflict.domain,
+                    old_value=conflict.value_a,
+                    new_value=value,
+                    metadata={
+                        "actor_b": actor_b,
+                        "value_a": conflict.value_a,
+                        "value_b": conflict.value_b,
+                        "strategy": strategy,
+                        "severity": conflict.severity,
+                    },
+                )
+            )
+            resolved.append(
+                {
+                    "src": conflict.src,
+                    "dst": conflict.dst,
+                    "actor_a": conflict.actor_a,
+                    "actor_b": conflict.actor_b,
                     "value_a": conflict.value_a,
                     "value_b": conflict.value_b,
+                    "resolved_value": value,
                     "strategy": strategy,
                     "severity": conflict.severity,
-                },
-            ))
-            resolved.append({
-                "src": conflict.src,
-                "dst": conflict.dst,
-                "actor_a": conflict.actor_a,
-                "actor_b": conflict.actor_b,
-                "value_a": conflict.value_a,
-                "value_b": conflict.value_b,
-                "resolved_value": value,
-                "strategy": strategy,
-                "severity": conflict.severity,
-            })
+                }
+            )
 
         return resolved
 
@@ -213,24 +235,33 @@ class ActorNetwork:
             delta = Delta(
                 origin=actor_id,
                 domain=self._global.domain_of(question),
-                src=question, dst=dst,
+                src=question,
+                dst=dst,
                 reward=self._global.feature(question, dst, Feature.REWARD),
                 confidence=self._global.feature(question, dst, Feature.CONFIDENCE),
             )
             if actor._learn(delta):
                 learned.append(delta)
                 # Record event
-                self._events.append(Event(
-                    event_type=EventType.BELIEF,
-                    actor_id=actor_id,
-                    src=question, dst=dst,
-                    domain=self._global.domain_of(question),
-                    feature="probability",
-                    new_value=self._global.feature(question, dst, Feature.PROBABILITY),
-                ))
+                self._events.append(
+                    Event(
+                        event_type=EventType.BELIEF,
+                        actor_id=actor_id,
+                        src=question,
+                        dst=dst,
+                        domain=self._global.domain_of(question),
+                        feature="probability",
+                        new_value=self._global.feature(question, dst, Feature.PROBABILITY),
+                    )
+                )
                 self._propagate(actor, delta)
-        logger.info("[society] %s asked %r → learned %d transition(s), coverage=%.2f",
-                    actor_id, question, len(learned), self.coverage(actor_id))
+        logger.info(
+            "[society] %s asked %r → learned %d transition(s), coverage=%.2f",
+            actor_id,
+            question,
+            len(learned),
+            self.coverage(actor_id),
+        )
         _obs.counter("society.ask")
         _obs.gauge("society.coverage", self.coverage(actor_id), actor=actor_id)
         return learned
@@ -259,13 +290,19 @@ class ActorNetwork:
                     reached += 1
                     visited.add(peer.id)
                     # Record gossip event
-                    self._events.append(Event(
-                        event_type=EventType.GOSSIP,
-                        actor_id=cur.id,
-                        src=delta.src, dst=delta.dst,
-                        domain=delta.domain,
-                        metadata={"target_actor": peer.id, "origin_actor": delta.origin},
-                    ))
+                    self._events.append(
+                        Event(
+                            event_type=EventType.GOSSIP,
+                            actor_id=cur.id,
+                            src=delta.src,
+                            dst=delta.dst,
+                            domain=delta.domain,
+                            metadata={
+                                "target_actor": peer.id,
+                                "origin_actor": delta.origin,
+                            },
+                        )
+                    )
                     frontier.append(peer)
         return reached
 
@@ -290,7 +327,7 @@ class ActorNetwork:
     def summary(self) -> dict:
         return {
             "actors": len(self.actors),
-            "global_transitions": self._global.nnz(),   # fixed
+            "global_transitions": self._global.nnz(),  # fixed
             "links": sum(len(a.peers) for a in self.actors.values()) // 2,
             "coverage": {aid: round(self.coverage(aid), 3) for aid in sorted(self.actors)},
             "trust_edges": len(self._trust._edges),

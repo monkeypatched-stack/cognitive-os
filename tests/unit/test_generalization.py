@@ -4,6 +4,7 @@ Verifies the runtime executes the same cognitive lifecycle across structurally
 equivalent but semantically different problems. A cognitive runtime that only
 solves its development scenarios is not production-ready for general use.
 """
+
 from __future__ import annotations
 
 import os
@@ -20,8 +21,10 @@ os.environ["RATE_LIMIT_BURST"] = "20000"
 def client():
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -30,6 +33,7 @@ def client():
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _create_society(client, name):
     r = client.post("/api/v1/agentos/societies", json={"name": name})
     assert r.status_code == 200
@@ -37,19 +41,28 @@ def _create_society(client, name):
 
 
 def _create_actor(client, name, actor_type, goal, capabilities=None):
-    r = client.post("/api/v1/agentos/actors", json={
-        "name": name, "actor_type": actor_type,
-        "goals": [goal],
-        "capabilities": capabilities or [{"name": "general"}],
-    })
+    r = client.post(
+        "/api/v1/agentos/actors",
+        json={
+            "name": name,
+            "actor_type": actor_type,
+            "goals": [goal],
+            "capabilities": capabilities or [{"name": "general"}],
+        },
+    )
     assert r.status_code == 200
     return r.json()["actor_id"]
 
 
 def _tick_actor(client, actor_id, start="origin", goal="target"):
-    r = client.post(f"/api/v1/agentos/actors/{actor_id}/tick", json={
-        "start": start, "goal": goal, "reward": 1.0,
-    })
+    r = client.post(
+        f"/api/v1/agentos/actors/{actor_id}/tick",
+        json={
+            "start": start,
+            "goal": goal,
+            "reward": 1.0,
+        },
+    )
     assert r.status_code == 200
     return r.json()
 
@@ -70,15 +83,18 @@ def _tick_planet(client):
 
 
 def _share_experience(client, actor_id, outcome="success", confidence=0.8, lessons=None):
-    r = client.post("/api/v1/agentos/learn/experience", json={
-        "experience": {
-            "actor_id": actor_id,
-            "outcome": outcome,
-            "confidence": confidence,
-            "lessons": lessons or [],
-            "description": f"Experience from {actor_id}",
-        }
-    })
+    r = client.post(
+        "/api/v1/agentos/learn/experience",
+        json={
+            "experience": {
+                "actor_id": actor_id,
+                "outcome": outcome,
+                "confidence": confidence,
+                "lessons": lessons or [],
+                "description": f"Experience from {actor_id}",
+            }
+        },
+    )
     assert r.status_code == 200
     return r.json()
 
@@ -90,63 +106,117 @@ def _share_experience(client, actor_id, outcome="success", confidence=0.8, lesso
 SCENARIOS = [
     # (name, domain, society_name, actors: [(name, type, goal, caps)], experience_lessons)
     (
-        "Grocery Delivery", "retail",
+        "Grocery Delivery",
+        "retail",
         "Grocery Logistics Society",
-        [("Driver-A", "human", "deliver_groceries", [{"name": "driving"}]),
-         ("InventoryBot", "robot", "track_inventory", [{"name": "scanning"}])],
+        [
+            ("Driver-A", "human", "deliver_groceries", [{"name": "driving"}]),
+            ("InventoryBot", "robot", "track_inventory", [{"name": "scanning"}]),
+        ],
         ["route_optimized", "customer_satisfied"],
     ),
     (
-        "Manufacturing", "industrial",
+        "Manufacturing",
+        "industrial",
         "Factory Operations Society",
-        [("Operator-1", "human", "operate_assembly_line", [{"name": "manufacturing"}]),
-         ("CNC-Robot", "robot", "precision_cut", [{"name": "machining"}]),
-         ("QualityAI", "ai_agent", "inspect_parts", [{"name": "inspection"}])],
+        [
+            (
+                "Operator-1",
+                "human",
+                "operate_assembly_line",
+                [{"name": "manufacturing"}],
+            ),
+            ("CNC-Robot", "robot", "precision_cut", [{"name": "machining"}]),
+            ("QualityAI", "ai_agent", "inspect_parts", [{"name": "inspection"}]),
+        ],
         ["defect_caught", "throughput_improved"],
     ),
     (
-        "Healthcare", "medical",
+        "Healthcare",
+        "medical",
         "Patient Care Society",
-        [("Nurse-1", "human", "administer_medication", [{"name": "patient_care"}]),
-         ("PharmBot", "robot", "dispense_prescription", [{"name": "pharmacy"}])],
+        [
+            ("Nurse-1", "human", "administer_medication", [{"name": "patient_care"}]),
+            ("PharmBot", "robot", "dispense_prescription", [{"name": "pharmacy"}]),
+        ],
         ["patient_treated", "dosage_correct"],
     ),
     (
-        "Disaster Response", "emergency",
+        "Disaster Response",
+        "emergency",
         "Emergency Coordination Society",
-        [("IncidentCmdr", "human", "coordinate_response", [{"name": "incident_command"}]),
-         ("Drone-1", "robot", "survey_damage", [{"name": "aerial_survey"}]),
-         ("ReliefOrg", "enterprise", "distribute_supplies", [{"name": "logistics"}])],
+        [
+            (
+                "IncidentCmdr",
+                "human",
+                "coordinate_response",
+                [{"name": "incident_command"}],
+            ),
+            ("Drone-1", "robot", "survey_damage", [{"name": "aerial_survey"}]),
+            ("ReliefOrg", "enterprise", "distribute_supplies", [{"name": "logistics"}]),
+        ],
         ["area_surveyed", "supplies_delivered"],
     ),
     (
-        "Financial Settlement", "finance",
+        "Financial Settlement",
+        "finance",
         "Settlement Processing Society",
-        [("Trader-1", "human", "execute_trade", [{"name": "trading"}]),
-         ("SettlementAI", "ai_agent", "reconcile_positions", [{"name": "reconciliation"}])],
+        [
+            ("Trader-1", "human", "execute_trade", [{"name": "trading"}]),
+            (
+                "SettlementAI",
+                "ai_agent",
+                "reconcile_positions",
+                [{"name": "reconciliation"}],
+            ),
+        ],
         ["trade_settled", "positions_reconciled"],
     ),
     (
-        "Airport Baggage", "transport",
+        "Airport Baggage",
+        "transport",
         "Baggage Handling Society",
-        [("Handler-1", "human", "sort_bags", [{"name": "sorting"}]),
-         ("ConveyorBot", "robot", "transport_luggage", [{"name": "conveyor"}]),
-         ("TrackingAI", "ai_agent", "track_baggage", [{"name": "tracking"}])],
+        [
+            ("Handler-1", "human", "sort_bags", [{"name": "sorting"}]),
+            ("ConveyorBot", "robot", "transport_luggage", [{"name": "conveyor"}]),
+            ("TrackingAI", "ai_agent", "track_baggage", [{"name": "tracking"}]),
+        ],
         ["bag_routed", "passenger_notified"],
     ),
     (
-        "Compute Allocation", "technology",
+        "Compute Allocation",
+        "technology",
         "Resource Management Society",
-        [("Admin-1", "human", "manage_cluster", [{"name": "cluster_management"}]),
-         ("SchedulerAI", "ai_agent", "schedule_workloads", [{"name": "scheduling"}])],
+        [
+            ("Admin-1", "human", "manage_cluster", [{"name": "cluster_management"}]),
+            ("SchedulerAI", "ai_agent", "schedule_workloads", [{"name": "scheduling"}]),
+        ],
         ["workload_placed", "resource_utilized"],
     ),
     (
-        "Supply Chain", "logistics",
+        "Supply Chain",
+        "logistics",
         "Supply Chain Society",
-        [("ProcurementOfficer", "human", "source_materials", [{"name": "procurement"}]),
-         ("WarehouseBot", "robot", "manage_warehouse", [{"name": "inventory_management"}]),
-         ("LogisticsCo", "enterprise", "coordinate_shipping", [{"name": "shipping"}])],
+        [
+            (
+                "ProcurementOfficer",
+                "human",
+                "source_materials",
+                [{"name": "procurement"}],
+            ),
+            (
+                "WarehouseBot",
+                "robot",
+                "manage_warehouse",
+                [{"name": "inventory_management"}],
+            ),
+            (
+                "LogisticsCo",
+                "enterprise",
+                "coordinate_shipping",
+                [{"name": "shipping"}],
+            ),
+        ],
         ["materials_sourced", "shipment_dispatched"],
     ),
 ]

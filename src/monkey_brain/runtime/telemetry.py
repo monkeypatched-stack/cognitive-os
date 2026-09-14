@@ -8,6 +8,7 @@ LLM Calls → Execution Time → Response → Failures
 
 This information should make every execution reproducible.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ logger = logging.getLogger("agentos.telemetry")
 @dataclass
 class TelemetrySpan:
     """A single span in the execution trace."""
+
     name: str
     start_time: float = field(default_factory=time.monotonic)
     end_time: float | None = None
@@ -50,6 +52,7 @@ class TelemetrySpan:
 @dataclass
 class ExecutionTrace:
     """Complete trace for a single execution."""
+
     trace_id: str
     intent: str = ""
     intent_ir: dict[str, Any] | None = None
@@ -132,7 +135,7 @@ class TelemetryCollector:
         trace = ExecutionTrace(trace_id=trace_id)
         self._traces.append(trace)
         if len(self._traces) > self._max_traces:
-            self._traces = self._traces[-self._max_traces:]
+            self._traces = self._traces[-self._max_traces :]
         return trace
 
     def get_trace(self, trace_id: str) -> ExecutionTrace | None:

@@ -17,6 +17,7 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=list[CalibrationPointResponse])
 async def list_calibration_points(
     calibration_id: str,
@@ -32,6 +33,7 @@ async def list_calibration_points(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{point_id}", response_model=CalibrationPointResponse)
 async def get_calibration_point(
@@ -50,7 +52,10 @@ async def get_calibration_point(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=CalibrationPointResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=CalibrationPointResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_calibration_point(
     calibration_id: str,
     data: CalibrationPointCreate,
@@ -66,6 +71,7 @@ async def create_calibration_point(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{point_id}", response_model=CalibrationPointResponse)
 async def update_calibration_point(
@@ -84,6 +90,7 @@ async def update_calibration_point(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{point_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_calibration_point(

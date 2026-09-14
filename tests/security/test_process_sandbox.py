@@ -4,6 +4,7 @@ A crash or infinite loop in the isolated child must NOT take down the host, and 
 killed at the wall-clock limit. Uses a thread-safe start method (forkserver/spawn), so targets
 are importable module-level callables.
 """
+
 from __future__ import annotations
 
 import time
@@ -30,4 +31,4 @@ def test_isolated_runaway_is_killed_at_timeout():
     res = sb.run(T.busy_loop)
     dt = time.monotonic() - t
     assert res.success is False and res.error == "timeout_exceeded"
-    assert dt < 8.0                     # killed, not hung (allow for spawn startup)
+    assert dt < 8.0  # killed, not hung (allow for spawn startup)

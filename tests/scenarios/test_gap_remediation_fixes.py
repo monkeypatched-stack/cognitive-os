@@ -11,6 +11,7 @@ the "CognitiveOS Actual-Code Architecture Audit" findings:
 Run with:
     python -m pytest tests/scenarios/test_gap_remediation_fixes.py -v
 """
+
 from __future__ import annotations
 
 import os
@@ -23,15 +24,19 @@ os.environ["RATE_LIMIT_RPS"] = "100000"
 os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode, NodeClass
 from src.monkey_brain.kernel.society import kubernetes_provisioner as k8sprov
 from src.monkey_brain.kernel.society.kubernetes_provisioner import KubernetesProvisioner
 from src.monkey_brain.persistence.db_pool import DBPool
 from tests.scenarios.test_horizontal_scheduler_scaling import _FakeRedis, _pr, _register
 
-
 # ── 1-2: scheduled_elsewhere re-enqueues instead of dropping the signal ──
+
 
 def test_01_scheduled_elsewhere_reenqueues_actor_id():
     redis = _FakeRedis()
@@ -81,6 +86,7 @@ def test_02_scheduled_elsewhere_reenqueue_lets_the_correct_node_eventually_conve
 
 # ── 3-7: KubernetesProvisioner ────────────────────────────────────────────
 
+
 def test_03_provisioning_disabled_by_default(monkeypatch):
     monkeypatch.delenv("KUBERNETES_PROVISIONING_ENABLED", raising=False)
     assert k8sprov.provisioning_enabled() is False
@@ -107,8 +113,8 @@ def test_07_provision_applies_rendered_template_via_kubectl(monkeypatch, tmp_pat
     template = tmp_path / "actor-deployment.yaml"
     template.write_text(
         "metadata:\n  name: cognitiveos-actor-${ACTOR_ID}\n"
-        "  labels:\n    node-class: \"${ACTOR_NODE_CLASS}\"\n"
-        "  version: \"${ACTOR_ARTIFACT_VERSION}\"\n"
+        '  labels:\n    node-class: "${ACTOR_NODE_CLASS}"\n'
+        '  version: "${ACTOR_ARTIFACT_VERSION}"\n'
     )
     monkeypatch.setenv("ACTOR_DEPLOYMENT_TEMPLATE_PATH", str(template))
     monkeypatch.setattr(k8sprov.shutil, "which", lambda _: "/usr/bin/kubectl")
@@ -118,7 +124,12 @@ def test_07_provision_applies_rendered_template_via_kubectl(monkeypatch, tmp_pat
     def _fake_run(cmd, input, capture_output, text, timeout):
         captured["cmd"] = cmd
         captured["input"] = input
-        return subprocess.CompletedProcess(cmd, 0, stdout="deployment.apps/cognitiveos-actor-alice configured", stderr="")
+        return subprocess.CompletedProcess(
+            cmd,
+            0,
+            stdout="deployment.apps/cognitiveos-actor-alice configured",
+            stderr="",
+        )
 
     monkeypatch.setattr(k8sprov.subprocess, "run", _fake_run)
 
@@ -149,6 +160,7 @@ def test_07b_provision_never_raises_on_kubectl_failure(monkeypatch, tmp_path):
 
 # ── 8-9: REDIS_URL / REDIS_HOST convention split ──────────────────────────
 
+
 def test_08_init_persistence_prefers_explicit_redis_host(monkeypatch):
     monkeypatch.setenv("REDIS_HOST", "explicit-host")
     monkeypatch.setenv("REDIS_URL", "redis://url-host:6379/0")
@@ -157,8 +169,10 @@ def test_08_init_persistence_prefers_explicit_redis_host(monkeypatch):
     class _FakeRedisClient:
         def __init__(self, **kwargs):
             calls["ctor"] = kwargs
+
         def ping(self):
             return True
+
         @classmethod
         def from_url(cls, *a, **kw):
             calls["from_url"] = (a, kw)
@@ -169,6 +183,7 @@ def test_08_init_persistence_prefers_explicit_redis_host(monkeypatch):
     # sys.modules -- patching its Redis attribute is what the function
     # actually sees.
     import redis as real_redis
+
     monkeypatch.setattr(real_redis, "Redis", _FakeRedisClient)
     pr = PlanetaryRuntime.__new__(PlanetaryRuntime)
     pr._init_persistence()
@@ -184,12 +199,14 @@ def test_09_init_persistence_falls_back_to_redis_url(monkeypatch):
     class _FakeRedisClient:
         def ping(self):
             return True
+
         @classmethod
         def from_url(cls, url, **kw):
             calls["url"] = url
             return cls()
 
     import redis as real_redis
+
     monkeypatch.setattr(real_redis, "Redis", _FakeRedisClient)
     pr = PlanetaryRuntime.__new__(PlanetaryRuntime)
     pr._init_persistence()
@@ -197,6 +214,7 @@ def test_09_init_persistence_falls_back_to_redis_url(monkeypatch):
 
 
 # ── 10-13: MONGODB_URL / DATABASE_URL convention split ────────────────────
+
 
 def test_10_dbpool_prefers_explicit_database_url(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "mongodb://explicit/cognitive_platform")
@@ -237,6 +255,7 @@ def test_13b_dbpool_default_unchanged_when_neither_env_var_set(monkeypatch):
 
 # ── 14-15: single-actor backstop sweep scoping ────────────────────────────
 
+
 def test_14_scope_actor_id_defaults_to_none_full_sweep():
     redis = _FakeRedis()
     pr = _pr(redis)
@@ -259,6 +278,7 @@ def test_15_start_reconciliation_records_scope_actor_id(monkeypatch):
 
 
 # ── 16-17: _load_actors() cross-actor registry corruption fix ────────────
+
 
 def test_16_load_actors_scoped_to_actor_id_env_var(monkeypatch):
     """Live Deployment Validation finding (P0): a single-actor pod
@@ -302,6 +322,7 @@ def test_17_load_actors_unscoped_when_actor_id_unset(monkeypatch):
 
 # ── 18-19: Redis client resilience + observability (Failure 9) ───────────
 
+
 def test_18_init_persistence_configures_retry_on_connection_errors(monkeypatch):
     """Live Deployment Validation finding: a real, long-running control-plane
     process silently stopped persisting new actor registrations to Redis
@@ -313,11 +334,13 @@ def test_18_init_persistence_configures_retry_on_connection_errors(monkeypatch):
     its Redis client with retry_on_error configured (covering both
     ConnectionError and TimeoutError)."""
     import redis as real_redis
+
     captured = {}
 
     class _FakeRedisClient:
         def __init__(self, **kwargs):
             captured.update(kwargs)
+
         def ping(self):
             return True
 
@@ -341,6 +364,7 @@ def test_19_save_actor_failure_is_logged_at_warning_not_debug(monkeypatch, caplo
     never happens) must be visible without an operator already knowing
     to enable DEBUG logging to find it."""
     import logging
+
     redis = _FakeRedis()
     pr = _pr(redis)
     entry = _register(pr, "carol")
@@ -355,6 +379,7 @@ def test_19_save_actor_failure_is_logged_at_warning_not_debug(monkeypatch, caplo
 
 
 # ── 20: migrate_away re-enqueues (Phase 9 live-discovered gap) ───────────
+
 
 def test_20_migrate_away_reenqueues_actor_id():
     """Live Deployment Validation finding: an actor suspended via
@@ -385,6 +410,7 @@ def test_20_migrate_away_reenqueues_actor_id():
 
 
 # ── 21: node registration drift on reconciliation startup ────────────────
+
 
 def test_21_reconciliation_startup_preserves_existing_node_registration():
     """Live Edge Deployment Validation finding (P1): start_actor_
@@ -436,6 +462,7 @@ def test_21b_reconciliation_startup_falls_back_for_a_genuinely_new_node():
 
 
 # ── 22: scheduler self-capacity double-counting ───────────────────────────
+
 
 def test_22_schedule_idempotent_shortcut_excludes_self_from_capacity(monkeypatch):
     """Live Edge Deployment Validation finding (P1): a genuine

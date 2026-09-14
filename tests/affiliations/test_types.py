@@ -1,7 +1,13 @@
 import pytest
 from src.monkey_brain.kernel.affiliations.types import (
-    AffiliationType, Cardinality, TrustModel, LifecycleRules,
-    ALL_TYPES, CATEGORIES, get_type, types_in_category,
+    AffiliationType,
+    Cardinality,
+    TrustModel,
+    LifecycleRules,
+    ALL_TYPES,
+    CATEGORIES,
+    get_type,
+    types_in_category,
 )
 from src.monkey_brain.kernel.affiliations.affiliation import Affiliation
 
@@ -63,50 +69,68 @@ class TestAffiliationType:
 class TestAffiliationMetadata:
     def test_type_info(self):
         a = Affiliation(
-            affiliation_id="a1", affiliation_type="employment",
-            target_id="t1", target_name="Employer",
-            trust_level=0.7, metadata={},
+            affiliation_id="a1",
+            affiliation_type="employment",
+            target_id="t1",
+            target_name="Employer",
+            trust_level=0.7,
+            metadata={},
         )
         assert a.type_info is not None
         assert a.type_info.id == "employment"
 
     def test_category(self):
         a = Affiliation(
-            affiliation_id="a1", affiliation_type="family",
-            target_id="t1", target_name="Parent",
-            trust_level=0.9, metadata={},
+            affiliation_id="a1",
+            affiliation_type="family",
+            target_id="t1",
+            target_name="Parent",
+            trust_level=0.9,
+            metadata={},
         )
         assert a.category == "personal"
 
     def test_cardinality(self):
         a = Affiliation(
-            affiliation_id="a1", affiliation_type="marriage",
-            target_id="t1", target_name="Spouse",
-            trust_level=1.0, metadata={},
+            affiliation_id="a1",
+            affiliation_type="marriage",
+            target_id="t1",
+            target_name="Spouse",
+            trust_level=1.0,
+            metadata={},
         )
         assert a.cardinality == "one_to_one"
 
     def test_bidirectional(self):
         a = Affiliation(
-            affiliation_id="a1", affiliation_type="friendship",
-            target_id="t1", target_name="Friend",
-            trust_level=0.6, metadata={},
+            affiliation_id="a1",
+            affiliation_type="friendship",
+            target_id="t1",
+            target_name="Friend",
+            trust_level=0.6,
+            metadata={},
         )
         assert a.is_bidirectional is True
 
     def test_default_permissions(self):
         a = Affiliation(
-            affiliation_id="a1", affiliation_type="employment",
-            target_id="t1", target_name="Employer",
-            trust_level=0.7, metadata={},
+            affiliation_id="a1",
+            affiliation_type="employment",
+            target_id="t1",
+            target_name="Employer",
+            trust_level=0.7,
+            metadata={},
         )
         assert "career_planning" in a.default_permissions
 
     def test_unknown_type(self):
         a = Affiliation(
-            affiliation_id="a1", affiliation_type="custom_thing",
-            target_id="t1", target_name="Custom",
-            trust_level=0.5, metadata={},
+            affiliation_id="a1",
+            affiliation_type="custom_thing",
+            target_id="t1",
+            target_name="Custom",
+            trust_level=0.5,
+            metadata={},
         )
         assert a.type_info is None
         assert a.category is None

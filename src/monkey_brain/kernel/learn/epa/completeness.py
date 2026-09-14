@@ -1,4 +1,5 @@
 """Epistemic Completeness — checks knowledge completeness."""
+
 from __future__ import annotations
 from dataclasses import dataclass
 
@@ -6,6 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class CompletenessReport:
     """Report on epistemic completeness."""
+
     overall_confidence: float = 0.0
     coverage: float = 0.0
     gaps: list[str] = None

@@ -6,13 +6,13 @@ already covers an invariant in depth (portable delegation, ROS
 governance, edge zero-round-trip), this file adds a fresh, minimal,
 self-contained proof rather than duplicating that suite, and says so.
 """
+
 from __future__ import annotations
 
 import inspect
 import re
 
 import pytest
-
 
 REPO_SRC = "src/monkey_brain"
 
@@ -43,7 +43,9 @@ class TestGovernanceCoverage:
                 count += 1
         return count
 
-    def test_capability_handle_is_only_ever_called_inside_the_governed_invoke_closure(self):
+    def test_capability_handle_is_only_ever_called_inside_the_governed_invoke_closure(
+        self,
+    ):
         import src.monkey_brain.kernel.pipeline.action_executor as mod
 
         source = inspect.getsource(mod)
@@ -74,12 +76,15 @@ class TestRosCannotBypassGovernance:
     the structural half -- run_ros_action_if_governed has no code path
     that calls adapter.invoke() without first awaiting ensure_governed."""
 
-    def test_run_ros_action_if_governed_never_calls_invoke_outside_ensure_governed(self):
+    def test_run_ros_action_if_governed_never_calls_invoke_outside_ensure_governed(
+        self,
+    ):
         import src.monkey_brain.kernel.edge.ros_integration as mod
 
         source = inspect.getsource(mod.run_ros_action_if_governed)
         real_calls = [
-            ln for ln in source.splitlines()
+            ln
+            for ln in source.splitlines()
             if "adapter.invoke(" in ln and not ln.strip().startswith("#") and "`adapter.invoke" not in ln
         ]
         # adapter.invoke is only referenced inside the _invoke() closure,
@@ -99,13 +104,23 @@ class TestEdgeAuthorityBoundedByCentralAuthority:
     suite lives in tests/security/test_portable_delegation.py and
     tests/security/test_edge_delegation_message_wiring.py."""
 
-    def test_local_governance_rejects_a_delegation_claiming_more_than_its_parent_granted(self):
+    def test_local_governance_rejects_a_delegation_claiming_more_than_its_parent_granted(
+        self,
+    ):
         import time as _time
 
-        from src.monkey_brain.kernel.delegation import DelegationCredential, issue_delegation
+        from src.monkey_brain.kernel.delegation import (
+            DelegationCredential,
+            issue_delegation,
+        )
         from src.monkey_brain.kernel.identity import get_key_manager, sign_bytes
-        from src.monkey_brain.kernel.edge.local_governance import LocalGovernanceEvaluator
-        from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache, issue_policy_snapshot
+        from src.monkey_brain.kernel.edge.local_governance import (
+            LocalGovernanceEvaluator,
+        )
+        from src.monkey_brain.kernel.edge.policy_cache import (
+            EdgePolicyCache,
+            issue_policy_snapshot,
+        )
         from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
 
         import tempfile
@@ -122,23 +137,36 @@ class TestEdgeAuthorityBoundedByCentralAuthority:
             # capability D1 never granted -- a real forged-but-signed
             # escalation attempt, not just a tampered field.
             forged = DelegationCredential(
-                issuer="B", delegate="C", parent_delegation_id=d1.delegation_id,
-                issued_at=_time.time(), expires_at=d1.expires_at,
-                scope=d1.scope, capabilities=("grocery.purchase", "bank.transfer"),
+                issuer="B",
+                delegate="C",
+                parent_delegation_id=d1.delegation_id,
+                issued_at=_time.time(),
+                expires_at=d1.expires_at,
+                scope=d1.scope,
+                capabilities=("grocery.purchase", "bank.transfer"),
                 delegation_depth=d1.delegation_depth + 1,
             )
             km = get_key_manager()
             signed_forged = forged.with_proof(sign_bytes(forged.signing_bytes(), km.get_or_create("B")))
 
             snapshot = issue_policy_snapshot(
-                principal="C", action="capability.bank.transfer", resource="bank.transfer",
-                policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE", "policy_rule": "test"},
+                principal="C",
+                action="capability.bank.transfer",
+                resource="bank.transfer",
+                policy_decision={
+                    "allowed": True,
+                    "approval_mode": "AUTO_APPROVE",
+                    "policy_rule": "test",
+                },
             )
             cache.store_snapshot(snapshot)
 
             outcome = gov.evaluate(
-                principal="C", action="capability.bank.transfer", resource="bank.transfer",
-                authenticated_principal="C", delegation_chain=(d1, signed_forged),
+                principal="C",
+                action="capability.bank.transfer",
+                resource="bank.transfer",
+                authenticated_principal="C",
+                delegation_chain=(d1, signed_forged),
             )
 
             assert outcome.allowed is False, (
@@ -166,7 +194,9 @@ class TestPlacementIndependentOfIdentity:
         assert "pod_name" not in params
         assert "container_id" not in params
 
-    def test_scheduling_decision_carries_actor_id_and_node_id_as_independent_fields(self):
+    def test_scheduling_decision_carries_actor_id_and_node_id_as_independent_fields(
+        self,
+    ):
         from src.monkey_brain.kernel.society.actor_scheduler import SchedulingDecision
 
         decision = SchedulingDecision(actor_id="actor-42", scheduled=True, node_id="node-7")
@@ -176,6 +206,7 @@ class TestPlacementIndependentOfIdentity:
         # in node_id (dataclasses.replace never needs to touch actor_id
         # to change placement).
         import dataclasses
+
         migrated = dataclasses.replace(decision, node_id="node-9")
         assert migrated.actor_id == decision.actor_id == "actor-42"
         assert migrated.node_id != decision.node_id
@@ -211,7 +242,11 @@ class TestControlPlaneOwnsDesiredState:
         # lifecycle controller, or the PlanetaryRuntime method itself
         # that they call through), never the per-actor cognitive tick
         # path (actor.py, cognitive_actor.py, belief_runtime.py).
-        forbidden = {"compile/actor.py", "compile/cognitive_actor.py", "compile/belief_runtime.py"}
+        forbidden = {
+            "compile/actor.py",
+            "compile/cognitive_actor.py",
+            "compile/belief_runtime.py",
+        }
         violating = [c for c in callers if c in forbidden]
         assert violating == [], f"the actor cognitive-tick path must never redefine its own desired state: {violating}"
         assert callers, "expected to find at least the real control-plane call sites"
@@ -230,18 +265,26 @@ class TestDelegationSubsetInvariant:
 
         parent = issue_delegation(issuer="A", delegate="B", capabilities=("grocery.purchase",), ttl_seconds=60)
         child = issue_delegation(
-            issuer="B", delegate="C", capabilities=("grocery.purchase",),
-            ttl_seconds=3600, parent=parent,
+            issuer="B",
+            delegate="C",
+            capabilities=("grocery.purchase",),
+            ttl_seconds=3600,
+            parent=parent,
         )
         assert child.expires_at <= parent.expires_at, "a child delegation must never outlive its parent"
 
     def test_child_cannot_claim_a_capability_the_parent_never_granted(self):
-        from src.monkey_brain.kernel.delegation import DelegationDeniedError, issue_delegation
+        from src.monkey_brain.kernel.delegation import (
+            DelegationDeniedError,
+            issue_delegation,
+        )
 
         parent = issue_delegation(issuer="A", delegate="B", capabilities=("grocery.purchase",))
         with pytest.raises(DelegationDeniedError):
             issue_delegation(
-                issuer="B", delegate="C", capabilities=("grocery.purchase", "bank.transfer"),
+                issuer="B",
+                delegate="C",
+                capabilities=("grocery.purchase", "bank.transfer"),
                 parent=parent,
             )
 
@@ -253,7 +296,12 @@ class TestEventStateSeparation:
     checking entity state is untouched."""
 
     def test_recording_an_event_does_not_mutate_any_entity(self):
-        from src.monkey_brain.kernel.society.world import SharedWorld, WorldEntity, WorldEvent, WorldEntityType
+        from src.monkey_brain.kernel.society.world import (
+            SharedWorld,
+            WorldEntity,
+            WorldEvent,
+            WorldEntityType,
+        )
 
         world = SharedWorld()
         world._require_write = lambda *a, **k: None  # bypass write-lock plumbing not under test here
@@ -265,7 +313,9 @@ class TestEventStateSeparation:
         world.record_event(WorldEvent(entity_id="e1", description="observed low stock"))
 
         assert world.get_entity("e1") == entity_before, "recording an event must never silently mutate entity state"
-        assert world.version == version_before + 1, "recording an event still bumps the world version (it IS a real mutation of event history, just not of entity state)"
+        assert world.version == version_before + 1, (
+            "recording an event still bumps the world version (it IS a real mutation of event history, just not of entity state)"
+        )
 
 
 class TestMossCannotMutateWorldState:
@@ -277,7 +327,13 @@ class TestMossCannotMutateWorldState:
         import src.monkey_brain.kernel.edge.moss_retrieval as mod
 
         source = inspect.getsource(mod)
-        for forbidden in ("knowledge_graph", "SharedWorld", "add_entity", "update_entity", "record_event"):
+        for forbidden in (
+            "knowledge_graph",
+            "SharedWorld",
+            "add_entity",
+            "update_entity",
+            "record_event",
+        ):
             assert forbidden not in source, f"moss_retrieval.py must never reference {forbidden!r}"
 
     def test_moss_semantic_memory_has_no_world_mutating_methods(self):
@@ -350,7 +406,9 @@ class TestActorBeliefCannotSilentlyBecomeWorldState:
     are distinct classes with distinct storage keys -- checkpointing an
     actor's belief must never write into the world-state store."""
 
-    def test_checkpoint_actor_belief_writes_only_to_the_actor_state_store_not_the_knowledge_graph(self):
+    def test_checkpoint_actor_belief_writes_only_to_the_actor_state_store_not_the_knowledge_graph(
+        self,
+    ):
         import src.monkey_brain.kernel.society.integration as mod
 
         source = inspect.getsource(mod.PlanetaryRuntime.checkpoint_actor_belief)

@@ -20,6 +20,7 @@ attempt where nothing usable is cached yet, and a corrupted/stale cache
 entry that fails to parse is treated exactly like a miss (falls through
 to a real call) rather than poisoning the request.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -34,7 +35,12 @@ _mem: "OrderedDict[str, str]" = OrderedDict()
 
 
 def plan_cache_enabled() -> bool:
-    return os.getenv("LLM_RESPONSE_CACHE", "").strip().lower() in ("1", "true", "yes", "on")
+    return os.getenv("LLM_RESPONSE_CACHE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 def _cache_dir() -> Path:

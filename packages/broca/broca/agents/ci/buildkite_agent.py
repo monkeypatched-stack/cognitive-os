@@ -1,4 +1,5 @@
 """BuildkiteAgent — triggers Buildkite pipeline builds via REST API."""
+
 from __future__ import annotations
 
 import logging
@@ -32,12 +33,24 @@ class BuildkiteAgent(BaseETASSAgent):
 
         if not token or not pipeline_slug:
             self._reward(False, 0.0)
-            return self._result(payload={"triggered": False}, observations=["missing buildkite_token or pipeline_slug"])
+            return self._result(
+                payload={"triggered": False},
+                observations=["missing buildkite_token or pipeline_slug"],
+            )
 
         import httpx
+
         api = f"https://api.buildkite.com/v2/organizations/{os.environ.get('BUILDKITE_ORG', '')}/pipelines/{pipeline_slug}/builds"
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        body = {"branch": branch, "commit": commit, "message": message, "meta_data": meta_data}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "branch": branch,
+            "commit": commit,
+            "message": message,
+            "meta_data": meta_data,
+        }
 
         try:
             async with httpx.AsyncClient(timeout=30) as client:
@@ -46,15 +59,31 @@ class BuildkiteAgent(BaseETASSAgent):
             success = resp.status_code in (200, 201)
         except Exception as e:
             self._reward(False, 0.1)
-            return self._result(payload={"triggered": False, "error": str(e)}, observations=[f"Buildkite API error: {e}"])
+            return self._result(
+                payload={"triggered": False, "error": str(e)},
+                observations=[f"Buildkite API error: {e}"],
+            )
 
         build_id = data.get("id", "")
         build_url = data.get("web_url", "")
         self._reward(success, 0.6)
-        artifacts = [Artifact(kind="ci_pipeline", name=f"Buildkite:{build_id}", uri=build_url)] if Artifact and success else []
+        artifacts = (
+            [Artifact(kind="ci_pipeline", name=f"Buildkite:{build_id}", uri=build_url)] if Artifact and success else []
+        )
 
         return self._result(
-            payload={"triggered": success, "build_id": build_id, "build_url": build_url, "branch": branch},
+            payload={
+                "triggered": success,
+                "build_id": build_id,
+                "build_url": build_url,
+                "branch": branch,
+            },
             artifacts=artifacts,
-            observations=[f"Buildkite build {build_id} created" if success else f"Buildkite trigger failed: {data.get('message', '')}"],
+            observations=[
+                (
+                    f"Buildkite build {build_id} created"
+                    if success
+                    else f"Buildkite trigger failed: {data.get('message', '')}"
+                )
+            ],
         )

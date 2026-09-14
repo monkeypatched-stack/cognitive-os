@@ -10,9 +10,15 @@ it's refused rather than silently accepted as a no-op, matching the
 guarded single-transition discipline the shipment lifecycle (MB-3019)
 already established.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.domains.support import SupportCapability, escalate_ticket, get_ticket, open_ticket
+from src.monkey_brain.kernel.domains.support import (
+    SupportCapability,
+    escalate_ticket,
+    get_ticket,
+    open_ticket,
+)
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 
 

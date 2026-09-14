@@ -82,7 +82,9 @@ def _row_to_dict(row: dict) -> dict:
     raw_clean_type = row.get("clean_type", row.get("cleaning_type", "Routine"))
     cleaning_type = CLEANING_TYPE_MAP.get(raw_clean_type, "Routine")
     raw_method = row.get("cleaning_method", "")
-    cleaning_method = CLEANING_METHOD_MAP.get(raw_method, "Manual") if raw_method else "Manual"
+    cleaning_method = (
+        CLEANING_METHOD_MAP.get(raw_method, "Manual") if raw_method else "Manual"
+    )
     machine_id = row.get("machine_id", "")
     record_id = row.get("record_id", f"CLN-{machine_id[-8:]}" if machine_id else "")
     raw_status = row.get("status", "Scheduled")
@@ -152,6 +154,7 @@ def _record_to_line(data: dict, ts_ns: int) -> str:
 
 # ── Read ──────────────────────────────────────────────────────────────────────
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -167,7 +170,7 @@ async def get_all(
     deduped = list(seen.values())
     total = len(deduped)
     start = (page - 1) * page_size
-    return [_row_to_dict(r) for r in deduped[start:start + page_size]], total
+    return [_row_to_dict(r) for r in deduped[start : start + page_size]], total
 
 
 async def get_by_id(db: AsyncIOMotorDatabase, record_id: str) -> Optional[dict]:
@@ -176,7 +179,9 @@ async def get_by_id(db: AsyncIOMotorDatabase, record_id: str) -> Optional[dict]:
     return _row_to_dict(rows[0]) if rows else None
 
 
-async def get_by_equipment_id(db: AsyncIOMotorDatabase, equipment_id: str) -> list[dict]:
+async def get_by_equipment_id(
+    db: AsyncIOMotorDatabase, equipment_id: str
+) -> list[dict]:
     sql = f"SELECT * FROM {COLLECTION} WHERE equipment_id = '{equipment_id}' ORDER BY time DESC LIMIT 100"
     rows = _influx_query(sql)
     return [_row_to_dict(r) for r in rows]
@@ -196,6 +201,7 @@ async def get_by_work_order(db: AsyncIOMotorDatabase, work_order_id: str) -> lis
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 async def create(db: AsyncIOMotorDatabase, data: CleaningRecordCreate) -> dict:
     record = data.model_dump()
     record["created_at"] = datetime.now(timezone.utc).isoformat()
@@ -208,6 +214,7 @@ async def create(db: AsyncIOMotorDatabase, data: CleaningRecordCreate) -> dict:
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 async def update(
     db: AsyncIOMotorDatabase,
@@ -228,6 +235,7 @@ async def update(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 async def delete(db: AsyncIOMotorDatabase, record_id: str) -> bool:
     existing = await get_by_id(db, record_id)
     if not existing:
@@ -243,6 +251,7 @@ async def delete(db: AsyncIOMotorDatabase, record_id: str) -> bool:
 
 # ── Batch record attachment (kept as-is — operates on separate MongoDB collections) ──
 
+
 def _package_updates(record: dict) -> dict:
     record_id = record.get("record_id")
     requirement_id = record.get("cleaning_requirement_id")
@@ -256,18 +265,38 @@ def _package_updates(record: dict) -> dict:
         add_to_set["metadata.bpr_package.cleaning_record_ids"] = record_id
     if record_id and requirement_id:
         add_to_set["metadata.required_cleaning_requirement_ids"] = requirement_id
-        add_to_set["metadata.batch_record_package.required_cleaning_requirement_ids"] = requirement_id
-        add_to_set["metadata.bmr_package.required_cleaning_requirement_ids"] = requirement_id
-        add_to_set["metadata.bpr_package.required_cleaning_requirement_ids"] = requirement_id
-        set_fields[f"metadata.cleaning_requirement_record_map.{requirement_id}"] = record_id
-        set_fields[f"metadata.batch_record_package.cleaning_requirement_record_map.{requirement_id}"] = record_id
-        set_fields[f"metadata.bmr_package.cleaning_requirement_record_map.{requirement_id}"] = record_id
-        set_fields[f"metadata.bpr_package.cleaning_requirement_record_map.{requirement_id}"] = record_id
+        add_to_set[
+            "metadata.batch_record_package.required_cleaning_requirement_ids"
+        ] = requirement_id
+        add_to_set["metadata.bmr_package.required_cleaning_requirement_ids"] = (
+            requirement_id
+        )
+        add_to_set["metadata.bpr_package.required_cleaning_requirement_ids"] = (
+            requirement_id
+        )
+        set_fields[f"metadata.cleaning_requirement_record_map.{requirement_id}"] = (
+            record_id
+        )
+        set_fields[
+            f"metadata.batch_record_package.cleaning_requirement_record_map.{requirement_id}"
+        ] = record_id
+        set_fields[
+            f"metadata.bmr_package.cleaning_requirement_record_map.{requirement_id}"
+        ] = record_id
+        set_fields[
+            f"metadata.bpr_package.cleaning_requirement_record_map.{requirement_id}"
+        ] = record_id
     if attachments:
         add_to_set["evidence_document_ids"] = {"$each": attachments}
-        add_to_set["metadata.batch_record_package.cleaning_attachment_ids"] = {"$each": attachments}
-        add_to_set["metadata.bmr_package.cleaning_attachment_ids"] = {"$each": attachments}
-        add_to_set["metadata.bpr_package.cleaning_attachment_ids"] = {"$each": attachments}
+        add_to_set["metadata.batch_record_package.cleaning_attachment_ids"] = {
+            "$each": attachments
+        }
+        add_to_set["metadata.bmr_package.cleaning_attachment_ids"] = {
+            "$each": attachments
+        }
+        add_to_set["metadata.bpr_package.cleaning_attachment_ids"] = {
+            "$each": attachments
+        }
     updates: dict = {}
     if add_to_set:
         updates["$addToSet"] = add_to_set
@@ -301,16 +330,26 @@ def _package_removals(record: dict) -> dict:
         pull["metadata.bpr_package.cleaning_record_ids"] = record_id
     if requirement_id:
         pull["metadata.required_cleaning_requirement_ids"] = requirement_id
-        pull["metadata.batch_record_package.required_cleaning_requirement_ids"] = requirement_id
+        pull["metadata.batch_record_package.required_cleaning_requirement_ids"] = (
+            requirement_id
+        )
         pull["metadata.bmr_package.required_cleaning_requirement_ids"] = requirement_id
         pull["metadata.bpr_package.required_cleaning_requirement_ids"] = requirement_id
         unset[f"metadata.cleaning_requirement_record_map.{requirement_id}"] = ""
-        unset[f"metadata.batch_record_package.cleaning_requirement_record_map.{requirement_id}"] = ""
-        unset[f"metadata.bmr_package.cleaning_requirement_record_map.{requirement_id}"] = ""
-        unset[f"metadata.bpr_package.cleaning_requirement_record_map.{requirement_id}"] = ""
+        unset[
+            f"metadata.batch_record_package.cleaning_requirement_record_map.{requirement_id}"
+        ] = ""
+        unset[
+            f"metadata.bmr_package.cleaning_requirement_record_map.{requirement_id}"
+        ] = ""
+        unset[
+            f"metadata.bpr_package.cleaning_requirement_record_map.{requirement_id}"
+        ] = ""
     if attachments:
         pull["evidence_document_ids"] = {"$in": attachments}
-        pull["metadata.batch_record_package.cleaning_attachment_ids"] = {"$in": attachments}
+        pull["metadata.batch_record_package.cleaning_attachment_ids"] = {
+            "$in": attachments
+        }
         pull["metadata.bmr_package.cleaning_attachment_ids"] = {"$in": attachments}
         pull["metadata.bpr_package.cleaning_attachment_ids"] = {"$in": attachments}
     removals: dict = {}

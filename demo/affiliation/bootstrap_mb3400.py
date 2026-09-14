@@ -9,6 +9,7 @@ affiliations at all" fallback never applies — same-society membership
 alone is deliberately NOT enough to reach the Cashier; only a shared
 Affiliation is.
 """
+
 from __future__ import annotations
 
 import sys
@@ -16,7 +17,16 @@ from typing import Any
 
 import httpx
 
-from _common import ApiError, affiliate, client, create_actor, create_geo, create_society, host_society, verify_world
+from _common import (
+    ApiError,
+    affiliate,
+    client,
+    create_actor,
+    create_geo,
+    create_society,
+    host_society,
+    verify_world,
+)
 
 WAREHOUSE_TEAM = "warehouse_team"
 CHECKOUT_TEAM = "checkout_team"
@@ -31,8 +41,15 @@ def build_geography(c: httpx.Client) -> dict[str, str]:
     street = create_geo(c, "street", "Market Street", city)
     building = create_geo(c, "building", "Warehouse A Building", street)
     space = create_geo(c, "space", "Warehouse A Floor", building)
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, "warehouse_a": space}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        "warehouse_a": space,
+    }
 
 
 def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
@@ -54,8 +71,12 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
         affiliate(c, actors["Cashier"], CHECKOUT_TEAM)
 
         verification = verify_world(c)
-        return {"spaces": spaces, "society_id": society_id, "actors": actors,
-                "verification": verification}
+        return {
+            "spaces": spaces,
+            "society_id": society_id,
+            "actors": actors,
+            "verification": verification,
+        }
     finally:
         if owns_client:
             c.close()

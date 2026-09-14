@@ -6,6 +6,7 @@ score -> select -> convert), the LLMPlanner fallback (both "no
 strategy registered" and "all candidates rejected" cases), and end-to-end
 injection into the real, unmodified CognitiveRuntime.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,18 +15,22 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.monkey_brain.kernel.pipeline.contracts import (
-    PipelineRequest, CompiledRequest, RuntimeContext,
+    PipelineRequest,
+    CompiledRequest,
+    RuntimeContext,
 )
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Goal, Plan
 from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
-from src.monkey_brain.kernel.pipeline.planning.integration import IntegratedPlanningEngine
+from src.monkey_brain.kernel.pipeline.planning.integration import (
+    IntegratedPlanningEngine,
+)
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningConstraint
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers — matching test_pipeline_planning.py's existing fixtures
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _make_compiled(question: str = "get 2 l of milk", goal_name: str = "acquire_milk") -> CompiledRequest:
     request = PipelineRequest(question=question, actor_id="user-1", tenant_id="acme")
@@ -52,6 +57,7 @@ def _make_context() -> RuntimeContext:
 # ═══════════════════════════════════════════════════════════════════════════
 # Protocol conformance — "the runtime API must remain unchanged"
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPlanningEngineProtocolConformance:
     def test_satisfies_planning_engine_protocol(self):
@@ -81,6 +87,7 @@ class TestPlanningEngineProtocolConformance:
 # ═══════════════════════════════════════════════════════════════════════════
 # Registered-strategy pipeline: Decompose -> Generate -> Validate -> Score -> Select
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRegisteredStrategyPipeline:
     def test_produces_a_plan_from_the_winning_candidate(self):
@@ -115,13 +122,18 @@ class TestRegisteredStrategyPipeline:
         belief = BeliefState(actor_id="alice")
         plan = engine.plan(belief, Goal(name="acquire_milk"))
 
-        assert plan.metadata["strategy"] in {"walk_to_store", "drive_to_store", "delivery_service"}
+        assert plan.metadata["strategy"] in {
+            "walk_to_store",
+            "drive_to_store",
+            "delivery_service",
+        }
         assert plan.metadata["validation_status"] == "valid"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Fallback — "compatibility with LLMPlanner"
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFallback:
     def test_falls_back_when_no_strategy_registered(self):
@@ -141,11 +153,21 @@ class TestFallback:
 
         class _FakeBackend:
             def complete(self, prompt, system="", max_tokens=None, **kwargs):
-                return json.dumps({
-                    "steps": [{"action": "a", "description": "d", "expected_outcome": "o",
-                               "cost": 0.2, "confidence": 0.7}],
-                    "summary": "s", "confidence": 0.7,
-                })
+                return json.dumps(
+                    {
+                        "steps": [
+                            {
+                                "action": "a",
+                                "description": "d",
+                                "expected_outcome": "o",
+                                "cost": 0.2,
+                                "confidence": 0.7,
+                            }
+                        ],
+                        "summary": "s",
+                        "confidence": 0.7,
+                    }
+                )
 
         belief = BeliefState(actor_id="alice")
         goal = Goal(name="totally_unregistered_goal", description="x")
@@ -159,9 +181,9 @@ class TestFallback:
         assert len(via_fallback.steps) == len(direct.steps)
 
     def test_falls_back_when_all_candidates_rejected_by_constraints(self):
-        engine = IntegratedPlanningEngine(default_constraints=(
-            PlanningConstraint(kind="budget", parameters={"max_cost": 0.001}, hard=True),
-        ))
+        engine = IntegratedPlanningEngine(
+            default_constraints=(PlanningConstraint(kind="budget", parameters={"max_cost": 0.001}, hard=True),)
+        )
         belief = BeliefState(actor_id="alice")
         plan = engine.plan(belief, Goal(name="acquire_milk"))
 
@@ -185,13 +207,14 @@ class TestFallback:
 # Constraint-driven candidate rejection actually selects among the rest
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestConstraintDrivenSelection:
     def test_tight_budget_eliminates_expensive_strategies(self):
         """Only walk_to_store (cost 0.25) fits under a 0.3 budget; drive
         (0.35) and delivery (0.55) must be rejected, not silently allowed."""
-        engine = IntegratedPlanningEngine(default_constraints=(
-            PlanningConstraint(kind="budget", parameters={"max_cost": 0.3}, hard=True),
-        ))
+        engine = IntegratedPlanningEngine(
+            default_constraints=(PlanningConstraint(kind="budget", parameters={"max_cost": 0.3}, hard=True),)
+        )
         belief = BeliefState(actor_id="alice")
         plan = engine.plan(belief, Goal(name="acquire_milk"))
 
@@ -202,6 +225,7 @@ class TestConstraintDrivenSelection:
 # ═══════════════════════════════════════════════════════════════════════════
 # End-to-end: real, unmodified CognitiveRuntime
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestEndToEndWithCognitiveRuntime:
     @pytest.mark.asyncio

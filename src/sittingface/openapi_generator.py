@@ -27,10 +27,21 @@ def generate_capability_openapi(cap_values: dict) -> dict:
                 "summary": op.get("description", ""),
                 "operationId": f"{cap_name}_{op.get('name', 'unknown')}",
                 "parameters": [
-                    {"name": p, "in": "path", "required": True, "schema": {"type": "string"}}
+                    {
+                        "name": p,
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                    }
                     for p in op.get("required_params", [])
-                ] + [
-                    {"name": p, "in": "query", "required": False, "schema": {"type": "string"}}
+                ]
+                + [
+                    {
+                        "name": p,
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string"},
+                    }
                     for p in op.get("optional_params", [])
                 ],
                 "responses": {
@@ -51,12 +62,16 @@ def generate_capability_openapi(cap_values: dict) -> dict:
         "servers": [{"url": base_url, "description": "Capability endpoint"}],
         "paths": paths,
         "components": {
-            "securitySchemes": {
-                "bearerAuth": {
-                    "type": "http",
-                    "scheme": "bearer",
+            "securitySchemes": (
+                {
+                    "bearerAuth": {
+                        "type": "http",
+                        "scheme": "bearer",
+                    }
                 }
-            } if auth.get("type") == "bearer" else {}
+                if auth.get("type") == "bearer"
+                else {}
+            )
         },
     }
 
@@ -105,7 +120,10 @@ def generate_agent_openapi(agent_values: dict) -> dict:
                                     "properties": {
                                         "answer": {"type": "string"},
                                         "confidence": {"type": "number"},
-                                        "tools_used": {"type": "array", "items": {"type": "string"}},
+                                        "tools_used": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
                                     },
                                 }
                             }
@@ -130,7 +148,13 @@ def generate_agent_openapi(agent_values: dict) -> dict:
                             "application/json": {
                                 "schema": {
                                     "type": "array",
-                                    "items": {"type": "object", "properties": {"name": {"type": "string"}, "description": {"type": "string"}}},
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "description": {"type": "string"},
+                                        },
+                                    },
                                 }
                             }
                         },

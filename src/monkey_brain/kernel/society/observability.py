@@ -6,6 +6,7 @@ Produce:
 
 Support debugging at society scale.
 """
+
 from __future__ import annotations
 
 import time
@@ -13,12 +14,16 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
-from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+from src.monkey_brain.kernel.society.context_stream import (
+    ContextEvent,
+    ContextEventType,
+)
 
 
 @dataclass(frozen=True)
 class ActorTimelineEntry:
     """One entry in an actor's timeline."""
+
     actor_id: str = ""
     event_type: str = ""
     description: str = ""
@@ -29,6 +34,7 @@ class ActorTimelineEntry:
 @dataclass(frozen=True)
 class ActorTimeline:
     """Complete timeline for one actor."""
+
     actor_id: str = ""
     entries: tuple[ActorTimelineEntry, ...] = ()
     total_events: int = 0
@@ -37,6 +43,7 @@ class ActorTimeline:
 @dataclass(frozen=True)
 class InteractionEdge:
     """One edge in the interaction graph."""
+
     source_actor: str = ""
     target_actor: str = ""
     interaction_type: str = ""
@@ -47,6 +54,7 @@ class InteractionEdge:
 @dataclass(frozen=True)
 class InteractionGraph:
     """Graph of actor interactions."""
+
     edges: tuple[InteractionEdge, ...] = ()
     actor_count: int = 0
     total_interactions: int = 0
@@ -55,6 +63,7 @@ class InteractionGraph:
 @dataclass(frozen=True)
 class WorldEvolutionEntry:
     """One entry in the world evolution history."""
+
     version: int = 0
     timestamp: float = 0.0
     event_type: str = ""
@@ -65,6 +74,7 @@ class WorldEvolutionEntry:
 @dataclass(frozen=True)
 class WorldEvolution:
     """History of world changes."""
+
     entries: tuple[WorldEvolutionEntry, ...] = ()
     total_versions: int = 0
 
@@ -72,6 +82,7 @@ class WorldEvolution:
 @dataclass(frozen=True)
 class CoordinationMetrics:
     """Metrics about society coordination."""
+
     total_ticks: int = 0
     total_interactions: int = 0
     active_actors: int = 0
@@ -83,6 +94,7 @@ class CoordinationMetrics:
 @dataclass(frozen=True)
 class GovernanceReport:
     """Report on society governance."""
+
     total_policies: int = 0
     active_policies: int = 0
     compliance_rate: float = 0.0
@@ -94,6 +106,7 @@ class GovernanceReport:
 @dataclass(frozen=True)
 class SocietyTrace:
     """Complete observability trace for the society."""
+
     trace_id: str = field(default_factory=lambda: uuid4().hex)
     actor_timelines: tuple[ActorTimeline, ...] = ()
     interaction_graph: InteractionGraph = field(default_factory=InteractionGraph)
@@ -138,9 +151,13 @@ class SocietyObservability:
                 )
                 for event in sorted(actor_evts, key=lambda e: e.timestamp)
             )
-            timelines.append(ActorTimeline(
-                actor_id=actor_id, entries=entries, total_events=len(entries),
-            ))
+            timelines.append(
+                ActorTimeline(
+                    actor_id=actor_id,
+                    entries=entries,
+                    total_events=len(entries),
+                )
+            )
         return tuple(timelines)
 
     def build_interaction_graph(self, events: tuple[ContextEvent, ...]) -> InteractionGraph:
@@ -159,14 +176,17 @@ class SocietyObservability:
 
         edges = tuple(
             InteractionEdge(
-                source_actor=edge[0], target_actor=edge[1],
+                source_actor=edge[0],
+                target_actor=edge[1],
                 interaction_type="interaction",
-                count=count, last_interaction=edge_last[edge],
+                count=count,
+                last_interaction=edge_last[edge],
             )
             for edge, count in edge_counts.items()
         )
         return InteractionGraph(
-            edges=edges, actor_count=len(actors),
+            edges=edges,
+            actor_count=len(actors),
             total_interactions=len(interaction_events),
         )
 
@@ -174,8 +194,10 @@ class SocietyObservability:
         world_events = [e for e in events if e.event_type == ContextEventType.WORLD_UPDATE]
         entries = tuple(
             WorldEvolutionEntry(
-                version=e.version, timestamp=e.timestamp,
-                event_type=e.event_type.value, description=e.description,
+                version=e.version,
+                timestamp=e.timestamp,
+                event_type=e.event_type.value,
+                description=e.description,
                 actor_id=e.actor_id,
             )
             for e in sorted(world_events, key=lambda e: e.timestamp)

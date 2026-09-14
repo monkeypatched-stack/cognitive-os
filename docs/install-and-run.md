@@ -55,8 +55,8 @@ managing them.
 ```bash
 git clone https://github.com/monkeypatched-stack/cogitive-os.git
 cd cogitive-os
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync --frozen
+source .venv/bin/activate
 ```
 
 Point it at your services (only needed if they're not on the defaults

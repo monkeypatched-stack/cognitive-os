@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from src.monkey_brain.kernel.predict.constraint.base import ISolver, SolverClass, SolverResult
+from src.monkey_brain.kernel.predict.constraint.base import (
+    ISolver,
+    SolverClass,
+    SolverResult,
+)
 
 
 class SATSolver(ISolver):
@@ -10,6 +14,7 @@ class SATSolver(ISolver):
 
     Encodes constraints as CNF clauses and solves via DPLL.
     """
+
     name = "sat"
     solver_class = SolverClass.SAT_SMT
 
@@ -22,8 +27,10 @@ class SATSolver(ISolver):
 
         if not clauses:
             return SolverResult(
-                solver_name=self.name, solver_class=self.solver_class,
-                solution={"satisfiable": True, "model": {}}, confidence=0.99,
+                solver_name=self.name,
+                solver_class=self.solver_class,
+                solution={"satisfiable": True, "model": {}},
+                confidence=0.99,
                 proof="No constraints — trivially satisfiable",
             )
 
@@ -31,7 +38,8 @@ class SATSolver(ISolver):
         satisfiable, model = self._dpll(clauses, variables, assignment)
 
         return SolverResult(
-            solver_name=self.name, solver_class=self.solver_class,
+            solver_name=self.name,
+            solver_class=self.solver_class,
             solution={"satisfiable": satisfiable, "model": model},
             confidence=0.99 if satisfiable else 0.95,
             proof=f"DPLL: {'SAT' if satisfiable else 'UNSAT'} with {len(clauses)} clauses",

@@ -3,6 +3,7 @@
 Responsibility: Knowledge base exploration, gap detection, acquisition, grounding.
 Depends on: semantic memory, knowledge acquisition, intent registry
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,7 +31,9 @@ class KnowledgeManager:
         Returns the compiler's summary when no query is given;
         returns None if SittingFace never loaded.
         """
-        from src.monkey_brain.kernel.plan.intents.intent_registry import get_somatic_compiler
+        from src.monkey_brain.kernel.plan.intents.intent_registry import (
+            get_somatic_compiler,
+        )
 
         compiler = get_somatic_compiler()
         if compiler is None:
@@ -75,7 +78,12 @@ class KnowledgeManager:
             )
         except Exception as exc:
             logger.warning("[acquire] knowledge acquisition failed: %s", exc)
-            result = {"question": question, "acquired": 0, "raised": False, "error": str(exc)}
+            result = {
+                "question": question,
+                "acquired": 0,
+                "raised": False,
+                "error": str(exc),
+            }
 
         return result
 

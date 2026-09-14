@@ -13,6 +13,7 @@ get_product_detail() (what's shown) and add_to_cart() (what a new cart
 line actually charges), so a sale genuinely saves money at checkout,
 not just a displayed badge.
 """
+
 from __future__ import annotations
 
 import time
@@ -88,7 +89,14 @@ def test_mb3034_expired_promotion_no_longer_applies():
     kg, product_id = _seed_product()
     now = time.time()
 
-    create_promotion(kg, product_id, MERCHANT_ID, sale_price=SALE_PRICE, starts_at=now - 7200, ends_at=now - 3600)
+    create_promotion(
+        kg,
+        product_id,
+        MERCHANT_ID,
+        sale_price=SALE_PRICE,
+        starts_at=now - 7200,
+        ends_at=now - 3600,
+    )
 
     assert get_effective_price(kg, product_id) == REGULAR_PRICE
 

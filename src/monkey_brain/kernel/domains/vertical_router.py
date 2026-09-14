@@ -15,6 +15,7 @@ grocery.py) — a vertical imports this module and registers itself, the
 same "specific registers into generic" direction used throughout the
 domain/vertical split.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,6 +29,7 @@ logger = logging.getLogger("agentos.domains.vertical_router")
 class VerticalRuntime:
     """Everything a route needs from a vertical to execute a request,
     without needing to know how that vertical builds any of it."""
+
     bus: Any
     context_projector: Callable[[dict, dict], None]
     integrity_check: Callable[[Any], dict]
@@ -75,13 +77,18 @@ def resolve_vertical(name: str = "grocery") -> VerticalRuntime:
     route never has to name a vertical to get one."""
     builder = _VERTICAL_REGISTRY.get(name)
     if builder is None:
-        raise KeyError(f"no vertical registered for {name!r} (registered: {sorted(_VERTICAL_REGISTRY)})")
+        raise KeyError(
+            f"no vertical registered for {name!r} (registered: {sorted(_VERTICAL_REGISTRY)})"
+        )
     return builder()
 
 
-def _build_execution_engine(vertical: VerticalRuntime, context_stream: Any = None,
-                            connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
-                            edge_governance: Any = None) -> Any:
+def _build_execution_engine(
+    vertical: VerticalRuntime,
+    context_stream: Any = None,
+    connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
+    edge_governance: Any = None,
+) -> Any:
     """Verify an already-resolved vertical's bus is intact, and return a
     ready execution engine.
 
@@ -117,6 +124,7 @@ def _build_execution_engine(vertical: VerticalRuntime, context_stream: Any = Non
     # global discovery without creating another bus.
     try:
         from src.monkey_brain.kernel.kernel import Kernel
+
         kernel = Kernel._instance
         if kernel is not None:
             kernel.capability_registry.attach_bus(vertical.bus)
@@ -129,6 +137,7 @@ def _build_execution_engine(vertical: VerticalRuntime, context_stream: Any = Non
     transition_gate = None
     if vertical.propose_transition is not None:
         from src.monkey_brain.kernel.society.transition_gate import TransitionGate
+
         transition_gate = TransitionGate()
 
     return CapabilityRuntime(
@@ -144,9 +153,12 @@ def _build_execution_engine(vertical: VerticalRuntime, context_stream: Any = Non
     )
 
 
-def build_execution_engine(name: str = "grocery", context_stream: Any = None,
-                           connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
-                           edge_governance: Any = None) -> Any:
+def build_execution_engine(
+    name: str = "grocery",
+    context_stream: Any = None,
+    connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
+    edge_governance: Any = None,
+) -> Any:
     """Resolve a vertical and return a ready execution engine. A route
     should never construct a bus, run a security check, or wire an
     executor itself; it just asks for something it can execute with.
@@ -160,14 +172,19 @@ def build_execution_engine(name: str = "grocery", context_stream: Any = None,
 
     edge_governance: see _build_execution_engine's own docstring."""
     return _build_execution_engine(
-        resolve_vertical(name), context_stream=context_stream,
-        connectivity_check=connectivity_check, edge_governance=edge_governance,
+        resolve_vertical(name),
+        context_stream=context_stream,
+        connectivity_check=connectivity_check,
+        edge_governance=edge_governance,
     )
 
 
 def build_runtime_engine(
-    observation_provider: Any, name: str = "grocery", context_stream: Any = None,
-    transition_model: Any = None, current_plans: dict[str, Any] | None = None,
+    observation_provider: Any,
+    name: str = "grocery",
+    context_stream: Any = None,
+    transition_model: Any = None,
+    current_plans: dict[str, Any] | None = None,
     connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
     edge_governance: Any = None,
 ) -> Any:
@@ -201,7 +218,9 @@ def build_runtime_engine(
     (the default) preserves prior behavior for any caller that doesn't
     pass one; PlanetaryRuntime's own callers should pass the same
     instances it already builds for its shared execution engine."""
-    from src.monkey_brain.kernel.pipeline.comparison.integration import build_comparison_integrated_runtime
+    from src.monkey_brain.kernel.pipeline.comparison.integration import (
+        build_comparison_integrated_runtime,
+    )
 
     # resolve the vertical
     vertical = resolve_vertical(name)
@@ -212,8 +231,10 @@ def build_runtime_engine(
     # holding the empty default executor, so real capabilities (including
     # AskActor and RespondToInquiry) are silently simulated or rejected.
     execution_engine = _build_execution_engine(
-        vertical, context_stream=context_stream,
-        connectivity_check=connectivity_check, edge_governance=edge_governance,
+        vertical,
+        context_stream=context_stream,
+        connectivity_check=connectivity_check,
+        edge_governance=edge_governance,
     )
     engine = build_comparison_integrated_runtime(
         observation_provider=observation_provider,

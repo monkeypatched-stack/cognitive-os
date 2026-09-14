@@ -24,6 +24,7 @@ Returns in payload:
   opa_decision     dict
   audit_event_id   str
 """
+
 from __future__ import annotations
 
 import logging
@@ -103,20 +104,38 @@ class AuthPolicyAgent(BaseETASSAgent):
 
         # 1. Principal must exist
         if not subject:
-            return self._deny("no_principal", required_scopes, [], principal_type, subject, mtls_verified)
+            return self._deny(
+                "no_principal",
+                required_scopes,
+                [],
+                principal_type,
+                subject,
+                mtls_verified,
+            )
 
         # 2. SPIFFE ID must match sub for agent principals
         if principal_type == "agent" and spiffe_id and spiffe_id != subject:
-            return self._deny("spiffe_sub_mismatch", required_scopes, granted_scopes, principal_type, subject, mtls_verified)
+            return self._deny(
+                "spiffe_sub_mismatch",
+                required_scopes,
+                granted_scopes,
+                principal_type,
+                subject,
+                mtls_verified,
+            )
 
         # 2b. Pipeline binding: if the token is pipeline-scoped, verify it
         #     matches the pipeline_id in the execution context.
         token_pipeline_id = principal.get("pipeline_id", "")
-        ctx_pipeline_id   = context.get("pipeline_id", "") or context.get("__pipeline_id__", "")
+        ctx_pipeline_id = context.get("pipeline_id", "") or context.get("__pipeline_id__", "")
         if token_pipeline_id and ctx_pipeline_id and token_pipeline_id != ctx_pipeline_id:
             return self._deny(
                 f"pipeline_id_mismatch:token={token_pipeline_id} ctx={ctx_pipeline_id}",
-                required_scopes, granted_scopes, principal_type, subject, mtls_verified,
+                required_scopes,
+                granted_scopes,
+                principal_type,
+                subject,
+                mtls_verified,
             )
 
         # 3. Scope check (agents only — humans use existing RBAC permission system)
@@ -127,7 +146,11 @@ class AuthPolicyAgent(BaseETASSAgent):
             if missing_scopes:
                 return self._deny(
                     f"missing_scopes:{','.join(missing_scopes)}",
-                    required_scopes, granted_scopes, principal_type, subject, mtls_verified,
+                    required_scopes,
+                    granted_scopes,
+                    principal_type,
+                    subject,
+                    mtls_verified,
                     missing_scopes=missing_scopes,
                 )
 
@@ -135,6 +158,7 @@ class AuthPolicyAgent(BaseETASSAgent):
         dynamic_ctx: dict[str, Any] = {}
         try:
             from services.common.dynamic_policy import build_dynamic_context
+
             ctx = await build_dynamic_context(principal, action, resource)
             dynamic_ctx = ctx.to_dict()
 
@@ -142,7 +166,11 @@ class AuthPolicyAgent(BaseETASSAgent):
             if ctx.read_only_enforced and ("write" in action.lower() or "delete" in action.lower()):
                 return self._deny(
                     "read_only_enforced:low_reliability",
-                    required_scopes, granted_scopes, principal_type, subject, mtls_verified,
+                    required_scopes,
+                    granted_scopes,
+                    principal_type,
+                    subject,
+                    mtls_verified,
                     dynamic_context=dynamic_ctx,
                 )
         except Exception as exc:
@@ -153,7 +181,11 @@ class AuthPolicyAgent(BaseETASSAgent):
         if not opa_decision.get("allowed", True):
             return self._deny(
                 f"opa_denied:{opa_policy_path}",
-                required_scopes, granted_scopes, principal_type, subject, mtls_verified,
+                required_scopes,
+                granted_scopes,
+                principal_type,
+                subject,
+                mtls_verified,
                 opa_decision=opa_decision,
                 dynamic_context=dynamic_ctx,
             )
@@ -162,7 +194,10 @@ class AuthPolicyAgent(BaseETASSAgent):
         obligations = opa_decision.get("obligations", [])
         if not obligations:
             try:
-                from services.common.policy_obligations import derive_obligations, extract_obligations
+                from services.common.policy_obligations import (
+                    derive_obligations,
+                )
+
                 risk = dynamic_ctx.get("risk_level", "low")
                 obs = derive_obligations(principal, action, resource, risk)
                 obligations = [o.to_dict() for o in obs]
@@ -220,6 +255,7 @@ class AuthPolicyAgent(BaseETASSAgent):
     ) -> dict[str, Any]:
         try:
             from services.common.opa import evaluate_full
+
             result = await evaluate_full(
                 policy_path,
                 {
@@ -253,6 +289,7 @@ class AuthPolicyAgent(BaseETASSAgent):
     ) -> None:
         try:
             from services.common.audit_events import emit
+
             await emit(
                 f"policy.{'allow' if decision['allowed'] else 'deny'}",
                 "allow" if decision["allowed"] else "deny",

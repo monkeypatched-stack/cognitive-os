@@ -42,7 +42,10 @@ from src.monkey_brain.kernel.process.checkpoint import (
     CheckpointStore,
     build_checkpoint,
 )
-from src.monkey_brain.kernel.process.compensation import CompensationRegistry, get_compensation_registry
+from src.monkey_brain.kernel.process.compensation import (
+    CompensationRegistry,
+    get_compensation_registry,
+)
 from src.monkey_brain.kernel.process.compensation import compensate as run_compensation
 from src.monkey_brain.kernel.process.expansion_policy import _TrackingExpansionPolicy
 from src.monkey_brain.kernel.process.models import (
@@ -99,7 +102,10 @@ class ProcessManager(CheckpointOpsMixin):
             await self._event_bus.publish(event_type, payload)
 
     async def _transition(
-        self, rpcb: RuntimeProcessControlBlock, target: RuntimeProcessState, **event_extra: Any
+        self,
+        rpcb: RuntimeProcessControlBlock,
+        target: RuntimeProcessState,
+        **event_extra: Any,
     ) -> None:
         current = rpcb.state
         if target not in VALID_TRANSITIONS.get(current, frozenset()):
@@ -268,7 +274,13 @@ class ProcessManager(CheckpointOpsMixin):
     # Human approval
     # ------------------------------------------------------------------
 
-    async def approve(self, run_id: str, approver: str, decision: Literal["approve", "reject"], note: str = "") -> None:
+    async def approve(
+        self,
+        run_id: str,
+        approver: str,
+        decision: Literal["approve", "reject"],
+        note: str = "",
+    ) -> None:
         rpcb = self._require(run_id)
         gate = rpcb.approval_gate
         if gate is None:
@@ -282,7 +294,8 @@ class ProcessManager(CheckpointOpsMixin):
         if decision == "approve":
             rpcb.graph.mark_complete(gate.node_id, result={"approved_by": approver, "note": note})
             await self._publish(
-                "process.approval_granted", {"run_id": run_id, "node_id": gate.node_id, "approver": approver}
+                "process.approval_granted",
+                {"run_id": run_id, "node_id": gate.node_id, "approver": approver},
             )
             rpcb.approval_gate = None
             await self._transition(rpcb, RuntimeProcessState.RUNNING)
@@ -290,7 +303,12 @@ class ProcessManager(CheckpointOpsMixin):
             rpcb.graph.mark_failed(gate.node_id, error=f"rejected by {approver}: {note}")
             await self._publish(
                 "process.approval_rejected",
-                {"run_id": run_id, "node_id": gate.node_id, "approver": approver, "note": note},
+                {
+                    "run_id": run_id,
+                    "node_id": gate.node_id,
+                    "approver": approver,
+                    "note": note,
+                },
             )
             rpcb.approval_gate = None
             await self._transition(rpcb, RuntimeProcessState.COMPENSATING)
@@ -441,7 +459,8 @@ class ProcessManager(CheckpointOpsMixin):
         ]
         if failed_exhausted:
             rpcb.error = ProcessError(
-                message=f"node(s) failed, retries exhausted: {failed_exhausted}", node_id=failed_exhausted[0]
+                message=f"node(s) failed, retries exhausted: {failed_exhausted}",
+                node_id=failed_exhausted[0],
             )
             await self._transition(rpcb, RuntimeProcessState.COMPENSATING)
             await self.compensate_process(rpcb.run_id)

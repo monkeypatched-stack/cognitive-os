@@ -13,6 +13,7 @@ order that's still in progress, was cancelled, or was already
 confirmed — same discipline as the shipment lifecycle's own guards
 (MB-3019).
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.logistics import (

@@ -15,6 +15,7 @@ The flow is  token claim → Context → query filter:
 This is also the federation boundary: private per-tenant weights, shared higher-level
 abstractions — federated learning by construction.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,7 +38,12 @@ class TenantView:
     A can never surface tenant B's private transitions.
     """
 
-    def __init__(self, private: SparseTransitionTensor, shared: SparseTransitionTensor, tenant_id: str) -> None:
+    def __init__(
+        self,
+        private: SparseTransitionTensor,
+        shared: SparseTransitionTensor,
+        tenant_id: str,
+    ) -> None:
         self._private = private
         self._shared = shared
         self.tenant_id = tenant_id
@@ -90,7 +96,7 @@ class TenantWorld:
 
     def _tensor(self, tenant_id: str) -> SparseTransitionTensor:
         if self._store is not None:
-            return self._store.get(tenant_id)          # lazy-load + LRU (out-of-core)
+            return self._store.get(tenant_id)  # lazy-load + LRU (out-of-core)
         t = self._tenants.get(tenant_id)
         if t is None:
             t = SparseTransitionTensor()
@@ -154,7 +160,7 @@ class TenantWorld:
         if t is None:
             return 0
         count = 0
-        for (src, dst) in list(t):
+        for src, dst in list(t):
             # BOTH endpoints must be in the shared domain. Filtering on the source
             # alone published every edge LEAVING the domain — so sharing "calendar"
             # while withholding "journal" still leaked the private journal state
@@ -166,10 +172,9 @@ class TenantWorld:
             if t.domain_of(src) != domain or t.domain_of(dst) != domain:
                 continue
             if ontology_only:
-                self._shared.observe(src, dst, domain=domain)     # structure only
+                self._shared.observe(src, dst, domain=domain)  # structure only
             else:
-                self._shared.observe(src, dst, domain=domain,
-                                     reward=t.feature(src, dst, Feature.REWARD))
+                self._shared.observe(src, dst, domain=domain, reward=t.feature(src, dst, Feature.REWARD))
             count += 1
         return count
 
@@ -211,7 +216,7 @@ class TenantWorld:
         silently dropped EVERY tenant's private world. Go through the store.
         """
         if self._store is not None:
-            self._store.flush()   # resident tenants -> their shards, so nothing is lost
+            self._store.flush()  # resident tenants -> their shards, so nothing is lost
             return {
                 "shared": self._shared.to_dict(),
                 "tenants": {t: self._store.get(t).to_dict() for t in self._store.tenants()},
@@ -225,6 +230,7 @@ class TenantWorld:
         """Load tenant world from a JSON file."""
         import json
         from pathlib import Path
+
         data = json.loads(Path(path).read_text())
         if "shared" in data:
             self._shared.load_dict(data["shared"])
@@ -236,5 +242,6 @@ class TenantWorld:
         """Save tenant world to a JSON file."""
         import json
         from pathlib import Path
+
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         Path(path).write_text(json.dumps(self.to_dict(), default=str))

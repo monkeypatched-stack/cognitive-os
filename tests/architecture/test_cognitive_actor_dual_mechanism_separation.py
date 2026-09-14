@@ -19,6 +19,7 @@ callers already depend on. This test proves the naming overlap is
 COSMETIC ONLY: neither mechanism's methods call into the other's, so a
 change to one can never silently affect the other's behavior.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -48,7 +49,11 @@ class TestTheTwoMechanismsNeverCallEachOther:
 
     def test_the_sync_local_graph_cycle_never_calls_the_async_engine(self):
         source = inspect.getsource(CognitiveActor.cognitive_cycle)
-        for async_call in ("_cognitive_tick(", "await self.tick(", "execute_cognitive_loop("):
+        for async_call in (
+            "_cognitive_tick(",
+            "await self.tick(",
+            "execute_cognitive_loop(",
+        ):
             assert async_call not in source, (
                 f"CognitiveActor.cognitive_cycle must never call the async LLM-driven "
                 f"engine ({async_call}) -- these are separate engines"

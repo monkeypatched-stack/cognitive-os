@@ -6,6 +6,7 @@ feature engineering) lives in subclasses. Swapping a provider requires no kernel
     EmbeddingEmbedder.embed(item) → Embedding
     Embedding.vector ∈ R^EMBEDDING_DIM
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,7 +22,8 @@ from src.monkey_brain.kernel.plan.embedding._utils import EMBEDDING_DIM
 @dataclass
 class Embedding:
     """Output of any EmbeddingEmbedder."""
-    vector: np.ndarray      # shape (EMBEDDING_DIM,), L2-normalised
+
+    vector: np.ndarray  # shape (EMBEDDING_DIM,), L2-normalised
     modality: str = ""
     provider: str = ""
 

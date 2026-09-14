@@ -13,12 +13,16 @@ except ImportError:  # pragma: no cover - requirements include PyYAML in normal 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ONTOLOGY_REGISTRY_PATH = REPO_ROOT / "config" / "ontology" / "graph_ontology.v1.yaml"
 INTEGRATION_ADAPTERS_DIR = REPO_ROOT / "config" / "integration_adapters"
-FACTORY_MANIFEST_TEMPLATE_PATH = REPO_ROOT / "deployments" / "factory_manifests" / "template.customer.yaml"
+FACTORY_MANIFEST_TEMPLATE_PATH = (
+    REPO_ROOT / "deployments" / "factory_manifests" / "template.customer.yaml"
+)
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
     if yaml is None:
-        raise RuntimeError("PyYAML is required to load declarative ontology and integration manifests.")
+        raise RuntimeError(
+            "PyYAML is required to load declarative ontology and integration manifests."
+        )
     data = yaml.safe_load(path.read_text()) or {}
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a YAML object.")
@@ -87,7 +91,9 @@ def validate_declarative_architecture() -> list[str]:
                 errors.append(f"Entity {entity_name} is missing {key}.")
         for collection in entity.get("collections") or []:
             if collection in collections:
-                errors.append(f"Collection {collection} is mapped to more than one entity type.")
+                errors.append(
+                    f"Collection {collection} is mapped to more than one entity type."
+                )
             collections.add(collection)
 
     entity_names = set(entity_types)
@@ -96,15 +102,23 @@ def validate_declarative_architecture() -> list[str]:
         for mapping in manifest.get("mappings") or []:
             target_entity = mapping.get("target_entity")
             if target_entity not in entity_names:
-                errors.append(f"Adapter {adapter['adapter_id']} maps to unknown ontology entity {target_entity}.")
+                errors.append(
+                    f"Adapter {adapter['adapter_id']} maps to unknown ontology entity {target_entity}."
+                )
             if not mapping.get("target_collection"):
-                errors.append(f"Adapter {adapter['adapter_id']} mapping {mapping.get('source_object')} missing target_collection.")
+                errors.append(
+                    f"Adapter {adapter['adapter_id']} mapping {mapping.get('source_object')} missing target_collection."
+                )
             if not mapping.get("id"):
-                errors.append(f"Adapter {adapter['adapter_id']} mapping {mapping.get('source_object')} missing id mapping.")
+                errors.append(
+                    f"Adapter {adapter['adapter_id']} mapping {mapping.get('source_object')} missing id mapping."
+                )
 
     factory_manifest = load_factory_manifest_template()
     adapter_ids = {adapter["adapter_id"] for adapter in list_integration_adapters()}
     for binding in factory_manifest.get("adapter_bindings") or []:
         if binding.get("adapter_id") not in adapter_ids:
-            errors.append(f"Factory manifest references unknown adapter {binding.get('adapter_id')}.")
+            errors.append(
+                f"Factory manifest references unknown adapter {binding.get('adapter_id')}."
+            )
     return errors

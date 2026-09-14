@@ -4,6 +4,7 @@ Actor Runtime ``POST /execute`` is internal-only. External clients call
 ``POST /actors/{id}/execute`` on the API Gateway; the control plane
 proxies with ``X-Internal-Service-Token``.
 """
+
 from __future__ import annotations
 
 import os
@@ -24,6 +25,7 @@ def internal_only_enabled() -> bool:
         return False
     try:
         from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
         return not insecure_dev_mode()
     except ImportError:
         return True

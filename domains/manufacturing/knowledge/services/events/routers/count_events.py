@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 from services.common.auth import require_permission
 from services.events.helpers import events as crud
 
-
 router = APIRouter()
 
 

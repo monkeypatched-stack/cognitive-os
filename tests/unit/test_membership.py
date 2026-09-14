@@ -2,13 +2,22 @@
 view, role assignment, lifecycle transitions, trust, delegation, policy/
 permission/capability/constraint resolution, and full timeline auditability.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.society.membership import SocietyMembershipRegistry
 from src.monkey_brain.kernel.society.delegation import DelegationRegistry
-from src.monkey_brain.kernel.society.governance import SocietyGovernanceEngine, GovernancePolicy, Permission
+from src.monkey_brain.kernel.society.governance import (
+    SocietyGovernanceEngine,
+    GovernancePolicy,
+    Permission,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.timeline.entry import TimelineKind
 from src.monkey_brain.kernel.timeline.store import TimelineStore
 
@@ -18,6 +27,7 @@ def _register(pr, name="Alice"):
 
 
 # ── Multiple concurrent memberships ───────────────────────────────────────
+
 
 def test_multiple_concurrent_memberships_per_actor():
     reg = SocietyMembershipRegistry()
@@ -39,6 +49,7 @@ def test_home_registration_is_a_real_membership():
 
 # ── Roles ─────────────────────────────────────────────────────────────────
 
+
 def test_role_assign_and_remove_preserves_history():
     reg = SocietyMembershipRegistry()
     record = reg.add("alice", "soc1", role="member")
@@ -52,7 +63,11 @@ def test_role_assign_and_remove_preserves_history():
 
     history = reg.history_for_actor("alice")
     assert len(history) == 3
-    assert [h.metadata.get("event") for h in history] == ["created", "role_assigned", "role_removed"]
+    assert [h.metadata.get("event") for h in history] == [
+        "created",
+        "role_assigned",
+        "role_removed",
+    ]
     # Every prior role state stays queryable — history isn't lost.
     assert history[0].roles == ("member",)
     assert history[1].roles == ("member", "engineer")
@@ -69,6 +84,7 @@ def test_assigning_duplicate_role_is_a_noop():
 
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────
+
 
 def test_lifecycle_transitions_fully_auditable():
     reg = SocietyMembershipRegistry()
@@ -89,6 +105,7 @@ def test_lifecycle_transitions_fully_auditable():
 
 
 # ── Policy/permission/capability/constraint resolution ────────────────────
+
 
 def test_resolve_permissions_and_policies_against_real_governance():
     reg = SocietyMembershipRegistry()
@@ -132,7 +149,9 @@ def test_expired_membership_is_not_active():
     from src.monkey_brain.kernel.society.membership import Membership
 
     expired = Membership(
-        membership_id="m", actor_id="alice", society_id="senior-program",
+        membership_id="m",
+        actor_id="alice",
+        society_id="senior-program",
         end_time=time.time() - 1,
     )
     assert not expired.is_active()
@@ -143,9 +162,12 @@ def test_policy_can_require_membership_role():
     employee = reg.add("alice", "store", role="employee")
     customer = reg.add("bob", "store", role="customer")
     gov = SocietyGovernanceEngine()
-    gov.add_policy(GovernancePolicy(
-        name="employee discount", metadata={"required_role": "employee"},
-    ))
+    gov.add_policy(
+        GovernancePolicy(
+            name="employee discount",
+            metadata={"required_role": "employee"},
+        )
+    )
 
     assert len(reg.resolve_policies(employee.membership_id, governance=gov)) == 1
     assert reg.resolve_policies(customer.membership_id, governance=gov) == ()
@@ -153,6 +175,7 @@ def test_policy_can_require_membership_role():
 
 def test_resolve_capabilities_from_actor_profile():
     from src.monkey_brain.kernel.society.domain import ActorCapability, CapabilityLevel
+
     reg = SocietyMembershipRegistry()
     record = reg.add("alice", "soc1")
     profile = ActorProfile(
@@ -164,6 +187,7 @@ def test_resolve_capabilities_from_actor_profile():
 
 
 # ── Trust ─────────────────────────────────────────────────────────────────
+
 
 def test_trust_update_writes_through_and_appends_timeline_event():
     reg = SocietyMembershipRegistry()
@@ -180,6 +204,7 @@ def test_trust_update_writes_through_and_appends_timeline_event():
 
 
 # ── Delegation ────────────────────────────────────────────────────────────
+
 
 def test_delegation_grant_revoke_validity_and_effective_permissions():
     reg = SocietyMembershipRegistry()
@@ -203,6 +228,7 @@ def test_delegation_grant_revoke_validity_and_effective_permissions():
 
 def test_delegation_respects_validity_window():
     import time
+
     reg = SocietyMembershipRegistry()
     record = reg.add("alice", "soc1")
     delegations = DelegationRegistry(membership_registry=reg)
@@ -211,6 +237,7 @@ def test_delegation_respects_validity_window():
 
 
 # ── Every mutator produces a timeline entry ───────────────────────────────
+
 
 def test_every_mutator_produces_a_distinct_timeline_row():
     store = TimelineStore()
@@ -231,6 +258,7 @@ def test_every_mutator_produces_a_distinct_timeline_row():
 
 
 # ── Discovery methods ──────────────────────────────────────────────────────
+
 
 def test_memberships_for_society_and_by_role():
     reg = SocietyMembershipRegistry()
@@ -257,6 +285,7 @@ def test_active_memberships_excludes_terminated():
 
 
 # ── Society Graph fix regression tests ──────────────────────────────────────
+
 
 def _affiliations_for(pr, actor_id):
     """Reach the same AffiliationManager _mirror_membership_affiliation and

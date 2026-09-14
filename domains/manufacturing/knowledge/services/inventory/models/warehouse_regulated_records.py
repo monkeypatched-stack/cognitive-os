@@ -66,12 +66,22 @@ class SpecialStorageRequirement(BaseModel):
         self.effective_to = ensure_utc(self.effective_to)
         self.created_at = ensure_utc(self.created_at)
         self.updated_at = ensure_utc(self.updated_at)
-        if self.min_temperature_c is not None and self.max_temperature_c is not None and self.min_temperature_c > self.max_temperature_c:
+        if (
+            self.min_temperature_c is not None
+            and self.max_temperature_c is not None
+            and self.min_temperature_c > self.max_temperature_c
+        ):
             raise ValueError("min_temperature_c cannot exceed max_temperature_c.")
-        if self.min_humidity_pct is not None and self.max_humidity_pct is not None and self.min_humidity_pct > self.max_humidity_pct:
+        if (
+            self.min_humidity_pct is not None
+            and self.max_humidity_pct is not None
+            and self.min_humidity_pct > self.max_humidity_pct
+        ):
             raise ValueError("min_humidity_pct cannot exceed max_humidity_pct.")
         if not any([self.product_id, self.component_id, self.material_code]):
-            raise ValueError("storage requirements must reference product_id, component_id, or material_code.")
+            raise ValueError(
+                "storage requirements must reference product_id, component_id, or material_code."
+            )
         return self
 
 

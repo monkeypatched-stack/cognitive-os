@@ -23,6 +23,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedLineResponse)
 async def list_lines(
     page: int = Query(1, ge=1),
@@ -45,6 +46,7 @@ async def list_lines(
 
 # ── Get by plant ──────────────────────────────────────────────────────────────
 
+
 @router.get("/by-plant/{plant_id}", response_model=list[IndustrialLineResponse])
 async def list_lines_by_plant(
     plant_id: str,
@@ -62,7 +64,9 @@ async def list_line_stages(
 ):
     record = await crud.get_by_id(db, line_id)
     if not record:
-        record = await db["industrial_lines"].find_one({"name": {"$regex": f"^{re.escape(line_id)}$", "$options": "i"}})
+        record = await db["industrial_lines"].find_one(
+            {"name": {"$regex": f"^{re.escape(line_id)}$", "$options": "i"}}
+        )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -79,7 +83,9 @@ async def list_line_workstations(
 ):
     record = await crud.get_by_id(db, line_id)
     if not record:
-        record = await db["industrial_lines"].find_one({"name": {"$regex": f"^{re.escape(line_id)}$", "$options": "i"}})
+        record = await db["industrial_lines"].find_one(
+            {"name": {"$regex": f"^{re.escape(line_id)}$", "$options": "i"}}
+        )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -89,6 +95,7 @@ async def list_line_workstations(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{line_id}", response_model=IndustrialLineResponse)
 async def get_line(
@@ -107,7 +114,10 @@ async def get_line(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=IndustrialLineResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=IndustrialLineResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_line(
     data: IndustrialLineCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -122,6 +132,7 @@ async def create_line(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{line_id}", response_model=IndustrialLineResponse)
 async def update_line(
@@ -140,6 +151,7 @@ async def update_line(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{line_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_line(

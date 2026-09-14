@@ -24,6 +24,7 @@ Environment variables:
   NANDA_REGISTRY_URL  — NANDA registry base URL (required for live operation)
   NANDA_API_KEY       — API key for authenticated registries (optional)
 """
+
 from __future__ import annotations
 
 import logging
@@ -72,7 +73,11 @@ class NANDACapability(Capability):
             return await self._discover(state)
         if op == "route":
             return await self._route(state)
-        return {"status": "unknown_operation", "operation": op, "supported": ["discover", "route"]}
+        return {
+            "status": "unknown_operation",
+            "operation": op,
+            "supported": ["discover", "route"],
+        }
 
     # ------------------------------------------------------------------
     # Operations (discover + route only — NANDA is a provider, not a registry we publish to)
@@ -81,7 +86,11 @@ class NANDACapability(Capability):
     async def _discover(self, state: dict[str, Any]) -> dict[str, Any]:
         """Discover remote agents matching a capability or domain."""
         if not self._available:
-            return {"status": "skipped", "agents": [], "reason": "NANDA_REGISTRY_URL not configured"}
+            return {
+                "status": "skipped",
+                "agents": [],
+                "reason": "NANDA_REGISTRY_URL not configured",
+            }
 
         params: dict[str, str] = {}
         if state.get("capability"):
@@ -93,6 +102,7 @@ class NANDACapability(Capability):
 
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.get(
                     f"{self._registry_url}/agents",
@@ -116,6 +126,7 @@ class NANDACapability(Capability):
         task = state.get("task", state)
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.post(
                     f"{endpoint}/tasks",
@@ -124,9 +135,12 @@ class NANDACapability(Capability):
                 )
                 resp.raise_for_status()
                 result = resp.json()
-                logger.info("[nanda] task routed to %s, status: %s", endpoint, result.get("status"))
+                logger.info(
+                    "[nanda] task routed to %s, status: %s",
+                    endpoint,
+                    result.get("status"),
+                )
                 return {"status": "routed", "endpoint": endpoint, "result": result}
         except Exception as exc:
             logger.warning("[nanda] routing failed to %s: %s", endpoint, exc)
             return {"status": "error", "endpoint": endpoint, "reason": str(exc)}
-

@@ -26,6 +26,7 @@ actually wires capture() into that stage; this module works standing alone,
 the same way every Step 8/9 building-block module did before its own
 integration step.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
@@ -33,7 +34,11 @@ from typing import Any
 
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningEvent, LearningExperience, LearningObservation, LearningOutcome, Provenance,
+    LearningEvent,
+    LearningExperience,
+    LearningObservation,
+    LearningOutcome,
+    Provenance,
 )
 
 
@@ -73,8 +78,12 @@ class ExperienceBuilder:
     def _extract_observations(self, state: CognitiveState) -> tuple[LearningObservation, ...]:
         return tuple(
             LearningObservation(
-                entity=fact.entity, attribute=fact.attribute, value=fact.value,
-                confidence=fact.confidence, source=fact.source, observed_at=fact.observed_at,
+                entity=fact.entity,
+                attribute=fact.attribute,
+                value=fact.value,
+                confidence=fact.confidence,
+                source=fact.source,
+                observed_at=fact.observed_at,
             )
             for fact in state.belief.facts
         )
@@ -87,13 +96,14 @@ class ExperienceBuilder:
         success_count = outcome_dict.get("success_count", 0)
         partial = (not goal_achieved) and success_count > 0
         duration_seconds = outcome_dict.get("total_latency_ms", 0.0) / 1000.0
-        errors = tuple(
-            str(e.get("message", e)) if isinstance(e, dict) else str(e)
-            for e in state.errors
-        )
+        errors = tuple(str(e.get("message", e)) if isinstance(e, dict) else str(e) for e in state.errors)
         return LearningOutcome(
-            goal_achieved=goal_achieved, partial=partial, cost=0.0,
-            duration_seconds=duration_seconds, errors=errors, metadata=dict(outcome_dict),
+            goal_achieved=goal_achieved,
+            partial=partial,
+            cost=0.0,
+            duration_seconds=duration_seconds,
+            errors=errors,
+            metadata=dict(outcome_dict),
         )
 
     # ── Provenance ───────────────────────────────────────────────────────
@@ -106,8 +116,10 @@ class ExperienceBuilder:
             run_id = getattr(execution_context, "run_id", "") or ""
 
         return Provenance(
-            actor_id=state.actor_id, tenant_id=state.tenant_id,
-            run_id=run_id, source=self._default_source,
+            actor_id=state.actor_id,
+            tenant_id=state.tenant_id,
+            run_id=run_id,
+            source=self._default_source,
         )
 
     # ── Execution trace -> Events ────────────────────────────────────────
@@ -115,7 +127,8 @@ class ExperienceBuilder:
     def _extract_events(self, state: CognitiveState) -> tuple[LearningEvent, ...]:
         return tuple(
             LearningEvent(
-                event_type=f"{entry.stage}:{entry.action}", description=entry.detail,
+                event_type=f"{entry.stage}:{entry.action}",
+                description=entry.detail,
                 timestamp=entry.timestamp,
             )
             for entry in state.execution_trace
@@ -128,6 +141,7 @@ def capture_experience(state: CognitiveState) -> LearningExperience:
 
 
 # ── Serialization ────────────────────────────────────────────────────────
+
 
 def experience_to_dict(experience: LearningExperience) -> dict[str, Any]:
     """JSON-safe serialization. goal/plan/execution are Any-typed (see

@@ -32,6 +32,7 @@ Configuration (env vars, matching this repo's convention elsewhere):
     COGCTL_USER_ID    — sent as X-User-ID (dev-mode auth)
     COGCTL_API_KEY    — sent as `Authorization: Bearer <key>` (production auth)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -84,6 +85,7 @@ def _request(method: str, path: str, *, json_body: dict[str, Any] | None = None)
 
 # ── apply ────────────────────────────────────────────────────────────────
 
+
 def cmd_apply(args: argparse.Namespace) -> int:
     import yaml
 
@@ -116,7 +118,9 @@ def cmd_create_actor(args: argparse.Namespace) -> int:
             },
             "resources": {"capacity": args.capacity},
             "configuration": {
-                "goals": args.goal or [], "objective": args.objective or "", "tenant_id": args.tenant_id,
+                "goals": args.goal or [],
+                "objective": args.objective or "",
+                "tenant_id": args.tenant_id,
             },
         },
     }
@@ -127,6 +131,7 @@ def cmd_create_actor(args: argparse.Namespace) -> int:
 
 
 # ── get ──────────────────────────────────────────────────────────────────
+
 
 def cmd_get_actors(args: argparse.Namespace) -> int:
     result = _request("GET", "/actors/registry")
@@ -140,9 +145,13 @@ def cmd_get_actors(args: argparse.Namespace) -> int:
     table_rows = []
     for e in rows:
         row = (
-            str(e.get("actor_id", "")), str(e.get("name", "")), str(e.get("status", "")),
-            str(e.get("node_id", "")), str(e.get("artifact_version", "") or "-"),
-            str(e.get("runtime_version", "") or "-"), str(e.get("updated_at", "")),
+            str(e.get("actor_id", "")),
+            str(e.get("name", "")),
+            str(e.get("status", "")),
+            str(e.get("node_id", "")),
+            str(e.get("artifact_version", "") or "-"),
+            str(e.get("runtime_version", "") or "-"),
+            str(e.get("updated_at", "")),
         )
         table_rows.append(row)
         widths = [max(w, len(c)) for w, c in zip(widths, row)]
@@ -152,18 +161,25 @@ def cmd_get_actors(args: argparse.Namespace) -> int:
 
 # ── describe ─────────────────────────────────────────────────────────────
 
+
 def cmd_describe_actor(args: argparse.Namespace) -> int:
     lifecycle = _request("GET", f"/actors/{args.actor_id}/lifecycle")
     placement = _request("GET", f"/actors/{args.actor_id}/placement")
-    combined = {"actor_id": args.actor_id, "lifecycle": lifecycle, "placement": placement}
+    combined = {
+        "actor_id": args.actor_id,
+        "lifecycle": lifecycle,
+        "placement": placement,
+    }
     if args.output == "json":
         _print_json(combined)
         return 0
     print(f"Actor:        {args.actor_id}")
     print(f"Desired:      {lifecycle.get('desired_state')}")
     observed = lifecycle.get("observed", {})
-    print(f"Observed:     status={observed.get('status')} node={observed.get('node_id')} "
-          f"resident_here={observed.get('resident_here')} stale={observed.get('is_stale')}")
+    print(
+        f"Observed:     status={observed.get('status')} node={observed.get('node_id')} "
+        f"resident_here={observed.get('resident_here')} stale={observed.get('is_stale')}"
+    )
     print(f"Desired node: {placement.get('desired_node_id')}")
     print(f"Requirements: {placement.get('requirements')}")
     history = lifecycle.get("history", [])
@@ -188,8 +204,10 @@ def cmd_logs_actor(args: argparse.Namespace) -> int:
     history = lifecycle.get("history", [])
     if not history:
         print(f"(no lifecycle events recorded for {args.actor_id})")
-        print("Note: this shows lifecycle transitions, not application stdout — "
-              "see the Actor Runtime process's own logs for that.")
+        print(
+            "Note: this shows lifecycle transitions, not application stdout — "
+            "see the Actor Runtime process's own logs for that."
+        )
         return 0
     for entry in history:
         print(json.dumps(entry))
@@ -198,30 +216,44 @@ def cmd_logs_actor(args: argparse.Namespace) -> int:
 
 # ── lifecycle verbs ─────────────────────────────────────────────────────
 
+
 def cmd_restart_actor(args: argparse.Namespace) -> int:
     result = _request("POST", f"/actors/{args.actor_id}/restart")
-    print(f"actor.cognitiveos/{args.actor_id} restarted "
-          f"(suspend={result.get('suspend', {}).get('action')}, resume={result.get('resume', {}).get('action')})")
+    print(
+        f"actor.cognitiveos/{args.actor_id} restarted "
+        f"(suspend={result.get('suspend', {}).get('action')}, resume={result.get('resume', {}).get('action')})"
+    )
     return 0
 
 
 def cmd_stop_actor(args: argparse.Namespace) -> int:
-    result = _request("POST", f"/actors/{args.actor_id}/lifecycle", json_body={
-        "desired_state": "suspended", "reason": "cogctl stop",
-    })
+    result = _request(
+        "POST",
+        f"/actors/{args.actor_id}/lifecycle",
+        json_body={
+            "desired_state": "suspended",
+            "reason": "cogctl stop",
+        },
+    )
     print(f"actor.cognitiveos/{args.actor_id} stopped (action={result.get('action_taken')})")
     return 0
 
 
 def cmd_delete_actor(args: argparse.Namespace) -> int:
-    result = _request("POST", f"/actors/{args.actor_id}/lifecycle", json_body={
-        "desired_state": "terminated", "reason": "cogctl delete",
-    })
+    result = _request(
+        "POST",
+        f"/actors/{args.actor_id}/lifecycle",
+        json_body={
+            "desired_state": "terminated",
+            "reason": "cogctl delete",
+        },
+    )
     print(f"actor.cognitiveos/{args.actor_id} deleted (action={result.get('action_taken')})")
     return 0
 
 
 # ── output helpers ──────────────────────────────────────────────────────
+
 
 def _print_json(data: Any) -> None:
     print(json.dumps(data, indent=2, default=str))
@@ -230,6 +262,7 @@ def _print_json(data: Any) -> None:
 def _print_table(header: tuple[str, ...], rows: list[tuple[str, ...]], widths: list[int]) -> None:
     def fmt(cols: tuple[str, ...]) -> str:
         return "  ".join(c.ljust(w) for c, w in zip(cols, widths))
+
     print(fmt(header))
     for row in rows:
         print(fmt(row))
@@ -238,6 +271,7 @@ def _print_table(header: tuple[str, ...], rows: list[tuple[str, ...]], widths: l
 
 
 # ── argument parsing ─────────────────────────────────────────────────────
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cogctl", description="CognitiveOS declarative control CLI")

@@ -14,6 +14,7 @@ here would silently shadow or be shadowed by that one depending on
 router-registration order — /run avoids the collision entirely instead
 of relying on the two ending up in the right order.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,8 +24,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    SimulateRequest, SimulateStepRequest, SimulateScenarioRequest,
-    SimulateResponseGateway, SimulateStatusResponse,
+    SimulateRequest,
+    SimulateStepRequest,
+    SimulateScenarioRequest,
+    SimulateResponseGateway,
+    SimulateStatusResponse,
 )
 from src.monkey_brain.api.idempotency import idempotent
 
@@ -76,7 +80,10 @@ async def simulate(
         return SimulateResponseGateway(
             status="ok" if "error" not in result else "error",
             predicted_entities=result.get("predicted_entities", []),
-            metadata={"run_id": ir.run_id, **{k: v for k, v in result.items() if k != "predicted_entities"}},
+            metadata={
+                "run_id": ir.run_id,
+                **{k: v for k, v in result.items() if k != "predicted_entities"},
+            },
         )
     except Exception as e:
         logger.error("Simulation failed: %s", e, exc_info=True)

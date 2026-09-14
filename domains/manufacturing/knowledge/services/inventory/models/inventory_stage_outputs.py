@@ -50,7 +50,10 @@ class InventoryStageOutputBase(BaseModel):
                     "Final stage records require final_product_count or "
                     "final_product_quantity"
                 )
-        elif self.final_product_count is not None or self.final_product_quantity is not None:
+        elif (
+            self.final_product_count is not None
+            or self.final_product_quantity is not None
+        ):
             raise ValueError(
                 "final_product_count/final_product_quantity require is_final_stage=True"
             )

@@ -30,7 +30,9 @@ async def list_purchase_order_shipping_information(
     )
 
 
-@router.get("/by-po/{po_number}", response_model=list[PurchaseOrderShippingInformationResponse])
+@router.get(
+    "/by-po/{po_number}", response_model=list[PurchaseOrderShippingInformationResponse]
+)
 async def list_purchase_order_shipping_information_by_po(
     po_number: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -54,7 +56,11 @@ async def get_purchase_order_shipping_information(
     return record
 
 
-@router.post("/", response_model=PurchaseOrderShippingInformationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=PurchaseOrderShippingInformationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_purchase_order_shipping_information(
     data: PurchaseOrderShippingInformationCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

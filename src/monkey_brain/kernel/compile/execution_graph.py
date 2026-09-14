@@ -7,6 +7,7 @@ to execution. It carries:
   - Constraints and metadata
   - Full provenance (what belief was used)
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,17 +26,17 @@ class ExecutionPlanSnapshot:
     """
 
     # REQUIRED fields (no defaults)
-    graph_id: str                          # unique identifier
-    actor_id: str                          # who planned this
-    plan: list[str]                        # execution sequence: [start → ... → goal]
+    graph_id: str  # unique identifier
+    actor_id: str  # who planned this
+    plan: list[str]  # execution sequence: [start → ... → goal]
     predicted_distribution: dict[str, float]  # predicted end-state distribution
 
     # OPTIONAL fields with defaults
-    goal: str = ""                         # target state
+    goal: str = ""  # target state
     timestamp: float = field(default_factory=time.time)
-    predicted_confidence: float = 0.5      # confidence in prediction [0, 1]
-    horizon: int = 64                      # max execution steps
-    belief_version: int = 0                # belief version used for planning
+    predicted_confidence: float = 0.5  # confidence in prediction [0, 1]
+    horizon: int = 64  # max execution steps
+    belief_version: int = 0  # belief version used for planning
     trust_scores: dict[str, float] = field(default_factory=dict)  # trust snapshot
     metadata: dict[str, Any] = field(default_factory=dict)
     observed_path: list[tuple[str, str | None]] = field(default_factory=list)
@@ -74,8 +75,9 @@ class ExecutionPlanSnapshot:
 
         predicted_dist = d.get("predicted_distribution", {})
         assert isinstance(predicted_dist, dict), "predicted_distribution must be dict"
-        assert all(isinstance(v, (int, float)) and v >= 0 for v in predicted_dist.values()), \
+        assert all(isinstance(v, (int, float)) and v >= 0 for v in predicted_dist.values()), (
             "predicted_distribution values must be non-negative numbers"
+        )
 
         confidence = d.get("predicted_confidence", 0.5)
         assert 0.0 <= confidence <= 1.0, f"predicted_confidence must be in [0, 1], got {confidence}"

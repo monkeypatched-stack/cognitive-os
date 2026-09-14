@@ -3,11 +3,17 @@ from types import SimpleNamespace
 import pytest
 
 from src.monkey_brain.api.routes.prompt import unified_prompt
-from src.monkey_brain.kernel.geography.entity import GeographicEntity, GeographicEntityType
+from src.monkey_brain.kernel.geography.entity import (
+    GeographicEntity,
+    GeographicEntityType,
+)
 from src.monkey_brain.kernel.geography.registry import GeographicRegistry
 from src.monkey_brain.kernel.geography.runtime import GeographicEntityRuntime
 from src.monkey_brain.kernel.models import PromptRequest
-from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+from src.monkey_brain.kernel.society.context_stream import (
+    ContextEvent,
+    ContextEventType,
+)
 from src.monkey_brain.kernel.society.runtime import SocietyRuntime
 
 
@@ -57,7 +63,9 @@ async def test_geographic_runtime_forwards_request_to_actor_society():
 
     registry.host_society(space.entity_id, "society-1")
     result = await GeographicEntityRuntime(
-        registry, planet.entity_id, lambda society_id: Society(),
+        registry,
+        planet.entity_id,
+        lambda society_id: Society(),
     ).tick(actor_id="actor-1", prompt_request={"question": "hello"})
 
     assert result.actor_execution_result == {"answer": "done"}

@@ -3,6 +3,7 @@ registration: no OPENCLAW_API_URL means CLI/local-gateway mode, which is
 the normal default (not degraded) — only an explicitly-configured but
 unreachable HTTP endpoint counts as a real problem.
 """
+
 from __future__ import annotations
 
 import os
@@ -45,9 +46,11 @@ class OpenClawResource:
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
         if not host:
             return ResourceHealth(
-                name=self.name, state=ResourceState.FAILED,
+                name=self.name,
+                state=ResourceState.FAILED,
                 reason=f"OPENCLAW_API_URL is not a valid URL: {api_url!r}",
-                category=ErrorCategory.CONFIGURATION, required=False,
+                category=ErrorCategory.CONFIGURATION,
+                required=False,
             )
 
         try:
@@ -55,7 +58,9 @@ class OpenClawResource:
                 return ResourceHealth(name=self.name, state=ResourceState.READY, required=False)
         except Exception as exc:
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name,
+                state=ResourceState.UNAVAILABLE,
                 reason=f"Cannot reach OpenClaw at {host}:{port}: {exc}",
-                category=ErrorCategory.NETWORK, required=False,
+                category=ErrorCategory.NETWORK,
+                required=False,
             )

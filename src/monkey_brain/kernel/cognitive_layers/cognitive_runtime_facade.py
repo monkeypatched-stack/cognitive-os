@@ -9,6 +9,7 @@ Delegates to specialized components:
 This facade maintains backward compatibility with CognitiveRuntimeInterface
 while delegating to focused components following SOLID principles.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,10 +21,15 @@ from src.monkey_brain.kernel.compile.solid_interfaces import (
     ExecutorInterface,
     HealthMonitorInterface,
 )
-from src.monkey_brain.kernel.compile.runtime_interface import CognitiveRuntimeInterface, SocietyRuntimeInterface
+from src.monkey_brain.kernel.compile.runtime_interface import (
+    CognitiveRuntimeInterface,
+    SocietyRuntimeInterface,
+)
 from src.monkey_brain.kernel.cognitive_layers.intent_compiler import IntentCompiler
 from src.monkey_brain.kernel.cognitive_layers.runtime_builder import RuntimeBuilder
-from src.monkey_brain.kernel.cognitive_layers.execution_coordinator import ExecutionCoordinator
+from src.monkey_brain.kernel.cognitive_layers.execution_coordinator import (
+    ExecutionCoordinator,
+)
 from src.monkey_brain.kernel.cognitive_layers.runtime_monitor import RuntimeMonitor
 
 if TYPE_CHECKING:

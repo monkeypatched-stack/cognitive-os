@@ -17,6 +17,7 @@ Sections:
   - Payment source selection
   - Processing & spending limits
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import DomainCapability
@@ -28,18 +29,21 @@ class FinanceCapability(DomainCapability):
     name = "finance"
 
     def __init__(self):
-        super().__init__({
-            "find_payment_sources": find_payment_sources,
-            "choose_payment_source": choose_payment_source,
-            "process_payment": process_payment_with_fallback,
-            "assess_transaction_risk": assess_transaction_risk,
-            "award_points": award_points,
-            "redeem_points": redeem_points,
-            "get_points_balance": get_points_balance,
-        })
+        super().__init__(
+            {
+                "find_payment_sources": find_payment_sources,
+                "choose_payment_source": choose_payment_source,
+                "process_payment": process_payment_with_fallback,
+                "assess_transaction_risk": assess_transaction_risk,
+                "award_points": award_points,
+                "redeem_points": redeem_points,
+                "get_points_balance": get_points_balance,
+            }
+        )
 
 
 # ── Accounts & wallets ────────────────────────────────────────────────
+
 
 def _owned_by(kg, account, actor_id: str) -> bool:
     """Whether actor_id can pay from this account: their own personal
@@ -84,7 +88,10 @@ def _owned_by(kg, account, actor_id: str) -> bool:
     if entity_scope is None:
         return True
     kg_household_id = getattr(kg, "_household_id", None)
-    return kg_household_id is not None and entity_scope.get(account.entity_id) == kg_household_id
+    return (
+        kg_household_id is not None
+        and entity_scope.get(account.entity_id) == kg_household_id
+    )
 
 
 def _find_wallet(kg, actor_id: str | None = None):
@@ -120,23 +127,36 @@ def _find_wallet(kg, actor_id: str | None = None):
     the system's own UPI-first policy.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     # kg.entities' order isn't guaranteed (Neo4j's MATCH has no ORDER BY,
     # see process_payment_with_fallback's Level 22 fix) -- sorted by
     # entity_id so which account wins a tie (e.g. two real household=True
     # accounts) is deterministic, not an accident of graph-read order.
-    accounts = sorted((e for e in kg.entities if e.entity_type == EntityType.ACCOUNT), key=lambda e: e.entity_id)
+    accounts = sorted(
+        (e for e in kg.entities if e.entity_type == EntityType.ACCOUNT),
+        key=lambda e: e.entity_id,
+    )
     if actor_id is not None:
         accounts = [a for a in accounts if _owned_by(kg, a, actor_id)]
-    non_upi = [a for a in accounts if a.attributes.get("account_type") != "upi_reserve_pay"]
+    non_upi = [
+        a for a in accounts if a.attributes.get("account_type") != "upi_reserve_pay"
+    ]
     # Prefer a non-UPI account if one genuinely exists (see docstring);
     # otherwise UPI Reserve Pay is the only account there is, and IS the
     # correct default now, not something to exclude down to nothing.
     accounts = non_upi or accounts
-    household = next((e for e in accounts if e.attributes.get("household") is True), None)
+    household = next(
+        (e for e in accounts if e.attributes.get("household") is True), None
+    )
     if household is not None:
         return household
     return next(
-        (e for e in accounts if e.attributes.get("type") in ("wallet", None) and "wallet" in e.name.lower()),
+        (
+            e
+            for e in accounts
+            if e.attributes.get("type") in ("wallet", None)
+            and "wallet" in e.name.lower()
+        ),
         accounts[0] if accounts else None,
     )
 
@@ -154,6 +174,7 @@ def find_payment_sources(kg, actor_id: str | None = None) -> list:
     unscoped behavior.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     accounts = [e for e in kg.entities if e.entity_type == EntityType.ACCOUNT]
     if actor_id is not None:
         accounts = [a for a in accounts if _owned_by(kg, a, actor_id)]
@@ -162,7 +183,11 @@ def find_payment_sources(kg, actor_id: str | None = None) -> list:
 
 def _available_funds(account) -> float:
     if account.attributes.get("account_type") == "credit":
-        return max(0.0, account.attributes.get("credit_limit", 0) - account.attributes.get("balance", 0))
+        return max(
+            0.0,
+            account.attributes.get("credit_limit", 0)
+            - account.attributes.get("balance", 0),
+        )
     return account.attributes.get("balance", 0)
 
 
@@ -171,7 +196,9 @@ def _available_funds(account) -> float:
 _PAYMENT_SOURCE_PRIORITY = ("food_assistance", "cash", "credit")
 
 
-def choose_payment_source(accounts: list, total: float, is_grocery_eligible: bool = True) -> dict:
+def choose_payment_source(
+    accounts: list, total: float, is_grocery_eligible: bool = True
+) -> dict:
     """Level 26/31 (GS-2600): which real account should pay, and why.
     Prefers food_assistance first when the purchase is grocery-eligible —
     a real household spends restricted-use benefits before unrestricted
@@ -200,14 +227,22 @@ def choose_payment_source(accounts: list, total: float, is_grocery_eligible: boo
     by_type: dict[str, list] = {}
     for a in accounts:
         by_type.setdefault(a.attributes.get("account_type"), []).append(a)
-    order = [t for t in _PAYMENT_SOURCE_PRIORITY if t != "food_assistance" or is_grocery_eligible]
+    order = [
+        t
+        for t in _PAYMENT_SOURCE_PRIORITY
+        if t != "food_assistance" or is_grocery_eligible
+    ]
     for account_type in order:
         candidates = by_type.get(account_type) or []
         affordable = [a for a in candidates if _available_funds(a) >= total]
         if not affordable:
             continue
         account = max(affordable, key=lambda a: (_available_funds(a), a.entity_id))
-        return {"chosen": account, "account_type": account_type, "available": _available_funds(account)}
+        return {
+            "chosen": account,
+            "account_type": account_type,
+            "available": _available_funds(account),
+        }
     return {"chosen": None, "account_type": None, "available": 0.0}
 
 
@@ -242,15 +277,24 @@ def attempt_borrowing(credit_account, shortfall: float) -> dict:
     already_used = max(0.0, balance - credit_limit)
     remaining = round(limit - already_used, 2)
     if shortfall <= remaining:
-        return {"approved": True, "extension_used": round(shortfall, 2), "remaining_extension": round(remaining - shortfall, 2)}
-    return {"approved": False,
-            "reason": f"shortfall ${shortfall:.2f} exceeds the ${remaining:.2f} remaining emergency extension "
-                      f"(${limit:.2f} limit, ${already_used:.2f} already in use)"}
+        return {
+            "approved": True,
+            "extension_used": round(shortfall, 2),
+            "remaining_extension": round(remaining - shortfall, 2),
+        }
+    return {
+        "approved": False,
+        "reason": f"shortfall ${shortfall:.2f} exceeds the ${remaining:.2f} remaining emergency extension "
+        f"(${limit:.2f} limit, ${already_used:.2f} already in use)",
+    }
 
 
 # ── Processing & spending limits ──────────────────────────────────────
 
-def process_payment_with_fallback(kg, total: float, max_retries_per_processor: int = 2) -> dict:
+
+def process_payment_with_fallback(
+    kg, total: float, max_retries_per_processor: int = 2
+) -> dict:
     """Level 22 (GS-2200): tries every payment processor in the KG in
     order, retrying a transiently-down one before moving to the next. A
     processor marked attributes["status"]=="down" fails EVERY attempt
@@ -261,6 +305,7 @@ def process_payment_with_fallback(kg, total: float, max_retries_per_processor: i
     over.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     # kg.entities' order reflects Neo4j's MATCH return order, which has no
     # ORDER BY and is NOT guaranteed stable across queries — "try the
     # primary before falling back to backup" needs a real, explicit
@@ -272,8 +317,12 @@ def process_payment_with_fallback(kg, total: float, max_retries_per_processor: i
     # processor never set one and defaults to 0, tie-broken by entity_id
     # for full determinism.
     processors = sorted(
-        (e for e in kg.entities if e.entity_type == EntityType.ORGANIZATION
-         and e.attributes.get("type") == "payment_processor"),
+        (
+            e
+            for e in kg.entities
+            if e.entity_type == EntityType.ORGANIZATION
+            and e.attributes.get("type") == "payment_processor"
+        ),
         key=lambda e: (e.attributes.get("priority", 0), e.entity_id),
     )
     # No processor entity configured at all is a seed-data gap, not an
@@ -287,12 +336,28 @@ def process_payment_with_fallback(kg, total: float, max_retries_per_processor: i
         down = processor.attributes.get("status") == "down"
         for attempt in range(1, max_retries_per_processor + 1):
             if down:
-                attempts_log.append({"processor": processor.name, "attempt": attempt, "result": "failed (processor down)"})
+                attempts_log.append(
+                    {
+                        "processor": processor.name,
+                        "attempt": attempt,
+                        "result": "failed (processor down)",
+                    }
+                )
                 continue
-            attempts_log.append({"processor": processor.name, "attempt": attempt, "result": "succeeded"})
-            return {"success": True, "processor": processor.name, "attempts": attempts_log}
-    return {"success": False, "processor": None, "attempts": attempts_log,
-            "reason": "every payment processor unavailable"}
+            attempts_log.append(
+                {"processor": processor.name, "attempt": attempt, "result": "succeeded"}
+            )
+            return {
+                "success": True,
+                "processor": processor.name,
+                "attempts": attempts_log,
+            }
+    return {
+        "success": False,
+        "processor": None,
+        "attempts": attempts_log,
+        "reason": "every payment processor unavailable",
+    }
 
 
 def monthly_spending(kg, since_ts: float) -> float:
@@ -300,15 +365,23 @@ def monthly_spending(kg, since_ts: float) -> float:
     persisted order totals — not a separately tracked counter that could
     drift from what really happened."""
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
-    return round(sum(
-        e.attributes.get("total", 0) for e in kg.entities
-        if e.entity_type == EntityType.EVENT and e.attributes.get("order_id")
-        and e.attributes.get("created_at", 0) >= since_ts
-    ), 2)
+    return round(
+        sum(
+            e.attributes.get("total", 0)
+            for e in kg.entities
+            if e.entity_type == EntityType.EVENT
+            and e.attributes.get("order_id")
+            and e.attributes.get("created_at", 0) >= since_ts
+        ),
+        2,
+    )
 
 
-def check_monthly_cap(kg, monthly_cap: float, additional_charge: float, since_ts: float) -> dict:
+def check_monthly_cap(
+    kg, monthly_cap: float, additional_charge: float, since_ts: float
+) -> dict:
     """Level 26 (GS-2602): "planner delays purchase" — this architecture
     is request/response, not a scheduler (same honest boundary Level 18
     drew for autonomy), so "delay" means refusing NOW with a clear
@@ -318,9 +391,15 @@ def check_monthly_cap(kg, monthly_cap: float, additional_charge: float, since_ts
     would_be = round(spent + additional_charge, 2)
     within = would_be <= monthly_cap
     return {
-        "within_cap": within, "spent_this_month": spent, "would_be": would_be, "cap": monthly_cap,
-        "reason": "" if within else
-                  f"this purchase would bring monthly spending to ${would_be:.2f}, over the ${monthly_cap:.2f} cap — recommend delaying",
+        "within_cap": within,
+        "spent_this_month": spent,
+        "would_be": would_be,
+        "cap": monthly_cap,
+        "reason": (
+            ""
+            if within
+            else f"this purchase would bring monthly spending to ${would_be:.2f}, over the ${monthly_cap:.2f} cap — recommend delaying"
+        ),
     }
 
 
@@ -344,7 +423,9 @@ _FRAUD_HIGH_RISK_SCORE = 0.5
 are independent red flags, not required to co-occur."""
 
 
-def assess_transaction_risk(kg, actor_id: str, total: float, now: float | None = None) -> dict:
+def assess_transaction_risk(
+    kg, actor_id: str, total: float, now: float | None = None
+) -> dict:
     """Real-time fraud risk assessment for one transaction (MB-3014 Fraud
     Detection), using signals computed from this actor's ACTUAL persisted
     order history (EntityType.EVENT entities with attributes["buyer_id"]/
@@ -374,8 +455,10 @@ def assess_transaction_risk(kg, actor_id: str, total: float, now: float | None =
     now = now if now is not None else _time.time()
     kg.refresh()
     own_orders = [
-        e for e in kg.entities
-        if e.entity_type == EntityType.EVENT and e.attributes.get("order_id")
+        e
+        for e in kg.entities
+        if e.entity_type == EntityType.EVENT
+        and e.attributes.get("order_id")
         and e.attributes.get("buyer_id") == actor_id
     ]
 
@@ -394,7 +477,11 @@ def assess_transaction_risk(kg, actor_id: str, total: float, now: float | None =
     # looked identical from the outside (a bare "held for fraud review"
     # error). None when the velocity signal isn't currently firing.
     velocity_cooldown_until: float | None = None
-    recent = [o for o in own_orders if o.attributes.get("created_at", 0) >= now - _FRAUD_VELOCITY_WINDOW_SECONDS]
+    recent = [
+        o
+        for o in own_orders
+        if o.attributes.get("created_at", 0) >= now - _FRAUD_VELOCITY_WINDOW_SECONDS
+    ]
     if len(recent) >= _FRAUD_VELOCITY_THRESHOLD:
         signals_fired += 1
         reasons.append(
@@ -406,11 +493,15 @@ def assess_transaction_risk(kg, actor_id: str, total: float, now: float | None =
         # one is at ascending index (len(recent) - threshold): once IT
         # ages out too, exactly `threshold - 1` orders remain in-window.
         recent_ts_ascending = sorted(o.attributes.get("created_at", 0) for o in recent)
-        critical_ts = recent_ts_ascending[len(recent_ts_ascending) - _FRAUD_VELOCITY_THRESHOLD]
+        critical_ts = recent_ts_ascending[
+            len(recent_ts_ascending) - _FRAUD_VELOCITY_THRESHOLD
+        ]
         velocity_cooldown_until = critical_ts + _FRAUD_VELOCITY_WINDOW_SECONDS
 
     if own_orders:
-        historical_avg = sum(o.attributes.get("total", 0) for o in own_orders) / len(own_orders)
+        historical_avg = sum(o.attributes.get("total", 0) for o in own_orders) / len(
+            own_orders
+        )
         if historical_avg > 0 and total > historical_avg * _FRAUD_AMOUNT_MULTIPLE:
             signals_fired += 1
             reasons.append(
@@ -443,7 +534,10 @@ def _loyalty_account_id(actor_id: str) -> str:
 def get_points_balance(kg, actor_id: str) -> dict:
     """Look up an actor's current loyalty points balance."""
     account = kg.get_entity(_loyalty_account_id(actor_id)) if kg is not None else None
-    return {"actor_id": actor_id, "points_balance": account.attributes.get("points_balance", 0) if account else 0}
+    return {
+        "actor_id": actor_id,
+        "points_balance": account.attributes.get("points_balance", 0) if account else 0,
+    }
 
 
 def award_points(kg, actor_id: str, order_id: str, now: float | None = None) -> dict:
@@ -477,30 +571,43 @@ def award_points(kg, actor_id: str, order_id: str, now: float | None = None) -> 
         return {
             "success": False,
             "error": f"order {order_id!r} is {order.attributes.get('status')!r}, "
-                     f"points are only awarded for a 'completed' order",
+            f"points are only awarded for a 'completed' order",
         }
 
     account_id = _loyalty_account_id(actor_id)
     account = kg.get_entity(account_id)
-    awarded_order_ids = set(account.attributes.get("awarded_order_ids", [])) if account else set()
+    awarded_order_ids = (
+        set(account.attributes.get("awarded_order_ids", [])) if account else set()
+    )
     if order_id in awarded_order_ids:
-        return {"success": False, "error": f"points already awarded for order {order_id!r}"}
+        return {
+            "success": False,
+            "error": f"points already awarded for order {order_id!r}",
+        }
 
     points_earned = int(order.attributes.get("total", 0) * _POINTS_PER_DOLLAR)
     current_balance = account.attributes.get("points_balance", 0) if account else 0
     new_balance = current_balance + points_earned
     awarded_order_ids.add(order_id)
 
-    kg.add_entity(account_id, EntityType.OTHER, f"Loyalty Points: {actor_id}", {
-        "loyalty_account": True,
-        "actor_id": actor_id,
-        "points_balance": new_balance,
-        "awarded_order_ids": sorted(awarded_order_ids),
-        "updated_at": now,
-    })
+    kg.add_entity(
+        account_id,
+        EntityType.OTHER,
+        f"Loyalty Points: {actor_id}",
+        {
+            "loyalty_account": True,
+            "actor_id": actor_id,
+            "points_balance": new_balance,
+            "awarded_order_ids": sorted(awarded_order_ids),
+            "updated_at": now,
+        },
+    )
     return {
-        "success": True, "actor_id": actor_id, "order_id": order_id,
-        "points_earned": points_earned, "points_balance": new_balance,
+        "success": True,
+        "actor_id": actor_id,
+        "order_id": order_id,
+        "points_earned": points_earned,
+        "points_balance": new_balance,
     }
 
 
@@ -522,21 +629,35 @@ def redeem_points(kg, actor_id: str, points: int) -> dict:
     account = kg.get_entity(account_id)
     current_balance = account.attributes.get("points_balance", 0) if account else 0
     if points > current_balance:
-        return {"success": False, "error": f"only {current_balance} points available, cannot redeem {points}"}
+        return {
+            "success": False,
+            "error": f"only {current_balance} points available, cannot redeem {points}",
+        }
 
     wallet = _find_wallet(kg, actor_id)
     if wallet is None:
-        return {"success": False, "error": f"no wallet found for actor {actor_id!r} to credit"}
+        return {
+            "success": False,
+            "error": f"no wallet found for actor {actor_id!r} to credit",
+        }
 
     dollar_value = round(points / _POINTS_TO_DOLLAR_RATE, 2)
     account_type = wallet.attributes.get("account_type")
     balance = wallet.attributes.get("balance", 0)
-    new_wallet_balance = round(balance - dollar_value, 2) if account_type == "credit" else round(balance + dollar_value, 2)
+    new_wallet_balance = (
+        round(balance - dollar_value, 2)
+        if account_type == "credit"
+        else round(balance + dollar_value, 2)
+    )
     kg.update_entity(wallet.entity_id, attributes={"balance": new_wallet_balance})
 
     new_points_balance = current_balance - points
     kg.update_entity(account_id, attributes={"points_balance": new_points_balance})
     return {
-        "success": True, "actor_id": actor_id, "points_redeemed": points,
-        "dollar_value": dollar_value, "wallet_id": wallet.entity_id, "points_balance": new_points_balance,
+        "success": True,
+        "actor_id": actor_id,
+        "points_redeemed": points,
+        "dollar_value": dollar_value,
+        "wallet_id": wallet.entity_id,
+        "points_balance": new_points_balance,
     }

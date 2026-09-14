@@ -8,7 +8,11 @@ Mirrors the pattern established in the devices helper.
 from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from services.process_definitions.models.process_steps import ProcessStepsCreate, ProcessStepsUpdate, ProcessStepUpdate
+from services.process_definitions.models.process_steps import (
+    ProcessStepsCreate,
+    ProcessStepsUpdate,
+    ProcessStepUpdate,
+)
 
 COLLECTION = "process_steps"
 
@@ -23,6 +27,7 @@ def _serialize(doc: dict) -> dict:
 # ProcessSteps — top-level container
 # ---------------------------------------------------------------------------
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -31,12 +36,7 @@ async def get_all(
     """Return a paginated list of all ProcessSteps containers and the total count."""
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
-    cursor = (
-        db[COLLECTION]
-        .find(query)
-        .skip((page - 1) * page_size)
-        .limit(page_size)
-    )
+    cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(d) async for d in cursor], total
 
 
@@ -56,7 +56,9 @@ async def get_by_process_definition_id(
     """Fetch the ProcessSteps container that belongs to a given process_definition."""
     if not process_definition_id:
         return None
-    doc = await db[COLLECTION].find_one({"process_definition_id": process_definition_id})
+    doc = await db[COLLECTION].find_one(
+        {"process_definition_id": process_definition_id}
+    )
     return _serialize(doc) if doc else None
 
 
@@ -104,13 +106,16 @@ async def delete_by_process_definition_id(
     process_definition_id: str,
 ) -> bool:
     """Delete the ProcessSteps container that belongs to a process_definition."""
-    result = await db[COLLECTION].delete_one({"process_definition_id": process_definition_id})
+    result = await db[COLLECTION].delete_one(
+        {"process_definition_id": process_definition_id}
+    )
     return result.deleted_count == 1
 
 
 # ---------------------------------------------------------------------------
 # Individual ProcessStep — operations on steps[] array inside the container
 # ---------------------------------------------------------------------------
+
 
 async def get_step_by_id(
     db: AsyncIOMotorDatabase,
@@ -176,11 +181,7 @@ async def update_step(
     Uses the positional $ operator to target the matched element.
     Only non-None fields are written.
     """
-    fields = {
-        f"steps.$.{k}": v
-        for k, v in data.model_dump().items()
-        if v is not None
-    }
+    fields = {f"steps.$.{k}": v for k, v in data.model_dump().items() if v is not None}
     if not fields:
         return await get_by_id(db, steps_id)
     result = await db[COLLECTION].find_one_and_update(

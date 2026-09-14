@@ -12,6 +12,7 @@ Per the product vision, an enterprise / institution / community operates one
 WorldModelRuntime; individuals attach their ActorRuntime to it and exchange knowledge
 under policy.
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,18 +43,38 @@ class WorldModelRuntime:
 
     # ── the only mutation path: batches ──────────────────────────────────────────
 
-    def batch_update(self, tenant_id: str, transitions: Iterable[Mapping], *,
-                     shared: bool = False, source: str = "") -> int:
+    def batch_update(
+        self,
+        tenant_id: str,
+        transitions: Iterable[Mapping],
+        *,
+        shared: bool = False,
+        source: str = "",
+    ) -> int:
         """Batch-update the global world for a tenant (or the shared layer). This is the
         ONLY way the global model changes — actor actions never reach here."""
         rev = self._world.batch_update(tenant_id, transitions, shared=shared, source=source or "batch")
-        logger.info("[world_runtime] batch update tenant=%r shared=%s source=%r", tenant_id, shared, source)
-        _obs.event("world.batch", tenant=tenant_id, shared=shared, source=source or "batch", revision=rev)
+        logger.info(
+            "[world_runtime] batch update tenant=%r shared=%s source=%r",
+            tenant_id,
+            shared,
+            source,
+        )
+        _obs.event(
+            "world.batch",
+            tenant=tenant_id,
+            shared=shared,
+            source=source or "batch",
+            revision=rev,
+        )
         return rev
 
     def add_store(self, tenant_id: str, store: str, domain: str, transitions: Iterable[Mapping]) -> int:
-        return self.batch_update(tenant_id, [{**t, "domain": t.get("domain", domain)} for t in transitions],
-                                 source=f"store:{store}")
+        return self.batch_update(
+            tenant_id,
+            [{**t, "domain": t.get("domain", domain)} for t in transitions],
+            source=f"store:{store}",
+        )
 
     def promote_shared(self, tenant_id: str, src: str, dst: str, **kw) -> None:
         """Policy-governed knowledge exchange: publish a tenant's transition as a shared
@@ -64,8 +85,13 @@ class WorldModelRuntime:
         """Selective knowledge exchange: share only one domain (e.g. calendar, not
         journal). ontology_only shares structure without personal values."""
         count = self._world.share_domain(tenant_id, domain, ontology_only=ontology_only)
-        _obs.event("knowledge.share", tenant=tenant_id, domain=domain,
-                   ontology_only=ontology_only, count=count)
+        _obs.event(
+            "knowledge.share",
+            tenant=tenant_id,
+            domain=domain,
+            ontology_only=ontology_only,
+            count=count,
+        )
         return count
 
     # ── read access (never mutated by callers) ───────────────────────────────────

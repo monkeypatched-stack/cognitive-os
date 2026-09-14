@@ -16,6 +16,7 @@ frozen dataclass, so plain dataclasses.asdict() is enough for both
 directions; there is no need to reconstruct real RetrievedItem instances
 on load, only plain dicts for display.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -49,8 +50,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -125,7 +128,10 @@ class ContextSnapshot:
 
     @staticmethod
     def from_planning_context(
-        execution_id: str, actor_id: str, planning_context: Any, goal_key: str = "",
+        execution_id: str,
+        actor_id: str,
+        planning_context: Any,
+        goal_key: str = "",
     ) -> "ContextSnapshot":
         knowledge = _items_to_dicts(planning_context.relevant_knowledge)
         relationships = _items_to_dicts(planning_context.relevant_relationships)
@@ -143,15 +149,36 @@ class ContextSnapshot:
             "beliefs": _json_value(planning_context.current_beliefs),
             "resources": resources,
         }
-        source_names = sorted({
-            item.get("source", "") for group in (
-                knowledge, relationships, context_events, experiences, conversations, executions,
-            ) for item in group if item.get("source")
-        } | ({"world_state"} if resources or planning_context.relevant_locations or planning_context.relevant_objects else set()))
+        source_names = sorted(
+            {
+                item.get("source", "")
+                for group in (
+                    knowledge,
+                    relationships,
+                    context_events,
+                    experiences,
+                    conversations,
+                    executions,
+                )
+                for item in group
+                if item.get("source")
+            }
+            | (
+                {"world_state"}
+                if resources or planning_context.relevant_locations or planning_context.relevant_objects
+                else set()
+            )
+        )
         return ContextSnapshot(
-            execution_id=execution_id, actor_id=actor_id, goal_key=goal_key,
-            knowledge=knowledge, relationships=relationships, context_events=context_events,
-            experiences=experiences, conversations=conversations, executions=executions,
+            execution_id=execution_id,
+            actor_id=actor_id,
+            goal_key=goal_key,
+            knowledge=knowledge,
+            relationships=relationships,
+            context_events=context_events,
+            experiences=experiences,
+            conversations=conversations,
+            executions=executions,
             relevant_locations=list(planning_context.relevant_locations),
             relevant_objects=list(planning_context.relevant_objects),
             available_capabilities=list(planning_context.available_capabilities),
@@ -196,7 +223,8 @@ class ContextSnapshot:
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "ContextSnapshot":
         return ContextSnapshot(
-            execution_id=d.get("execution_id", ""), actor_id=d.get("actor_id", ""),
+            execution_id=d.get("execution_id", ""),
+            actor_id=d.get("actor_id", ""),
             goal_key=str(d.get("goal_key", "") or ""),
             created_at=float(d.get("created_at", time.time())),
             knowledge=list(d.get("knowledge", []) or []),
@@ -230,14 +258,25 @@ def save_context_snapshot(snapshot: ContextSnapshot) -> bool:
     if client is None or not snapshot.execution_id:
         return False
     try:
-        client.set(f"{_SNAPSHOT_KEY_PREFIX}{snapshot.execution_id}", json.dumps(snapshot.to_dict()))
+        client.set(
+            f"{_SNAPSHOT_KEY_PREFIX}{snapshot.execution_id}",
+            json.dumps(snapshot.to_dict()),
+        )
         if snapshot.actor_id:
             client.set(f"{_LATEST_KEY_PREFIX}{snapshot.actor_id}", snapshot.execution_id)
             if snapshot.goal_key:
-                client.set(f"{_LATEST_BY_GOAL_KEY_PREFIX}{snapshot.actor_id}:{snapshot.goal_key}", snapshot.execution_id)
+                client.set(
+                    f"{_LATEST_BY_GOAL_KEY_PREFIX}{snapshot.actor_id}:{snapshot.goal_key}",
+                    snapshot.execution_id,
+                )
         return True
     except Exception as exc:
-        logger.warning("save_context_snapshot(%s) failed: %s", snapshot.execution_id, exc, exc_info=True)
+        logger.warning(
+            "save_context_snapshot(%s) failed: %s",
+            snapshot.execution_id,
+            exc,
+            exc_info=True,
+        )
         return False
 
 
@@ -288,11 +327,23 @@ def load_latest_context_snapshot_for_goal(actor_id: str, goal_key: str) -> Conte
             return None
         return load_context_snapshot(execution_id)
     except Exception as exc:
-        logger.debug("load_latest_context_snapshot_for_goal(%s, %s) failed: %s", actor_id, goal_key, exc)
+        logger.debug(
+            "load_latest_context_snapshot_for_goal(%s, %s) failed: %s",
+            actor_id,
+            goal_key,
+            exc,
+        )
         return None
 
 
-_DIFF_SOURCES = ("knowledge", "relationships", "context_events", "experiences", "conversations", "executions")
+_DIFF_SOURCES = (
+    "knowledge",
+    "relationships",
+    "context_events",
+    "experiences",
+    "conversations",
+    "executions",
+)
 
 
 def diff_snapshots(previous: ContextSnapshot | None, current: ContextSnapshot) -> dict[str, Any]:
@@ -304,7 +355,11 @@ def diff_snapshots(previous: ContextSnapshot | None, current: ContextSnapshot) -
     "no prior Current Plan"."""
     if previous is None:
         added = {source: [item.get("content", "") for item in getattr(current, source)] for source in _DIFF_SOURCES}
-        return {"is_first_context": True, "added": added, "removed": {source: [] for source in _DIFF_SOURCES}}
+        return {
+            "is_first_context": True,
+            "added": added,
+            "removed": {source: [] for source in _DIFF_SOURCES},
+        }
 
     added: dict[str, list[str]] = {}
     removed: dict[str, list[str]] = {}

@@ -1,12 +1,17 @@
 from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.facilities.models.industrialPlant import IndustrialPlantCreate, IndustrialPlantUpdate
+from services.facilities.models.industrialPlant import (
+    IndustrialPlantCreate,
+    IndustrialPlantUpdate,
+)
 
 COLLECTION = "industrial_plants"
+
 
 def _serialize(doc: dict) -> dict:
     doc.pop("_id", None)
     return doc
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,
@@ -34,14 +39,17 @@ async def get_all(
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(d) async for d in cursor], total
 
+
 async def get_by_id(db: AsyncIOMotorDatabase, plant_id: str) -> Optional[dict]:
     doc = await db[COLLECTION].find_one({"id": plant_id})
     return _serialize(doc) if doc else None
+
 
 async def create(db: AsyncIOMotorDatabase, data: IndustrialPlantCreate) -> dict:
     doc = data.model_dump()
     await db[COLLECTION].insert_one(doc)
     return _serialize(doc)
+
 
 async def update(
     db: AsyncIOMotorDatabase, plant_id: str, data: IndustrialPlantUpdate
@@ -53,6 +61,7 @@ async def update(
         {"id": plant_id}, {"$set": fields}, return_document=True
     )
     return _serialize(result) if result else None
+
 
 async def delete(db: AsyncIOMotorDatabase, plant_id: str) -> bool:
     result = await db[COLLECTION].delete_one({"id": plant_id})

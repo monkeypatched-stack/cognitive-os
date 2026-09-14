@@ -30,6 +30,7 @@ Backend (single-worker vs multi-worker):
     the working set is small and short-lived, and the durable graph copy lives in
     PlanStore, so an evicted run 404s on /replay exactly as an unknown run_id does.
 """
+
 from __future__ import annotations
 
 import json
@@ -95,7 +96,13 @@ class _InMemoryRunBackend:
         while len(self._outcomes) > self._outcomes_capacity:
             self._outcomes.popitem(last=False)
 
-    def store(self, run_id: str, ir: IntentIR, target: str, graph_snapshot: dict[str, Any] | None) -> None:
+    def store(
+        self,
+        run_id: str,
+        ir: IntentIR,
+        target: str,
+        graph_snapshot: dict[str, Any] | None,
+    ) -> None:
         with self._lock:
             self._runs[run_id] = StoredRun(
                 intent_ir=ir,
@@ -209,6 +216,7 @@ class _RedisRunBackend:
 
     def _connect(self) -> Any:
         import redis  # redis-py; a declared dependency (pyproject.toml)
+
         # Bound both connect and per-op sockets — redis-py defaults socket_timeout to
         # None, so a HUNG server would block the calling thread forever.
         return redis.from_url(
@@ -227,7 +235,10 @@ class _RedisRunBackend:
             self._client = client  # Only cache on success
             return True
         except Exception as exc:
-            logger.warning("RunStore Redis backend unreachable: %s (will retry on next operation)", exc)
+            logger.warning(
+                "RunStore Redis backend unreachable: %s (will retry on next operation)",
+                exc,
+            )
             # Leave _client as None (don't cache failure)
             # Next property access to _r will attempt reconnection
             return False
@@ -248,12 +259,20 @@ class _RedisRunBackend:
         raw = self._r.get(self.RUN_PREFIX + run_id)
         return json.loads(raw) if raw else None
 
-    def store(self, run_id: str, ir: IntentIR, target: str, graph_snapshot: dict[str, Any] | None) -> None:
-        payload = json.dumps({
-            "intent_ir": ir.to_dict() if hasattr(ir, "to_dict") else None,
-            "target": target,
-            "graph_snapshot": graph_snapshot,
-        })
+    def store(
+        self,
+        run_id: str,
+        ir: IntentIR,
+        target: str,
+        graph_snapshot: dict[str, Any] | None,
+    ) -> None:
+        payload = json.dumps(
+            {
+                "intent_ir": ir.to_dict() if hasattr(ir, "to_dict") else None,
+                "target": target,
+                "graph_snapshot": graph_snapshot,
+            }
+        )
         try:
             seq = self._r.incr(self.SEQ_KEY)
             pipe = self._r.pipeline()
@@ -397,7 +416,11 @@ class _RedisRunBackend:
             if not d:
                 return None
             ir = IntentIR.from_dict(d["intent_ir"]) if d.get("intent_ir") else None
-            return StoredRun(intent_ir=ir, target=d.get("target", ""), graph_snapshot=d.get("graph_snapshot"))
+            return StoredRun(
+                intent_ir=ir,
+                target=d.get("target", ""),
+                graph_snapshot=d.get("graph_snapshot"),
+            )
         except Exception as exc:
             logger.warning("run=%r RunStore(redis).get_run failed: %s", run_id, exc)
             return None
@@ -570,16 +593,25 @@ async def replay(
     target = store.get_target(run_id)
     if ir is None or target is None:
         logger.warning("run=%r replay requested but no stored IntentIR found", run_id)
-        return (f"Error replaying run {run_id!r}: no stored IntentIR for this run_id", [], [], False)
+        return (
+            f"Error replaying run {run_id!r}: no stored IntentIR for this run_id",
+            [],
+            [],
+            False,
+        )
 
     if target == "execute":
-        from src.monkey_brain.kernel.cognitive_runtime import get_cognitive_runtime_instance
+        from src.monkey_brain.kernel.cognitive_runtime import (
+            get_cognitive_runtime_instance,
+        )
         from src.monkey_brain.kernel.execute.models import ExecutionMode
 
         runtime = runtime or get_cognitive_runtime_instance()
         context = runtime.build_execution_runtime(ir, ExecutionMode.EXECUTE, user_id="replay")
         return await runtime.execute_cognitive_workload(
-            context, mongo_client, plan_steps=list(plan_steps or []),
+            context,
+            mongo_client,
+            plan_steps=list(plan_steps or []),
         )
 
     if target == "simulate":
@@ -588,7 +620,9 @@ async def replay(
         return await (sim_runtime or get_simulation_runtime()).run(ir, mongo_client)
 
     if target == "compare":
-        from src.monkey_brain.kernel.cognitive_runtime import get_cognitive_runtime_instance
+        from src.monkey_brain.kernel.cognitive_runtime import (
+            get_cognitive_runtime_instance,
+        )
         from src.monkey_brain.kernel.execute.models import ExecutionMode
         from src.monkey_brain.kernel.simulation_runtime import get_simulation_runtime
         from src.monkey_brain.kernel.comparator_runtime import get_comparator_runtime
@@ -622,7 +656,12 @@ async def replay(
 
         codegen = get_codegen_runtime_instance()
         if codegen is None:
-            return (f"Error replaying run {run_id!r}: CodeGenRuntime is not booted", [], [], False)
+            return (
+                f"Error replaying run {run_id!r}: CodeGenRuntime is not booted",
+                [],
+                [],
+                False,
+            )
         return await codegen.run(ir, mongo_client)
 
     return (f"Error replaying run {run_id!r}: unknown target {target!r}", [], [], False)

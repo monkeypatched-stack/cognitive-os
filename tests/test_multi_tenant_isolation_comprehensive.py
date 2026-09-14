@@ -7,21 +7,24 @@
 - Cross-tenant attacks (10 tests)
 - Concurrent execution (10+ tests)
 """
+
 import pytest
 from unittest.mock import Mock, patch
 from datetime import datetime
 
-
 # ──────────────────────────────────────────────────────────────
 # BASIC ISOLATION TESTS (10 tests)
 # ──────────────────────────────────────────────────────────────
+
 
 class TestBasicTenantIsolation:
     """Test: Fundamental tenant isolation."""
 
     def test_actors_isolated_by_tenant_id(self):
         """Actor X in Tenant A cannot access Tenant B data."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         # Tenant A: Alice's memory
         alice_a = EpisodicMemoryStore("alice", "org_alpha")
@@ -60,7 +63,7 @@ class TestBasicTenantIsolation:
             world_snapshot=snapshot_a,
             world_version=1,
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         state_b = PersistedActorState(
@@ -73,7 +76,7 @@ class TestBasicTenantIsolation:
             world_snapshot=snapshot_b,
             world_version=1,
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         # Verify isolation
@@ -106,7 +109,11 @@ class TestBasicTenantIsolation:
 
     def test_context_stream_filters_by_tenant(self):
         """ContextStream only delivers events to matching tenant."""
-        from src.monkey_brain.kernel.compile.context_stream import ContextStream, ContextEvent, EventType
+        from src.monkey_brain.kernel.compile.context_stream import (
+            ContextStream,
+            ContextEvent,
+            EventType,
+        )
 
         mock_world = Mock()
         mock_world.nnz = Mock(return_value=0)
@@ -129,7 +136,7 @@ class TestBasicTenantIsolation:
             current_value="B",
             source="sensor",
             event_type=EventType.STATE_CHANGE,
-            tenant_id="org_alpha"
+            tenant_id="org_alpha",
         )
         stream.publish(event_a)
 
@@ -142,7 +149,7 @@ class TestBasicTenantIsolation:
             current_value="Y",
             source="sensor",
             event_type=EventType.STATE_CHANGE,
-            tenant_id="org_beta"
+            tenant_id="org_beta",
         )
         stream.publish(event_b)
 
@@ -170,11 +177,7 @@ class TestBasicTenantIsolation:
     def test_event_bus_respects_tenant_filter(self):
         """EventBus only delivers to tenant-scoped subscribers."""
         # Simulated event bus with tenant filtering
-        subscribers = {
-            "org_alpha": [],
-            "org_beta": [],
-            None: []  # Global
-        }
+        subscribers = {"org_alpha": [], "org_beta": [], None: []}  # Global
 
         # Register subscribers
         sub_a1 = Mock()
@@ -201,7 +204,9 @@ class TestBasicTenantIsolation:
 
     def test_memory_store_not_accessible_across_tenants(self):
         """Memory in Tenant A not accessible from Tenant B."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         mem_a = EpisodicMemoryStore("alice", "org_alpha")
         mem_b = EpisodicMemoryStore("alice", "org_beta")
@@ -223,6 +228,7 @@ class TestBasicTenantIsolation:
 # ──────────────────────────────────────────────────────────────
 # SHARED VS PRIVATE DOMAINS (10 tests)
 # ──────────────────────────────────────────────────────────────
+
 
 class TestSharedVsPrivateDomains:
     """Test: Domain access control (shared vs private)."""
@@ -257,19 +263,17 @@ class TestSharedVsPrivateDomains:
         domains = {
             "org_alpha": {
                 "private": {"financial", "internal"},
-                "shared": {"weather", "news"}
+                "shared": {"weather", "news"},
             },
             "org_beta": {
                 "private": {"customer_data", "operations"},
-                "shared": {"weather", "news"}
-            }
+                "shared": {"weather", "news"},
+            },
         }
 
         # Tenant B tries to access Tenant A's private domain
         requested_domain = "financial"
-        accessible_from_beta = (
-            domains["org_beta"]["private"] | domains["org_beta"]["shared"]
-        )
+        accessible_from_beta = domains["org_beta"]["private"] | domains["org_beta"]["shared"]
 
         # Should not be accessible
         assert requested_domain not in accessible_from_beta
@@ -280,7 +284,7 @@ class TestSharedVsPrivateDomains:
         ontology_a = {
             "financial": {
                 "types": ["transaction", "account", "budget"],
-                "relationships": ["owns", "manages"]
+                "relationships": ["owns", "manages"],
             }
         }
 
@@ -288,7 +292,7 @@ class TestSharedVsPrivateDomains:
         ontology_b = {
             "customer": {
                 "types": ["customer", "order", "product"],
-                "relationships": ["purchases", "reviews"]
+                "relationships": ["purchases", "reviews"],
             }
         }
 
@@ -308,7 +312,7 @@ class TestSharedVsPrivateDomains:
         shared_ontology = {
             "entity": {
                 "types": ["Person", "Organization", "Location"],
-                "attributes": ["name", "id", "created_at"]
+                "attributes": ["name", "id", "created_at"],
             }
         }
 
@@ -323,12 +327,15 @@ class TestSharedVsPrivateDomains:
 # PERMISSION BOUNDARY TESTING (10 tests)
 # ──────────────────────────────────────────────────────────────
 
+
 class TestPermissionBoundaries:
     """Test: Permission enforcement at boundaries."""
 
     def test_actor_cannot_access_other_tenant_belief(self):
         """Actor X in Tenant A cannot load Tenant B actor Y's belief."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         # Tenant A: Bob's private belief
         bob_a = EpisodicMemoryStore("bob", "org_alpha")
@@ -346,11 +353,7 @@ class TestPermissionBoundaries:
         # Actor alice in org_alpha
         # Cannot execute as org_beta
 
-        actor_mappings = {
-            "alice": "org_alpha",
-            "bob": "org_alpha",
-            "carol": "org_beta"
-        }
+        actor_mappings = {"alice": "org_alpha", "bob": "org_alpha", "carol": "org_beta"}
 
         # Verify isolation
         assert actor_mappings["alice"] != actor_mappings["carol"]
@@ -370,7 +373,7 @@ class TestPermissionBoundaries:
         beliefs = {
             ("alice", "org_alpha"): {"learned": False},
             ("bob", "org_alpha"): {"learned": False},
-            ("alice", "org_beta"): {"learned": False}
+            ("alice", "org_beta"): {"learned": False},
         }
 
         # Alice in org_alpha learns
@@ -387,7 +390,9 @@ class TestPermissionBoundaries:
 
     def test_memory_write_only_to_own_context(self):
         """Memory store writes only to actor's (actor_id, tenant_id) context."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         mem_alice_a = EpisodicMemoryStore("alice", "org_alpha")
         mem_bob_a = EpisodicMemoryStore("bob", "org_alpha")
@@ -406,6 +411,7 @@ class TestPermissionBoundaries:
 # ──────────────────────────────────────────────────────────────
 # CROSS-TENANT ATTACK SIMULATIONS (10 tests)
 # ──────────────────────────────────────────────────────────────
+
 
 class TestCrossTenantAttackScenarios:
     """Test: Resistance to cross-tenant attacks."""
@@ -427,6 +433,7 @@ class TestCrossTenantAttackScenarios:
 
         # Should be rejected as invalid actor_id
         import re
+
         valid_actor_id = re.compile(r"^[a-z0-9_-]{1,128}$")
 
         assert not valid_actor_id.match(malicious_id)
@@ -436,7 +443,7 @@ class TestCrossTenantAttackScenarios:
         # Both queries should take similar time
         queries = [
             "SELECT * FROM actor_state WHERE tenant_id = 'org_alpha' AND actor_id = 'alice'",
-            "SELECT * FROM actor_state WHERE tenant_id = 'org_alpha' AND actor_id = 'nonexistent'"
+            "SELECT * FROM actor_state WHERE tenant_id = 'org_alpha' AND actor_id = 'nonexistent'",
         ]
 
         # Parameterized queries ensure constant-time lookups
@@ -444,7 +451,9 @@ class TestCrossTenantAttackScenarios:
 
     def test_memory_exhaustion_attack_limited(self):
         """Large memory store doesn't exhaust system."""
-        from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+        from src.monkey_brain.persistence.episodic_memory_store import (
+            EpisodicMemoryStore,
+        )
 
         mem = EpisodicMemoryStore("alice", "org_alpha")
 
@@ -471,6 +480,7 @@ class TestCrossTenantAttackScenarios:
 # CONCURRENT MULTI-TENANT EXECUTION (10+ tests)
 # ──────────────────────────────────────────────────────────────
 
+
 class TestConcurrentMultiTenantExecution:
     """Test: Race conditions and concurrent access."""
 
@@ -481,7 +491,10 @@ class TestConcurrentMultiTenantExecution:
         results = {}
 
         def execute_actor(actor_id, tenant_id):
-            from src.monkey_brain.persistence.episodic_memory_store import EpisodicMemoryStore
+            from src.monkey_brain.persistence.episodic_memory_store import (
+                EpisodicMemoryStore,
+            )
+
             mem = EpisodicMemoryStore(actor_id, tenant_id)
             mem.remember("result", {"tenant": tenant_id, "actor": actor_id})
             results[(actor_id, tenant_id)] = mem.recall("result")
@@ -490,7 +503,7 @@ class TestConcurrentMultiTenantExecution:
         for i in range(5):
             t = threading.Thread(
                 target=execute_actor,
-                args=(f"actor_{i}", "org_alpha" if i % 2 == 0 else "org_beta")
+                args=(f"actor_{i}", "org_alpha" if i % 2 == 0 else "org_beta"),
             )
             threads.append(t)
             t.start()
@@ -512,12 +525,13 @@ class TestConcurrentMultiTenantExecution:
             beliefs[key] = {"value": value}
 
         import threading
+
         threads = []
 
         for i in range(10):
             t = threading.Thread(
                 target=update_belief,
-                args=("alice", "org_alpha" if i < 5 else "org_beta", i)
+                args=("alice", "org_alpha" if i < 5 else "org_beta", i),
             )
             threads.append(t)
             t.start()
@@ -534,7 +548,11 @@ class TestConcurrentMultiTenantExecution:
 
     def test_event_delivery_under_high_concurrency(self):
         """Events correctly delivered under concurrent access."""
-        from src.monkey_brain.kernel.compile.context_stream import ContextStream, ContextEvent, EventType
+        from src.monkey_brain.kernel.compile.context_stream import (
+            ContextStream,
+            ContextEvent,
+            EventType,
+        )
 
         mock_world = Mock()
         mock_world.nnz = Mock(return_value=0)
@@ -559,13 +577,13 @@ class TestConcurrentMultiTenantExecution:
                     current_value="new",
                     source="sensor",
                     event_type=EventType.STATE_CHANGE,
-                    tenant_id=tenant_id
+                    tenant_id=tenant_id,
                 )
                 stream.publish(event)
 
         threads = [
             threading.Thread(target=publish_events, args=("org_alpha", 10)),
-            threading.Thread(target=publish_events, args=("org_beta", 10))
+            threading.Thread(target=publish_events, args=("org_beta", 10)),
         ]
 
         for t in threads:
@@ -582,6 +600,7 @@ class TestConcurrentMultiTenantExecution:
 # ──────────────────────────────────────────────────────────────
 # PHASE 2 DELIVERABLE 2.1 COMPLETION
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase2Deliverable21Complete:
     """Verify comprehensive multi-tenant isolation tests complete."""

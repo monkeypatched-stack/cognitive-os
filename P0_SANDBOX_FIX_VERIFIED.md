@@ -62,10 +62,12 @@ class ProcessSandbox:
 
 **Usage Example:**
 ```python
-sandbox = ProcessSandbox(SandboxLimits(
-    timeout_seconds=5.0,
-    max_memory_bytes=10_000_000,  # 10MB
-))
+sandbox = ProcessSandbox(
+    SandboxLimits(
+        timeout_seconds=5.0,
+        max_memory_bytes=10_000_000,  # 10MB
+    )
+)
 result = sandbox.run(untrusted_fn)  # Runs in child process
 if not result.success:
     print(f"Execution failed: {result.error}")  # Killed/timed out/error
@@ -183,10 +185,7 @@ from src.monkey_brain.kernel.execute.sandbox import create_sandbox
 sandbox = create_sandbox(agent_type)
 
 # Used in execution path:
-result = await asyncio.wait_for(
-    sandbox.execute(agent_fn, task),
-    timeout=...
-)
+result = await asyncio.wait_for(sandbox.execute(agent_fn, task), timeout=...)
 ```
 
 ### 2. Untrusted Code Execution
@@ -194,10 +193,12 @@ result = await asyncio.wait_for(
 ```python
 from src.monkey_brain.kernel.execute.sandbox import ProcessSandbox
 
-sandbox = ProcessSandbox(SandboxLimits(
-    timeout_seconds=5.0,
-    max_memory_bytes=10_000_000,
-))
+sandbox = ProcessSandbox(
+    SandboxLimits(
+        timeout_seconds=5.0,
+        max_memory_bytes=10_000_000,
+    )
+)
 result = sandbox.run(untrusted_function)
 ```
 
@@ -206,7 +207,7 @@ result = sandbox.run(untrusted_function)
 ```python
 limits = SandboxLimits(
     allowed_capabilities={"read", "write"},  # Only allow these
-    denied_capabilities={"network", "admin"}  # Explicitly deny
+    denied_capabilities={"network", "admin"},  # Explicitly deny
 )
 sandbox = AgentSandbox(limits)
 ```

@@ -20,6 +20,7 @@ real `src/sittingface` package is an unrelated somatic-chart/codegen
 knowledge base, not this. See grounding_snippets() below for the narrow
 entry point kernel/society/transaction.py uses.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,7 +29,10 @@ import re
 import time
 from typing import Any
 
-from src.monkey_brain.kernel.pipeline.planning.domain import PlanningContext, RetrievedItem
+from src.monkey_brain.kernel.pipeline.planning.domain import (
+    PlanningContext,
+    RetrievedItem,
+)
 from src.monkey_brain.kernel.timeline.entry import TimelineKind
 
 logger = logging.getLogger("agentos.pipeline.planning.context_engine")
@@ -79,27 +83,88 @@ _ROBOT_CAPABILITY_NAMES = frozenset({"Arm", "Takeoff", "Waypoint", "Land"})
 # no standing reason to delegate to or ask a colleague by default, so
 # it's only ever offered the self-contained subset; non-robot actors
 # still get the full set, coordination capabilities included.
-_SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES = frozenset({
-    "Counterfactual", "Explain", "AnswerQuestion", "ReportWorldPerturbation", "recall",
-})
-_COORDINATION_UNIVERSAL_CAPABILITY_NAMES = frozenset({
-    "DelegationCheck", "SocietyQuery", "AskActor", "DelegateTask",
-    "BroadcastToAffiliation", "RespondToInquiry", "EvaluateStrategy",
-    "CompeteForResource", "RecordAgreement", "GetAgreements",
-})
+_SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES = frozenset(
+    {
+        "Counterfactual",
+        "Explain",
+        "AnswerQuestion",
+        "ReportWorldPerturbation",
+        "recall",
+    }
+)
+_COORDINATION_UNIVERSAL_CAPABILITY_NAMES = frozenset(
+    {
+        "DelegationCheck",
+        "SocietyQuery",
+        "AskActor",
+        "DelegateTask",
+        "BroadcastToAffiliation",
+        "RespondToInquiry",
+        "EvaluateStrategy",
+        "CompeteForResource",
+        "RecordAgreement",
+        "GetAgreements",
+    }
+)
 _UNIVERSAL_CAPABILITY_NAMES = _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES | _COORDINATION_UNIVERSAL_CAPABILITY_NAMES
 
-_STOPWORDS = frozenset({
-    "a", "an", "the", "for", "to", "of", "and", "or", "in", "on", "at", "is", "are",
-    "was", "were", "this", "that", "i", "we", "you", "please", "right", "now",
-    "today", "immediately", "away", "with", "from", "by", "as", "it", "its", "be",
-    "do", "does", "did", "goal", "completed", "failed", "complete", "partially",
-    # Generic transactional verbs — the constant request-shape ("buy X",
-    # "purchase X", "order X") across virtually every commerce goal in this
-    # domain, not a distinguishing signal between e.g. a coffee request and
-    # an eggs request.
-    "buy", "buying", "purchase", "purchasing", "order", "ordering", "get", "acquire",
-})
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "for",
+        "to",
+        "of",
+        "and",
+        "or",
+        "in",
+        "on",
+        "at",
+        "is",
+        "are",
+        "was",
+        "were",
+        "this",
+        "that",
+        "i",
+        "we",
+        "you",
+        "please",
+        "right",
+        "now",
+        "today",
+        "immediately",
+        "away",
+        "with",
+        "from",
+        "by",
+        "as",
+        "it",
+        "its",
+        "be",
+        "do",
+        "does",
+        "did",
+        "goal",
+        "completed",
+        "failed",
+        "complete",
+        "partially",
+        # Generic transactional verbs — the constant request-shape ("buy X",
+        # "purchase X", "order X") across virtually every commerce goal in this
+        # domain, not a distinguishing signal between e.g. a coffee request and
+        # an eggs request.
+        "buy",
+        "buying",
+        "purchase",
+        "purchasing",
+        "order",
+        "ordering",
+        "get",
+        "acquire",
+    }
+)
 
 
 def _content_tokens(text: str) -> set[str]:
@@ -120,10 +185,14 @@ class ContextConstructionEngine:
         self._knowledge_graph = knowledge_graph
         if timeline_store is None:
             from src.monkey_brain.kernel.timeline.store import TimelineStore
+
             timeline_store = TimelineStore()
         self._timeline_store = timeline_store
         self._capability_bus = capability_bus
-        from src.monkey_brain.kernel.knowledge.sittingface_retrieval import get_external_knowledge_retriever
+        from src.monkey_brain.kernel.knowledge.sittingface_retrieval import (
+            get_external_knowledge_retriever,
+        )
+
         self._external_knowledge_retriever = get_external_knowledge_retriever()
 
     def set_external_knowledge_retriever(self, retriever: Any) -> None:
@@ -133,7 +202,10 @@ class ContextConstructionEngine:
         goal_text = f"{getattr(goal, 'name', '')} {getattr(goal, 'description', '')}".strip()
         ext_report = self._external_knowledge_retriever.retrieve_sync(goal_text, cycle_id=execution_id)
         return self._build_context(
-            actor_id, goal, execution_id=execution_id, goal_text=goal_text,
+            actor_id,
+            goal,
+            execution_id=execution_id,
+            goal_text=goal_text,
             external_knowledge=ext_report.to_retrieved_items(),
             external_metadata=ext_report.to_metadata(),
         )
@@ -142,7 +214,10 @@ class ContextConstructionEngine:
         goal_text = f"{getattr(goal, 'name', '')} {getattr(goal, 'description', '')}".strip()
         ext_report = await self._external_knowledge_retriever.retrieve(goal_text, cycle_id=execution_id)
         return self._build_context(
-            actor_id, goal, execution_id=execution_id, goal_text=goal_text,
+            actor_id,
+            goal,
+            execution_id=execution_id,
+            goal_text=goal_text,
             external_knowledge=ext_report.to_retrieved_items(),
             external_metadata=ext_report.to_metadata(),
         )
@@ -168,12 +243,19 @@ class ContextConstructionEngine:
         # presence_history/capabilities, which the spec didn't ask to
         # instrument, so those stay untouched (no metric for every
         # retrieval stage, only the named ones).
-        _GROUNDING_METRIC_SOURCES = frozenset({
-            "knowledge_graph", "semantic_memory", "context_stream", "world_state", "affiliation_graph",
-        })
+        _GROUNDING_METRIC_SOURCES = frozenset(
+            {
+                "knowledge_graph",
+                "semantic_memory",
+                "context_stream",
+                "world_state",
+                "affiliation_graph",
+            }
+        )
 
         def retrieve(stage: str, fn):
             from src.monkey_brain.kernel.compile import _obs
+
             started = time.perf_counter()
             track = stage in _GROUNDING_METRIC_SOURCES
             try:
@@ -200,20 +282,32 @@ class ContextConstructionEngine:
             return value
 
         experiences, conversations, executions = retrieve(
-            "semantic_memory", lambda: self._search_memory(actor_id, goal_text, goal_name=getattr(goal, "name", "")))
-        current_location, current_beliefs, relevant_goals = retrieve("timeline", lambda: self._retrieve_timeline(actor_id))
+            "semantic_memory",
+            lambda: self._search_memory(actor_id, goal_text, goal_name=getattr(goal, "name", "")),
+        )
+        current_location, current_beliefs, relevant_goals = retrieve(
+            "timeline", lambda: self._retrieve_timeline(actor_id)
+        )
         available_resources, relevant_locations, relevant_objects = retrieve(
-            "world_state", lambda: self._retrieve_world(actor_id, goal_text))
+            "world_state", lambda: self._retrieve_world(actor_id, goal_text)
+        )
         current_society_context, current_team_context, active_policies = retrieve(
-            "organizational", lambda: self._retrieve_organizational(actor_id, goal_text))
+            "organizational", lambda: self._retrieve_organizational(actor_id, goal_text)
+        )
         relevant_knowledge, relevant_relationships = retrieve(
-            "knowledge_graph", lambda: self._explore_knowledge(actor_id, goal_text, current_beliefs))
+            "knowledge_graph",
+            lambda: self._explore_knowledge(actor_id, goal_text, current_beliefs),
+        )
         incoming_messages, negotiation_updates, relevant_context_events = retrieve(
-            "context_stream", lambda: self._retrieve_context_stream(
-                actor_id, goal_text=goal_text, execution_id=execution_id))
+            "context_stream",
+            lambda: self._retrieve_context_stream(actor_id, goal_text=goal_text, execution_id=execution_id),
+        )
         actor_profile = retrieve("actor_profile", lambda: self._retrieve_actor_profile(actor_id))
         active_memberships = retrieve("affiliation_graph", lambda: self._retrieve_active_memberships(actor_id))
-        reachable_colleagues = retrieve("reachable_colleagues", lambda: self._retrieve_reachable_colleagues(actor_id))
+        reachable_colleagues = retrieve(
+            "reachable_colleagues",
+            lambda: self._retrieve_reachable_colleagues(actor_id),
+        )
         presence_history = retrieve("presence_history", lambda: self._retrieve_presence_history(actor_id))
         available_capabilities = retrieve("capabilities", self._retrieve_available_capabilities)
 
@@ -282,7 +376,8 @@ class ContextConstructionEngine:
         experiences, conversations, executions = self._search_memory(actor_id, query_text)
         items = sorted(
             experiences + conversations + executions,
-            key=lambda item: item.retrieval_score, reverse=True,
+            key=lambda item: item.retrieval_score,
+            reverse=True,
         )
         return [item.content for item in items[:limit] if item.content]
 
@@ -321,9 +416,14 @@ class ContextConstructionEngine:
             return True
         try:
             from src.monkey_brain.kernel.society.context_stream import ContextEventType
+
             stream = self._planetary_runtime.context_stream
             from_version = since_version + 1
-            if stream.replay(from_version=from_version, event_type=ContextEventType.INTERACTION, actor_id=actor_id):
+            if stream.replay(
+                from_version=from_version,
+                event_type=ContextEventType.INTERACTION,
+                actor_id=actor_id,
+            ):
                 return True
             for event in stream.replay(from_version=from_version, event_type=ContextEventType.WORLD_UPDATE):
                 payload = event.payload if isinstance(event.payload, dict) else {}
@@ -331,7 +431,10 @@ class ContextConstructionEngine:
                     return True
             return False
         except Exception:
-            logger.debug("has_new_relevant_activity: check failed (fail-open -- treated as changed)", exc_info=True)
+            logger.debug(
+                "has_new_relevant_activity: check failed (fail-open -- treated as changed)",
+                exc_info=True,
+            )
             return True
 
     # ── Retrieval stages ──────────────────────────────────────────────
@@ -377,7 +480,8 @@ class ContextConstructionEngine:
 
         shared_nodes = self.search_shared_experiences(actor_id, goal_text, top_k=5)
         shared_experiences, shared_conversations, shared_executions = self._bucket_memory_nodes(
-            shared_nodes, source="cognitive_memory_shared",
+            shared_nodes,
+            source="cognitive_memory_shared",
         )
 
         experiences = experiences + shared_experiences
@@ -412,7 +516,8 @@ class ContextConstructionEngine:
             if kind not in ("experience", "conversation", "execution"):
                 continue
             item = RetrievedItem(
-                content=payload.get("text", ""), item_type=kind,
+                content=payload.get("text", ""),
+                item_type=kind,
                 # record_experience() (belief_runtime.py::
                 # _record_episodic_experience) writes a real outcome-derived
                 # confidence into metadata for post-execution experiences;
@@ -422,7 +527,8 @@ class ContextConstructionEngine:
                 # actors.py::ask_actor) — without it every conversation item
                 # showed the generic retrieval-stage name ("cognitive_memory")
                 # instead of who actually said it.
-                source=str(payload.get("speaker", source)), confidence=float(payload.get("confidence", 1.0)),
+                source=str(payload.get("speaker", source)),
+                confidence=float(payload.get("confidence", 1.0)),
                 timestamp=payload.get("timestamp", 0.0),
                 # Vector backends may return a signed similarity (the hash/BOW
                 # fallback can produce a negative cosine score).  Planning
@@ -430,7 +536,7 @@ class ContextConstructionEngine:
                 # non-negative signal; normalize at this boundary so ranking
                 # and downstream consumers share one contract.
                 retrieval_score=max(0.0, float(payload.get("_retrieval_score", 0.0))),
-                evidence_ids=(f"actor:{payload.get('actor_id', '')}",) if source != "cognitive_memory" else (),
+                evidence_ids=((f"actor:{payload.get('actor_id', '')}",) if source != "cognitive_memory" else ()),
             )
             if kind == "conversation":
                 conversations.append(item)
@@ -526,8 +632,7 @@ class ContextConstructionEngine:
                     affiliations = state.actor_runtime.affiliations if state.actor_runtime is not None else None
                     if affiliations is not None:
                         locations = tuple(
-                            a.target_name for a in affiliations.all()
-                            if a.category == "commercial" and a.target_name
+                            a.target_name for a in affiliations.all() if a.category == "commercial" and a.target_name
                         )
                     break
             except Exception:
@@ -542,13 +647,13 @@ class ContextConstructionEngine:
                 kg_entities = []
             if not locations:
                 locations = tuple(
-                    e.name for e in kg_entities
+                    e.name
+                    for e in kg_entities
                     if e.name and getattr(e.entity_type, "value", e.entity_type) == "organization"
                 )
             if not objects:
                 objects = tuple(
-                    e.name for e in kg_entities
-                    if e.name and getattr(e.entity_type, "value", e.entity_type) == "asset"
+                    e.name for e in kg_entities if e.name and getattr(e.entity_type, "value", e.entity_type) == "asset"
                 )
         # Relevance gate: without this, `objects` is the ENTIRE asset
         # catalog (every product across every category) whenever no
@@ -565,7 +670,10 @@ class ContextConstructionEngine:
         return resources, locations, objects
 
     def _retrieve_context_stream(
-        self, actor_id: str, goal_text: str = "", execution_id: str = "",
+        self,
+        actor_id: str,
+        goal_text: str = "",
+        execution_id: str = "",
     ) -> tuple[tuple[RetrievedItem, ...], tuple[RetrievedItem, ...], tuple[RetrievedItem, ...]]:
         """Context Grounding: real, recent SocietyContextStream events —
         closes the gap this module's own build() used to leave explicit
@@ -615,6 +723,7 @@ class ContextConstructionEngine:
             return (), (), ()
         try:
             from src.monkey_brain.kernel.society.context_stream import ContextEventType
+
             stream = self._planetary_runtime.context_stream
             events: list[Any] = list(stream.replay(event_type=ContextEventType.INTERACTION, actor_id=actor_id))
             distinctive = _content_tokens(goal_text)
@@ -731,12 +840,17 @@ class ContextConstructionEngine:
                 if changes:
                     content += f" [changed={changes}]"
             item = RetrievedItem(
-                content=content, item_type=item_type,
-                source=event.provenance or "context_stream", confidence=event.confidence,
-                timestamp=event.timestamp, evidence_ids=(event.event_id,),
+                content=content,
+                item_type=item_type,
+                source=event.provenance or "context_stream",
+                confidence=event.confidence,
+                timestamp=event.timestamp,
+                evidence_ids=(event.event_id,),
             )
             has_pending_question = payload.get("question") and not payload.get("answer")
-            if has_pending_question or (payload.get("from_actor_id") and payload.get("to_actor_id") and not payload.get("answer")):
+            if has_pending_question or (
+                payload.get("from_actor_id") and payload.get("to_actor_id") and not payload.get("answer")
+            ):
                 bucket = messages
             elif payload.get("interaction_id") or payload.get("transaction_id"):
                 bucket = negotiations
@@ -797,8 +911,7 @@ class ContextConstructionEngine:
         # built, not a stricter filter — same len>2 threshold as before.
         keywords = [w for w in re.findall(r"[a-zA-Z]+", goal_text.lower()) if len(w) > 2]
         entities = [
-            e for e in self._knowledge_graph.entities_by_keywords(keywords)
-            if self._may_explore_entity(actor_id, e)
+            e for e in self._knowledge_graph.entities_by_keywords(keywords) if self._may_explore_entity(actor_id, e)
         ]
         # Found live: entities_by_keywords is an unranked union over the
         # WHOLE graph, and an actor's own accumulated memory/order/execution
@@ -846,23 +959,44 @@ class ContextConstructionEngine:
             quantity = entity.attributes.get("quantity")
             if quantity is not None:
                 detail += f", quantity={quantity}"
-            knowledge_items.append(RetrievedItem(
-                content=f"{entity.name} ({entity.entity_type.value}, {detail})", item_type="knowledge",
-                source="knowledge_graph", confidence=1.0, retrieval_score=1.0,
-                evidence_ids=(entity.entity_id,),
-            ))
+            knowledge_items.append(
+                RetrievedItem(
+                    content=f"{entity.name} ({entity.entity_type.value}, {detail})",
+                    item_type="knowledge",
+                    source="knowledge_graph",
+                    confidence=1.0,
+                    retrieval_score=1.0,
+                    evidence_ids=(entity.entity_id,),
+                )
+            )
             for relationship in self._knowledge_graph.relationships_for(entity.entity_id):
-                connected_id = (relationship.target_id if relationship.source_id == entity.entity_id
-                                else relationship.source_id)
+                connected_id = (
+                    relationship.target_id if relationship.source_id == entity.entity_id else relationship.source_id
+                )
                 connected = self._knowledge_graph.get_entity(connected_id)
                 if connected is not None:
-                    relationship_type = getattr(relationship.relationship_type, "value", relationship.relationship_type)
-                    relationship_items.append(RetrievedItem(
-                        content=(f"{entity.name} -[{relationship_type}]-> {connected.name} "
-                                 f"(relationship_id={relationship.relationship_id})"), item_type="relationship",
-                        source="knowledge_graph", confidence=0.8, retrieval_score=0.5,
-                        evidence_ids=(relationship.relationship_id, entity.entity_id, connected.entity_id),
-                    ))
+                    relationship_type = getattr(
+                        relationship.relationship_type,
+                        "value",
+                        relationship.relationship_type,
+                    )
+                    relationship_items.append(
+                        RetrievedItem(
+                            content=(
+                                f"{entity.name} -[{relationship_type}]-> {connected.name} "
+                                f"(relationship_id={relationship.relationship_id})"
+                            ),
+                            item_type="relationship",
+                            source="knowledge_graph",
+                            confidence=0.8,
+                            retrieval_score=0.5,
+                            evidence_ids=(
+                                relationship.relationship_id,
+                                entity.entity_id,
+                                connected.entity_id,
+                            ),
+                        )
+                    )
         return tuple(knowledge_items), tuple(relationship_items)
 
     def _durable_belief_entities(self, actor_id: str, current_beliefs: tuple) -> list[Any]:
@@ -889,7 +1023,9 @@ class ContextConstructionEngine:
             if subject:
                 counts[subject] = counts.get(subject, 0) + 1
         durable_subjects = sorted(
-            (s for s, c in counts.items() if c >= 2), key=lambda s: counts[s], reverse=True,
+            (s for s, c in counts.items() if c >= 2),
+            key=lambda s: counts[s],
+            reverse=True,
         )
         seen: set[str] = set()
         resolved: list[Any] = []
@@ -915,7 +1051,9 @@ class ContextConstructionEngine:
         """
         try:
             from src.monkey_brain.kernel.domains.grocery import (
-                open_products, _match_score, _split_requested_items,
+                open_products,
+                _match_score,
+                _split_requested_items,
             )
         except Exception:
             return []
@@ -928,7 +1066,8 @@ class ContextConstructionEngine:
                 continue
             scored = sorted(
                 (p for p in products if _match_score(p.name, phrase) > 0),
-                key=lambda p: _match_score(p.name, phrase), reverse=True,
+                key=lambda p: _match_score(p.name, phrase),
+                reverse=True,
             )
             for product in scored[:limit_per_item]:
                 if product.entity_id not in seen:
@@ -1003,18 +1142,17 @@ class ContextConstructionEngine:
         bus = self._capability_bus
         if bus is None:
             try:
-                from src.monkey_brain.kernel.domains.vertical_router import resolve_vertical
+                from src.monkey_brain.kernel.domains.vertical_router import (
+                    resolve_vertical,
+                )
+
                 bus = resolve_vertical("grocery").bus
             except Exception:
                 return ()
-        names = (
-            name for name in bus.names()
-            if callable(getattr(bus.discover(name), "handle", None))
-        )
+        names = (name for name in bus.names() if callable(getattr(bus.discover(name), "handle", None)))
         if os.environ.get("ACTOR_NODE_CLASS", "cloud") == "robot":
             return tuple(
-                n for n in names
-                if n in _ROBOT_CAPABILITY_NAMES or n in _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES
+                n for n in names if n in _ROBOT_CAPABILITY_NAMES or n in _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES
             )
         return tuple(n for n in names if n not in _ROBOT_CAPABILITY_NAMES)
 
@@ -1045,12 +1183,17 @@ class ContextConstructionEngine:
             permissions = registry.resolve_permissions(m.membership_id, governance=governance)
             society_runtime = self._planetary_runtime.get_society_runtime(m.society_id)
             society_name = society_runtime.society.name if society_runtime is not None else ""
-            result.append({
-                "membership_id": m.membership_id, "society_id": m.society_id,
-                "society_name": society_name,
-                "team_id": m.team_id, "roles": list(m.roles),
-                "trust_score": m.trust_score, "permissions": list(permissions),
-            })
+            result.append(
+                {
+                    "membership_id": m.membership_id,
+                    "society_id": m.society_id,
+                    "society_name": society_name,
+                    "team_id": m.team_id,
+                    "roles": list(m.roles),
+                    "trust_score": m.trust_score,
+                    "permissions": list(permissions),
+                }
+            )
         return tuple(result)
 
     def _retrieve_reachable_colleagues(self, actor_id: str) -> tuple[dict[str, Any], ...]:
@@ -1074,7 +1217,10 @@ class ContextConstructionEngine:
         function as a fuzzy-name-resolution fallback — see
         kernel/affiliations/reachability.py's own module docstring for
         why this is one function, not two independently-drifting copies."""
-        from src.monkey_brain.kernel.affiliations.reachability import reachable_colleagues
+        from src.monkey_brain.kernel.affiliations.reachability import (
+            reachable_colleagues,
+        )
+
         return reachable_colleagues(self._planetary_runtime, actor_id)
 
     def _retrieve_presence_history(self, actor_id: str, limit: int = 5) -> tuple[dict[str, Any], ...]:
@@ -1138,7 +1284,9 @@ class ContextConstructionEngine:
                     merged[key] = value
         return merged
 
-    def _retrieve_commerce_network(self, goal_text: str, activated_society_ids: set[str] | None = None) -> tuple[dict[str, Any], ...]:
+    def _retrieve_commerce_network(
+        self, goal_text: str, activated_society_ids: set[str] | None = None
+    ) -> tuple[dict[str, Any], ...]:
         network = getattr(self._planetary_runtime, "commerce_network", None)
         if network is None:
             return ()
@@ -1157,13 +1305,17 @@ class ContextConstructionEngine:
         recency = 1.0 / (1.0 + age / (7 * 24 * 3600))  # decay over ~a week
         org_importance = 1.0 if item.source in activated_society_ids else 0.0
         return (
-            0.3 * recency + 0.3 * item.retrieval_score
-            + 0.2 * item.confidence + 0.1 * 0.0  # trust — not wired this pass
+            0.3 * recency
+            + 0.3 * item.retrieval_score
+            + 0.2 * item.confidence
+            + 0.1 * 0.0  # trust — not wired this pass
             + 0.1 * org_importance
         )
 
     def _rank_and_dedupe(
-        self, items: tuple[RetrievedItem, ...], activated_society_ids: set,
+        self,
+        items: tuple[RetrievedItem, ...],
+        activated_society_ids: set,
     ) -> tuple[RetrievedItem, ...]:
         """Score every item and keep the highest-scored of each
         (item_type, content) pair. No compression: collapsing repeated

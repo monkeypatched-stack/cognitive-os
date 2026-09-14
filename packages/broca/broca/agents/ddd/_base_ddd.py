@@ -20,6 +20,7 @@ Read-only advisory agents:
   with a mutation verb. Advisory actions are whitelisted; everything else raises
   ReadOnlyAgentViolation before the payload ever leaves the agent.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -32,17 +33,45 @@ from broca.agents._base import BaseETASSAgent
 
 logger = logging.getLogger("broca.agents.ddd")
 
-_ADVISORY_ACTIONS: frozenset[str] = frozenset({
-    "compliant", "non_compliant",
-    "report", "flag", "warn", "recommend", "observe", "audit",
-    "approve", "approved", "reject", "rejected", "escalate", "acknowledge",
-})
+_ADVISORY_ACTIONS: frozenset[str] = frozenset(
+    {
+        "compliant",
+        "non_compliant",
+        "report",
+        "flag",
+        "warn",
+        "recommend",
+        "observe",
+        "audit",
+        "approve",
+        "approved",
+        "reject",
+        "rejected",
+        "escalate",
+        "acknowledge",
+    }
+)
 
 _MUTATION_PREFIXES: tuple[str, ...] = (
-    "write", "delete", "update", "create", "deploy",
-    "execute", "insert", "patch", "put", "post",
-    "remove", "drop", "modify", "replace", "truncate",
-    "commit", "push", "merge", "rollback",
+    "write",
+    "delete",
+    "update",
+    "create",
+    "deploy",
+    "execute",
+    "insert",
+    "patch",
+    "put",
+    "post",
+    "remove",
+    "drop",
+    "modify",
+    "replace",
+    "truncate",
+    "commit",
+    "push",
+    "merge",
+    "rollback",
 )
 
 
@@ -51,10 +80,20 @@ class ReadOnlyAgentViolation(RuntimeError):
 
 
 # Keys that carry no result — only bookkeeping about the call itself.
-_BOOKKEEPING_KEYS: frozenset[str] = frozenset({
-    "action", "success", "operation", "layer", "decision", "agent", "agent_type",
-    "unimplemented", "error", "status",
-})
+_BOOKKEEPING_KEYS: frozenset[str] = frozenset(
+    {
+        "action",
+        "success",
+        "operation",
+        "layer",
+        "decision",
+        "agent",
+        "agent_type",
+        "unimplemented",
+        "error",
+        "status",
+    }
+)
 
 
 def is_status_echo(payload: Any) -> bool:
@@ -133,9 +172,7 @@ class BaseDDDAgent(BaseETASSAgent):
             return
         action = str(outcome.get("action", "")).lower().strip()
         if not action:
-            raise ReadOnlyAgentViolation(
-                f"[{self.agent_type}] readonly agent returned outcome with no 'action' field"
-            )
+            raise ReadOnlyAgentViolation(f"[{self.agent_type}] readonly agent returned outcome with no 'action' field")
         if action in _ADVISORY_ACTIONS:
             return
         if action.startswith(_MUTATION_PREFIXES):
@@ -154,10 +191,7 @@ class BaseDDDAgent(BaseETASSAgent):
         question = context.get("question", context.get("goal", ""))
         if question:
             return f"As a {self.ddd_layer} DDD agent, reason about: {question}"
-        return (
-            f"As a {self.ddd_layer} DDD agent, evaluate the provided context "
-            f"and return a structured decision."
-        )
+        return f"As a {self.ddd_layer} DDD agent, evaluate the provided context and return a structured decision."
 
     # ------------------------------------------------------------------
     # Spec compilation — compile workload YAML → model output
@@ -170,7 +204,12 @@ class BaseDDDAgent(BaseETASSAgent):
         """
         has_backend = any(
             os.environ.get(k)
-            for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY", "DASHSCOPE_API_KEY")
+            for k in (
+                "ANTHROPIC_API_KEY",
+                "OPENAI_API_KEY",
+                "GOOGLE_API_KEY",
+                "DASHSCOPE_API_KEY",
+            )
         )
         if not has_backend:
             return ""
@@ -222,14 +261,18 @@ class BaseDDDAgent(BaseETASSAgent):
             # read green. `unimplemented` is the honest word for it, and the runtime already
             # knows what to do with it.
             if is_status_echo(outcome):
-                logger.debug("[%s] returned a status with no result — reporting unimplemented",
-                             self.agent_type)
+                logger.debug(
+                    "[%s] returned a status with no result — reporting unimplemented",
+                    self.agent_type,
+                )
                 outcome = {
                     **outcome,
                     "success": False,
                     "unimplemented": True,
-                    "error": (f"{self.agent_type} is not implemented: it returned a status "
-                              f"({outcome.get('action', 'executed')}) but produced no result"),
+                    "error": (
+                        f"{self.agent_type} is not implemented: it returned a status "
+                        f"({outcome.get('action', 'executed')}) but produced no result"
+                    ),
                 }
                 self._reward(False)
                 return self._result(
@@ -242,7 +285,7 @@ class BaseDDDAgent(BaseETASSAgent):
                 payload=outcome,
                 observations=[
                     f"{self.agent_type}: {outcome.get('action', 'executed')}",
-                    f"spec: {self.workload_spec}" + (f" → model guidance available" if model_guidance else ""),
+                    f"spec: {self.workload_spec}" + (" → model guidance available" if model_guidance else ""),
                 ],
             )
         except ReadOnlyAgentViolation:

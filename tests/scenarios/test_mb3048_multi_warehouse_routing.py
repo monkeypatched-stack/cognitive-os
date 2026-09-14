@@ -15,9 +15,13 @@ like supply_chain_ok()/trace_supply_chain() — it decides which
 warehouse THIS routing request should use, it never rewrites the
 store's own primary warehouse_id.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.domains.supply_chain import SupplyChainCapability, route_to_available_warehouse
+from src.monkey_brain.kernel.domains.supply_chain import (
+    SupplyChainCapability,
+    route_to_available_warehouse,
+)
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
 STORE_ID = "store_1"
@@ -25,14 +29,37 @@ STORE_ID = "store_1"
 
 def _seed(primary_status: str = "down", backup_status: str = "operational") -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity("warehouse_primary", EntityType.ORGANIZATION, "Primary Warehouse", {"status": primary_status})
-    kg.add_entity("warehouse_backup", EntityType.ORGANIZATION, "Backup Warehouse", {"status": backup_status})
-    kg.add_entity("truck_1", EntityType.ORGANIZATION, "Truck 1", {
-        "type": "truck", "assigned_warehouse_id": "warehouse_primary", "status": "operational",
-    })
-    kg.add_entity(STORE_ID, EntityType.ORGANIZATION, "Corner Store", {
-        "warehouse_id": "warehouse_primary", "backup_warehouse_ids": ["warehouse_backup"],
-    })
+    kg.add_entity(
+        "warehouse_primary",
+        EntityType.ORGANIZATION,
+        "Primary Warehouse",
+        {"status": primary_status},
+    )
+    kg.add_entity(
+        "warehouse_backup",
+        EntityType.ORGANIZATION,
+        "Backup Warehouse",
+        {"status": backup_status},
+    )
+    kg.add_entity(
+        "truck_1",
+        EntityType.ORGANIZATION,
+        "Truck 1",
+        {
+            "type": "truck",
+            "assigned_warehouse_id": "warehouse_primary",
+            "status": "operational",
+        },
+    )
+    kg.add_entity(
+        STORE_ID,
+        EntityType.ORGANIZATION,
+        "Corner Store",
+        {
+            "warehouse_id": "warehouse_primary",
+            "backup_warehouse_ids": ["warehouse_backup"],
+        },
+    )
     return kg
 
 

@@ -68,6 +68,7 @@ require_self_or_permission("perm-manage-actors") (api/dependencies.py)
 actor_id) is always allowed, matching login()'s own permissions=[]
 tokens; anyone else needs perm-manage-actors.
 """
+
 from __future__ import annotations
 
 import logging
@@ -96,6 +97,7 @@ def _mask(destination: str) -> str:
 
 class ProfileUpdateRequest(BaseModel):
     """Request to update actor profile."""
+
     name: str | None = None
     email: str | None = None
     bio: str | None = None
@@ -109,6 +111,7 @@ class AccountUpdateRequest(BaseModel):
     """Request to update actor account. Setting `password` (and, the
     first time, `email`) is how an actor's login credentials get
     established — there is no separate registration endpoint."""
+
     email: str | None = None
     password: str | None = None
     subscription: str | None = None
@@ -117,12 +120,14 @@ class AccountUpdateRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     """Request to login."""
+
     email: str
     password: str
 
 
 class LoginResponse(BaseModel):
     """Response from login."""
+
     access_token: str
     token_type: str = "bearer"
     expires_in: int = 3600
@@ -153,7 +158,9 @@ class OTPVerifyRequest(BaseModel):
 async def get_profile(actor_id: str):
     """Get actor profile — real persisted data (kernel/profile.py::Profile)
     when one has been saved, an honest "not set" shape otherwise."""
-    from src.monkey_brain.kernel.actor_profile.persistence import get_actor_profile_persistence
+    from src.monkey_brain.kernel.actor_profile.persistence import (
+        get_actor_profile_persistence,
+    )
 
     data = get_actor_profile_persistence().load_profile(actor_id)
     if data is None:
@@ -169,7 +176,9 @@ async def update_profile(actor_id: str, request: ProfileUpdateRequest):
     applies only the fields actually present in the request via Profile.
     update(), and saves it back."""
     from src.monkey_brain.kernel.profile import Profile
-    from src.monkey_brain.kernel.actor_profile.persistence import get_actor_profile_persistence
+    from src.monkey_brain.kernel.actor_profile.persistence import (
+        get_actor_profile_persistence,
+    )
 
     persistence = get_actor_profile_persistence()
     existing = persistence.load_profile(actor_id)
@@ -184,7 +193,10 @@ async def update_profile(actor_id: str, request: ProfileUpdateRequest):
 
 
 @router.get("/{actor_id}/account")
-async def get_account(actor_id: str, user_id: str = Depends(require_self_or_permission("perm-manage-actors"))):
+async def get_account(
+    actor_id: str,
+    user_id: str = Depends(require_self_or_permission("perm-manage-actors")),
+):
     """Get actor account — reflects real LoginInfo state when credentials
     have been set, without ever exposing the password hash."""
     from src.monkey_brain.kernel.login_store import get_login_store
@@ -205,7 +217,8 @@ async def get_account(actor_id: str, user_id: str = Depends(require_self_or_perm
 @router.put("/{actor_id}/account")
 @idempotent("actor_profile.update_account")
 async def update_account(
-    actor_id: str, request: AccountUpdateRequest,
+    actor_id: str,
+    request: AccountUpdateRequest,
     user_id: str = Depends(require_self_or_permission("perm-manage-actors")),
 ):
     """Update actor account. A `password` in the request sets/replaces
@@ -275,7 +288,7 @@ async def login(actor_id: str, request: LoginRequest):
         store.save(actor_id, info)
         detail = "Account locked after repeated failed login attempts" if locked else "Invalid email or password"
         raise HTTPException(
-            status_code=status.HTTP_423_LOCKED if locked else status.HTTP_401_UNAUTHORIZED,
+            status_code=(status.HTTP_423_LOCKED if locked else status.HTTP_401_UNAUTHORIZED),
             detail=detail,
         )
 
@@ -298,7 +311,10 @@ async def login(actor_id: str, request: LoginRequest):
     # data by changing the path -- those need require_self_or_permission
     # (self-check by identity, not a broad grant), not a token change.
     token = create_access_token(
-        user_id=actor_id, email=info.email, role="actor", permissions=["perm-execute-prompt"],
+        user_id=actor_id,
+        email=info.email,
+        role="actor",
+        permissions=["perm-execute-prompt"],
     )
     return LoginResponse(access_token=token, token_type="bearer", expires_in=3600)
 
@@ -320,14 +336,20 @@ async def logout(actor_id: str):
 
 
 @router.get("/{actor_id}/sessions")
-async def list_sessions(actor_id: str, user_id: str = Depends(require_self_or_permission("perm-manage-actors"))):
+async def list_sessions(
+    actor_id: str,
+    user_id: str = Depends(require_self_or_permission("perm-manage-actors")),
+):
     """List this actor's real active (non-expired) sessions."""
     from src.monkey_brain.kernel.login_store import get_login_store
 
     info = get_login_store().get(actor_id)
     if info is None:
         return {"actor_id": actor_id, "sessions": []}
-    return {"actor_id": actor_id, "sessions": [s.to_dict() for s in info.active_sessions]}
+    return {
+        "actor_id": actor_id,
+        "sessions": [s.to_dict() for s in info.active_sessions],
+    }
 
 
 @router.post("/{actor_id}/otp/request", response_model=OTPRequestResponse)
@@ -348,7 +370,7 @@ async def request_otp(actor_id: str, body: OTPRequestRequest):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No destination on file for this actor — pass one explicitly, "
-                   "or set an email via PUT .../account first",
+            "or set an email via PUT .../account first",
         )
     if body.destination and "@" in body.destination and not info.email:
         info.email = body.destination
@@ -387,7 +409,10 @@ async def verify_otp(actor_id: str, body: OTPVerifyRequest):
 
     if not info.verify_otp(body.code):
         store.save(actor_id, info)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired OTP code")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired OTP code",
+        )
 
     info.create_session()
     store.save(actor_id, info)
@@ -408,6 +433,9 @@ async def verify_otp(actor_id: str, body: OTPVerifyRequest):
     # data by changing the path -- those need require_self_or_permission
     # (self-check by identity, not a broad grant), not a token change.
     token = create_access_token(
-        user_id=actor_id, email=info.email, role="actor", permissions=["perm-execute-prompt"],
+        user_id=actor_id,
+        email=info.email,
+        role="actor",
+        permissions=["perm-execute-prompt"],
     )
     return LoginResponse(access_token=token, token_type="bearer", expires_in=3600)

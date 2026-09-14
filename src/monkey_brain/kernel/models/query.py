@@ -10,11 +10,11 @@ class QueryRequest(BaseModel):
 
 
 class QueryResponse(BaseModel):
-    question:      str
-    answer:        str
+    question: str
+    answer: str
     semantic_hits: list
-    graph_paths:   list
-    citations:     list
-    llm_answered:  bool
-    user_id:       str
-    metadata:      dict
+    graph_paths: list
+    citations: list
+    llm_answered: bool
+    user_id: str
+    metadata: dict

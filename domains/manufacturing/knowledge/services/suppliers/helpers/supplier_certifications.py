@@ -4,7 +4,10 @@ from uuid import uuid4
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.suppliers.models.supplier_certifications import CertificationCreate, CertificationUpdate
+from services.suppliers.models.supplier_certifications import (
+    CertificationCreate,
+    CertificationUpdate,
+)
 
 COLLECTION = "supplier_certifications"
 
@@ -29,7 +32,9 @@ async def get_all(
 
 
 async def get_by_id(db: AsyncIOMotorDatabase, certification_id: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"certification_id": certification_id}))
+    return _serialize(
+        await db[COLLECTION].find_one({"certification_id": certification_id})
+    )
 
 
 async def get_by_supplier(db: AsyncIOMotorDatabase, supplier_id: str) -> list[dict]:

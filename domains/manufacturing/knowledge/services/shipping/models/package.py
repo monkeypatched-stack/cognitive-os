@@ -46,7 +46,9 @@ class Package(BaseModel):
     """Individual physical parcel, box, drum, or other container."""
 
     id: UUID = Field(default_factory=uuid4)
-    package_code: str = Field(..., max_length=80, description="Barcode / tracking reference")
+    package_code: str = Field(
+        ..., max_length=80, description="Barcode / tracking reference"
+    )
     package_type: PackageType = PackageType.BOX
     pallet_id: Optional[str] = Field(None, max_length=100)
     delivery_note_id: Optional[str] = Field(None, max_length=100)
@@ -88,7 +90,9 @@ class Package(BaseModel):
     def refrigeration_range(self) -> "Package":
         if self.requires_refrigeration:
             if self.temp_min_celsius is None or self.temp_max_celsius is None:
-                raise ValueError("temp_min/max_celsius required when requires_refrigeration is True")
+                raise ValueError(
+                    "temp_min/max_celsius required when requires_refrigeration is True"
+                )
             if self.temp_min_celsius >= self.temp_max_celsius:
                 raise ValueError("temp_min_celsius must be less than temp_max_celsius")
         return self
@@ -133,7 +137,9 @@ class PackageUpdate(BaseModel):
     def refrigeration_range(self) -> "PackageUpdate":
         if self.requires_refrigeration is True:
             if self.temp_min_celsius is None or self.temp_max_celsius is None:
-                raise ValueError("temp_min/max_celsius required when requires_refrigeration is True")
+                raise ValueError(
+                    "temp_min/max_celsius required when requires_refrigeration is True"
+                )
         if self.temp_min_celsius is not None and self.temp_max_celsius is not None:
             if self.temp_min_celsius >= self.temp_max_celsius:
                 raise ValueError("temp_min_celsius must be less than temp_max_celsius")

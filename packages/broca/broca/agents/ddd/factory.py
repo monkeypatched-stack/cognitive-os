@@ -1,6 +1,8 @@
 """FactoryAgent — creates domain objects with validated parameters and defaults."""
+
 from __future__ import annotations
-import logging, uuid
+import logging
+import uuid
 from typing import Any, Callable
 from broca.agents.ddd._base_ddd import BaseDDDAgent
 
@@ -17,7 +19,9 @@ class FactoryAgent(BaseDDDAgent):
     """
 
     agent_type = "factory"
-    description = "Factory agent — creates domain objects with validated parameters, applies defaults, emits creation events"
+    description = (
+        "Factory agent — creates domain objects with validated parameters, applies defaults, emits creation events"
+    )
     ddd_layer = "factory"
     workload_spec = "code_generation"
 
@@ -73,8 +77,15 @@ class FactoryAgent(BaseDDDAgent):
             }
         except Exception as exc:
             logger.error("[factory] creation failed for %s: %s", obj_type, exc)
-            return {"action": "creation_failed", "object_type": obj_type, "error": str(exc)}
+            return {
+                "action": "creation_failed",
+                "object_type": obj_type,
+                "error": str(exc),
+            }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         if outcome.get("action") == "created":
-            logger.debug("[factory] top created types: %s", sorted(self._creation_counts.items(), key=lambda x: -x[1])[:5])
+            logger.debug(
+                "[factory] top created types: %s",
+                sorted(self._creation_counts.items(), key=lambda x: -x[1])[:5],
+            )

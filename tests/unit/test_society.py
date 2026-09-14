@@ -5,6 +5,7 @@ shared world, observation, belief, interaction, coordination, runtime,
 context stream, collective learning, governance, observability, and
 planetary integration.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -12,58 +13,108 @@ import pytest
 from dataclasses import FrozenInstanceError
 
 from src.monkey_brain.kernel.society.domain import (
-    Society, ActorIdentity, ActorProfile, ActorRole, ActorCapability,
-    ActorRelationship, ActorMembership, ActorAddress, ActorStatus,
-    ActorType, RelationshipType, CapabilityLevel,
+    Society,
+    ActorIdentity,
+    ActorProfile,
+    ActorRole,
+    ActorCapability,
+    ActorRelationship,
+    ActorMembership,
+    ActorAddress,
+    ActorStatus,
+    ActorType,
+    RelationshipType,
+    CapabilityLevel,
 )
 from src.monkey_brain.kernel.society.world import (
-    SharedWorld, WorldEntity, WorldRelationship, WorldEvent,
-    WorldResource, WorldCapability, WorldLocation, WorldPolicy,
-    WorldEntityType, RelationshipKind, EventType,
+    SharedWorld,
+    WorldEntity,
+    WorldRelationship,
+    WorldEvent,
+    WorldResource,
+    WorldCapability,
+    WorldLocation,
+    WorldPolicy,
+    WorldEntityType,
+    RelationshipKind,
+    EventType,
 )
 from src.monkey_brain.kernel.society.observation import (
-    ObservationProvider, ObservationFilter, ActorObservation,
-    ObservedEntity, ObservationQuality,
+    ObservationProvider,
+    ObservationFilter,
+    ActorObservation,
+    ObservedEntity,
+    ObservationQuality,
 )
 from src.monkey_brain.kernel.society.belief import (
-    BeliefFusion, BeliefState, BeliefEntry, BeliefHypothesis,
+    BeliefFusion,
+    BeliefState,
+    BeliefEntry,
+    BeliefHypothesis,
 )
 from src.monkey_brain.kernel.society.interaction import (
-    InteractionManager, Interaction, InteractionMessage,
-    InteractionType, InteractionStatus,
+    InteractionManager,
+    Interaction,
+    InteractionMessage,
+    InteractionType,
+    InteractionStatus,
 )
 from src.monkey_brain.kernel.society.coordination import (
-    CoordinationEngine, Negotiation, NegotiationType, NegotiationStatus,
-    ResourceAllocation, TaskAssignment,
+    CoordinationEngine,
+    Negotiation,
+    NegotiationType,
+    NegotiationStatus,
+    ResourceAllocation,
+    TaskAssignment,
 )
 from src.monkey_brain.kernel.society.runtime import (
-    SocietyRuntime, ActorRuntimeState, SocietyTickResult,
+    SocietyRuntime,
+    ActorRuntimeState,
+    SocietyTickResult,
 )
 from src.monkey_brain.kernel.society.context_stream import (
-    SocietyContextStream, ContextEvent, ContextEventType, ContextSnapshot,
+    SocietyContextStream,
+    ContextEvent,
+    ContextEventType,
+    ContextSnapshot,
 )
 from src.monkey_brain.kernel.society.learning import (
-    CollectiveLearningEngine, SharedExperience, LearningType,
-    ReputationEntry, CollectiveLearningResult,
+    CollectiveLearningEngine,
+    SharedExperience,
+    LearningType,
+    ReputationEntry,
+    CollectiveLearningResult,
 )
 from src.monkey_brain.kernel.society.governance import (
-    SocietyGovernanceEngine, GovernancePolicy, Permission,
-    AuditEntry, TrustRecord, SafetyConstraint,
-    GovernanceLevel, PolicyType, ComplianceStatus,
+    SocietyGovernanceEngine,
+    GovernancePolicy,
+    Permission,
+    AuditEntry,
+    TrustRecord,
+    SafetyConstraint,
+    GovernanceLevel,
+    PolicyType,
+    ComplianceStatus,
 )
 from src.monkey_brain.kernel.society.observability import (
-    SocietyObservability, SocietyTrace,
-    ActorTimeline, InteractionGraph, WorldEvolution,
-    CoordinationMetrics, GovernanceReport,
+    SocietyObservability,
+    SocietyTrace,
+    ActorTimeline,
+    InteractionGraph,
+    WorldEvolution,
+    CoordinationMetrics,
+    GovernanceReport,
 )
 from src.monkey_brain.kernel.society.integration import (
-    PlanetaryRuntime, PlanetaryCycleResult, FederatedCycleResult,
+    PlanetaryRuntime,
+    PlanetaryCycleResult,
+    FederatedCycleResult,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Step 12.1 — Society Domain Model
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDomainModel:
     def test_actor_identity_construction(self):
@@ -86,7 +137,8 @@ class TestDomainModel:
 
     def test_society_construction(self):
         membership = ActorMembership(
-            actor_id="a1", society_id="s1",
+            actor_id="a1",
+            society_id="s1",
             role=ActorRole(name="worker"),
         )
         society = Society(name="Test Society", memberships=(membership,))
@@ -116,6 +168,7 @@ class TestDomainModel:
 # ═══════════════════════════════════════════════════════════════════════════
 # Step 12.2 — Shared Semantic World Model
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSharedWorld:
     def test_add_and_get_entity(self):
@@ -200,6 +253,7 @@ class TestSharedWorld:
 # Step 12.3 — Multi-Actor Observation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestObservation:
     def test_observe_full_world(self):
         world = SharedWorld()
@@ -253,6 +307,7 @@ class TestObservation:
 # Step 12.4 — Distributed Belief Formation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBeliefFormation:
     def test_fuse_creates_beliefs(self):
         world = SharedWorld()
@@ -282,10 +337,12 @@ class TestBeliefFormation:
         assert entry.confidence == 0.9
 
     def test_uncertain_beliefs(self):
-        state = BeliefState(beliefs=(
-            BeliefEntry(subject="A", hypotheses=(BeliefHypothesis(confidence=0.9),)),
-            BeliefEntry(subject="B", hypotheses=(BeliefHypothesis(confidence=0.3),)),
-        ))
+        state = BeliefState(
+            beliefs=(
+                BeliefEntry(subject="A", hypotheses=(BeliefHypothesis(confidence=0.9),)),
+                BeliefEntry(subject="B", hypotheses=(BeliefHypothesis(confidence=0.3),)),
+            )
+        )
         uncertain = state.uncertain_beliefs(0.5)
         assert len(uncertain) == 1
         assert uncertain[0].subject == "B"
@@ -306,11 +363,14 @@ class TestBeliefFormation:
 # Step 12.5 — Social Interaction Framework
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestInteraction:
     def test_create_interaction(self):
         mgr = InteractionManager()
         interaction = mgr.create_interaction(
-            InteractionType.REQUEST, "alice", ("bob",),
+            InteractionType.REQUEST,
+            "alice",
+            ("bob",),
             topic="milk delivery",
         )
         assert interaction.interaction_type == InteractionType.REQUEST
@@ -319,10 +379,13 @@ class TestInteraction:
     def test_send_message(self):
         mgr = InteractionManager()
         interaction = mgr.create_interaction(
-            InteractionType.INFORM, "alice", ("bob",),
+            InteractionType.INFORM,
+            "alice",
+            ("bob",),
         )
         msg = InteractionMessage(
-            sender_id="alice", receiver_id="bob",
+            sender_id="alice",
+            receiver_id="bob",
             content="Store is open",
         )
         updated = mgr.send_message(interaction.interaction_id, msg)
@@ -332,7 +395,9 @@ class TestInteraction:
     def test_respond(self):
         mgr = InteractionManager()
         interaction = mgr.create_interaction(
-            InteractionType.REQUEST, "alice", ("bob",),
+            InteractionType.REQUEST,
+            "alice",
+            ("bob",),
         )
         updated = mgr.respond(interaction.interaction_id, "bob", True)
         assert updated is not None
@@ -341,7 +406,9 @@ class TestInteraction:
     def test_reject(self):
         mgr = InteractionManager()
         interaction = mgr.create_interaction(
-            InteractionType.REQUEST, "alice", ("bob",),
+            InteractionType.REQUEST,
+            "alice",
+            ("bob",),
         )
         updated = mgr.respond(interaction.interaction_id, "bob", False)
         assert updated.status == InteractionStatus.REJECTED
@@ -364,12 +431,16 @@ class TestInteraction:
 # Step 12.6 — Coordination & Negotiation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCoordination:
     def test_propose_negotiation(self):
         engine = CoordinationEngine()
         neg = engine.propose(
-            NegotiationType.BILATERAL, "alice", ("bob",),
-            topic="resource allocation", proposal_content={"milk": 2},
+            NegotiationType.BILATERAL,
+            "alice",
+            ("bob",),
+            topic="resource allocation",
+            proposal_content={"milk": 2},
         )
         assert neg.negotiation_type == NegotiationType.BILATERAL
         assert neg.status == NegotiationStatus.PROPOSED
@@ -377,8 +448,11 @@ class TestCoordination:
     def test_counter_propose(self):
         engine = CoordinationEngine()
         neg = engine.propose(
-            NegotiationType.BILATERAL, "alice", ("bob",),
-            topic="resources", proposal_content={"milk": 2},
+            NegotiationType.BILATERAL,
+            "alice",
+            ("bob",),
+            topic="resources",
+            proposal_content={"milk": 2},
         )
         updated = engine.counter_propose(neg.negotiation_id, "bob", {"milk": 1})
         assert updated is not None
@@ -409,6 +483,7 @@ class TestCoordination:
 # ═══════════════════════════════════════════════════════════════════════════
 # Step 12.7 — Society Runtime
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSocietyRuntime:
     def test_register_actor(self):
@@ -452,6 +527,7 @@ class TestSocietyRuntime:
         """Step 13.6: a caller-supplied actor= that doesn't satisfy
         ActorProtocol fails fast instead of being silently accepted and
         never ticking."""
+
         class NotAnActor:
             pass
 
@@ -514,6 +590,7 @@ class TestSocietyRuntime:
 # Step 12.8 — Context Stream
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestContextStream:
     def test_publish_and_read(self):
         stream = SocietyContextStream()
@@ -570,12 +647,16 @@ class TestContextStream:
 # Step 12.9 — Collective Learning
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCollectiveLearning:
     def test_share_experience(self):
         engine = CollectiveLearningEngine()
         exp = SharedExperience(
-            actor_id="robot_1", description="Delivered milk successfully",
-            outcome="success", confidence=0.9, lessons=("route_optimization",),
+            actor_id="robot_1",
+            description="Delivered milk successfully",
+            outcome="success",
+            confidence=0.9,
+            lessons=("route_optimization",),
         )
         result = engine.share_experience(exp)
         assert isinstance(result, CollectiveLearningResult)
@@ -584,21 +665,33 @@ class TestCollectiveLearning:
     def test_reputation_updates(self):
         engine = CollectiveLearningEngine()
         for _ in range(5):
-            engine.share_experience(SharedExperience(
-                actor_id="robot_1", outcome="success", confidence=0.9,
-            ))
+            engine.share_experience(
+                SharedExperience(
+                    actor_id="robot_1",
+                    outcome="success",
+                    confidence=0.9,
+                )
+            )
         rep = engine.get_reputation("robot_1")
         assert rep.score > 0.5
         assert rep.evidence_count == 5
 
     def test_reputation_decreases_on_failure(self):
         engine = CollectiveLearningEngine()
-        engine.share_experience(SharedExperience(
-            actor_id="robot_1", outcome="success", confidence=0.9,
-        ))
-        engine.share_experience(SharedExperience(
-            actor_id="robot_1", outcome="failure", confidence=0.9,
-        ))
+        engine.share_experience(
+            SharedExperience(
+                actor_id="robot_1",
+                outcome="success",
+                confidence=0.9,
+            )
+        )
+        engine.share_experience(
+            SharedExperience(
+                actor_id="robot_1",
+                outcome="failure",
+                confidence=0.9,
+            )
+        )
         rep = engine.get_reputation("robot_1")
         assert rep.evidence_count == 2
 
@@ -612,7 +705,8 @@ class TestCollectiveLearning:
     def test_world_impact(self):
         engine = CollectiveLearningEngine()
         exp = SharedExperience(
-            actor_id="a1", outcome="success",
+            actor_id="a1",
+            outcome="success",
             world_impact={"store_status": "open"},
         )
         result = engine.share_experience(exp)
@@ -622,6 +716,7 @@ class TestCollectiveLearning:
 # ═══════════════════════════════════════════════════════════════════════════
 # Step 12.10 — Society Governance
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestGovernance:
     def test_add_policy(self):
@@ -679,13 +774,26 @@ class TestGovernance:
 # Step 12.11 — Society Observability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestObservability:
     def test_build_actor_timelines(self):
         obs = SocietyObservability()
         events = (
-            ContextEvent(event_type=ContextEventType.OBSERVATION, actor_id="a1", description="obs1"),
-            ContextEvent(event_type=ContextEventType.BELIEF_UPDATE, actor_id="a1", description="belief1"),
-            ContextEvent(event_type=ContextEventType.OBSERVATION, actor_id="a2", description="obs2"),
+            ContextEvent(
+                event_type=ContextEventType.OBSERVATION,
+                actor_id="a1",
+                description="obs1",
+            ),
+            ContextEvent(
+                event_type=ContextEventType.BELIEF_UPDATE,
+                actor_id="a1",
+                description="belief1",
+            ),
+            ContextEvent(
+                event_type=ContextEventType.OBSERVATION,
+                actor_id="a2",
+                description="obs2",
+            ),
         )
         timelines = obs.build_actor_timelines(events)
         assert len(timelines) == 2
@@ -693,8 +801,12 @@ class TestObservability:
     def test_build_interaction_graph(self):
         obs = SocietyObservability()
         events = (
-            ContextEvent(event_type=ContextEventType.INTERACTION, actor_id="a1",
-                         description="interact", payload={"participants": ["a2"]}),
+            ContextEvent(
+                event_type=ContextEventType.INTERACTION,
+                actor_id="a1",
+                description="interact",
+                payload={"participants": ["a2"]},
+            ),
         )
         graph = obs.build_interaction_graph(events)
         assert graph.total_interactions == 1
@@ -703,7 +815,11 @@ class TestObservability:
     def test_build_society_trace(self):
         obs = SocietyObservability()
         events = (
-            ContextEvent(event_type=ContextEventType.OBSERVATION, actor_id="a1", description="obs"),
+            ContextEvent(
+                event_type=ContextEventType.OBSERVATION,
+                actor_id="a1",
+                description="obs",
+            ),
         )
         trace = obs.build_society_trace(events, total_ticks=5, active_actors=2)
         assert isinstance(trace, SocietyTrace)
@@ -722,10 +838,12 @@ class TestObservability:
 # Step 12.12 — Planetary Runtime Integration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPlanetaryRuntime:
     def setup_method(self):
         try:
             import redis as _redis
+
             r = _redis.Redis(host="localhost", port=6379, db=0, socket_connect_timeout=1)
             r.flushdb()
         except Exception:
@@ -746,7 +864,9 @@ class TestPlanetaryRuntime:
     def test_send_interaction(self):
         pr = PlanetaryRuntime()
         interaction = pr.send_interaction(
-            InteractionType.REQUEST, "alice", ("bob",),
+            InteractionType.REQUEST,
+            "alice",
+            ("bob",),
             topic="milk",
         )
         assert interaction.interaction_type == InteractionType.REQUEST
@@ -813,12 +933,20 @@ class TestPlanetaryRuntime:
         pr.register_actor(enterprise)
         pr.register_actor(robot)
 
-        pr.add_world_entity(WorldEntity(name="Store A", entity_type=WorldEntityType.ENTITY, attributes={"milk_stock": 10}))
+        pr.add_world_entity(
+            WorldEntity(
+                name="Store A",
+                entity_type=WorldEntityType.ENTITY,
+                attributes={"milk_stock": 10},
+            )
+        )
 
         interaction1 = pr.send_interaction(
-            InteractionType.REQUEST, human.identity.actor_id,
+            InteractionType.REQUEST,
+            human.identity.actor_id,
             (enterprise.identity.actor_id,),
-            topic="milk_request", proposal={"item": "milk", "quantity": 2},
+            topic="milk_request",
+            proposal={"item": "milk", "quantity": 2},
         )
         assert interaction1.interaction_type == InteractionType.REQUEST
 
@@ -892,10 +1020,12 @@ class TestPlanetaryRuntime:
 # Item #9 — Multi-society federation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestMultiSocietyRegistry:
     def setup_method(self):
         try:
             import redis as _redis
+
             r = _redis.Redis(host="localhost", port=6379, db=0, socket_connect_timeout=1)
             r.flushdb()
         except Exception:
@@ -936,6 +1066,7 @@ class TestFederatedCycle:
     def setup_method(self):
         try:
             import redis as _redis
+
             r = _redis.Redis(host="localhost", port=6379, db=0, socket_connect_timeout=1)
             r.flushdb()
         except Exception:
@@ -962,9 +1093,13 @@ class TestFederatedCycle:
         profile2 = ActorProfile(identity=ActorIdentity(name="Bob"))
         pr.register_actor(profile1)
         sr2.register_actor(profile2)
-        federation = pr.create_federation("TestFed", member_society_ids=(
-            pr.society.society_id, sr2.society.society_id,
-        ))
+        federation = pr.create_federation(
+            "TestFed",
+            member_society_ids=(
+                pr.society.society_id,
+                sr2.society.society_id,
+            ),
+        )
         result = await pr.federated_cycle(federation.federation_id)
         assert isinstance(result, FederatedCycleResult)
         assert len(result.societies_ticked) == 2
@@ -974,9 +1109,13 @@ class TestFederatedCycle:
     @pytest.mark.asyncio
     async def test_federated_cycle_skips_unregistered(self):
         pr = PlanetaryRuntime()
-        federation = pr.create_federation("Fed", member_society_ids=(
-            pr.society.society_id, "remote_society_not_here",
-        ))
+        federation = pr.create_federation(
+            "Fed",
+            member_society_ids=(
+                pr.society.society_id,
+                "remote_society_not_here",
+            ),
+        )
         result = await pr.federated_cycle(federation.federation_id)
         assert len(result.societies_ticked) == 1
         assert result.unregistered_society_ids == ("remote_society_not_here",)
@@ -995,9 +1134,13 @@ class TestFederatedCycle:
         sr2 = pr.create_society("S2")
         profile = ActorProfile(identity=ActorIdentity(name="Eve"))
         sr2.register_actor(profile)
-        federation = pr.create_federation("Fed", member_society_ids=(
-            pr.society.society_id, sr2.society.society_id,
-        ))
+        federation = pr.create_federation(
+            "Fed",
+            member_society_ids=(
+                pr.society.society_id,
+                sr2.society.society_id,
+            ),
+        )
         await pr.federated_cycle(federation.federation_id)
         updated = pr.federation_manager.get_federation(federation.federation_id)
         assert len(updated.shared_context_history) > 0
@@ -1032,9 +1175,11 @@ class TestFederatedCycle:
 # Ownership boundary — society model independent of networking/messaging
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -1048,20 +1193,38 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_domain_independent_of_networking(self):
         import src.monkey_brain.kernel.society.domain as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("socket", "http", "grpc", "asyncio", "aiohttp", "fastapi", "flask"):
+        for forbidden in (
+            "socket",
+            "http",
+            "grpc",
+            "asyncio",
+            "aiohttp",
+            "fastapi",
+            "flask",
+        ):
             assert forbidden not in imports, f"domain.py must not import: {forbidden}"
 
     def test_domain_independent_of_persistence(self):
         import src.monkey_brain.kernel.society.domain as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("sqlite", "postgres", "mongo", "redis", "sqlalchemy", "dynamodb"):
+        for forbidden in (
+            "sqlite",
+            "postgres",
+            "mongo",
+            "redis",
+            "sqlalchemy",
+            "dynamodb",
+        ):
             assert forbidden not in imports, f"domain.py must not import: {forbidden}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Serialization round-trip tests
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDomainSerialization:
     def test_actor_identity_roundtrip(self):
@@ -1117,8 +1280,10 @@ class TestDomainSerialization:
 
     def test_actor_relationship_roundtrip(self):
         original = ActorRelationship(
-            source_actor_id="a1", target_actor_id="a2",
-            relationship_type=RelationshipType.CUSTOMER, strength=0.8,
+            source_actor_id="a1",
+            target_actor_id="a2",
+            relationship_type=RelationshipType.CUSTOMER,
+            strength=0.8,
         )
         d = original.to_dict()
         restored = ActorRelationship.from_dict(d)
@@ -1128,7 +1293,12 @@ class TestDomainSerialization:
         assert restored.strength == 0.8
 
     def test_actor_address_roundtrip(self):
-        original = ActorAddress(actor_id="a1", address_type="email", value="bob@example.com", is_primary=True)
+        original = ActorAddress(
+            actor_id="a1",
+            address_type="email",
+            value="bob@example.com",
+            is_primary=True,
+        )
         d = original.to_dict()
         restored = ActorAddress.from_dict(d)
         assert restored.address_type == "email"
@@ -1157,6 +1327,7 @@ class TestDomainSerialization:
 
     def test_json_safe(self):
         import json
+
         society = Society(
             name="JSON Test",
             memberships=(ActorMembership(actor_id="a1", role=ActorRole(name="r1")),),
@@ -1169,8 +1340,13 @@ class TestDomainSerialization:
 
 class TestWorldSerialization:
     def test_world_entity_roundtrip(self):
-        original = WorldEntity(name="Store A", entity_type=WorldEntityType.ENTITY,
-                               attributes={"stock": 10}, confidence=0.95, provenance="inventory")
+        original = WorldEntity(
+            name="Store A",
+            entity_type=WorldEntityType.ENTITY,
+            attributes={"stock": 10},
+            confidence=0.95,
+            provenance="inventory",
+        )
         d = original.to_dict()
         restored = WorldEntity.from_dict(d)
         assert restored.entity_id == original.entity_id
@@ -1250,6 +1426,7 @@ class TestWorldSerialization:
 
     def test_shared_world_json_safe(self):
         import json
+
         world = SharedWorld()
         world.add_entity(WorldEntity(name="Test", entity_type=WorldEntityType.RESOURCE, confidence=0.9))
         json_str = json.dumps(world.to_dict(), indent=2)
@@ -1265,22 +1442,45 @@ class TestWorldSerialization:
             society_id="milk_delivery",
             name="Milk Delivery Society",
             memberships=(
-                ActorMembership(actor_id="human_1", role=ActorRole(name="customer", permissions=("order",))),
-                ActorMembership(actor_id="retail_1", role=ActorRole(name="retailer", permissions=("inventory", "fulfill"))),
-                ActorMembership(actor_id="robot_1", role=ActorRole(name="retrieval_robot", permissions=("pick",))),
+                ActorMembership(
+                    actor_id="human_1",
+                    role=ActorRole(name="customer", permissions=("order",)),
+                ),
+                ActorMembership(
+                    actor_id="retail_1",
+                    role=ActorRole(name="retailer", permissions=("inventory", "fulfill")),
+                ),
+                ActorMembership(
+                    actor_id="robot_1",
+                    role=ActorRole(name="retrieval_robot", permissions=("pick",)),
+                ),
             ),
             relationships=(
-                ActorRelationship(source_actor_id="human_1", target_actor_id="retail_1", relationship_type=RelationshipType.CUSTOMER),
-                ActorRelationship(source_actor_id="retail_1", target_actor_id="robot_1", relationship_type=RelationshipType.SUPERIOR),
+                ActorRelationship(
+                    source_actor_id="human_1",
+                    target_actor_id="retail_1",
+                    relationship_type=RelationshipType.CUSTOMER,
+                ),
+                ActorRelationship(
+                    source_actor_id="retail_1",
+                    target_actor_id="robot_1",
+                    relationship_type=RelationshipType.SUPERIOR,
+                ),
             ),
             policies=("no_late_delivery",),
         )
         world = SharedWorld()
-        store = WorldEntity(name="Store A", attributes={"milk_stock": 10}, confidence=0.95, provenance="inventory_system")
+        store = WorldEntity(
+            name="Store A",
+            attributes={"milk_stock": 10},
+            confidence=0.95,
+            provenance="inventory_system",
+        )
         world.add_entity(store)
         world.add_resource(WorldResource(name="Milk", quantity=10, unit="liters", location_id=store.entity_id))
 
         import json
+
         society_json = json.dumps(society.to_dict(), indent=2)
         world_json = json.dumps(world.to_dict(), indent=2)
 

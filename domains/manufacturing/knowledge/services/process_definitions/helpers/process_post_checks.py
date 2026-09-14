@@ -39,6 +39,7 @@ def _serialize(doc: dict) -> dict:
 # Read
 # ---------------------------------------------------------------------------
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -72,7 +73,9 @@ async def get_by_process_definition_id(
     """Fetch the postchecks container that belongs to a given process_definition."""
     if not process_definition_id:
         return None
-    doc = await db[WORKFLOW_COLLECTION].find_one({"process_definition_id": process_definition_id})
+    doc = await db[WORKFLOW_COLLECTION].find_one(
+        {"process_definition_id": process_definition_id}
+    )
     return _serialize(doc) if doc else None
 
 
@@ -86,7 +89,8 @@ async def get_conditions_by_severity(
     if not doc:
         return []
     return [
-        c for c in doc.get("process_definition_post_check_conditions", [])
+        c
+        for c in doc.get("process_definition_post_check_conditions", [])
         if c.get("severity") == severity
     ]
 
@@ -100,7 +104,8 @@ async def get_mandatory_conditions(
     if not doc:
         return []
     return [
-        c for c in doc.get("process_definition_post_check_conditions", [])
+        c
+        for c in doc.get("process_definition_post_check_conditions", [])
         if c.get("is_mandatory") is True
     ]
 
@@ -115,7 +120,8 @@ async def get_conditions_by_corrective_action(
     if not doc:
         return []
     return [
-        c for c in doc.get("process_definition_post_check_conditions", [])
+        c
+        for c in doc.get("process_definition_post_check_conditions", [])
         if corrective_action_id in c.get("links_to_corrective_action_ids", [])
     ]
 
@@ -123,6 +129,7 @@ async def get_conditions_by_corrective_action(
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create(
     db: AsyncIOMotorDatabase,
@@ -178,9 +185,14 @@ async def update_condition(
     Update specific fields of a PostCheckCondition inside the conditions array.
     Pass only the fields you want to change in the `fields` dict.
     """
-    updates = {f"process_definition_post_check_conditions.$.{k}": v for k, v in fields.items()}
+    updates = {
+        f"process_definition_post_check_conditions.$.{k}": v for k, v in fields.items()
+    }
     result = await db[WORKFLOW_COLLECTION].find_one_and_update(
-        {"id": postchecks_id, "process_definition_post_check_conditions.id": condition_id},
+        {
+            "id": postchecks_id,
+            "process_definition_post_check_conditions.id": condition_id,
+        },
         {"$set": updates},
         return_document=True,
     )
@@ -195,8 +207,15 @@ async def link_corrective_action(
 ) -> Optional[dict]:
     """Add a corrective action ID to a condition's links_to_corrective_action_ids array."""
     result = await db[WORKFLOW_COLLECTION].find_one_and_update(
-        {"id": postchecks_id, "process_definition_post_check_conditions.id": condition_id},
-        {"$addToSet": {"process_definition_post_check_conditions.$.links_to_corrective_action_ids": corrective_action_id}},
+        {
+            "id": postchecks_id,
+            "process_definition_post_check_conditions.id": condition_id,
+        },
+        {
+            "$addToSet": {
+                "process_definition_post_check_conditions.$.links_to_corrective_action_ids": corrective_action_id
+            }
+        },
         return_document=True,
     )
     return _serialize(result) if result else None
@@ -210,8 +229,15 @@ async def unlink_corrective_action(
 ) -> Optional[dict]:
     """Remove a corrective action ID from a condition's links array."""
     result = await db[WORKFLOW_COLLECTION].find_one_and_update(
-        {"id": postchecks_id, "process_definition_post_check_conditions.id": condition_id},
-        {"$pull": {"process_definition_post_check_conditions.$.links_to_corrective_action_ids": corrective_action_id}},
+        {
+            "id": postchecks_id,
+            "process_definition_post_check_conditions.id": condition_id,
+        },
+        {
+            "$pull": {
+                "process_definition_post_check_conditions.$.links_to_corrective_action_ids": corrective_action_id
+            }
+        },
         return_document=True,
     )
     return _serialize(result) if result else None
@@ -245,7 +271,9 @@ async def delete_by_process_definition_id(
     process_definition_id: str,
 ) -> bool:
     """Delete the postchecks container that belongs to a process_definition (cascade delete)."""
-    result = await db[WORKFLOW_COLLECTION].delete_one({"process_definition_id": process_definition_id})
+    result = await db[WORKFLOW_COLLECTION].delete_one(
+        {"process_definition_id": process_definition_id}
+    )
     return result.deleted_count == 1
 
 
@@ -256,6 +284,7 @@ async def delete_by_process_definition_id(
 # ---------------------------------------------------------------------------
 # Read
 # ---------------------------------------------------------------------------
+
 
 async def get_step_postchecks_by_id(
     db: AsyncIOMotorDatabase,
@@ -298,7 +327,8 @@ async def get_step_conditions_by_severity(
     if not doc:
         return []
     return [
-        c for c in doc.get("process_step_post_check_conditions", [])
+        c
+        for c in doc.get("process_step_post_check_conditions", [])
         if c.get("severity") == severity
     ]
 
@@ -313,7 +343,8 @@ async def get_step_conditions_by_corrective_action(
     if not doc:
         return []
     return [
-        c for c in doc.get("process_step_post_check_conditions", [])
+        c
+        for c in doc.get("process_step_post_check_conditions", [])
         if corrective_action_id in c.get("links_to_corrective_action_ids", [])
     ]
 
@@ -321,6 +352,7 @@ async def get_step_conditions_by_corrective_action(
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create_step_postchecks(
     db: AsyncIOMotorDatabase,
@@ -370,7 +402,9 @@ async def update_step_condition(
     fields: dict,
 ) -> Optional[dict]:
     """Update specific fields of a condition inside a step's conditions array."""
-    updates = {f"process_step_post_check_conditions.$.{k}": v for k, v in fields.items()}
+    updates = {
+        f"process_step_post_check_conditions.$.{k}": v for k, v in fields.items()
+    }
     result = await db[STEP_COLLECTION].find_one_and_update(
         {"id": postchecks_id, "process_step_post_check_conditions.id": condition_id},
         {"$set": updates},
@@ -388,7 +422,11 @@ async def link_step_corrective_action(
     """Add a corrective action ID to a step condition's links array."""
     result = await db[STEP_COLLECTION].find_one_and_update(
         {"id": postchecks_id, "process_step_post_check_conditions.id": condition_id},
-        {"$addToSet": {"process_step_post_check_conditions.$.links_to_corrective_action_ids": corrective_action_id}},
+        {
+            "$addToSet": {
+                "process_step_post_check_conditions.$.links_to_corrective_action_ids": corrective_action_id
+            }
+        },
         return_document=True,
     )
     return _serialize(result) if result else None
@@ -403,7 +441,11 @@ async def unlink_step_corrective_action(
     """Remove a corrective action ID from a step condition's links array."""
     result = await db[STEP_COLLECTION].find_one_and_update(
         {"id": postchecks_id, "process_step_post_check_conditions.id": condition_id},
-        {"$pull": {"process_step_post_check_conditions.$.links_to_corrective_action_ids": corrective_action_id}},
+        {
+            "$pull": {
+                "process_step_post_check_conditions.$.links_to_corrective_action_ids": corrective_action_id
+            }
+        },
         return_document=True,
     )
     return _serialize(result) if result else None

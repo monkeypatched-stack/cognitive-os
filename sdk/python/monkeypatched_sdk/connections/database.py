@@ -86,9 +86,7 @@ class DatabaseConnectionPool(ConnectionPool):
             return await self._create_mongo()
         if self.db_type == "neo4j":
             return await self._create_neo4j()
-        raise ValueError(
-            f"Unsupported db_type '{self.db_type}'. Supported: postgres, mongo, neo4j."
-        )
+        raise ValueError(f"Unsupported db_type '{self.db_type}'. Supported: postgres, mongo, neo4j.")
 
     async def _create_postgres(self) -> Any:
         """Create an asyncpg connection."""
@@ -96,8 +94,7 @@ class DatabaseConnectionPool(ConnectionPool):
             import asyncpg
         except ImportError as exc:
             raise ImportError(
-                "asyncpg is required for PostgreSQL connections. "
-                "Install with: pip install asyncpg"
+                "asyncpg is required for PostgreSQL connections. Install with: pip install asyncpg"
             ) from exc
         conn = await asyncpg.connect(self.connection_string)
         logger.debug("PostgreSQL connection established.")
@@ -108,10 +105,7 @@ class DatabaseConnectionPool(ConnectionPool):
         try:
             import motor.motor_asyncio as motor
         except ImportError as exc:
-            raise ImportError(
-                "motor is required for MongoDB connections. "
-                "Install with: pip install motor"
-            ) from exc
+            raise ImportError("motor is required for MongoDB connections. Install with: pip install motor") from exc
         client = motor.AsyncIOMotorClient(self.connection_string)
         db_name = self.database_name or "default"
         logger.debug("MongoDB connection established (db=%s).", db_name)
@@ -122,10 +116,7 @@ class DatabaseConnectionPool(ConnectionPool):
         try:
             from neo4j import AsyncGraphDatabase
         except ImportError as exc:
-            raise ImportError(
-                "neo4j is required for Neo4j connections. "
-                "Install with: pip install neo4j"
-            ) from exc
+            raise ImportError("neo4j is required for Neo4j connections. Install with: pip install neo4j") from exc
         driver = AsyncGraphDatabase.driver(self.connection_string)
         session = driver.session(database=self.database_name or "neo4j")
         logger.debug("Neo4j session established.")

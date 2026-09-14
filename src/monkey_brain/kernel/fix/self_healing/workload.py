@@ -11,13 +11,16 @@ The runtime performs:
 
 Repair is not a special case. It injects another workload into the execution graph.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 from src.monkey_brain.kernel.execute.graph import (
-    ExecutionGraph, GraphNode, GraphEdge,
+    ExecutionGraph,
+    GraphNode,
+    GraphEdge,
 )
 from src.monkey_brain.kernel.plan.workload.workload import Workload, WorkloadStep
 
@@ -64,7 +67,9 @@ class SelfHealingPolicy:
         if attempts >= self._max_attempts:
             logger.info(
                 "Node %s hit repair budget (%d/%d) — no expansion",
-                root_id, attempts, self._max_attempts,
+                root_id,
+                attempts,
+                self._max_attempts,
             )
             return None
 
@@ -76,19 +81,29 @@ class SelfHealingPolicy:
 
         nodes = [
             GraphNode(
-                id=repair_id, type="step", label=f"repair-{attempts + 1}",
-                props={"capability": capability, "repair_attempt": attempts + 1, "repair_root": root_id},
+                id=repair_id,
+                type="step",
+                label=f"repair-{attempts + 1}",
+                props={
+                    "capability": capability,
+                    "repair_attempt": attempts + 1,
+                    "repair_root": root_id,
+                },
             ),
             GraphNode(
-                id=verify_id, type="step", label=f"verify-{attempts + 1}",
+                id=verify_id,
+                type="step",
+                label=f"verify-{attempts + 1}",
                 # supersedes: when this node completes successfully, the
                 # scheduler also marks root_id COMPLETE — otherwise root_id
                 # stays FAILED forever (nothing else ever re-checks it) and
                 # every node that depends_on it stays permanently blocked
                 # even after the repair has actually succeeded.
                 props={
-                    "capability": capability, "repair_attempt": attempts + 1,
-                    "repair_root": root_id, "supersedes": root_id,
+                    "capability": capability,
+                    "repair_attempt": attempts + 1,
+                    "repair_root": root_id,
+                    "supersedes": root_id,
                 },
             ),
         ]
@@ -103,16 +118,17 @@ class SelfHealingPolicy:
         # be a prior repair node) keeps every attempt in the chain anchored
         # to the same real preconditions.
         preconditions = [edge.src for edge in graph.incoming(root_id) if edge.rel == "depends_on"]
-        edges = [
-            GraphEdge(src=dep, dst=repair_id, rel="depends_on") for dep in preconditions
-        ] + [
+        edges = [GraphEdge(src=dep, dst=repair_id, rel="depends_on") for dep in preconditions] + [
             # Repair → verify (recheck the retry)
             GraphEdge(src=repair_id, dst=verify_id, rel="depends_on"),
         ]
 
         logger.info(
             "Expanding graph: injecting repair node %s (capability=%s) after %s failed (root=%s)",
-            repair_id, capability, node_id, root_id,
+            repair_id,
+            capability,
+            node_id,
+            root_id,
         )
 
         return {"nodes": nodes, "edges": edges}

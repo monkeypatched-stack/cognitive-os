@@ -14,7 +14,9 @@ class BreakPeriod(BaseModel):
     break_start: time
     break_end: time
     paid: bool = False
-    reason: Optional[str] = Field(None, max_length=100, examples=["Lunch", "Short break"])
+    reason: Optional[str] = Field(
+        None, max_length=100, examples=["Lunch", "Short break"]
+    )
 
     @model_validator(mode="after")
     def end_after_start(self) -> "BreakPeriod":
@@ -34,7 +36,9 @@ class TimeSheetEntry(BaseModel):
     """A single day/shift entry for one worker."""
 
     id: str = Field(default_factory=lambda: str(uuid4()))
-    worker_id: str = Field(..., min_length=1, max_length=50, description="Employee ID or badge number")
+    worker_id: str = Field(
+        ..., min_length=1, max_length=50, description="Employee ID or badge number"
+    )
     worker_name: str = Field(..., min_length=1, max_length=150)
     work_date: date
     shift_type: ShiftType = ShiftType.MORNING
@@ -45,8 +49,12 @@ class TimeSheetEntry(BaseModel):
         default_factory=list,
         description="Delivery notes this worker was involved in",
     )
-    vehicle_id: Optional[str] = Field(None, description="Vehicle driven / operated during this shift")
-    warehouse_zone: Optional[str] = Field(None, max_length=50, description="Zone or bay assignment")
+    vehicle_id: Optional[str] = Field(
+        None, description="Vehicle driven / operated during this shift"
+    )
+    warehouse_zone: Optional[str] = Field(
+        None, max_length=50, description="Zone or bay assignment"
+    )
     tasks_performed: list[str] = Field(
         default_factory=list,
         examples=[["Loading", "Unloading", "Pallet wrapping", "Forklift operation"]],
@@ -110,7 +118,9 @@ class TimeSheet(BaseModel):
     total_regular_hours: float = Field(default=0.0, ge=0)
     total_overtime_hours: float = Field(default=0.0, ge=0)
     total_paid_hours: float = Field(default=0.0, ge=0)
-    currency: str = Field(default="USD", min_length=3, max_length=3, description="ISO 4217")
+    currency: str = Field(
+        default="USD", min_length=3, max_length=3, description="ISO 4217"
+    )
     hourly_rate: Optional[Annotated[Decimal, Field(gt=0)]] = None
     overtime_rate_multiplier: float = Field(default=1.5, gt=0)
     submitted: bool = False

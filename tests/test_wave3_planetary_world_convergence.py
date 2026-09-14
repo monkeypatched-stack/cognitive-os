@@ -47,7 +47,10 @@ def test_learning_world_impact_is_routed_through_planetary_world_model():
         outcome="success",
         world_impact={
             "entity_updates": [
-                {"entity_id": entity.entity_id, "attributes": {"state": {"status": "learned"}}}
+                {
+                    "entity_id": entity.entity_id,
+                    "attributes": {"state": {"status": "learned"}},
+                }
             ]
         },
     )

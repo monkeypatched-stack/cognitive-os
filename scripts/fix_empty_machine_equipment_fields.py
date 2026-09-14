@@ -12,7 +12,11 @@ sys.path.insert(0, "/Users/prashunjaveri/Code/monkeypatched")
 from motor.motor_asyncio import AsyncIOMotorClient
 from services.common.config import settings
 from services.common.embeddings import build_embedding
-from services.common.neo4j_mirror import mirror_document, safe_mirror, close_neo4j_mirror_driver
+from services.common.neo4j_mirror import (
+    mirror_document,
+    safe_mirror,
+    close_neo4j_mirror_driver,
+)
 
 MACHINE_CATEGORIES = {
     "Rapid Mixer Granulator": ("CNC / Automated Machine", "GEA"),
@@ -38,15 +42,47 @@ MACHINE_CATEGORIES = {
 }
 
 MACHINE_TAXONOMY_MAPPING = {
-    "Rapid Mixer Granulator": ("fam_osd_ahmedabad", "cls_osd_granulation", "sub_osd_rmg"),
-    "Granule Sampling Station": ("fam_osd_ahmedabad", "cls_osd_qc_inspection", "sub_osd_thief_sampler"),
-    "Fluid Bed Dryer": ("fam_osd_ahmedabad", "cls_osd_particle_processing", "sub_osd_fbd"),
-    "Moisture Analyzer": ("fam_osd_ahmedabad", "cls_osd_qc_inspection", "sub_osd_inspection_station"),
+    "Rapid Mixer Granulator": (
+        "fam_osd_ahmedabad",
+        "cls_osd_granulation",
+        "sub_osd_rmg",
+    ),
+    "Granule Sampling Station": (
+        "fam_osd_ahmedabad",
+        "cls_osd_qc_inspection",
+        "sub_osd_thief_sampler",
+    ),
+    "Fluid Bed Dryer": (
+        "fam_osd_ahmedabad",
+        "cls_osd_particle_processing",
+        "sub_osd_fbd",
+    ),
+    "Moisture Analyzer": (
+        "fam_osd_ahmedabad",
+        "cls_osd_qc_inspection",
+        "sub_osd_inspection_station",
+    ),
     "Bin Blender": ("fam_osd_ahmedabad", "cls_osd_blending", "sub_osd_bin_blender"),
-    "Rotary Tablet Press": ("fam_osd_ahmedabad", "cls_osd_tablet_processing", "sub_osd_rotary_tablet_press"),
-    "Tablet Weight Checker": ("fam_osd_ahmedabad", "cls_osd_qc_inspection", "sub_osd_tablet_counter"),
-    "Auto Coater": ("fam_osd_ahmedabad", "cls_osd_tablet_processing", "sub_osd_auto_coating_pan"),
-    "Visual Inspection": ("fam_osd_ahmedabad", "cls_osd_qc_inspection", "sub_osd_vision_inspection_system"),
+    "Rotary Tablet Press": (
+        "fam_osd_ahmedabad",
+        "cls_osd_tablet_processing",
+        "sub_osd_rotary_tablet_press",
+    ),
+    "Tablet Weight Checker": (
+        "fam_osd_ahmedabad",
+        "cls_osd_qc_inspection",
+        "sub_osd_tablet_counter",
+    ),
+    "Auto Coater": (
+        "fam_osd_ahmedabad",
+        "cls_osd_tablet_processing",
+        "sub_osd_auto_coating_pan",
+    ),
+    "Visual Inspection": (
+        "fam_osd_ahmedabad",
+        "cls_osd_qc_inspection",
+        "sub_osd_vision_inspection_system",
+    ),
     "Blister Packaging": ("fam_osd_ahmedabad", "cls_osd_packaging", "sub_osd_blister"),
     "Cartoning Machine": ("fam_osd_ahmedabad", "cls_osd_packaging", "sub_osd_cartoner"),
 }
@@ -149,8 +185,26 @@ EQUIPMENT_CATEGORY_MAP = {
     "Finished Product": "Machine",
 }
 
-MACHINE_MANUFACTURERS = ["GEA", "Bosch", "Romaco", "Diosna", "Fette", "Korsch", "Uhlmann", "IMA", "Marchesini", "MG2"]
-EQUIPMENT_MANUFACTURERS = ["Mettler Toledo", "Sartorius", "Ohaus", "A&D", "Thermo Fisher", "Shimadzu"]
+MACHINE_MANUFACTURERS = [
+    "GEA",
+    "Bosch",
+    "Romaco",
+    "Diosna",
+    "Fette",
+    "Korsch",
+    "Uhlmann",
+    "IMA",
+    "Marchesini",
+    "MG2",
+]
+EQUIPMENT_MANUFACTURERS = [
+    "Mettler Toledo",
+    "Sartorius",
+    "Ohaus",
+    "A&D",
+    "Thermo Fisher",
+    "Shimadzu",
+]
 
 PLANT_METADATA = {
     "Tablet Manufacturing Plant": {
@@ -282,7 +336,19 @@ def _resolve_machine_updates(machine: dict) -> dict:
     if location_id:
         location = LOCATION_DATA.get(location_id)
         if location:
-            for key in ("location_id", "location_path", "location_name", "location_type", "location_level", "cleanroom_class", "plant_id", "building_id", "floor_id", "room_id", "bay_id"):
+            for key in (
+                "location_id",
+                "location_path",
+                "location_name",
+                "location_type",
+                "location_level",
+                "cleanroom_class",
+                "plant_id",
+                "building_id",
+                "floor_id",
+                "room_id",
+                "bay_id",
+            ):
                 value = location.get(key) if key != "location_id" else location_id
                 if key == "bay_id":
                     value = location_id if location["location_type"] == "bay" else None
@@ -343,14 +409,10 @@ def _resolve_plant_updates(plant: dict) -> dict:
         elif key == "certifications":
             current_list = current_value if isinstance(current_value, list) else []
             current_names = {
-                str(item.get("name") or "").strip().lower()
-                for item in current_list
-                if isinstance(item, dict)
+                str(item.get("name") or "").strip().lower() for item in current_list if isinstance(item, dict)
             }
             canonical_names = {
-                str(item.get("name") or "").strip().lower()
-                for item in default_value
-                if isinstance(item, dict)
+                str(item.get("name") or "").strip().lower() for item in default_value if isinstance(item, dict)
             }
             if current_names != canonical_names or current_list != default_value:
                 updates[key] = default_value
@@ -371,9 +433,7 @@ async def fix_machines(db):
             doc = {**m, **sets}
             doc.pop("_id", None)
             doc["embedding"] = build_embedding("pharmaceutical_machines", doc)
-            await db.pharmaceutical_machines.update_one(
-                {"machine_id": m["machine_id"]}, {"$set": sets}
-            )
+            await db.pharmaceutical_machines.update_one({"machine_id": m["machine_id"]}, {"$set": sets})
             await safe_mirror(mirror_document("pharmaceutical_machines", doc, "update"))
             updated += 1
             print(f"  Updated: {m.get('machine_id')} - filled {sorted(k for k in sets.keys() if k != 'updated_at')}")
@@ -382,7 +442,8 @@ async def fix_machines(db):
             doc.pop("_id", None)
             doc["embedding"] = build_embedding("pharmaceutical_machines", doc)
             await db.pharmaceutical_machines.update_one(
-                {"machine_id": m["machine_id"]}, {"$set": {"embedding": doc["embedding"]}}
+                {"machine_id": m["machine_id"]},
+                {"$set": {"embedding": doc["embedding"]}},
             )
             await safe_mirror(mirror_document("pharmaceutical_machines", doc, "update"))
 
@@ -421,9 +482,7 @@ async def fix_equipment(db):
             doc = {**e, **sets}
             doc.pop("_id", None)
             doc["embedding"] = build_embedding("pharmaceutical_equipment", doc)
-            await db.pharmaceutical_equipment.update_one(
-                {"equipment_id": e["equipment_id"]}, {"$set": sets}
-            )
+            await db.pharmaceutical_equipment.update_one({"equipment_id": e["equipment_id"]}, {"$set": sets})
             await safe_mirror(mirror_document("pharmaceutical_equipment", doc, "update"))
             updated += 1
             print(f"  Updated: {e.get('equipment_id')} - filled {list(sets.keys())[:-1]}")
@@ -432,7 +491,8 @@ async def fix_equipment(db):
             doc.pop("_id", None)
             doc["embedding"] = build_embedding("pharmaceutical_equipment", doc)
             await db.pharmaceutical_equipment.update_one(
-                {"equipment_id": e["equipment_id"]}, {"$set": {"embedding": doc["embedding"]}}
+                {"equipment_id": e["equipment_id"]},
+                {"$set": {"embedding": doc["embedding"]}},
             )
             await safe_mirror(mirror_document("pharmaceutical_equipment", doc, "update"))
 
@@ -452,9 +512,7 @@ async def fix_plants(db):
             doc = {**plant, **sets}
             doc.pop("_id", None)
             doc["embedding"] = build_embedding("industrial_plants", doc)
-            await db.industrial_plants.update_one(
-                {"id": plant["id"]}, {"$set": sets}
-            )
+            await db.industrial_plants.update_one({"id": plant["id"]}, {"$set": sets})
             await safe_mirror(mirror_document("industrial_plants", doc, "update"))
             updated += 1
             print(f"  Updated: {plant.get('id')} - filled {sorted(k for k in sets.keys() if k != 'updated_at')}")
@@ -462,9 +520,7 @@ async def fix_plants(db):
             doc = {**plant}
             doc.pop("_id", None)
             doc["embedding"] = build_embedding("industrial_plants", doc)
-            await db.industrial_plants.update_one(
-                {"id": plant["id"]}, {"$set": {"embedding": doc["embedding"]}}
-            )
+            await db.industrial_plants.update_one({"id": plant["id"]}, {"$set": {"embedding": doc["embedding"]}})
             await safe_mirror(mirror_document("industrial_plants", doc, "update"))
 
     print(f"Plants: {updated} updated, {len(plants)} total")

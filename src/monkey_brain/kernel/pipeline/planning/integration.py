@@ -31,6 +31,7 @@ the rich PlanningTrace object itself (debugging, future visualization)
 without depending on metadata's dict shape; .plan() (the required Protocol
 method) is unchanged and delegates to it.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -38,16 +39,29 @@ import inspect
 from dataclasses import replace
 from typing import Any
 
-from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Goal, Plan, PlanStep
+from src.monkey_brain.kernel.pipeline.belief_state import (
+    BeliefState,
+    Goal,
+    Plan,
+    PlanStep,
+)
 from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
 from src.monkey_brain.kernel.pipeline.planning.domain import (
-    Goal as DomainGoal, PlanCandidate, PlanningConstraint,
+    Goal as DomainGoal,
+    PlanCandidate,
+    PlanningConstraint,
 )
-from src.monkey_brain.kernel.pipeline.planning.decomposition import GoalDecomposer, GoalTree
+from src.monkey_brain.kernel.pipeline.planning.decomposition import (
+    GoalDecomposer,
+    GoalTree,
+)
 from src.monkey_brain.kernel.pipeline.planning.candidates import CandidateGenerator
 from src.monkey_brain.kernel.pipeline.planning.constraints import ConstraintEngine
 from src.monkey_brain.kernel.pipeline.planning.scoring import PlanScorer
-from src.monkey_brain.kernel.pipeline.planning.trace import PlanningTrace, build_planning_trace
+from src.monkey_brain.kernel.pipeline.planning.trace import (
+    PlanningTrace,
+    build_planning_trace,
+)
 
 
 class IntegratedPlanningEngine:
@@ -81,7 +95,10 @@ class IntegratedPlanningEngine:
         return self.plan_with_trace(belief, goal, context)[0]
 
     def plan_with_trace(
-        self, belief: BeliefState, goal: Goal, context: Any = None,
+        self,
+        belief: BeliefState,
+        goal: Goal,
+        context: Any = None,
     ) -> tuple[Plan, PlanningTrace]:
         """Same as plan(), but also returns the PlanningTrace (Step 8.8) of
         how that decision was reached — for callers who want it directly
@@ -92,7 +109,10 @@ class IntegratedPlanningEngine:
         candidates = self._generator.generate(domain_goal)
         if not candidates:
             trace = build_planning_trace(domain_goal, tree, candidates, None)
-            return self._fallback_plan(belief, goal, context, reason="no_registered_strategy", trace=trace), trace
+            return (
+                self._fallback_plan(belief, goal, context, reason="no_registered_strategy", trace=trace),
+                trace,
+            )
 
         validated = self._validate_candidates(candidates)
         # Score once here so the trace reflects every candidate's actual
@@ -103,7 +123,10 @@ class IntegratedPlanningEngine:
         best = self._scorer.select_best(scored)
         if best is None:
             trace = build_planning_trace(domain_goal, tree, scored, None)
-            return self._fallback_plan(belief, goal, context, reason="all_candidates_rejected", trace=trace), trace
+            return (
+                self._fallback_plan(belief, goal, context, reason="all_candidates_rejected", trace=trace),
+                trace,
+            )
 
         trace = build_planning_trace(domain_goal, tree, scored, best)
         return self._to_belief_plan(best, tree, trace), trace
@@ -114,21 +137,34 @@ class IntegratedPlanningEngine:
         validated: list[PlanCandidate] = []
         for candidate in candidates:
             plan_with_constraints = (
-                replace(candidate.plan, constraints=candidate.plan.constraints + self._default_constraints)
-                if self._default_constraints else candidate.plan
+                replace(
+                    candidate.plan,
+                    constraints=candidate.plan.constraints + self._default_constraints,
+                )
+                if self._default_constraints
+                else candidate.plan
             )
             validated_plan, report = self._constraint_engine.validated_plan(plan_with_constraints)
-            validated.append(replace(
-                candidate, plan=validated_plan,
-                rejected=not report.valid,
-                rejection_reason="; ".join(report.violations) if not report.valid else "",
-            ))
+            validated.append(
+                replace(
+                    candidate,
+                    plan=validated_plan,
+                    rejected=not report.valid,
+                    rejection_reason=("; ".join(report.violations) if not report.valid else ""),
+                )
+            )
         return tuple(validated)
 
     # ── Fallback ─────────────────────────────────────────────────────────
 
     def _fallback_plan(
-        self, belief: BeliefState, goal: Goal, context: Any, *, reason: str, trace: PlanningTrace,
+        self,
+        belief: BeliefState,
+        goal: Goal,
+        context: Any,
+        *,
+        reason: str,
+        trace: PlanningTrace,
     ) -> Plan:
         # self._fallback defaults to a real LLMPlanner, whose .plan() is a
         # genuine async coroutine (see llm_planner.py's own docstring) —
@@ -163,7 +199,9 @@ class IntegratedPlanningEngine:
 
         steps = tuple(
             PlanStep(
-                action=step.operator.name if step.operator is not None else (step.description or f"step_{step.sequence}"),
+                action=(
+                    step.operator.name if step.operator is not None else (step.description or f"step_{step.sequence}")
+                ),
                 description=step.description,
                 preconditions=step.preconditions,
                 expected_outcome=step.expected_outcome,

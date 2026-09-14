@@ -12,6 +12,7 @@ class MonteCarloSolver(ISolver):
 
     Implements UCB1-based tree expansion and simulation.
     """
+
     name = "monte_carlo"
     solver_class = SolverClass.MONTE_CARLO
 
@@ -27,9 +28,11 @@ class MonteCarloSolver(ISolver):
 
         if not actions:
             return SolverResult(
-                solver_name=self.name, solver_class=self.solver_class,
+                solver_name=self.name,
+                solver_class=self.solver_class,
                 solution={"policy": None, "value": 0.0, "visits": 0},
-                confidence=0.3, proof="No actions available — cannot plan",
+                confidence=0.3,
+                proof="No actions available — cannot plan",
             )
 
         initial_state = problem.get("initial_state", {})
@@ -49,6 +52,7 @@ class MonteCarloSolver(ISolver):
                         break
                     exploitation = child["value"] / child["visits"]
                     import math
+
                     exploration = c_param * math.sqrt(2 * math.log(max(node["visits"], 1)) / child["visits"])
                     ucb = exploitation + exploration
                     if ucb > best_score:
@@ -64,7 +68,10 @@ class MonteCarloSolver(ISolver):
                 for action in actions:
                     next_state = transition_fn(node["state"], action)
                     node["children"][action] = {
-                        "state": next_state, "visits": 0, "value": 0.0, "children": {},
+                        "state": next_state,
+                        "visits": 0,
+                        "value": 0.0,
+                        "children": {},
                     }
                 for action, child in node["children"].items():
                     if child["visits"] == 0:
@@ -94,8 +101,13 @@ class MonteCarloSolver(ISolver):
             best_value = 0.0
 
         return SolverResult(
-            solver_name=self.name, solver_class=self.solver_class,
-            solution={"policy": best_action, "value": best_value, "visits": n_simulations},
-            confidence=min(0.7, 0.3 + 0.4 * (1 - 1 / (n_simulations ** 0.5))),
+            solver_name=self.name,
+            solver_class=self.solver_class,
+            solution={
+                "policy": best_action,
+                "value": best_value,
+                "visits": n_simulations,
+            },
+            confidence=min(0.7, 0.3 + 0.4 * (1 - 1 / (n_simulations**0.5))),
             proof=f"MCTS {n_simulations} simulations, best action={best_action}, value={best_value:.3f}",
         )

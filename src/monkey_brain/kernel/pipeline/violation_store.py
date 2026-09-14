@@ -9,6 +9,7 @@ in dependencies.py that resets on restart and answers only "is this
 subject bursting right now" — never a queryable record of what was
 denied, when, or why. This is that queryable record.
 """
+
 from __future__ import annotations
 
 import json
@@ -44,8 +45,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -59,7 +62,12 @@ def _get_client() -> Any:
 
 
 def record_violation(
-    *, subject: str, permission: str, reason: str, outcome: str, pattern_detected: bool = False,
+    *,
+    subject: str,
+    permission: str,
+    reason: str,
+    outcome: str,
+    pattern_detected: bool = False,
 ) -> None:
     """Append one denial record. Best-effort — a Redis outage must never
     turn into a 500 on top of the real 401/403 it's recording, matching

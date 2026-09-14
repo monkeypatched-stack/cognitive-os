@@ -2,6 +2,7 @@
 
 Tests cache improvements, batch operations, and query optimization.
 """
+
 import pytest
 import time
 from unittest.mock import Mock, MagicMock
@@ -53,6 +54,7 @@ class TestPhase4CacheOptimization:
 
         # Wait for expiration
         import time
+
         time.sleep(1.1)
 
         # Verify it's expired
@@ -71,7 +73,7 @@ class TestPhase4CacheOptimization:
             cache.get_intent_ir(f"q{i}", "domain1")
 
         stats_before = cache.statistics()
-        miss_rate_before = 100.0 - float(stats_before['hit_rate'].rstrip('%'))
+        miss_rate_before = 100.0 - float(stats_before["hit_rate"].rstrip("%"))
 
         # Cache items
         for i in range(10):
@@ -82,7 +84,7 @@ class TestPhase4CacheOptimization:
             cache.get_intent_ir(f"q{i}", "domain1")
 
         stats_after = cache.statistics()
-        hit_rate_after = float(stats_after['hit_rate'].rstrip('%'))
+        hit_rate_after = float(stats_after["hit_rate"].rstrip("%"))
 
         assert hit_rate_after > 50, f"Hit rate too low: {hit_rate_after}%"
         print(f"✓ Cache hit rate improved: {miss_rate_before:.1f}% miss → {hit_rate_after:.1f}% hit")
@@ -94,7 +96,9 @@ class TestPhase4BatchOperations:
     @pytest.mark.asyncio
     async def test_bulk_register_actors_efficiency(self):
         """Verify bulk_register_actors is more efficient than single registration."""
-        from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime as SocietyRuntime
+        from src.monkey_brain.kernel.compile.society_runtime import (
+            CompileSocietyRuntime as SocietyRuntime,
+        )
 
         runtime = SocietyRuntime()
 
@@ -118,7 +122,9 @@ class TestPhase4BatchOperations:
 
     def test_bulk_register_reduces_event_pressure(self):
         """Verify bulk registration publishes fewer events."""
-        from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime as SocietyRuntime
+        from src.monkey_brain.kernel.compile.society_runtime import (
+            CompileSocietyRuntime as SocietyRuntime,
+        )
 
         runtime = SocietyRuntime()
 
@@ -160,7 +166,10 @@ class TestPhase4QueryOptimization:
 
     def test_batch_load_performance(self):
         """Verify batch_load is more efficient than individual loads."""
-        from src.monkey_brain.persistence.actor_state_store import ActorStateStore, PersistedActorState
+        from src.monkey_brain.persistence.actor_state_store import (
+            ActorStateStore,
+            PersistedActorState,
+        )
 
         # Mock database
         mock_db = Mock()
@@ -175,10 +184,23 @@ class TestPhase4QueryOptimization:
         # Create 100 mock actor states
         mock_rows = []
         for i in range(100):
-            mock_rows.append((
-                f"actor_{i:02d}", "test_tenant", b"", b"", b"", "{}", b"", 0,
-                datetime.now(), 1, True, 0, 0.0
-            ))
+            mock_rows.append(
+                (
+                    f"actor_{i:02d}",
+                    "test_tenant",
+                    b"",
+                    b"",
+                    b"",
+                    "{}",
+                    b"",
+                    0,
+                    datetime.now(),
+                    1,
+                    True,
+                    0,
+                    0.0,
+                )
+            )
 
         mock_cursor.fetchall.return_value = mock_rows
 
@@ -195,7 +217,10 @@ class TestPhase4QueryOptimization:
 
     def test_batch_save_performance(self):
         """Verify batch_save executes multiple saves efficiently."""
-        from src.monkey_brain.persistence.actor_state_store import ActorStateStore, PersistedActorState
+        from src.monkey_brain.persistence.actor_state_store import (
+            ActorStateStore,
+            PersistedActorState,
+        )
 
         # Mock database
         mock_db = Mock()
@@ -271,6 +296,7 @@ class TestPhase4SchemaOptimization:
 # ──────────────────────────────────────────────────────────────
 # PHASE 4 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase4Complete:
     """Verify Phase 4 performance optimizations are complete."""

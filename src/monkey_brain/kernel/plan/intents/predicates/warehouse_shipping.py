@@ -10,13 +10,17 @@ async def warehouse_shipping_question_answer(client, question, force=False):
         batches = db["production_batches"]
 
         # Batch-specific shipping
-        batch_match = re.search(r'(BATCH-\d+|PB-\w+)', question, re.IGNORECASE)
+        batch_match = re.search(r"(BATCH-\d+|PB-\w+)", question, re.IGNORECASE)
         if batch_match:
             batch_id = batch_match.group(1)
-            doc = await batches.find_one({"$or": [
-                {"batch_number": batch_id},
-                {"batch_id": batch_id},
-            ]})
+            doc = await batches.find_one(
+                {
+                    "$or": [
+                        {"batch_number": batch_id},
+                        {"batch_id": batch_id},
+                    ]
+                }
+            )
             if doc:
                 answer = (
                     f"Shipping Status for {batch_id}:\n"
@@ -27,7 +31,7 @@ async def warehouse_shipping_question_answer(client, question, force=False):
                 return (answer, [], [], False)
 
         # Product-specific inventory
-        product_match = re.search(r'for\s+(.+?)(?:\?|$)', question, re.IGNORECASE)
+        product_match = re.search(r"for\s+(.+?)(?:\?|$)", question, re.IGNORECASE)
         if product_match:
             product = product_match.group(1).strip()
             cursor = batches.find({"product_name": {"$regex": product, "$options": "i"}}).limit(10)
@@ -58,6 +62,18 @@ async def warehouse_shipping_question_answer(client, question, force=False):
 
 def is_warehouse_shipping_question(question):
     q = question.lower()
-    return any(kw in q for kw in ("warehouse", "shipment", "shipping", "dispatch",
-                                    "outbound", "freight", "delivery", "logistics",
-                                    "inventory", "stock"))
+    return any(
+        kw in q
+        for kw in (
+            "warehouse",
+            "shipment",
+            "shipping",
+            "dispatch",
+            "outbound",
+            "freight",
+            "delivery",
+            "logistics",
+            "inventory",
+            "stock",
+        )
+    )

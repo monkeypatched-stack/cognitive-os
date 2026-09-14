@@ -9,6 +9,7 @@ Logistics subscribes to "InventoryReserved"; Customer subscribes to
 (POST /societies' subscribed_events), not a hardcoded map anywhere in
 this script or the runtime.
 """
+
 from __future__ import annotations
 
 import os
@@ -44,6 +45,7 @@ def _call(client: httpx.Client, method: str, path: str, **kwargs: Any) -> dict:
 
 # ── Geography ────────────────────────────────────────────────────────────
 
+
 def _create_geo(client: httpx.Client, entity_type: str, name: str, parent_id: str | None = None) -> str:
     body: dict[str, Any] = {"entity_type": entity_type, "name": name}
     if parent_id:
@@ -72,32 +74,65 @@ def build_geography(client: httpx.Client) -> dict[str, str]:
         space = _create_geo(client, "space", f"{label} Floor", building)
         spaces[key] = space
 
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, **spaces}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        **spaces,
+    }
 
 
 # ── Societies ────────────────────────────────────────────────────────────
 
 # (key, name, description, subscribed_events)
 SOCIETY_DEFS = (
-    ("marketplace", "Marketplace Society", "Coordinates order orchestration", ("OrderCreated",)),
+    (
+        "marketplace",
+        "Marketplace Society",
+        "Coordinates order orchestration",
+        ("OrderCreated",),
+    ),
     ("warehouse", "Warehouse Society", "Picking and packing", ("OrderCreated",)),
     ("inventory", "Inventory Society", "Stock reservation", ("OrderCreated",)),
-    ("logistics", "Logistics Society", "Delivery routing and driver coordination", ("InventoryReserved",)),
-    ("customer", "Customer Society", "Customers browsing and purchasing", ("ShipmentCreated",)),
+    (
+        "logistics",
+        "Logistics Society",
+        "Delivery routing and driver coordination",
+        ("InventoryReserved",),
+    ),
+    (
+        "customer",
+        "Customer Society",
+        "Customers browsing and purchasing",
+        ("ShipmentCreated",),
+    ),
 )
 
 
 def build_societies(client: httpx.Client, spaces: dict[str, str]) -> dict[str, str]:
     societies: dict[str, str] = {}
     for key, name, description, subscribed_events in SOCIETY_DEFS:
-        result = _call(client, "POST", "/societies", json={
-            "name": name, "description": description,
-            "subscribed_events": list(subscribed_events),
-        })
+        result = _call(
+            client,
+            "POST",
+            "/societies",
+            json={
+                "name": name,
+                "description": description,
+                "subscribed_events": list(subscribed_events),
+            },
+        )
         society_id = result["society_id"]
         societies[key] = society_id
-        _call(client, "POST", f"/planet/geo/{spaces[key]}/host", json={"society_id": society_id})
+        _call(
+            client,
+            "POST",
+            f"/planet/geo/{spaces[key]}/host",
+            json={"society_id": society_id},
+        )
     return societies
 
 
@@ -116,20 +151,34 @@ ACTOR_DEFS = (
 def build_actors(client: httpx.Client, societies: dict[str, str]) -> dict[str, str]:
     actors: dict[str, str] = {}
     for society_key, name, actor_type, goals in ACTOR_DEFS:
-        result = _call(client, "POST", "/actors", json={
-            "name": name, "actor_type": actor_type, "goals": goals,
-            "society_id": societies[society_key],
-            "capabilities": [{"name": "general"}],
-        })
+        result = _call(
+            client,
+            "POST",
+            "/actors",
+            json={
+                "name": name,
+                "actor_type": actor_type,
+                "goals": goals,
+                "society_id": societies[society_key],
+                "capabilities": [{"name": "general"}],
+            },
+        )
         actors[name] = result["actor_id"]
 
     # DeliveryCapability needs a real customer delivery-address KG entity
     # (found live in demo/ecommerce this session) — POST /actors/{id}/addresses
     # writes both the society-scoped contact record AND the KG entity.
-    _call(client, "POST", f"/actors/{actors['Alice']}/addresses", json={
-        "actor_id": actors["Alice"], "address_type": "physical",
-        "value": "500 Customer Ave, San Francisco, CA 94103", "is_primary": True,
-    })
+    _call(
+        client,
+        "POST",
+        f"/actors/{actors['Alice']}/addresses",
+        json={
+            "actor_id": actors["Alice"],
+            "address_type": "physical",
+            "value": "500 Customer Ave, San Francisco, CA 94103",
+            "is_primary": True,
+        },
+    )
 
     return actors
 
@@ -137,24 +186,37 @@ def build_actors(client: httpx.Client, societies: dict[str, str]) -> dict[str, s
 # ── Commerce ─────────────────────────────────────────────────────────────
 
 TRACKED_PRODUCT_NAME = "Wireless Gaming Mouse"
-PRODUCT_DEFS = (
-    (TRACKED_PRODUCT_NAME, 59.99, 40),
-)
+PRODUCT_DEFS = ((TRACKED_PRODUCT_NAME, 59.99, 40),)
 
 
 def build_commerce(client: httpx.Client) -> dict[str, Any]:
-    merchant = _call(client, "POST", "/merchants", json={
-        "merchant_id": "merchant_bob", "store_name": "Bob's Electronics", "delivery_fee": 4.99,
-        "address": "742 Market Street, San Francisco, CA 94102",
-    })
+    merchant = _call(
+        client,
+        "POST",
+        "/merchants",
+        json={
+            "merchant_id": "merchant_bob",
+            "store_name": "Bob's Electronics",
+            "delivery_fee": 4.99,
+            "address": "742 Market Street, San Francisco, CA 94102",
+        },
+    )
     store_id = merchant["store_id"]
 
     products = {}
     for name, price, quantity in PRODUCT_DEFS:
-        result = _call(client, "POST", "/products", json={
-            "store_id": store_id, "merchant_id": "merchant_bob",
-            "name": name, "price": price, "quantity": quantity,
-        })
+        result = _call(
+            client,
+            "POST",
+            "/products",
+            json={
+                "store_id": store_id,
+                "merchant_id": "merchant_bob",
+                "name": name,
+                "price": price,
+                "quantity": quantity,
+            },
+        )
         products[name] = result.get("product_id", result.get("id", ""))
 
     # A real delivery rider (found live: DeliveryCapability needs a real
@@ -167,6 +229,7 @@ def build_commerce(client: httpx.Client) -> dict[str, Any]:
 
 
 # ── Validation ───────────────────────────────────────────────────────────
+
 
 def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float = 2.0) -> dict:
     """See demo/ecommerce/bootstrap.py's verify_world for why this retries
@@ -181,9 +244,7 @@ def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float =
             return result
         last_result = result
         violations = result.get("violations", [])
-        only_presence = bool(violations) and all(
-            v.get("category") == "presence_consistency" for v in violations
-        )
+        only_presence = bool(violations) and all(v.get("category") == "presence_consistency" for v in violations)
         if not only_presence or attempt == attempts - 1:
             break
         time.sleep(delay_seconds)
@@ -191,6 +252,7 @@ def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float =
 
 
 # ── Orchestration ────────────────────────────────────────────────────────
+
 
 def bootstrap_world(client: httpx.Client | None = None) -> dict[str, Any]:
     owns_client = client is None
@@ -202,8 +264,11 @@ def bootstrap_world(client: httpx.Client | None = None) -> dict[str, Any]:
         commerce = build_commerce(client)
         verification = verify_world(client)
         return {
-            "spaces": spaces, "societies": societies, "actors": actors,
-            "commerce": commerce, "verification": verification,
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "commerce": commerce,
+            "verification": verification,
         }
     finally:
         if owns_client:

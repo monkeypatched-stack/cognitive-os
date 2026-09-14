@@ -25,28 +25,29 @@ from typing import Any
 
 logger = logging.getLogger("introspection.audit")
 
-_SINK_LOG  = True   # always active — baseline
-_SINK_DB   = bool(os.getenv("AUDIT_MONGODB_ENABLED", ""))
+_SINK_LOG = True  # always active — baseline
+_SINK_DB = bool(os.getenv("AUDIT_MONGODB_ENABLED", ""))
 _COLLECTION = os.getenv("AUDIT_COLLECTION", "audit_records")
 
 
 @dataclass
 class AuditRecord:
     """Immutable audit record. Written once, never modified."""
-    event_id:       str
-    event_type:     str
-    timestamp:      str
-    action:         str
-    outcome:        str
-    trace_id:       str = ""
-    span_id:        str = ""
+
+    event_id: str
+    event_type: str
+    timestamp: str
+    action: str
+    outcome: str
+    trace_id: str = ""
+    span_id: str = ""
     principal_type: str = "unknown"
-    subject:        str = ""
-    agent_type:     str = ""
-    spiffe_id:      str = ""
-    mtls_verified:  bool = False
-    policy_path:    str = ""
-    metadata:       dict[str, Any] = field(default_factory=dict)
+    subject: str = ""
+    agent_type: str = ""
+    spiffe_id: str = ""
+    mtls_verified: bool = False
+    policy_path: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -54,20 +55,20 @@ class AuditRecord:
 
 def _from_event(event: dict[str, Any]) -> AuditRecord:
     return AuditRecord(
-        event_id       = event.get("event_id", ""),
-        event_type     = event.get("event_type", "audit.auth"),
-        timestamp      = event.get("timestamp", datetime.now(timezone.utc).isoformat()),
-        action         = event.get("action", ""),
-        outcome        = event.get("outcome", ""),
-        trace_id       = event.get("trace_id", ""),
-        span_id        = event.get("span_id", ""),
-        principal_type = event.get("principal_type", "unknown"),
-        subject        = event.get("subject", ""),
-        agent_type     = event.get("agent_type", ""),
-        spiffe_id      = event.get("spiffe_id", ""),
-        mtls_verified  = bool(event.get("mtls_verified", False)),
-        policy_path    = event.get("policy_path", ""),
-        metadata       = event.get("metadata", {}),
+        event_id=event.get("event_id", ""),
+        event_type=event.get("event_type", "audit.auth"),
+        timestamp=event.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        action=event.get("action", ""),
+        outcome=event.get("outcome", ""),
+        trace_id=event.get("trace_id", ""),
+        span_id=event.get("span_id", ""),
+        principal_type=event.get("principal_type", "unknown"),
+        subject=event.get("subject", ""),
+        agent_type=event.get("agent_type", ""),
+        spiffe_id=event.get("spiffe_id", ""),
+        mtls_verified=bool(event.get("mtls_verified", False)),
+        policy_path=event.get("policy_path", ""),
+        metadata=event.get("metadata", {}),
     )
 
 
@@ -78,7 +79,11 @@ async def record(event: dict[str, Any]) -> None:
         if _SINK_LOG:
             logger.info(
                 "AUDIT event_id=%s action=%s outcome=%s subject=%s trace=%s",
-                rec.event_id, rec.action, rec.outcome, rec.subject, rec.trace_id,
+                rec.event_id,
+                rec.action,
+                rec.outcome,
+                rec.subject,
+                rec.trace_id,
                 extra={"audit_record": rec.to_dict()},
             )
         if _SINK_DB:
@@ -91,6 +96,7 @@ async def _write_to_db(rec: AuditRecord) -> None:
     """Append-only insert to MongoDB. Never updates existing records."""
     try:
         from src.monkey_brain.persistence.events import PersistenceEvent, EventType
+
         # Re-use the existing persistence event infrastructure
         pe = PersistenceEvent(
             event_type=EventType.ENTITY,
@@ -99,6 +105,7 @@ async def _write_to_db(rec: AuditRecord) -> None:
         )
         # Best-effort — if PersistenceManager isn't wired yet, skip
         import sys
+
         app_module = sys.modules.get("src.monkey_brain.api.main")
         if app_module:
             app = getattr(app_module, "app", None)

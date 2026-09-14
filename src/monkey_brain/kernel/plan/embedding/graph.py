@@ -1,4 +1,5 @@
 """Graph and ontology embedding providers."""
+
 from __future__ import annotations
 
 import re as _re
@@ -24,7 +25,7 @@ class GraphEmbedder(EmbeddingEmbedder):
     def embed(self, item: Any) -> Embedding:
         content = str(getattr(item, "content", item) or "")
         feat = _graph_features(content)
-        feat[9]  = float((getattr(item, "provenance", 0.75) + 1.0 - getattr(item, "uncertainty", 0.25)) / 2)
+        feat[9] = float((getattr(item, "provenance", 0.75) + 1.0 - getattr(item, "uncertainty", 0.25)) / 2)
         feat[10] = float(getattr(item, "provenance", 0.5))
         return Embedding(
             vector=_l2(np.tanh(feat)),
@@ -48,9 +49,39 @@ class OntologyEmbedder(EmbeddingEmbedder):
     def embed(self, item: Any) -> Embedding:
         content = str(getattr(item, "content", item) or "")
         feat = _graph_features(content)
-        feat[9]  = min(len(_re.findall(r"\bsubClassOf\b|\brdfs:subClassOf\b|\bisA\b", content, _re.I)), 50) / 50.0
-        feat[10] = min(len(_re.findall(r"\bObjectProperty\b|\bDataProperty\b|\bAnnotationProperty\b", content, _re.I)), 50) / 50.0
-        feat[11] = min(len(_re.findall(r"\bRestriction\b|\bEquivalentClass\b|\bDisjointWith\b", content, _re.I)), 30) / 30.0
+        feat[9] = (
+            min(
+                len(_re.findall(r"\bsubClassOf\b|\brdfs:subClassOf\b|\bisA\b", content, _re.I)),
+                50,
+            )
+            / 50.0
+        )
+        feat[10] = (
+            min(
+                len(
+                    _re.findall(
+                        r"\bObjectProperty\b|\bDataProperty\b|\bAnnotationProperty\b",
+                        content,
+                        _re.I,
+                    )
+                ),
+                50,
+            )
+            / 50.0
+        )
+        feat[11] = (
+            min(
+                len(
+                    _re.findall(
+                        r"\bRestriction\b|\bEquivalentClass\b|\bDisjointWith\b",
+                        content,
+                        _re.I,
+                    )
+                ),
+                30,
+            )
+            / 30.0
+        )
         feat[12] = min(len(_re.findall(r"\bowl:\w+|\brdfs:\w+|\brdf:\w+", content)), 100) / 100.0
         feat[13] = float((getattr(item, "provenance", 0.9) + 1.0 - getattr(item, "uncertainty", 0.1)) / 2)
         feat[14] = float(getattr(item, "provenance", 0.5))

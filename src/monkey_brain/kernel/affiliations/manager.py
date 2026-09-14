@@ -47,11 +47,17 @@ class AffiliationManager:
         """Add an affiliation. Syncs initial trust to TrustEngine."""
         self._affiliations[affiliation.affiliation_id] = affiliation
         self.trust_engine.set_trust(
-            "self", affiliation.target_id, affiliation.trust_level,
+            "self",
+            affiliation.target_id,
+            affiliation.trust_level,
         )
-        logger.debug("Added %s -> %s (%s, trust=%.2f)",
-                     "self", affiliation.target_name,
-                     affiliation.affiliation_type, affiliation.trust_level)
+        logger.debug(
+            "Added %s -> %s (%s, trust=%.2f)",
+            "self",
+            affiliation.target_name,
+            affiliation.affiliation_type,
+            affiliation.trust_level,
+        )
 
     def update(self, affiliation_id: str, **kwargs: Any) -> Affiliation | None:
         """Update fields on an existing affiliation. Returns updated affiliation."""
@@ -59,6 +65,7 @@ class AffiliationManager:
         if old is None:
             return None
         from dataclasses import replace
+
         updated = replace(old, **kwargs)
         self._affiliations[affiliation_id] = updated
         if "trust_level" in kwargs:
@@ -83,23 +90,19 @@ class AffiliationManager:
 
     def by_type(self, affiliation_type: str) -> list[Affiliation]:
         """Filter by affiliation type (family, employment, education, etc.)."""
-        return [a for a in self._affiliations.values()
-                if a.affiliation_type == affiliation_type]
+        return [a for a in self._affiliations.values() if a.affiliation_type == affiliation_type]
 
     def by_target(self, target_id: str) -> list[Affiliation]:
         """Filter by target entity ID."""
-        return [a for a in self._affiliations.values()
-                if a.target_id == target_id]
+        return [a for a in self._affiliations.values() if a.target_id == target_id]
 
     def by_category(self, category: str) -> list[Affiliation]:
         """Filter by category (personal, organizational, commercial, etc.)."""
-        return [a for a in self._affiliations.values()
-                if a.category == category]
+        return [a for a in self._affiliations.values() if a.category == category]
 
     def by_subtype(self, subtype: str) -> list[Affiliation]:
         """Filter by type ID (family, employment, student, ai_agent, etc.)."""
-        return [a for a in self._affiliations.values()
-                if a.affiliation_type == subtype]
+        return [a for a in self._affiliations.values() if a.affiliation_type == subtype]
 
     # ──────────────────────────────────────────────────────────
     # Trust Interface
@@ -137,9 +140,13 @@ class AffiliationManager:
         for a in matches:
             self.update(a.affiliation_id, trust_level=level)
 
-    def update_trust_from_outcome(self, target_id: str, goal_achieved: bool,
-                                  recommendation_valid: bool | None = None,
-                                  obligation_met: bool | None = None) -> None:
+    def update_trust_from_outcome(
+        self,
+        target_id: str,
+        goal_achieved: bool,
+        recommendation_valid: bool | None = None,
+        obligation_met: bool | None = None,
+    ) -> None:
         """Update trust based on a goal outcome. Primary trust evolution
         mechanism.
 
@@ -152,7 +159,8 @@ class AffiliationManager:
         matches = self.by_target(target_id)
         if not matches:
             self.trust_engine.update_from_outcome(
-                "self", target_id,
+                "self",
+                target_id,
                 goal_achieved=goal_achieved,
                 recommendation_valid=recommendation_valid,
                 obligation_met=obligation_met,
@@ -172,10 +180,7 @@ class AffiliationManager:
 
     def trusted_participants(self, min_trust: float = 0.5) -> list[Affiliation]:
         """Affiliations with trust at or above min_trust."""
-        return [
-            a for a in self._affiliations.values()
-            if a.trust_level >= min_trust
-        ]
+        return [a for a in self._affiliations.values() if a.trust_level >= min_trust]
 
     # ──────────────────────────────────────────────────────────
     # Coordination
@@ -183,23 +188,18 @@ class AffiliationManager:
 
     def by_permission(self, permission: str) -> list[Affiliation]:
         """Affiliations that grant a specific permission."""
-        return [a for a in self._affiliations.values()
-                if permission in a.permissions]
+        return [a for a in self._affiliations.values() if permission in a.permissions]
 
     def has_permission(self, target_id: str, permission: str) -> bool:
         """Check if any affiliation with this target grants the permission."""
-        return any(
-            permission in a.permissions
-            for a in self._affiliations.values()
-            if a.target_id == target_id
-        )
+        return any(permission in a.permissions for a in self._affiliations.values() if a.target_id == target_id)
 
     def active(self) -> list[Affiliation]:
         """Affiliations that are not expired."""
         import datetime
+
         now = datetime.date.today().isoformat()
-        return [a for a in self._affiliations.values()
-                if not a.valid_until or a.valid_until >= now]
+        return [a for a in self._affiliations.values() if not a.valid_until or a.valid_until >= now]
 
     def affiliated_entities(self, kinds: set[str] | None = None) -> list[Affiliation]:
         """The Affiliation Graph traversal entry point: every active
@@ -224,58 +224,58 @@ class AffiliationManager:
 
     _GOAL_AFFILIATION_MAP: dict[str, list[str]] = {
         # Organizational
-        "job":       ["employment", "contractor"],
-        "work":      ["employment", "contractor"],
-        "hire":      ["employment"],
-        "career":    ["employment"],
-        "salary":    ["employment"],
-        "contract":  ["contractor"],
+        "job": ["employment", "contractor"],
+        "work": ["employment", "contractor"],
+        "hire": ["employment"],
+        "career": ["employment"],
+        "salary": ["employment"],
+        "contract": ["contractor"],
         "freelance": ["contractor"],
-        "board":     ["board_member"],
-        "invest":    ["shareholder"],
-        "stock":     ["shareholder"],
+        "board": ["board_member"],
+        "invest": ["shareholder"],
+        "stock": ["shareholder"],
         # Education
-        "school":    ["student", "teacher"],
-        "university":["student", "teacher", "researcher"],
-        "degree":    ["student"],
-        "course":    ["student"],
-        "teach":     ["teacher"],
-        "research":  ["researcher"],
-        "alumni":    ["alumni"],
+        "school": ["student", "teacher"],
+        "university": ["student", "teacher", "researcher"],
+        "degree": ["student"],
+        "course": ["student"],
+        "teach": ["teacher"],
+        "research": ["researcher"],
+        "alumni": ["alumni"],
         # Personal
-        "family":    ["family"],
-        "spouse":    ["marriage", "family"],
-        "child":     ["family", "guardianship"],
-        "parent":    ["family", "guardianship"],
-        "wedding":   ["marriage"],
-        "friend":    ["friendship"],
+        "family": ["family"],
+        "spouse": ["marriage", "family"],
+        "child": ["family", "guardianship"],
+        "parent": ["family", "guardianship"],
+        "wedding": ["marriage"],
+        "friend": ["friendship"],
         # Healthcare
-        "medical":   ["patient", "doctor"],
-        "hospital":  ["patient", "doctor", "caregiver"],
-        "doctor":    ["doctor"],
-        "patient":   ["patient"],
+        "medical": ["patient", "doctor"],
+        "hospital": ["patient", "doctor", "caregiver"],
+        "doctor": ["doctor"],
+        "patient": ["patient"],
         "insurance": ["insured", "patient"],
-        "care":      ["caregiver"],
+        "care": ["caregiver"],
         # Commercial
-        "buy":       ["customer"],
-        "sell":      ["supplier", "vendor"],
-        "supply":    ["supplier"],
-        "partner":   ["partner"],
+        "buy": ["customer"],
+        "sell": ["supplier", "vendor"],
+        "supply": ["supplier"],
+        "partner": ["partner"],
         "franchise": ["franchise"],
-        "vendor":    ["vendor"],
+        "vendor": ["vendor"],
         # Government
-        "government":["citizen", "resident", "taxpayer"],
-        "vote":      ["voter"],
-        "tax":       ["taxpayer"],
-        "official":  ["public_official"],
-        "citizen":   ["citizen"],
-        "resident":  ["resident"],
+        "government": ["citizen", "resident", "taxpayer"],
+        "vote": ["voter"],
+        "tax": ["taxpayer"],
+        "official": ["public_official"],
+        "citizen": ["citizen"],
+        "resident": ["resident"],
         # Digital
-        "agent":     ["ai_agent"],
-        "robot":     ["robot"],
-        "device":    ["device"],
-        "api":       ["service_account"],
-        "service":   ["service_account"],
+        "agent": ["ai_agent"],
+        "robot": ["robot"],
+        "device": ["device"],
+        "api": ["service_account"],
+        "service": ["service_account"],
     }
 
     def discover_participants(self, goal: str) -> list[Affiliation]:
@@ -299,9 +299,7 @@ class AffiliationManager:
 
         if matched_types:
             candidates = [
-                a for a in self._affiliations.values()
-                if a.affiliation_type in matched_types
-                and a.trust_level >= 0.3
+                a for a in self._affiliations.values() if a.affiliation_type in matched_types and a.trust_level >= 0.3
             ]
         else:
             candidates = self.trusted_participants(min_trust=0.3)
@@ -363,8 +361,7 @@ class AffiliationManager:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any],
-                  trust_engine: TrustEngine | None = None) -> AffiliationManager:
+    def from_dict(cls, data: dict[str, Any], trust_engine: TrustEngine | None = None) -> AffiliationManager:
         """Deserialize from dict, preserving subclass types."""
         from .family import FamilyAffiliation
         from .employment import EmploymentAffiliation

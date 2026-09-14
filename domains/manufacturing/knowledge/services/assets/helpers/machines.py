@@ -3,7 +3,10 @@ from datetime import date, datetime
 from typing import Optional
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.assets.models.machines import PharmaceuticalMachineCreate, PharmaceuticalMachineUpdate
+from services.assets.models.machines import (
+    PharmaceuticalMachineCreate,
+    PharmaceuticalMachineUpdate,
+)
 from bson.errors import InvalidDocument
 
 COLLECTION = "pharmaceutical_machines"
@@ -12,19 +15,37 @@ COLLECTION = "pharmaceutical_machines"
 def _normalize_status(value):
     return "Operational" if value == "Active" else value
 
+
 def _serialize(doc: dict) -> dict:
     doc = dict(doc)
     doc.pop("_id", None)
     machine_id = str(doc.get("machine_id") or doc.get("id") or "")
     doc["machine_id"] = machine_id
-    doc["serial_no"] = doc.get("serial_no") or doc.get("serial_number") or machine_id or "UNKNOWN-SERIAL"
-    doc["model_no"] = doc.get("model_no") or doc.get("model_number") or doc.get("machine_type") or "Unknown"
-    doc["type_category"] = doc.get("type_category") or ("Mechanical Machine" if doc.get("machine_type") else "Other")
+    doc["serial_no"] = (
+        doc.get("serial_no")
+        or doc.get("serial_number")
+        or machine_id
+        or "UNKNOWN-SERIAL"
+    )
+    doc["model_no"] = (
+        doc.get("model_no")
+        or doc.get("model_number")
+        or doc.get("machine_type")
+        or "Unknown"
+    )
+    doc["type_category"] = doc.get("type_category") or (
+        "Mechanical Machine" if doc.get("machine_type") else "Other"
+    )
     doc["manufacturer"] = doc.get("manufacturer") or "Unknown"
     doc["manufacturer_country"] = doc.get("manufacturer_country")
     doc["area_classification"] = doc.get("area_classification") or "Unclassified"
     doc["status"] = _normalize_status(doc.get("status") or "Idle")
-    for date_field in ("purchase_date", "installation_date", "warranty_expiry_date", "mfg_date"):
+    for date_field in (
+        "purchase_date",
+        "installation_date",
+        "warranty_expiry_date",
+        "mfg_date",
+    ):
         if date_field in doc and hasattr(doc[date_field], "date"):
             doc[date_field] = doc[date_field].date()
     return doc
@@ -33,7 +54,11 @@ def _serialize(doc: dict) -> dict:
 def _prepare(doc: dict) -> dict:
     """Convert date -> datetime so BSON can encode it."""
     return {
-        k: datetime.combine(v, datetime.min.time()) if isinstance(v, date) and not isinstance(v, datetime) else v
+        k: (
+            datetime.combine(v, datetime.min.time())
+            if isinstance(v, date) and not isinstance(v, datetime)
+            else v
+        )
         for k, v in doc.items()
     }
 
@@ -68,7 +93,10 @@ async def get_by_type(db: AsyncIOMotorDatabase, type_category: str) -> list[dict
     cursor = db[COLLECTION].find({"type_category": type_category})
     return [_serialize(d) async for d in cursor]
 
-async def get_by_workstation(db: AsyncIOMotorDatabase, workstation_id: str) -> list[dict]:
+
+async def get_by_workstation(
+    db: AsyncIOMotorDatabase, workstation_id: str
+) -> list[dict]:
     workstation_ids = {workstation_id}
     workstation = await db["workstations"].find_one(
         {
@@ -125,16 +153,22 @@ async def get_by_plant(db: AsyncIOMotorDatabase, plant_id: str) -> list[dict]:
     return [_serialize(d) async for d in cursor]
 
 
-async def _plant_id_for_workstation(db: AsyncIOMotorDatabase, workstation: dict) -> str | None:
+async def _plant_id_for_workstation(
+    db: AsyncIOMotorDatabase, workstation: dict
+) -> str | None:
     if workstation.get("plant_id"):
         return str(workstation["plant_id"])
     stage_id = workstation.get("stage_id")
     if stage_id:
-        stage = await db["industrial_stages"].find_one({"id": stage_id}, {"plant_id": 1, "line_id": 1})
+        stage = await db["industrial_stages"].find_one(
+            {"id": stage_id}, {"plant_id": 1, "line_id": 1}
+        )
         if stage and stage.get("plant_id"):
             return str(stage["plant_id"])
         if stage and stage.get("line_id"):
-            line = await db["industrial_lines"].find_one({"id": stage["line_id"]}, {"plant_id": 1})
+            line = await db["industrial_lines"].find_one(
+                {"id": stage["line_id"]}, {"plant_id": 1}
+            )
             if line and line.get("plant_id"):
                 return str(line["plant_id"])
     line_id = workstation.get("line_id")
@@ -146,7 +180,9 @@ async def _plant_id_for_workstation(db: AsyncIOMotorDatabase, workstation: dict)
 
 
 async def _valid_workstation_ids(db: AsyncIOMotorDatabase) -> list[str]:
-    workstations = await db["workstations"].find({}, {"id": 1, "name": 1}).to_list(length=1000)
+    workstations = (
+        await db["workstations"].find({}, {"id": 1, "name": 1}).to_list(length=1000)
+    )
     return [
         str(value)
         for workstation in workstations

@@ -13,6 +13,7 @@ from services.orders.models.order_details import (
 
 router = APIRouter()
 
+
 @router.get("/", response_model=PaginatedOrderDetailsResponse)
 async def list_order_details(
     page: int = Query(1, ge=1),
@@ -44,7 +45,9 @@ async def get_order_details(
     return record
 
 
-@router.post("/", response_model=OrderDetailsResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=OrderDetailsResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_order_details(
     data: OrderDetailsCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

@@ -5,6 +5,7 @@ Provides:
 - Save/load Account to MongoDB via ActorStateStore
 - Save/load LoginInfo to MongoDB via ActorStateStore
 """
+
 from __future__ import annotations
 
 import logging
@@ -171,13 +172,13 @@ class ActorProfilePersistence:
         """Save all actor data (profile, account, login_info)."""
         actor_id = actor.entity_id
 
-        if hasattr(actor, 'profile') and actor.profile:
+        if hasattr(actor, "profile") and actor.profile:
             self.save_profile(actor_id, actor.profile)
 
-        if hasattr(actor, 'account') and actor.account:
+        if hasattr(actor, "account") and actor.account:
             self.save_account(actor_id, actor.account)
 
-        if hasattr(actor, 'login_info') and actor.login_info:
+        if hasattr(actor, "login_info") and actor.login_info:
             self.save_login_info(actor_id, actor.login_info)
 
         logger.info("Saved actor %s", actor_id)
@@ -218,8 +219,12 @@ def get_actor_profile_persistence() -> ActorProfilePersistence:
     if _actor_profile_persistence is None:
         try:
             from src.monkey_brain.persistence.db_pool import get_db_pool
+
             _actor_profile_persistence = ActorProfilePersistence(get_db_pool())
         except Exception as exc:
-            logger.warning("get_actor_profile_persistence: Mongo unavailable, profile persistence disabled: %s", exc)
+            logger.warning(
+                "get_actor_profile_persistence: Mongo unavailable, profile persistence disabled: %s",
+                exc,
+            )
             _actor_profile_persistence = ActorProfilePersistence(None)
     return _actor_profile_persistence

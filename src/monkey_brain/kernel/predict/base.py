@@ -2,6 +2,7 @@
 
 Every solver sub-package re-exports from here so there is one definition.
 """
+
 from __future__ import annotations
 
 import abc
@@ -17,18 +18,20 @@ logger = logging.getLogger("agentos.predict.base")
 
 # ── Solver taxonomy ──────────────────────────────────────────────────────────
 
+
 class SolverClass(StrEnum):
-    GRAPH        = "graph"
-    SAT_SMT      = "sat_smt"
-    CONSTRAINT   = "constraint"
-    RULE_ENGINE  = "rule_engine"
+    GRAPH = "graph"
+    SAT_SMT = "sat_smt"
+    CONSTRAINT = "constraint"
+    RULE_ENGINE = "rule_engine"
     MODEL_CHECKER = "model_checker"
-    OPTIMIZER    = "optimizer"
-    JEPA         = "jepa"
-    MONTE_CARLO  = "monte_carlo"
+    OPTIMIZER = "optimizer"
+    JEPA = "jepa"
+    MONTE_CARLO = "monte_carlo"
 
 
 # ── Solver result ─────────────────────────────────────────────────────────────
+
 
 @dataclass
 class SolverResult:
@@ -41,6 +44,7 @@ class SolverResult:
 
 
 # ── Solver interface ──────────────────────────────────────────────────────────
+
 
 class ISolver(abc.ABC):
     name: str
@@ -56,6 +60,7 @@ class ISolver(abc.ABC):
 
 
 # ── Modality registry (used by JEPA) ─────────────────────────────────────────
+
 
 class _ModalityRegistry:
     """Default registry: hash-projection encoder + provenance-weighted mean fusion."""

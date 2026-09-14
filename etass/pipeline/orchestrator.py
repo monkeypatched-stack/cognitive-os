@@ -16,6 +16,7 @@ Architecture:
   ▼     ▼     ▼      ▼
   MB   n8n  OpenClaw Mermaid
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -33,10 +34,11 @@ logger = logging.getLogger("etass.pipeline.orchestrator")
 # Result types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AdapterResult:
     adapter: str
-    status: str          # ok | error | unavailable | skipped
+    status: str  # ok | error | unavailable | skipped
     output: Any = None
     error: str = ""
     elapsed_ms: float = 0.0
@@ -82,6 +84,7 @@ class PipelineResult:
 # Orchestrator
 # ---------------------------------------------------------------------------
 
+
 class ETASSPipelineOrchestrator:
     """Runs the full ETASS pipeline and fans out to all four outputs.
 
@@ -105,7 +108,11 @@ class ETASSPipelineOrchestrator:
 
         # Phase 1 — Prompt Compiler
         ir = await self._compile(spec)
-        logger.info("[orchestrator] compiled prompt for workload=%s domain=%s", spec.workload, spec.domain)
+        logger.info(
+            "[orchestrator] compiled prompt for workload=%s domain=%s",
+            spec.workload,
+            spec.domain,
+        )
 
         # Phase 2 — Build Execution DAG
         dag = self._build_dag(spec, ir)
@@ -151,6 +158,7 @@ class ETASSPipelineOrchestrator:
 
     async def _compile(self, spec) -> "StructuredPromptIR":
         from broca.agents.prompt_compiler import PromptCompilerAgent
+
         agent = PromptCompilerAgent()
         result = await agent.handle({"spec": spec})
         payload = result.get("payload", {}) if isinstance(result, dict) else {}
@@ -161,7 +169,11 @@ class ETASSPipelineOrchestrator:
         return ir
 
     def _minimal_ir(self, spec) -> "StructuredPromptIR":
-        from src.monkey_brain.kernel.execute.provider.prompt_ir import StructuredPromptIR, REASONING_PREAMBLES
+        from src.monkey_brain.kernel.execute.provider.prompt_ir import (
+            StructuredPromptIR,
+            REASONING_PREAMBLES,
+        )
+
         preamble = REASONING_PREAMBLES.get(spec.reasoning, REASONING_PREAMBLES["chain_of_thought"])
         compiled = (
             f"# ETASS Workload: {spec.workload}\n\n"
@@ -187,25 +199,48 @@ class ETASSPipelineOrchestrator:
         # real ExecutionDAG/DAGNode/DAGEdge live here; this was a
         # ModuleNotFoundError on every single call, meaning run() crashed at
         # Phase 2 before any adapter ever dispatched.
-        from src.monkey_brain.kernel.execute.runtime.dag import ExecutionDAG, DAGNode, DAGEdge
+        from src.monkey_brain.kernel.execute.runtime.dag import (
+            ExecutionDAG,
+            DAGNode,
+            DAGEdge,
+        )
 
         dag = ExecutionDAG(metadata={"workload": spec.workload, "domain": spec.domain})
 
         # Linear spine: Spec → Compiler → Planner → Dispatcher
-        spec_node = DAGNode(operator_type="etass_spec", metadata={"workload": spec.workload, "goal": spec.goal[:120]})
+        spec_node = DAGNode(
+            operator_type="etass_spec",
+            metadata={"workload": spec.workload, "goal": spec.goal[:120]},
+        )
         compiler_node = DAGNode(operator_type="prompt_compiler", metadata={"reasoning": spec.reasoning})
         planner_node = DAGNode(operator_type="planner", metadata={"domain": spec.domain})
         dispatcher_node = DAGNode(operator_type="dispatcher", metadata={"fan_out": 4})
 
         dag.nodes.extend([spec_node, compiler_node, planner_node, dispatcher_node])
-        dag.edges.extend([
-            DAGEdge(source_node_id=spec_node.node_id, target_node_id=compiler_node.node_id),
-            DAGEdge(source_node_id=compiler_node.node_id, target_node_id=planner_node.node_id),
-            DAGEdge(source_node_id=planner_node.node_id, target_node_id=dispatcher_node.node_id),
-        ])
+        dag.edges.extend(
+            [
+                DAGEdge(
+                    source_node_id=spec_node.node_id,
+                    target_node_id=compiler_node.node_id,
+                ),
+                DAGEdge(
+                    source_node_id=compiler_node.node_id,
+                    target_node_id=planner_node.node_id,
+                ),
+                DAGEdge(
+                    source_node_id=planner_node.node_id,
+                    target_node_id=dispatcher_node.node_id,
+                ),
+            ]
+        )
 
         # Fan-out leaves
-        for adapter in ("monkeybrain_runtime", "n8n_workflow", "openclaw_a2a", "mermaid_viz"):
+        for adapter in (
+            "monkeybrain_runtime",
+            "n8n_workflow",
+            "openclaw_a2a",
+            "mermaid_viz",
+        ):
             leaf = DAGNode(operator_type=adapter, metadata={"from": dispatcher_node.node_id})
             dag.nodes.append(leaf)
             dag.edges.append(DAGEdge(source_node_id=dispatcher_node.node_id, target_node_id=leaf.node_id))
@@ -220,6 +255,7 @@ class ETASSPipelineOrchestrator:
         t0 = time.monotonic()
         try:
             import httpx
+
             url = f"{self._mb_url}/api/v1/agentos/prompt"
             payload = {
                 "question": ir.compiled_prompt,
@@ -284,6 +320,7 @@ class ETASSPipelineOrchestrator:
             return AdapterResult(adapter="n8n", status="unavailable", error="N8N_WEBHOOK_URL not set")
         try:
             import httpx
+
             payload = {
                 "workload": spec.workload,
                 "goal": spec.goal,
@@ -325,17 +362,20 @@ class ETASSPipelineOrchestrator:
         t0 = time.monotonic()
         try:
             from cerebellum.capabilities.agent.agents import OpenClawCapability
+
             cap = OpenClawCapability(api_url=self._openclaw_api_url)
-            result = await cap.execute({
-                "message": (
-                    f"ETASS {spec.workload} task for domain {spec.domain}.\n"
-                    f"Goal: {spec.goal}\n"
-                    f"Reasoning: {spec.reasoning}\n"
-                    f"DAG: {dag.dag_id} ({len(dag.nodes)} nodes)"
-                ),
-                "agent": os.environ.get("OPENCLAW_AGENT", "main"),
-                "model": os.environ.get("OPENCLAW_MODEL", "claude-cli/claude-sonnet-4-6"),
-            })
+            result = await cap.execute(
+                {
+                    "message": (
+                        f"ETASS {spec.workload} task for domain {spec.domain}.\n"
+                        f"Goal: {spec.goal}\n"
+                        f"Reasoning: {spec.reasoning}\n"
+                        f"DAG: {dag.dag_id} ({len(dag.nodes)} nodes)"
+                    ),
+                    "agent": os.environ.get("OPENCLAW_AGENT", "main"),
+                    "model": os.environ.get("OPENCLAW_MODEL", "claude-cli/claude-sonnet-4-6"),
+                }
+            )
             elapsed = (time.monotonic() - t0) * 1000
             status = result.get("status", "unknown")
             return AdapterResult(
@@ -384,7 +424,17 @@ class ETASSPipelineOrchestrator:
                 label = label_map.get(op, op)
                 node_labels[node.node_id] = nid
                 shape = f'["{label}"]'
-                style_class = "fanout" if op in ("monkeybrain_runtime", "n8n_workflow", "openclaw_a2a", "mermaid_viz") else "spine"
+                style_class = (
+                    "fanout"
+                    if op
+                    in (
+                        "monkeybrain_runtime",
+                        "n8n_workflow",
+                        "openclaw_a2a",
+                        "mermaid_viz",
+                    )
+                    else "spine"
+                )
                 lines.append(f"    {nid}{shape}:::{style_class}")
 
             for edge in dag.edges:

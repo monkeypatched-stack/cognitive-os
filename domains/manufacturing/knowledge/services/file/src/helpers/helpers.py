@@ -27,7 +27,9 @@ load_dotenv()
 
 # env variables for s3
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") or os.getenv("SECRET_ACCESS_KEY")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") or os.getenv(
+    "SECRET_ACCESS_KEY"
+)
 AWS_REGION = os.getenv("AWS_REGION", os.getenv("REGION", "ap-south-1"))
 S3_BUCKET = os.getenv("AWS_S3_BUCKET") or os.getenv("S3_BUCKET")
 S3_BACKUP_BUCKET = os.getenv("AWS_S3_BACKUP_BUCKET") or os.getenv("S3_BACKUP_BUCKET")
@@ -47,16 +49,18 @@ if not S3_BUCKET:
 app = FastAPI(
     title="Document Upload API with Backup",
     description="FastAPI application for Azure Container Apps",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Initialize S3 client (credentials optional if IAM role present)
 s3_client_kwargs = {"region_name": AWS_REGION}
 if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
-    s3_client_kwargs.update({
-        "aws_access_key_id": AWS_ACCESS_KEY_ID,
-        "aws_secret_access_key": AWS_SECRET_ACCESS_KEY,
-    })
+    s3_client_kwargs.update(
+        {
+            "aws_access_key_id": AWS_ACCESS_KEY_ID,
+            "aws_secret_access_key": AWS_SECRET_ACCESS_KEY,
+        }
+    )
 
 s3_client = boto3.client("s3", **s3_client_kwargs)
 
@@ -65,7 +69,9 @@ logger.info(f"Forward Enabled: {FORWARD_ENABLED}")
 logger.info(f"Forward Timeout: {FORWARD_TIMEOUT}s")
 logger.info(f"Forward Expect JSON: {FORWARD_EXPECT_JSON}")
 logger.info(f"S3 Bucket: {S3_BUCKET}")
-logger.info(f"S3 Backup Bucket: {S3_BACKUP_BUCKET or (S3_BUCKET + '-backup' if S3_BUCKET else 'N/A')}")
+logger.info(
+    f"S3 Backup Bucket: {S3_BACKUP_BUCKET or (S3_BUCKET + '-backup' if S3_BUCKET else 'N/A')}"
+)
 
 
 def _local_upload_path(date: str, filename: str) -> Path:
@@ -99,7 +105,12 @@ def _local_file_info(date: str, path: Path, backup_exists: bool = False) -> dict
 def _list_local_files(date: str, create_backup: bool = True) -> dict:
     folder = LOCAL_UPLOAD_DIR / date
     if not folder.exists():
-        return {"date": date, "file_count": 0, "files": [], "message": "No files found for this date"}
+        return {
+            "date": date,
+            "file_count": 0,
+            "files": [],
+            "message": "No files found for this date",
+        }
 
     files = []
     for path in sorted(item for item in folder.iterdir() if item.is_file()):
@@ -111,7 +122,12 @@ def _list_local_files(date: str, create_backup: bool = True) -> dict:
             backup_exists = True
         files.append(_local_file_info(date, path, backup_exists=backup_exists))
 
-    return {"date": date, "file_count": len(files), "files": files, "storage_backend": "local"}
+    return {
+        "date": date,
+        "file_count": len(files),
+        "files": files,
+        "storage_backend": "local",
+    }
 
 
 def _download_headers(filename: str) -> dict[str, str]:
@@ -123,7 +139,9 @@ def _download_headers(filename: str) -> dict[str, str]:
     }
 
 
-def _read_local_file(date: str, filename: str, *, as_attachment: bool = True) -> Response:
+def _read_local_file(
+    date: str, filename: str, *, as_attachment: bool = True
+) -> Response:
     local_path = _local_upload_path(date, filename)
     if not local_path.exists():
         raise HTTPException(status_code=404, detail="File not found locally")
@@ -132,8 +150,14 @@ def _read_local_file(date: str, filename: str, *, as_attachment: bool = True) ->
     if not content_type:
         content_type = "application/octet-stream"
 
-    headers = _download_headers(filename) if as_attachment else {"X-Content-Type-Options": "nosniff"}
-    return Response(content=local_path.read_bytes(), media_type=content_type, headers=headers)
+    headers = (
+        _download_headers(filename)
+        if as_attachment
+        else {"X-Content-Type-Options": "nosniff"}
+    )
+    return Response(
+        content=local_path.read_bytes(), media_type=content_type, headers=headers
+    )
 
 
 def _delete_local_file(date: str, filename: str, delete_backup: bool = True) -> dict:
@@ -178,10 +202,13 @@ def _delete_local_folder(date: str, delete_backup: bool = True) -> dict:
         "backup_deleted": backup_deleted,
     }
 
+
 async def delete_backup_folder(date: str, expected_count: int):
     """Background task to delete backup folder for a specific date."""
     try:
-        backup_bucket = S3_BACKUP_BUCKET or (S3_BUCKET + "-backup" if S3_BUCKET else None)
+        backup_bucket = S3_BACKUP_BUCKET or (
+            S3_BUCKET + "-backup" if S3_BUCKET else None
+        )
         if not backup_bucket:
             logger.warning("No backup bucket configured; skipping backup deletion.")
             return
@@ -195,8 +222,10 @@ async def delete_backup_folder(date: str, expected_count: int):
             batch_size = 1000
             deleted_total = 0
             for i in range(0, len(objects_to_delete), batch_size):
-                batch = objects_to_delete[i:i + batch_size]
-                s3_client.delete_objects(Bucket=backup_bucket, Delete={"Objects": batch})
+                batch = objects_to_delete[i : i + batch_size]
+                s3_client.delete_objects(
+                    Bucket=backup_bucket, Delete={"Objects": batch}
+                )
                 deleted_total += len(batch)
             logger.info(f"✅ Deleted {deleted_total} backup files for {date}")
         else:
@@ -205,10 +234,7 @@ async def delete_backup_folder(date: str, expected_count: int):
         logger.error(f"Failed to delete backup folder for {date}: {e}", exc_info=True)
 
 
-async def upload_file_helper(
-    file: UploadFile = File(...),
-    notify: bool = True
-):
+async def upload_file_helper(file: UploadFile = File(...), notify: bool = True):
     """
     Upload a document to S3 and optionally forward it to another service via WebSocket.
     Folder structure: uploads/YYYY-MM-DD/<uuid>.<ext>
@@ -228,7 +254,7 @@ async def upload_file_helper(
         logger.info(f"Read {len(file_content)} bytes from uploaded file")
 
         # Get MIME type
-        mime_type = file.content_type 
+        mime_type = file.content_type
 
         storage_backend = "s3"
         storage_error = None
@@ -240,14 +266,16 @@ async def upload_file_helper(
                     Bucket=S3_BUCKET,
                     Key=s3_key,
                     Body=file_content,
-                    ContentType=file.content_type or "application/octet-stream"
+                    ContentType=file.content_type or "application/octet-stream",
                 )
                 logger.info(f"Successfully uploaded to S3: {s3_key}")
                 file_url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
             except (BotoCoreError, ClientError, Exception) as exc:
                 storage_backend = "local"
                 storage_error = str(exc)
-                local_path = _save_local_file(date_folder, unique_filename, file_content)
+                local_path = _save_local_file(
+                    date_folder, unique_filename, file_content
+                )
                 file_url = str(local_path)
                 logger.error(
                     "S3 upload failed; saved file locally at %s: %s",
@@ -260,7 +288,9 @@ async def upload_file_helper(
             storage_error = "S3 bucket is not configured"
             local_path = _save_local_file(date_folder, unique_filename, file_content)
             file_url = str(local_path)
-            logger.warning("S3 bucket is not configured; saved file locally at %s", local_path)
+            logger.warning(
+                "S3 bucket is not configured; saved file locally at %s", local_path
+            )
 
         response_data = {
             "message": "File uploaded successfully",
@@ -277,11 +307,11 @@ async def upload_file_helper(
         # 4️⃣ Forward file via WebSocket
         if notify and FORWARD_ENABLED:
             logger.info(f"Forwarding file to WebSocket bridge at {FORWARD_URL}")
-            
+
             # Create temp directory if it doesn't exist
             os.makedirs("/tmp", exist_ok=True)
             temp_file_path = f"/tmp/{unique_filename}"
-            
+
             try:
                 # Save file temporarily for WebSocket sending
                 with open(temp_file_path, "wb") as f:
@@ -296,7 +326,7 @@ async def upload_file_helper(
                         file_path=temp_file_path,
                         original_filename=file.filename,
                         ws_uri=FORWARD_URL,
-                        timeout=FORWARD_TIMEOUT
+                        timeout=FORWARD_TIMEOUT,
                     )
 
                     # Clean up temp file
@@ -315,25 +345,36 @@ async def upload_file_helper(
                         response_data["forward_response"] = ws_result
                         logger.error(f"❌ File forwarding failed: {ws_result}")
 
-                elif mime_type in ("image/jpeg", "image/png", "image/jpg", "image/webp"):
+                elif mime_type in (
+                    "image/jpeg",
+                    "image/png",
+                    "image/jpg",
+                    "image/webp",
+                ):
                     logger.info("Processing image with Qwen-VL via OpenRouter for OCR")
-                    
+
                     # Extract text from image using Qwen-VL via OpenRouter
-                    ocr_result = await extract_text_with_openrouter(file_content, mime_type)
-                    
+                    ocr_result = await extract_text_with_openrouter(
+                        file_content, mime_type
+                    )
+
                     if ocr_result.get("success"):
                         response_data["ocr_text"] = ocr_result.get("text")
                         response_data["ocr_status"] = "success"
                         response_data["ocr_model"] = ocr_result.get("model")
-                        logger.info(f"✅ OCR completed: {len(ocr_result.get('text', ''))} characters extracted")
+                        logger.info(
+                            f"✅ OCR completed: {len(ocr_result.get('text', ''))} characters extracted"
+                        )
                         # send the extracted text to web socket
-                        response = json.dumps({"content":ocr_result.get("text"),"mime_type":mime_type})
+                        response = json.dumps(
+                            {"content": ocr_result.get("text"), "mime_type": mime_type}
+                        )
                         await send_text(response)
                     else:
                         response_data["ocr_status"] = "failed"
                         response_data["ocr_error"] = ocr_result.get("error")
                         logger.error(f"❌ OCR failed: {ocr_result.get('error')}")
-                    
+
                     # Clean up temp file
                     try:
                         os.remove(temp_file_path)
@@ -354,36 +395,34 @@ async def upload_file_helper(
 
 
 async def extract_text_with_openrouter(
-    image_bytes: bytes, 
-    mime_type: str,
-    model: str = "qwen/qwen-2-vl-72b-instruct"
+    image_bytes: bytes, mime_type: str, model: str = "qwen/qwen-2-vl-72b-instruct"
 ) -> dict:
     """
     Extract text from image using Qwen-VL through OpenRouter API.
-    
+
     Args:
         image_bytes: Binary image data
         mime_type: MIME type of the image (e.g., 'image/jpeg')
         model: OpenRouter model to use (default: qwen-2-vl-72b-instruct)
-    
+
     Available Qwen-VL models on OpenRouter:
         - qwen/qwen-2-vl-72b-instruct (most capable)
         - qwen/qwen-2-vl-7b-instruct (faster, cheaper)
-    
+
     Returns:
         dict with keys: success (bool), text (str), model (str), error (str)
     """
     try:
         # Get OpenRouter API key from environment
         openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-        
+
         if not openrouter_api_key:
             logger.error("OpenRouter API key not configured")
             return {"success": False, "error": "OPENROUTER_API_KEY not configured"}
-        
+
         # Encode image to base64
-        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-        
+        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+
         # Prepare request payload for OpenRouter
         payload = {
             "model": model,
@@ -395,17 +434,17 @@ async def extract_text_with_openrouter(
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:{mime_type};base64,{image_base64}"
-                            }
+                            },
                         },
                         {
                             "type": "text",
-                            "text": "Extract all text from this image. Return only the extracted text without any additional commentary or explanation."
-                        }
-                    ]
+                            "text": "Extract all text from this image. Return only the extracted text without any additional commentary or explanation.",
+                        },
+                    ],
                 }
-            ]
+            ],
         }
-        
+
         # Make async HTTP request to OpenRouter
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
@@ -413,43 +452,44 @@ async def extract_text_with_openrouter(
                 headers={
                     "Authorization": f"Bearer {openrouter_api_key}",
                     "Content-Type": "application/json",
-                    "HTTP-Referer": os.getenv("APP_URL", "http://localhost:8000"),  # Optional
-                    "X-Title": os.getenv("APP_NAME", "Document Processor")  # Optional
+                    "HTTP-Referer": os.getenv(
+                        "APP_URL", "http://localhost:8000"
+                    ),  # Optional
+                    "X-Title": os.getenv("APP_NAME", "Document Processor"),  # Optional
                 },
-                json=payload
+                json=payload,
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
-                extracted_text = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-                
+                extracted_text = (
+                    result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                )
+
                 return {
                     "success": True,
                     "text": extracted_text.strip(),
                     "model": result.get("model"),
                     "usage": result.get("usage"),
-                    "provider": "openrouter"
+                    "provider": "openrouter",
                 }
             else:
                 error_detail = response.text
-                logger.error(f"OpenRouter API error: {response.status_code} - {error_detail}")
+                logger.error(
+                    f"OpenRouter API error: {response.status_code} - {error_detail}"
+                )
                 return {
                     "success": False,
-                    "error": f"API request failed: {response.status_code} - {error_detail}"
+                    "error": f"API request failed: {response.status_code} - {error_detail}",
                 }
-                
+
     except httpx.TimeoutException:
         logger.error("OpenRouter API request timed out")
-        return {
-            "success": False,
-            "error": "Request timed out after 60 seconds"
-        }
+        return {"success": False, "error": "Request timed out after 60 seconds"}
     except Exception as e:
         logger.error(f"Error in OCR processing with OpenRouter: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
+
 
 async def list_files_by_date_helper(date: str, create_backup: bool = True):
     """
@@ -469,9 +509,15 @@ async def list_files_by_date_helper(date: str, create_backup: bool = True):
             logger.info(f"No files found for date: {date}")
             local_result = _list_local_files(date, create_backup=create_backup)
             if local_result.get("file_count", 0) > 0:
-                local_result["s3_message"] = "No files found in S3; returned local files"
+                local_result["s3_message"] = (
+                    "No files found in S3; returned local files"
+                )
                 return local_result
-            return {"date": date, "files": [], "message": "No files found for this date"}
+            return {
+                "date": date,
+                "files": [],
+                "message": "No files found for this date",
+            }
 
         files = []
         backup_bucket = S3_BACKUP_BUCKET or f"{S3_BUCKET}-backup"
@@ -493,7 +539,9 @@ async def list_files_by_date_helper(date: str, create_backup: bool = True):
                     file_obj = s3_client.get_object(Bucket=S3_BUCKET, Key=key)
                     file_bytes = file_obj["Body"].read()
                     if backup_bucket:
-                        s3_client.put_object(Bucket=backup_bucket, Key=backup_key, Body=file_bytes)
+                        s3_client.put_object(
+                            Bucket=backup_bucket, Key=backup_key, Body=file_bytes
+                        )
                         backup_exists = True
                         logger.info(f"Created backup for: {key}")
                 except Exception as e:
@@ -503,9 +551,13 @@ async def list_files_by_date_helper(date: str, create_backup: bool = True):
                 "filename": filename,
                 "key": key,
                 "size": obj.get("Size"),
-                "last_modified": obj.get("LastModified").isoformat() if obj.get("LastModified") else None,
+                "last_modified": (
+                    obj.get("LastModified").isoformat()
+                    if obj.get("LastModified")
+                    else None
+                ),
                 "url": f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}",
-                "backup_exists": backup_exists
+                "backup_exists": backup_exists,
             }
             files.append(file_info)
 
@@ -513,20 +565,30 @@ async def list_files_by_date_helper(date: str, create_backup: bool = True):
         return {"date": date, "file_count": len(files), "files": files}
 
     except (BotoCoreError, ClientError) as e:
-        logger.error("S3 list error; listing local files for %s: %s", date, e, exc_info=True)
+        logger.error(
+            "S3 list error; listing local files for %s: %s", date, e, exc_info=True
+        )
         result = _list_local_files(date, create_backup=create_backup)
         result["s3_error"] = str(e)
         return result
     except Exception as e:
-        logger.error("Unexpected S3 list error; listing local files for %s: %s", date, e, exc_info=True)
+        logger.error(
+            "Unexpected S3 list error; listing local files for %s: %s",
+            date,
+            e,
+            exc_info=True,
+        )
         result = _list_local_files(date, create_backup=create_backup)
         result["s3_error"] = str(e)
         return result
-    
+
+
 async def delete_file_helper(date: str, filename: str, delete_backup: bool = True):
     """Delete a file from S3 and optionally its backup."""
     if not S3_BUCKET:
-        logger.warning("S3 bucket is not configured; deleting local file %s/%s", date, filename)
+        logger.warning(
+            "S3 bucket is not configured; deleting local file %s/%s", date, filename
+        )
         return _delete_local_file(date, filename, delete_backup=delete_backup)
 
     s3_key = f"uploads/{date}/{filename}"
@@ -552,7 +614,7 @@ async def delete_file_helper(date: str, filename: str, delete_backup: bool = Tru
             "filename": filename,
             "date": date,
             "s3_key": s3_key,
-            "backup_deleted": False
+            "backup_deleted": False,
         }
 
         if delete_backup:
@@ -575,15 +637,28 @@ async def delete_file_helper(date: str, filename: str, delete_backup: bool = Tru
     except HTTPException:
         raise
     except (BotoCoreError, ClientError) as e:
-        logger.error("S3 delete error; deleting local file %s/%s: %s", date, filename, e, exc_info=True)
+        logger.error(
+            "S3 delete error; deleting local file %s/%s: %s",
+            date,
+            filename,
+            e,
+            exc_info=True,
+        )
         response_data = _delete_local_file(date, filename, delete_backup=delete_backup)
         response_data["s3_error"] = str(e)
         return response_data
     except Exception as e:
-        logger.error("Unexpected S3 delete error; deleting local file %s/%s: %s", date, filename, e, exc_info=True)
+        logger.error(
+            "Unexpected S3 delete error; deleting local file %s/%s: %s",
+            date,
+            filename,
+            e,
+            exc_info=True,
+        )
         response_data = _delete_local_file(date, filename, delete_backup=delete_backup)
         response_data["s3_error"] = str(e)
         return response_data
+
 
 async def read_file_helper(date: str, filename: str, *, as_attachment: bool = True):
     """
@@ -591,7 +666,9 @@ async def read_file_helper(date: str, filename: str, *, as_attachment: bool = Tr
     URL format: /files/YYYY-MM-DD/<filename>
     """
     if not S3_BUCKET:
-        logger.warning("S3 bucket is not configured; reading local file %s/%s", date, filename)
+        logger.warning(
+            "S3 bucket is not configured; reading local file %s/%s", date, filename
+        )
         return _read_local_file(date, filename, as_attachment=as_attachment)
 
     s3_key = f"uploads/{date}/{filename}"
@@ -606,7 +683,11 @@ async def read_file_helper(date: str, filename: str, *, as_attachment: bool = Tr
             content_type = "application/octet-stream"
 
         logger.info(f"Successfully read file: {s3_key} ({len(file_content)} bytes)")
-        headers = _download_headers(filename) if as_attachment else {"X-Content-Type-Options": "nosniff"}
+        headers = (
+            _download_headers(filename)
+            if as_attachment
+            else {"X-Content-Type-Options": "nosniff"}
+        )
         return Response(content=file_content, media_type=content_type, headers=headers)
 
     except ClientError as e:
@@ -619,15 +700,16 @@ async def read_file_helper(date: str, filename: str, *, as_attachment: bool = Tr
     except (BotoCoreError, Exception) as e:
         logger.error("S3 read error; trying local fallback: %s", e, exc_info=True)
         return _read_local_file(date, filename, as_attachment=as_attachment)
-    
+
+
 async def delete_folder_helper(
-    date: str,
-    delete_backup: bool = True,
-    background_tasks: BackgroundTasks = None
+    date: str, delete_backup: bool = True, background_tasks: BackgroundTasks = None
 ):
     """Delete all files for a specific date (entire folder)."""
     if not S3_BUCKET:
-        logger.warning("S3 bucket is not configured; deleting local folder for %s", date)
+        logger.warning(
+            "S3 bucket is not configured; deleting local folder for %s", date
+        )
         return _delete_local_folder(date, delete_backup=delete_backup)
 
     try:
@@ -647,7 +729,7 @@ async def delete_folder_helper(
         if objects_to_delete:
             batch_size = 1000
             for i in range(0, len(objects_to_delete), batch_size):
-                batch = objects_to_delete[i:i + batch_size]
+                batch = objects_to_delete[i : i + batch_size]
                 s3_client.delete_objects(Bucket=S3_BUCKET, Delete={"Objects": batch})
 
         logger.info(f"Deleted {deleted_count} files for date: {date}")
@@ -656,7 +738,7 @@ async def delete_folder_helper(
             "message": f"Deleted {deleted_count} files for date {date}",
             "date": date,
             "deleted_count": deleted_count,
-            "backup_deleted": False
+            "backup_deleted": False,
         }
 
         if delete_backup and background_tasks:
@@ -669,26 +751,37 @@ async def delete_folder_helper(
     except HTTPException:
         raise
     except (BotoCoreError, ClientError) as e:
-        logger.error("S3 folder delete error; deleting local folder for %s: %s", date, e, exc_info=True)
+        logger.error(
+            "S3 folder delete error; deleting local folder for %s: %s",
+            date,
+            e,
+            exc_info=True,
+        )
         response_data = _delete_local_folder(date, delete_backup=delete_backup)
         response_data["s3_error"] = str(e)
         return response_data
     except Exception as e:
-        logger.error("Unexpected S3 folder delete error; deleting local folder for %s: %s", date, e, exc_info=True)
+        logger.error(
+            "Unexpected S3 folder delete error; deleting local folder for %s: %s",
+            date,
+            e,
+            exc_info=True,
+        )
         response_data = _delete_local_folder(date, delete_backup=delete_backup)
         response_data["s3_error"] = str(e)
         return response_data
+
 
 async def send_file_to_bridge(
     file_path: str,
     original_filename: Optional[str] = None,
     ws_uri: Optional[str] = None,
     timeout: float = 30.0,
-    send_as_binary: bool = False
+    send_as_binary: bool = False,
 ) -> Dict[str, Any]:
     """
     Send a file to the WebSocket-to-NATS bridge.
-    
+
     Args:
         file_path: Path to the file to send
         original_filename: Original filename to preserve (optional)
@@ -696,7 +789,7 @@ async def send_file_to_bridge(
                 Use 'ws://localhost:6789' for local testing
         timeout: Connection and send timeout in seconds
         send_as_binary: If True, send as binary frame; if False, send as base64 JSON
-        
+
     Returns:
         Dict with server response, e.g.:
         {
@@ -704,7 +797,7 @@ async def send_file_to_bridge(
             "len": 12345,
             "saved_file": "invoice.pdf"
         }
-        
+
     Raises:
         FileNotFoundError: If file doesn't exist
         websockets.exceptions.WebSocketException: On connection/send errors
@@ -714,56 +807,52 @@ async def send_file_to_bridge(
     # Default to Docker service name for container environments
     if ws_uri is None:
         ws_uri = os.getenv("WEBSOCKET_BRIDGE_URI", "ws://websocket-server:6789")
-    
+
     # Validate file exists
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
-    
+
     # FIX 4: Use original filename if provided, otherwise use basename
     file_name = original_filename if original_filename else os.path.basename(file_path)
     file_size = os.path.getsize(file_path)
-    
+
     logger.info("Sending file to WebSocket bridge: %s (%d bytes)", file_name, file_size)
     logger.debug("WebSocket URI: %s", ws_uri)
     logger.debug("Send mode: %s", "binary" if send_as_binary else "base64-JSON")
-    
+
     try:
         # Connect to WebSocket server with timeout
         async with websockets.connect(ws_uri, open_timeout=timeout) as websocket:
             logger.debug("✓ Connected to WebSocket server")
-            
+
             # Read file contents
             with open(file_path, "rb") as f:
                 file_data = f.read()
-            
+
             logger.info(f"Read {len(file_data)} bytes from file")
-            
+
             # Send file based on mode
             if send_as_binary:
                 # Send as raw binary frame
                 logger.debug("Sending binary frame...")
                 await websocket.send(file_data)
-                
+
             else:
                 # Send as base64-encoded JSON
                 logger.debug("Encoding file as base64...")
-                encoded_data = base64.b64encode(file_data).decode('utf-8')
-                
-                payload = {
-                    "fileName": file_name,
-                    "data": encoded_data
-                }
-                
+                encoded_data = base64.b64encode(file_data).decode("utf-8")
+
+                payload = {"fileName": file_name, "data": encoded_data}
+
                 logger.debug("Sending JSON payload with fileName: %s", file_name)
                 await websocket.send(json.dumps(payload))
-            
+
             logger.debug("Waiting for server acknowledgment...")
             response = {
                 "status": "queued",
-                "note": "File forwarded to bridge (no ACK expected)"
+                "note": "File forwarded to bridge (no ACK expected)",
             }
-                        
-    
+
             # Parse response
             if isinstance(response, str):
                 try:
@@ -772,19 +861,23 @@ async def send_file_to_bridge(
                 except json.JSONDecodeError as e:
                     # FIX 6: Treat non-JSON text responses as successful acknowledgment
                     # Many WebSocket servers return simple text confirmations like "OK" or server info
-                    logger.info(f"WebSocket server response (non-JSON): {response[:200]}")
+                    logger.info(
+                        f"WebSocket server response (non-JSON): {response[:200]}"
+                    )
                     ack = {
                         "status": "queued",  # Treat as success if we got a response
                         "server_response": str(response)[:200],
-                        "note": "Server returned text instead of JSON - treating as acknowledgment"
+                        "note": "Server returned text instead of JSON - treating as acknowledgment",
                     }
             else:
                 # FIX 5: Handle binary responses - also treat as success
-                logger.info(f"WebSocket server sent binary response ({len(response)} bytes)")
+                logger.info(
+                    f"WebSocket server sent binary response ({len(response)} bytes)"
+                )
                 ack = {
                     "status": "queued",  # Treat as success
                     "binary_response_size": len(response),
-                    "note": "Server returned binary response - treating as acknowledgment"
+                    "note": "Server returned binary response - treating as acknowledgment",
                 }
 
             # Check response status
@@ -794,27 +887,27 @@ async def send_file_to_bridge(
                 reason = ack.get("reason", "unknown")
                 logger.warning("✗ File rejected by server: %s", reason)
             else:
-                logger.warning("⚠ Unexpected server response status: %s", ack.get("status"))
-            
+                logger.warning(
+                    "⚠ Unexpected server response status: %s", ack.get("status")
+                )
+
             return ack
-            
+
     except websockets.exceptions.InvalidURI as e:
         logger.error("Invalid WebSocket URI: %s", ws_uri)
         raise
-        
+
     except websockets.exceptions.WebSocketException as e:
         logger.error("WebSocket error: %s", e)
         raise
-        
+
     except Exception as e:
         logger.error("Unexpected error sending file: %s", e, exc_info=True)
         raise
 
+
 async def send_text(text):
-    payload = {
-        "type": "text",
-        "message": text
-    }
+    payload = {"type": "text", "message": text}
 
     async with websockets.connect(FORWARD_URL) as ws:
         print("📡 Connected (text mode)")

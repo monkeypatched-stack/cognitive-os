@@ -5,6 +5,7 @@ GET /security/violations        — persisted auth-denial records
 GET /capability-bus/resolve      — which registry (capability/agent/
                                     provider) owns a given name
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,5 +48,10 @@ async def resolve_via_capability_bus(
     wired at boot in kernel.py's _phase_broca."""
     bus = getattr(request.app.state, "_capability_bus", None)
     if bus is None:
-        return {"name": name, "found": False, "source": "", "error": "capability bus not wired"}
+        return {
+            "name": name,
+            "found": False,
+            "source": "",
+            "error": "capability bus not wired",
+        }
     return bus.resolve(name)

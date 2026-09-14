@@ -81,9 +81,7 @@ class OAuth2Handler:
         try:
             import httpx
         except ImportError as exc:
-            raise AuthenticationError(
-                "httpx is required for OAuth2Handler. Install with: pip install httpx"
-            ) from exc
+            raise AuthenticationError("httpx is required for OAuth2Handler. Install with: pip install httpx") from exc
 
         payload: Dict[str, str] = {
             "grant_type": "client_credentials",
@@ -106,8 +104,7 @@ class OAuth2Handler:
 
         except httpx.HTTPStatusError as exc:
             raise AuthenticationError(
-                f"OAuth2 token request failed ({exc.response.status_code}): "
-                f"{exc.response.text}"
+                f"OAuth2 token request failed ({exc.response.status_code}): {exc.response.text}"
             ) from exc
         except Exception as exc:
             raise AuthenticationError(f"OAuth2 token request error: {exc}") from exc

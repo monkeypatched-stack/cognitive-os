@@ -17,7 +17,9 @@ async def list_events(
     category: Optional[str] = Query(None, description="Filter by category"),
     status: Optional[str] = Query(None, description="Filter by status"),
     priority: Optional[str] = Query(None, description="Filter by priority"),
-    event_type: Optional[str] = Query(None, alias="type", description="Filter by event type"),
+    event_type: Optional[str] = Query(
+        None, alias="type", description="Filter by event type"
+    ),
     _: dict = Depends(require_permission("perm-view-events")),
 ):
     events, total = await crud.get_all_events(
@@ -42,7 +44,9 @@ async def get_events_by_machine(
     _: dict = Depends(require_permission("perm-view-events")),
 ):
     events, total = await crud.get_events_by_machine_id(
-        machine_id=machine_id, page=page, page_size=page_size,
+        machine_id=machine_id,
+        page=page,
+        page_size=page_size,
     )
     return PaginatedEventsResponse(
         total=total, page=page, page_size=page_size, results=events
@@ -57,7 +61,9 @@ async def get_events_by_equipment_id(
     _: dict = Depends(require_permission("perm-view-events")),
 ):
     events, total = await crud.get_events_by_equipment_id(
-        equipment_id=equipment_id, page=page, page_size=page_size,
+        equipment_id=equipment_id,
+        page=page,
+        page_size=page_size,
     )
     return PaginatedEventsResponse(
         total=total, page=page, page_size=page_size, results=events

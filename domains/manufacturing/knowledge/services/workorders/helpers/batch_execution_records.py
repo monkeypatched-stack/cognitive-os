@@ -9,7 +9,6 @@ from services.workorders.models.batch_execution_records import (
     BatchProductionExecutionRecordUpdate,
 )
 
-
 COLLECTION = "batch_production_execution_records"
 
 EXECUTION_STATUS_TO_BATCH_STATUS = {
@@ -54,7 +53,11 @@ async def _with_batch_record_package(db: AsyncIOMotorDatabase, doc: dict) -> dic
     ).to_list(None)
     cleaning_record_ids = _ordered_union(
         record.get("cleaning_record_ids") or [],
-        [item["record_id"] for item in linked_cleaning_records if item.get("record_id")],
+        [
+            item["record_id"]
+            for item in linked_cleaning_records
+            if item.get("record_id")
+        ],
     )
     cleaning_attachment_ids = _ordered_union(
         *[item.get("attachments") or [] for item in linked_cleaning_records],
@@ -84,7 +87,9 @@ async def _with_batch_record_package(db: AsyncIOMotorDatabase, doc: dict) -> dic
     )
 
     for package in (batch_record_package, bmr_package, bpr_package):
-        package["cleaning_record_ids"] = _ordered_union(package.get("cleaning_record_ids") or [], cleaning_record_ids)
+        package["cleaning_record_ids"] = _ordered_union(
+            package.get("cleaning_record_ids") or [], cleaning_record_ids
+        )
         package["cleaning_attachment_ids"] = _ordered_union(
             package.get("cleaning_attachment_ids") or [],
             cleaning_attachment_ids,
@@ -100,9 +105,12 @@ async def _with_batch_record_package(db: AsyncIOMotorDatabase, doc: dict) -> dic
             dispense_weighing_record_ids,
         )
     if dispense_weighing_evidence_ids:
-        batch_record_package["dispense_weighing_evidence_document_ids"] = _ordered_union(
-            batch_record_package.get("dispense_weighing_evidence_document_ids") or [],
-            dispense_weighing_evidence_ids,
+        batch_record_package["dispense_weighing_evidence_document_ids"] = (
+            _ordered_union(
+                batch_record_package.get("dispense_weighing_evidence_document_ids")
+                or [],
+                dispense_weighing_evidence_ids,
+            )
         )
         bmr_package["dispense_weighing_evidence_document_ids"] = _ordered_union(
             bmr_package.get("dispense_weighing_evidence_document_ids") or [],
@@ -147,7 +155,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -218,12 +228,18 @@ async def get_all(
     return [await _with_batch_record_package(db, doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, batch_execution_record_id: str) -> Optional[dict]:
-    doc = await db[COLLECTION].find_one({"batch_execution_record_id": batch_execution_record_id})
+async def get_by_id(
+    db: AsyncIOMotorDatabase, batch_execution_record_id: str
+) -> Optional[dict]:
+    doc = await db[COLLECTION].find_one(
+        {"batch_execution_record_id": batch_execution_record_id}
+    )
     return await _with_batch_record_package(db, doc) if doc else None
 
 
-async def create(db: AsyncIOMotorDatabase, data: BatchProductionExecutionRecordCreate) -> dict:
+async def create(
+    db: AsyncIOMotorDatabase, data: BatchProductionExecutionRecordCreate
+) -> dict:
     doc = _prepare(data.model_dump())
     await db[COLLECTION].insert_one(doc)
     await _attach_to_production_batch(db, doc)
@@ -239,7 +255,9 @@ async def update(
     if not fields:
         return await get_by_id(db, batch_execution_record_id)
 
-    existing = await db[COLLECTION].find_one({"batch_execution_record_id": batch_execution_record_id})
+    existing = await db[COLLECTION].find_one(
+        {"batch_execution_record_id": batch_execution_record_id}
+    )
     if not existing:
         return None
 
@@ -261,5 +279,7 @@ async def update(
 
 
 async def delete(db: AsyncIOMotorDatabase, batch_execution_record_id: str) -> bool:
-    result = await db[COLLECTION].delete_one({"batch_execution_record_id": batch_execution_record_id})
+    result = await db[COLLECTION].delete_one(
+        {"batch_execution_record_id": batch_execution_record_id}
+    )
     return result.deleted_count == 1

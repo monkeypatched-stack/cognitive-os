@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 
+
 # Assuming a TodoListService class exists - replace with actual implementation if different
 class TodoListService:
     def __init__(self):
@@ -75,6 +76,7 @@ def test_create_task():
     assert service.get_task(task_id)["title"] == "Task 1"
     assert service.get_task(task_id)["description"] == "Description 1"
 
+
 def test_read_task():
     service = TodoListService()
     service.create_task("Task 1", "Description 1")
@@ -83,6 +85,7 @@ def test_read_task():
     assert task["title"] == "Task 1"
     assert task["description"] == "Description 1"
 
+
 def test_update_task():
     service = TodoListService()
     service.create_task("Task 1", "Description 1")
@@ -90,12 +93,14 @@ def test_update_task():
     assert updated is True
     assert service.get_task(1)["title"] == "Task Updated"
 
+
 def test_delete_task():
     service = TodoListService()
     service.create_task("Task 1", "Description 1")
     deleted = service.delete_task(1)
     assert deleted is True
     assert service.get_task(1) is None
+
 
 # Additional Tests - covering the API endpoints (using a mock approach)
 def test_create_task_api():
@@ -106,12 +111,13 @@ def test_create_task_api():
     assert service.get_task(1)["title"] == "Test Task"
     assert service.get_task(1)["description"] == "Test Description"
 
+
 def test_create_task_api_invalid_payload():
     service = TodoListService()
     data = {"title": "Test Task"}  # Missing description
     try:
         response = service.create_task(**data)
-        assert response is None # Expecting a 400 status
+        assert response is None  # Expecting a 400 status
     except TypeError:
         pass  # Expected - missing required argument
     assert service.get_task(1) is None
@@ -125,6 +131,7 @@ def test_read_task_api():
     assert response["title"] == "Task 1"
     assert response["description"] == "Description 1"
 
+
 def test_update_task_api():
     service = TodoListService()
     service.create_task("Task 1", "Original Description")
@@ -133,6 +140,7 @@ def test_update_task_api():
     response = service.get_task(1)
     assert response["title"] == "Updated Title"
 
+
 def test_delete_task_api():
     service = TodoListService()
     service.create_task("Task 1", "Description 1")
@@ -140,7 +148,8 @@ def test_delete_task_api():
     assert response is True
     assert service.get_task(1) is None
 
+
 def test_nonexistent_task_api():
-  service = TodoListService()
-  response = service.get_task(99)
-  assert response is None
+    service = TodoListService()
+    response = service.get_task(99)
+    assert response is None

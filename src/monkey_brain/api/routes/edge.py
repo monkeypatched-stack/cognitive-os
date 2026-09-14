@@ -21,6 +21,7 @@ reopen exactly the isolation gap that was just closed. The snapshot is
 accepted and acknowledged (for observability/audit) but not merged
 anywhere.
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,11 +63,14 @@ async def edge_sync(
         [o.src for o in body.observations] + [o.dst for o in body.observations],
         [(o.src, o.dst) for o in body.observations],
         domain=body.observations[0].domain if body.observations else "edge_sync",
-        reward=(sum(o.probability for o in body.observations) / len(body.observations)) if body.observations else 1.0,
+        reward=((sum(o.probability for o in body.observations) / len(body.observations)) if body.observations else 1.0),
     )
     logger.info(
         "[edge] sync from actor=%s node=%s: %d observation(s) folded, %d policy Q-value(s) acknowledged (not merged — actor-owned)",
-        actor_id, body.node_id, folded, len(body.policy_snapshot),
+        actor_id,
+        body.node_id,
+        folded,
+        len(body.policy_snapshot),
     )
     return {
         "success": True,
@@ -91,10 +95,12 @@ async def edge_world_update(
     for src, dst in tensor:
         if len(transitions) >= limit:
             break
-        transitions.append({
-            "src": src,
-            "dst": dst,
-            "domain": tensor.domain_of(src),
-            "probability": tensor.feature(src, dst, Feature.PROBABILITY),
-        })
+        transitions.append(
+            {
+                "src": src,
+                "dst": dst,
+                "domain": tensor.domain_of(src),
+                "probability": tensor.feature(src, dst, Feature.PROBABILITY),
+            }
+        )
     return {"actor_id": actor_id, "transitions": transitions, "count": len(transitions)}

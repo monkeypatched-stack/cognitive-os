@@ -110,20 +110,38 @@ class MasterBatchManufacturingRecordTemplate(BaseModel):
         self.approval_chain_resolved_at = ensure_utc(self.approval_chain_resolved_at)
         self.created_at = ensure_utc(self.created_at) or utc_now()
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
-        if self.effective_to and self.effective_from and self.effective_to < self.effective_from:
+        if (
+            self.effective_to
+            and self.effective_from
+            and self.effective_to < self.effective_from
+        ):
             raise ValueError("effective_to cannot be before effective_from.")
         if self.status in {MbmrTemplateStatus.APPROVED, MbmrTemplateStatus.EFFECTIVE}:
             if not self.approved_by or not self.approved_at:
-                raise ValueError("approved/effective MBMR templates must include approved_by and approved_at.")
+                raise ValueError(
+                    "approved/effective MBMR templates must include approved_by and approved_at."
+                )
             if not self.sections:
-                raise ValueError("approved/effective MBMR templates must include sections.")
+                raise ValueError(
+                    "approved/effective MBMR templates must include sections."
+                )
             if not self.approval_chain or not self.approval_chain_resolved:
-                raise ValueError("approved/effective MBMR templates must include a resolved named approval_chain.")
-            unresolved = [step.stage for step in self.approval_chain if step.status != MbmrApprovalStatus.APPROVED]
+                raise ValueError(
+                    "approved/effective MBMR templates must include a resolved named approval_chain."
+                )
+            unresolved = [
+                step.stage
+                for step in self.approval_chain
+                if step.status != MbmrApprovalStatus.APPROVED
+            ]
             if unresolved:
-                raise ValueError(f"approved/effective MBMR templates have unresolved approvals: {', '.join(unresolved)}.")
+                raise ValueError(
+                    f"approved/effective MBMR templates have unresolved approvals: {', '.join(unresolved)}."
+                )
             if not self.signature_ids:
-                raise ValueError("approved/effective MBMR templates must include signature_ids.")
+                raise ValueError(
+                    "approved/effective MBMR templates must include signature_ids."
+                )
         return self
 
     model_config = {"use_enum_values": True}

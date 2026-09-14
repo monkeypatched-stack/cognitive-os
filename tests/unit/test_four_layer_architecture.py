@@ -2,6 +2,7 @@
 
 Validates that each layer operates independently and the invariants hold.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -9,16 +10,19 @@ import pytest
 
 from monkey_brain.kernel.cognitive_engine import CognitiveArchitecture
 from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor, Feature
-from src.monkey_brain.kernel.compile.action_operator import ActionOperator, ActionLegality
+from src.monkey_brain.kernel.compile.action_operator import (
+    ActionOperator,
+    ActionLegality,
+)
 from src.monkey_brain.kernel.learn.world_learner import WorldLearner, Observation
 from src.monkey_brain.kernel.learn.policy_learner import PolicyLearner
 from src.monkey_brain.kernel.policy.store import PolicyStore
 from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Layer 1: World Inference
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLayer1WorldInference:
     """Layer 1: W_{t+1} = f(W_t, O₁, O₂, ..., Oₙ)"""
@@ -87,8 +91,8 @@ class TestLayer1WorldInference:
         wl.observe_transition("s1", "s3")
 
         # P(s2|s1) = 2/3, P(s3|s1) = 1/3
-        assert abs(world.feature("s1", "s2", Feature.PROBABILITY) - 2/3) < 1e-6
-        assert abs(world.feature("s1", "s3", Feature.PROBABILITY) - 1/3) < 1e-6
+        assert abs(world.feature("s1", "s2", Feature.PROBABILITY) - 2 / 3) < 1e-6
+        assert abs(world.feature("s1", "s3", Feature.PROBABILITY) - 1 / 3) < 1e-6
 
     def test_world_learner_proposal_mechanism(self):
         """WorldLearner decides which observations to incorporate."""
@@ -101,6 +105,7 @@ class TestLayer1WorldInference:
 
     def test_world_learner_can_reject(self):
         """WorldLearner can reject observations via propose()."""
+
         class RejectingLearner(WorldLearner):
             def propose(self, observation: Observation) -> bool:
                 return observation.confidence >= 0.5
@@ -116,6 +121,7 @@ class TestLayer1WorldInference:
 # ═══════════════════════════════════════════════════════════════════════════
 # Layer 2: Belief Formation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLayer2BeliefFormation:
     """Layer 2: Belief_a = g(W, O_a, C_a)"""
@@ -178,7 +184,7 @@ class TestLayer2BeliefFormation:
         """Partial observability is a feature, not a bug."""
         arch = CognitiveArchitecture()
         for i in range(5):
-            arch.propose_observation(f"s{i}", f"s{i+1}")
+            arch.propose_observation(f"s{i}", f"s{i + 1}")
 
         # Each actor sees only what it observed
         arch.create_actor("actor_a")
@@ -197,6 +203,7 @@ class TestLayer2BeliefFormation:
 # ═══════════════════════════════════════════════════════════════════════════
 # Layer 3: Decision
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLayer3Decision:
     """Layer 3: Action_a = π(Belief_a)"""
@@ -278,6 +285,7 @@ class TestLayer3Decision:
 # ═══════════════════════════════════════════════════════════════════════════
 # Layer 4: Learning
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLayer4Learning:
     """Layer 4: L_world = L_t + L_e, L_actor = L_world + L_p"""
@@ -376,6 +384,7 @@ class TestLayer4Learning:
 # ═══════════════════════════════════════════════════════════════════════════
 # Architectural Invariants
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestArchitecturalInvariants:
     """Verify all architectural invariants hold."""

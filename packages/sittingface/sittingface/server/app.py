@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import tarfile
 from datetime import datetime, timezone, timedelta
 from io import BytesIO
@@ -32,6 +31,7 @@ KNOWLEDGE_PACK_PROVENANCE: dict[str, dict[str, list]] = {}
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
+
 
 class ChartMeta(BaseModel):
     name: str
@@ -70,9 +70,14 @@ class ChartResponse(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": "sittingface-registry", "charts": len(INDEX)}
+    return {
+        "status": "healthy",
+        "service": "sittingface-registry",
+        "charts": len(INDEX),
+    }
 
 
 @app.get("/api/v1/charts", response_model=list[ChartMeta])
@@ -89,9 +94,11 @@ async def list_charts(
             continue
         if search:
             sl = search.lower()
-            if (sl not in meta.get("name", "").lower() and
-                sl not in meta.get("description", "").lower() and
-                not any(sl in t.lower() for t in meta.get("tags", []))):
+            if (
+                sl not in meta.get("name", "").lower()
+                and sl not in meta.get("description", "").lower()
+                and not any(sl in t.lower() for t in meta.get("tags", []))
+            ):
                 continue
         results.append(ChartMeta(**meta))
     return results
@@ -161,10 +168,10 @@ async def get_knowledge_pack_provenance(name: str, version: str) -> dict:
     if refs is None:
         raise HTTPException(404, f"No provenance recorded for {name} v{version}")
     return {
-        "name":          name,
-        "version":       version,
+        "name": name,
+        "version": version,
         "episodic_refs": refs,
-        "ref_count":     len(refs),
+        "ref_count": len(refs),
     }
 
 
@@ -204,8 +211,12 @@ async def publish_chart_upload(
         raise HTTPException(400, "No values.yaml found in archive")
 
     req = PublishRequest(
-        name=name, version=version, description=description,
-        tags=tag_list, chart_type=chart_type, **chart_data,
+        name=name,
+        version=version,
+        description=description,
+        tags=tag_list,
+        chart_type=chart_type,
+        **chart_data,
     )
     return await publish_chart(req)
 
@@ -260,6 +271,7 @@ class VaultPublishRequest(BaseModel):
 def _get_vault_fernet(password: str):
     """Resolve a Fernet instance from a password, or raise 500."""
     from sittingface.vault import CodeVault
+
     vault = CodeVault(password=password)
     fernet = vault._get_fernet()
     if not fernet:
@@ -332,10 +344,12 @@ async def vault_get(
     try:
         values_yaml = fernet.decrypt(encrypted["values_yaml_encrypted"].encode()).decode()
         templates = {
-            k: fernet.decrypt(v.encode()).decode()
-            for k, v in encrypted.get("templates_encrypted", {}).items()
+            k: fernet.decrypt(v.encode()).decode() for k, v in encrypted.get("templates_encrypted", {}).items()
         }
-        return {"meta": INDEX.get(name, {}), "data": {"values_yaml": values_yaml, "templates": templates}}
+        return {
+            "meta": INDEX.get(name, {}),
+            "data": {"values_yaml": values_yaml, "templates": templates},
+        }
     except Exception:
         raise HTTPException(403, "Invalid password")
 
@@ -346,6 +360,7 @@ async def vault_auth(
 ) -> dict:
     """Exchange a vault password for a short-lived session token. Pass password in X-Vault-Password header."""
     import secrets
+
     token = secrets.token_urlsafe(32)
     VAULT_SESSIONS[token] = {
         "password": x_vault_password,
@@ -367,16 +382,19 @@ async def vault_download(name: str, version: str, token: str = Query(...)) -> di
     try:
         values_yaml = fernet.decrypt(encrypted["values_yaml_encrypted"].encode()).decode()
         templates = {
-            k: fernet.decrypt(v.encode()).decode()
-            for k, v in encrypted.get("templates_encrypted", {}).items()
+            k: fernet.decrypt(v.encode()).decode() for k, v in encrypted.get("templates_encrypted", {}).items()
         }
-        return {"meta": INDEX.get(name, {}), "data": {"values_yaml": values_yaml, "templates": templates}}
+        return {
+            "meta": INDEX.get(name, {}),
+            "data": {"values_yaml": values_yaml, "templates": templates},
+        }
     except Exception:
         raise HTTPException(403, "Decryption failed — wrong password")
 
 
 def run_server(host: str = "0.0.0.0", port: int = 8500):
     import uvicorn
+
     uvicorn.run(app, host=host, port=port)
 
 

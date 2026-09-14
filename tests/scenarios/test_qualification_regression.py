@@ -12,11 +12,14 @@ constructs the exact Action tuples / plan shape the live run resolved to
 (bypassing the LLM planner, which remains a live-testing concern, not a CI
 one) and asserts on real ExecutionResult / KG / context state.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
@@ -27,9 +30,33 @@ ACTOR_ID = "regression_test_actor"
 
 def _seed_grocery(kg):
     store = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99)["store_id"]
-    milk_id = list_product(kg, store, "merchant_a", "Milk", price=3.49, quantity=40, store_name="Trader Joe's")["product_id"]
-    pizza_id = list_product(kg, store, "merchant_a", "Frozen Cheese Pizza", price=7.99, quantity=40, store_name="Trader Joe's")["product_id"]
-    eggs_id = list_product(kg, store, "merchant_a", "Eggs", price=4.79, quantity=40, store_name="Trader Joe's")["product_id"]
+    milk_id = list_product(
+        kg,
+        store,
+        "merchant_a",
+        "Milk",
+        price=3.49,
+        quantity=40,
+        store_name="Trader Joe's",
+    )["product_id"]
+    pizza_id = list_product(
+        kg,
+        store,
+        "merchant_a",
+        "Frozen Cheese Pizza",
+        price=7.99,
+        quantity=40,
+        store_name="Trader Joe's",
+    )["product_id"]
+    eggs_id = list_product(
+        kg,
+        store,
+        "merchant_a",
+        "Eggs",
+        price=4.79,
+        quantity=40,
+        store_name="Trader Joe's",
+    )["product_id"]
     return store, milk_id, pizza_id, eggs_id
 
 
@@ -39,7 +66,10 @@ def _context(kg):
 
 def _sel(action_id, step_index, product_id, qty=1, depends_on=()):
     return Action(
-        action_id=action_id, capability="ProductSelection", step_index=step_index, depends_on=depends_on,
+        action_id=action_id,
+        capability="ProductSelection",
+        step_index=step_index,
+        depends_on=depends_on,
         parameters={"selection": [{"id": product_id, "qty": qty}]},
     )
 
@@ -61,9 +91,10 @@ def _checkout_tail(start_index, depends_on, count=4):
 
 # ── MB-0002: dependency-graph enforcement (Level 2's qualification target) ──
 
+
 @pytest.mark.asyncio
 async def test_mb0002_linear_chain_blocks_downstream_on_upstream_failure():
-    """"Eggs, then milk, then pizza" style linear chain: if step 0 never
+    """ "Eggs, then milk, then pizza" style linear chain: if step 0 never
     succeeds, every downstream step (which depends on it, transitively)
     must be blocked, never silently executed out of order."""
     kg = KnowledgeGraph()
@@ -72,8 +103,12 @@ async def test_mb0002_linear_chain_blocks_downstream_on_upstream_failure():
     context = _context(kg)
 
     actions = (
-        Action(action_id="a0", capability="ProductSelection", step_index=0,
-               parameters={"selection": [{"id": "does-not-exist", "qty": 1}]}),  # forces a real failure
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            parameters={"selection": [{"id": "does-not-exist", "qty": 1}]},
+        ),  # forces a real failure
         _sel("a1", 1, milk_id, depends_on=(0,)),
         _sel("a2", 2, pizza_id, depends_on=(1,)),
     )
@@ -88,7 +123,7 @@ async def test_mb0002_linear_chain_blocks_downstream_on_upstream_failure():
 
 @pytest.mark.asyncio
 async def test_mb0002g_independent_items_do_not_block_each_other():
-    """"Milk and pizza, independently": a failure in one branch must never
+    """ "Milk and pizza, independently": a failure in one branch must never
     block the other when no depends_on relationship was declared."""
     kg = KnowledgeGraph()
     _, milk_id, pizza_id, _ = _seed_grocery(kg)
@@ -96,8 +131,12 @@ async def test_mb0002g_independent_items_do_not_block_each_other():
     context = _context(kg)
 
     actions = (
-        Action(action_id="a0", capability="ProductSelection", step_index=0,
-               parameters={"selection": [{"id": "does-not-exist", "qty": 1}]}),
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            parameters={"selection": [{"id": "does-not-exist", "qty": 1}]},
+        ),
         _sel("a1", 1, pizza_id),  # no depends_on -- independent
     )
 
@@ -109,6 +148,7 @@ async def test_mb0002g_independent_items_do_not_block_each_other():
 
 # ── Fix #3: cart aggregation (multi-item orders used to drop everything
 #    but the last ProductSelection) ──────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_mb0002c_three_item_order_aggregates_every_item_not_just_the_last():
@@ -139,6 +179,7 @@ async def test_mb0002c_three_item_order_aggregates_every_item_not_just_the_last(
 # ── Fix #4: store-name resolution (order "store" field used to show a
 #    product name because products only carry store_id, never store_name) ──
 
+
 @pytest.mark.asyncio
 async def test_order_store_field_is_a_real_store_name_not_a_product_name():
     kg = KnowledgeGraph()
@@ -156,6 +197,7 @@ async def test_order_store_field_is_a_real_store_name_not_a_product_name():
 
 # ── Fix #6: stated budget enforcement ────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_order_within_stated_budget_succeeds():
     kg = KnowledgeGraph()
@@ -164,7 +206,11 @@ async def test_order_within_stated_budget_succeeds():
     context = _context(kg)
     context["question"] = "Buy milk and pizza under a $20 budget."
 
-    actions = (_sel("a0", 0, milk_id), _sel("a1", 1, pizza_id, depends_on=(0,)), *_checkout_tail(2, (0, 1), count=1))
+    actions = (
+        _sel("a0", 0, milk_id),
+        _sel("a1", 1, pizza_id, depends_on=(0,)),
+        *_checkout_tail(2, (0, 1), count=1),
+    )
     result = await executor.execute(actions, context)
 
     assert result.actions[2].success
@@ -180,7 +226,9 @@ async def test_order_exceeding_stated_budget_is_rejected_not_charged():
     context["question"] = "Buy milk, pizza, and eggs. Do not spend more than $5."
 
     actions = (
-        _sel("a0", 0, milk_id), _sel("a1", 1, pizza_id, depends_on=(0,)), _sel("a2", 2, eggs_id, depends_on=(1,)),
+        _sel("a0", 0, milk_id),
+        _sel("a1", 1, pizza_id, depends_on=(0,)),
+        _sel("a2", 2, eggs_id, depends_on=(1,)),
         *_checkout_tail(3, (0, 1, 2), count=1),
     )
     result = await executor.execute(actions, context)
@@ -190,6 +238,7 @@ async def test_order_exceeding_stated_budget_is_rejected_not_charged():
 
 
 # ── Fix #5: OrderConfirmation must require a real order first ───────────
+
 
 @pytest.mark.asyncio
 async def test_order_confirmation_without_order_creation_fails_honestly():
@@ -203,7 +252,12 @@ async def test_order_confirmation_without_order_creation_fails_honestly():
 
     actions = (
         _sel("a0", 0, milk_id),
-        Action(action_id="a1", capability="OrderConfirmation", step_index=1, depends_on=(0,)),
+        Action(
+            action_id="a1",
+            capability="OrderConfirmation",
+            step_index=1,
+            depends_on=(0,),
+        ),
     )
     result = await executor.execute(actions, context)
 
@@ -213,6 +267,7 @@ async def test_order_confirmation_without_order_creation_fails_honestly():
 
 # ── Fix #11: SocietyQuery must find real, open stores ────────────────────
 
+
 @pytest.mark.asyncio
 async def test_society_query_finds_real_open_stores_not_zero():
     kg = KnowledgeGraph()
@@ -221,7 +276,14 @@ async def test_society_query_finds_real_open_stores_not_zero():
     context = _context(kg)
     context["question"] = "Find the best grocery deal for me."
 
-    actions = (Action(action_id="a0", capability="SocietyQuery", step_index=0, parameters={"query": "best deals"}),)
+    actions = (
+        Action(
+            action_id="a0",
+            capability="SocietyQuery",
+            step_index=0,
+            parameters={"query": "best deals"},
+        ),
+    )
     result = await executor.execute(actions, context)
 
     assert result.actions[0].success
@@ -231,8 +293,11 @@ async def test_society_query_finds_real_open_stores_not_zero():
 
 # ── Fix #12: quantity is included in grounded product facts ─────────────
 
+
 def test_grounding_includes_quantity_for_availability_reasoning():
-    from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+    from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+        ContextConstructionEngine,
+    )
 
     kg = KnowledgeGraph()
     _, milk_id, _, _ = _seed_grocery(kg)
@@ -248,9 +313,14 @@ def test_grounding_includes_quantity_for_availability_reasoning():
 
 # ── Fix #9: AskActor must resolve a target via the wired PlanetaryRuntime ──
 
+
 @pytest.mark.asyncio
 async def test_ask_actor_resolves_target_actor_via_planetary_runtime():
-    from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+    from src.monkey_brain.kernel.society.domain import (
+        ActorIdentity,
+        ActorProfile,
+        ActorType,
+    )
     from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
     marketplace = PlanetaryRuntime()
@@ -261,13 +331,22 @@ async def test_ask_actor_resolves_target_actor_via_planetary_runtime():
 
     executor = build_execution_engine("grocery")
     context = {
-        "knowledge_graph": marketplace.knowledge_graph, "actor_id": asker_state.actor_id,
-        "planetary_runtime": marketplace, "question": "",
+        "knowledge_graph": marketplace.knowledge_graph,
+        "actor_id": asker_state.actor_id,
+        "planetary_runtime": marketplace,
+        "question": "",
     }
-    actions = (Action(
-        action_id="a0", capability="AskActor", step_index=0,
-        parameters={"target_actor": "Target", "question": "Can you help with this?"},
-    ),)
+    actions = (
+        Action(
+            action_id="a0",
+            capability="AskActor",
+            step_index=0,
+            parameters={
+                "target_actor": "Target",
+                "question": "Can you help with this?",
+            },
+        ),
+    )
 
     result = await executor.execute(actions, context)
 

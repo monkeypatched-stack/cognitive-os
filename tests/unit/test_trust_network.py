@@ -4,6 +4,7 @@ Validates: relationship→permission policies, trust edges (score + provenance/a
 the belief-as-PROPOSAL pipeline — verify → trust → policy → simulate/compare → accept/
 reject/quarantine → merge queue → BATCH world update. Nothing enters the world directly.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.compile import (
@@ -17,12 +18,12 @@ from src.monkey_brain.kernel.compile import (
     is_shareable,
 )
 
-
 # ── relationships → permission policies ──────────────────────────────────────────
+
 
 def test_relationships_grant_different_policies():
     net = TrustNetwork()
-    net.connect("alice", "student", Relationship.MENTOR)      # alice mentors a student
+    net.connect("alice", "student", Relationship.MENTOR)  # alice mentors a student
     net.connect("alice", "boss", Relationship.COLLEAGUE)
     # mentor shares beliefs/graphs; colleague shares graphs + joint execution but not beliefs
     assert net.permits("alice", "student", Perm.PUBLISH_BELIEFS)
@@ -33,7 +34,7 @@ def test_relationships_grant_different_policies():
 def test_trust_score_and_audit_trail():
     net = TrustNetwork()
     e = net.connect("alice", "bob", Relationship.FAMILY)
-    assert e.trust_score == 0.9                                # family is high-trust
+    assert e.trust_score == 0.9  # family is high-trust
     net.grant("alice", "bob", Perm.SHARE_EXECUTION_GRAPHS)
     net.revoke("alice", "bob", Perm.SHARE_WORKFLOWS)
     ops = [p[0] for p in net.audit("alice", "bob")]
@@ -45,10 +46,11 @@ def test_friendship_is_not_unrestricted():
     net = TrustNetwork()
     net.connect("alice", "acq", Relationship.FRIEND)
     assert net.permits("alice", "acq", Perm.SEND_MESSAGE)
-    assert not net.permits("alice", "acq", Perm.SHARE_EXECUTION_GRAPHS)   # friend ≠ full access
+    assert not net.permits("alice", "acq", Perm.SHARE_EXECUTION_GRAPHS)  # friend ≠ full access
 
 
 # ── never-share classification ───────────────────────────────────────────────────
+
 
 def test_sensitive_classes_never_share():
     assert is_shareable("workflow", "cooking")
@@ -58,6 +60,7 @@ def test_sensitive_classes_never_share():
 
 
 # ── belief-as-proposal pipeline ─────────────────────────────────────────────────
+
 
 def _setup():
     net = TrustNetwork()
@@ -69,9 +72,9 @@ def _setup():
 
 def test_publish_blocks_sensitive_knowledge():
     _, ex = _setup()
-    assert ex.publish("alice", "belief", "journal", [("A", "B", 1.0)]) is None   # never leaves
+    assert ex.publish("alice", "belief", "journal", [("A", "B", 1.0)]) is None  # never leaves
     ok = ex.publish("alice", "workflow", "cooking", [("Prep", "Cook", 1.0)])
-    assert ok is not None and ok.signature                                       # signed
+    assert ok is not None and ok.signature  # signed
 
 
 def test_accepted_proposal_does_not_enter_world_directly():
@@ -93,7 +96,7 @@ def test_accepted_proposal_does_not_enter_world_directly():
 
 def test_untrusted_origin_rejected():
     net = TrustNetwork()
-    net.connect("stranger", "bob", Relationship.COMMUNITY, trust=0.2)   # below threshold
+    net.connect("stranger", "bob", Relationship.COMMUNITY, trust=0.2)  # below threshold
     ex = KnowledgeExchange(net, trust_threshold=0.5)
     prop = ex.publish("stranger", "belief", "api", [("A", "B", 1.0)])
     res = ex.deliver(prop, "bob", WorldModelRuntime().new_local_belief())
@@ -102,18 +105,19 @@ def test_untrusted_origin_rejected():
 
 def test_unpermitted_class_rejected():
     net = TrustNetwork()
-    net.connect("alice", "bob", Relationship.FRIEND)          # friend cannot publish beliefs
+    net.connect("alice", "bob", Relationship.FRIEND)  # friend cannot publish beliefs
     ex = KnowledgeExchange(net)
     prop = ex.publish("alice", "belief", "api", [("A", "B", 1.0)])
-    res = ex.deliver(prop, "bob", WorldModelRuntime().new_local_belief())   # kind→PUBLISH_BELIEFS
+    res = ex.deliver(prop, "bob", WorldModelRuntime().new_local_belief())  # kind→PUBLISH_BELIEFS
     assert res.status == "rejected" and res.reason == "not_permitted"
 
 
 def test_tampered_proposal_rejected():
     net, ex = _setup()
     prop = ex.publish("alice", "belief", "api", [("A", "B", 1.0)])
-    tampered = BeliefProposal(prop.origin, prop.kind, prop.domain,
-                              (("A", "B", 9.9),), prop.signature)      # payload changed, old sig
+    tampered = BeliefProposal(
+        prop.origin, prop.kind, prop.domain, (("A", "B", 9.9),), prop.signature
+    )  # payload changed, old sig
     res = ex.deliver(tampered, "bob", WorldModelRuntime().new_local_belief())
     assert res.status == "rejected" and res.reason == "signature_invalid"
 
@@ -121,9 +125,9 @@ def test_tampered_proposal_rejected():
 def test_conflicting_proposal_quarantined_not_overwritten():
     net, ex = _setup()
     bob_belief = WorldModelRuntime().new_local_belief()
-    bob_belief.observe("Rule", "PolicyA", domain="gov", reward=1.0)   # bob's existing belief
-    prop = ex.publish("alice", "belief", "gov", [("Rule", "PolicyA", 0.0)])   # conflicting value
+    bob_belief.observe("Rule", "PolicyA", domain="gov", reward=1.0)  # bob's existing belief
+    prop = ex.publish("alice", "belief", "gov", [("Rule", "PolicyA", 0.0)])  # conflicting value
     res = ex.deliver(prop, "bob", bob_belief)
     assert res.status == "quarantined"
     assert res.conflicts and res.conflicts[0]["edge"] == ("Rule", "PolicyA")
-    assert ex.queue.pending() == 0                            # not merged — no silent overwrite
+    assert ex.queue.pending() == 0  # not merged — no silent overwrite

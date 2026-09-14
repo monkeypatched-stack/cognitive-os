@@ -12,6 +12,7 @@ carrier, linked back to the original via replaces_shipment_id/
 replaced_by_shipment_id — a traceable substitution, not a silent
 do-over that erases what actually happened to the first one.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.logistics import (

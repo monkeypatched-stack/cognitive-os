@@ -18,13 +18,17 @@ Additional components:
 
 from src.monkey_brain.kernel.cognitive_layers.intent_compiler import IntentCompiler
 from src.monkey_brain.kernel.cognitive_layers.runtime_builder import RuntimeBuilder
-from src.monkey_brain.kernel.cognitive_layers.execution_coordinator import ExecutionCoordinator
+from src.monkey_brain.kernel.cognitive_layers.execution_coordinator import (
+    ExecutionCoordinator,
+)
 from src.monkey_brain.kernel.cognitive_layers.runtime_monitor import RuntimeMonitor
 from src.monkey_brain.kernel.cognitive_layers.runtime_bootstrap import RuntimeBootstrap
 from src.monkey_brain.kernel.cognitive_layers.cognitive_loop import CognitiveLoop
 from src.monkey_brain.kernel.cognitive_layers.knowledge_manager import KnowledgeManager
 from src.monkey_brain.kernel.cognitive_layers.world_coordinator import WorldCoordinator
-from src.monkey_brain.kernel.cognitive_layers.observation_pipeline import ObservationPipeline
+from src.monkey_brain.kernel.cognitive_layers.observation_pipeline import (
+    ObservationPipeline,
+)
 from src.monkey_brain.kernel.cognitive_layers.audit_service import AuditService
 
 __all__ = [

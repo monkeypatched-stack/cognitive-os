@@ -1,4 +1,5 @@
 """Telemetry, sensor, and simulation embedding providers."""
+
 from __future__ import annotations
 
 import re as _re
@@ -7,7 +8,11 @@ from typing import Any
 import numpy as np
 
 from src.monkey_brain.kernel.plan.embedding._utils import (
-    EMBEDDING_DIM, _l2, _bow_project, _parse_numbers, _ts_features,
+    EMBEDDING_DIM,
+    _l2,
+    _bow_project,
+    _parse_numbers,
+    _ts_features,
 )
 from src.monkey_brain.kernel.plan.embedding.provider import Embedding, EmbeddingEmbedder
 

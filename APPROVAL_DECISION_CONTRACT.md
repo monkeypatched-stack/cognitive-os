@@ -177,44 +177,44 @@ ApprovalArtifact:
 @dataclass(frozen=True)
 class ApprovalDecision:
     """Immutable approval decision from trusted policy evaluation.
-    
+
     This is NOT an approval artifact (human/auto grant).
     This is the DECISION about what kind of approval is required.
     """
-    
+
     # Decision identity
     decision_id: str  # UUID, unique for this evaluation
-    request_id: str   # Correlation to the originating request
-    operation_id: str # Links to SecurityOperation ledger
-    
+    request_id: str  # Correlation to the originating request
+    operation_id: str  # Links to SecurityOperation ledger
+
     # The decision
     mode: ApprovalMode  # AUTO_APPROVE | HUMAN_APPROVAL_REQUIRED | DENY
-    
+
     # Authenticated principal requesting
     requesting_principal: str  # From TrustedAuthEvidence.principal_id
     principal_type: str  # human | service (from TrustedAuthEvidence)
-    
+
     # What was evaluated
     operation: str  # Action name (e.g., "capability.execute")
-    resource: str   # Resource being operated on
+    resource: str  # Resource being operated on
     operation_class: str  # SECURITY_CRITICAL, PROPOSAL_ONLY, READ_ONLY
-    
+
     # Policy provenance
     policy_rule: str  # Which OPA rule applied
     policy_revision: str  # OPA policy version
     policy_decision_full: dict[str, Any]  # Full OPA output for audit
-    
+
     # Risk classification
     risk_level: str  # LOW, MEDIUM, HIGH, CRITICAL
-    
+
     # Binding constraints
     scope: dict[str, Any]  # Capabilities, resources, constraints approved
     expires_at: float  # Decision expiration (TTL based on risk_level)
-    
+
     # Immutability
     created_at: float
     decision_hash: str  # HMAC for integrity (if needed)
-    
+
     # Audit trail
     audit_entry_id: str  # Reference to audit log entry
 ```
@@ -579,7 +579,7 @@ If decision crosses agent/process boundary:
     "requesting_principal": "agent-1",
     "operation": "capability.execute",
     "policy_rule": "rule_name",
-    "created_at": 1234567890.0
+    "created_at": 1234567890.0,
 }
 
 # Integrity: If signed/MAC'd, use existing envelope mechanism
@@ -613,24 +613,20 @@ Auditable transitions:
 
 ```python
 EVENTS = [
-    "approval_decision_created",          # Policy evaluated
-    "approval_decision_denied",           # Mode = DENY
-    "approval_decision_auto_approved",    # Mode = AUTO_APPROVE
-    "approval_decision_human_required",   # Mode = HUMAN_APPROVAL_REQUIRED
-    
-    "approval_artifact_auto_created",     # AUTO_APPROVE → artifact
+    "approval_decision_created",  # Policy evaluated
+    "approval_decision_denied",  # Mode = DENY
+    "approval_decision_auto_approved",  # Mode = AUTO_APPROVE
+    "approval_decision_human_required",  # Mode = HUMAN_APPROVAL_REQUIRED
+    "approval_artifact_auto_created",  # AUTO_APPROVE → artifact
     "approval_artifact_human_requested",  # HITL handoff created
-    
-    "human_approval_granted",             # Human approved
-    "human_approval_rejected",            # Human rejected
-    
-    "approval_expired",                   # TTL exceeded
-    "approval_revoked",                   # Explicit revocation
-    
-    "execution_approved_and_executed",    # Happy path
-    "execution_blocked_approval_required",# Awaiting human
-    "execution_blocked_denied",           # DENY
-    "execution_blocked_expired",          # Approval expired
+    "human_approval_granted",  # Human approved
+    "human_approval_rejected",  # Human rejected
+    "approval_expired",  # TTL exceeded
+    "approval_revoked",  # Explicit revocation
+    "execution_approved_and_executed",  # Happy path
+    "execution_blocked_approval_required",  # Awaiting human
+    "execution_blocked_denied",  # DENY
+    "execution_blocked_expired",  # Approval expired
 ]
 ```
 

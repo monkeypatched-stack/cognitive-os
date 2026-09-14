@@ -51,7 +51,9 @@ async def create(db: AsyncIOMotorDatabase, data: InstrumentCreate) -> dict:
     return doc
 
 
-async def update(db: AsyncIOMotorDatabase, instrument_id: str, data: InstrumentUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, instrument_id: str, data: InstrumentUpdate
+) -> Optional[dict]:
     fields = data.model_dump(exclude_unset=True)
     if not fields:
         return await get_by_id(db, instrument_id)

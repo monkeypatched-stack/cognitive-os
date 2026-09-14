@@ -7,6 +7,7 @@ Provides:
 - Resource usage tracking
 - Health status reporting
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,8 +22,9 @@ logger = logging.getLogger("agentos.metrics")
 @dataclass
 class LatencyStats:
     """Latency percentile statistics."""
+
     count: int = 0
-    min_ms: float = float('inf')
+    min_ms: float = float("inf")
     max_ms: float = 0.0
     p50_ms: float = 0.0
     p95_ms: float = 0.0
@@ -33,6 +35,7 @@ class LatencyStats:
 @dataclass
 class MetricsSample:
     """Single metrics sample."""
+
     timestamp: float
     latency_ms: float
     error: bool = False
@@ -75,11 +78,13 @@ class MetricsCollector:
         """Record successful request."""
         self.total_requests += 1
         self.total_latency_ms += latency_ms
-        self.samples.append(MetricsSample(
-            timestamp=time.time(),
-            latency_ms=latency_ms,
-            error=False,
-        ))
+        self.samples.append(
+            MetricsSample(
+                timestamp=time.time(),
+                latency_ms=latency_ms,
+                error=False,
+            )
+        )
 
     def record_error(self, latency_ms: float, error_type: str = "unknown") -> None:
         """Record failed request."""
@@ -87,12 +92,14 @@ class MetricsCollector:
         self.total_errors += 1
         self.total_latency_ms += latency_ms
         self.error_counts[error_type] = self.error_counts.get(error_type, 0) + 1
-        self.samples.append(MetricsSample(
-            timestamp=time.time(),
-            latency_ms=latency_ms,
-            error=True,
-            error_type=error_type,
-        ))
+        self.samples.append(
+            MetricsSample(
+                timestamp=time.time(),
+                latency_ms=latency_ms,
+                error=True,
+                error_type=error_type,
+            )
+        )
 
     def get_stats(self) -> dict[str, Any]:
         """Get current metrics statistics."""
@@ -116,7 +123,7 @@ class MetricsCollector:
             p50_ms=latencies[count // 2],
             p95_ms=latencies[int(count * 0.95)],
             p99_ms=latencies[int(count * 0.99)],
-            avg_ms=self.total_latency_ms / self.total_requests if self.total_requests > 0 else 0.0,
+            avg_ms=(self.total_latency_ms / self.total_requests if self.total_requests > 0 else 0.0),
         )
 
         error_rate = (self.total_errors / self.total_requests * 100) if self.total_requests > 0 else 0.0
@@ -145,10 +152,10 @@ class HealthChecker:
     def __init__(self) -> None:
         self.collectors: dict[str, MetricsCollector] = {}
         self.thresholds = {
-            "error_rate_critical": 10.0,      # 10% = critical
-            "error_rate_warning": 1.0,        # 1% = warning
-            "latency_p99_critical": 5000.0,   # 5s = critical
-            "latency_p99_warning": 1000.0,    # 1s = warning
+            "error_rate_critical": 10.0,  # 10% = critical
+            "error_rate_warning": 1.0,  # 1% = warning
+            "latency_p99_critical": 5000.0,  # 5s = critical
+            "latency_p99_warning": 1000.0,  # 1s = warning
         }
 
     def register_collector(self, collector: MetricsCollector) -> None:

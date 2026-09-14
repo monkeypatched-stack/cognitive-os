@@ -16,6 +16,7 @@ registry is keyed by data (actor_id + a predicate over the Action) instead
 of by which executor instance runs it — same fix shape Phase 1's
 mutation_hooks.py already established for the identical problem.
 """
+
 from __future__ import annotations
 
 import threading

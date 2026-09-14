@@ -21,6 +21,7 @@ further: a REAL grocery capability, a REAL KnowledgeGraph, proving the
 actual side effect (a product reservation) never happens when governance
 denies -- not merely that a mock was or wasn't called.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -40,8 +41,11 @@ from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trust
 
 def make_trusted_auth(principal_id: str = "user:test") -> TrustedAuthEvidence:
     return TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id=principal_id,
-        principal_type="human", mfa_status="satisfied",
+        authenticated=True,
+        token_valid=True,
+        principal_id=principal_id,
+        principal_type="human",
+        mfa_status="satisfied",
     )
 
 
@@ -74,9 +78,14 @@ def _mock_authorize(mode: str, risk: str = "LOW"):
     would never deny it based on which capabilities happen to be in the
     batch. This is what lets the per-capability decision underneath it
     actually be exercised and observed."""
+
     async def _authorize(action, resource, extra, *, verified_delegation=None):
         if not action.startswith("capability."):
-            return {"allowed": True, "reason": "batch_level_allow", "approval_mode": "AUTO_APPROVE"}
+            return {
+                "allowed": True,
+                "reason": "batch_level_allow",
+                "approval_mode": "AUTO_APPROVE",
+            }
         return {
             "allowed": mode != "DENY",
             "reason": f"test_{mode.lower()}",
@@ -86,6 +95,7 @@ def _mock_authorize(mode: str, risk: str = "LOW"):
             "policy_rule": "test_policy",
             "requires_hitl": mode == "HUMAN_APPROVAL_REQUIRED",
         }
+
     return _authorize
 
 
@@ -154,8 +164,16 @@ class TestFailureSemantics:
         # real shape rather than a raw exception escaping _authorize().
         async def _opa_unreachable(action, resource, extra, *, verified_delegation=None):
             if not action.startswith("capability."):
-                return {"allowed": True, "reason": "batch_level_allow", "approval_mode": "AUTO_APPROVE"}
-            return {"allowed": False, "reason": "opa_unreachable", "approval_mode": "DENY"}
+                return {
+                    "allowed": True,
+                    "reason": "batch_level_allow",
+                    "approval_mode": "AUTO_APPROVE",
+                }
+            return {
+                "allowed": False,
+                "reason": "opa_unreachable",
+                "approval_mode": "DENY",
+            }
 
         monkeypatch.setattr("src.monkey_brain.kernel.security_boundary._authorize", _opa_unreachable)
         bus, capability = _fake_bus_and_capability()
@@ -209,7 +227,9 @@ class TestCapabilityIsIncludedInAuthorization:
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(capability_bus=bus)
         action = Action(
-            action_id="a1", capability="Payment", step_index=0,
+            action_id="a1",
+            capability="Payment",
+            step_index=0,
             parameters={"amount": 12.26, "order_id": "ORD-1"},
         )
 
@@ -237,7 +257,9 @@ class TestCapabilityIsIncludedInAuthorization:
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(capability_bus=bus)
         action = Action(
-            action_id="a1", capability="Payment", step_index=0,
+            action_id="a1",
+            capability="Payment",
+            step_index=0,
             parameters={"authorized": True, "mfa_status": "satisfied", "amount": 12.26},
         )
 
@@ -305,14 +327,29 @@ class TestRealGroceryPathDeniesWithoutMockingGovernance:
 
     @pytest.mark.asyncio
     async def test_denied_capability_produces_no_real_reservation(self, monkeypatch):
-        from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the vertical
-        from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
-        from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
+        from src.monkey_brain.kernel.domains import (
+            grocery,
+        )  # noqa: F401 -- registers the vertical
+        from src.monkey_brain.kernel.domains.commerce import (
+            list_product,
+            onboard_merchant,
+        )
+        from src.monkey_brain.kernel.domains.vertical_router import (
+            build_execution_engine,
+        )
         from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 
         kg = KnowledgeGraph()
         store = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99)["store_id"]
-        milk_id = list_product(kg, store, "merchant_a", "Milk", price=3.99, quantity=5, store_name="Trader Joe's")["product_id"]
+        milk_id = list_product(
+            kg,
+            store,
+            "merchant_a",
+            "Milk",
+            price=3.99,
+            quantity=5,
+            store_name="Trader Joe's",
+        )["product_id"]
 
         monkeypatch.setattr(
             "src.monkey_brain.kernel.security_boundary._authorize",
@@ -320,7 +357,9 @@ class TestRealGroceryPathDeniesWithoutMockingGovernance:
         )
         executor = build_execution_engine("grocery")
         action = Action(
-            action_id="a1", capability="ProductSelection", step_index=0,
+            action_id="a1",
+            capability="ProductSelection",
+            step_index=0,
             parameters={"selection": [{"id": milk_id, "qty": 1}]},
         )
         context = {"knowledge_graph": kg, "actor_id": "denied-actor", "question": ""}
@@ -339,13 +378,26 @@ class TestRealGroceryPathDeniesWithoutMockingGovernance:
         lets the real capability run and its real effect actually happen
         -- proves the fix does not silently swallow legitimate execution."""
         from src.monkey_brain.kernel.domains import grocery  # noqa: F401
-        from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
-        from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
+        from src.monkey_brain.kernel.domains.commerce import (
+            list_product,
+            onboard_merchant,
+        )
+        from src.monkey_brain.kernel.domains.vertical_router import (
+            build_execution_engine,
+        )
         from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 
         kg = KnowledgeGraph()
         store = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99)["store_id"]
-        milk_id = list_product(kg, store, "merchant_a", "Milk", price=3.99, quantity=5, store_name="Trader Joe's")["product_id"]
+        milk_id = list_product(
+            kg,
+            store,
+            "merchant_a",
+            "Milk",
+            price=3.99,
+            quantity=5,
+            store_name="Trader Joe's",
+        )["product_id"]
 
         monkeypatch.setattr(
             "src.monkey_brain.kernel.security_boundary._authorize",
@@ -353,7 +405,9 @@ class TestRealGroceryPathDeniesWithoutMockingGovernance:
         )
         executor = build_execution_engine("grocery")
         action = Action(
-            action_id="a1", capability="ProductSelection", step_index=0,
+            action_id="a1",
+            capability="ProductSelection",
+            step_index=0,
             parameters={"selection": [{"id": milk_id, "qty": 1}]},
         )
         context = {"knowledge_graph": kg, "actor_id": "allowed-actor", "question": ""}

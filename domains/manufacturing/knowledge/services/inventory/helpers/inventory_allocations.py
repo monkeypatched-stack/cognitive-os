@@ -68,7 +68,9 @@ async def get_by_workstation_id(
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_warehouse_id(db: AsyncIOMotorDatabase, warehouse_id: str) -> list[dict]:
+async def get_by_warehouse_id(
+    db: AsyncIOMotorDatabase, warehouse_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"warehouse_id": warehouse_id})
     return [_serialize(doc) async for doc in cursor]
 
@@ -83,7 +85,9 @@ async def get_by_status(db: AsyncIOMotorDatabase, status: str) -> list[dict]:
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_request_type(db: AsyncIOMotorDatabase, request_type: str) -> list[dict]:
+async def get_by_request_type(
+    db: AsyncIOMotorDatabase, request_type: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"request_type": request_type})
     return [_serialize(doc) async for doc in cursor]
 

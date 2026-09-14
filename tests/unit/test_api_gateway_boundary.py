@@ -1,4 +1,5 @@
 """Tests for Kong API Gateway boundary enforcement."""
+
 from __future__ import annotations
 
 import os
@@ -48,7 +49,9 @@ def test_allows_request_with_kong_header(gateway_app: FastAPI) -> None:
     assert resp.status_code == 200
 
 
-def test_disabled_when_api_gateway_not_required(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_disabled_when_api_gateway_not_required(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("API_GATEWAY_REQUIRED", "false")
     app = FastAPI()
     app.add_middleware(ApiGatewayBoundaryMiddleware)

@@ -1,4 +1,5 @@
 """Manufacturing Repository Agents — persistence for manufacturing domain entities."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -17,7 +18,11 @@ class WorkOrderRepositoryAgent(RepositoryAgent):
         self._query_count += 1
         if decision.get("action") == "cache_hit":
             return {"repository": self.name, "action": "cache_hit", "source": "local"}
-        return {"repository": self.name, "action": decision.get("action", "query"), "query_count": self._query_count}
+        return {
+            "repository": self.name,
+            "action": decision.get("action", "query"),
+            "query_count": self._query_count,
+        }
 
 
 class BatchRepositoryAgent(RepositoryAgent):
@@ -28,7 +33,11 @@ class BatchRepositoryAgent(RepositoryAgent):
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         self._query_count += 1
-        return {"repository": self.name, "action": decision.get("action", "query"), "query_count": self._query_count}
+        return {
+            "repository": self.name,
+            "action": decision.get("action", "query"),
+            "query_count": self._query_count,
+        }
 
 
 class CalibrationRepositoryAgent(RepositoryAgent):
@@ -39,4 +48,8 @@ class CalibrationRepositoryAgent(RepositoryAgent):
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         self._query_count += 1
-        return {"repository": self.name, "action": decision.get("action", "query"), "query_count": self._query_count}
+        return {
+            "repository": self.name,
+            "action": decision.get("action", "query"),
+            "query_count": self._query_count,
+        }

@@ -11,7 +11,6 @@ from services.workorders.models.batch_execution_records import (
     PaginatedBatchProductionExecutionRecordResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -43,7 +42,10 @@ async def list_batch_execution_records(
     )
 
 
-@router.get("/{batch_execution_record_id}", response_model=BatchProductionExecutionRecordResponse)
+@router.get(
+    "/{batch_execution_record_id}",
+    response_model=BatchProductionExecutionRecordResponse,
+)
 async def get_batch_execution_record(
     batch_execution_record_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -58,7 +60,11 @@ async def get_batch_execution_record(
     return record
 
 
-@router.post("/", response_model=BatchProductionExecutionRecordResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=BatchProductionExecutionRecordResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_batch_execution_record(
     data: BatchProductionExecutionRecordCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -74,7 +80,10 @@ async def create_batch_execution_record(
     return await crud.create(db, data)
 
 
-@router.patch("/{batch_execution_record_id}", response_model=BatchProductionExecutionRecordResponse)
+@router.patch(
+    "/{batch_execution_record_id}",
+    response_model=BatchProductionExecutionRecordResponse,
+)
 async def update_batch_execution_record(
     batch_execution_record_id: str,
     data: BatchProductionExecutionRecordUpdate,

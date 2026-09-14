@@ -16,7 +16,8 @@ mkdir -p dist/dmg
 cp -r src dist/dmg/
 cp main.py dist/dmg/
 cp README.md dist/dmg/
-cp requirements.txt dist/dmg/
+cp pyproject.toml dist/dmg/
+cp uv.lock dist/dmg/
 cp install_agentos.py dist/dmg/
 cp -r Constitutions dist/dmg/
 

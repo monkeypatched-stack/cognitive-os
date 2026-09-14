@@ -1,4 +1,5 @@
 """Embedding-based intent classifier with logistic regression head."""
+
 from __future__ import annotations
 
 import logging
@@ -7,7 +8,6 @@ from typing import Any
 import numpy as np
 
 from src.monkey_brain.kernel.plan.classifier.intent_examples import INTENT_EXAMPLES
-
 
 
 import logging
@@ -29,6 +29,7 @@ class EmbedClassifier:
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         from sentence_transformers import SentenceTransformer
+
         self.model = SentenceTransformer(model_name, device="cpu")
         self.intent_labels: list[str] = []
         self.intent_matrix: np.ndarray = self._build_matrix()
@@ -91,6 +92,7 @@ class EmbedClassifier:
 
 # --- Module-level functions — these are what callers import ---
 
+
 def get_classifier() -> EmbedClassifier:
     """Singleton — model loads once at startup, stays resident."""
     global _classifier
@@ -112,7 +114,7 @@ def classify_intent(prompt: str, question_analysis: dict, threshold: float = 0.0
     """
     try:
         result = get_classifier().classify(prompt, question_analysis, threshold)
-   
+
         if result is None:
             return None
         return {

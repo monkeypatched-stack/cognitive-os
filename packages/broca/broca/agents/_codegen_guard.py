@@ -13,6 +13,7 @@ That is remote code execution by design, and it was completely unguarded:
 
 This module makes execution opt-in and validates the source first.
 """
+
 from __future__ import annotations
 
 import ast
@@ -21,31 +22,101 @@ import re
 
 # Modules generated agents may import. Deliberately tiny: an agent implements `handle()`,
 # it does not need the filesystem, the network, or the process table.
-ALLOWED_IMPORTS = frozenset({
-    "__future__",          # compiler directive only (e.g. annotations) — no runtime capability
-    "typing", "dataclasses", "enum", "json", "math", "re", "datetime", "uuid",
-    "collections", "itertools", "functools", "abc", "asyncio",
-    "broca", "broca.agents", "broca.agents._base",
-})
+ALLOWED_IMPORTS = frozenset(
+    {
+        "__future__",  # compiler directive only (e.g. annotations) — no runtime capability
+        "typing",
+        "dataclasses",
+        "enum",
+        "json",
+        "math",
+        "re",
+        "datetime",
+        "uuid",
+        "collections",
+        "itertools",
+        "functools",
+        "abc",
+        "asyncio",
+        "broca",
+        "broca.agents",
+        "broca.agents._base",
+    }
+)
 
 # Names that are RCE primitives regardless of how they are reached.
-FORBIDDEN_NAMES = frozenset({
-    "eval", "exec", "compile", "__import__", "open", "input", "breakpoint",
-    "globals", "locals", "vars", "getattr", "setattr", "delattr",
-    "memoryview", "exit", "quit",
-})
+FORBIDDEN_NAMES = frozenset(
+    {
+        "eval",
+        "exec",
+        "compile",
+        "__import__",
+        "open",
+        "input",
+        "breakpoint",
+        "globals",
+        "locals",
+        "vars",
+        "getattr",
+        "setattr",
+        "delattr",
+        "memoryview",
+        "exit",
+        "quit",
+    }
+)
 
 # Builtins the generated code is allowed to see. Everything else is simply absent.
 SAFE_BUILTINS = {
-    name: __builtins__[name] if isinstance(__builtins__, dict) else getattr(__builtins__, name)
+    name: (__builtins__[name] if isinstance(__builtins__, dict) else getattr(__builtins__, name))
     for name in (
-        "None", "True", "False", "bool", "int", "float", "str", "bytes", "list", "dict",
-        "set", "tuple", "len", "range", "enumerate", "zip", "map", "filter", "sorted",
-        "sum", "min", "max", "abs", "round", "any", "all", "isinstance", "issubclass",
-        "print", "repr", "type", "object", "super", "property", "staticmethod",
-        "classmethod", "Exception", "ValueError", "TypeError", "KeyError", "RuntimeError",
-        "AttributeError", "IndexError", "StopIteration", "NotImplementedError",
-        "__build_class__", "__name__",
+        "None",
+        "True",
+        "False",
+        "bool",
+        "int",
+        "float",
+        "str",
+        "bytes",
+        "list",
+        "dict",
+        "set",
+        "tuple",
+        "len",
+        "range",
+        "enumerate",
+        "zip",
+        "map",
+        "filter",
+        "sorted",
+        "sum",
+        "min",
+        "max",
+        "abs",
+        "round",
+        "any",
+        "all",
+        "isinstance",
+        "issubclass",
+        "print",
+        "repr",
+        "type",
+        "object",
+        "super",
+        "property",
+        "staticmethod",
+        "classmethod",
+        "Exception",
+        "ValueError",
+        "TypeError",
+        "KeyError",
+        "RuntimeError",
+        "AttributeError",
+        "IndexError",
+        "StopIteration",
+        "NotImplementedError",
+        "__build_class__",
+        "__name__",
     )
     if (name in __builtins__ if isinstance(__builtins__, dict) else hasattr(__builtins__, name))
 }
@@ -60,7 +131,12 @@ class UnsafeGeneratedCode(Exception):
 def exec_enabled() -> bool:
     """Executing model-written code is opt-in. Default OFF: it is RCE by design, so running
     it must be a deliberate operator decision, not a silent default."""
-    return os.getenv("BROCA_AUTO_AGENT_EXEC", "").strip().lower() in ("1", "true", "yes", "on")
+    return os.getenv("BROCA_AUTO_AGENT_EXEC", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 def safe_identifier(name: str) -> str:

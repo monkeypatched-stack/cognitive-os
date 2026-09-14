@@ -10,6 +10,7 @@ Owns the complete trust management pipeline:
 
 Injected INTO each ActorRuntime. Decoupled from belief formation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,12 +76,12 @@ class TrustRuntime:
         try:
             # Direct query first (single hop)
             score = self._network.trust(origin, recipient)
-            
+
             # If no trust edge exists, default to neutral (1.0)
             # This ensures observations from unknown origins still influence the world
             if score == 0.0:
                 score = 1.0
-            
+
             score = max(0.0, min(1.0, score))  # clamp to [0, 1]
 
             # Apply trust decay over time
@@ -96,8 +97,7 @@ class TrustRuntime:
 
     # ── 3. Trust Propagation ───────────────────────────────────────────────────
 
-    def trust_via_chain(self, origin: str, recipient: str | None = None,
-                        max_hops: int = 3) -> float:
+    def trust_via_chain(self, origin: str, recipient: str | None = None, max_hops: int = 3) -> float:
         """Multi-hop trust propagation through the network.
 
         If no direct trust edge exists, find the best path through intermediaries.
@@ -144,7 +144,7 @@ class TrustRuntime:
 
             # Explore neighbors (find outgoing edges from current)
             try:
-                if hasattr(self._network, '_edges'):
+                if hasattr(self._network, "_edges"):
                     for (src, dst), edge in self._network._edges.items():
                         if src == current and dst not in visited:
                             edge_score = edge.trust_score if edge.is_active else 0.0
@@ -159,8 +159,14 @@ class TrustRuntime:
 
     # ── 4. Trust Decay ────────────────────────────────────────────────────────
 
-    def _apply_decay(self, origin: str, recipient: str, score: float,
-                     decay_rate: float = 0.01, half_life_days: float = 30) -> float:
+    def _apply_decay(
+        self,
+        origin: str,
+        recipient: str,
+        score: float,
+        decay_rate: float = 0.01,
+        half_life_days: float = 30,
+    ) -> float:
         """Apply time-based trust decay.
 
         Trust decreases over time if not reinforced.
@@ -178,8 +184,7 @@ class TrustRuntime:
 
     # ── 5. Trust Learning ──────────────────────────────────────────────────────
 
-    def learn_from_outcome(self, origin: str, recipient: str | None = None,
-                           outcome: dict | None = None) -> None:
+    def learn_from_outcome(self, origin: str, recipient: str | None = None, outcome: dict | None = None) -> None:
         """Update trust based on observation outcome.
 
         Outcomes: good (trust increases), bad (trust decreases), neutral (no change).
@@ -226,18 +231,26 @@ class TrustRuntime:
 
             logger.info(
                 "[trust_runtime] learned: %s → %s outcome=%s (%.2f → %.2f)",
-                origin, recipient, outcome.get("status"), current_score, new_score
+                origin,
+                recipient,
+                outcome.get("status"),
+                current_score,
+                new_score,
             )
-            _obs.event("trust.learn", origin=origin, recipient=recipient,
-                       status=outcome.get("status"), old_score=round(current_score, 3),
-                       new_score=round(new_score, 3))
+            _obs.event(
+                "trust.learn",
+                origin=origin,
+                recipient=recipient,
+                status=outcome.get("status"),
+                old_score=round(current_score, 3),
+                new_score=round(new_score, 3),
+            )
         except Exception as e:
             logger.debug("[trust_runtime] learning failed: %s", e)
 
     # ── 6. Observation Weighting ───────────────────────────────────────────────
 
-    def weight_observation(self, base_weight: float, origin: str,
-                          recipient: str | None = None) -> float:
+    def weight_observation(self, base_weight: float, origin: str, recipient: str | None = None) -> float:
         """Compute effective weight for an observation.
 
         effective_weight = base_weight * trust(origin, recipient)
@@ -253,7 +266,11 @@ class TrustRuntime:
 
         logger.debug(
             "[trust_runtime] weighted observation: %s → %s (base=%.2f, trust=%.2f, weight=%.2f)",
-            origin, recipient, base_weight, trust_score, effective_weight
+            origin,
+            recipient,
+            base_weight,
+            trust_score,
+            effective_weight,
         )
         _obs.gauge("trust.weight", effective_weight, origin=origin, recipient=recipient)
 
@@ -269,16 +286,12 @@ class TrustRuntime:
         """Access learning history for auditing."""
         return list(self._outcome_history)
 
-    def recent_outcomes(self, origin: str, recipient: str | None = None,
-                       limit: int = 10) -> list[dict]:
+    def recent_outcomes(self, origin: str, recipient: str | None = None, limit: int = 10) -> list[dict]:
         """Recent learning outcomes for this origin→recipient pair."""
         if recipient is None:
             recipient = self._actor_id
 
-        return [
-            e for e in self._outcome_history
-            if e["origin"] == origin and e["recipient"] == recipient
-        ][-limit:]
+        return [e for e in self._outcome_history if e["origin"] == origin and e["recipient"] == recipient][-limit:]
 
     def summary(self) -> dict[str, Any]:
         """Trust runtime summary for introspection."""

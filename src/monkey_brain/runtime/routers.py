@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request
 
 router = APIRouter()
 
+
 def get_mongo_client(request: Request):
     pm = getattr(request.app.state, "persistence_manager", None)
     if pm and hasattr(pm, "_adapters"):

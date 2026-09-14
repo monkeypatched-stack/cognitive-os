@@ -6,6 +6,7 @@ existing id to reuse (execution_id, transaction_id, interaction_id) — this
 helper exists only for the fallback case: a bare operation with no upstream
 id to inherit from (e.g. a standalone communication-eligibility check).
 """
+
 from __future__ import annotations
 
 from uuid import uuid4

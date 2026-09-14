@@ -15,6 +15,7 @@ inter-domain mesh operator.
 Latest-wins per domain (structure = latest execution, mirroring
 GraphStore.record_execution_graph), with a version counter so staleness/change is visible.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,7 @@ class DomainEntry:
     domain: str
     operator: CompiledOperator
     revision: int
-    version: int              # bumps each time this domain is re-registered
+    version: int  # bumps each time this domain is re-registered
     source_graph_id: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -89,8 +90,11 @@ class DomainOperatorRegistry:
         prev = self._domains.get(domain)
         version = (prev.version + 1) if prev else 1
         self._domains[domain] = DomainEntry(
-            domain=domain, operator=operator, revision=revision,
-            version=version, source_graph_id=operator.source_graph_id,
+            domain=domain,
+            operator=operator,
+            revision=revision,
+            version=version,
+            source_graph_id=operator.source_graph_id,
         )
         logger.debug("registry: domain %r updated to v%d (%d nodes)", domain, version, operator.n)
         return domain

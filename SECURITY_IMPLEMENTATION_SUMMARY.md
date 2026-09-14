@@ -251,6 +251,7 @@ Use the fail-closed framework:
 # In your service's config:
 from services.common.secrets import load_secrets, validate_secrets_at_startup
 
+
 @app.on_event("startup")
 async def startup():
     validate_secrets_at_startup("my_service")

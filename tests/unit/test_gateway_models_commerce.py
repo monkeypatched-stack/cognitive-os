@@ -7,6 +7,7 @@ were the whole point of that pass (required fields, numeric bounds,
 non-empty lists) so a future edit can't silently loosen them back to
 "anything goes" without a test noticing.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -169,7 +170,8 @@ def test_verify_report_response_has_categories_field():
     """Gate 3's ten-category report shape (ADR-010) — locks down that the
     'categories' key this session added stays part of the contract."""
     report = VerifyReportResponse(
-        ok=False, violation_count=1,
+        ok=False,
+        violation_count=1,
         violations=[{"category": "presence_consistency", "type": "actor_without_presence"}],
         categories={"presence_consistency": 1},
     )

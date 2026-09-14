@@ -5,6 +5,7 @@ through experience. No global master database. No enterprise-wide joins.
 Every table, collection, graph label, or measurement is an independent
 source of truth.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ ROUTING_STATE_DIR = Path.home() / ".monkeybrain" / "data_routing"
 @dataclass
 class RoutingEntry:
     """A single routing decision for an entity capability."""
+
     capability: str
     entity: str
     database: str
@@ -44,12 +46,12 @@ class RoutingEntry:
         """Composite Q-value for this routing decision."""
         success_rate = self.success_count / max(1, self.success_count + self.failure_count)
         return (
-            0.35 * self.confidence +
-            0.25 * self.reward +
-            0.15 * success_rate +
-            0.10 * self.completeness +
-            0.10 * self.freshness +
-            0.05 * self.availability
+            0.35 * self.confidence
+            + 0.25 * self.reward
+            + 0.15 * success_rate
+            + 0.10 * self.completeness
+            + 0.10 * self.freshness
+            + 0.05 * self.availability
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -77,6 +79,7 @@ class RoutingEntry:
 @dataclass
 class RoutingCandidate:
     """A candidate data source for a routing decision."""
+
     database: str
     repository: str
     capability: str
@@ -88,6 +91,7 @@ class RoutingCandidate:
 @dataclass
 class RoutingObservation:
     """An observation from a routing decision for learning."""
+
     capability: str
     entity: str
     database: str
@@ -107,7 +111,12 @@ class DataRoutingPolicy:
     through experience. Supports exploration vs exploitation.
     """
 
-    def __init__(self, state_dir: Path | None = None, exploration_rate: float = 0.1, learning_rate: float = 0.1):
+    def __init__(
+        self,
+        state_dir: Path | None = None,
+        exploration_rate: float = 0.1,
+        learning_rate: float = 0.1,
+    ):
         self._state_dir = state_dir or ROUTING_STATE_DIR
         self._state_dir.mkdir(parents=True, exist_ok=True)
         self._exploration_rate = exploration_rate
@@ -123,7 +132,12 @@ class DataRoutingPolicy:
     def _routing_key(self, capability: str, entity: str) -> str:
         return f"{capability}:{entity}"
 
-    def select_source(self, capability: str, entity: str, candidates: list[RoutingCandidate] | None = None) -> RoutingCandidate | None:
+    def select_source(
+        self,
+        capability: str,
+        entity: str,
+        candidates: list[RoutingCandidate] | None = None,
+    ) -> RoutingCandidate | None:
         """Select the best data source for a capability+entity query.
 
         Uses epsilon-greedy: explore randomly sometimes, exploit best otherwise.
@@ -137,6 +151,7 @@ class DataRoutingPolicy:
             return None
 
         import random
+
         if random.random() < self._exploration_rate:
             candidate = random.choice(candidates)
             entry = self._routing_table.get(key)
@@ -163,7 +178,7 @@ class DataRoutingPolicy:
         """Record a routing observation and update the policy."""
         self._observations.append(observation)
         if len(self._observations) > self._max_observations:
-            self._observations = self._observations[-self._max_observations:]
+            self._observations = self._observations[-self._max_observations :]
 
         key = self._routing_key(observation.capability, observation.entity)
 

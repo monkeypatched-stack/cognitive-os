@@ -20,6 +20,7 @@ per ros_integration.py's own module docstring, that IS "the SAME
 CapabilityBus every other capability uses," not a separate robot-only
 dispatch path.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -46,7 +47,9 @@ class HeartbeatCapability:
         if adapter is None:
             return {"success": False, "error": "no ROS adapter bound to this actor"}
 
-        from src.monkey_brain.kernel.edge.ros_integration import run_ros_action_if_governed
+        from src.monkey_brain.kernel.edge.ros_integration import (
+            run_ros_action_if_governed,
+        )
 
         return await run_ros_action_if_governed(
             capability="Heartbeat",
@@ -76,7 +79,9 @@ _MAX_ALTITUDE_M = 50.0
 _MAX_HORIZONTAL_M = 100.0
 
 
-def _validate_number(value: Any, name: str, *, minimum: float, maximum: float) -> tuple[float | None, str]:
+def _validate_number(
+    value: Any, name: str, *, minimum: float, maximum: float
+) -> tuple[float | None, str]:
     try:
         number = float(value)
     except (TypeError, ValueError):
@@ -105,7 +110,7 @@ class _Px4MissionCapabilityBase:
         if adapter is None:
             return {"success": False, "error": "no ROS adapter bound to this actor"}
 
-        parameters = (args.get("parameters") or {})
+        parameters = args.get("parameters") or {}
         validated, error = self._validate(parameters)
         if error:
             # Fails BEFORE governance/ROS are ever reached -- an unsafe or
@@ -114,7 +119,9 @@ class _Px4MissionCapabilityBase:
             # never a real, executable action to begin with.
             return {"success": False, "error": error}
 
-        from src.monkey_brain.kernel.edge.ros_integration import run_ros_action_if_governed
+        from src.monkey_brain.kernel.edge.ros_integration import (
+            run_ros_action_if_governed,
+        )
 
         return await run_ros_action_if_governed(
             capability=self.name,
@@ -141,7 +148,10 @@ class TakeoffCapability(_Px4MissionCapabilityBase):
 
     def _validate(self, parameters: dict) -> tuple[dict, str]:
         height_m, error = _validate_number(
-            parameters.get("height_m", 2.0), "height_m", minimum=0.1, maximum=_MAX_ALTITUDE_M,
+            parameters.get("height_m", 2.0),
+            "height_m",
+            minimum=0.1,
+            maximum=_MAX_ALTITUDE_M,
         )
         if error:
             return {}, error
@@ -155,14 +165,27 @@ class WaypointCapability(_Px4MissionCapabilityBase):
     name = "Waypoint"
 
     def _validate(self, parameters: dict) -> tuple[dict, str]:
-        x, error = _validate_number(parameters.get("x", 0.0), "x", minimum=-_MAX_HORIZONTAL_M, maximum=_MAX_HORIZONTAL_M)
+        x, error = _validate_number(
+            parameters.get("x", 0.0),
+            "x",
+            minimum=-_MAX_HORIZONTAL_M,
+            maximum=_MAX_HORIZONTAL_M,
+        )
         if error:
             return {}, error
-        y, error = _validate_number(parameters.get("y", 0.0), "y", minimum=-_MAX_HORIZONTAL_M, maximum=_MAX_HORIZONTAL_M)
+        y, error = _validate_number(
+            parameters.get("y", 0.0),
+            "y",
+            minimum=-_MAX_HORIZONTAL_M,
+            maximum=_MAX_HORIZONTAL_M,
+        )
         if error:
             return {}, error
         height_m, error = _validate_number(
-            parameters.get("height_m", 2.0), "height_m", minimum=0.1, maximum=_MAX_ALTITUDE_M,
+            parameters.get("height_m", 2.0),
+            "height_m",
+            minimum=0.1,
+            maximum=_MAX_ALTITUDE_M,
         )
         if error:
             return {}, error

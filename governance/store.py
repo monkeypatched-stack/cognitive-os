@@ -12,6 +12,7 @@ this package governs a development workflow, not the CognitiveOS product,
 and must not be wired into or confused with the product's own durable
 security/audit stores.
 """
+
 from __future__ import annotations
 
 import json
@@ -145,7 +146,11 @@ class ApprovalRecordStore:
         return ApprovalRecord.from_dict(data)
 
     def transition_status(
-        self, approval_id: str, target: ApprovalStatus, *, reason: str = "",
+        self,
+        approval_id: str,
+        target: ApprovalStatus,
+        *,
+        reason: str = "",
     ) -> ApprovalRecord:
         """The one canonical way to change a record's status after
         creation. Validates the transition against the same table the
@@ -157,7 +162,10 @@ class ApprovalRecordStore:
             if target not in allowed:
                 raise InvalidApprovalTransition(approval_id, record.status, target)
             record.status = target
-            record.status_history = [*record.status_history, {"status": target.value, "reason": reason}]
+            record.status_history = [
+                *record.status_history,
+                {"status": target.value, "reason": reason},
+            ]
             self._write(self._path(approval_id), record)
             return record
 
@@ -184,4 +192,6 @@ class ApprovalRecordStore:
                     pass
                 raise
         except OSError as exc:
-            raise ApprovalPersistenceError(f"failed to durably write approval {record.artifact.approval_id!r}: {exc}") from exc
+            raise ApprovalPersistenceError(
+                f"failed to durably write approval {record.artifact.approval_id!r}: {exc}"
+            ) from exc

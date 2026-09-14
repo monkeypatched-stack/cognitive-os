@@ -11,6 +11,7 @@ Four-Layer Cognitive Architecture:
   Layer 3: Decision — PolicyStore, ActionOperator, ActionLegality
   Layer 4: Learning — WorldLearner, PolicyLearner, ComparatorRuntime
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.compile.types import (
@@ -24,11 +25,16 @@ from src.monkey_brain.kernel.compile.types import (
 )
 from src.monkey_brain.kernel.compile.compiler import GraphCompiler
 from src.monkey_brain.kernel.compile.tensor import Feature, SparseTransitionTensor
+
 # NOTE: registry.py (DomainOperatorRegistry) is SUPERSEDED by SparseTransitionTensor —
 # the tensor is the collection of domain slices, done with global state indexing. The
 # module is retained but no longer part of the public API. Import it directly if needed.
 from src.monkey_brain.kernel.compile.actor import ActorModel, EffectMatrix
-from src.monkey_brain.kernel.compile.cognitive_actor import CognitiveActor, CycleResult, Delta
+from src.monkey_brain.kernel.compile.cognitive_actor import (
+    CognitiveActor,
+    CycleResult,
+    Delta,
+)
 from src.monkey_brain.kernel.compile.society import Actor, ActorNetwork
 from src.monkey_brain.kernel.compile.sparse import SparseMatrix, epistemic_loss
 from src.monkey_brain.kernel.compile.context import (
@@ -63,18 +69,31 @@ from src.monkey_brain.kernel.compile.exchange import (
     MergeQueue,
     is_shareable,
 )
+
 # Layer 3: Decision — Action operators and legality
-from src.monkey_brain.kernel.compile.action_operator import ActionOperator, ActionLegality
+from src.monkey_brain.kernel.compile.action_operator import (
+    ActionOperator,
+    ActionLegality,
+)
+
 # Phase 3: Unified Scheduler Interface
-from src.monkey_brain.kernel.compile.scheduler_interface import SchedulerInterface, ScheduleRequest, ScheduleResult
+from src.monkey_brain.kernel.compile.scheduler_interface import (
+    SchedulerInterface,
+    ScheduleRequest,
+    ScheduleResult,
+)
 from src.monkey_brain.kernel.compile.scheduler_adapters import (
     DistributedSchedulerAdapter,
     ReasoningSchedulerAdapter,
     GraphSchedulerAdapter,
     ProcessSchedulerAdapter,
 )
-from src.monkey_brain.kernel.compile.scheduler_registry import SchedulerRegistry, get_scheduler_registry
+from src.monkey_brain.kernel.compile.scheduler_registry import (
+    SchedulerRegistry,
+    get_scheduler_registry,
+)
 from src.monkey_brain.kernel.compile.society_runtime import CompileSocietyRuntime
+
 # Dependency Inversion: Runtime Abstractions
 from src.monkey_brain.kernel.compile.runtime_interface import (
     RuntimeInterface,
@@ -83,6 +102,7 @@ from src.monkey_brain.kernel.compile.runtime_interface import (
     RequestContext,
     RuntimeCoordinator,
 )
+
 # SOLID Foundation Interfaces
 from src.monkey_brain.kernel.compile.solid_interfaces import (
     BootInterface,
@@ -110,6 +130,7 @@ from src.monkey_brain.kernel.compile.solid_interfaces import (
     ServiceComponentInterface,
     RuntimeComponentInterface,
 )
+
 # Phase 5: Production Hardening
 from src.monkey_brain.kernel.compile.error_recovery import (
     CircuitBreaker,

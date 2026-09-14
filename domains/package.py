@@ -55,6 +55,7 @@ logger = logging.getLogger("domains")
 # Cognitive Core — every DDD construct implements this
 # ---------------------------------------------------------------------------
 
+
 class CognitiveAgent(ABC):
     """Base class for all DDD cognitive agents.
 
@@ -95,6 +96,7 @@ class CognitiveAgent(ABC):
 # DDD Constructs as Cognitive Agents
 # ---------------------------------------------------------------------------
 
+
 class DomainAgent(CognitiveAgent):
     """Domain Agent — reasons about business strategy.
 
@@ -118,7 +120,11 @@ class DomainAgent(CognitiveAgent):
         return {"strategy": "domain_coordination", "domain": self.name}
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"domain": self.name, "action": "domain_coordination", "result": "executed"}
+        return {
+            "domain": self.name,
+            "action": "domain_coordination",
+            "result": "executed",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._memory.append(outcome)
@@ -147,7 +153,11 @@ class BoundedContextAgent(CognitiveAgent):
         return {"strategy": "context_coordination", "context": self.name}
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"context": self.name, "action": "context_coordination", "result": "executed"}
+        return {
+            "context": self.name,
+            "action": "context_coordination",
+            "result": "executed",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._memory.append(outcome)
@@ -175,12 +185,24 @@ class AggregateAgent(CognitiveAgent):
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         violations = [inv() for inv in self._invariants if not inv()]
-        return {"aggregate": self.name, "violations": violations, "consistent": len(violations) == 0}
+        return {
+            "aggregate": self.name,
+            "violations": violations,
+            "consistent": len(violations) == 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("consistent"):
-            return {"aggregate": self.name, "action": "state_committed", "result": "consistent"}
-        return {"aggregate": self.name, "action": "invariant_violated", "result": "rejected"}
+            return {
+                "aggregate": self.name,
+                "action": "state_committed",
+                "result": "consistent",
+            }
+        return {
+            "aggregate": self.name,
+            "action": "invariant_violated",
+            "result": "rejected",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._events.append(outcome)
@@ -211,14 +233,27 @@ class EntityAgent(CognitiveAgent):
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         allowed = self._transitions.get(self.state, [])
-        return {"entity_id": self.id, "current_state": self.state, "allowed_transitions": allowed}
+        return {
+            "entity_id": self.id,
+            "current_state": self.state,
+            "allowed_transitions": allowed,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         target = decision.get("target_state")
         if target and target in self._transitions.get(self.state, []):
             self.state = target
-            return {"entity_id": self.id, "action": "transitioned", "from": decision["current_state"], "to": target}
-        return {"entity_id": self.id, "action": "transition_rejected", "reason": "invalid_transition"}
+            return {
+                "entity_id": self.id,
+                "action": "transitioned",
+                "from": decision["current_state"],
+                "to": target,
+            }
+        return {
+            "entity_id": self.id,
+            "action": "transition_rejected",
+            "reason": "invalid_transition",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._memory.append(outcome)
@@ -249,7 +284,12 @@ class ValueObjectAgent(CognitiveAgent):
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         raw = perception.get("raw_value")
         errors = [v(raw) for v in self.validators if not v(raw)]
-        return {"value_object": self.name, "raw_value": raw, "valid": len(errors) == 0, "errors": errors}
+        return {
+            "value_object": self.name,
+            "raw_value": raw,
+            "valid": len(errors) == 0,
+            "errors": errors,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("valid"):
@@ -257,7 +297,11 @@ class ValueObjectAgent(CognitiveAgent):
             for transform in self._transformations:
                 value = transform(value)
             return {"value_object": self.name, "action": "transformed", "value": value}
-        return {"value_object": self.name, "action": "validation_failed", "errors": decision.get("errors")}
+        return {
+            "value_object": self.name,
+            "action": "validation_failed",
+            "errors": decision.get("errors"),
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         pass
@@ -285,14 +329,26 @@ class PolicyAgent(CognitiveAgent):
         return {"policy": self.name, "context": context}
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        violations = [rule(perception["context"]) for rule in self.rules if not rule(perception["context"])]
-        return {"policy": self.name, "compliant": len(violations) == 0, "violations": violations}
+        violations = [
+            rule(perception["context"])
+            for rule in self.rules
+            if not rule(perception["context"])
+        ]
+        return {
+            "policy": self.name,
+            "compliant": len(violations) == 0,
+            "violations": violations,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("compliant"):
             return {"policy": self.name, "action": "approved", "result": "compliant"}
         self._violations.extend(decision.get("violations", []))
-        return {"policy": self.name, "action": "rejected", "violations": decision.get("violations")}
+        return {
+            "policy": self.name,
+            "action": "rejected",
+            "violations": decision.get("violations"),
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         pass
@@ -315,16 +371,32 @@ class RepositoryAgent(CognitiveAgent):
         self._query_count: int = 0
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"repository": self.name, "query": context.get("query"), "cached": context.get("query") in self._cache}
+        return {
+            "repository": self.name,
+            "query": context.get("query"),
+            "cached": context.get("query") in self._cache,
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         if perception.get("cached"):
-            return {"repository": self.name, "action": "cache_hit", "query": perception["query"]}
-        return {"repository": self.name, "action": "database_query", "query": perception["query"]}
+            return {
+                "repository": self.name,
+                "action": "cache_hit",
+                "query": perception["query"],
+            }
+        return {
+            "repository": self.name,
+            "action": "database_query",
+            "query": perception["query"],
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         self._query_count += 1
-        return {"repository": self.name, "action": decision["action"], "query_count": self._query_count}
+        return {
+            "repository": self.name,
+            "action": decision["action"],
+            "query_count": self._query_count,
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         pass
@@ -346,20 +418,34 @@ class FactoryAgent(CognitiveAgent):
         self._created: list[dict] = []
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"factory": self.name, "object_type": context.get("type"), "params": context.get("params", {})}
+        return {
+            "factory": self.name,
+            "object_type": context.get("type"),
+            "params": context.get("params", {}),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         obj_type = perception.get("object_type")
         creator = self.creators.get(obj_type)
-        return {"factory": self.name, "can_create": creator is not None, "type": obj_type}
+        return {
+            "factory": self.name,
+            "can_create": creator is not None,
+            "type": obj_type,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("can_create"):
             creator = self.creators[decision["type"]]
             obj = creator()
-            self._created.append({"type": decision["type"], "id": getattr(obj, "id", None)})
+            self._created.append(
+                {"type": decision["type"], "id": getattr(obj, "id", None)}
+            )
             return {"factory": self.name, "action": "created", "type": decision["type"]}
-        return {"factory": self.name, "action": "creation_failed", "reason": "unknown_type"}
+        return {
+            "factory": self.name,
+            "action": "creation_failed",
+            "reason": "unknown_type",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         pass
@@ -384,14 +470,26 @@ class EventAgent(CognitiveAgent):
         event = context.get("event")
         if event:
             self._events.append(event)
-        return {"event_agent": self.name, "event_count": len(self._events), "latest_event": event}
+        return {
+            "event_agent": self.name,
+            "event_count": len(self._events),
+            "latest_event": event,
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         patterns = [p(self._events) for p in self._patterns if p(self._events)]
-        return {"event_agent": self.name, "patterns_detected": patterns, "event_count": len(self._events)}
+        return {
+            "event_agent": self.name,
+            "patterns_detected": patterns,
+            "event_count": len(self._events),
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"event_agent": self.name, "action": "event_processed", "patterns": decision.get("patterns_detected")}
+        return {
+            "event_agent": self.name,
+            "action": "event_processed",
+            "patterns": decision.get("patterns_detected"),
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         pass
@@ -430,10 +528,13 @@ class DomainServiceAgent(CognitiveAgent):
 # Evidence Adapter Protocol
 # ---------------------------------------------------------------------------
 
+
 class DomainEvidenceAdapter(Protocol):
     """Interprets generic ExecutionOutcome into domain-specific evidence."""
 
-    def interpret(self, outcome: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]: ...
+    def interpret(
+        self, outcome: dict[str, Any], context: dict[str, Any]
+    ) -> dict[str, Any]: ...
     def validate(self, evidence: dict[str, Any]) -> bool: ...
 
 
@@ -441,9 +542,11 @@ class DomainEvidenceAdapter(Protocol):
 # Bounded Context
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BoundedContext:
     """A bounded context defines a domain boundary."""
+
     name: str
     aggregates: list[str] = field(default_factory=list)
     services: list[str] = field(default_factory=list)
@@ -454,6 +557,7 @@ class BoundedContext:
 # ---------------------------------------------------------------------------
 # Domain Package
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class DomainPackage:
@@ -485,6 +589,7 @@ class DomainPackage:
         manifest = base_path / "manifest.yaml"
         if manifest.exists():
             import yaml
+
             with open(manifest) as f:
                 data = yaml.safe_load(f) or {}
             self.version = data.get("version", self.version)
@@ -550,26 +655,38 @@ class DomainPackage:
         if const_path.exists():
             for f in const_path.glob("*.yaml"):
                 import yaml
+
                 with open(f) as fh:
                     policy = yaml.safe_load(fh) or {}
                 self.policies.append(policy)
 
         logger.info(
             "Domain package %s v%s loaded: %d aggregates, %d entities, %d services, %d policies",
-            self.name, self.version,
-            len(self.aggregates), len(self.entities), len(self.services), len(self.policies),
+            self.name,
+            self.version,
+            len(self.aggregates),
+            len(self.entities),
+            len(self.services),
+            len(self.policies),
         )
 
-    def interpret_outcome(self, outcome: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    def interpret_outcome(
+        self, outcome: dict[str, Any], context: dict[str, Any]
+    ) -> dict[str, Any]:
         """Interpret a generic ExecutionOutcome into domain-specific evidence."""
         if self.evidence_adapter:
             return self.evidence_adapter.interpret(outcome, context)
-        return {"domain": self.name, "raw_outcome": outcome, "interpretation": "no adapter"}
+        return {
+            "domain": self.name,
+            "raw_outcome": outcome,
+            "interpretation": "no adapter",
+        }
 
 
 # ---------------------------------------------------------------------------
 # Domain Registry
 # ---------------------------------------------------------------------------
+
 
 class DomainRegistry:
     """Registry of loaded domain packages."""

@@ -5,7 +5,6 @@ from __future__ import annotations
 from enum import Enum
 from typing import NamedTuple
 
-
 SELF_HEALING_INTENT = "self_healing_workload"
 
 
@@ -19,6 +18,7 @@ class ExecutionMode(str, Enum):
 
 class ExecutionResult(NamedTuple):
     """Typed, unpackable result — backward compatible with 4-tuple callers."""
+
     answer: str
     semantic_hits: list
     graph_paths: list

@@ -15,6 +15,7 @@ from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.idempotency import idempotent
 
 import logging
+
 logger = logging.getLogger("agentos.sittingface")
 
 router = APIRouter()
@@ -28,7 +29,10 @@ async def list_somatic_charts(
     """List all loaded somatic charts."""
     compiler = getattr(request.app.state, "somatic_compiler", None)
     if not compiler:
-        return JSONResponse(status_code=503, content={"error": "SittingFace not initialized", "charts": []})
+        return JSONResponse(
+            status_code=503,
+            content={"error": "SittingFace not initialized", "charts": []},
+        )
     return {
         **compiler.summary(),
         # compiler.summary()'s chart_names is a flat, unlabeled list --
@@ -47,7 +51,10 @@ async def list_somatic_prompts(
     """List compiled prompts from somatic charts."""
     compiler = getattr(request.app.state, "somatic_compiler", None)
     if not compiler:
-        return JSONResponse(status_code=503, content={"error": "SittingFace not initialized", "prompts": []})
+        return JSONResponse(
+            status_code=503,
+            content={"error": "SittingFace not initialized", "prompts": []},
+        )
     return {
         "prompts": [
             {
@@ -92,7 +99,8 @@ async def list_somatic_capabilities(
                 "capability_name": c.values.get("capability", {}).get("name", c.name),
                 "platform": c.values.get("capability", {}).get("platform", "generic"),
             }
-            for c in compiler.charts if c.chart_type == "capability"
+            for c in compiler.charts
+            if c.chart_type == "capability"
         ],
     }
 

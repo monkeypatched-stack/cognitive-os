@@ -19,6 +19,7 @@ Exposed via PlanetaryRuntime._last_cycle_report / GET
 /planet/performance-report for inspection; no code anywhere branches on
 these values.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -28,6 +29,7 @@ from dataclasses import dataclass, field
 class ActorPerformanceReport:
     """One actor's tick, broken into the stages a Runtime Performance
     Audit needs to separate LLM-inference latency from everything else."""
+
     actor_id: str
     actor_name: str
     total_ms: float
@@ -62,10 +64,20 @@ class ActorPerformanceReport:
         total that DUPLICATES grounding_ms + prompt_build_ms +
         llm_call_ms + response_parse_ms, not an additional cost."""
         return (
-            self.observe_ms + self.believe_ms + self.grounding_ms + self.prompt_build_ms
-            + self.llm_call_ms + self.response_parse_ms + self.predict_ms + self.decide_ms
-            + self.act_ms + self.observe_outcome_ms + self.compare_ms + self.learn_ms
-            + self.compile_phi_ms + self.commit_ms
+            self.observe_ms
+            + self.believe_ms
+            + self.grounding_ms
+            + self.prompt_build_ms
+            + self.llm_call_ms
+            + self.response_parse_ms
+            + self.predict_ms
+            + self.decide_ms
+            + self.act_ms
+            + self.observe_outcome_ms
+            + self.compare_ms
+            + self.learn_ms
+            + self.compile_phi_ms
+            + self.commit_ms
         )
 
     @property
@@ -106,13 +118,22 @@ class ActorPerformanceReport:
 
     @classmethod
     def from_stage_timings(
-        cls, actor_id: str, actor_name: str, total_ms: float,
-        stage_timings_ms: dict, *, belief_updated: bool = False, ticked: bool = True,
+        cls,
+        actor_id: str,
+        actor_name: str,
+        total_ms: float,
+        stage_timings_ms: dict,
+        *,
+        belief_updated: bool = False,
+        ticked: bool = True,
     ) -> "ActorPerformanceReport":
         t = stage_timings_ms or {}
         return cls(
-            actor_id=actor_id, actor_name=actor_name, total_ms=round(total_ms, 3),
-            belief_updated=belief_updated, ticked=ticked,
+            actor_id=actor_id,
+            actor_name=actor_name,
+            total_ms=round(total_ms, 3),
+            belief_updated=belief_updated,
+            ticked=ticked,
             observe_ms=t.get("observe", 0.0),
             believe_ms=t.get("believe", 0.0),
             grounding_ms=t.get("grounding_ms", 0.0),
@@ -136,6 +157,7 @@ class ActorPerformanceReport:
 @dataclass(frozen=True)
 class CyclePerformanceReport:
     """One _run_cycle() call's full timing breakdown."""
+
     cycle_number: int
     total_ms: float
     scheduler_ms: float

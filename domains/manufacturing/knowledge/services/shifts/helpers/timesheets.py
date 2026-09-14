@@ -4,7 +4,11 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.shifts.models.timesheet import TimeSheetCreate, TimeSheetResponse, TimeSheetUpdate
+from services.shifts.models.timesheet import (
+    TimeSheetCreate,
+    TimeSheetResponse,
+    TimeSheetUpdate,
+)
 
 COLLECTION = "timesheets"
 
@@ -49,23 +53,47 @@ def _normalize_timesheet_record(doc: Optional[dict]) -> Optional[dict]:
     if not record:
         return None
 
-    timesheet_id = str(record.get("id") or record.get("timesheet_id") or record.get("payroll_reference") or "TIMESHEET")
+    timesheet_id = str(
+        record.get("id")
+        or record.get("timesheet_id")
+        or record.get("payroll_reference")
+        or "TIMESHEET"
+    )
     record["id"] = timesheet_id
-    record["worker_id"] = str(record.get("worker_id") or record.get("user_id") or "UNKNOWN-WORKER")
-    record["worker_name"] = str(record.get("worker_name") or record.get("worker") or record["worker_id"])
-    period_start = _coerce_date(record.get("period_start") or record.get("work_date") or record.get("created_at"))
-    period_end = _coerce_date(record.get("period_end") or record.get("work_date") or record.get("updated_at"), period_start)
+    record["worker_id"] = str(
+        record.get("worker_id") or record.get("user_id") or "UNKNOWN-WORKER"
+    )
+    record["worker_name"] = str(
+        record.get("worker_name") or record.get("worker") or record["worker_id"]
+    )
+    period_start = _coerce_date(
+        record.get("period_start")
+        or record.get("work_date")
+        or record.get("created_at")
+    )
+    period_end = _coerce_date(
+        record.get("period_end") or record.get("work_date") or record.get("updated_at"),
+        period_start,
+    )
     if period_end < period_start:
         period_end = period_start
     record["period_start"] = period_start
     record["period_end"] = period_end
-    regular_hours = float(record.get("total_regular_hours") or record.get("hours_worked") or 0)
-    overtime_hours = float(record.get("total_overtime_hours") or record.get("overtime_hours") or 0)
+    regular_hours = float(
+        record.get("total_regular_hours") or record.get("hours_worked") or 0
+    )
+    overtime_hours = float(
+        record.get("total_overtime_hours") or record.get("overtime_hours") or 0
+    )
     record["total_regular_hours"] = max(regular_hours, 0.0)
     record["total_overtime_hours"] = max(overtime_hours, 0.0)
-    record["total_paid_hours"] = max(float(record.get("total_paid_hours") or regular_hours + overtime_hours), 0.0)
+    record["total_paid_hours"] = max(
+        float(record.get("total_paid_hours") or regular_hours + overtime_hours), 0.0
+    )
     record["currency"] = str(record.get("currency") or "USD")[:3].upper()
-    record["overtime_rate_multiplier"] = float(record.get("overtime_rate_multiplier") or 1.5)
+    record["overtime_rate_multiplier"] = float(
+        record.get("overtime_rate_multiplier") or 1.5
+    )
     record["submitted"] = bool(record.get("submitted", False))
     record["approved"] = bool(record.get("approved", False))
     entries = record.get("entries")
@@ -89,7 +117,9 @@ def _dump(data) -> dict:
     return doc
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -97,7 +127,9 @@ async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) 
 
 
 async def get_by_id(db: AsyncIOMotorDatabase, timesheet_id: str) -> Optional[dict]:
-    return _normalize_timesheet_record(await db[COLLECTION].find_one({"id": timesheet_id}))
+    return _normalize_timesheet_record(
+        await db[COLLECTION].find_one({"id": timesheet_id})
+    )
 
 
 async def get_by_worker(db: AsyncIOMotorDatabase, worker_id: str) -> list[dict]:
@@ -105,8 +137,12 @@ async def get_by_worker(db: AsyncIOMotorDatabase, worker_id: str) -> list[dict]:
     return [_normalize_timesheet_record(doc) async for doc in cursor]
 
 
-async def get_by_payroll_reference(db: AsyncIOMotorDatabase, payroll_reference: str) -> Optional[dict]:
-    return _normalize_timesheet_record(await db[COLLECTION].find_one({"payroll_reference": payroll_reference}))
+async def get_by_payroll_reference(
+    db: AsyncIOMotorDatabase, payroll_reference: str
+) -> Optional[dict]:
+    return _normalize_timesheet_record(
+        await db[COLLECTION].find_one({"payroll_reference": payroll_reference})
+    )
 
 
 async def get_by_approval(db: AsyncIOMotorDatabase, approved: bool) -> list[dict]:
@@ -120,7 +156,9 @@ async def create(db: AsyncIOMotorDatabase, data: TimeSheetCreate) -> dict:
     return _normalize_timesheet_record(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, timesheet_id: str, data: TimeSheetUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, timesheet_id: str, data: TimeSheetUpdate
+) -> Optional[dict]:
     fields = _dump(data)
     if not fields:
         return await get_by_id(db, timesheet_id)

@@ -5,13 +5,23 @@ actor availability, permissions, resources, capacity) individually and in
 combination, and confirms resolution genuinely fails BEFORE execution would
 start — this module never dispatches a step, only checks.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
-from src.monkey_brain.kernel.pipeline.execution_runtime.domain import ExecutionStep, ExecutionPlan, ExecutionRequest
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry
+from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
+    ExecutionStep,
+    ExecutionPlan,
+    ExecutionRequest,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+)
 from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import (
-    ExecutionEnvironment, ResolutionIssue, ResolutionReport, CapabilityResolver,
+    ExecutionEnvironment,
+    ResolutionIssue,
+    ResolutionReport,
+    CapabilityResolver,
 )
 
 
@@ -26,11 +36,15 @@ def _plan_request(*operators: PlanningOperator, actor_id: str = "alice") -> tupl
 # Fully resolved (success) case
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestFullyResolved:
     def test_all_requirements_met_resolves(self):
         nav = PlanningOperator(name="Navigate", required_capabilities=("navigation",))
-        buy = PlanningOperator(name="AcquireItem", required_capabilities=("shopping", "payment"),
-                                metadata={"item": "milk", "quantity": 2})
+        buy = PlanningOperator(
+            name="AcquireItem",
+            required_capabilities=("shopping", "payment"),
+            metadata={"item": "milk", "quantity": 2},
+        )
         plan, request = _plan_request(nav, buy)
 
         env = ExecutionEnvironment(
@@ -52,6 +66,7 @@ class TestFullyResolved:
 # ═══════════════════════════════════════════════════════════════════════════
 # Capability resolution — "fail before starting if unavailable"
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCapabilityResolution:
     def test_missing_capability_fails_resolution(self):
@@ -86,11 +101,15 @@ class TestCapabilityResolution:
 # Actor availability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestActorAvailability:
     def test_unavailable_actor_fails_resolution(self):
         nav = PlanningOperator(name="Navigate", required_capabilities=("navigation",))
         plan, request = _plan_request(nav, actor_id="bob")
-        env = ExecutionEnvironment(available_capabilities=("navigation",), available_actors=frozenset({"alice"}))
+        env = ExecutionEnvironment(
+            available_capabilities=("navigation",),
+            available_actors=frozenset({"alice"}),
+        )
 
         report = CapabilityResolver(environment=env).resolve(plan, request)
 
@@ -110,6 +129,7 @@ class TestActorAvailability:
 # ═══════════════════════════════════════════════════════════════════════════
 # Permissions
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPermissionResolution:
     def test_missing_permission_fails_resolution(self):
@@ -144,6 +164,7 @@ class TestPermissionResolution:
 # Resource availability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestResourceResolution:
     def test_sufficient_resource_resolves(self):
         op = PlanningOperator(name="AcquireItem", metadata={"item": "milk", "quantity": 2})
@@ -176,7 +197,10 @@ class TestResourceResolution:
 
     def test_resource_via_reserve_resource_metadata_key(self):
         """ReserveResource-style operators use 'resource', not 'item'."""
-        op = PlanningOperator(name="ReserveResource", metadata={"resource": "delivery_slot", "quantity": 1})
+        op = PlanningOperator(
+            name="ReserveResource",
+            metadata={"resource": "delivery_slot", "quantity": 1},
+        )
         plan, request = _plan_request(op)
         env = ExecutionEnvironment(resource_pool={"delivery_slot": 0})
 
@@ -197,6 +221,7 @@ class TestResourceResolution:
 # ═══════════════════════════════════════════════════════════════════════════
 # Capacity
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCapacityResolution:
     def test_within_capacity_resolves(self):
@@ -232,10 +257,12 @@ class TestCapacityResolution:
 # Multiple simultaneous issues
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestMultipleIssues:
     def test_all_failing_dimensions_are_reported_not_just_the_first(self):
         op = PlanningOperator(
-            name="AcquireItem", required_capabilities=("shopping",),
+            name="AcquireItem",
+            required_capabilities=("shopping",),
             metadata={"item": "milk", "quantity": 5, "required_permission": "shop"},
         )
         plan, request = _plan_request(op, actor_id="bob")
@@ -257,6 +284,7 @@ class TestMultipleIssues:
 # Resolution never executes anything
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestResolutionIsReadOnly:
     def test_resolve_does_not_dispatch_any_step(self):
         """A resolver must only check — never actually run a handler."""
@@ -264,10 +292,15 @@ class TestResolutionIsReadOnly:
 
         class SpyHandler:
             operator_name = "Navigate"
-            from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionCapability
+            from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+                ExecutionCapability,
+            )
+
             capability = ExecutionCapability(name="navigation")
+
             def validate(self, step):
                 return None
+
             def execute(self, step, context):
                 calls.append(step.step_id)
                 raise AssertionError("resolver must not execute steps")
@@ -287,10 +320,12 @@ class TestResolutionIsReadOnly:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_planning_engine_or_cognitive_runtime_coupling(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.execution_runtime.resolution as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

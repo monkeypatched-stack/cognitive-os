@@ -84,7 +84,12 @@ class CustomsInfo(BaseModel):
 
 class Waybill(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    waybill_number: str = Field(..., min_length=1, max_length=100, description="Unique waybill / AWB / BOL number")
+    waybill_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Unique waybill / AWB / BOL number",
+    )
     status: WaybillStatus = WaybillStatus.DRAFT
     shipment_mode: ShipmentMode
     issue_date: datetime = Field(default_factory=utc_now)
@@ -93,14 +98,28 @@ class Waybill(BaseModel):
     actual_delivery_date: Optional[datetime] = None
     shipper: Address = Field(..., description="Sender / consignor")
     consignee: Address = Field(..., description="Recipient / consignee")
-    notify_party: Optional[Address] = Field(None, description="Third party to be notified upon arrival")
+    notify_party: Optional[Address] = Field(
+        None, description="Third party to be notified upon arrival"
+    )
     carrier_name: str = Field(..., min_length=1, max_length=200)
-    carrier_code: Optional[str] = Field(None, max_length=20, description="IATA carrier code or SCAC (road/rail)")
-    service_type: Optional[str] = Field(None, max_length=100, description="E.g. Express, Economy, Same-Day")
+    carrier_code: Optional[str] = Field(
+        None, max_length=20, description="IATA carrier code or SCAC (road/rail)"
+    )
+    service_type: Optional[str] = Field(
+        None, max_length=100, description="E.g. Express, Economy, Same-Day"
+    )
     payment_terms: PaymentTerms = PaymentTerms.PREPAID
-    origin_port: Optional[str] = Field(None, max_length=20, description="IATA / LOCODE of origin hub")
-    destination_port: Optional[str] = Field(None, max_length=20, description="IATA / LOCODE of destination hub")
-    routing: Optional[str] = Field(None, max_length=255, description="Intermediate routing points, e.g. 'BOM-DXB-LHR'")
+    origin_port: Optional[str] = Field(
+        None, max_length=20, description="IATA / LOCODE of origin hub"
+    )
+    destination_port: Optional[str] = Field(
+        None, max_length=20, description="IATA / LOCODE of destination hub"
+    )
+    routing: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Intermediate routing points, e.g. 'BOM-DXB-LHR'",
+    )
     packages: list[WaybillPackage] = Field(..., min_length=1)
     total_packages: Optional[int] = Field(None, ge=1)
     total_gross_weight: Optional[Annotated[Decimal, Field(gt=0)]] = None
@@ -111,7 +130,9 @@ class Waybill(BaseModel):
     currency: str = Field(default="USD", min_length=3, max_length=3)
     customs_info: Optional[CustomsInfo] = None
     special_instructions: Optional[str] = None
-    reference_number: Optional[str] = Field(None, max_length=100, description="Shipper's reference or PO number")
+    reference_number: Optional[str] = Field(
+        None, max_length=100, description="Shipper's reference or PO number"
+    )
     barcode: Optional[str] = Field(None, max_length=100)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -134,7 +155,9 @@ class Waybill(BaseModel):
     def delivery_date_after_pickup(self) -> "Waybill":
         if self.pickup_date and self.estimated_delivery_date:
             if self.estimated_delivery_date < self.pickup_date:
-                raise ValueError("estimated_delivery_date must be on or after pickup_date")
+                raise ValueError(
+                    "estimated_delivery_date must be on or after pickup_date"
+                )
         return self
 
 

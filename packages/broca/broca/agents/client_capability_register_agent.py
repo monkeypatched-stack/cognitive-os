@@ -9,6 +9,7 @@ make create-agent" (soma.py's soma_create_agent does this same
 instantiate+register inline, not via a Broca agent), wrapped here so the SDLC
 graph can drive it as a capability node.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,13 +37,17 @@ class ClientCapabilityRegisterAgent(BaseETASSAgent):
             return self._result(payload={"registered": False}, observations=["no service_slug"])
 
         chart_path = (
-            Path(str(context["chart_path"])) if context.get("chart_path")
+            Path(str(context["chart_path"]))
+            if context.get("chart_path")
             else _REPO / "somatic" / "charts" / f"{service_slug}-client" / "values.yaml"
         )
         if not chart_path.exists():
             self._reward(False, 0.0)
             return self._result(
-                payload={"registered": False, "error": f"chart not found: {chart_path}"},
+                payload={
+                    "registered": False,
+                    "error": f"chart not found: {chart_path}",
+                },
                 observations=[f"no compiled client chart for {service_slug}"],
             )
 

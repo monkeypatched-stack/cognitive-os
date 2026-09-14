@@ -60,6 +60,7 @@ state.learning's dict shape from Step 10.7 stays exactly as documented
 there (no internal objects leaking into what was a clean, JSON-safe
 summary dict).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -106,6 +107,7 @@ class LearningIntegratedPolicy(CognitivePolicy):
             comparison = getattr(state, "comparison_result", None)
             if comparison:
                 from dataclasses import replace
+
                 enhanced_metadata = {
                     **experience.metadata,
                     "comparison": comparison,
@@ -135,6 +137,7 @@ class LearningIntegratedPolicy(CognitivePolicy):
             # LearnTransitions stage, TransitionModel/PolicyStore) — this
             # is the base Learn stage's own reward/belief/world pipeline.
             from src.monkey_brain.kernel.compile import _obs
+
             _obs.counter("learn.total")
             _obs.gauge("learn.reward", float(result.reward))
             _obs.counter("learn.belief_updated.total", updated=str(result.belief_updated))
@@ -163,12 +166,16 @@ class LearningIntegratedPolicy(CognitivePolicy):
                 # are the boundary between cognition and reality" and
                 # "learning cannot expand authority" tenets).
                 from src.monkey_brain.kernel.pipeline.learning.capability_promotion import (
-                    default_tracker, extract_recipe_from_experience,
+                    default_tracker,
+                    extract_recipe_from_experience,
                 )
+
                 recipe = extract_recipe_from_experience(experience)
                 default_tracker().observe(
-                    goal_signature=artifact.goal_signature, reward=artifact.reward,
-                    confidence=artifact.confidence, outcome_summary=artifact.outcome_summary,
+                    goal_signature=artifact.goal_signature,
+                    reward=artifact.reward,
+                    confidence=artifact.confidence,
+                    outcome_summary=artifact.outcome_summary,
                     top_signal_summary=artifact.top_signal_summary,
                     recipe=recipe,
                 )
@@ -176,8 +183,15 @@ class LearningIntegratedPolicy(CognitivePolicy):
             return state
 
         super().configure(
-            observe, believe, plan, execute, observe_outcome,
-            integrated_learn, integrated_compile_phi, predict, commit,
+            observe,
+            believe,
+            plan,
+            execute,
+            observe_outcome,
+            integrated_learn,
+            integrated_compile_phi,
+            predict,
+            commit,
         )
 
 
@@ -200,7 +214,9 @@ def build_learning_integrated_runtime(
     this package; this module only needs belief_runtime.py's type at
     call time, the same lazy-import shape Step 9.7 used where it needed
     execution.py's real Action/ExecutionResult types)."""
-    from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime as PipelineCognitiveRuntime
+    from src.monkey_brain.kernel.pipeline.belief_runtime import (
+        CognitiveRuntime as PipelineCognitiveRuntime,
+    )
 
     return PipelineCognitiveRuntime(
         observation_provider=observation_provider,

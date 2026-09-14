@@ -62,14 +62,19 @@ class CapabilityBandit:
 
         if self._redis:
             try:
-                self._redis.set(self._key(adapter_id, capability), json.dumps({
-                    "adapter_id": state.adapter_id,
-                    "capability": state.capability,
-                    "pull_count": state.pull_count,
-                    "reward_sum": state.reward_sum,
-                    "avg_reward": state.avg_reward,
-                    "last_reward": state.last_reward,
-                }))
+                self._redis.set(
+                    self._key(adapter_id, capability),
+                    json.dumps(
+                        {
+                            "adapter_id": state.adapter_id,
+                            "capability": state.capability,
+                            "pull_count": state.pull_count,
+                            "reward_sum": state.reward_sum,
+                            "avg_reward": state.avg_reward,
+                            "last_reward": state.last_reward,
+                        }
+                    ),
+                )
             except Exception:
                 pass
 
@@ -101,12 +106,17 @@ class CapabilityBandit:
 
         if self._redis:
             try:
-                self._redis.rpush(self._reward_log, json.dumps({
-                    "adapter_id": adapter_id,
-                    "capability": capability,
-                    "reward": reward,
-                    "timestamp": time.time(),
-                }))
+                self._redis.rpush(
+                    self._reward_log,
+                    json.dumps(
+                        {
+                            "adapter_id": adapter_id,
+                            "capability": capability,
+                            "reward": reward,
+                            "timestamp": time.time(),
+                        }
+                    ),
+                )
                 self._redis.ltrim(self._reward_log, -500, -1)
             except Exception:
                 pass

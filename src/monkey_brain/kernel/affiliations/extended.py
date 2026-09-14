@@ -13,6 +13,7 @@ under a single manager while maintaining backward compatibility.
 DRY: Imports Entity, KnowledgeRelationship, TemporalSnapshot from knowledge_graph.py
      instead of duplicating them.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,8 +23,11 @@ from .manager import AffiliationManager
 from .affiliation import Affiliation
 from .trust import TrustEngine
 from ..knowledge_graph import (
-    Entity, Relationship as KnowledgeRelationship, TemporalSnapshot,
-    EntityType, RelationshipType,
+    Entity,
+    Relationship as KnowledgeRelationship,
+    TemporalSnapshot,
+    EntityType,
+    RelationshipType,
 )
 
 logger = logging.getLogger("agentos.affiliations.extended")
@@ -43,8 +47,7 @@ class ExtendedAffiliationManager(AffiliationManager):
     SOLID: Single responsibility - orchestrates entity/relationship operations
     """
 
-    def __init__(self, trust_engine: TrustEngine | None = None,
-                 person_id: str = ""):
+    def __init__(self, trust_engine: TrustEngine | None = None, person_id: str = ""):
         super().__init__(trust_engine)
         self.person_id = person_id
         self._entities: dict[str, Entity] = {}
@@ -55,8 +58,14 @@ class ExtendedAffiliationManager(AffiliationManager):
 
     # ── Entity Operations ───────────────────────────────────────
 
-    def add_entity(self, entity_id: str = "", entity_type: str = EntityType.OTHER,
-                   name: str = "", attributes: dict | None = None, **kwargs) -> Entity:
+    def add_entity(
+        self,
+        entity_id: str = "",
+        entity_type: str = EntityType.OTHER,
+        name: str = "",
+        attributes: dict | None = None,
+        **kwargs,
+    ) -> Entity:
         """Add an entity to the knowledge graph."""
         entity = Entity(entity_id, entity_type, name, attributes or kwargs)
         self._entities[entity.entity_id] = entity
@@ -115,12 +124,17 @@ class ExtendedAffiliationManager(AffiliationManager):
 
     # ── Knowledge Relationship Operations ───────────────────────
 
-    def add_knowledge_relationship(self, source_id: str, target_id: str,
-                                   relationship_type: str = RelationshipType.RELATED_TO,
-                                   attributes: dict | None = None,
-                                   confidence: float = 1.0) -> KnowledgeRelationship:
+    def add_knowledge_relationship(
+        self,
+        source_id: str,
+        target_id: str,
+        relationship_type: str = RelationshipType.RELATED_TO,
+        attributes: dict | None = None,
+        confidence: float = 1.0,
+    ) -> KnowledgeRelationship:
         """Add a knowledge relationship."""
         import uuid
+
         rel = KnowledgeRelationship(
             source_id=source_id,
             target_id=target_id,
@@ -181,8 +195,7 @@ class ExtendedAffiliationManager(AffiliationManager):
 
     def knowledge_relationships_by_type(self, relationship_type: str) -> list[KnowledgeRelationship]:
         """Get all knowledge relationships of a specific type."""
-        return [r for r in self._knowledge_relationships.values()
-                if r.relationship_type == relationship_type]
+        return [r for r in self._knowledge_relationships.values() if r.relationship_type == relationship_type]
 
     @property
     def knowledge_relationship_count(self) -> int:
@@ -193,6 +206,7 @@ class ExtendedAffiliationManager(AffiliationManager):
     def create_snapshot(self, year: int) -> TemporalSnapshot:
         """Create a temporal snapshot."""
         import uuid
+
         snapshot = TemporalSnapshot(
             snapshot_id=str(uuid.uuid4()),
             entity_id=self.person_id,
@@ -217,9 +231,11 @@ class ExtendedAffiliationManager(AffiliationManager):
 
     def _entities_by_relationship_type(self, rel_type: str) -> list[Entity]:
         """DRY: Single method for all domain queries."""
-        return [self._entities[r.target_id] for r in self._knowledge_relationships.values()
-                if r.source_id == self.person_id and r.relationship_type == rel_type
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._knowledge_relationships.values()
+            if r.source_id == self.person_id and r.relationship_type == rel_type and r.target_id in self._entities
+        ]
 
     def get_family(self) -> list[Entity]:
         """Get family members."""
@@ -269,6 +285,7 @@ class ExtendedAffiliationManager(AffiliationManager):
             return []
 
         from collections import deque
+
         queue = deque([(source_id, [])])
         visited = {source_id}
 
@@ -327,12 +344,14 @@ class ExtendedAffiliationManager(AffiliationManager):
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict."""
         base = super().to_dict()
-        base.update({
-            "person_id": self.person_id,
-            "entities": {k: v.to_dict() for k, v in self._entities.items()},
-            "knowledge_relationships": {k: v.to_dict() for k, v in self._knowledge_relationships.items()},
-            "snapshots": [s.to_dict() for s in self._snapshots],
-        })
+        base.update(
+            {
+                "person_id": self.person_id,
+                "entities": {k: v.to_dict() for k, v in self._entities.items()},
+                "knowledge_relationships": {k: v.to_dict() for k, v in self._knowledge_relationships.items()},
+                "snapshots": [s.to_dict() for s in self._snapshots],
+            }
+        )
         return base
 
     @classmethod

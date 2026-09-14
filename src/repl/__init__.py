@@ -57,42 +57,96 @@ __version__ = "1.0.5"
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # Ensure repo paths are importable
-for _p in (str(_REPO_ROOT), str(_REPO_ROOT / "src"), str(_REPO_ROOT / "packages" / "broca")):
+for _p in (
+    str(_REPO_ROOT),
+    str(_REPO_ROOT / "src"),
+    str(_REPO_ROOT / "packages" / "broca"),
+):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 # ── Import command modules ─────────────────────────────────────────────────
 from repl.services import (
-    service_install, service_start, service_stop, service_status,
-    service_configure, service_seed, service_logs, service_uninstall,
+    service_install,
+    service_start,
+    service_stop,
+    service_status,
+    service_configure,
+    service_seed,
+    service_logs,
+    service_uninstall,
 )
 from repl.tests import test_cmd, test_report_cmd
 from repl.soma import (
-    soma_callback, soma_compile, soma_api, soma_review, soma_codegen,
-    soma_govern, soma_fixit, soma_comply, soma_ddd_check, soma_seed,
-    soma_serve, soma_client, soma_chart_from_client, soma_compile_agent,
-    soma_create_agent, soma_test_service, soma_plan, soma_execute_plan, soma_run,
+    soma_callback,
+    soma_compile,
+    soma_api,
+    soma_review,
+    soma_codegen,
+    soma_govern,
+    soma_fixit,
+    soma_comply,
+    soma_ddd_check,
+    soma_seed,
+    soma_serve,
+    soma_client,
+    soma_chart_from_client,
+    soma_compile_agent,
+    soma_create_agent,
+    soma_test_service,
+    soma_plan,
+    soma_execute_plan,
+    soma_run,
     soma_discover,
 )
 from repl.brain import (
-    brain_validate, brain_benchmark, brain_memory, brain_world,
-    brain_policy, brain_identity, brain_logs,
+    brain_validate,
+    brain_benchmark,
+    brain_memory,
+    brain_world,
+    brain_policy,
+    brain_identity,
+    brain_logs,
 )
 from repl.processes import process_list, process_stop
 from repl.identity import identity_create, identity_list, identity_delete
 from repl.policy import policy_grant, policy_revoke, policy_list
-from repl.scheduler import scheduler_list, scheduler_add, scheduler_remove, scheduler_run
-from repl.utils import logs_cmd, mount_cmd, monitor_cmd, ls_cmd, serve_cmd, stop_cmd, uninstall_cmd, start_cmd, restart_cmd, clear_cmd
+from repl.scheduler import (
+    scheduler_list,
+    scheduler_add,
+    scheduler_remove,
+    scheduler_run,
+)
+from repl.utils import (
+    logs_cmd,
+    mount_cmd,
+    monitor_cmd,
+    ls_cmd,
+    serve_cmd,
+    stop_cmd,
+    uninstall_cmd,
+    start_cmd,
+    restart_cmd,
+    clear_cmd,
+)
 from repl.login import login_cmd, logout_cmd, api_key_cmd
 from repl.sdlc import (
-    sdlc_run, sdlc_status, sdlc_approve,
-    sdlc_discovery, sdlc_specification, sdlc_requirements, sdlc_architecture,
-    sdlc_design, sdlc_implementation, sdlc_review, sdlc_testing,
-    sdlc_packaging, sdlc_release,
+    sdlc_run,
+    sdlc_status,
+    sdlc_approve,
+    sdlc_discovery,
+    sdlc_specification,
+    sdlc_requirements,
+    sdlc_architecture,
+    sdlc_design,
+    sdlc_implementation,
+    sdlc_review,
+    sdlc_testing,
+    sdlc_packaging,
+    sdlc_release,
 )
 from repl._helpers import _is_logged_in
 from repl.theme import print_error
-
 
 # ── Typer App ──────────────────────────────────────────────────────────────
 # rich_markup_mode=None everywhere below: command docstrings use literal
@@ -122,7 +176,12 @@ app.add_typer(svc_app, name="svc")
 # ── Make sub-app (build/lint/run/prompts/capabilities/reviews) ─────────────
 # Registered as "make" (not "soma") to match the Linux-style mapping this
 # module's docstring already documents: [make/cc] build|lint|run|prompts|...
-make_app = typer.Typer(help="Build, compile, review, and run SOMA charts/services", callback=soma_callback, rich_markup_mode=None, no_args_is_help=True)
+make_app = typer.Typer(
+    help="Build, compile, review, and run SOMA charts/services",
+    callback=soma_callback,
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
 make_app.command("compile")(soma_compile)
 make_app.command("api")(soma_api)
 make_app.command("review")(soma_review)
@@ -188,7 +247,11 @@ cron_app.command("run")(scheduler_run)
 app.add_typer(cron_app, name="cron")
 
 # ── SDLC sub-app ───────────────────────────────────────────────────────────
-sdlc_app = typer.Typer(help="Full SDLC pipeline: spec -> requirements -> ... -> release", rich_markup_mode=None, no_args_is_help=True)
+sdlc_app = typer.Typer(
+    help="Full SDLC pipeline: spec -> requirements -> ... -> release",
+    rich_markup_mode=None,
+    no_args_is_help=True,
+)
 sdlc_app.command("run")(sdlc_run)
 sdlc_app.command("status")(sdlc_status)
 sdlc_app.command("approve")(sdlc_approve)
@@ -206,26 +269,47 @@ app.add_typer(sdlc_app, name="sdlc")
 
 # ── Top-level commands ─────────────────────────────────────────────────────
 
+
 def install_cmd(
-    auto_install:       bool = typer.Option(False, "--auto-install", help="Auto-install missing database services"),
-    skip_ollama:        bool = typer.Option(False, "--skip-ollama", help="Skip Ollama (local LLM)"),
+    auto_install: bool = typer.Option(False, "--auto-install", help="Auto-install missing database services"),
+    skip_ollama: bool = typer.Option(False, "--skip-ollama", help="Skip Ollama (local LLM)"),
 ):
     """Full installation of MonkeyBrain — databases, Ollama, config, and CLI."""
     import argparse, os
     from install_agentos import cmd_install
+
     args = argparse.Namespace(
-        auto_install=auto_install, skip=["ollama"] if skip_ollama else [],
-        skip_mongo=False, skip_redis=False, skip_neo4j=False,
-        skip_influxdb=False, skip_elasticsearch=False,
-        skip_nats=False, skip_ollama=skip_ollama, skip_api=False,
-        mongo_url=None, mongo_port=27017, db_name="demo",
-        redis_url=None, redis_port=6379,
-        neo4j_uri=None, neo4j_port=7687, neo4j_user="neo4j", neo4j_password=os.getenv("NEO4J_PASSWORD", ""),
-        influxdb_url=None, influxdb_port=8181, influxdb_org="indus",
-        influxdb_bucket="events", influxdb_token=os.getenv("INFLUXDB_TOKEN", ""),
-        elasticsearch_url=None, elasticsearch_port=9200,
-        nats_url=None, nats_port=4222,
-        ollama_url=None, ollama_port=11434, ollama_model="gemma3:latest",
+        auto_install=auto_install,
+        skip=["ollama"] if skip_ollama else [],
+        skip_mongo=False,
+        skip_redis=False,
+        skip_neo4j=False,
+        skip_influxdb=False,
+        skip_elasticsearch=False,
+        skip_nats=False,
+        skip_ollama=skip_ollama,
+        skip_api=False,
+        mongo_url=None,
+        mongo_port=27017,
+        db_name="demo",
+        redis_url=None,
+        redis_port=6379,
+        neo4j_uri=None,
+        neo4j_port=7687,
+        neo4j_user="neo4j",
+        neo4j_password=os.getenv("NEO4J_PASSWORD", ""),
+        influxdb_url=None,
+        influxdb_port=8181,
+        influxdb_org="indus",
+        influxdb_bucket="events",
+        influxdb_token=os.getenv("INFLUXDB_TOKEN", ""),
+        elasticsearch_url=None,
+        elasticsearch_port=9200,
+        nats_url=None,
+        nats_port=4222,
+        ollama_url=None,
+        ollama_port=11434,
+        ollama_model="gemma3:latest",
         port=8031,
     )
     cmd_install(args)

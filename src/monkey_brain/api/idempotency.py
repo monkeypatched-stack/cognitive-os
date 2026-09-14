@@ -30,6 +30,7 @@ handler that raises is never cached — replaying a transient failure
 (503, a validation bug since fixed) must be allowed to actually retry,
 only a successful, already-committed side effect must not repeat.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -108,6 +109,7 @@ def _from_cached(payload: Any) -> Any:
     caller input, so the dotted-path import is safe."""
     if isinstance(payload, dict) and payload.get("__idempotent_pydantic__"):
         import importlib
+
         module_name, qualname = payload["class"].split(":", 1)
         obj: Any = importlib.import_module(module_name)
         for part in qualname.split("."):
@@ -120,11 +122,16 @@ def request_fingerprint(method: str, path: str, body: dict[str, Any] | None) -> 
     """A stable hash of what the client is actually asking for — used to
     detect the ONE unsafe case: the same Idempotency-Key reused for a
     genuinely different request (a client bug, not a retry)."""
-    payload = json.dumps({"method": method, "path": path, "body": body or {}}, sort_keys=True, default=str)
+    payload = json.dumps(
+        {"method": method, "path": path, "body": body or {}},
+        sort_keys=True,
+        default=str,
+    )
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
 # ── In-memory backend (single-worker default) ───────────────────────────────
+
 
 class _InMemoryIdempotencyBackend:
     def __init__(self) -> None:
@@ -150,12 +157,15 @@ class _InMemoryIdempotencyBackend:
                     if (time.time() - existing.reserved_at) < RESERVATION_TIMEOUT_SECONDS:
                         return False, existing
                     abandoned = IdempotencyRecord(
-                        state=_ABANDONED, request_hash=existing.request_hash,
+                        state=_ABANDONED,
+                        request_hash=existing.request_hash,
                         reserved_at=existing.reserved_at,
                     )
                     self._records[key] = abandoned
                     return False, abandoned
-            self._records[key] = IdempotencyRecord(state=_IN_PROGRESS, request_hash=request_hash, reserved_at=time.time())
+            self._records[key] = IdempotencyRecord(
+                state=_IN_PROGRESS, request_hash=request_hash, reserved_at=time.time()
+            )
             self._records.move_to_end(key)
             self._evict_locked()
             return True, None
@@ -163,7 +173,10 @@ class _InMemoryIdempotencyBackend:
     def complete(self, key: str, request_hash: str, response_body: dict[str, Any]) -> None:
         with self._lock:
             self._records[key] = IdempotencyRecord(
-                state=_COMPLETED, request_hash=request_hash, response_body=response_body, reserved_at=time.time(),
+                state=_COMPLETED,
+                request_hash=request_hash,
+                response_body=response_body,
+                reserved_at=time.time(),
             )
             self._records.move_to_end(key)
             self._evict_locked()
@@ -177,6 +190,7 @@ class _InMemoryIdempotencyBackend:
 
 
 # ── Redis backend (shared, multi-worker-safe) ───────────────────────────────
+
 
 class _RedisIdempotencyBackend:
     """Keys: idempotency:{key} -> JSON {state, request_hash, response_body}.
@@ -193,6 +207,7 @@ class _RedisIdempotencyBackend:
 
     def _connect(self) -> Any:
         import redis  # redis-py; a declared dependency (pyproject.toml)
+
         return redis.from_url(
             self._url,
             decode_responses=True,
@@ -217,7 +232,13 @@ class _RedisIdempotencyBackend:
             self._client = self._connect()
         return self._client
 
-    def _dump(self, state: str, request_hash: str, response_body: dict[str, Any] | None, reserved_at: float | None = None) -> str:
+    def _dump(
+        self,
+        state: str,
+        request_hash: str,
+        response_body: dict[str, Any] | None,
+        reserved_at: float | None = None,
+    ) -> str:
         return json.dumps(
             {
                 "state": state,
@@ -244,8 +265,10 @@ class _RedisIdempotencyBackend:
         try:
             now = time.time()
             ok = self._r.set(
-                redis_key, self._dump(_IN_PROGRESS, request_hash, None, now),
-                nx=True, ex=DEFAULT_TTL_SECONDS,
+                redis_key,
+                self._dump(_IN_PROGRESS, request_hash, None, now),
+                nx=True,
+                ex=DEFAULT_TTL_SECONDS,
             )
             if ok:
                 return True, None
@@ -253,30 +276,46 @@ class _RedisIdempotencyBackend:
             if existing is not None and existing.state == _IN_PROGRESS:
                 if (time.time() - existing.reserved_at) >= RESERVATION_TIMEOUT_SECONDS:
                     abandoned = IdempotencyRecord(
-                        state=_ABANDONED, request_hash=existing.request_hash,
+                        state=_ABANDONED,
+                        request_hash=existing.request_hash,
                         reserved_at=existing.reserved_at,
                     )
                     self._r.set(
                         redis_key,
-                        self._dump(_ABANDONED, existing.request_hash, None, existing.reserved_at),
+                        self._dump(
+                            _ABANDONED,
+                            existing.request_hash,
+                            None,
+                            existing.reserved_at,
+                        ),
                         ex=DEFAULT_TTL_SECONDS,
                     )
                     return False, abandoned
             return False, existing
         except Exception as exc:
             from src.monkey_brain.kernel.production_gates import idempotency_fail_closed
+
             if idempotency_fail_closed():
                 logger.error(
                     "key=%r Idempotency(redis).reserve failed — refusing execution (fail-closed): %s",
-                    key, exc,
+                    key,
+                    exc,
                 )
                 return False, None
-            logger.warning("key=%r Idempotency(redis).reserve failed — allowing execution: %s", key, exc)
+            logger.warning(
+                "key=%r Idempotency(redis).reserve failed — allowing execution: %s",
+                key,
+                exc,
+            )
             return True, None
 
     def complete(self, key: str, request_hash: str, response_body: dict[str, Any]) -> None:
         try:
-            self._r.set(self.PREFIX + key, self._dump(_COMPLETED, request_hash, response_body), ex=DEFAULT_TTL_SECONDS)
+            self._r.set(
+                self.PREFIX + key,
+                self._dump(_COMPLETED, request_hash, response_body),
+                ex=DEFAULT_TTL_SECONDS,
+            )
         except Exception as exc:
             logger.warning("key=%r Idempotency(redis).complete failed: %s", key, exc)
 
@@ -310,7 +349,10 @@ class _UnavailableIdempotencyBackend:
 
 
 def _make_backend() -> Any:
-    from src.monkey_brain.kernel.production_gates import idempotency_fail_closed, insecure_dev_mode
+    from src.monkey_brain.kernel.production_gates import (
+        idempotency_fail_closed,
+        insecure_dev_mode,
+    )
 
     choice = os.getenv("IDEMPOTENCY_STORE_BACKEND", "auto").strip().lower()
     url = os.getenv("REDIS_URL", "").strip()
@@ -327,7 +369,10 @@ def _make_backend() -> Any:
     if choice in ("auto", "redis") and url:
         backend = _RedisIdempotencyBackend(url)
         if backend.available():
-            logger.info("IdempotencyStore: SHARED Redis backend at %s — multi-worker safe", _redact(url))
+            logger.info(
+                "IdempotencyStore: SHARED Redis backend at %s — multi-worker safe",
+                _redact(url),
+            )
             return backend
         if idempotency_fail_closed():
             logger.error(
@@ -426,12 +471,10 @@ def idempotent(resource: str):
 
             key = request.headers.get(IDEMPOTENCY_KEY_HEADER)
             if not key:
-                key = (
-                    request.headers.get("X-Razorpay-Event-Id")
-                    or request.headers.get("X-Razorpay-Signature")
-                )
+                key = request.headers.get("X-Razorpay-Event-Id") or request.headers.get("X-Razorpay-Signature")
             if not key:
                 from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
                 if not insecure_dev_mode():
                     raise HTTPException(
                         status_code=400,
@@ -450,14 +493,19 @@ def idempotent(resource: str):
             # the Idempotency-Key itself (stable, caller-supplied) is the
             # one identifier guaranteed available regardless of which
             # route this wraps.
-            from src.monkey_brain.kernel.pipeline.audit_trail import record_decision_event
+            from src.monkey_brain.kernel.pipeline.audit_trail import (
+                record_decision_event,
+            )
             from src.monkey_brain.kernel.compile import _obs
 
             store = get_idempotency_store()
             claimed, existing = store.reserve(scoped_key, request_hash)
             if not claimed:
                 if existing is None:
-                    from src.monkey_brain.kernel.production_gates import idempotency_fail_closed
+                    from src.monkey_brain.kernel.production_gates import (
+                        idempotency_fail_closed,
+                    )
+
                     if idempotency_fail_closed():
                         raise HTTPException(
                             status_code=503,
@@ -475,7 +523,9 @@ def idempotent(resource: str):
                 if existing is not None and existing.state == _COMPLETED:
                     if existing.request_hash != request_hash:
                         record_decision_event(
-                            "idempotency_conflict", actor_id=str(user_id), execution_id=key,
+                            "idempotency_conflict",
+                            actor_id=str(user_id),
+                            execution_id=key,
                             reason=f"Idempotency-Key {key!r} reused for a different request ({resource})",
                         )
                         _obs.counter("idempotency.requests.total", result="conflict")
@@ -484,7 +534,9 @@ def idempotent(resource: str):
                             detail=f"Idempotency-Key {key!r} was already used for a different request",
                         )
                     record_decision_event(
-                        "idempotency_replay", actor_id=str(user_id), execution_id=key,
+                        "idempotency_replay",
+                        actor_id=str(user_id),
+                        execution_id=key,
                         reason=f"Idempotency-Key {key!r} replayed cached result ({resource})",
                     )
                     _obs.counter("idempotency.requests.total", result="replay")
@@ -504,10 +556,14 @@ def idempotent(resource: str):
             try:
                 result = await fn(*args, **kwargs)
             except BaseException as exc:
-                from src.monkey_brain.kernel.security_operation import UnknownOutcomeError
+                from src.monkey_brain.kernel.security_operation import (
+                    UnknownOutcomeError,
+                )
+
                 if isinstance(exc, UnknownOutcomeError):
                     store.complete(
-                        scoped_key, request_hash,
+                        scoped_key,
+                        request_hash,
                         {
                             "outcome": "unknown",
                             "reconciliation_required": True,

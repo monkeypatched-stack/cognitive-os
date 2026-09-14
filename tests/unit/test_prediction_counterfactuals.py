@@ -6,13 +6,19 @@ completes first) as real branching simulations, not just described --
 each is a genuine TransitionModel override re-simulated against the same
 baseline plan.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel, WorldTransition
+from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+    TransitionModel,
+    WorldTransition,
+)
 from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
-    CounterfactualAssumption, CounterfactualBranch, CounterfactualEngine,
+    CounterfactualAssumption,
+    CounterfactualBranch,
+    CounterfactualEngine,
 )
 
 
@@ -27,18 +33,35 @@ class _Plan:
 
 
 def _baseline_model() -> TransitionModel:
-    return TransitionModel(known_transitions={
-        ("", "drive_to_store_a"): (
-            WorldTransition(description="Arrived, store open", probability=0.9, confidence=0.85,
-                             resulting_world_delta={"actor.location": "store_a", "store_a.open": True}),
-            WorldTransition(description="Traffic delay", probability=0.1, confidence=0.85,
-                             resulting_world_delta={"actor.location": "en_route"}),
-        ),
-        ("", "purchase_milk"): (
-            WorldTransition(description="Milk purchased", probability=0.96, confidence=0.9,
-                             resulting_world_delta={"actor.has_milk": True}),
-        ),
-    })
+    return TransitionModel(
+        known_transitions={
+            ("", "drive_to_store_a"): (
+                WorldTransition(
+                    description="Arrived, store open",
+                    probability=0.9,
+                    confidence=0.85,
+                    resulting_world_delta={
+                        "actor.location": "store_a",
+                        "store_a.open": True,
+                    },
+                ),
+                WorldTransition(
+                    description="Traffic delay",
+                    probability=0.1,
+                    confidence=0.85,
+                    resulting_world_delta={"actor.location": "en_route"},
+                ),
+            ),
+            ("", "purchase_milk"): (
+                WorldTransition(
+                    description="Milk purchased",
+                    probability=0.96,
+                    confidence=0.9,
+                    resulting_world_delta={"actor.has_milk": True},
+                ),
+            ),
+        }
+    )
 
 
 def _milk_plan() -> _Plan:
@@ -53,37 +76,71 @@ def _engine() -> CounterfactualEngine:
 # The four example "what if?" scenarios from Step 11.4's own spec
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExampleCounterfactuals:
     def test_what_if_store_a_is_closed(self):
         assumption = CounterfactualAssumption(
-            description="What if Store A is closed?", category="availability",
+            description="What if Store A is closed?",
+            category="availability",
             transition_overrides={
-                "purchase_milk": (WorldTransition(description="Purchase failed, store closed", probability=0.98, confidence=0.9,
-                                                    resulting_world_delta={"actor.has_milk": False}),),
+                "purchase_milk": (
+                    WorldTransition(
+                        description="Purchase failed, store closed",
+                        probability=0.98,
+                        confidence=0.9,
+                        resulting_world_delta={"actor.has_milk": False},
+                    ),
+                ),
             },
         )
         branch = _engine().branch(None, None, _milk_plan(), assumption)
 
-        assert branch.divergence["actor.has_milk"] == {"baseline": True, "counterfactual": False}
+        assert branch.divergence["actor.has_milk"] == {
+            "baseline": True,
+            "counterfactual": False,
+        }
 
     def test_what_if_inventory_is_unavailable(self):
         assumption = CounterfactualAssumption(
-            description="What if inventory is unavailable?", category="inventory",
+            description="What if inventory is unavailable?",
+            category="inventory",
             transition_overrides={
-                "purchase_milk": (WorldTransition(description="Purchase failed, no stock", probability=0.9, confidence=0.85,
-                                                    resulting_world_delta={"actor.has_milk": False, "store_a.stock": "empty"}),),
+                "purchase_milk": (
+                    WorldTransition(
+                        description="Purchase failed, no stock",
+                        probability=0.9,
+                        confidence=0.85,
+                        resulting_world_delta={
+                            "actor.has_milk": False,
+                            "store_a.stock": "empty",
+                        },
+                    ),
+                ),
             },
         )
         branch = _engine().branch(None, None, _milk_plan(), assumption)
 
-        assert branch.divergence["store_a.stock"] == {"baseline": "<unset>", "counterfactual": "empty"}
+        assert branch.divergence["store_a.stock"] == {
+            "baseline": "<unset>",
+            "counterfactual": "empty",
+        }
 
     def test_what_if_budget_changes(self):
         assumption = CounterfactualAssumption(
-            description="What if budget changes?", category="budget",
+            description="What if budget changes?",
+            category="budget",
             transition_overrides={
-                "purchase_milk": (WorldTransition(description="Purchase failed, over budget", probability=0.7, confidence=0.6,
-                                                    resulting_world_delta={"actor.has_milk": False, "actor.over_budget": True}),),
+                "purchase_milk": (
+                    WorldTransition(
+                        description="Purchase failed, over budget",
+                        probability=0.7,
+                        confidence=0.6,
+                        resulting_world_delta={
+                            "actor.has_milk": False,
+                            "actor.over_budget": True,
+                        },
+                    ),
+                ),
             },
         )
         branch = _engine().branch(None, None, _milk_plan(), assumption)
@@ -92,10 +149,20 @@ class TestExampleCounterfactuals:
 
     def test_what_if_another_actor_completes_the_task_first(self):
         assumption = CounterfactualAssumption(
-            description="What if another actor completes the task first?", category="competition",
+            description="What if another actor completes the task first?",
+            category="competition",
             transition_overrides={
-                "purchase_milk": (WorldTransition(description="Milk already purchased by another actor", probability=0.85, confidence=0.7,
-                                                    resulting_world_delta={"actor.has_milk": False, "store_a.stock": "depleted_by_other_actor"}),),
+                "purchase_milk": (
+                    WorldTransition(
+                        description="Milk already purchased by another actor",
+                        probability=0.85,
+                        confidence=0.7,
+                        resulting_world_delta={
+                            "actor.has_milk": False,
+                            "store_a.stock": "depleted_by_other_actor",
+                        },
+                    ),
+                ),
             },
         )
         branch = _engine().branch(None, None, _milk_plan(), assumption)
@@ -106,6 +173,7 @@ class TestExampleCounterfactuals:
 # ═══════════════════════════════════════════════════════════════════════════
 # Branching — generate_branches produces one branch per assumption
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBranchGeneration:
     def test_one_branch_per_assumption(self):
@@ -129,11 +197,30 @@ class TestBranchGeneration:
     def test_branches_diverge_independently_from_the_same_baseline(self):
         store_closed = CounterfactualAssumption(
             description="Store closed",
-            transition_overrides={"purchase_milk": (WorldTransition(probability=1.0, confidence=0.9, resulting_world_delta={"actor.has_milk": False}),)},
+            transition_overrides={
+                "purchase_milk": (
+                    WorldTransition(
+                        probability=1.0,
+                        confidence=0.9,
+                        resulting_world_delta={"actor.has_milk": False},
+                    ),
+                )
+            },
         )
         over_budget = CounterfactualAssumption(
             description="Over budget",
-            transition_overrides={"purchase_milk": (WorldTransition(probability=1.0, confidence=0.9, resulting_world_delta={"actor.has_milk": False, "actor.over_budget": True}),)},
+            transition_overrides={
+                "purchase_milk": (
+                    WorldTransition(
+                        probability=1.0,
+                        confidence=0.9,
+                        resulting_world_delta={
+                            "actor.has_milk": False,
+                            "actor.over_budget": True,
+                        },
+                    ),
+                )
+            },
         )
         branches = _engine().generate_branches(None, None, _milk_plan(), (store_closed, over_budget))
 
@@ -146,7 +233,9 @@ class TestBranchGeneration:
         original_transition = model.known_transitions[("", "drive_to_store_a")][0].description
 
         engine = CounterfactualEngine(model)
-        assumption = CounterfactualAssumption(transition_overrides={"drive_to_store_a": (WorldTransition(probability=1.0, confidence=1.0),)})
+        assumption = CounterfactualAssumption(
+            transition_overrides={"drive_to_store_a": (WorldTransition(probability=1.0, confidence=1.0),)}
+        )
         engine.branch(None, None, _milk_plan(), assumption)
 
         assert set(model.known_transitions.keys()) == original_keys
@@ -160,6 +249,7 @@ class TestBranchGeneration:
 # Divergence detection
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDivergence:
     def test_no_op_override_yields_no_divergence(self):
         assumption = CounterfactualAssumption(description="Nothing changes", transition_overrides={})
@@ -170,7 +260,15 @@ class TestDivergence:
     def test_divergent_keys_reported_in_impact_summary(self):
         assumption = CounterfactualAssumption(
             description="Store closed",
-            transition_overrides={"purchase_milk": (WorldTransition(probability=1.0, confidence=1.0, resulting_world_delta={"actor.has_milk": False}),)},
+            transition_overrides={
+                "purchase_milk": (
+                    WorldTransition(
+                        probability=1.0,
+                        confidence=1.0,
+                        resulting_world_delta={"actor.has_milk": False},
+                    ),
+                )
+            },
         )
         branch = _engine().branch(None, None, _milk_plan(), assumption)
         assert "actor.has_milk" in branch.impact_summary
@@ -182,7 +280,15 @@ class TestDivergence:
         use success/failure language pulled from it."""
         assumption = CounterfactualAssumption(
             description="Confidently bad outcome",
-            transition_overrides={"purchase_milk": (WorldTransition(probability=0.99, confidence=0.99, resulting_world_delta={"actor.has_milk": False}),)},
+            transition_overrides={
+                "purchase_milk": (
+                    WorldTransition(
+                        probability=0.99,
+                        confidence=0.99,
+                        resulting_world_delta={"actor.has_milk": False},
+                    ),
+                )
+            },
         )
         branch = _engine().branch(None, None, _milk_plan(), assumption)
         assert branch.trajectory.succeeded is True  # confident prediction...
@@ -204,28 +310,43 @@ class TestDivergence:
 # branch() without a precomputed baseline
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBranchWithoutPrecomputedBaseline:
     def test_recomputes_baseline_when_not_supplied(self):
         assumption = CounterfactualAssumption(
-            transition_overrides={"purchase_milk": (WorldTransition(probability=1.0, confidence=1.0, resulting_world_delta={"actor.has_milk": False}),)},
+            transition_overrides={
+                "purchase_milk": (
+                    WorldTransition(
+                        probability=1.0,
+                        confidence=1.0,
+                        resulting_world_delta={"actor.has_milk": False},
+                    ),
+                )
+            },
         )
         branch = _engine().branch(None, None, _milk_plan(), assumption)
-        assert branch.divergence["actor.has_milk"] == {"baseline": True, "counterfactual": False}
+        assert branch.divergence["actor.has_milk"] == {
+            "baseline": True,
+            "counterfactual": False,
+        }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestImmutability:
     def test_assumption_frozen(self):
         from dataclasses import FrozenInstanceError
+
         assumption = CounterfactualAssumption()
         with pytest.raises(FrozenInstanceError):
             assumption.description = "x"
 
     def test_branch_frozen(self):
         from dataclasses import FrozenInstanceError
+
         branch = CounterfactualBranch()
         with pytest.raises(FrozenInstanceError):
             branch.impact_summary = "x"
@@ -238,9 +359,11 @@ class TestImmutability:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -254,12 +377,19 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_execution_or_runtime_coupling(self):
         import src.monkey_brain.kernel.pipeline.prediction.counterfactuals as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "kernel.pipeline.execution", "action_executor", "learning."):
+        for forbidden in (
+            "belief_runtime",
+            "kernel.pipeline.execution",
+            "action_executor",
+            "learning.",
+        ):
             assert forbidden not in imports, f"counterfactuals.py must not import: {forbidden}"
 
     def test_depends_only_on_prediction_transitions_and_simulation(self):
         import src.monkey_brain.kernel.pipeline.prediction.counterfactuals as mod
+
         imports = _imported_modules(mod)
         project_imports = sorted(m for m in imports if m.startswith("src.monkey_brain"))
         assert project_imports == [

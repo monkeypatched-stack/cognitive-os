@@ -7,6 +7,7 @@ The identity is the root of the trust chain — every proposal, checkpoint,
 execution graph, and agent contribution carries a runtime-signed envelope
 that any receiving runtime can independently verify.
 """
+
 from __future__ import annotations
 
 import json
@@ -63,6 +64,7 @@ def _atomic_write(path: str, data: bytes, mode: int = 0o600) -> None:
         if os.path.exists(tmp):
             os.unlink(tmp)
 
+
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
 
@@ -70,6 +72,7 @@ logger = logging.getLogger("agentos.identity")
 
 
 # ── Nonce tracking (replay protection) ─────────────────────────────────────
+
 
 class NonceStore:
     """Thread-safe set of recently seen nonces.  Prevents replay attacks.
@@ -105,6 +108,7 @@ class NonceStore:
 
 # ── Runtime Identity ───────────────────────────────────────────────────────
 
+
 @dataclass
 class RuntimeIdentity:
     """A runtime's cryptographic identity.
@@ -121,6 +125,7 @@ class RuntimeIdentity:
         capabilities:   what this runtime can do
         trust_policies: trust rules this runtime enforces
     """
+
     runtime_id: str = field(default_factory=lambda: str(uuid4()))
     runtime_type: str = "personal"
     owner: str = ""
@@ -159,6 +164,7 @@ class RuntimeIdentity:
 
 # ── Key Management ─────────────────────────────────────────────────────────
 
+
 class KeyManager:
     """Manages Ed25519 keypairs for runtime identity.
 
@@ -188,6 +194,7 @@ class KeyManager:
                 with open(pw_file, "r") as f:
                     return f.read().strip().encode("utf-8")
             import secrets
+
             pw = secrets.token_hex(32)
             _atomic_write(pw_file, pw.encode("utf-8"))
             return pw.encode("utf-8")
@@ -217,18 +224,24 @@ class KeyManager:
                     except TypeError:
                         # Legacy unencrypted key — re-encrypt with current passphrase
                         key = serialization.load_pem_private_key(raw, password=None)
-                        _atomic_write(key_path, key.private_bytes(
+                        _atomic_write(
+                            key_path,
+                            key.private_bytes(
+                                serialization.Encoding.PEM,
+                                serialization.PrivateFormat.PKCS8,
+                                serialization.BestAvailableEncryption(self._passphrase),
+                            ),
+                        )
+                else:
+                    key = ed25519.Ed25519PrivateKey.generate()
+                    _atomic_write(
+                        key_path,
+                        key.private_bytes(
                             serialization.Encoding.PEM,
                             serialization.PrivateFormat.PKCS8,
                             serialization.BestAvailableEncryption(self._passphrase),
-                        ))
-                else:
-                    key = ed25519.Ed25519PrivateKey.generate()
-                    _atomic_write(key_path, key.private_bytes(
-                        serialization.Encoding.PEM,
-                        serialization.PrivateFormat.PKCS8,
-                        serialization.BestAvailableEncryption(self._passphrase),
-                    ))
+                        ),
+                    )
                 self._cache[runtime_id] = key
                 self._cache_order.append(runtime_id)
                 # Evict LRU entries if cache is full
@@ -248,7 +261,9 @@ class KeyManager:
 
     def get_public_key(self, public_key_pem: str) -> ed25519.Ed25519PublicKey:
         """Deserialize a PEM-encoded public key."""
-        return serialization.load_pem_public_key(public_key_pem.encode() if isinstance(public_key_pem, str) else public_key_pem)
+        return serialization.load_pem_public_key(
+            public_key_pem.encode() if isinstance(public_key_pem, str) else public_key_pem
+        )
 
     def rotate(self, runtime_id: str) -> tuple[ed25519.Ed25519PrivateKey, str]:
         """Generate a new keypair for a runtime.  Returns (new_private_key, old_public_key_pem).
@@ -274,11 +289,14 @@ class KeyManager:
                 os.rename(key_path, archive_path)
 
             # Write new encrypted key (atomic — old key was archived above)
-            _atomic_write(key_path, new_key.private_bytes(
-                serialization.Encoding.PEM,
-                serialization.PrivateFormat.PKCS8,
-                serialization.BestAvailableEncryption(self._passphrase),
-            ))
+            _atomic_write(
+                key_path,
+                new_key.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8,
+                    serialization.BestAvailableEncryption(self._passphrase),
+                ),
+            )
             os.chmod(key_path, 0o600)
 
             logger.info("[identity] rotated key for %s", runtime_id)
@@ -294,6 +312,7 @@ class KeyManager:
 
 
 # ── Signing / Verification ─────────────────────────────────────────────────
+
 
 def sign_bytes(data: bytes, private_key: ed25519.Ed25519PrivateKey) -> str:
     """Sign bytes with an Ed25519 private key.  Returns hex signature."""
@@ -312,8 +331,12 @@ def verify_bytes(data: bytes, signature_hex: str, public_key_pem: str) -> bool:
         return False
 
 
-def sign_payload(payload: dict[str, Any], private_key: ed25519.Ed25519PrivateKey,
-                 runtime_id: str, nonce: str = "") -> dict[str, Any]:
+def sign_payload(
+    payload: dict[str, Any],
+    private_key: ed25519.Ed25519PrivateKey,
+    runtime_id: str,
+    nonce: str = "",
+) -> dict[str, Any]:
     """Create a signed envelope around a payload.
 
     Returns the payload plus: runtime_id, signature, timestamp, nonce.
@@ -333,9 +356,12 @@ def sign_payload(payload: dict[str, Any], private_key: ed25519.Ed25519PrivateKey
     }
 
 
-def verify_signed_payload(envelope: dict[str, Any], public_key_pem: str,
-                          nonce_store: NonceStore | None = None,
-                          max_age: float = 3600.0) -> tuple[bool, str]:
+def verify_signed_payload(
+    envelope: dict[str, Any],
+    public_key_pem: str,
+    nonce_store: NonceStore | None = None,
+    max_age: float = 3600.0,
+) -> tuple[bool, str]:
     """Verify a signed envelope.
 
     Checks: signature, timestamp freshness, nonce uniqueness.

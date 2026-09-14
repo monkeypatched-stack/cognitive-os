@@ -8,9 +8,11 @@ from services.assets.models.tools import ToolCreate, ToolRecord, ToolUpdate
 
 TOOLS_COLLECTION = "tools"
 
+
 def _compute_tool(doc: dict) -> dict:
     record = ToolRecord(**doc)
     return _prepare(record.model_dump())
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,
@@ -54,8 +56,10 @@ async def get_all(
 async def get_by_id(db: AsyncIOMotorDatabase, tool_id: str) -> Optional[dict]:
     return _serialize(await db[TOOLS_COLLECTION].find_one({"tool_id": tool_id}))
 
+
 async def get_by_code(db: AsyncIOMotorDatabase, tool_code: str) -> Optional[dict]:
     return _serialize(await db[TOOLS_COLLECTION].find_one({"tool_code": tool_code}))
+
 
 async def create(db: AsyncIOMotorDatabase, data: ToolCreate) -> dict:
     now = _utc_now()
@@ -73,6 +77,7 @@ async def create(db: AsyncIOMotorDatabase, data: ToolCreate) -> dict:
 
     await db[TOOLS_COLLECTION].insert_one(doc)
     return _serialize(doc)
+
 
 async def update(
     db: AsyncIOMotorDatabase,
@@ -95,6 +100,7 @@ async def update(
         return_document=True,
     )
     return _serialize(result)
+
 
 async def delete(db: AsyncIOMotorDatabase, tool_id: str) -> bool:
     result = await db[TOOLS_COLLECTION].delete_one({"tool_id": tool_id})

@@ -9,15 +9,20 @@ async def fraud_detection_question_answer(client, question, force=False):
         db = client["demo"]
         collection = db["fraud_alerts"]
 
-        if re.search(r'detect|check|scan|flag', question, re.IGNORECASE):
-            transaction_match = re.search(r'transaction\s*(?:#?)(\w+)', question, re.IGNORECASE)
+        if re.search(r"detect|check|scan|flag", question, re.IGNORECASE):
+            transaction_match = re.search(r"transaction\s*(?:#?)(\w+)", question, re.IGNORECASE)
             if transaction_match:
                 tx_id = transaction_match.group(1)
                 doc = {"transaction_id": tx_id, "status": "flagged", "risk_score": 0.85}
                 await collection.insert_one(doc)
-                return (f"Transaction {tx_id} flagged for review (risk score: 0.85)", [], [], False)
+                return (
+                    f"Transaction {tx_id} flagged for review (risk score: 0.85)",
+                    [],
+                    [],
+                    False,
+                )
 
-        if re.search(r'list|show|get|alerts', question, re.IGNORECASE):
+        if re.search(r"list|show|get|alerts", question, re.IGNORECASE):
             cursor = collection.find().limit(10)
             docs = await cursor.to_list(length=10)
             if docs:
@@ -27,14 +32,19 @@ async def fraud_detection_question_answer(client, question, force=False):
                 return ("\n".join(lines), [], [], False)
             return ("No fraud alerts found.", [], [], False)
 
-        if re.search(r'clear|dismiss|resolve', question, re.IGNORECASE):
-            alert_match = re.search(r'alert\s*(?:#?)(\w+)', question, re.IGNORECASE)
+        if re.search(r"clear|dismiss|resolve", question, re.IGNORECASE):
+            alert_match = re.search(r"alert\s*(?:#?)(\w+)", question, re.IGNORECASE)
             if alert_match:
                 alert_id = alert_match.group(1)
                 await collection.update_one({"_id": alert_id}, {"$set": {"status": "resolved"}})
                 return (f"Alert {alert_id} resolved", [], [], False)
 
-        return ("I can help you detect, list, or resolve fraud alerts. What would you like to do?", [], [], False)
+        return (
+            "I can help you detect, list, or resolve fraud alerts. What would you like to do?",
+            [],
+            [],
+            False,
+        )
 
     except Exception as e:
         return (f"Error with fraud detection: {e}", [], [], False)

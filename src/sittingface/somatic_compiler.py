@@ -16,6 +16,7 @@ from typing import Any
 @dataclass
 class SomaticChart:
     """Parsed somatic chart — capability, agent, or module."""
+
     name: str
     chart_type: str  # module | capability | agent
     values: dict[str, Any] = field(default_factory=dict)
@@ -25,6 +26,7 @@ class SomaticChart:
 @dataclass
 class CompiledPrompt:
     """A compiled prompt from a somatic chart."""
+
     chart_name: str
     preamble: str = ""
     cot_steps: list[dict] = field(default_factory=list)
@@ -111,6 +113,7 @@ class SomaticCompiler:
 
     def _load_chart(self, chart_dir: Path, values_file: Path) -> None:
         import yaml
+
         values = yaml.safe_load(values_file.read_text()) or {}
 
         has_module = bool(values.get("module", {}).get("name"))
@@ -120,9 +123,11 @@ class SomaticCompiler:
         if not (has_module or has_capability or has_agent):
             return
 
-        name = (values.get("module", {}).get("name") or
-                values.get("capability", {}).get("name") or
-                values.get("agent", {}).get("name"))
+        name = (
+            values.get("module", {}).get("name")
+            or values.get("capability", {}).get("name")
+            or values.get("agent", {}).get("name")
+        )
         if has_capability:
             chart_type = "capability"
         elif has_agent:
@@ -130,10 +135,14 @@ class SomaticCompiler:
         else:
             chart_type = "module"
 
-        self.charts.append(SomaticChart(
-            name=name, chart_type=chart_type,
-            values=values, source_path=str(chart_dir),
-        ))
+        self.charts.append(
+            SomaticChart(
+                name=name,
+                chart_type=chart_type,
+                values=values,
+                source_path=str(chart_dir),
+            )
+        )
 
     def compile_prompts(self) -> list[CompiledPrompt]:
         """Extract ConstitutionalPrompt resources from charts."""
@@ -142,16 +151,15 @@ class SomaticCompiler:
             if chart.chart_type == "module":
                 prompt = chart.values.get("cot", {})
                 if prompt and prompt.get("steps"):
-                    self.prompts.append(CompiledPrompt(
-                        chart_name=chart.name,
-                        preamble=chart.values.get("preamble", {}).get("statement", ""),
-                        cot_steps=prompt.get("steps", []),
-                        review_gate=chart.values.get("reviewGate", {}),
-                        constraints=[
-                            inv.get("id", "")
-                            for inv in chart.values.get("invariants", [])
-                        ],
-                    ))
+                    self.prompts.append(
+                        CompiledPrompt(
+                            chart_name=chart.name,
+                            preamble=chart.values.get("preamble", {}).get("statement", ""),
+                            cot_steps=prompt.get("steps", []),
+                            review_gate=chart.values.get("reviewGate", {}),
+                            constraints=[inv.get("id", "") for inv in chart.values.get("invariants", [])],
+                        )
+                    )
         return self.prompts
 
     def register_capabilities(self, runtime) -> list[str]:
@@ -167,6 +175,7 @@ class SomaticCompiler:
                     registered.append(chart.name)
             except Exception as e:
                 import logging
+
                 logging.getLogger(__name__).warning(f"Failed to register capability {chart.name}: {e}")
         return registered
 
@@ -189,6 +198,7 @@ class SomaticCompiler:
                     output={"capability": nm, "operations": len(ops)},
                     metadata={"source": "somatic_chart"},
                 )
+
             return execute
 
         def make_can_execute(self, state):
@@ -261,7 +271,7 @@ class SomaticCompiler:
                 for i, step in enumerate(prompt.cot_steps, 1):
                     if isinstance(step, dict):
                         title = step.get("title") or step.get("name") or step.get("step") or f"Step {i}"
-                        desc  = step.get("description") or step.get("prompt") or step.get("action") or ""
+                        desc = step.get("description") or step.get("prompt") or step.get("action") or ""
                         lines.append(f"### {i}. {title}")
                         if desc:
                             lines.append("")
@@ -317,12 +327,14 @@ class SomaticCompiler:
             matched_in.extend(self._find_matches(chart.values, query_lower))
 
             if matched_in:
-                results.append({
-                    "name": chart.name,
-                    "chart_type": chart.chart_type,
-                    "source_path": chart.source_path,
-                    "matched_in": matched_in,
-                })
+                results.append(
+                    {
+                        "name": chart.name,
+                        "chart_type": chart.chart_type,
+                        "source_path": chart.source_path,
+                        "matched_in": matched_in,
+                    }
+                )
         return results
 
     @staticmethod

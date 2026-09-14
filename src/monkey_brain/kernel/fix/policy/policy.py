@@ -18,21 +18,29 @@ from typing import Any
 
 from src.monkey_brain.kernel.plan.workload.workload import Workload
 from src.monkey_brain.kernel.execute.state.execution import ExecutionState
-from src.monkey_brain.kernel.fix.policy.transition import Transition, TransitionTable, hash_state
+from src.monkey_brain.kernel.fix.policy.transition import (
+    Transition,
+    TransitionTable,
+    hash_state,
+)
 from src.monkey_brain.kernel.fix.policy.reward import RewardModel, RewardSignal
 from src.monkey_brain.kernel.learn.epa.learner import Learner
 from src.monkey_brain.kernel.execute.provider.llm_explorer import LLMExplorer
 from src.monkey_brain.persistence.events import PersistenceEvent, EventType
-from src.monkey_brain.kernel.config import EXPLORATION_RATE, LEARNING_RATE, DISCOUNT_FACTOR
+from src.monkey_brain.kernel.config import (
+    EXPLORATION_RATE,
+    LEARNING_RATE,
+    DISCOUNT_FACTOR,
+)
 
 
 class IPolicy(ABC):
     """Policy interface — selects pipelines and learns from transitions.
-    
+
     This interface remains unchanged as we evolve from Bellman
     to Deep Q, Actor-Critic, PPO.
     """
-    
+
     @abstractmethod
     def select(
         self,
@@ -41,26 +49,27 @@ class IPolicy(ABC):
     ) -> Workload:
         """Select which pipeline to execute."""
         ...
-    
+
     @abstractmethod
     def update(self, transition: Transition) -> None:
         """Update policy from a transition."""
         ...
-    
+
     @abstractmethod
     def value(self, state: ExecutionState, action: str) -> float:
         """Estimate value of taking action in state."""
         ...
-    
+
     @abstractmethod
     def save(self) -> dict:
         """Serialize policy state."""
         ...
-    
+
     @abstractmethod
     def load(self, data: dict) -> None:
         """Deserialize policy state."""
         ...
+
 
 # -----------------------------------------------------------------------------
 # Bellman Optimality Equation
@@ -102,18 +111,19 @@ class IPolicy(ABC):
 # then uses the updated values to select the next optimal action.
 # -----------------------------------------------------------------------------
 
+
 class BellmanPolicy(IPolicy):
     """Bellman equation-based policy.
-    
+
     Uses Q-learning with Transition Tables and Reward Tables.
-    
+
     Flow:
       LLM Explorer generates candidate workflows (exploration)
       Bellman evaluates Q-values and selects (exploitation)
-    
+
     As experience increases, execution converges toward reinforcement learning.
     """
-    
+
     def __init__(
         self,
         exploration_rate: float = EXPLORATION_RATE,
@@ -126,6 +136,7 @@ class BellmanPolicy(IPolicy):
         self._learner = Learner(learning_rate, discount_factor)
         # Delegate Q-storage to PolicyStore (single source of truth)
         from src.monkey_brain.kernel.policy.store import PolicyStore
+
         self._policy_store = PolicyStore(lr=learning_rate, discount=discount_factor)
         self._llm_explorer = LLMExplorer()
         self._persistence_manager = None
@@ -136,11 +147,11 @@ class BellmanPolicy(IPolicy):
     def _q_table(self) -> dict[tuple[str, str], float]:
         """Backward-compat view of Q-values from PolicyStore."""
         return self._policy_store.values()
-    
+
     def set_persistence_manager(self, manager) -> None:
         """Set the persistence manager for event emission."""
         self._persistence_manager = manager
-    
+
     def set_lemon(self, lemon) -> None:
         """Set the Lemon observability manager."""
         self._lemon = lemon
@@ -173,7 +184,7 @@ class BellmanPolicy(IPolicy):
     def get_workload(self, workload_id: str) -> Workload | None:
         """Compatibility wrapper — delegates to get_graph()."""
         return self.get_graph(workload_id)
-    
+
     def generate_and_select(
         self,
         question: str,
@@ -181,77 +192,77 @@ class BellmanPolicy(IPolicy):
         state: ExecutionState | None = None,
     ) -> Workload:
         """Generate candidate workflows using LLM, then select using Bellman.
-        
+
         This is the full exploration-exploitation loop:
         1. LLM generates candidates (exploration)
         2. Bellman selects best candidate (exploitation)
         """
         # 1. LLM generates candidates
         candidates = self._llm_explorer.generate_candidates(question, intent)
-        
+
         # 2. Convert to pipelines
         pipelines = [self._llm_explorer.candidate_to_workload(c) for c in candidates]
-        
+
         # 3. Bellman selects
         selected = self.select(pipelines, state)
-        
+
         return selected
-    
+
     def select(
         self,
         pipelines: list[Workload],
         state: ExecutionState | None = None,
     ) -> Workload:
         """Select pipeline using epsilon-greedy.
-        
+
         Exploration: random selection or LLM-generated candidates
         Exploitation: select by Q-value
         """
         if not pipelines:
             raise ValueError("No pipelines to select")
-        
+
         if len(pipelines) == 1:
             if self._lemon:
                 self._lemon.counter("policy.selections")
                 self._lemon.gauge("policy.candidate_pipelines", 1)
             return pipelines[0]
-        
+
         # Exploration: random selection
         if random.random() < self._exploration_rate:
             if self._lemon:
                 self._lemon.counter("policy.explorations")
             return random.choice(pipelines)
-        
+
         # Exploitation: select by Q-value from PolicyStore
         state_dict = state.to_dict() if state else {}
         state_hash = hash_state(state_dict)
-        
+
         scored = []
         for p in pipelines:
             action = p.steps[0].capability_name if p.steps else p.workload_id
             q = self._policy_store.value(state_hash, action)
             scored.append((q, p))
-        
+
         scored.sort(key=lambda x: x[0], reverse=True)
-        
+
         if self._lemon:
             self._lemon.counter("policy.selections")
             self._lemon.gauge("policy.candidate_pipelines", len(pipelines))
             self._lemon.histogram("policy.q_value", scored[0][0])
-        
+
         return scored[0][1]
-    
+
     def update(self, transition: Transition) -> None:
         """Update Q-table from transition using Learner + PolicyStore."""
         self._transition_table.store(transition)
-        
+
         state_hash = hash_state(transition.state)
         next_state_hash = hash_state(transition.next_state)
-        
+
         next_actions = self._transition_table.get_actions(transition.next_state)
         if not next_actions:
             next_actions = [transition.action]
-        
+
         # Use Learner to compute the Bellman update, storing result in PolicyStore
         # Pass PolicyStore's internal dict so Learner writes the new Q directly
         metrics = self._learner.update_q(
@@ -263,17 +274,17 @@ class BellmanPolicy(IPolicy):
             next_actions,
             transition.done,
         )
-        
+
         if self._lemon:
             self._lemon.counter("policy.updates")
             self._lemon.histogram("policy.td_error", metrics.td_error)
             self._lemon.histogram("policy.reward", transition.reward)
             self._lemon.gauge("policy.q_entries", self._policy_store.size)
-    
+
     async def update_async(self, transition: Transition) -> None:
         """Update Q-table from transition with persistence."""
         self.update(transition)
-        
+
         if self._persistence_manager:
             event = PersistenceEvent(
                 event_type=EventType.METRIC_RECORDED,
@@ -286,21 +297,21 @@ class BellmanPolicy(IPolicy):
                 },
             )
             await self._persistence_manager.persist(event)
-    
+
     def value(self, state: ExecutionState, action: str) -> float:
         """Estimate Q-value for state-action pair from PolicyStore."""
         state_dict = state.to_dict()
         state_hash = hash_state(state_dict)
         return self._policy_store.value(state_hash, action)
-    
+
     def reward_from_feedback(self, **kwargs: Any) -> RewardSignal:
         """Compute reward from user feedback."""
         return self._reward_model.from_feedback(**kwargs)
-    
+
     def reward_from_loss(self, loss_value: float) -> RewardSignal:
         """Compute reward from loss."""
         return self._reward_model.from_loss(loss_value)
-    
+
     def save(self) -> dict:
         """Serialize policy state from PolicyStore."""
         return {
@@ -314,22 +325,27 @@ class BellmanPolicy(IPolicy):
                 for wid, w in self._workload_registry.items()
             },
         }
-    
+
     def load(self, data: dict) -> None:
         """Deserialize policy state into PolicyStore."""
         self._policy_store.restore(data.get("q_table", {}))
         self._exploration_rate = data.get("exploration_rate", 0.1)
-    
+
     async def on_outcome(self, outcome) -> None:
         """OutcomeSubscriber — update Q-values from typed ExecutionOutcome."""
-        from src.monkey_brain.kernel.fix.policy.transition import Transition as RLTransition
-        self.update(RLTransition(
-            state={"goal": outcome.goal, "capability": outcome.capability_name},
-            action=outcome.agent_type or outcome.capability_name,
-            reward=outcome.result.reward,       # typed — no key lookup
-            next_state=outcome.state_after,
-            done=True,
-        ))
+        from src.monkey_brain.kernel.fix.policy.transition import (
+            Transition as RLTransition,
+        )
+
+        self.update(
+            RLTransition(
+                state={"goal": outcome.goal, "capability": outcome.capability_name},
+                action=outcome.agent_type or outcome.capability_name,
+                reward=outcome.result.reward,  # typed — no key lookup
+                next_state=outcome.state_after,
+                done=True,
+            )
+        )
 
     def summary(self) -> dict:
         return {

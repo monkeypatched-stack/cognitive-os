@@ -63,10 +63,7 @@ class HTTPConnectionPool(ConnectionPool):
         try:
             import httpx
         except ImportError as exc:
-            raise ImportError(
-                "httpx is required for HTTPConnectionPool. "
-                "Install with: pip install httpx"
-            ) from exc
+            raise ImportError("httpx is required for HTTPConnectionPool. Install with: pip install httpx") from exc
 
         # Merge auth headers if available
         headers = dict(self.default_headers)
@@ -75,9 +72,7 @@ class HTTPConnectionPool(ConnectionPool):
                 auth_headers = await self.auth_handler.authenticate()
                 headers.update(auth_headers)
             except Exception as exc:
-                logger.warning(
-                    "Auth handler failed during connection creation: %s", exc
-                )
+                logger.warning("Auth handler failed during connection creation: %s", exc)
 
         return httpx.AsyncClient(
             base_url=self.base_url,

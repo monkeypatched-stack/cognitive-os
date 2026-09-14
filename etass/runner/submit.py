@@ -37,8 +37,8 @@ async def submit_to_monkeybrain(
         resp = await client.post(
             url,
             json={
-                "question":     ETASS_PROMPT,
-                "run_query":    run_query,
+                "question": ETASS_PROMPT,
+                "run_query": run_query,
                 "run_simulate": run_simulate,
             },
             headers={"Content-Type": "application/json"},
@@ -49,18 +49,18 @@ async def submit_to_monkeybrain(
 
     logger.info("MonkeyBrain responded in %.0fms  HTTP %s", elapsed, resp.status_code)
     return {
-        "http_status":      resp.status_code,
-        "elapsed_ms":       elapsed,
-        "response":         body,
+        "http_status": resp.status_code,
+        "elapsed_ms": elapsed,
+        "response": body,
     }
 
 
 def print_response(result: dict[str, Any]) -> None:
     """Print a human-readable summary of the MonkeyBrain response."""
-    resp  = result.get("response", {})
+    resp = result.get("response", {})
     query = resp.get("query_result") or {}
-    sim   = resp.get("simulation_result") or {}
-    summ  = resp.get("execution_summary") or {}
+    sim = resp.get("simulation_result") or {}
+    summ = resp.get("execution_summary") or {}
 
     print()
     print("=" * 72)

@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
+
 class Reference:
     def __init__(self, value: str):
         if not isinstance(value, str) or len(value) > 255:
@@ -14,7 +15,13 @@ class Status(str, Enum):
 
 
 class WriteBlogPostAboutItem:
-    def __init__(self, title: str, content: str, reference: Reference, status: Status = Status.DRAFT):
+    def __init__(
+        self,
+        title: str,
+        content: str,
+        reference: Reference,
+        status: Status = Status.DRAFT,
+    ):
         if not isinstance(title, str) or len(title) > 255:
             raise ValueError("Title must be a string up to 255 characters long")
         if not isinstance(content, str) or len(content) > 65535:
@@ -48,7 +55,9 @@ class WriteBlogPostAbout:
         self.updated_at = datetime.utcnow()
 
     def publish_item(self, item_id: UUID):
-        item_to_publish = next((item for item in self.items if item.id == item_id), None)
+        item_to_publish = next(
+            (item for item in self.items if item.id == item_id), None
+        )
         if item_to_publish is None:
             raise ValueError("Item not found")
         item_to_publish.status = Status.PUBLISHED

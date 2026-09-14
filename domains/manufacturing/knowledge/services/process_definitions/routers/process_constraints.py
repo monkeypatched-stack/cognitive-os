@@ -72,16 +72,18 @@ def _constraint_from_canvas_payload(
     )
     clean_id = _strip_canvas_prefix(str(raw_id)) if raw_id else None
     process_definition_id = (
-        _first_text(data, "process_definition_id", "process_definitionId")
-        or step_id
+        _first_text(data, "process_definition_id", "process_definitionId") or step_id
     )
     payload_for_model = {
         "id": clean_id or f"CONSTRAINT-{step_id}",
         "process_definition_id": process_definition_id,
-        "name": _first_text(data, "name", "title", "label", "itemLabel") or "Constraint",
+        "name": _first_text(data, "name", "title", "label", "itemLabel")
+        or "Constraint",
         "description": _first_text(data, "description", "details", "notes") or "",
         "constraint_type": _normalize_constraint_type(
-            data.get("constraint_type") or data.get("constraintType") or data.get("type")
+            data.get("constraint_type")
+            or data.get("constraintType")
+            or data.get("type")
         ),
         "is_hard_constraint": data.get(
             "is_hard_constraint",
@@ -109,6 +111,7 @@ def _constraint_from_canvas_payload(
 
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
+
 @router.get("/process_definition", response_model=PaginatedProcessConstraintsResponse)
 async def list_process_constraints(
     page: int = Query(1, ge=1),
@@ -128,7 +131,11 @@ async def list_process_constraints(
 
 # ── Filtered reads ────────────────────────────────────────────────────────────
 
-@router.get("/process_definition/by-process_definition/{process_definition_id}", response_model=ProcessConstraintsResponse)
+
+@router.get(
+    "/process_definition/by-process_definition/{process_definition_id}",
+    response_model=ProcessConstraintsResponse,
+)
 async def get_process_constraints_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -144,7 +151,10 @@ async def get_process_constraints_by_process_definition(
     return record
 
 
-@router.get("/process_definition/{constraints_id}/constraints/by-type/{constraint_type}", response_model=list[ConstraintResponse])
+@router.get(
+    "/process_definition/{constraints_id}/constraints/by-type/{constraint_type}",
+    response_model=list[ConstraintResponse],
+)
 async def list_process_constraints_by_type(
     constraints_id: str,
     constraint_type: str,
@@ -155,7 +165,10 @@ async def list_process_constraints_by_type(
     return await crud.get_constraints_by_type(db, constraints_id, constraint_type)
 
 
-@router.get("/process_definition/{constraints_id}/constraints/by-severity/{severity}", response_model=list[ConstraintResponse])
+@router.get(
+    "/process_definition/{constraints_id}/constraints/by-severity/{severity}",
+    response_model=list[ConstraintResponse],
+)
 async def list_process_constraints_by_severity(
     constraints_id: str,
     severity: str,
@@ -166,7 +179,10 @@ async def list_process_constraints_by_severity(
     return await crud.get_constraints_by_severity(db, constraints_id, severity)
 
 
-@router.get("/process_definition/{constraints_id}/constraints/hard", response_model=list[ConstraintResponse])
+@router.get(
+    "/process_definition/{constraints_id}/constraints/hard",
+    response_model=list[ConstraintResponse],
+)
 async def list_process_definition_hard_constraints(
     constraints_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -178,7 +194,10 @@ async def list_process_definition_hard_constraints(
 
 # ── Single record ─────────────────────────────────────────────────────────────
 
-@router.get("/process_definition/{constraints_id}", response_model=ProcessConstraintsResponse)
+
+@router.get(
+    "/process_definition/{constraints_id}", response_model=ProcessConstraintsResponse
+)
 async def get_process_constraints(
     constraints_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -196,7 +215,12 @@ async def get_process_constraints(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/process_definition", response_model=ProcessConstraintsResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/process_definition",
+    response_model=ProcessConstraintsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_process_constraints(
     data: ProcessConstraintsCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -213,7 +237,10 @@ async def create_process_constraints(
 
 # ── Update ────────────────────────────────────────────────────────────────────
 
-@router.patch("/process_definition/{constraints_id}", response_model=ProcessConstraintsResponse)
+
+@router.patch(
+    "/process_definition/{constraints_id}", response_model=ProcessConstraintsResponse
+)
 async def update_process_constraints(
     constraints_id: str,
     data: ProcessConstraintsUpdate,
@@ -232,7 +259,12 @@ async def update_process_constraints(
 
 # ── Constraint mutations ──────────────────────────────────────────────────────
 
-@router.post("/process_definition/{constraints_id}/constraints", response_model=ProcessConstraintsResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/process_definition/{constraints_id}/constraints",
+    response_model=ProcessConstraintsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_process_definition_constraint(
     constraints_id: str,
     data: ConstraintCreate,
@@ -249,7 +281,10 @@ async def add_process_definition_constraint(
     return updated
 
 
-@router.patch("/process_definition/{constraints_id}/constraints/{constraint_id}", response_model=ProcessConstraintsResponse)
+@router.patch(
+    "/process_definition/{constraints_id}/constraints/{constraint_id}",
+    response_model=ProcessConstraintsResponse,
+)
 async def update_process_definition_constraint(
     constraints_id: str,
     constraint_id: str,
@@ -267,7 +302,10 @@ async def update_process_definition_constraint(
     return updated
 
 
-@router.delete("/process_definition/{constraints_id}/constraints/{constraint_id}", response_model=ProcessConstraintsResponse)
+@router.delete(
+    "/process_definition/{constraints_id}/constraints/{constraint_id}",
+    response_model=ProcessConstraintsResponse,
+)
 async def remove_process_definition_constraint(
     constraints_id: str,
     constraint_id: str,
@@ -286,7 +324,11 @@ async def remove_process_definition_constraint(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
-@router.delete("/process_definition/by-process_definition/{process_definition_id}", status_code=status.HTTP_204_NO_CONTENT)
+
+@router.delete(
+    "/process_definition/by-process_definition/{process_definition_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_process_constraints_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -300,7 +342,9 @@ async def delete_process_constraints_by_process_definition(
         )
 
 
-@router.delete("/process_definition/{constraints_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/process_definition/{constraints_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_process_constraints(
     constraints_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -320,6 +364,7 @@ async def delete_process_constraints(
 
 # ── Filtered reads ────────────────────────────────────────────────────────────
 
+
 @router.get("/steps/by-step/{step_id}", response_model=ProcessStepConstraintsResponse)
 async def get_step_constraints_by_step(
     step_id: str,
@@ -336,7 +381,11 @@ async def get_step_constraints_by_step(
     return record
 
 
-@router.post("/steps/by-step/{step_id}/constraints", response_model=ProcessStepConstraintsResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/steps/by-step/{step_id}/constraints",
+    response_model=ProcessStepConstraintsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_step_constraint_by_step(
     step_id: str,
     data: dict | None = Body(default=None),
@@ -348,7 +397,10 @@ async def add_step_constraint_by_step(
     return await crud.upsert_step_constraint_by_step_id(db, step_id, constraint)
 
 
-@router.patch("/steps/by-step/{step_id}/constraints/{constraint_id}", response_model=ProcessStepConstraintsResponse)
+@router.patch(
+    "/steps/by-step/{step_id}/constraints/{constraint_id}",
+    response_model=ProcessStepConstraintsResponse,
+)
 async def update_step_constraint_by_step(
     step_id: str,
     constraint_id: str,
@@ -361,17 +413,25 @@ async def update_step_constraint_by_step(
     return await crud.upsert_step_constraint_by_step_id(db, step_id, constraint)
 
 
-@router.get("/steps/by-process_definition/{process_definition_id}", response_model=list[ProcessStepConstraintsResponse])
+@router.get(
+    "/steps/by-process_definition/{process_definition_id}",
+    response_model=list[ProcessStepConstraintsResponse],
+)
 async def list_step_constraints_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
     """Return all step-level constraints containers that share the given process_definition_id."""
-    return await crud.get_step_constraints_by_process_definition_id(db, process_definition_id)
+    return await crud.get_step_constraints_by_process_definition_id(
+        db, process_definition_id
+    )
 
 
-@router.get("/steps/{constraints_id}/constraints/by-type/{constraint_type}", response_model=list[ConstraintResponse])
+@router.get(
+    "/steps/{constraints_id}/constraints/by-type/{constraint_type}",
+    response_model=list[ConstraintResponse],
+)
 async def list_step_constraints_by_type(
     constraints_id: str,
     constraint_type: str,
@@ -382,7 +442,9 @@ async def list_step_constraints_by_type(
     return await crud.get_step_constraints_by_type(db, constraints_id, constraint_type)
 
 
-@router.get("/steps/{constraints_id}/constraints/hard", response_model=list[ConstraintResponse])
+@router.get(
+    "/steps/{constraints_id}/constraints/hard", response_model=list[ConstraintResponse]
+)
 async def list_step_hard_constraints(
     constraints_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -393,6 +455,7 @@ async def list_step_hard_constraints(
 
 
 # ── Single record ─────────────────────────────────────────────────────────────
+
 
 @router.get("/steps/{constraints_id}", response_model=ProcessStepConstraintsResponse)
 async def get_step_constraints(
@@ -412,7 +475,12 @@ async def get_step_constraints(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/steps", response_model=ProcessStepConstraintsResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/steps",
+    response_model=ProcessStepConstraintsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_step_constraints(
     data: ProcessStepConstraintsCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -428,6 +496,7 @@ async def create_step_constraints(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/steps/{constraints_id}", response_model=ProcessStepConstraintsResponse)
 async def update_step_constraints(
@@ -448,7 +517,12 @@ async def update_step_constraints(
 
 # ── Constraint mutations ──────────────────────────────────────────────────────
 
-@router.post("/steps/{constraints_id}/constraints", response_model=ProcessStepConstraintsResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/steps/{constraints_id}/constraints",
+    response_model=ProcessStepConstraintsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_step_constraint(
     constraints_id: str,
     data: ConstraintCreate,
@@ -465,7 +539,10 @@ async def add_step_constraint(
     return updated
 
 
-@router.patch("/steps/{constraints_id}/constraints/{constraint_id}", response_model=ProcessStepConstraintsResponse)
+@router.patch(
+    "/steps/{constraints_id}/constraints/{constraint_id}",
+    response_model=ProcessStepConstraintsResponse,
+)
 async def update_step_constraint(
     constraints_id: str,
     constraint_id: str,
@@ -474,7 +551,9 @@ async def update_step_constraint(
     _: dict = Depends(require_permission("perm-update-constraints")),
 ):
     """Update specific fields of a constraint inside a ProcessStepConstraints container."""
-    updated = await crud.update_step_constraint(db, constraints_id, constraint_id, fields)
+    updated = await crud.update_step_constraint(
+        db, constraints_id, constraint_id, fields
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -483,7 +562,10 @@ async def update_step_constraint(
     return updated
 
 
-@router.delete("/steps/{constraints_id}/constraints/{constraint_id}", response_model=ProcessStepConstraintsResponse)
+@router.delete(
+    "/steps/{constraints_id}/constraints/{constraint_id}",
+    response_model=ProcessStepConstraintsResponse,
+)
 async def remove_step_constraint(
     constraints_id: str,
     constraint_id: str,
@@ -501,6 +583,7 @@ async def remove_step_constraint(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/steps/by-step/{step_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_step_constraints_by_step(

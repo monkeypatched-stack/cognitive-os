@@ -6,6 +6,7 @@ A Knowledge Pack is the system's structured memory. It:
     - Tracks how knowledge evolves over time
     - Decides when to retrieve (optimization, not default)
 """
+
 from __future__ import annotations
 
 import math
@@ -18,6 +19,7 @@ from src.knowledge.item import KnowledgeItem, Modality
 @dataclass
 class ModalityEvidence:
     """Aggregated evidence from a single modality."""
+
     modality: Modality
     items: list[KnowledgeItem] = field(default_factory=list)
 
@@ -47,9 +49,10 @@ class ModalityEvidence:
 @dataclass
 class FusionResult:
     """Result of multimodal evidence fusion."""
+
     fused_confidence: float = 0.0
     modality_scores: dict[str, float] = field(default_factory=dict)
-    agreement: float = 0.0           # how much modalities agree (0=disagree, 1=agree)
+    agreement: float = 0.0  # how much modalities agree (0=disagree, 1=agree)
     dominant_modality: str = ""
     total_items: int = 0
     effective_knowledge: float = 0.0  # confidence × agreement
@@ -169,10 +172,7 @@ class KnowledgePack:
 
         # Fused confidence: weighted average across modalities
         total_weight = sum(mod_weights.values()) or 1.0
-        fused = sum(
-            mod_scores[mod] * mod_weights[mod] / total_weight
-            for mod in mod_scores
-        )
+        fused = sum(mod_scores[mod] * mod_weights[mod] / total_weight for mod in mod_scores)
 
         # Agreement: how much modalities agree (coefficient of variation)
         if len(mod_scores) > 1:
@@ -207,11 +207,14 @@ class KnowledgePack:
             "size": self.size,
             "modalities": [m.value for m in self.modalities],
             "fusion": self.fuse().to_dict(),
-            "items": [k.to_dict() for k in sorted(
-                self._items.values(),
-                key=lambda k: k.composite_confidence,
-                reverse=True,
-            )[:20]],  # top 20
+            "items": [
+                k.to_dict()
+                for k in sorted(
+                    self._items.values(),
+                    key=lambda k: k.composite_confidence,
+                    reverse=True,
+                )[:20]
+            ],  # top 20
         }
 
     def __len__(self) -> int:

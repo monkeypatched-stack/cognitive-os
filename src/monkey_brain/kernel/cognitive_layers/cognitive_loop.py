@@ -4,6 +4,7 @@ Responsibility: The iterative learning loop (plan -> simulate -> act -> compare 
 Depends on: graph manager, simulation runtime, comparator runtime, knowledge manager,
             world coordinator, observation pipeline, audit service
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -61,6 +62,7 @@ class CognitiveLoop:
         """
         if self._graph_manager is None:
             from src.monkey_brain.kernel.graph_manager import GraphManager
+
             self._graph_manager = GraphManager()
 
         max_epochs = kwargs.get("max_epochs", 10)
@@ -79,13 +81,19 @@ class CognitiveLoop:
 
         # Acquire or ground
         if knowledge_gaps and self._knowledge_manager:
-            await self._publish("cognitive.acquire.started", {"gaps": knowledge_gaps, "question": question})
+            await self._publish(
+                "cognitive.acquire.started",
+                {"gaps": knowledge_gaps, "question": question},
+            )
             await self._knowledge_manager.acquire_knowledge(knowledge_gaps, question)
             await self._publish("cognitive.acquire.completed", {})
         elif self._knowledge_manager:
             await self._publish("cognitive.ground.started", {"question": question})
             await self._knowledge_manager.ground_knowledge(knowledge, question)
-            await self._publish("cognitive.ground.completed", {"knowledge_items": knowledge.get("count", 0)})
+            await self._publish(
+                "cognitive.ground.completed",
+                {"knowledge_items": knowledge.get("count", 0)},
+            )
 
         await self._publish("cognitive.intention", {"question": question, "gaps": len(knowledge_gaps)})
 
@@ -98,30 +106,41 @@ class CognitiveLoop:
             if time.monotonic() - _loop_start > max_wall_clock_seconds:
                 logger.warning(
                     "[cognitive] wall-clock timeout after %.1fs (epoch %d/%d)",
-                    max_wall_clock_seconds, epoch, max_epochs,
+                    max_wall_clock_seconds,
+                    epoch,
+                    max_epochs,
                 )
-                await self._publish("cognitive.run.timeout", {"elapsed": max_wall_clock_seconds, "epoch": epoch})
+                await self._publish(
+                    "cognitive.run.timeout",
+                    {"elapsed": max_wall_clock_seconds, "epoch": epoch},
+                )
                 if self._lemon:
                     self._lemon.counter("cognitive.run.timeout")
                 break
             try:
                 graph_delta = await self._plan(
-                    question, self._graph_manager.graph,
+                    question,
+                    self._graph_manager.graph,
                     planner=kwargs.get("planner", "compiler"),
                 )
                 self._graph_manager.apply_plan(graph_delta)
 
                 from src.monkey_brain.kernel.execute.graph import sign_graph_dict
+
                 sign_graph_dict(self._graph_manager.graph)
 
                 if not self._graph_manager.graph.get("nodes"):
                     break
 
-                self._audit_record("plan", "graph_planned", "planner",
-                                   details={
-                                       "nodes": len(self._graph_manager.graph.get("nodes", [])),
-                                       "edges": len(self._graph_manager.graph.get("edges", [])),
-                                   })
+                self._audit_record(
+                    "plan",
+                    "graph_planned",
+                    "planner",
+                    details={
+                        "nodes": len(self._graph_manager.graph.get("nodes", [])),
+                        "edges": len(self._graph_manager.graph.get("edges", [])),
+                    },
+                )
 
                 # Governance gate
                 if self._world_coordinator:
@@ -130,8 +149,13 @@ class CognitiveLoop:
                     gov = {"blocked": False}
                 if gov and gov.get("blocked"):
                     logger.warning("Governance blocked execution: %s", gov.get("reason"))
-                    self._audit_record("governance", "execution_blocked", "governance_engine",
-                                       outcome="denied", details={"reason": gov.get("reason")})
+                    self._audit_record(
+                        "governance",
+                        "execution_blocked",
+                        "governance_engine",
+                        outcome="denied",
+                        details={"reason": gov.get("reason")},
+                    )
                     if self._lemon:
                         self._lemon.counter("governance.execution_blocked")
                     break
@@ -148,7 +172,8 @@ class CognitiveLoop:
                 # Fuse observations
                 if self._observation_pipeline and self._world_coordinator:
                     self._observation_pipeline.fuse_observations(
-                        question, simulation_graph,
+                        question,
+                        simulation_graph,
                         publish_world_update_fn=self._world_coordinator.publish_world_update,
                     )
 
@@ -169,7 +194,9 @@ class CognitiveLoop:
                 # Estimate world state
                 if self._observation_pipeline and self._world_coordinator:
                     self._observation_pipeline.estimate_world_state(
-                        all_observations, question, simulation_graph,
+                        all_observations,
+                        question,
+                        simulation_graph,
                         publish_world_update_fn=self._world_coordinator.publish_world_update,
                     )
 
@@ -187,30 +214,36 @@ class CognitiveLoop:
                 # Publish learned knowledge
                 self._publish_learned_knowledge(policy_delta)
 
-                self._audit_record("learn", "epoch_complete", "learning_loop",
-                                   details={
-                                       "epoch": epoch + 1,
-                                       "perplexity": learn_result.get("perplexity", 0),
-                                       "nodes_learned": learn_result.get("nodes_learned", 0),
-                                       "q_table_size": learn_result.get("q_table_size", 0),
-                                   })
+                self._audit_record(
+                    "learn",
+                    "epoch_complete",
+                    "learning_loop",
+                    details={
+                        "epoch": epoch + 1,
+                        "perplexity": learn_result.get("perplexity", 0),
+                        "nodes_learned": learn_result.get("nodes_learned", 0),
+                        "q_table_size": learn_result.get("q_table_size", 0),
+                    },
+                )
 
                 learned_delta = learn_result.get("graph_delta", {})
                 if learned_delta.get("nodes") or learned_delta.get("edges"):
                     self._graph_manager.apply_plan(learned_delta)
 
-                epoch_results.append({
-                    "epoch": epoch + 1,
-                    "nodes": len(self._graph_manager.graph.get("nodes", [])),
-                    "batches": batch_size,
-                    "observations": len(all_observations),
-                    "perplexity": learn_result["perplexity"],
-                    "topological_loss": learn_result["topological_loss"],
-                    "epistemic_loss": learn_result["epistemic_loss"],
-                    "synced": learn_result["synced"],
-                    "q_table_size": learn_result["q_table_size"],
-                    "failed_nodes": act_result.get("failed_nodes", []),
-                })
+                epoch_results.append(
+                    {
+                        "epoch": epoch + 1,
+                        "nodes": len(self._graph_manager.graph.get("nodes", [])),
+                        "batches": batch_size,
+                        "observations": len(all_observations),
+                        "perplexity": learn_result["perplexity"],
+                        "topological_loss": learn_result["topological_loss"],
+                        "epistemic_loss": learn_result["epistemic_loss"],
+                        "synced": learn_result["synced"],
+                        "q_table_size": learn_result["q_table_size"],
+                        "failed_nodes": act_result.get("failed_nodes", []),
+                    }
+                )
 
                 await self._publish("cognitive.run.epoch", epoch_results[-1])
 
@@ -218,11 +251,13 @@ class CognitiveLoop:
                     epoch_str = str(epoch + 1)
                     self._lemon.histogram(
                         "cognitive.epoch.perplexity",
-                        learn_result["perplexity"], epoch=epoch_str,
+                        learn_result["perplexity"],
+                        epoch=epoch_str,
                     )
                     self._lemon.histogram(
                         "cognitive.epoch.topological_loss",
-                        learn_result["topological_loss"], epoch=epoch_str,
+                        learn_result["topological_loss"],
+                        epoch=epoch_str,
                     )
                     self._lemon.counter("cognitive.epoch.completed", epoch=epoch_str)
 
@@ -231,16 +266,36 @@ class CognitiveLoop:
 
             except asyncio.TimeoutError:
                 logger.error("[cognitive] epoch %d timed out", epoch + 1)
-                await self._publish("cognitive.run.epoch_failed", {"epoch": epoch + 1, "error": "timeout"})
+                await self._publish(
+                    "cognitive.run.epoch_failed",
+                    {"epoch": epoch + 1, "error": "timeout"},
+                )
                 if self._lemon:
-                    self._lemon.counter("cognitive.epoch.failed", epoch=str(epoch + 1), error="TimeoutError")
+                    self._lemon.counter(
+                        "cognitive.epoch.failed",
+                        epoch=str(epoch + 1),
+                        error="TimeoutError",
+                    )
                 break
             except Exception as e:
                 import traceback
-                logger.error("[cognitive] epoch %d failed: %s\n%s", epoch + 1, e, traceback.format_exc())
-                await self._publish("cognitive.run.epoch_failed", {"epoch": epoch + 1, "error": str(e)[:200]})
+
+                logger.error(
+                    "[cognitive] epoch %d failed: %s\n%s",
+                    epoch + 1,
+                    e,
+                    traceback.format_exc(),
+                )
+                await self._publish(
+                    "cognitive.run.epoch_failed",
+                    {"epoch": epoch + 1, "error": str(e)[:200]},
+                )
                 if self._lemon:
-                    self._lemon.counter("cognitive.epoch.failed", epoch=str(epoch + 1), error=type(e).__name__)
+                    self._lemon.counter(
+                        "cognitive.epoch.failed",
+                        epoch=str(epoch + 1),
+                        error=type(e).__name__,
+                    )
                 if epoch_results and epoch_results[-1].get("failed_nodes"):
                     break
                 continue
@@ -257,18 +312,23 @@ class CognitiveLoop:
             "final_loss": self._graph_manager.loss,
             "epoch_results": epoch_results,
             "execution_graph": self._graph_manager.graph,
-            "simulation_graph": self._sim_runtime.simulation_graph if self._sim_runtime else {},
+            "simulation_graph": (self._sim_runtime.simulation_graph if self._sim_runtime else {}),
             "diff": self._comp_runtime.diff if self._comp_runtime else {},
             "q_table": self._graph_manager.q_table.snapshot(),
-            "graph_synced": epoch_results[-1].get("synced", False) if epoch_results else False,
-            "semantic_memory": self._knowledge_manager.get_semantic_memory_summary() if self._knowledge_manager else {},
+            "graph_synced": (epoch_results[-1].get("synced", False) if epoch_results else False),
+            "semantic_memory": (
+                self._knowledge_manager.get_semantic_memory_summary() if self._knowledge_manager else {}
+            ),
             "knowledge_gaps": knowledge_gaps,
         }
 
-        await self._publish("cognitive.run.completed", {
-            "cycles": len(epoch_results),
-            "converged": result["converged"],
-        })
+        await self._publish(
+            "cognitive.run.completed",
+            {
+                "cycles": len(epoch_results),
+                "converged": result["converged"],
+            },
+        )
         return result
 
     async def _plan(self, question: str, current_graph: dict, planner: str = "compiler") -> dict:
@@ -281,7 +341,9 @@ class CognitiveLoop:
 
         goal_ir: dict = {}
         if planner == "etass":
-            from broca.agents.specification_discovery_agent import SpecificationDiscoveryAgent
+            from broca.agents.specification_discovery_agent import (
+                SpecificationDiscoveryAgent,
+            )
             from broca.agents.graph_generator_agent import GraphGeneratorAgent
 
             spec_agent = SpecificationDiscoveryAgent()
@@ -295,29 +357,34 @@ class CognitiveLoop:
             spec_payload["knowledge"] = knowledge
 
             graph_agent = GraphGeneratorAgent()
-            graph_result = await graph_agent.handle({
-                "specification": spec_payload.get("specification", {}),
-                "discovery": spec_payload.get("discovery", {}),
-                "knowledge": knowledge,
-                "intent": question,
-            })
+            graph_result = await graph_agent.handle(
+                {
+                    "specification": spec_payload.get("specification", {}),
+                    "discovery": spec_payload.get("discovery", {}),
+                    "knowledge": knowledge,
+                    "intent": question,
+                }
+            )
             candidates = graph_result.payload.get("candidates", [])
         else:
             from broca.agents.compiler_pipeline import CompilerPipeline
 
             if self._trust_network is None:
                 from src.monkey_brain.kernel.compile.trust import TrustNetwork
+
                 self._trust_network = TrustNetwork()
 
             pipeline = CompilerPipeline(
                 trust_network=self._trust_network,
                 trust_threshold=0.5,
             )
-            pipeline_result = await pipeline.handle({
-                "intent": question,
-                "question": question,
-                "knowledge": knowledge,
-            })
+            pipeline_result = await pipeline.handle(
+                {
+                    "intent": question,
+                    "question": question,
+                    "knowledge": knowledge,
+                }
+            )
             goal_ir = pipeline_result.payload.get("goal_ir", {})
             candidates = pipeline_result.payload.get("candidates", [])
 
@@ -326,7 +393,10 @@ class CognitiveLoop:
             return {"nodes": [], "edges": [], "remove_nodes": []}
 
         from src.monkey_brain.kernel.plan.workload.policy import get_policy
-        from src.monkey_brain.kernel.plan.workload.workload import Workload, WorkloadStep
+        from src.monkey_brain.kernel.plan.workload.workload import (
+            Workload,
+            WorkloadStep,
+        )
 
         policy = get_policy()
         if len(candidates) == 1:
@@ -350,23 +420,23 @@ class CognitiveLoop:
                 policy_workloads.append(w)
 
             selected_workload = policy.select(policy_workloads)
-            selected = next(
-                c for c in candidates
-                if c["execution_graph_id"] == selected_workload.workload_id
-            )
+            selected = next(c for c in candidates if c["execution_graph_id"] == selected_workload.workload_id)
 
         graph_delta = selected["graph"]
         graph_delta.setdefault("remove_nodes", [])
         graph_delta["execution_graph_id"] = selected["execution_graph_id"]
         graph_delta["goal_ir"] = goal_ir
 
-        await self._publish("cognitive.plan.completed", {
-            "nodes": len(graph_delta.get("nodes", [])),
-            "candidates": len(candidates),
-            "knowledge_items": len(knowledge.get("results", [])),
-            "intent_type": goal_ir.get("intent_type", ""),
-            "domain": goal_ir.get("domain", ""),
-        })
+        await self._publish(
+            "cognitive.plan.completed",
+            {
+                "nodes": len(graph_delta.get("nodes", [])),
+                "candidates": len(candidates),
+                "knowledge_items": len(knowledge.get("results", [])),
+                "intent_type": goal_ir.get("intent_type", ""),
+                "domain": goal_ir.get("domain", ""),
+            },
+        )
         return graph_delta
 
     async def _simulate(self, question: str, mongo_client: Any = None) -> dict:
@@ -374,7 +444,10 @@ class CognitiveLoop:
         await self._publish("cognitive.simulate.started", {"question": question})
 
         try:
-            from src.monkey_brain.kernel.simulation_runtime import get_simulation_runtime
+            from src.monkey_brain.kernel.simulation_runtime import (
+                get_simulation_runtime,
+            )
+
             self._sim_runtime = get_simulation_runtime()
             self._sim_runtime.lemon = self._lemon
             self._sim_runtime.persistence = self._persistence
@@ -411,7 +484,8 @@ class CognitiveLoop:
 
         while remaining:
             ready = [
-                node for nid, node in remaining.items()
+                node
+                for nid, node in remaining.items()
                 if all(
                     dep in completed
                     for dep in (e["from"] for e in edges if e["to"] == nid and e.get("type") != "feedback")
@@ -429,13 +503,15 @@ class CognitiveLoop:
                 if status != "complete":
                     failed_nodes.append(node_id)
 
-                obs = self._graph_manager.annotate({
-                    "node_id": node_id,
-                    "agent": node.get("agent", ""),
-                    "status": status,
-                    "reward": reward,
-                    "latency_ms": latency_ms,
-                })
+                obs = self._graph_manager.annotate(
+                    {
+                        "node_id": node_id,
+                        "agent": node.get("agent", ""),
+                        "status": status,
+                        "reward": reward,
+                        "latency_ms": latency_ms,
+                    }
+                )
                 observations.append(obs)
                 node_states[node_id] = status
                 node_rewards[node_id] = reward
@@ -443,7 +519,7 @@ class CognitiveLoop:
 
                 if self._lemon:
                     self._lemon.counter(
-                        "cognitive.node.complete" if status == "complete" else "cognitive.node.failed",
+                        ("cognitive.node.complete" if status == "complete" else "cognitive.node.failed"),
                         node=node_id,
                         agent=node.get("agent", ""),
                     )
@@ -451,10 +527,13 @@ class CognitiveLoop:
 
             remaining = {nid: n for nid, n in remaining.items() if nid not in completed}
 
-        await self._publish("cognitive.act.completed", {
-            "nodes_executed": len(observations),
-            "failed_nodes": failed_nodes,
-        })
+        await self._publish(
+            "cognitive.act.completed",
+            {
+                "nodes_executed": len(observations),
+                "failed_nodes": failed_nodes,
+            },
+        )
 
         return {
             "nodes_executed": len(observations),
@@ -533,11 +612,15 @@ class CognitiveLoop:
 
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
             agent = registry.discover(agent_name)
 
             if agent is None:
-                logger.warning("[act] no agent registered for %r — node is unimplemented", agent_name)
+                logger.warning(
+                    "[act] no agent registered for %r — node is unimplemented",
+                    agent_name,
+                )
                 return 0.0, "unimplemented"
 
             context = {
@@ -575,7 +658,9 @@ class CognitiveLoop:
         await self._publish("cognitive.compare.started", {})
 
         try:
-            from src.monkey_brain.kernel.comparator_runtime import get_comparator_runtime
+            from src.monkey_brain.kernel.comparator_runtime import (
+                get_comparator_runtime,
+            )
             from src.monkey_brain.kernel.models.graph import canonical_graph_envelope
 
             self._comp_runtime = get_comparator_runtime()
@@ -599,11 +684,15 @@ class CognitiveLoop:
             epistemic_loss = comparison_result.epistemic_loss
             reward = comparison_result.comparison_score
 
-            predicted_state = predicted_snapshot.get("metadata", {}).get("summary", {}).get(
-                "predicted_state", simulation_graph.get("predicted_state", {})
+            predicted_state = (
+                predicted_snapshot.get("metadata", {})
+                .get("summary", {})
+                .get("predicted_state", simulation_graph.get("predicted_state", {}))
             )
-            actual_states = actual_snapshot.get("metadata", {}).get("summary", {}).get(
-                "observed_state", act_result.get("node_states", {})
+            actual_states = (
+                actual_snapshot.get("metadata", {})
+                .get("summary", {})
+                .get("observed_state", act_result.get("node_states", {}))
             )
 
             self._comp_runtime.diff = {
@@ -709,12 +798,15 @@ class CognitiveLoop:
                     severity="info",
                 )
 
-        await self._publish("cognitive.reflect.completed", {
-            "perplexity": perplexity,
-            "mistakes": mistakes,
-            "corrections": corrections,
-            "failed_nodes": failed_nodes,
-        })
+        await self._publish(
+            "cognitive.reflect.completed",
+            {
+                "perplexity": perplexity,
+                "mistakes": mistakes,
+                "corrections": corrections,
+                "failed_nodes": failed_nodes,
+            },
+        )
 
     def _publish_learned_knowledge(self, policy_delta: dict[str, float]) -> None:
         """Publish learned transitions as BeliefProposals for cross-runtime exchange."""
@@ -735,24 +827,39 @@ class CognitiveLoop:
             proposal = exchange.publish("local", "belief", "cognitive", transitions)
             if proposal:
                 import os
+
                 peers = os.getenv("EXCHANGE_PEERS", "").split(",")
                 peers = [p.strip() for p in peers if p.strip()]
                 if peers:
                     from src.monkey_brain.kernel.compile.network import ExchangeClient
+
                     client = ExchangeClient()
                     for peer_url in peers:
                         try:
                             result = client.send_proposal(proposal, peer_url)
-                            logger.debug("[exchange] sent to %s: %s", peer_url, result.get("status"))
+                            logger.debug(
+                                "[exchange] sent to %s: %s",
+                                peer_url,
+                                result.get("status"),
+                            )
                         except Exception as exc:
                             logger.debug("[exchange] failed to send to %s: %s", peer_url, exc)
                 else:
-                    logger.debug("[exchange] published %d transitions (local only)", len(transitions))
+                    logger.debug(
+                        "[exchange] published %d transitions (local only)",
+                        len(transitions),
+                    )
         except Exception as exc:
             logger.debug("[exchange] publish skipped: %s", exc)
 
-    def _audit_record(self, event_type: str, action: str, actor: str = "",
-                      outcome: str = "success", details: dict | None = None) -> None:
+    def _audit_record(
+        self,
+        event_type: str,
+        action: str,
+        actor: str = "",
+        outcome: str = "success",
+        details: dict | None = None,
+    ) -> None:
         """Delegate audit to AuditService."""
         if self._audit:
             self._audit.record(event_type, action, actor, outcome, details)

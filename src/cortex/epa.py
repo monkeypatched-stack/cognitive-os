@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 # EpistemicPredictiveState — E_t = (S, B, A, M)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EpistemicPredictiveState:
     """The full cognitive state of an intelligent system at time t.
@@ -67,10 +68,11 @@ class EpistemicPredictiveState:
     The EPA makes a single claim:
         A JEPA-like latent model can learn to predict E_{t+1} from (E_t, G_t, a_t).
     """
-    S: dict[str, Any]          = field(default_factory=dict)   # world state
-    B: BeliefState             = field(default_factory=BeliefState)
-    A: set[str]                = field(default_factory=set)    # available capabilities
-    M: dict[str, Any]          = field(default_factory=dict)   # mesh summary
+
+    S: dict[str, Any] = field(default_factory=dict)  # world state
+    B: BeliefState = field(default_factory=BeliefState)
+    A: set[str] = field(default_factory=set)  # available capabilities
+    M: dict[str, Any] = field(default_factory=dict)  # mesh summary
 
     # ── Convenience ────────────────────────────────────────────────────────────
 
@@ -141,6 +143,7 @@ class EpistemicPredictiveState:
 # ---------------------------------------------------------------------------
 # EPA transition function
 # ---------------------------------------------------------------------------
+
 
 def epa_transition(
     E_t: EpistemicPredictiveState,
@@ -240,9 +243,7 @@ def epa_transition(
     if world_model is not None:
         try:
             if hasattr(world_model, "infer_epistemic"):
-                _jepa_infer = world_model.infer_epistemic(
-                    E_t.S, a_t, B=E_t.B, A=E_t.A, G=G_t, M=E_t.M
-                )
+                _jepa_infer = world_model.infer_epistemic(E_t.S, a_t, B=E_t.B, A=E_t.A, G=G_t, M=E_t.M)
                 # Normalise to the shape downstream code expects
                 _jepa_infer.setdefault("trained", _jepa_infer.get("epistemic_trained", False))
                 _jepa_infer.setdefault("avg_loss", _jepa_infer.get("epistemic_avg_loss", 1.0))
@@ -259,7 +260,7 @@ def epa_transition(
                     if k not in _deterministic_keys and isinstance(v, (int, float)) and not isinstance(v, bool):
                         new_S[k] = round(float(new_S.get(k, v)) + sig_W * abs(float(v)) * 0.05, 4)
 
-            new_S["_jepa_avg_loss"]        = _jepa_infer.get("avg_loss", _jepa_infer.get("epistemic_avg_loss", 1.0))
+            new_S["_jepa_avg_loss"] = _jepa_infer.get("avg_loss", _jepa_infer.get("epistemic_avg_loss", 1.0))
             new_S["_jepa_belief_avg_loss"] = _jepa_infer.get("belief_avg_loss", 1.0)
             if train:
                 clean_S = {k: v for k, v in new_S.items() if not k.startswith("_")}
@@ -299,12 +300,15 @@ def epa_transition(
             # IMPROVEMENT: wraps entire evidence dict as a single Evidence — loses multi-source weighting.
             from src.knowledge.interface import Evidence
             from src.knowledge.item import Modality
-            ev_list = [Evidence(
-                source=evidence.get("action", "epa"),
-                modality=Modality.DOCUMENT,
-                content=str(evidence),
-                confidence_delta=float(evidence.get("confidence_delta", 0.0)),
-            )]
+
+            ev_list = [
+                Evidence(
+                    source=evidence.get("action", "epa"),
+                    modality=Modality.DOCUMENT,
+                    content=str(evidence),
+                    confidence_delta=float(evidence.get("confidence_delta", 0.0)),
+                )
+            ]
             result = fusion_engine.fuse(ev_list, None, None)
             if result is not None and hasattr(result, "to_dict"):
                 fused_evidence = {**evidence, **result.to_dict()}
@@ -313,18 +317,24 @@ def epa_transition(
 
     # Build SimulationOutcome from fused evidence or symbolic approximation
     if fused_evidence:
-        converged      = bool(fused_evidence.get("converged", a_t in E_t.A))
-        k_loss         = float(fused_evidence.get("knowledge_loss", 0.0 if converged else 0.4))
-        conf_delta     = float(fused_evidence.get("confidence_delta",
-                                getattr(desc, "confidence_delta", 0.0) if desc else (0.1 if converged else -0.1)))
-        violations     = int(fused_evidence.get("constraint_violations", 0))
+        converged = bool(fused_evidence.get("converged", a_t in E_t.A))
+        k_loss = float(fused_evidence.get("knowledge_loss", 0.0 if converged else 0.4))
+        conf_delta = float(
+            fused_evidence.get(
+                "confidence_delta",
+                (getattr(desc, "confidence_delta", 0.0) if desc else (0.1 if converged else -0.1)),
+            )
+        )
+        violations = int(fused_evidence.get("constraint_violations", 0))
         findings_count = int(fused_evidence.get("findings_count", 0))
     else:
-        positive       = a_t in E_t.A
-        converged      = positive
-        k_loss         = 0.0 if positive else 0.4
-        conf_delta     = getattr(desc, "confidence_delta", 0.1 if positive else -0.1) if desc else (0.1 if positive else -0.1)
-        violations     = 0
+        positive = a_t in E_t.A
+        converged = positive
+        k_loss = 0.0 if positive else 0.4
+        conf_delta = (
+            getattr(desc, "confidence_delta", 0.1 if positive else -0.1) if desc else (0.1 if positive else -0.1)
+        )
+        violations = 0
         findings_count = 0
 
     outcome = SimulationOutcome(
@@ -340,12 +350,17 @@ def epa_transition(
     # Additional K evolution: retire weak items and apply evidence-driven evolution
     try:
         from cortex.epistemic import evolve_epistemic_state
+
         k_epistemic = _EState(items=list(new_B.knowledge))
-        adv_dict    = {"findings": [], "terminated": "attacks_exhausted" if converged else "max_rounds",
-                       "confidence_delta": conf_delta}
-        sim_dict    = {"knowledge": k_loss}
-        k_evolved   = evolve_epistemic_state(k_epistemic, adv_dict, sim_dict)
+        adv_dict = {
+            "findings": [],
+            "terminated": "attacks_exhausted" if converged else "max_rounds",
+            "confidence_delta": conf_delta,
+        }
+        sim_dict = {"knowledge": k_loss}
+        k_evolved = evolve_epistemic_state(k_epistemic, adv_dict, sim_dict)
         from cortex.epistemic import BeliefState as _BS, UncertaintyEstimate
+
         uncertainties = [UncertaintyEstimate.from_knowledge_item(k) for k in k_evolved.items]
         pooled = UncertaintyEstimate.pool(uncertainties) if uncertainties else UncertaintyEstimate()
         new_B = _BS(
@@ -378,9 +393,17 @@ def epa_transition(
             clean_S_next = {k: v for k, v in new_S.items() if not k.startswith("_")}
             if hasattr(world_model, "_epistemic_update"):
                 world_model._epistemic_update(
-                    E_t.S, E_t.B, E_t.A, G_t, E_t.M,      # E_t components
+                    E_t.S,
+                    E_t.B,
+                    E_t.A,
+                    G_t,
+                    E_t.M,  # E_t components
                     a_t,
-                    clean_S_next, new_B, new_A, G_t, new_M, # E_{t+1} components
+                    clean_S_next,
+                    new_B,
+                    new_A,
+                    G_t,
+                    new_M,  # E_{t+1} components
                 )
             else:
                 world_model._jepa_update_belief(E_t.S, E_t.B, a_t, new_B)
@@ -393,6 +416,7 @@ def epa_transition(
 # ---------------------------------------------------------------------------
 # EPA loss function
 # ---------------------------------------------------------------------------
+
 
 def epa_loss(
     predicted: EpistemicPredictiveState,
@@ -438,8 +462,14 @@ def epa_loss(
     l_e = round(l_s + l_b + l_a + l_m + l_k + l_c + l_g, 4)
 
     return {
-        "L_S": l_s, "L_B": l_b, "L_A": l_a, "L_M": l_m,
-        "L_K": l_k, "L_C": l_c, "L_G": l_g, "L_E": l_e,
+        "L_S": l_s,
+        "L_B": l_b,
+        "L_A": l_a,
+        "L_M": l_m,
+        "L_K": l_k,
+        "L_C": l_c,
+        "L_G": l_g,
+        "L_E": l_e,
     }
 
 

@@ -10,6 +10,7 @@ Each knowledge item k_i carries:
     simulation_success   — historical accuracy when used in simulation
     uncertainty      — epistemic uncertainty (variance over predictions)
 """
+
 from __future__ import annotations
 
 import math
@@ -36,26 +37,75 @@ class Modality(StrEnum):
 
 # Modality-specific weight priors — some modalities are inherently more reliable
 MODALITY_WEIGHTS: dict[Modality, dict[str, float]] = {
-    Modality.DOCUMENT:    {"base_confidence": 0.7, "decay_rate": 0.01, "verification_boost": 0.15},
-    Modality.IMAGE:       {"base_confidence": 0.5, "decay_rate": 0.02, "verification_boost": 0.20},
-    Modality.CAD:         {"base_confidence": 0.8, "decay_rate": 0.005, "verification_boost": 0.10},
-    Modality.VIDEO:       {"base_confidence": 0.4, "decay_rate": 0.03, "verification_boost": 0.25},
-    Modality.TELEMETRY:   {"base_confidence": 0.9, "decay_rate": 0.05, "verification_boost": 0.05},
-    Modality.CODE:        {"base_confidence": 0.85, "decay_rate": 0.01, "verification_boost": 0.10},
-    Modality.GRAPH:       {"base_confidence": 0.75, "decay_rate": 0.01, "verification_boost": 0.10},
-    Modality.ONTOLOGY:    {"base_confidence": 0.9, "decay_rate": 0.002, "verification_boost": 0.05},
-    Modality.DATABASE:    {"base_confidence": 0.95, "decay_rate": 0.001, "verification_boost": 0.02},
-    Modality.SIMULATION:  {"base_confidence": 0.6, "decay_rate": 0.04, "verification_boost": 0.15},
-    Modality.SENSOR:      {"base_confidence": 0.85, "decay_rate": 0.08, "verification_boost": 0.05},
-    Modality.MANUAL:      {"base_confidence": 0.5, "decay_rate": 0.02, "verification_boost": 0.20},
+    Modality.DOCUMENT: {
+        "base_confidence": 0.7,
+        "decay_rate": 0.01,
+        "verification_boost": 0.15,
+    },
+    Modality.IMAGE: {
+        "base_confidence": 0.5,
+        "decay_rate": 0.02,
+        "verification_boost": 0.20,
+    },
+    Modality.CAD: {
+        "base_confidence": 0.8,
+        "decay_rate": 0.005,
+        "verification_boost": 0.10,
+    },
+    Modality.VIDEO: {
+        "base_confidence": 0.4,
+        "decay_rate": 0.03,
+        "verification_boost": 0.25,
+    },
+    Modality.TELEMETRY: {
+        "base_confidence": 0.9,
+        "decay_rate": 0.05,
+        "verification_boost": 0.05,
+    },
+    Modality.CODE: {
+        "base_confidence": 0.85,
+        "decay_rate": 0.01,
+        "verification_boost": 0.10,
+    },
+    Modality.GRAPH: {
+        "base_confidence": 0.75,
+        "decay_rate": 0.01,
+        "verification_boost": 0.10,
+    },
+    Modality.ONTOLOGY: {
+        "base_confidence": 0.9,
+        "decay_rate": 0.002,
+        "verification_boost": 0.05,
+    },
+    Modality.DATABASE: {
+        "base_confidence": 0.95,
+        "decay_rate": 0.001,
+        "verification_boost": 0.02,
+    },
+    Modality.SIMULATION: {
+        "base_confidence": 0.6,
+        "decay_rate": 0.04,
+        "verification_boost": 0.15,
+    },
+    Modality.SENSOR: {
+        "base_confidence": 0.85,
+        "decay_rate": 0.08,
+        "verification_boost": 0.05,
+    },
+    Modality.MANUAL: {
+        "base_confidence": 0.5,
+        "decay_rate": 0.02,
+        "verification_boost": 0.20,
+    },
 }
 
 
 @dataclass
 class VerificationRecord:
     """A single verification event for a knowledge item."""
+
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    method: str = ""           # "simulation", "cross-reference", "expert-review", "automated"
+    method: str = ""  # "simulation", "cross-reference", "expert-review", "automated"
     passed: bool = True
     delta_confidence: float = 0.0  # how much confidence changed
     notes: str = ""
@@ -67,17 +117,18 @@ class KnowledgeItem:
 
     K = {k_1, k_2, ..., k_n} where each k_i is a KnowledgeItem.
     """
+
     id: str = ""
-    content: str = ""               # the actual knowledge (text, reference, etc.)
+    content: str = ""  # the actual knowledge (text, reference, etc.)
     modality: Modality = Modality.DOCUMENT
-    source: str = ""                # provenance label
+    source: str = ""  # provenance label
 
     # Multi-dimensional confidence
-    provenance: float = 0.5         # source reliability [0,1]
-    freshness: float = 1.0          # temporal relevance [0,1]
-    completeness: float = 0.5       # domain coverage [0,1]
-    consistency: float = 0.5        # coherence with other knowledge [0,1]
-    uncertainty: float = 0.5        # epistemic uncertainty (high = uncertain) [0,1]
+    provenance: float = 0.5  # source reliability [0,1]
+    freshness: float = 1.0  # temporal relevance [0,1]
+    completeness: float = 0.5  # domain coverage [0,1]
+    consistency: float = 0.5  # coherence with other knowledge [0,1]
+    uncertainty: float = 0.5  # epistemic uncertainty (high = uncertain) [0,1]
 
     # Simulation feedback
     simulation_predictions: int = 0
@@ -164,9 +215,14 @@ class KnowledgeItem:
         """Record a verification event."""
         base_boost = MODALITY_WEIGHTS.get(self.modality, {}).get("verification_boost", 0.1)
         delta = base_boost if passed else -base_boost
-        self.verification_history.append(VerificationRecord(
-            method=method, passed=passed, delta_confidence=delta, notes=notes,
-        ))
+        self.verification_history.append(
+            VerificationRecord(
+                method=method,
+                passed=passed,
+                delta_confidence=delta,
+                notes=notes,
+            )
+        )
         self.consistency = max(0.0, min(1.0, self.consistency + delta))
 
     def use(self) -> None:
@@ -176,22 +232,28 @@ class KnowledgeItem:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "content": self.content,
-            "modality": self.modality.value, "source": self.source,
-            "provenance": self.provenance, "freshness": self.freshness,
-            "completeness": self.completeness, "consistency": self.consistency,
+            "id": self.id,
+            "content": self.content,
+            "modality": self.modality.value,
+            "source": self.source,
+            "provenance": self.provenance,
+            "freshness": self.freshness,
+            "completeness": self.completeness,
+            "consistency": self.consistency,
             "uncertainty": self.uncertainty,
             "simulation_success_rate": self.simulation_success_rate,
             "composite_confidence": self.composite_confidence,
             "information_gain_potential": self.information_gain_potential,
-            "use_count": self.use_count, "tags": self.tags,
+            "use_count": self.use_count,
+            "tags": self.tags,
             "verification_count": len(self.verification_history),
         }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> KnowledgeItem:
         item = cls(
-            id=d.get("id", ""), content=d.get("content", ""),
+            id=d.get("id", ""),
+            content=d.get("content", ""),
             modality=Modality(d.get("modality", "document")),
             source=d.get("source", ""),
             provenance=d.get("provenance", 0.5),

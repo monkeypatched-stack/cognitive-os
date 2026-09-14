@@ -3,6 +3,7 @@
 The Prompt Compiler produces this. The Model Backend consumes it.
 Nothing else touches it — the IR is the contract.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -66,16 +67,16 @@ class StructuredPromptIR:
     reasoning: str
 
     # Compiled sections
-    role: str = ""                              # domain-aware role injection
-    domain_ontology: str = ""                  # auto-injected from DomainRegistry
-    agent_catalog: str = ""                    # matching agents from BrocaRegistry
-    reasoning_preamble: str = ""               # from REASONING_PREAMBLES
-    constraints_block: str = ""               # compiled constraints
-    evidence_block: str = ""                   # evidence sources
-    success_criteria_block: str = ""           # success criteria
-    constitutions_block: str = ""              # injected constitutions
-    policies_block: str = ""                   # injected policies
-    outputs_block: str = ""                    # expected output format
+    role: str = ""  # domain-aware role injection
+    domain_ontology: str = ""  # auto-injected from DomainRegistry
+    agent_catalog: str = ""  # matching agents from BrocaRegistry
+    reasoning_preamble: str = ""  # from REASONING_PREAMBLES
+    constraints_block: str = ""  # compiled constraints
+    evidence_block: str = ""  # evidence sources
+    success_criteria_block: str = ""  # success criteria
+    constitutions_block: str = ""  # injected constitutions
+    policies_block: str = ""  # injected policies
+    outputs_block: str = ""  # expected output format
 
     # Resolved DDD agents for this spec
     resolved_agents: list[str] = field(default_factory=list)

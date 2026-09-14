@@ -39,14 +39,28 @@ def _extract_spec_from_question(question: str) -> dict:
 
     # Try to guess the domain
     domain = "general"
-    for d in ("inventory", "manufacturing", "order", "product", "customer",
-              "auth", "shipping", "payment", "asset", "facility"):
+    for d in (
+        "inventory",
+        "manufacturing",
+        "order",
+        "product",
+        "customer",
+        "auth",
+        "shipping",
+        "payment",
+        "asset",
+        "facility",
+    ):
         if d in q:
             domain = d
             break
 
     # Try to guess a service name from "for managing X" or "for X"
-    name_match = re.search(r"for\s+(?:managing|handling|tracking|storing)?\s*([\w\s]+?)(?:\s+microservice|\s+service|\s+api|$)", q, re.I)
+    name_match = re.search(
+        r"for\s+(?:managing|handling|tracking|storing)?\s*([\w\s]+?)(?:\s+microservice|\s+service|\s+api|$)",
+        q,
+        re.I,
+    )
     if name_match:
         raw = name_match.group(1).strip()
         name = re.sub(r"\s+", "-", raw.lower())[:30].strip("-") or "generated-service"
@@ -59,9 +73,14 @@ def _extract_spec_from_question(question: str) -> dict:
         "description": f"Generated from: {question[:120]}",
         "db": {"type": "mongodb"},
         "fields": [
-            {"name": "name",        "type": "str"},
+            {"name": "name", "type": "str"},
             {"name": "description", "type": "str", "default": ""},
-            {"name": "status",      "type": "str", "enum": ["active", "inactive"], "default": "active"},
+            {
+                "name": "status",
+                "type": "str",
+                "enum": ["active", "inactive"],
+                "default": "active",
+            },
         ],
         "timestamps": True,
         "auth": {"enabled": True, "type": "bearer"},
@@ -84,13 +103,20 @@ async def codegen_question_answer(client, question: str, force: bool = False):
                 return (
                     f"Could not build a valid spec from your request. "
                     f"Try: monkeypatched codegen <service-name> --domain <domain>",
-                    [], [], False,
+                    [],
+                    [],
+                    False,
                 )
 
             # Generate
             resp = await http.post(_CODEGEN_URL, json=spec)
             if resp.status_code != 200:
-                return (f"Codegen failed ({resp.status_code}): {resp.text[:200]}", [], [], False)
+                return (
+                    f"Codegen failed ({resp.status_code}): {resp.text[:200]}",
+                    [],
+                    [],
+                    False,
+                )
 
             body = resp.json()
             files = body.get("files", [])

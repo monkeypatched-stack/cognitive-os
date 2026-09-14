@@ -13,7 +13,6 @@ from services.common.config import settings
 from services.common.compliance import utc_now
 from services.common.n8n_auth import n8n_webhook_auth_headers
 
-
 APPROVALS_COLLECTION = "approvals"
 NOTIFICATIONS_COLLECTION = "notifications"
 
@@ -80,8 +79,18 @@ def _record_id(document: dict[str, Any]) -> str | None:
 
 def _user_summary(user: dict[str, Any] | None, fallback_role: str) -> dict[str, Any]:
     if not user:
-        return {"user_id": None, "name": None, "title": fallback_role, "role": fallback_role, "email": None}
-    fallback_email = f"{str(user.get('user_id')).lower()}@internal.example" if user.get("user_id") else None
+        return {
+            "user_id": None,
+            "name": None,
+            "title": fallback_role,
+            "role": fallback_role,
+            "email": None,
+        }
+    fallback_email = (
+        f"{str(user.get('user_id')).lower()}@internal.example"
+        if user.get("user_id")
+        else None
+    )
     return {
         "user_id": user.get("user_id"),
         "name": user.get("name") or user.get("email") or user.get("user_id"),
@@ -123,7 +132,9 @@ def _approval_step(
 
 async def ensure_system_approval_user(db: Any, key: str) -> dict[str, Any]:
     base = dict(SYSTEM_APPROVAL_USERS[key])
-    existing = await db["users"].find_one({"user_id": base["user_id"]}, {"embedding": 0})
+    existing = await db["users"].find_one(
+        {"user_id": base["user_id"]}, {"embedding": 0}
+    )
     now = utc_now()
     document = {
         **base,
@@ -131,8 +142,15 @@ async def ensure_system_approval_user(db: Any, key: str) -> dict[str, Any]:
         "created_at": (existing or {}).get("created_at") or now,
         "updated_at": now,
     }
-    await db["users"].update_one({"user_id": document["user_id"]}, {"$set": document}, upsert=True)
-    return await db["users"].find_one({"user_id": document["user_id"]}, {"_id": 0, "embedding": 0}) or document
+    await db["users"].update_one(
+        {"user_id": document["user_id"]}, {"$set": document}, upsert=True
+    )
+    return (
+        await db["users"].find_one(
+            {"user_id": document["user_id"]}, {"_id": 0, "embedding": 0}
+        )
+        or document
+    )
 
 
 async def _user_by_id(db: Any, user_id: str | None) -> dict[str, Any] | None:
@@ -141,10 +159,14 @@ async def _user_by_id(db: Any, user_id: str | None) -> dict[str, Any] | None:
     return await db["users"].find_one({"user_id": user_id}, {"_id": 0, "embedding": 0})
 
 
-async def _line_manager_for_context(db: Any, workstation: dict[str, Any] | None, plant_id: str | None) -> dict[str, Any] | None:
+async def _line_manager_for_context(
+    db: Any, workstation: dict[str, Any] | None, plant_id: str | None
+) -> dict[str, Any] | None:
     if not workstation:
         return None
-    explicit = await _user_by_id(db, workstation.get("line_manager_id") or workstation.get("supervisor_id"))
+    explicit = await _user_by_id(
+        db, workstation.get("line_manager_id") or workstation.get("supervisor_id")
+    )
     if explicit:
         return explicit
     line_id = workstation.get("line_id")
@@ -191,7 +213,9 @@ async def _user_by_text(db: Any, value: Any) -> dict[str, Any] | None:
     )
 
 
-async def _ensure_named_user(db: Any, value: Any, fallback_role: str, plant_id: str | None = None) -> dict[str, Any] | None:
+async def _ensure_named_user(
+    db: Any, value: Any, fallback_role: str, plant_id: str | None = None
+) -> dict[str, Any] | None:
     user = await _user_by_text(db, value)
     if user:
         return user
@@ -200,7 +224,12 @@ async def _ensure_named_user(db: Any, value: Any, fallback_role: str, plant_id: 
     name = str(value).strip()
     if not name or name.lower().startswith("unknown"):
         return None
-    user_id = "USER-AUTO-" + "".join(ch for ch in name.upper() if ch.isalnum() or ch == "-").replace(" ", "-")[:48]
+    user_id = (
+        "USER-AUTO-"
+        + "".join(ch for ch in name.upper() if ch.isalnum() or ch == "-").replace(
+            " ", "-"
+        )[:48]
+    )
     document = {
         "user_id": user_id,
         "name": name,
@@ -212,15 +241,39 @@ async def _ensure_named_user(db: Any, value: Any, fallback_role: str, plant_id: 
         "created_at": utc_now(),
         "updated_at": utc_now(),
     }
-    await db["users"].update_one({"user_id": user_id}, {"$setOnInsert": document, "$set": {"updated_at": utc_now()}}, upsert=True)
-    return await db["users"].find_one({"user_id": user_id}, {"_id": 0, "embedding": 0}) or document
+    await db["users"].update_one(
+        {"user_id": user_id},
+        {"$setOnInsert": document, "$set": {"updated_at": utc_now()}},
+        upsert=True,
+    )
+    return (
+        await db["users"].find_one({"user_id": user_id}, {"_id": 0, "embedding": 0})
+        or document
+    )
 
 
-async def _sop_context(db: Any, affected_entities: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
-    entity_ids = [str(entity.get("entity_id")) for entity in affected_entities if entity.get("entity_id")]
-    names = [str(entity.get("name")) for entity in affected_entities if entity.get("name")]
-    stage_ids = [str(entity.get("entity_id")) for entity in affected_entities if entity.get("collection") in {"industrial_stages", "stages"} and entity.get("entity_id")]
-    workstation_ids = [str(entity.get("entity_id")) for entity in affected_entities if entity.get("collection") == "workstations" and entity.get("entity_id")]
+async def _sop_context(
+    db: Any, affected_entities: list[dict[str, Any]]
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
+    entity_ids = [
+        str(entity.get("entity_id"))
+        for entity in affected_entities
+        if entity.get("entity_id")
+    ]
+    names = [
+        str(entity.get("name")) for entity in affected_entities if entity.get("name")
+    ]
+    stage_ids = [
+        str(entity.get("entity_id"))
+        for entity in affected_entities
+        if entity.get("collection") in {"industrial_stages", "stages"}
+        and entity.get("entity_id")
+    ]
+    workstation_ids = [
+        str(entity.get("entity_id"))
+        for entity in affected_entities
+        if entity.get("collection") == "workstations" and entity.get("entity_id")
+    ]
 
     sop = None
     if entity_ids or names:
@@ -242,11 +295,18 @@ async def _sop_context(db: Any, affected_entities: list[dict[str, Any]]) -> tupl
     workstation = None
     if workstation_ids:
         workstation = await db["workstations"].find_one(
-            {"$or": [{"id": {"$in": workstation_ids}}, {"workstation_id": {"$in": workstation_ids}}]},
+            {
+                "$or": [
+                    {"id": {"$in": workstation_ids}},
+                    {"workstation_id": {"$in": workstation_ids}},
+                ]
+            },
             {"_id": 0, "embedding": 0},
         )
     if not workstation and stage_ids:
-        workstation = await db["workstations"].find_one({"stage_id": {"$in": stage_ids}}, {"_id": 0, "embedding": 0})
+        workstation = await db["workstations"].find_one(
+            {"stage_id": {"$in": stage_ids}}, {"_id": 0, "embedding": 0}
+        )
 
     operator = None
     if workstation:
@@ -264,16 +324,23 @@ async def _sop_context(db: Any, affected_entities: list[dict[str, Any]]) -> tupl
     return sop, workstation, operator
 
 
-def _approval_basis(source_collection: str, source_id: str, sop: dict | None, workstation: dict | None) -> dict[str, Any]:
+def _approval_basis(
+    source_collection: str, source_id: str, sop: dict | None, workstation: dict | None
+) -> dict[str, Any]:
     return {
-        "mode": "n8n_auto_resolution" if settings.N8N_APPROVAL_RESOLVER_WEBHOOK_URL else "manual_default_graph_resolution",
+        "mode": (
+            "n8n_auto_resolution"
+            if settings.N8N_APPROVAL_RESOLVER_WEBHOOK_URL
+            else "manual_default_graph_resolution"
+        ),
         "source_collection": source_collection,
         "source_id": source_id,
         "sop_id": (sop or {}).get("id") or (sop or {}).get("sop_id"),
         "sop_title": (sop or {}).get("title") or (sop or {}).get("name"),
         "document_node_collection": "sops" if sop else None,
         "document_node_id": (sop or {}).get("id") or (sop or {}).get("sop_id"),
-        "workstation_id": (workstation or {}).get("id") or (workstation or {}).get("workstation_id"),
+        "workstation_id": (workstation or {}).get("id")
+        or (workstation or {}).get("workstation_id"),
         "workstation_name": (workstation or {}).get("name"),
         "line_id": (workstation or {}).get("line_id") or (sop or {}).get("line_id"),
         "stage_id": (workstation or {}).get("stage_id") or (sop or {}).get("stage_id"),
@@ -288,7 +355,9 @@ def validate_named_approval_chain(chain: list[dict[str, Any]]) -> None:
         raise ValueError("approval chain is empty")
     for step in chain:
         if not step.get("assigned_user_id") or not step.get("assigned_user_name"):
-            raise ValueError(f"approval step '{step.get('stage') or step.get('step')}' is not resolved to a named worker")
+            raise ValueError(
+                f"approval step '{step.get('stage') or step.get('step')}' is not resolved to a named worker"
+            )
 
 
 async def _local_approval_chain(
@@ -308,11 +377,19 @@ async def _local_approval_chain(
     plant_id = basis.get("plant_id")
 
     current_user = await _user_by_id(db, current_user_id)
-    document_owner = await _ensure_named_user(db, source_document.get("document_owner"), "Document Owner", plant_id)
-    reviewer = await _ensure_named_user(db, source_document.get("document_reviewer"), "Document Reviewer", plant_id)
-    approver = await _ensure_named_user(db, source_document.get("document_approver"), "Document Approver", plant_id)
+    document_owner = await _ensure_named_user(
+        db, source_document.get("document_owner"), "Document Owner", plant_id
+    )
+    reviewer = await _ensure_named_user(
+        db, source_document.get("document_reviewer"), "Document Reviewer", plant_id
+    )
+    approver = await _ensure_named_user(
+        db, source_document.get("document_approver"), "Document Approver", plant_id
+    )
     line_manager = await _line_manager_for_context(db, workstation, plant_id)
-    plant_manager = await _user_by_id(db, (workstation or {}).get("site_manager_id")) or await _user_by_id(db, "USER-PRASHUN-JAVERI")
+    plant_manager = await _user_by_id(
+        db, (workstation or {}).get("site_manager_id")
+    ) or await _user_by_id(db, "USER-PRASHUN-JAVERI")
 
     worker = operator or document_owner or current_user or document_controller
     line_manager = line_manager or plant_manager or current_user or document_controller
@@ -320,23 +397,65 @@ async def _local_approval_chain(
 
     if source_collection == "document_metadata":
         steps = [
-            ("Document Review", "Document Controller", document_controller, "document_control"),
-            ("Document Owner Review", "Document Owner", document_owner or reviewer or current_user or document_controller, "document_owner"),
-            ("Quality Control Review", "Quality Control", quality_control, "quality_control"),
-            ("Document Approval", "Document Approver", approver or plant_manager, "document_approval"),
+            (
+                "Document Review",
+                "Document Controller",
+                document_controller,
+                "document_control",
+            ),
+            (
+                "Document Owner Review",
+                "Document Owner",
+                document_owner or reviewer or current_user or document_controller,
+                "document_owner",
+            ),
+            (
+                "Quality Control Review",
+                "Quality Control",
+                quality_control,
+                "quality_control",
+            ),
+            (
+                "Document Approval",
+                "Document Approver",
+                approver or plant_manager,
+                "document_approval",
+            ),
             ("Plant Manager Approval", "Plant Manager", plant_manager, "plant"),
         ]
     else:
         steps = [
-            ("Document Review", "Document Controller", document_controller, "document_control"),
+            (
+                "Document Review",
+                "Document Controller",
+                document_controller,
+                "document_control",
+            ),
             ("Workstation Impact Review", "Production Worker", worker, "workstation"),
-            ("Quality Control Review", "Quality Control", quality_control, "quality_control"),
-            ("Change Control Approval", "Change Control", change_control, "change_control"),
+            (
+                "Quality Control Review",
+                "Quality Control",
+                quality_control,
+                "quality_control",
+            ),
+            (
+                "Change Control Approval",
+                "Change Control",
+                change_control,
+                "change_control",
+            ),
             ("Line Manager Approval", "Line Manager", line_manager, "line"),
             ("Plant Manager Approval", "Plant Manager", plant_manager, "plant"),
         ]
     chain = [
-        _approval_step(sequence=index, stage=stage, role=role, user=user, source=source, context=basis)
+        _approval_step(
+            sequence=index,
+            stage=stage,
+            role=role,
+            user=user,
+            source=source,
+            context=basis,
+        )
         for index, (stage, role, user, source) in enumerate(steps, start=1)
     ]
     validate_named_approval_chain(chain)
@@ -372,20 +491,38 @@ async def _n8n_approval_chain(
         "manual_default_basis": fallback_basis,
     }
     try:
-        async with httpx.AsyncClient(timeout=settings.N8N_APPROVAL_RESOLVER_TIMEOUT_SECONDS) as client:
-            response = await client.post(settings.N8N_APPROVAL_RESOLVER_WEBHOOK_URL, json=payload, headers=n8n_webhook_auth_headers())
+        async with httpx.AsyncClient(
+            timeout=settings.N8N_APPROVAL_RESOLVER_TIMEOUT_SECONDS
+        ) as client:
+            response = await client.post(
+                settings.N8N_APPROVAL_RESOLVER_WEBHOOK_URL,
+                json=payload,
+                headers=n8n_webhook_auth_headers(),
+            )
             response.raise_for_status()
             data = response.json()
     except Exception:
-        return fallback_chain, {**fallback_basis, "mode": "manual_default_graph_resolution", "n8n_status": "fallback"}
+        return fallback_chain, {
+            **fallback_basis,
+            "mode": "manual_default_graph_resolution",
+            "n8n_status": "fallback",
+        }
     chain = data.get("approval_chain") or data.get("approval_workflow")
     basis = data.get("approval_assignment_basis") or fallback_basis
     if not isinstance(chain, list):
-        return fallback_chain, {**fallback_basis, "mode": "manual_default_graph_resolution", "n8n_status": "invalid_response"}
+        return fallback_chain, {
+            **fallback_basis,
+            "mode": "manual_default_graph_resolution",
+            "n8n_status": "invalid_response",
+        }
     try:
         validate_named_approval_chain(chain)
     except ValueError:
-        return fallback_chain, {**fallback_basis, "mode": "manual_default_graph_resolution", "n8n_status": "unresolved_response"}
+        return fallback_chain, {
+            **fallback_basis,
+            "mode": "manual_default_graph_resolution",
+            "n8n_status": "unresolved_response",
+        }
     return chain, {**basis, "mode": "n8n_auto_resolution", "n8n_status": "resolved"}
 
 
@@ -418,7 +555,9 @@ async def resolve_named_approval_chain(
     )
 
 
-def approval_graph_relationships(chain: list[dict[str, Any]], basis: dict[str, Any]) -> list[dict[str, Any]]:
+def approval_graph_relationships(
+    chain: list[dict[str, Any]], basis: dict[str, Any]
+) -> list[dict[str, Any]]:
     relationships = [
         {
             "type": "REQUIRES_APPROVAL_FROM",
@@ -440,7 +579,11 @@ def approval_graph_relationships(chain: list[dict[str, Any]], basis: dict[str, A
         )
     if basis.get("workstation_id"):
         relationships.append(
-            {"type": "CONTROLS_PROCESS", "target_collection": "workstations", "target_id": basis.get("workstation_id")}
+            {
+                "type": "CONTROLS_PROCESS",
+                "target_collection": "workstations",
+                "target_id": basis.get("workstation_id"),
+            }
         )
     return relationships
 
@@ -463,7 +606,9 @@ def source_lookup(source_collection: str, source_id: str) -> dict[str, Any]:
 
 
 def approval_token_for(approval_id: str) -> str:
-    return hashlib.sha256(f"{approval_id}:{settings.ACCESS_TOKEN_SECRET}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        f"{approval_id}:{settings.ACCESS_TOKEN_SECRET}".encode("utf-8")
+    ).hexdigest()
 
 
 def new_approval_token() -> str:
@@ -475,7 +620,9 @@ def approval_token_expires_at() -> datetime:
 
 
 def approval_step_email(step: dict[str, Any]) -> str | None:
-    assigned_user = step.get("assigned_user") if isinstance(step.get("assigned_user"), dict) else {}
+    assigned_user = (
+        step.get("assigned_user") if isinstance(step.get("assigned_user"), dict) else {}
+    )
     return step.get("assigned_user_email") or assigned_user.get("email")
 
 
@@ -489,11 +636,20 @@ def approval_notification_event(
     token_records: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     def notification_for_step(step: dict[str, Any]) -> dict[str, Any]:
-        approval_id = f"approval-{source_collection}-{source_id}-{step.get('sequence')}".replace(" ", "-")
+        approval_id = (
+            f"approval-{source_collection}-{source_id}-{step.get('sequence')}".replace(
+                " ", "-"
+            )
+        )
         token_record = (token_records or {}).get(approval_id) or {}
         approval_token = token_record.get("approval_token") or new_approval_token()
-        approval_expires_at = token_record.get("approval_token_expires_at") or approval_token_expires_at()
-        approval_form_url = token_record.get("approval_form_url") or f"{settings.APPROVAL_FORM_BASE_URL.rstrip('/')}/{approval_id}/form?token={approval_token}"
+        approval_expires_at = (
+            token_record.get("approval_token_expires_at") or approval_token_expires_at()
+        )
+        approval_form_url = (
+            token_record.get("approval_form_url")
+            or f"{settings.APPROVAL_FORM_BASE_URL.rstrip('/')}/{approval_id}/form?token={approval_token}"
+        )
         return {
             "sequence": step.get("sequence"),
             "stage": step.get("stage") or step.get("step"),
@@ -511,10 +667,7 @@ def approval_notification_event(
             "body": f"{step.get('stage') or step.get('step') or 'Approval'} is pending for {source_title}.",
         }
 
-    notifications = [
-        notification_for_step(step)
-        for step in chain
-    ]
+    notifications = [notification_for_step(step) for step in chain]
     return {
         "event": "approval_reviewer_assignment",
         "event_type": "approval-request",
@@ -565,7 +718,11 @@ async def create_approval_tracking_and_notifications(
     token_records: dict[str, dict[str, Any]] = {}
 
     async def upsert_approval(step: dict[str, Any]) -> None:
-        approval_id = f"approval-{source_collection}-{source_id}-{step.get('sequence')}".replace(" ", "-")
+        approval_id = (
+            f"approval-{source_collection}-{source_id}-{step.get('sequence')}".replace(
+                " ", "-"
+            )
+        )
         approval_token = new_approval_token()
         expires_at = approval_token_expires_at()
         approval_form_url = f"{settings.APPROVAL_FORM_BASE_URL.rstrip('/')}/{approval_id}/form?token={approval_token}"
@@ -604,8 +761,14 @@ async def create_approval_tracking_and_notifications(
         )
 
     async def upsert_notification(step: dict[str, Any]) -> None:
-        notification_id = f"notification-approval-{source_collection}-{source_id}-{step.get('sequence')}".replace(" ", "-")
-        approval_id = f"approval-{source_collection}-{source_id}-{step.get('sequence')}".replace(" ", "-")
+        notification_id = f"notification-approval-{source_collection}-{source_id}-{step.get('sequence')}".replace(
+            " ", "-"
+        )
+        approval_id = (
+            f"approval-{source_collection}-{source_id}-{step.get('sequence')}".replace(
+                " ", "-"
+            )
+        )
         token_record = token_records.get(approval_id)
         if not token_record:
             approval_token = new_approval_token()
@@ -631,7 +794,9 @@ async def create_approval_tracking_and_notifications(
                     "source_id": source_id,
                     "approval_id": approval_id,
                     "approval_form_url": token_record["approval_form_url"],
-                    "approval_token_expires_at": token_record["approval_token_expires_at"],
+                    "approval_token_expires_at": token_record[
+                        "approval_token_expires_at"
+                    ],
                     "approval_link_issued_at": now,
                     "approval_sequence": step.get("sequence"),
                     "status": "Unread",

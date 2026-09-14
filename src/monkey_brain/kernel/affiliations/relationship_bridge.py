@@ -13,6 +13,7 @@ and, when the target is a live actor, a mirrored Affiliation on the target's man
 visibility. `_rel_source_actor_id`/`_rel_target_actor_id` in metadata always record
 the true original direction, regardless of which manager holds a given copy.
 """
+
 from __future__ import annotations
 from typing import Any
 from .affiliation import Affiliation
@@ -43,9 +44,7 @@ def make_relationship_affiliation(
     (source or target); the resulting Affiliation always points at the
     *other* party.
     """
-    points_at, points_at_name = (
-        (target_id, target_name) if owner_id == source_id else (source_id, source_name)
-    )
+    points_at, points_at_name = (target_id, target_name) if owner_id == source_id else (source_id, source_name)
     return Affiliation(
         affiliation_id=relationship_affiliation_id(source_id, target_id, relationship_type),
         affiliation_type=relationship_type,

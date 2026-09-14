@@ -5,6 +5,7 @@ prediction domain types. Pure data — no algorithm, no mocking needed,
 matching the style of test_planning_domain.py / test_execution_domain.py /
 test_learning_domain.py.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -22,16 +23,19 @@ from src.monkey_brain.kernel.pipeline.prediction import (
 )
 from src.monkey_brain.kernel.pipeline.learning.domain import Provenance
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # PredictionConfidence
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPredictionConfidence:
     def test_construction(self):
         conf = PredictionConfidence(
-            point_estimate=0.96, lower_bound=0.9, upper_bound=0.99,
-            rationale="Historical success rate at Store A", uncertainty_sources=("stock_data_age",),
+            point_estimate=0.96,
+            lower_bound=0.9,
+            upper_bound=0.99,
+            rationale="Historical success rate at Store A",
+            uncertainty_sources=("stock_data_age",),
         )
         assert conf.point_estimate == 0.96
         assert conf.uncertainty_sources == ("stock_data_age",)
@@ -52,9 +56,15 @@ class TestPredictionConfidence:
 # PredictionOutcome
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPredictionOutcome:
     def test_construction(self):
-        outcome = PredictionOutcome(description="Store A has milk in stock", success=True, probability=0.96, utility=0.9)
+        outcome = PredictionOutcome(
+            description="Store A has milk in stock",
+            success=True,
+            probability=0.96,
+            utility=0.9,
+        )
         assert outcome.success is True
         assert outcome.probability == 0.96
 
@@ -72,6 +82,7 @@ class TestPredictionOutcome:
 # ═══════════════════════════════════════════════════════════════════════════
 # Prediction — the central type; matches "each prediction should contain"
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPrediction:
     def test_construction_minimal(self):
@@ -127,9 +138,15 @@ class TestPrediction:
 # PredictionRequest
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPredictionRequest:
     def test_construction(self):
-        req = PredictionRequest(goal="acquire_milk", plan="drive_to_store_a", time_horizon=600.0, actor_id="alice")
+        req = PredictionRequest(
+            goal="acquire_milk",
+            plan="drive_to_store_a",
+            time_horizon=600.0,
+            actor_id="alice",
+        )
         assert req.goal == "acquire_milk"
         assert req.time_horizon == 600.0
         assert req.actor_id == "alice"
@@ -152,6 +169,7 @@ class TestPredictionRequest:
 # ═══════════════════════════════════════════════════════════════════════════
 # PredictionContext
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPredictionContext:
     def test_composes_request_and_candidates(self):
@@ -181,6 +199,7 @@ class TestPredictionContext:
 # PredictionCandidate — matches the acceptance criteria's Scenario A/B/C shape
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPredictionCandidate:
     def test_construction_matches_acceptance_criteria_scenario_shape(self):
         """'Scenario A: Store open, Success 96%' from Step 11's acceptance
@@ -188,7 +207,8 @@ class TestPredictionCandidate:
         outcome = PredictionOutcome(description="Store open, milk purchased", success=True, probability=0.96)
         candidate = PredictionCandidate(
             prediction=Prediction(predicted_outcomes=(outcome,), expected_utility=0.9),
-            scenario_label="Store open", probability=0.96,
+            scenario_label="Store open",
+            probability=0.96,
         )
         assert candidate.scenario_label == "Store open"
         assert candidate.probability == 0.96
@@ -204,7 +224,11 @@ class TestPredictionCandidate:
         assert PredictionCandidate().candidate_id != PredictionCandidate().candidate_id
 
     def test_rejected_candidate_carries_a_reason(self):
-        candidate = PredictionCandidate(scenario_label="Store closed", rejected=True, rejection_reason="Success probability 12% below threshold")
+        candidate = PredictionCandidate(
+            scenario_label="Store closed",
+            rejected=True,
+            rejection_reason="Success probability 12% below threshold",
+        )
         assert candidate.rejected is True
         assert "12%" in candidate.rejection_reason
 
@@ -217,6 +241,7 @@ class TestPredictionCandidate:
 # ═══════════════════════════════════════════════════════════════════════════
 # PredictionTrace — data-only placeholder, matches Plan.trace precedent
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPredictionTrace:
     def test_construction(self):
@@ -237,6 +262,7 @@ class TestPredictionTrace:
 # ═══════════════════════════════════════════════════════════════════════════
 # PredictionResult — matches the acceptance criteria's decision recommendation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPredictionResult:
     def test_construction_matches_acceptance_criteria(self):
@@ -273,6 +299,7 @@ class TestPredictionResult:
 # Ownership boundary — model-only, no coupling to runtime/execution/learning engines
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     """AST-based import extraction -- not a substring scan, so an
     explanatory docstring mentioning a forbidden filename by name isn't
@@ -280,6 +307,7 @@ def _imported_modules(mod) -> list[str]:
     false positive on this exact pattern."""
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -297,10 +325,15 @@ class TestOwnershipBoundary:
         (execution.py, action_executor.py) -- those stay untouched until
         Step 11.7."""
         import src.monkey_brain.kernel.pipeline.prediction.domain as mod
+
         imports = " ".join(_imported_modules(mod))
         for forbidden in (
-            "belief_runtime", "kernel.pipeline.execution", "action_executor",
-            "learning.integration", "learning.capture", "learning.policies",
+            "belief_runtime",
+            "kernel.pipeline.execution",
+            "action_executor",
+            "learning.integration",
+            "learning.capture",
+            "learning.policies",
         ):
             assert forbidden not in imports, f"prediction/domain.py must not import: {forbidden}"
 
@@ -309,6 +342,7 @@ class TestOwnershipBoundary:
         data type Step 10.1 already proved has zero runtime coupling) --
         everything else must be stdlib."""
         import src.monkey_brain.kernel.pipeline.prediction.domain as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         assert project_imports == ["src.monkey_brain.kernel.pipeline.learning.domain"]
@@ -318,6 +352,7 @@ class TestOwnershipBoundary:
         reason to import belief_state.py or execution_state.py's real
         types at all."""
         import src.monkey_brain.kernel.pipeline.prediction.domain as mod
+
         imports = _imported_modules(mod)
         for module_name in imports:
             assert "belief_state" not in module_name

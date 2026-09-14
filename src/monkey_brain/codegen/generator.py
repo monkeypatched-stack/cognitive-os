@@ -9,6 +9,7 @@ models/crud/alembic), InfraMixin (Dockerfile/compose/pyproject/.env). The
 public contract is unchanged — `MicroserviceGenerator(spec).generate()` and
 the module-level `generate()` function behave exactly as before.
 """
+
 from __future__ import annotations
 
 from .spec import MicroserviceSpec

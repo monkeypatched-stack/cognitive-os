@@ -3,6 +3,7 @@
 Used by ActionExecutor (actor-tick pipeline) and GraphScheduler (CodeGen/
 ProcessManager) so both paths honor the same canonical ExecutionGraph model.
 """
+
 from __future__ import annotations
 
 from typing import Any, Iterable
@@ -38,11 +39,7 @@ def order_actions_by_graph(
         return actions
 
     step_nodes = execution_graph.get_step_nodes()
-    node_by_index = {
-        int(n.props.get("step_index", -1)): n
-        for n in step_nodes
-        if n.props.get("step_index") is not None
-    }
+    node_by_index = {int(n.props.get("step_index", -1)): n for n in step_nodes if n.props.get("step_index") is not None}
     indegree: dict[int, int] = {idx: 0 for idx in by_index}
     out_edges: dict[int, list[int]] = {idx: [] for idx in by_index}
     for idx, node in node_by_index.items():
@@ -147,27 +144,57 @@ def enrich_step_node_props(node: GraphNode) -> GraphNode:
     props = dict(node.props or {})
     capability = props.get("capability") or node.label
     props.setdefault("capability", capability)
-    if "parameters" not in props and any(k for k in props if k not in {
-        "capability", "original_capability", "step_index", "plan_id", "goal_id",
-        "goal", "actor_id", "description", "preconditions", "expected_outcome",
-        "required_permission", "output_bindings", "input_bindings",
-        "runtime_projections", "agent", "question",
-    }):
+    if "parameters" not in props and any(
+        k
+        for k in props
+        if k
+        not in {
+            "capability",
+            "original_capability",
+            "step_index",
+            "plan_id",
+            "goal_id",
+            "goal",
+            "actor_id",
+            "description",
+            "preconditions",
+            "expected_outcome",
+            "required_permission",
+            "output_bindings",
+            "input_bindings",
+            "runtime_projections",
+            "agent",
+            "question",
+        }
+    ):
         props["parameters"] = {
-            k: v for k, v in props.items()
-            if k not in {
-                "capability", "original_capability", "step_index", "plan_id",
-                "goal_id", "goal", "actor_id", "description", "preconditions",
-                "expected_outcome", "required_permission", "output_bindings",
-                "input_bindings", "runtime_projections", "agent", "question",
+            k: v
+            for k, v in props.items()
+            if k
+            not in {
+                "capability",
+                "original_capability",
+                "step_index",
+                "plan_id",
+                "goal_id",
+                "goal",
+                "actor_id",
+                "description",
+                "preconditions",
+                "expected_outcome",
+                "required_permission",
+                "output_bindings",
+                "input_bindings",
+                "runtime_projections",
+                "agent",
+                "question",
             }
         }
     if "runtime_projections" not in props:
         projections = _runtime_projections_for(str(capability))
         if projections:
             props["runtime_projections"] = [
-                {"result_key": p.result_key, "context_key": p.context_key}
-                for p in projections
+                {"result_key": p.result_key, "context_key": p.context_key} for p in projections
             ]
     return GN(id=node.id, type=node.type, label=node.label, props=props)
 
@@ -205,12 +232,14 @@ def normalize_execution_graph(graph: ExecutionGraph) -> ExecutionGraph:
                 if not _depends_on(graph, consumer.id, producer.id):
                     continue
                 if not _edge_exists(graph, producer.id, consumer.id, "projects_to"):
-                    graph.add_edge(GraphEdge(
-                        src=producer.id,
-                        dst=consumer.id,
-                        rel="projects_to",
-                        # rel only — payload lives on node props
-                    ))
+                    graph.add_edge(
+                        GraphEdge(
+                            src=producer.id,
+                            dst=consumer.id,
+                            rel="projects_to",
+                            # rel only — payload lives on node props
+                        )
+                    )
     return graph
 
 

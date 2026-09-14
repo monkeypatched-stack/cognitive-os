@@ -3,6 +3,7 @@
 Responsibility: Audit logging, telemetry, governance checks, metrics.
 Depends on: audit log, lemon (telemetry), governance
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,6 +40,7 @@ class AuditService:
         """Record an audit entry. Best-effort — never blocks execution."""
         try:
             from src.monkey_brain.kernel.audit import get_audit_log
+
             log = get_audit_log()
             log.record(
                 runtime_id="local",
@@ -65,12 +67,14 @@ class AuditService:
 
             for n in nodes:
                 if isinstance(n, dict) and not n.get("agent", ""):
-                    violations.append({
-                        "rule": "agent_identity",
-                        "severity": "high",
-                        "node": n.get("id", ""),
-                        "message": "Node has no agent",
-                    })
+                    violations.append(
+                        {
+                            "rule": "agent_identity",
+                            "severity": "high",
+                            "node": n.get("id", ""),
+                            "message": "Node has no agent",
+                        }
+                    )
 
             connected = set()
             for e in edges:
@@ -79,12 +83,14 @@ class AuditService:
                     connected.add(e.get("to", ""))
             for n in nodes:
                 if isinstance(n, dict) and n.get("id", "") not in connected:
-                    violations.append({
-                        "rule": "connectivity",
-                        "severity": "medium",
-                        "node": n.get("id", ""),
-                        "message": "Orphan node",
-                    })
+                    violations.append(
+                        {
+                            "rule": "connectivity",
+                            "severity": "medium",
+                            "node": n.get("id", ""),
+                            "message": "Orphan node",
+                        }
+                    )
 
             critical = [v for v in violations if v["severity"] == "high"]
             if self._lemon:

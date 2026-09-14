@@ -4,6 +4,7 @@ Verifies the system doesn't leak memory, file descriptors, or connections
 during sustained operation. A soak test catches slow degradation that
 unit tests miss.
 """
+
 from __future__ import annotations
 
 import os
@@ -22,24 +23,36 @@ os.environ["RATE_LIMIT_BURST"] = "200000"
 def client():
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
 
 def _create_actor(client, name, goal):
-    r = client.post("/api/v1/agentos/actors", json={
-        "name": name, "actor_type": "robot", "goals": [goal],
-    })
+    r = client.post(
+        "/api/v1/agentos/actors",
+        json={
+            "name": name,
+            "actor_type": "robot",
+            "goals": [goal],
+        },
+    )
     assert r.status_code == 200
     return r.json()["actor_id"]
 
 
 def _tick_actor(client, aid):
-    return client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-        "start": "a", "goal": "b", "reward": 1.0,
-    })
+    return client.post(
+        f"/api/v1/agentos/actors/{aid}/tick",
+        json={
+            "start": "a",
+            "goal": "b",
+            "reward": 1.0,
+        },
+    )
 
 
 class TestSoakMemory:

@@ -15,6 +15,7 @@ sign_bytes/verify_bytes -- the SAME primitive kernel/delegation.py's
 proof and every runtime-signed envelope in this codebase already use.
 No new cryptography.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,11 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
-from src.monkey_brain.kernel.edge.freshness import CacheProvenance, Freshness, classify_freshness
+from src.monkey_brain.kernel.edge.freshness import (
+    CacheProvenance,
+    Freshness,
+    classify_freshness,
+)
 from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
 
 logger = logging.getLogger("agentos.edge.policy_cache")
@@ -51,6 +56,7 @@ class SignedPolicySnapshot:
     Deliberately mirrors kernel/delegation.py::DelegationCredential's
     shape (signing_fields/signing_bytes/proof) rather than inventing a
     different signed-artifact convention."""
+
     snapshot_id: str = field(default_factory=lambda: uuid4().hex)
     principal: str = ""
     """The actor/workload this verdict was computed for -- a SPIFFE ID
@@ -85,7 +91,11 @@ class SignedPolicySnapshot:
     def __post_init__(self) -> None:
         if not self.principal or not self.action:
             raise PolicySnapshotError("principal and action are required")
-        if self.approval_mode not in ("AUTO_APPROVE", "HUMAN_APPROVAL_REQUIRED", "DENY"):
+        if self.approval_mode not in (
+            "AUTO_APPROVE",
+            "HUMAN_APPROVAL_REQUIRED",
+            "DENY",
+        ):
             raise PolicySnapshotError(f"invalid approval_mode {self.approval_mode!r}")
         if self.expires_at <= self.issued_at:
             raise PolicySnapshotError("expires_at must be after issued_at (must be time-bounded)")
@@ -120,17 +130,24 @@ class SignedPolicySnapshot:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "SignedPolicySnapshot":
         return cls(
-            snapshot_id=d.get("snapshot_id", ""), principal=d.get("principal", ""),
-            action=d.get("action", ""), resource=d.get("resource", ""),
-            audience=d.get("audience", ""), approval_mode=d.get("approval_mode", "DENY"),
-            policy_rule=d.get("policy_rule", ""), risk_level=d.get("risk_level", ""),
-            issued_at=float(d.get("issued_at", 0.0)), expires_at=float(d.get("expires_at", 0.0)),
+            snapshot_id=d.get("snapshot_id", ""),
+            principal=d.get("principal", ""),
+            action=d.get("action", ""),
+            resource=d.get("resource", ""),
+            audience=d.get("audience", ""),
+            approval_mode=d.get("approval_mode", "DENY"),
+            policy_rule=d.get("policy_rule", ""),
+            risk_level=d.get("risk_level", ""),
+            issued_at=float(d.get("issued_at", 0.0)),
+            expires_at=float(d.get("expires_at", 0.0)),
             authority_epoch=int(d.get("authority_epoch", 0)),
-            proof=d.get("proof", ""), proof_alg=d.get("proof_alg", "ed25519"),
+            proof=d.get("proof", ""),
+            proof_alg=d.get("proof_alg", "ed25519"),
         )
 
     def with_proof(self, proof: str) -> "SignedPolicySnapshot":
         from dataclasses import replace
+
         return replace(self, proof=proof)
 
 
@@ -143,8 +160,14 @@ trusting an old verdict indefinitely."""
 
 
 def issue_policy_snapshot(
-    *, principal: str, action: str, resource: str, policy_decision: dict[str, Any],
-    audience: str = "", authority_epoch: int = 0, ttl_seconds: float = DEFAULT_SNAPSHOT_TTL_SECONDS,
+    *,
+    principal: str,
+    action: str,
+    resource: str,
+    policy_decision: dict[str, Any],
+    audience: str = "",
+    authority_epoch: int = 0,
+    ttl_seconds: float = DEFAULT_SNAPSHOT_TTL_SECONDS,
 ) -> SignedPolicySnapshot:
     """Called ONLY from the control plane, from the same real
     GovernanceEngine/OPA verdict ensure_governed's own _authorize()
@@ -155,8 +178,13 @@ def issue_policy_snapshot(
     from src.monkey_brain.kernel.identity import get_key_manager, sign_bytes
 
     snapshot = SignedPolicySnapshot(
-        principal=principal, action=action, resource=resource, audience=audience,
-        approval_mode=str(policy_decision.get("approval_mode") or ("DENY" if not policy_decision.get("allowed") else "AUTO_APPROVE")),
+        principal=principal,
+        action=action,
+        resource=resource,
+        audience=audience,
+        approval_mode=str(
+            policy_decision.get("approval_mode") or ("DENY" if not policy_decision.get("allowed") else "AUTO_APPROVE")
+        ),
         policy_rule=str(policy_decision.get("policy_rule") or ""),
         risk_level=str(policy_decision.get("risk_level") or ""),
         expires_at=time.time() + ttl_seconds,
@@ -169,7 +197,10 @@ def issue_policy_snapshot(
 
 
 def verify_policy_snapshot(
-    snapshot: SignedPolicySnapshot, *, authenticated_principal: str, audience: str = "",
+    snapshot: SignedPolicySnapshot,
+    *,
+    authenticated_principal: str,
+    audience: str = "",
 ) -> tuple[bool, str]:
     """Returns (valid, reason). Fail-closed: any ambiguity is invalid."""
     from src.monkey_brain.kernel.identity import verify_bytes
@@ -196,6 +227,7 @@ def resolve_control_plane_public_key() -> str:
     verify_policy_snapshot's signature; today it resolves through the
     same local KeyManager an in-process control plane already uses."""
     from src.monkey_brain.kernel.identity import get_key_manager
+
     return get_key_manager().get_public_key_pem(CONTROL_PLANE_SIGNER_ID)
 
 
@@ -223,13 +255,21 @@ class EdgePolicyCache:
             freshness_requirement="requires_authority",
         )
         self._store.put(
-            _NAMESPACE, self._key(snapshot.principal, snapshot.action, snapshot.resource),
-            snapshot.to_dict(), provenance,
+            _NAMESPACE,
+            self._key(snapshot.principal, snapshot.action, snapshot.resource),
+            snapshot.to_dict(),
+            provenance,
         )
 
     def get_valid(
-        self, *, principal: str, action: str, resource: str, authenticated_principal: str,
-        audience: str = "", current_authority_epoch: int | None = None,
+        self,
+        *,
+        principal: str,
+        action: str,
+        resource: str,
+        authenticated_principal: str,
+        audience: str = "",
+        current_authority_epoch: int | None = None,
     ) -> tuple[SignedPolicySnapshot | None, Freshness, str]:
         """Returns (snapshot_or_None, freshness, reason). A non-None
         snapshot is returned ONLY when it is both cryptographically
@@ -238,7 +278,11 @@ class EdgePolicyCache:
         an authority decision -- see its own docstring."""
         entry = self._store.get(_NAMESPACE, self._key(principal, action, resource))
         if entry is None:
-            return None, Freshness.UNKNOWN, "no cached snapshot for this principal/action/resource"
+            return (
+                None,
+                Freshness.UNKNOWN,
+                "no cached snapshot for this principal/action/resource",
+            )
 
         freshness = classify_freshness(entry.provenance, current_authority_epoch=current_authority_epoch)
         try:
@@ -247,12 +291,18 @@ class EdgePolicyCache:
             return None, Freshness.UNKNOWN, f"corrupt cached snapshot: {exc}"
 
         valid, reason = verify_policy_snapshot(
-            snapshot, authenticated_principal=authenticated_principal, audience=audience,
+            snapshot,
+            authenticated_principal=authenticated_principal,
+            audience=audience,
         )
         if not valid:
             return None, Freshness.UNKNOWN, reason
 
         if freshness in (Freshness.STALE_MUST_REFRESH, Freshness.UNKNOWN):
-            return None, freshness, "cached snapshot is stale or its epoch has been superseded"
+            return (
+                None,
+                freshness,
+                "cached snapshot is stale or its epoch has been superseded",
+            )
 
         return snapshot, freshness, "ok"

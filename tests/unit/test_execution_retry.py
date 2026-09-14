@@ -8,17 +8,32 @@ Continue, Rollback-as-placeholder, Compensate). Also verifies RetryExecutor
 composes into ExecutionScheduler via duck typing with zero changes to
 scheduler.py.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionStep, ExecutionPlan, ExecutionContext, ExecutionStatus,
-    ExecutionOutcome, ExecutionError, RetryPolicy, RetryStrategy,
+    ExecutionStep,
+    ExecutionPlan,
+    ExecutionContext,
+    ExecutionStatus,
+    ExecutionOutcome,
+    ExecutionError,
+    RetryPolicy,
+    RetryStrategy,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry, ExecutionCapability
-from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import ExecutionScheduler
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+    ExecutionCapability,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import (
+    ExecutionScheduler,
+)
 from src.monkey_brain.kernel.pipeline.execution_runtime.retry import (
-    RecoveryAction, RecoveryPolicy, RetryResult, RetryExecutor,
+    RecoveryAction,
+    RecoveryPolicy,
+    RetryResult,
+    RetryExecutor,
 )
 
 
@@ -33,6 +48,7 @@ def _step(operator_name: str = "Op", retry_policy: RetryPolicy | None = None, **
 class _FlakyHandler:
     """Fails a fixed number of times, then succeeds — a real transient
     failure scenario, not just a canned FAILED outcome."""
+
     operator_name = "FlakyOp"
     capability = ExecutionCapability(name="flaky")
 
@@ -47,8 +63,14 @@ class _FlakyHandler:
         self.calls += 1
         if self.calls <= self.fail_count:
             return ExecutionOutcome(
-                step_id=step.step_id, status=ExecutionStatus.FAILED,
-                error=ExecutionError(step_id=step.step_id, code="TRANSIENT", message="flaky", retryable=True),
+                step_id=step.step_id,
+                status=ExecutionStatus.FAILED,
+                error=ExecutionError(
+                    step_id=step.step_id,
+                    code="TRANSIENT",
+                    message="flaky",
+                    retryable=True,
+                ),
             )
         return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.SUCCEEDED, output={"ok": True})
 
@@ -63,8 +85,14 @@ class _AlwaysFailsHandler:
 
     def execute(self, step, context):
         return ExecutionOutcome(
-            step_id=step.step_id, status=ExecutionStatus.FAILED,
-            error=ExecutionError(step_id=step.step_id, code="PERSISTENT", message="nope", retryable=self.retryable),
+            step_id=step.step_id,
+            status=ExecutionStatus.FAILED,
+            error=ExecutionError(
+                step_id=step.step_id,
+                code="PERSISTENT",
+                message="nope",
+                retryable=self.retryable,
+            ),
         )
 
 
@@ -77,6 +105,7 @@ def _sleep_recorder():
 # Retry framework — a real transient failure actually recovers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestTransientFailureRecovery:
     def test_recovers_after_retries(self):
         flaky = _FlakyHandler(fail_count=2)
@@ -85,7 +114,14 @@ class TestTransientFailureRecovery:
         delays, sleep_fn = _sleep_recorder()
         executor = RetryExecutor(registry=registry, sleep_fn=sleep_fn)
 
-        step = _step("FlakyOp", retry_policy=RetryPolicy(strategy=RetryStrategy.FIXED_DELAY, max_attempts=5, base_delay_seconds=1.0))
+        step = _step(
+            "FlakyOp",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_attempts=5,
+                base_delay_seconds=1.0,
+            ),
+        )
         result = executor.execute_with_retry(step, ExecutionContext())
 
         assert result.outcome.success is True
@@ -99,7 +135,14 @@ class TestTransientFailureRecovery:
         delays, sleep_fn = _sleep_recorder()
         executor = RetryExecutor(registry=registry, sleep_fn=sleep_fn)
 
-        step = _step("FlakyOp", retry_policy=RetryPolicy(strategy=RetryStrategy.FIXED_DELAY, max_attempts=5, base_delay_seconds=2.0))
+        step = _step(
+            "FlakyOp",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_attempts=5,
+                base_delay_seconds=2.0,
+            ),
+        )
         executor.execute_with_retry(step, ExecutionContext())
 
         assert delays == [2.0, 2.0]
@@ -110,7 +153,14 @@ class TestTransientFailureRecovery:
         registry.register(flaky)
         executor = RetryExecutor(registry=registry, sleep_fn=lambda d: None)
 
-        step = _step("FlakyOp", retry_policy=RetryPolicy(strategy=RetryStrategy.FIXED_DELAY, max_attempts=3, base_delay_seconds=0.0))
+        step = _step(
+            "FlakyOp",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_attempts=3,
+                base_delay_seconds=0.0,
+            ),
+        )
         result = executor.execute_with_retry(step, ExecutionContext())
 
         assert result.outcome.attempt == 2
@@ -120,6 +170,7 @@ class TestTransientFailureRecovery:
 # Backoff timing
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBackoffTiming:
     def test_exponential_backoff_doubles_each_attempt(self):
         registry = ExecutionRegistry()
@@ -127,9 +178,14 @@ class TestBackoffTiming:
         delays, sleep_fn = _sleep_recorder()
         executor = RetryExecutor(registry=registry, sleep_fn=sleep_fn)
 
-        step = _step("AlwaysFails", retry_policy=RetryPolicy(
-            strategy=RetryStrategy.EXPONENTIAL_BACKOFF, max_attempts=5, base_delay_seconds=1.0,
-        ))
+        step = _step(
+            "AlwaysFails",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
+                max_attempts=5,
+                base_delay_seconds=1.0,
+            ),
+        )
         executor.execute_with_retry(step, ExecutionContext())
 
         assert delays == [1.0, 2.0, 4.0, 8.0]
@@ -140,9 +196,15 @@ class TestBackoffTiming:
         delays, sleep_fn = _sleep_recorder()
         executor = RetryExecutor(registry=registry, sleep_fn=sleep_fn)
 
-        step = _step("AlwaysFails", retry_policy=RetryPolicy(
-            strategy=RetryStrategy.EXPONENTIAL_BACKOFF, max_attempts=6, base_delay_seconds=1.0, max_delay_seconds=5.0,
-        ))
+        step = _step(
+            "AlwaysFails",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
+                max_attempts=6,
+                base_delay_seconds=1.0,
+                max_delay_seconds=5.0,
+            ),
+        )
         executor.execute_with_retry(step, ExecutionContext())
 
         assert delays == [1.0, 2.0, 4.0, 5.0, 5.0]
@@ -153,7 +215,10 @@ class TestBackoffTiming:
         delays, sleep_fn = _sleep_recorder()
         executor = RetryExecutor(registry=registry, sleep_fn=sleep_fn)
 
-        step = _step("AlwaysFails", retry_policy=RetryPolicy(strategy=RetryStrategy.NONE, max_attempts=10))
+        step = _step(
+            "AlwaysFails",
+            retry_policy=RetryPolicy(strategy=RetryStrategy.NONE, max_attempts=10),
+        )
         result = executor.execute_with_retry(step, ExecutionContext())
 
         assert result.attempts == 1
@@ -164,13 +229,21 @@ class TestBackoffTiming:
 # Exhaustion and non-retryable errors
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRetryExhaustion:
     def test_exhausts_max_attempts_and_stays_failed(self):
         registry = ExecutionRegistry()
         registry.register(_AlwaysFailsHandler())
         executor = RetryExecutor(registry=registry, sleep_fn=lambda d: None)
 
-        step = _step("AlwaysFails", retry_policy=RetryPolicy(strategy=RetryStrategy.FIXED_DELAY, max_attempts=4, base_delay_seconds=0.0))
+        step = _step(
+            "AlwaysFails",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_attempts=4,
+                base_delay_seconds=0.0,
+            ),
+        )
         result = executor.execute_with_retry(step, ExecutionContext())
 
         assert result.attempts == 4
@@ -184,7 +257,14 @@ class TestRetryExhaustion:
         delays, sleep_fn = _sleep_recorder()
         executor = RetryExecutor(registry=registry, sleep_fn=sleep_fn)
 
-        step = _step("AlwaysFails", retry_policy=RetryPolicy(strategy=RetryStrategy.FIXED_DELAY, max_attempts=5, base_delay_seconds=1.0))
+        step = _step(
+            "AlwaysFails",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_attempts=5,
+                base_delay_seconds=1.0,
+            ),
+        )
         result = executor.execute_with_retry(step, ExecutionContext())
 
         assert result.attempts == 1
@@ -194,6 +274,7 @@ class TestRetryExhaustion:
 # ═══════════════════════════════════════════════════════════════════════════
 # Recovery policies
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRecoveryPolicies:
     def test_default_recovery_is_continue(self):
@@ -209,7 +290,8 @@ class TestRecoveryPolicies:
         registry = ExecutionRegistry()
         registry.register(_AlwaysFailsHandler())
         executor = RetryExecutor(
-            registry=registry, sleep_fn=lambda d: None,
+            registry=registry,
+            sleep_fn=lambda d: None,
             recovery_policies={"AlwaysFails": RecoveryPolicy(action=RecoveryAction.ABORT)},
         )
 
@@ -222,7 +304,8 @@ class TestRecoveryPolicies:
         registry = ExecutionRegistry()
         registry.register(_AlwaysFailsHandler())
         executor = RetryExecutor(
-            registry=registry, sleep_fn=lambda d: None,
+            registry=registry,
+            sleep_fn=lambda d: None,
             recovery_policies={"AlwaysFails": RecoveryPolicy(action=RecoveryAction.ROLLBACK)},
         )
 
@@ -235,17 +318,26 @@ class TestRecoveryPolicies:
         class RefundHandler:
             operator_name = "Refund"
             capability = ExecutionCapability(name="refund")
+
             def validate(self, step):
                 return None
+
             def execute(self, step, context):
-                return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.SUCCEEDED, output={"refunded": True})
+                return ExecutionOutcome(
+                    step_id=step.step_id,
+                    status=ExecutionStatus.SUCCEEDED,
+                    output={"refunded": True},
+                )
 
         registry = ExecutionRegistry()
         registry.register(_AlwaysFailsHandler())
         registry.register(RefundHandler())
         executor = RetryExecutor(
-            registry=registry, sleep_fn=lambda d: None,
-            recovery_policies={"AlwaysFails": RecoveryPolicy(action=RecoveryAction.COMPENSATE, compensation_operator="Refund")},
+            registry=registry,
+            sleep_fn=lambda d: None,
+            recovery_policies={
+                "AlwaysFails": RecoveryPolicy(action=RecoveryAction.COMPENSATE, compensation_operator="Refund")
+            },
         )
 
         result = executor.execute_with_retry(_step("AlwaysFails"), ExecutionContext())
@@ -258,6 +350,7 @@ class TestRecoveryPolicies:
     def test_policies_are_configured_per_operator_not_globally(self):
         """Two operators, each with its own recovery policy, must not bleed
         into each other — the whole point of 'configurable per operator'."""
+
         class OtherAlwaysFailsHandler(_AlwaysFailsHandler):
             operator_name = "OtherAlwaysFails"
 
@@ -265,7 +358,8 @@ class TestRecoveryPolicies:
         registry.register(_AlwaysFailsHandler())
         registry.register(OtherAlwaysFailsHandler())
         executor = RetryExecutor(
-            registry=registry, sleep_fn=lambda d: None,
+            registry=registry,
+            sleep_fn=lambda d: None,
             recovery_policies={
                 "AlwaysFails": RecoveryPolicy(action=RecoveryAction.ABORT),
                 "OtherAlwaysFails": RecoveryPolicy(action=RecoveryAction.ROLLBACK),
@@ -275,7 +369,9 @@ class TestRecoveryPolicies:
 
         first = executor.execute_with_retry(_step("AlwaysFails"), ExecutionContext())
         second = executor.execute_with_retry(_step("OtherAlwaysFails"), ExecutionContext())
-        unconfigured = executor.execute_with_retry(_step("Op"), ExecutionContext())  # falls back to registry's NO_HANDLER path
+        unconfigured = executor.execute_with_retry(
+            _step("Op"), ExecutionContext()
+        )  # falls back to registry's NO_HANDLER path
 
         assert first.recovery_triggered == RecoveryAction.ABORT
         assert second.recovery_triggered == RecoveryAction.ROLLBACK
@@ -305,6 +401,7 @@ class TestRecoveryPolicies:
 # dispatch() — thin ExecutionRegistry-shaped wrapper
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDispatchCompatibility:
     def test_dispatch_returns_bare_outcome(self):
         flaky = _FlakyHandler(fail_count=1)
@@ -312,9 +409,16 @@ class TestDispatchCompatibility:
         registry.register(flaky)
         executor = RetryExecutor(registry=registry, sleep_fn=lambda d: None)
 
-        outcome = executor.dispatch(_step("FlakyOp", retry_policy=RetryPolicy(
-            strategy=RetryStrategy.FIXED_DELAY, max_attempts=3, base_delay_seconds=0.0,
-        )))
+        outcome = executor.dispatch(
+            _step(
+                "FlakyOp",
+                retry_policy=RetryPolicy(
+                    strategy=RetryStrategy.FIXED_DELAY,
+                    max_attempts=3,
+                    base_delay_seconds=0.0,
+                ),
+            )
+        )
 
         assert isinstance(outcome, ExecutionOutcome)
         assert outcome.success is True
@@ -331,9 +435,14 @@ class TestDispatchCompatibility:
         retry_executor = RetryExecutor(registry=registry, sleep_fn=lambda d: None)
 
         scheduler = ExecutionScheduler(registry=retry_executor)
-        step = _step("FlakyOp", retry_policy=RetryPolicy(
-            strategy=RetryStrategy.FIXED_DELAY, max_attempts=3, base_delay_seconds=0.0,
-        ))
+        step = _step(
+            "FlakyOp",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_attempts=3,
+                base_delay_seconds=0.0,
+            ),
+        )
         plan = ExecutionPlan(steps=(step,))
 
         schedule, outcomes = scheduler.run(plan, ExecutionContext())
@@ -347,10 +456,12 @@ class TestDispatchCompatibility:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_planning_engine_or_cognitive_runtime_coupling(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.execution_runtime.retry as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

@@ -22,7 +22,7 @@ from src.hybrid.handlers import (
     ReasoningHandler,
     ConversationalHandler,
     RealtimeHandler,
-    HandlerResponse
+    HandlerResponse,
 )
 from src.introspection.lemon import get_lemon
 
@@ -32,6 +32,7 @@ logger = logging.getLogger("agentos.hybrid.router")
 @dataclass
 class RoutingDecision:
     """Decision made by router"""
+
     query_type: QueryType
     handler_name: str
     confidence: float
@@ -43,6 +44,7 @@ class RoutingDecision:
 @dataclass
 class RouterResponse:
     """Final response from hybrid router"""
+
     status: str  # "success" | "error"
     response_text: str
     handler_type: str
@@ -52,22 +54,24 @@ class RouterResponse:
     run_id: str = ""
     session_id: Optional[str] = None
 
-# this is the router it is intiated on boot and routes the question based on the question type 
+
+# this is the router it is intiated on boot and routes the question based on the question type
 # not all questions require an action the 15 phase action pipeline is triggered only for questions
-# that may require action to be taken a question can be a 
+# that may require action to be taken a question can be a
 # 1. action handler
 # 2. information retrieval
-# 3. reasoning 
+# 3. reasoning
 # 4. conversational
-# 5. realtime 
+# 5. realtime
+
 
 # TODO: add complete transaction too call it think mode
-# to do something properly we need to 
-# 1. have a conversation 
-# 2. retreive information 
-# 3. get realtime events 
-# 4. reason over the available information 
-# 5. take action 
+# to do something properly we need to
+# 1. have a conversation
+# 2. retreive information
+# 3. get realtime events
+# 4. reason over the available information
+# 5. take action
 class HybridRouter:
     """Route queries to appropriate handlers"""
 
@@ -76,7 +80,7 @@ class HybridRouter:
         pipeline_orchestrator: Optional[Any] = None,
         knowledge_base: Optional[Any] = None,
         llm_provider: Optional[Any] = None,
-        session_timeout_minutes: int = 30
+        session_timeout_minutes: int = 30,
     ):
         """
         Initialize hybrid router
@@ -96,7 +100,7 @@ class HybridRouter:
             QueryType.RETRIEVAL: RetrievalHandler(knowledge_base),
             QueryType.REASONING: ReasoningHandler(llm_provider),
             QueryType.CONVERSATIONAL: ConversationalHandler(self.session_mgr, llm_provider),
-            QueryType.REALTIME: RealtimeHandler()
+            QueryType.REALTIME: RealtimeHandler(),
         }
 
         self.llm = llm_provider
@@ -104,7 +108,7 @@ class HybridRouter:
             "total_queries": 0,
             "by_type": {},
             "by_status": {},
-            "handler_latencies": {}
+            "handler_latencies": {},
         }
 
         logger.info("[router] Hybrid router initialized")
@@ -117,10 +121,7 @@ class HybridRouter:
             logger.info(f"[router] Registered real-time source: {name}")
 
     async def process(
-        self,
-        question: str,
-        actor_id: str = "unknown",
-        session_id: Optional[str] = None
+        self, question: str, actor_id: str = "unknown", session_id: Optional[str] = None
     ) -> RouterResponse:
         """
         Process a query through hybrid router
@@ -188,12 +189,12 @@ class HybridRouter:
                         confidence=0.0,
                         classification_time_ms=classification_time,
                         matched_patterns=classification.matched_patterns,
-                        run_id=run_id
+                        run_id=run_id,
                     ),
                     handler_response=None,
                     total_latency_ms=(time.time() - start_time) * 1000,
                     run_id=run_id,
-                    session_id=session_id
+                    session_id=session_id,
                 )
 
             # Prepare context
@@ -202,7 +203,7 @@ class HybridRouter:
                 "session_id": session_id,
                 "run_id": run_id,
                 "query_type": query_type.value,
-                "classification": classification
+                "classification": classification,
             }
 
             # Execute handler
@@ -219,7 +220,10 @@ class HybridRouter:
 
             lemon = get_lemon()
             if lemon:
-                lemon.histogram(f"hybrid_router.handler.{handler_type}.latency_ms", handler_response.latency_ms)
+                lemon.histogram(
+                    f"hybrid_router.handler.{handler_type}.latency_ms",
+                    handler_response.latency_ms,
+                )
 
             # Track status
             status = handler_response.status
@@ -245,7 +249,7 @@ class HybridRouter:
                 confidence=classification.confidence,
                 classification_time_ms=classification_time,
                 matched_patterns=classification.matched_patterns,
-                run_id=run_id
+                run_id=run_id,
             )
 
             # Extract session_id if set by handler
@@ -259,7 +263,7 @@ class HybridRouter:
                 handler_response=handler_response,
                 total_latency_ms=total_latency,
                 run_id=run_id,
-                session_id=final_session_id
+                session_id=final_session_id,
             )
 
         except Exception as e:
@@ -281,12 +285,12 @@ class HybridRouter:
                     confidence=0.0,
                     classification_time_ms=0.0,
                     matched_patterns=[],
-                    run_id=run_id
+                    run_id=run_id,
                 ),
                 handler_response=None,
                 total_latency_ms=(time.time() - start_time) * 1000,
                 run_id=run_id,
-                session_id=session_id
+                session_id=session_id,
             )
 
     def get_session(self, session_id: str):
@@ -309,7 +313,7 @@ class HybridRouter:
                     "avg_ms": sum(latencies) / len(latencies),
                     "min_ms": min(latencies),
                     "max_ms": max(latencies),
-                    "count": len(latencies)
+                    "count": len(latencies),
                 }
 
         stats["average_latencies"] = avg_latencies
@@ -319,27 +323,29 @@ class HybridRouter:
         """Print router statistics"""
         stats = self.get_router_stats()
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("HYBRID ROUTER STATISTICS")
-        print("="*70)
+        print("=" * 70)
 
         print(f"\nTotal queries: {stats['total_queries']}")
 
         print("\nBy query type:")
-        for qtype, count in stats['by_type'].items():
-            pct = (count / stats['total_queries'] * 100) if stats['total_queries'] > 0 else 0
+        for qtype, count in stats["by_type"].items():
+            pct = (count / stats["total_queries"] * 100) if stats["total_queries"] > 0 else 0
             print(f"  {qtype:<15} {count:>5} ({pct:>5.1f}%)")
 
         print("\nBy status:")
-        for status, count in stats['by_status'].items():
-            pct = (count / stats['total_queries'] * 100) if stats['total_queries'] > 0 else 0
+        for status, count in stats["by_status"].items():
+            pct = (count / stats["total_queries"] * 100) if stats["total_queries"] > 0 else 0
             print(f"  {status:<15} {count:>5} ({pct:>5.1f}%)")
 
         print("\nAverage latencies:")
-        for handler_type, latencies in stats['average_latencies'].items():
-            print(f"  {handler_type:<25} "
-                  f"avg: {latencies['avg_ms']:>6.1f}ms "
-                  f"min: {latencies['min_ms']:>6.1f}ms "
-                  f"max: {latencies['max_ms']:>6.1f}ms")
+        for handler_type, latencies in stats["average_latencies"].items():
+            print(
+                f"  {handler_type:<25} "
+                f"avg: {latencies['avg_ms']:>6.1f}ms "
+                f"min: {latencies['min_ms']:>6.1f}ms "
+                f"max: {latencies['max_ms']:>6.1f}ms"
+            )
 
-        print("\n" + "="*70 + "\n")
+        print("\n" + "=" * 70 + "\n")

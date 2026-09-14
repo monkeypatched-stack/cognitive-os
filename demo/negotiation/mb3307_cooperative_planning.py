@@ -13,11 +13,21 @@ benchmark suite.
 Usage:
     python3 demo/negotiation/mb3307_cooperative_planning.py
 """
+
 from __future__ import annotations
 
 import sys
 
-from _common import ApiError, banner, call, client, first_result, force_round, kv, section
+from _common import (
+    ApiError,
+    banner,
+    call,
+    client,
+    first_result,
+    force_round,
+    kv,
+    section,
+)
 from bootstrap_mb3307 import TRACKED_PRODUCT_NAME, bootstrap_world
 
 
@@ -38,18 +48,33 @@ def main() -> int:
             product_id = world["commerce"]["products"][TRACKED_PRODUCT_NAME]
 
             section("World Update: real order (real API call)")
-            order = call(c, "POST", "/orders", json={
-                "actor_id": world["actors"]["Customer"],
-                "items": [{"id": product_id, "name": TRACKED_PRODUCT_NAME, "qty": 1, "price": 59.99}],
-                "question": "buy the wireless gaming mouse",
-            })
+            order = call(
+                c,
+                "POST",
+                "/orders",
+                json={
+                    "actor_id": world["actors"]["Customer"],
+                    "items": [
+                        {
+                            "id": product_id,
+                            "name": TRACKED_PRODUCT_NAME,
+                            "qty": 1,
+                            "price": 59.99,
+                        }
+                    ],
+                    "question": "buy the wireless gaming mouse",
+                },
+            )
             order_id = order.get("order_id", "")
             kv("Order", order_id)
 
             section("Hop 1 — Warehouse Worker -> Inventory Robot")
             steps, actions = force_round(
-                c, warehouse_id, "Warehouse Worker", "AskActor",
-                f'Order {order_id} needs a fulfillment plan. Ask the Inventory Robot to confirm stock '
+                c,
+                warehouse_id,
+                "Warehouse Worker",
+                "AskActor",
+                f"Order {order_id} needs a fulfillment plan. Ask the Inventory Robot to confirm stock "
                 f'is available and reserved. Use parameters {{"target_actor": "Inventory Robot", '
                 f'"question": "Is stock available and reserved for order {order_id}?"}}.',
             )
@@ -61,7 +86,10 @@ def main() -> int:
             section("Hop 2 — Warehouse Worker -> Driver")
             hop1_answer = hop1.get("answer", "") if hop1 else ""
             steps, actions = force_round(
-                c, warehouse_id, "Warehouse Worker", "AskActor",
+                c,
+                warehouse_id,
+                "Warehouse Worker",
+                "AskActor",
                 f'Inventory Robot told you: "{hop1_answer}" Now ask the Driver whether they can '
                 f'deliver order {order_id}. Use parameters {{"target_actor": "Driver", "question": '
                 f'"Given inventory status: {hop1_answer} — can you deliver order {order_id}?"}}.',
@@ -75,11 +103,14 @@ def main() -> int:
             section("Hop 3 — Warehouse Worker -> Support Agent")
             hop2_answer = hop2.get("answer", "") if hop2 else ""
             steps, actions = force_round(
-                c, warehouse_id, "Warehouse Worker", "AskActor",
+                c,
+                warehouse_id,
+                "Warehouse Worker",
+                "AskActor",
                 f'Driver told you: "{hop2_answer}" Ask the Support Agent to confirm the overall '
-                f'fulfillment plan for order {order_id} to the customer. Use parameters '
+                f"fulfillment plan for order {order_id} to the customer. Use parameters "
                 f'{{"target_actor": "Support Agent", "question": "Given inventory status: '
-                f'{hop1_answer} — and delivery status: {hop2_answer} — can you confirm the '
+                f"{hop1_answer} — and delivery status: {hop2_answer} — can you confirm the "
                 f'fulfillment plan for order {order_id}?"}}.',
                 extra_context=f'Driver told you: "{hop2_answer}"',
             )
@@ -106,13 +137,22 @@ def main() -> int:
 
             section("Verification")
             checks = [
-                ("Inventory Robot contributed a real, independent answer", bool(hop1 and hop1.get("answer"))),
-                ("Driver contributed a real, independent answer reacting to inventory status",
-                 bool(hop2 and hop2.get("answer"))),
-                ("Support Agent contributed a real, independent answer reacting to delivery status",
-                 bool(hop3 and hop3.get("answer"))),
-                ("A final fulfillment plan emerged, incorporating all three real contributions",
-                 bool(final_plan)),
+                (
+                    "Inventory Robot contributed a real, independent answer",
+                    bool(hop1 and hop1.get("answer")),
+                ),
+                (
+                    "Driver contributed a real, independent answer reacting to inventory status",
+                    bool(hop2 and hop2.get("answer")),
+                ),
+                (
+                    "Support Agent contributed a real, independent answer reacting to delivery status",
+                    bool(hop3 and hop3.get("answer")),
+                ),
+                (
+                    "A final fulfillment plan emerged, incorporating all three real contributions",
+                    bool(final_plan),
+                ),
             ]
             all_pass = True
             for label, ok in checks:

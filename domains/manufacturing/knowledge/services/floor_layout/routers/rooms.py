@@ -17,6 +17,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedRoomResponse)
 async def list_rooms(
     page: int = Query(1, ge=1),
@@ -34,6 +35,7 @@ async def list_rooms(
 
 
 # ── Hierarchy Queries ─────────────────────────────────────────────────────────
+
 
 @router.get("/by-floor/{floor_id}", response_model=list[RoomResponse])
 async def list_rooms_by_floor(
@@ -64,6 +66,7 @@ async def list_rooms_by_facility(
 
 # ── Get One ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/{room_id}", response_model=RoomResponse)
 async def get_room(
     room_id: str,
@@ -81,6 +84,7 @@ async def get_room(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 @router.post("/", response_model=RoomResponse, status_code=status.HTTP_201_CREATED)
 async def create_room(
     data: RoomCreate,
@@ -96,6 +100,7 @@ async def create_room(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{room_id}", response_model=RoomResponse)
 async def update_room(
@@ -114,6 +119,7 @@ async def update_room(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_room(

@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 try:
-    from cerebellum.capabilities.security.opa_client import evaluate_full, evaluate  # noqa: F401
+    from cerebellum.capabilities.security.opa_client import (
+        evaluate_full,
+        evaluate,
+    )  # noqa: F401
 
 except ImportError:
     import httpx as _httpx  # type: ignore[import]
@@ -75,19 +78,28 @@ except ImportError:
                         # Runtime Approval Gate: mirror opa_client.py's
                         # pass-through of the policy's own approval-mode/
                         # risk fields when present -- purely additive.
-                        for key in ("approval_mode", "risk_level", "policy_rule", "requires_hitl"):
+                        for key in (
+                            "approval_mode",
+                            "risk_level",
+                            "policy_rule",
+                            "requires_hitl",
+                        ):
                             if key in result:
                                 out[key] = result[key]
                         return out
                 else:
                     logger.warning(
                         "OPA returned %d for %s — configured-but-unavailable, defaulting to allow=%s",
-                        r.status_code, policy_path, error_fallback,
+                        r.status_code,
+                        policy_path,
+                        error_fallback,
                     )
         except Exception as exc:
             logger.warning(
                 "OPA unreachable (%s), configured-but-unavailable, defaulting to allow=%s: %s",
-                policy_path, error_fallback, exc,
+                policy_path,
+                error_fallback,
+                exc,
             )
         return {"allowed": error_fallback, "obligations": [], "source": "fallback"}
 
@@ -99,7 +111,10 @@ except ImportError:
         fail_closed_on_error: bool = True,
     ) -> bool:
         result = await evaluate_full(
-            policy_path, input_data, default_allow=default_allow, fail_closed_on_error=fail_closed_on_error,
+            policy_path,
+            input_data,
+            default_allow=default_allow,
+            fail_closed_on_error=fail_closed_on_error,
         )
         return result["allowed"]
 
@@ -107,6 +122,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # FastAPI dependency
 # ---------------------------------------------------------------------------
+
 
 def require_opa(policy_path: str, *, action: str = "", resource: str = ""):
     """FastAPI dependency — evaluates an OPA policy with principal context.
@@ -128,6 +144,7 @@ def require_opa(policy_path: str, *, action: str = "", resource: str = ""):
     errors, this now fails CLOSED (denies) rather than silently
     allowing — see evaluate_full's own docstring (Doot audit P1-6 fix).
     """
+
     async def _check(request: Request) -> dict:
         principal: dict[str, Any] = {}
         auth_header = request.headers.get("authorization", "")
@@ -136,7 +153,9 @@ def require_opa(policy_path: str, *, action: str = "", resource: str = ""):
                 from services.common.agent_auth import get_current_principal
                 from fastapi.security import HTTPAuthorizationCredentials
 
-                creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=auth_header[7:])
+                creds = HTTPAuthorizationCredentials(
+                    scheme="Bearer", credentials=auth_header[7:]
+                )
                 principal = await get_current_principal(creds)
             except HTTPException:
                 principal = {}
@@ -166,7 +185,9 @@ def require_opa(policy_path: str, *, action: str = "", resource: str = ""):
         if not allowed:
             logger.warning(
                 "OPA denied: policy=%s principal=%s action=%s",
-                policy_path, principal.get("sub"), action,
+                policy_path,
+                principal.get("sub"),
+                action,
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

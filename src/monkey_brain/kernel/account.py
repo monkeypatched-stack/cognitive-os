@@ -19,6 +19,7 @@ Usage:
         ),
     )
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,8 +35,10 @@ logger = logging.getLogger("agentos.account")
 # Enums
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AccountStatus(str, Enum):
     """Account status."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
@@ -46,6 +49,7 @@ class AccountStatus(str, Enum):
 
 class SubscriptionPlan(str, Enum):
     """Subscription plans."""
+
     FREE = "free"
     BASIC = "basic"
     PRO = "pro"
@@ -55,6 +59,7 @@ class SubscriptionPlan(str, Enum):
 
 class DeviceType(str, Enum):
     """Device types."""
+
     DESKTOP = "desktop"
     LAPTOP = "laptop"
     TABLET = "tablet"
@@ -67,6 +72,7 @@ class DeviceType(str, Enum):
 
 class CommunicationStyle(str, Enum):
     """Preferred communication styles."""
+
     FORMAL = "formal"
     INFORMAL = "informal"
     TECHNICAL = "technical"
@@ -79,6 +85,7 @@ class CommunicationStyle(str, Enum):
 
 class Theme(str, Enum):
     """UI themes."""
+
     LIGHT = "light"
     DARK = "dark"
     SYSTEM = "system"
@@ -89,9 +96,11 @@ class Theme(str, Enum):
 # Data Classes
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class LoginEvent:
     """A single login event."""
+
     timestamp: float = field(default_factory=time.time)
     device_type: DeviceType = DeviceType.DESKTOP
     ip_address: str = ""
@@ -124,6 +133,7 @@ class LoginEvent:
 @dataclass
 class NotificationSettings:
     """Notification preferences."""
+
     email_enabled: bool = True
     push_enabled: bool = True
     sms_enabled: bool = False
@@ -162,6 +172,7 @@ class NotificationSettings:
 @dataclass
 class AccessibilitySettings:
     """Accessibility preferences."""
+
     screen_reader: bool = False
     high_contrast: bool = False
     large_text: bool = False
@@ -206,6 +217,7 @@ class AccessibilitySettings:
 @dataclass
 class Preferences:
     """User preferences."""
+
     theme: Theme = Theme.SYSTEM
     language: str = "en"
     timezone: str = "UTC"
@@ -250,6 +262,7 @@ class Preferences:
 @dataclass
 class Behavior:
     """Behavioral metadata."""
+
     session_count: int = 0
     total_time_spent: float = 0.0  # seconds
     last_active: float = 0.0
@@ -311,6 +324,7 @@ class Account:
         behavior: Behavioral metadata
         metadata: Additional custom fields
     """
+
     username: str = ""
     email: str = ""
     status: AccountStatus = AccountStatus.ACTIVE
@@ -330,9 +344,14 @@ class Account:
                 setattr(self, key, value)
         self.updated_at = time.time()
 
-    def record_login(self, device_type: DeviceType = DeviceType.DESKTOP,
-                     ip_address: str = "", location: str = "",
-                     success: bool = True, method: str = "password") -> LoginEvent:
+    def record_login(
+        self,
+        device_type: DeviceType = DeviceType.DESKTOP,
+        ip_address: str = "",
+        location: str = "",
+        success: bool = True,
+        method: str = "password",
+    ) -> LoginEvent:
         """Record a login event."""
         event = LoginEvent(
             device_type=device_type,

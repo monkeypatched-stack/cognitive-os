@@ -7,27 +7,83 @@ from pydantic import BaseModel, Field
 class SupplierQualityData(BaseModel):
     supplier_id: str = Field(..., description="Unique identifier for the supplier.")
     item_id: str = Field(..., description="Unique identifier for the inventory item.")
-    location_id: str = Field(..., description="Unique identifier for the supplier's specific location.")
-    quality_rating: float = Field(..., description="Overall quality score based on historical performance, for example 1 to 100.")
-    defect_rate: float = Field(..., description="Percentage of defective items in delivered goods.")
-    on_time_delivery_rate: float = Field(..., description="Percentage of orders delivered on or before the agreed-upon date.")
-    return_rate: float = Field(..., description="Percentage of delivered goods returned due to quality issues.")
-    non_conformance_reports: int = Field(..., description="Number of non-conformance reports filed against the supplier.")
-    iso_certifications: list[str] = Field(..., description="List of ISO or equivalent certifications related to quality management.")
-    quality_audit_compliance_rate: float = Field(..., description="Percentage of quality audits passed successfully.")
-    inspection_pass_rate: float = Field(..., description="Percentage of items that pass quality inspection upon delivery.")
-    warranty_claims_rate: float = Field(..., description="Percentage of delivered goods that resulted in warranty claims.")
-    supplier_quality_manager: str = Field(..., description="Name of the person responsible for quality assurance at the supplier.")
-    corrective_action_turnaround_time: int = Field(..., description="Average number of days to resolve quality issues raised by the buyer.")
-    customer_complaint_rate: float = Field(..., description="Percentage of complaints related to supplier's products or services.")
-    continuous_improvement_programs: bool = Field(..., description="Indicates if the supplier has active quality improvement initiatives.")
-    last_quality_audit_date: datetime = Field(..., description="Date of the most recent quality audit conducted.")
-    next_quality_audit_date: datetime = Field(..., description="Scheduled date for the next quality audit.")
-    inspection_process_details: Optional[str] = Field(None, description="Description of the supplier's internal quality inspection processes.")
-    first_pass_yield: float = Field(..., description="Percentage of goods that meet quality standards without rework.")
-    material_traceability: bool = Field(..., description="Indicates whether the supplier provides traceability for materials used.")
-    adherence_to_specifications: float = Field(..., description="Percentage of delivered goods meeting exact design or technical specifications.")
-    remarks: Optional[str] = Field(None, description="Additional notes or observations about the supplier's quality performance.")
+    location_id: str = Field(
+        ..., description="Unique identifier for the supplier's specific location."
+    )
+    quality_rating: float = Field(
+        ...,
+        description="Overall quality score based on historical performance, for example 1 to 100.",
+    )
+    defect_rate: float = Field(
+        ..., description="Percentage of defective items in delivered goods."
+    )
+    on_time_delivery_rate: float = Field(
+        ...,
+        description="Percentage of orders delivered on or before the agreed-upon date.",
+    )
+    return_rate: float = Field(
+        ..., description="Percentage of delivered goods returned due to quality issues."
+    )
+    non_conformance_reports: int = Field(
+        ..., description="Number of non-conformance reports filed against the supplier."
+    )
+    iso_certifications: list[str] = Field(
+        ...,
+        description="List of ISO or equivalent certifications related to quality management.",
+    )
+    quality_audit_compliance_rate: float = Field(
+        ..., description="Percentage of quality audits passed successfully."
+    )
+    inspection_pass_rate: float = Field(
+        ...,
+        description="Percentage of items that pass quality inspection upon delivery.",
+    )
+    warranty_claims_rate: float = Field(
+        ...,
+        description="Percentage of delivered goods that resulted in warranty claims.",
+    )
+    supplier_quality_manager: str = Field(
+        ...,
+        description="Name of the person responsible for quality assurance at the supplier.",
+    )
+    corrective_action_turnaround_time: int = Field(
+        ...,
+        description="Average number of days to resolve quality issues raised by the buyer.",
+    )
+    customer_complaint_rate: float = Field(
+        ...,
+        description="Percentage of complaints related to supplier's products or services.",
+    )
+    continuous_improvement_programs: bool = Field(
+        ...,
+        description="Indicates if the supplier has active quality improvement initiatives.",
+    )
+    last_quality_audit_date: datetime = Field(
+        ..., description="Date of the most recent quality audit conducted."
+    )
+    next_quality_audit_date: datetime = Field(
+        ..., description="Scheduled date for the next quality audit."
+    )
+    inspection_process_details: Optional[str] = Field(
+        None,
+        description="Description of the supplier's internal quality inspection processes.",
+    )
+    first_pass_yield: float = Field(
+        ...,
+        description="Percentage of goods that meet quality standards without rework.",
+    )
+    material_traceability: bool = Field(
+        ...,
+        description="Indicates whether the supplier provides traceability for materials used.",
+    )
+    adherence_to_specifications: float = Field(
+        ...,
+        description="Percentage of delivered goods meeting exact design or technical specifications.",
+    )
+    remarks: Optional[str] = Field(
+        None,
+        description="Additional notes or observations about the supplier's quality performance.",
+    )
 
 
 class SupplierQualityCreate(SupplierQualityData):

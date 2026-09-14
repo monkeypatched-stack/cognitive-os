@@ -9,6 +9,7 @@ from enum import Enum
 
 class WorkOrderStatus(Enum):
     """Work order status value object."""
+
     TODO = "Todo"
     IN_PROGRESS = "In Progress"
     ON_HOLD = "On Hold"
@@ -18,6 +19,7 @@ class WorkOrderStatus(Enum):
 
 class BatchStatus(Enum):
     """Batch status value object."""
+
     CREATED = "Created"
     IN_PROGRESS = "In Progress"
     ON_HOLD = "On Hold"
@@ -28,6 +30,7 @@ class BatchStatus(Enum):
 
 class Priority(Enum):
     """Priority value object."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -36,6 +39,7 @@ class Priority(Enum):
 
 class CalibrationResult(Enum):
     """Calibration result value object."""
+
     PASS = "Pass"
     FAIL = "Fail"
     IN_PROGRESS = "In Progress"
@@ -46,6 +50,7 @@ class CalibrationResult(Enum):
 @dataclass(frozen=True)
 class CycleTime:
     """Cycle time value object."""
+
     target_seconds: float
     actual_seconds: float
 
@@ -63,6 +68,7 @@ class CycleTime:
 @dataclass(frozen=True)
 class Location:
     """Location value object — hierarchical plant location."""
+
     plant_id: str
     line_id: str = ""
     stage_id: str = ""

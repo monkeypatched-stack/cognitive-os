@@ -6,6 +6,7 @@ POST /agents/discover    — trigger NANDA discovery for a capability/domain
 GET /agents/bus/resolve  — resolve agent for a capability via CapabilityBus
 POST /execute-direct     — execute via capability classification (no agent name needed)
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +26,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Agent search
 # ---------------------------------------------------------------------------
+
 
 @router.get("/agents", tags=["Agents"])
 async def search_agents(
@@ -55,34 +57,40 @@ async def search_agents(
     merged = local + [r for r in remote if r["agent_type"] not in seen]
 
     if domain:
-        merged = [
-            a for a in merged
-            if domain in a.get("domains", []) or a.get("source") == "local"
-        ]
+        merged = [a for a in merged if domain in a.get("domains", []) or a.get("source") == "local"]
 
-    return JSONResponse({
-        "agents": merged,
-        "total": len(merged),
-        "local": len(local),
-        "remote": len(remote),
-        "filters": {"type": type, "domain": domain, "capability": capability},
-    })
+    return JSONResponse(
+        {
+            "agents": merged,
+            "total": len(merged),
+            "local": len(local),
+            "remote": len(remote),
+            "filters": {"type": type, "domain": domain, "capability": capability},
+        }
+    )
 
 
 @router.get("/agents/{agent_type}", tags=["Agents"])
-async def get_agent(request: Request, agent_type: str, user_id: str = Depends(require_permission("perm-view-agents"))) -> JSONResponse:
+async def get_agent(
+    request: Request,
+    agent_type: str,
+    user_id: str = Depends(require_permission("perm-view-agents")),
+) -> JSONResponse:
     """Get a single agent by type. Checks local registry first, then NANDA."""
     try:
         from broca.registry import get_registry
+
         registry = get_registry()
         agent = registry.discover(agent_type)
         if agent is not None:
-            return JSONResponse({
-                "agent_type": agent.agent_type,
-                "description": agent.description,
-                "source": "local",
-                "feedback": agent.feedback() if callable(agent.feedback) else None,
-            })
+            return JSONResponse(
+                {
+                    "agent_type": agent.agent_type,
+                    "description": agent.description,
+                    "source": "local",
+                    "feedback": agent.feedback() if callable(agent.feedback) else None,
+                }
+            )
     except Exception as exc:
         logger.warning("Local agent lookup failed: %s", exc)
 
@@ -102,6 +110,7 @@ async def execute_agent(
 ) -> JSONResponse:
     """Execute an agent with a question. Uses middleware for state, formatting, serialization."""
     import time
+
     t0 = time.monotonic()
     try:
         body = await request.json()
@@ -122,7 +131,10 @@ async def execute_agent(
         if agent is None:
             return JSONResponse(
                 status_code=404,
-                content={"error": f"Could not resolve agent {agent_type!r}", "agent_type": agent_type},
+                content={
+                    "error": f"Could not resolve agent {agent_type!r}",
+                    "agent_type": agent_type,
+                },
             )
 
         # Wrap with middleware — returns CapabilityResult. AgentRuntimeAdapter
@@ -145,7 +157,11 @@ async def execute_agent(
         logger.error("Agent execution failed for %s: %s", agent_type, e)
         return JSONResponse(
             status_code=500,
-            content={"error": str(e), "agent_type": agent_type, "elapsed_ms": round(elapsed_ms, 2)},
+            content={
+                "error": str(e),
+                "agent_type": agent_type,
+                "elapsed_ms": round(elapsed_ms, 2),
+            },
         )
 
 
@@ -169,6 +185,7 @@ async def discover_agents(
     try:
         from broca.registry import get_registry
         from broca.agents.nanda import NANDAProxyAgent
+
         registry = get_registry()
         for card in discovered:
             proxy = NANDAProxyAgent(card)
@@ -178,11 +195,13 @@ async def discover_agents(
     except Exception as exc:
         logger.warning("NANDA proxy registration failed: %s", exc)
 
-    return JSONResponse({
-        "discovered": len(discovered),
-        "registered": registered,
-        "agents": discovered,
-    })
+    return JSONResponse(
+        {
+            "discovered": len(discovered),
+            "registered": registered,
+            "agents": discovered,
+        }
+    )
 
 
 @router.post("/execute-direct", tags=["Agents"])
@@ -197,6 +216,7 @@ async def execute_direct(
     and executes. Users never need to specify agent names.
     """
     import time
+
     t0 = time.monotonic()
     try:
         body = await request.json()
@@ -238,12 +258,14 @@ async def execute_direct(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _local_agents(
     type_filter: str | None = None,
     capability_filter: str | None = None,
 ) -> list[dict[str, Any]]:
     try:
         from broca.registry import get_registry
+
         registry = get_registry()
         all_agents = registry.list_agents()
         result = []
@@ -252,11 +274,13 @@ def _local_agents(
                 continue
             if capability_filter and capability_filter.lower() not in description.lower():
                 continue
-            result.append({
-                "agent_type": agent_type,
-                "description": description,
-                "source": "local",
-            })
+            result.append(
+                {
+                    "agent_type": agent_type,
+                    "description": description,
+                    "source": "local",
+                }
+            )
         return result
     except Exception as exc:
         logger.warning("Local agents query failed: %s", exc)
@@ -270,6 +294,7 @@ async def _nanda_agents(
 ) -> list[dict[str, Any]]:
     try:
         from cerebellum.capabilities.agent.nanda import NANDACapability
+
         cap = NANDACapability()
         if not cap._available:
             return []
@@ -315,6 +340,7 @@ def _get_bus(runtime: Any) -> Any:
 # Bus-based agent resolution
 # ---------------------------------------------------------------------------
 
+
 @router.get("/agents/bus/resolve", tags=["Agents"])
 async def resolve_agent_for_capability(
     request: Request,
@@ -329,17 +355,21 @@ async def resolve_agent_for_capability(
 
     agent_type = bus.agent_bus.resolve_agent(capability)
     if agent_type is None:
-        return JSONResponse({
-            "capability": capability,
-            "agent": None,
-            "error": f"No agent registered for capability '{capability}'",
-        })
+        return JSONResponse(
+            {
+                "capability": capability,
+                "agent": None,
+                "error": f"No agent registered for capability '{capability}'",
+            }
+        )
 
     caps = bus.agent_bus.get_capabilities_for_agent(agent_type)
     provider = bus.agent_bus.get_provider_for(agent_type, capability)
-    return JSONResponse({
-        "capability": capability,
-        "agent": agent_type,
-        "provider": provider,
-        "all_capabilities": caps,
-    })
+    return JSONResponse(
+        {
+            "capability": capability,
+            "agent": agent_type,
+            "provider": provider,
+            "all_capabilities": caps,
+        }
+    )

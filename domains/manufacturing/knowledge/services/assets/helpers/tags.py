@@ -6,7 +6,6 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.assets.models.tags import RFIDTagCreate, RFIDTagRecord, RFIDTagUpdate
 from services.common.utils import _prepare, _serialize, _utc_now
 
-
 RFID_TAGS_COLLECTION = "rfid_tags"
 
 
@@ -54,7 +53,9 @@ async def get_all(
 
 
 async def get_by_id(db: AsyncIOMotorDatabase, rfid_tag_id: str) -> Optional[dict]:
-    return _serialize(await db[RFID_TAGS_COLLECTION].find_one({"rfid_tag_id": rfid_tag_id}))
+    return _serialize(
+        await db[RFID_TAGS_COLLECTION].find_one({"rfid_tag_id": rfid_tag_id})
+    )
 
 
 async def get_by_code(db: AsyncIOMotorDatabase, tag_code: str) -> Optional[dict]:

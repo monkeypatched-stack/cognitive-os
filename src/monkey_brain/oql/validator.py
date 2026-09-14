@@ -3,6 +3,7 @@
 Rejects invalid queries before they reach the database layer.
 Enforces enterprise data governance rules.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,12 +15,32 @@ logger = logging.getLogger("agentos.oql.validator")
 
 SUPPORTED_OPERATIONS = {op.value for op in Operation}
 
-FORBIDDEN_KEYWORDS = frozenset({
-    "join", "left", "right", "full", "cross", "union", "intersect",
-    "window", "cte", "recursive", "procedure", "trigger", "view",
-    "dynamic_sql", "raw_sql", "raw_cypher", "raw_mongo",
-    "aggregate", "analytics", "reporting", "warehouse", "olap",
-})
+FORBIDDEN_KEYWORDS = frozenset(
+    {
+        "join",
+        "left",
+        "right",
+        "full",
+        "cross",
+        "union",
+        "intersect",
+        "window",
+        "cte",
+        "recursive",
+        "procedure",
+        "trigger",
+        "view",
+        "dynamic_sql",
+        "raw_sql",
+        "raw_cypher",
+        "raw_mongo",
+        "aggregate",
+        "analytics",
+        "reporting",
+        "warehouse",
+        "olap",
+    }
+)
 
 MAX_FILTER_DEPTH = 3
 MAX_FIELDS = 50
@@ -30,6 +51,7 @@ MAX_BATCH_SIZE = 1000
 
 class QueryValidationError(Exception):
     """Raised when a query fails validation."""
+
     def __init__(self, message: str, code: str = "validation_error"):
         super().__init__(message)
         self.code = code

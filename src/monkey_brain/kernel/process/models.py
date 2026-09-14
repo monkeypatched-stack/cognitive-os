@@ -9,6 +9,7 @@ Reusing those names here would recreate exactly the kind of duplicate-class
 naming collision this codebase has been cleaning up. Every type below is
 prefixed accordingly (`RuntimeProcess*`, `ProcessResourceLimits`).
 """
+
 from __future__ import annotations
 
 import time
@@ -26,6 +27,7 @@ class RuntimeProcessState(str, Enum):
     per-node NodeState, not a replacement for it. See kernel/process/manager.py
     module docstring for the full state machine and valid transitions.
     """
+
     CREATED = "created"
     INITIALIZED = "initialized"
     RUNNING = "running"
@@ -40,12 +42,14 @@ class RuntimeProcessState(str, Enum):
     TERMINATED = "terminated"
 
 
-TERMINAL_STATES = frozenset({
-    RuntimeProcessState.ROLLED_BACK,
-    RuntimeProcessState.COMPLETED,
-    RuntimeProcessState.FAILED,
-    RuntimeProcessState.TERMINATED,
-})
+TERMINAL_STATES = frozenset(
+    {
+        RuntimeProcessState.ROLLED_BACK,
+        RuntimeProcessState.COMPLETED,
+        RuntimeProcessState.FAILED,
+        RuntimeProcessState.TERMINATED,
+    }
+)
 
 # Explicit valid-transition table — enforced by ProcessManager._transition().
 # Anything not listed here is invalid and rejected, including all of the
@@ -54,25 +58,31 @@ TERMINAL_STATES = frozenset({
 VALID_TRANSITIONS: dict[RuntimeProcessState, frozenset[RuntimeProcessState]] = {
     RuntimeProcessState.CREATED: frozenset({RuntimeProcessState.INITIALIZED, RuntimeProcessState.TERMINATED}),
     RuntimeProcessState.INITIALIZED: frozenset({RuntimeProcessState.RUNNING, RuntimeProcessState.TERMINATED}),
-    RuntimeProcessState.RUNNING: frozenset({
-        RuntimeProcessState.WAITING,
-        RuntimeProcessState.SUSPENDED,
-        RuntimeProcessState.COMPLETED,
-        RuntimeProcessState.COMPENSATING,
-        RuntimeProcessState.FAILED,
-        RuntimeProcessState.TERMINATED,
-    }),
-    RuntimeProcessState.WAITING: frozenset({
-        RuntimeProcessState.RUNNING,
-        RuntimeProcessState.SUSPENDED,
-        RuntimeProcessState.COMPENSATING,  # e.g. an approval gate rejected while WAITING on it
-        RuntimeProcessState.TERMINATED,
-    }),
-    RuntimeProcessState.SUSPENDED: frozenset({
-        RuntimeProcessState.CHECKPOINTED,
-        RuntimeProcessState.RUNNING,
-        RuntimeProcessState.TERMINATED,
-    }),
+    RuntimeProcessState.RUNNING: frozenset(
+        {
+            RuntimeProcessState.WAITING,
+            RuntimeProcessState.SUSPENDED,
+            RuntimeProcessState.COMPLETED,
+            RuntimeProcessState.COMPENSATING,
+            RuntimeProcessState.FAILED,
+            RuntimeProcessState.TERMINATED,
+        }
+    ),
+    RuntimeProcessState.WAITING: frozenset(
+        {
+            RuntimeProcessState.RUNNING,
+            RuntimeProcessState.SUSPENDED,
+            RuntimeProcessState.COMPENSATING,  # e.g. an approval gate rejected while WAITING on it
+            RuntimeProcessState.TERMINATED,
+        }
+    ),
+    RuntimeProcessState.SUSPENDED: frozenset(
+        {
+            RuntimeProcessState.CHECKPOINTED,
+            RuntimeProcessState.RUNNING,
+            RuntimeProcessState.TERMINATED,
+        }
+    ),
     RuntimeProcessState.CHECKPOINTED: frozenset({RuntimeProcessState.RESUMING, RuntimeProcessState.TERMINATED}),
     RuntimeProcessState.RESUMING: frozenset({RuntimeProcessState.RUNNING, RuntimeProcessState.FAILED}),
     RuntimeProcessState.COMPENSATING: frozenset({RuntimeProcessState.ROLLED_BACK, RuntimeProcessState.FAILED}),
@@ -133,6 +143,7 @@ class ProcessResourceLimits:
     different unit of measurement — that one is process-pool-wide, this one
     is one Runtime Process's own budget).
     """
+
     max_concurrent_capability_calls: int = 4
     timeout_seconds: float | None = None
 
@@ -142,6 +153,7 @@ class CheckpointRef:
     """Lightweight pointer to a stored Checkpoint — kept on the RPCB so the
     full checkpoint payload doesn't have to stay resident in memory.
     """
+
     checkpoint_id: str
     run_id: str
     created_at: float = field(default_factory=time.time)
@@ -156,6 +168,7 @@ class RuntimeProcessControlBlock:
     ExecutionGraph is the existing single source of truth for node state) —
     the RPCB indexes them for lifecycle management, it does not duplicate them.
     """
+
     run_id: str
     context: ExecutionContext
     graph: ExecutionGraph

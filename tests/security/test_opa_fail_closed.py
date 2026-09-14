@@ -12,6 +12,7 @@ ALLOWED the moment OPA went down, timed out, or returned garbage. That
 is now split: unset stays fail-open (an explicit deployment choice,
 unchanged), but configured-and-failing fails CLOSED.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -30,7 +31,12 @@ class _FakeAsyncClient:
     """Minimal async-context-manager stand-in for httpx.AsyncClient —
     no respx/httpx-mock dependency in this repo's test environment."""
 
-    def __init__(self, response: _FakeResponse | None = None, raise_exc: Exception | None = None, **_kw) -> None:
+    def __init__(
+        self,
+        response: _FakeResponse | None = None,
+        raise_exc: Exception | None = None,
+        **_kw,
+    ) -> None:
         self._response = response
         self._raise_exc = raise_exc
 
@@ -46,15 +52,23 @@ class _FakeAsyncClient:
         return self._response
 
 
-def _patch_client(monkeypatch, module, *, response: _FakeResponse | None = None, raise_exc: Exception | None = None) -> None:
+def _patch_client(
+    monkeypatch,
+    module,
+    *,
+    response: _FakeResponse | None = None,
+    raise_exc: Exception | None = None,
+) -> None:
     def _factory(*args, **kwargs):
         return _FakeAsyncClient(response=response, raise_exc=raise_exc)
+
     monkeypatch.setattr(module.httpx, "AsyncClient", _factory)
 
 
 @pytest.fixture()
 def opa_module(monkeypatch):
     import cerebellum.capabilities.security.opa_client as m
+
     monkeypatch.setattr(m, "_OPA_URL", "http://opa.internal:8181")
     return m
 
@@ -84,6 +98,7 @@ class TestOpaFailClosed:
     @pytest.mark.asyncio
     async def test_4_opa_timeout_fails_closed(self, opa_module, monkeypatch):
         import httpx
+
         _patch_client(monkeypatch, opa_module, raise_exc=httpx.TimeoutException("timed out"))
         result = await opa_module.evaluate_full("agentos/allow", {})
         assert result["allowed"] is False, "OPA configured but timing out must DENY, not silently allow"
@@ -102,6 +117,7 @@ class TestOpaFailClosed:
     @pytest.mark.asyncio
     async def test_opa_url_unset_fails_closed_by_default(self, monkeypatch):
         import cerebellum.capabilities.security.opa_client as m
+
         monkeypatch.setattr(m, "_OPA_URL", "")
         result = await m.evaluate_full("agentos/allow", {})
         assert result["allowed"] is False
@@ -110,6 +126,7 @@ class TestOpaFailClosed:
     @pytest.mark.asyncio
     async def test_opa_url_unset_stays_fail_open_explicit_dev_mode(self, monkeypatch):
         import cerebellum.capabilities.security.opa_client as m
+
         monkeypatch.setattr(m, "_OPA_URL", "")
         result = await m.evaluate_full("agentos/allow", {}, default_allow=True)
         assert result["allowed"] is True

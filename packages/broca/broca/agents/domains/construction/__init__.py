@@ -1,4 +1,5 @@
 """Construction agents — Construction, Site, EquipmentScheduling."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class ConstructionAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"project_id": context.get("project_id", ""), "operation": context.get("operation", "status"), "phase": context.get("phase", "planning")}
+        return {
+            "project_id": context.get("project_id", ""),
+            "operation": context.get("operation", "status"),
+            "phase": context.get("phase", "planning"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"construction.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"construction.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"construction.{decision['operation']}", "success": True}
@@ -30,10 +38,17 @@ class SiteAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"site_id": context.get("site_id", ""), "operation": context.get("operation", "inspect"), "checklist": context.get("checklist", [])}
+        return {
+            "site_id": context.get("site_id", ""),
+            "operation": context.get("operation", "inspect"),
+            "checklist": context.get("checklist", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"site.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"site.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"site.{decision['operation']}", "success": True}
@@ -46,10 +61,21 @@ class EquipmentSchedulingAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"equipment": context.get("equipment", []), "tasks": context.get("tasks", []), "site_id": context.get("site_id", "")}
+        return {
+            "equipment": context.get("equipment", []),
+            "tasks": context.get("tasks", []),
+            "site_id": context.get("site_id", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "equipment_scheduling.optimize", "equipment_count": len(perception.get("equipment", []))}
+        return {
+            "action": "equipment_scheduling.optimize",
+            "equipment_count": len(perception.get("equipment", [])),
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "equipment_scheduling.optimize", "success": True, "schedule": {}}
+        return {
+            "action": "equipment_scheduling.optimize",
+            "success": True,
+            "schedule": {},
+        }

@@ -1,4 +1,5 @@
 """Tests for CompositeGraphStore — tensor + KV replacement for Neo4j."""
+
 from __future__ import annotations
 
 import asyncio

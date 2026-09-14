@@ -56,7 +56,9 @@ async def get_by_sku(db: AsyncIOMotorDatabase, sku: str) -> Optional[dict]:
     return _serialize(await db[COLLECTION].find_one({"sku": sku}))
 
 
-async def get_by_warehouse_id(db: AsyncIOMotorDatabase, warehouse_id: str) -> list[dict]:
+async def get_by_warehouse_id(
+    db: AsyncIOMotorDatabase, warehouse_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"warehouse_id": warehouse_id})
     return [_serialize(doc) async for doc in cursor]
 

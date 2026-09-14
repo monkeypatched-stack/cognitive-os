@@ -11,7 +11,6 @@ from services.workorders.models.ipc_result_records import (
     PaginatedIpcResultRecordResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -35,7 +34,9 @@ async def list_ipc_result_records(
         ipc_checkpoint_id=ipc_checkpoint_id,
         status=status_filter,
     )
-    return PaginatedIpcResultRecordResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedIpcResultRecordResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{ipc_result_id}", response_model=IpcResultRecordResponse)
@@ -46,18 +47,26 @@ async def get_ipc_result_record(
 ):
     record = await crud.get_by_id(db, ipc_result_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"IPC result record '{ipc_result_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"IPC result record '{ipc_result_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=IpcResultRecordResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=IpcResultRecordResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_ipc_result_record(
     data: IpcResultRecordCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-tasks")),
 ):
     if await crud.get_by_id(db, data.ipc_result_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"IPC result record '{data.ipc_result_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"IPC result record '{data.ipc_result_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
@@ -72,7 +81,10 @@ async def update_ipc_result_record(
 ):
     updated = await crud.update(db, ipc_result_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"IPC result record '{ipc_result_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"IPC result record '{ipc_result_id}' not found",
+        )
     return updated
 
 
@@ -83,4 +95,7 @@ async def delete_ipc_result_record(
     _: dict = Depends(require_permission("perm-delete-tasks")),
 ):
     if not await crud.delete(db, ipc_result_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"IPC result record '{ipc_result_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"IPC result record '{ipc_result_id}' not found",
+        )

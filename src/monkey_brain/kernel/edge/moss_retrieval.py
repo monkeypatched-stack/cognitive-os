@@ -37,6 +37,7 @@ the edge any actual indexed knowledge to retrieve; a caller must populate
 the session (via `MossSemanticMemory.index_documents()`) before `query()`
 can return anything.
 """
+
 from __future__ import annotations
 
 import logging
@@ -78,7 +79,13 @@ class MossSemanticMemory:
     be unit-tested.
     """
 
-    def __init__(self, client: _MossClientProtocol, *, index_name: str = DEFAULT_INDEX_NAME, top_k: int = 5) -> None:
+    def __init__(
+        self,
+        client: _MossClientProtocol,
+        *,
+        index_name: str = DEFAULT_INDEX_NAME,
+        top_k: int = 5,
+    ) -> None:
         self._client = client
         self._index_name = index_name
         self._top_k = top_k
@@ -109,10 +116,7 @@ class MossSemanticMemory:
         from moss import DocumentInfo
 
         session = await self._get_session()
-        docs = [
-            DocumentInfo(id=d["id"], text=d["text"], metadata=d.get("metadata") or {})
-            for d in documents
-        ]
+        docs = [DocumentInfo(id=d["id"], text=d["text"], metadata=d.get("metadata") or {}) for d in documents]
         added, _updated = await session.add_docs(docs)
         return added
 
@@ -129,7 +133,10 @@ class MossSemanticMemory:
             session = await self._get_session()
             result = await session.query(query, self._query_options())
         except Exception:
-            logger.warning("MossSemanticMemory.query: Moss call failed, degrading to no results", exc_info=True)
+            logger.warning(
+                "MossSemanticMemory.query: Moss call failed, degrading to no results",
+                exc_info=True,
+            )
             return {"results": []}
 
         results = []
@@ -137,24 +144,29 @@ class MossSemanticMemory:
             text = getattr(doc, "text", "") or ""
             if not text.strip():
                 continue
-            results.append({
-                "text": text,
-                "metadata": dict(getattr(doc, "metadata", None) or {}),
-                "score": float(getattr(doc, "score", 0.0) or 0.0),
-                # Moss is purely embedding/vector-based semantic search --
-                # this is the one place in this module a retrieval_method
-                # tag is asserted rather than forwarded, and it is honest:
-                # there is no keyword-only code path in Moss's query().
-                "retrieval_method": "vector",
-            })
+            results.append(
+                {
+                    "text": text,
+                    "metadata": dict(getattr(doc, "metadata", None) or {}),
+                    "score": float(getattr(doc, "score", 0.0) or 0.0),
+                    # Moss is purely embedding/vector-based semantic search --
+                    # this is the one place in this module a retrieval_method
+                    # tag is asserted rather than forwarded, and it is honest:
+                    # there is no keyword-only code path in Moss's query().
+                    "retrieval_method": "vector",
+                }
+            )
         return {"results": results}
 
     def _query_options(self) -> Any:
         from moss import QueryOptions
+
         return QueryOptions(top_k=self._top_k)
 
 
-def build_moss_semantic_memory(*, index_name: str = DEFAULT_INDEX_NAME, require: bool = False) -> MossSemanticMemory | None:
+def build_moss_semantic_memory(
+    *, index_name: str = DEFAULT_INDEX_NAME, require: bool = False
+) -> MossSemanticMemory | None:
     """Clear, explicit startup behavior, matching
     kernel/edge/ros_integration.py::build_ros_execution_adapter's own
     convention:

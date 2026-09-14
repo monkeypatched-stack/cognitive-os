@@ -25,6 +25,7 @@ this needs no module-level singleton the way transaction_event_hub.py's
 does (that one exists specifically because its WS route handler and
 deep-kernel coordinator have no PlanetaryRuntime reference bridging them).
 """
+
 from __future__ import annotations
 
 import time
@@ -37,6 +38,7 @@ from uuid import uuid4
 class WorldPerturbation:
     """One reported change to the world, queued for the next Planetary
     Tick to reconcile into SharedWorld."""
+
     perturbation_id: str = field(default_factory=lambda: uuid4().hex)
     entity_id: str = ""
     description: str = ""

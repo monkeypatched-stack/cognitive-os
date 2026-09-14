@@ -28,6 +28,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/unit/test_actor_messaging_cross_process.py -v
 """
+
 from __future__ import annotations
 
 import os
@@ -39,7 +40,11 @@ os.environ["RATE_LIMIT_RPS"] = "100000"
 os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.belief import BeliefState
 
 
@@ -94,7 +99,7 @@ class _FakeMessagingRedis:
 
     def lrange(self, key, start, end):
         lst = self._lists.get(key, [])
-        return list(lst) if end == -1 else lst[start:end + 1]
+        return list(lst) if end == -1 else lst[start : end + 1]
 
     def delete(self, key):
         return 1 if self._lists.pop(key, None) is not None else 0
@@ -113,11 +118,13 @@ class _FakeMessagingRedis:
 
 def _register(pr: PlanetaryRuntime, name: str, **kwargs):
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)),
+        **kwargs,
     )
 
 
 # ── Group 1: the core cross-process mechanism ───────────────────────────
+
 
 def test_push_and_drain_round_trips_a_message_across_two_planetary_runtime_instances():
     """The literal cross-process guarantee: pr1 pushes, pr2 (an
@@ -131,7 +138,12 @@ def test_push_and_drain_round_trips_a_message_across_two_planetary_runtime_insta
     pr2 = PlanetaryRuntime()
     pr2._redis = redis
 
-    message = {"from": "alice", "to": "bob", "type": "greeting", "payload": {"text": "hi"}}
+    message = {
+        "from": "alice",
+        "to": "bob",
+        "type": "greeting",
+        "payload": {"text": "hi"},
+    }
     assert pr1.push_actor_message("bob", message) is True
 
     drained = pr2.drain_actor_inbox("bob")
@@ -161,7 +173,7 @@ def test_peek_does_not_clear_the_inbox():
     drained = pr.drain_actor_inbox("bob")
     assert len(peeked_once) == 1
     assert len(peeked_twice) == 1  # still there — peek is non-destructive
-    assert len(drained) == 1       # drain finally clears it
+    assert len(drained) == 1  # drain finally clears it
 
 
 def test_push_and_drain_degrade_gracefully_without_redis():
@@ -185,6 +197,7 @@ def test_multiple_actors_have_independent_inboxes():
 
 
 # ── Group 2: SocietyRuntime integration ─────────────────────────────────
+
 
 def test_send_message_uses_the_durable_inbox_when_redis_is_available():
     pr = PlanetaryRuntime()
@@ -213,7 +226,13 @@ def test_get_messages_for_falls_back_to_local_queue_without_redis():
     bob = _register(pr, "Bob")
     sr = pr._society_runtime
 
-    sent = sr.send_message(alice.actor_id, bob.actor_id, "greeting", {"text": "hi"}, correlation_id="corr-1")
+    sent = sr.send_message(
+        alice.actor_id,
+        bob.actor_id,
+        "greeting",
+        {"text": "hi"},
+        correlation_id="corr-1",
+    )
 
     assert sent is True
     queued = sr.get_messages_for(bob.actor_id)
@@ -222,7 +241,9 @@ def test_get_messages_for_falls_back_to_local_queue_without_redis():
     assert queued[0]["payload"]["text"] == "hi"
 
 
-def test_deliver_messages_drains_the_durable_inbox_and_injects_a_trust_weighted_belief(monkeypatch):
+def test_deliver_messages_drains_the_durable_inbox_and_injects_a_trust_weighted_belief(
+    monkeypatch,
+):
     pr = PlanetaryRuntime()
     pr._redis = _FakeMessagingRedis()
     alice = _register(pr, "Alice")

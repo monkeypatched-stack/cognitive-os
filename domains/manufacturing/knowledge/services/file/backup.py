@@ -11,7 +11,9 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
 SOURCE_BUCKET = os.getenv("AWS_S3_BUCKET")  # main bucket
-BACKUP_BUCKET = os.getenv("AWS_S3_BACKUP_BUCKET", SOURCE_BUCKET)  # can be same or different bucket
+BACKUP_BUCKET = os.getenv(
+    "AWS_S3_BACKUP_BUCKET", SOURCE_BUCKET
+)  # can be same or different bucket
 BACKUP_PREFIX = os.getenv("AWS_S3_BACKUP_PREFIX", "backups/")
 
 # Initialize S3 client
@@ -21,6 +23,7 @@ s3 = boto3.client(
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
     region_name=AWS_REGION,
 )
+
 
 def backup_and_delete(date_str: str = None):
     """
@@ -56,7 +59,9 @@ def backup_and_delete(date_str: str = None):
         print(f"✅ Backup complete. Starting deletion of originals...")
 
         # Delete all files from the source folder
-        delete_objects = {"Objects": [{"Key": obj["Key"]} for obj in response["Contents"]]}
+        delete_objects = {
+            "Objects": [{"Key": obj["Key"]} for obj in response["Contents"]]
+        }
         s3.delete_objects(Bucket=SOURCE_BUCKET, Delete=delete_objects)
 
         print(f"🧹 Deleted all files under {source_prefix}")
@@ -66,6 +71,7 @@ def backup_and_delete(date_str: str = None):
         print(f"❌ AWS error: {e}")
     except Exception as e:
         print(f"⚠️ Unexpected error: {e}")
+
 
 if __name__ == "__main__":
     backup_and_delete()

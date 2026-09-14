@@ -150,9 +150,7 @@ class HealthMonitor:
 
         return {
             "status": overall.value,
-            "components": {
-                cid: comp.to_dict() for cid, comp in self.components.items()
-            },
+            "components": {cid: comp.to_dict() for cid, comp in self.components.items()},
         }
 
     def is_healthy(self) -> bool:

@@ -5,20 +5,45 @@ from pydantic import BaseModel, Field
 
 class PurchaseOrder(BaseModel):
     po_number: str = Field(..., description="Unique identifier for the purchase order.")
-    po_date: str = Field(..., description="The date when the purchase order was created.")
-    supplier_id: str = Field(..., description="Unique identifier for the supplier associated with the PO.")
+    po_date: str = Field(
+        ..., description="The date when the purchase order was created."
+    )
+    supplier_id: str = Field(
+        ..., description="Unique identifier for the supplier associated with the PO."
+    )
     supplier_name: str = Field(..., description="Name of the supplier.")
-    buyer_id: str = Field(..., description="Unique identifier for the buyer organization.")
+    buyer_id: str = Field(
+        ..., description="Unique identifier for the buyer organization."
+    )
     buyer_name: str = Field(..., description="Name of the buyer organization.")
-    total_amount: float = Field(..., description="The total monetary value of the purchase order.")
-    currency: str = Field(..., description="Currency in which the transaction is conducted.")
-    payment_terms: str = Field(..., description="Terms of payment agreed upon with the supplier.")
-    delivery_date: str = Field(..., description="The expected delivery date for the items in the order.")
-    shipping_address: str = Field(..., description="The address where the items should be delivered.")
-    billing_address: str = Field(..., description="The address where the invoice will be sent.")
-    status: str = Field(..., description="The current status of the PO, for example Open, Approved, or Closed.")
-    approval_date: Optional[str] = Field(None, description="The date when the PO was approved, null if not yet approved.")
-    remarks: Optional[str] = Field(None, description="Additional comments or notes about the purchase order.")
+    total_amount: float = Field(
+        ..., description="The total monetary value of the purchase order."
+    )
+    currency: str = Field(
+        ..., description="Currency in which the transaction is conducted."
+    )
+    payment_terms: str = Field(
+        ..., description="Terms of payment agreed upon with the supplier."
+    )
+    delivery_date: str = Field(
+        ..., description="The expected delivery date for the items in the order."
+    )
+    shipping_address: str = Field(
+        ..., description="The address where the items should be delivered."
+    )
+    billing_address: str = Field(
+        ..., description="The address where the invoice will be sent."
+    )
+    status: str = Field(
+        ...,
+        description="The current status of the PO, for example Open, Approved, or Closed.",
+    )
+    approval_date: Optional[str] = Field(
+        None, description="The date when the PO was approved, null if not yet approved."
+    )
+    remarks: Optional[str] = Field(
+        None, description="Additional comments or notes about the purchase order."
+    )
 
 
 class PurchaseOrderCreate(PurchaseOrder):

@@ -96,6 +96,7 @@ membership even when physically located somewhere else entirely — that
 is a governance-driven tick, not evidence of presence, and active_actors
 must not conflate the two.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -134,6 +135,7 @@ class GeographicTickResult:
     there, plus every descendant entity recursively. Mirrors CityTickResult/
     CountryTickResult's shape (this session's now-superseded 2-tier
     version), generalized to one type for all 8 tiers."""
+
     cycle_id: str = field(default_factory=lambda: uuid4().hex)
     entity_id: str = ""
     entity_type: GeographicEntityType | None = None
@@ -201,14 +203,18 @@ class GeographicEntityRuntime:
     deterministically; see the module docstring for the full traversal and
     selection policy."""
 
-    def __init__(self, registry: GeographicRegistry, entity_id: str,
-                 society_lookup: SocietyLookup,
-                 entity_processor: EntityProcessor | None = None,
-                 presence: PresenceLookup | None = None,
-                 actor_ticker: ActorTicker | None = None,
-                 membership_reconciler: MembershipReconciler | None = None,
-                 temporary_membership_lookup: MembershipLookup | None = None,
-                 effective_membership_lookup: MembershipLookup | None = None) -> None:
+    def __init__(
+        self,
+        registry: GeographicRegistry,
+        entity_id: str,
+        society_lookup: SocietyLookup,
+        entity_processor: EntityProcessor | None = None,
+        presence: PresenceLookup | None = None,
+        actor_ticker: ActorTicker | None = None,
+        membership_reconciler: MembershipReconciler | None = None,
+        temporary_membership_lookup: MembershipLookup | None = None,
+        effective_membership_lookup: MembershipLookup | None = None,
+    ) -> None:
         self._registry = registry
         self.entity_id = entity_id
         self._society_lookup = society_lookup
@@ -219,13 +225,17 @@ class GeographicEntityRuntime:
         self._temporary_membership_lookup = temporary_membership_lookup
         self._effective_membership_lookup = effective_membership_lookup
 
-    async def tick(self, *, actor_id: str | None = None,
-                   prompt_request: Any = None,
-                   _ticked_actor_ids: set[str] | None = None) -> GeographicTickResult:
+    async def tick(
+        self,
+        *,
+        actor_id: str | None = None,
+        prompt_request: Any = None,
+        _ticked_actor_ids: set[str] | None = None,
+    ) -> GeographicTickResult:
         start = time.time()
- 
+
         # dedupe actor_ids through the whole traversal, so no Actor's cognition runs
-        # twice in one planetary cycle. 
+        # twice in one planetary cycle.
 
         ticked_actor_ids = _ticked_actor_ids if _ticked_actor_ids is not None else set()
 
@@ -283,8 +293,7 @@ class GeographicEntityRuntime:
             elif self._effective_membership_lookup is not None:
                 memberships = set(self._effective_membership_lookup(actor_id))
                 selected_society_id = next(
-                    (society_id for society_id in hosted_society_ids
-                     if society_id in memberships),
+                    (society_id for society_id in hosted_society_ids if society_id in memberships),
                     None,
                 )
             else:
@@ -295,8 +304,7 @@ class GeographicEntityRuntime:
                     society_runtime = self._society_lookup(society_id)
                     if society_runtime is None:
                         continue
-                    if any(a.actor_id == actor_id
-                           for a in society_runtime.active_actors()):
+                    if any(a.actor_id == actor_id for a in society_runtime.active_actors()):
                         selected_society_id = society_id
                         break
 
@@ -335,13 +343,12 @@ class GeographicEntityRuntime:
             if not society_active_actors:
                 continue
             try:
-
-                # frozen set of actor ids that have been ticked in this society, 
-                # to be passed to the society tick method to avoid ticking the 
+                # frozen set of actor ids that have been ticked in this society,
+                # to be passed to the society tick method to avoid ticking the
                 # same actor multiple times in the same cycle
                 exclude_actor_ids = frozenset(ticked_actor_ids)
 
-                # update the ticked_actor_ids set with the actor ids that have been 
+                # update the ticked_actor_ids set with the actor ids that have been
                 # ticked in this society
                 ticked_actor_ids.update(a.actor_id for a in society_active_actors)
 
@@ -362,7 +369,12 @@ class GeographicEntityRuntime:
                 if tick_result.actor_execution_result is not None:
                     actor_execution_result = tick_result.actor_execution_result
             except Exception as e:
-                logger.error("Society %s tick failed hosted at %s: %s", society_id, self.entity_id, e)
+                logger.error(
+                    "Society %s tick failed hosted at %s: %s",
+                    society_id,
+                    self.entity_id,
+                    e,
+                )
 
         # tick every Actor physically present at this entity, and
         # reconcile its temporary memberships.
@@ -385,7 +397,9 @@ class GeographicEntityRuntime:
         # occupant_id, so running them concurrently via asyncio.gather
         # changes nothing about correctness, only about how much of their
         # wall-clock time overlaps.
-        async def _tick_occupant(occupant_id: str) -> tuple[str, bool, bool, int, tuple[str, ...], tuple[str, ...]]:
+        async def _tick_occupant(
+            occupant_id: str,
+        ) -> tuple[str, bool, bool, int, tuple[str, ...], tuple[str, ...]]:
             """One occupant's complete per-tick work, in the exact same
             order/semantics as the original serial loop body. Returns
             (occupant_id, already_ticked, newly_ticked, reconciled_count,
@@ -420,8 +434,12 @@ class GeographicEntityRuntime:
                 try:
                     reconciled = self._membership_reconciler(occupant_id) or 0
                 except Exception as e:
-                    logger.error("Membership reconciliation failed for %s at %s: %s",
-                                 occupant_id, self.entity_id, e)
+                    logger.error(
+                        "Membership reconciliation failed for %s at %s: %s",
+                        occupant_id,
+                        self.entity_id,
+                        e,
+                    )
 
             # precompute membership so no later stage has to.
             temp_memberships: tuple[str, ...] = ()
@@ -431,17 +449,29 @@ class GeographicEntityRuntime:
             if self._effective_membership_lookup is not None:
                 eff_memberships = tuple(self._effective_membership_lookup(occupant_id))
 
-            return occupant_id, already_ticked, newly_ticked, reconciled, temp_memberships, eff_memberships
+            return (
+                occupant_id,
+                already_ticked,
+                newly_ticked,
+                reconciled,
+                temp_memberships,
+                eff_memberships,
+            )
 
         if self._presence is not None:
             occupant_ids = self._presence.occupants(self.entity_id)
             observed_actor_ids.update(occupant_ids)
 
-            tick_results = await asyncio.gather(*(
-                _tick_occupant(occupant_id) for occupant_id in occupant_ids
-            ))
+            tick_results = await asyncio.gather(*(_tick_occupant(occupant_id) for occupant_id in occupant_ids))
 
-            for occupant_id, already_ticked, newly_ticked, reconciled, temp_memberships, eff_memberships in tick_results:
+            for (
+                occupant_id,
+                already_ticked,
+                newly_ticked,
+                reconciled,
+                temp_memberships,
+                eff_memberships,
+            ) in tick_results:
                 if already_ticked:
                     active_actor_ids.add(occupant_id)
                 else:
@@ -484,13 +514,13 @@ class GeographicEntityRuntime:
         societies_ticked_total = len(societies_ticked)
         for child in self._registry.children_of(self.entity_id):
             child_runtime = GeographicEntityRuntime(
-                self._registry, 
-                child.entity_id, 
+                self._registry,
+                child.entity_id,
                 self._society_lookup,
-                self._entity_processor, 
-                self._presence, 
+                self._entity_processor,
+                self._presence,
                 self._actor_ticker,
-                self._membership_reconciler, 
+                self._membership_reconciler,
                 self._temporary_membership_lookup,
                 self._effective_membership_lookup,
             )

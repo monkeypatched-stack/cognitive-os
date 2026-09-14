@@ -9,6 +9,7 @@ Agents execute within a sandbox that enforces:
 This is NOT process isolation (that's 1.0 scope). It's a logical boundary
 that can be upgraded to real isolation (subprocess, container) later.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -30,17 +31,19 @@ _MP_CTX = mp.get_context("forkserver" if "forkserver" in _methods else "spawn")
 @dataclass
 class SandboxLimits:
     """Resource limits for an agent execution."""
+
     max_steps: int = 100
     timeout_seconds: float = 30.0
-    max_output_size: int = 1_000_000     # bytes
-    allowed_capabilities: set[str] = field(default_factory=set)   # empty = all allowed
-    denied_capabilities: set[str] = field(default_factory=set)    # explicitly denied
-    max_memory_bytes: int = 100_000_000   # 100MB
+    max_output_size: int = 1_000_000  # bytes
+    allowed_capabilities: set[str] = field(default_factory=set)  # empty = all allowed
+    denied_capabilities: set[str] = field(default_factory=set)  # explicitly denied
+    max_memory_bytes: int = 100_000_000  # 100MB
 
 
 @dataclass
 class SandboxResult:
     """Result of a sandboxed execution."""
+
     success: bool
     output: Any = None
     error: str = ""
@@ -87,6 +90,7 @@ class AgentSandbox:
         if output is None:
             return True, ""
         import json
+
         try:
             size = len(json.dumps(output, default=str))
         except Exception:
@@ -111,7 +115,9 @@ class AgentSandbox:
             if not allowed:
                 violations.append(reason)
                 return SandboxResult(
-                    success=False, error=reason, violations=violations,
+                    success=False,
+                    error=reason,
+                    violations=violations,
                     elapsed_ms=(time.monotonic() - self._start_time) * 1000,
                 )
 
@@ -119,35 +125,42 @@ class AgentSandbox:
             # Enforce the wall-clock timeout — a runaway/malicious agent is cancelled at
             # the limit rather than running unbounded (previously the timeout was never
             # applied; it only caught a TimeoutError the agent raised itself).
-            output = await asyncio.wait_for(
-                agent_fn(task, **kwargs), timeout=self._limits.timeout_seconds
-            )
+            output = await asyncio.wait_for(agent_fn(task, **kwargs), timeout=self._limits.timeout_seconds)
 
             # Validate output
             valid, reason = self.validate_output(output)
             if not valid:
                 violations.append(reason)
                 return SandboxResult(
-                    success=False, error=reason, violations=violations,
+                    success=False,
+                    error=reason,
+                    violations=violations,
                     elapsed_ms=(time.monotonic() - self._start_time) * 1000,
                 )
 
             elapsed = (time.monotonic() - self._start_time) * 1000
             return SandboxResult(
-                success=True, output=output, violations=violations,
-                elapsed_ms=elapsed, steps_used=self._step_count,
+                success=True,
+                output=output,
+                violations=violations,
+                elapsed_ms=elapsed,
+                steps_used=self._step_count,
             )
 
         except TimeoutError:
             violations.append("timeout_exceeded")
             return SandboxResult(
-                success=False, error="timeout_exceeded", violations=violations,
+                success=False,
+                error="timeout_exceeded",
+                violations=violations,
                 elapsed_ms=(time.monotonic() - self._start_time) * 1000,
             )
         except Exception as exc:
             elapsed = (time.monotonic() - self._start_time) * 1000
             return SandboxResult(
-                success=False, error=str(exc), violations=violations,
+                success=False,
+                error=str(exc),
+                violations=violations,
                 elapsed_ms=elapsed,
             )
 
@@ -161,16 +174,19 @@ def _isolated_target(q, fn, args, kwargs, memory_bytes) -> None:
     """Child-process entrypoint: apply resource caps, run, ship the result back."""
     try:
         import resource
+
         if memory_bytes:
             try:
                 resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
             except (ValueError, OSError):
-                logger.debug("_isolated_target: suppressed exception", exc_info=True)                         # RLIMIT_AS is best-effort (ignored on some OSes)
+                logger.debug(
+                    "_isolated_target: suppressed exception", exc_info=True
+                )  # RLIMIT_AS is best-effort (ignored on some OSes)
     except Exception:
         logger.debug("_isolated_target: suppressed exception", exc_info=True)
     try:
         q.put(("ok", fn(*args, **(kwargs or {}))))
-    except BaseException as exc:             # MemoryError, crashes, anything
+    except BaseException as exc:  # MemoryError, crashes, anything
         q.put(("err", f"{type(exc).__name__}: {exc}"))
 
 
@@ -188,28 +204,43 @@ class ProcessSandbox:
 
     def run(self, fn: Callable, *args: Any, **kwargs: Any) -> SandboxResult:
         q = _MP_CTX.Queue()
-        p = _MP_CTX.Process(target=_isolated_target,
-                            args=(q, fn, args, kwargs, self._limits.max_memory_bytes))
+        p = _MP_CTX.Process(
+            target=_isolated_target,
+            args=(q, fn, args, kwargs, self._limits.max_memory_bytes),
+        )
         start = time.monotonic()
         p.start()
         p.join(self._limits.timeout_seconds)
-        if p.is_alive():                      # timed out — kill the runaway child
-            p.terminate(); p.join(1.0)
+        if p.is_alive():  # timed out — kill the runaway child
+            p.terminate()
+            p.join(1.0)
             if p.is_alive():
-                p.kill(); p.join(1.0)
-            return SandboxResult(success=False, error="timeout_exceeded",
-                                 violations=["timeout_exceeded"],
-                                 elapsed_ms=(time.monotonic() - start) * 1000)
+                p.kill()
+                p.join(1.0)
+            return SandboxResult(
+                success=False,
+                error="timeout_exceeded",
+                violations=["timeout_exceeded"],
+                elapsed_ms=(time.monotonic() - start) * 1000,
+            )
         elapsed = (time.monotonic() - start) * 1000
         try:
             status, payload = q.get_nowait()
-        except Exception:                     # child died without producing a result
-            return SandboxResult(success=False, error="process_died",
-                                 violations=["process_died"], elapsed_ms=elapsed)
+        except Exception:  # child died without producing a result
+            return SandboxResult(
+                success=False,
+                error="process_died",
+                violations=["process_died"],
+                elapsed_ms=elapsed,
+            )
         if status == "ok":
             return SandboxResult(success=True, output=payload, elapsed_ms=elapsed)
-        return SandboxResult(success=False, error=payload,
-                             violations=["execution_error"], elapsed_ms=elapsed)
+        return SandboxResult(
+            success=False,
+            error=payload,
+            violations=["execution_error"],
+            elapsed_ms=elapsed,
+        )
 
 
 def create_sandbox(agent_type: str = "default") -> AgentSandbox:

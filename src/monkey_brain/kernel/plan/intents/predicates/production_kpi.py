@@ -9,7 +9,7 @@ async def production_kpi_question_answer(client, question, force=False):
         db = client["demo"]
 
         # OEE question
-        if re.search(r'oee|overall equipment', question, re.IGNORECASE):
+        if re.search(r"oee|overall equipment", question, re.IGNORECASE):
             machines = db["pharmaceutical_machines"]
             total = await machines.count_documents({})
             active = await machines.count_documents({"status": "Active"})
@@ -17,12 +17,14 @@ async def production_kpi_question_answer(client, question, force=False):
                 f"OEE Summary:\n"
                 f"  Total machines: {total}\n"
                 f"  Active machines: {active}\n"
-                f"  Availability: {active/total*100:.1f}%" if total > 0 else "No machine data."
+                f"  Availability: {active / total * 100:.1f}%"
+                if total > 0
+                else "No machine data."
             )
             return (answer, [], [], False)
 
         # MTBF / MTTR
-        if re.search(r'mtbf|mttr|mean time', question, re.IGNORECASE):
+        if re.search(r"mtbf|mttr|mean time", question, re.IGNORECASE):
             machines = db["pharmaceutical_machines"]
             total = await machines.count_documents({})
             answer = (
@@ -34,7 +36,7 @@ async def production_kpi_question_answer(client, question, force=False):
             return (answer, [], [], False)
 
         # Yield / quality
-        if re.search(r'yield|quality|rejection|scrap', question, re.IGNORECASE):
+        if re.search(r"yield|quality|rejection|scrap", question, re.IGNORECASE):
             batches = db["production_batches"]
             total = await batches.count_documents({})
             approved = await batches.count_documents({"status": "Approved"})
@@ -43,14 +45,17 @@ async def production_kpi_question_answer(client, question, force=False):
             answer = (
                 f"Production Quality:\n"
                 f"  Total batches: {total}\n"
-                f"  Approved: {approved} ({approved/total*100:.1f}%)" + (f"\n"
-                f"  Rejected: {rejected} ({rejected/total*100:.1f}%)\n"
-                f"  In Progress: {in_progress}" if total > 0 else "")
+                f"  Approved: {approved} ({approved / total * 100:.1f}%)"
+                + (
+                    f"\n  Rejected: {rejected} ({rejected / total * 100:.1f}%)\n  In Progress: {in_progress}"
+                    if total > 0
+                    else ""
+                )
             )
             return (answer, [], [], False)
 
         # Downtime
-        if re.search(r'downtime|uptime|availability', question, re.IGNORECASE):
+        if re.search(r"downtime|uptime|availability", question, re.IGNORECASE):
             machines = db["pharmaceutical_machines"]
             total = await machines.count_documents({})
             active = await machines.count_documents({"status": "Active"})
@@ -60,7 +65,9 @@ async def production_kpi_question_answer(client, question, force=False):
                 f"  Total machines: {total}\n"
                 f"  Active: {active}\n"
                 f"  Inactive: {inactive}\n"
-                f"  Availability: {active/total*100:.1f}%" if total > 0 else "No data."
+                f"  Availability: {active / total * 100:.1f}%"
+                if total > 0
+                else "No data."
             )
             return (answer, [], [], False)
 
@@ -88,6 +95,22 @@ async def production_kpi_question_answer(client, question, force=False):
 
 def is_production_kpi_question(question):
     q = question.lower()
-    return any(kw in q for kw in ("kpi", "oee", "mtbf", "mttr", "throughput", "production metric",
-                                    "production efficiency", "yield", "downtime", "uptime",
-                                    "quality metric", "performance", "scrap rate", "rejection"))
+    return any(
+        kw in q
+        for kw in (
+            "kpi",
+            "oee",
+            "mtbf",
+            "mttr",
+            "throughput",
+            "production metric",
+            "production efficiency",
+            "yield",
+            "downtime",
+            "uptime",
+            "quality metric",
+            "performance",
+            "scrap rate",
+            "rejection",
+        )
+    )

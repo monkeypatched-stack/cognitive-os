@@ -36,7 +36,9 @@ def ensure_utc(value: datetime | None) -> datetime | None:
 
 
 class DocumentWorkflowStep(BaseModel):
-    step_id: str = Field(default_factory=lambda: f"document-workflow-step-{uuid4().hex[:12]}")
+    step_id: str = Field(
+        default_factory=lambda: f"document-workflow-step-{uuid4().hex[:12]}"
+    )
     step_name: str = Field(..., min_length=1)
     sequence: int = Field(..., ge=1)
     assignee_id: str | None = None

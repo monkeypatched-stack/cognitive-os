@@ -13,6 +13,7 @@ docstrings (which legitimately mention "grocery"/"selection" as examples
 of what the OS must NOT know), only on actual code that would make it
 true again.
 """
+
 from __future__ import annotations
 
 import ast
@@ -35,13 +36,28 @@ than trustworthy. Add a new OS/runtime file here as it's introduced."""
 
 FORBIDDEN_DOMAIN_KEYS = {
     # Commerce/grocery
-    "selection", "selected", "product_id", "qty", "quantity", "cart",
-    "order_id", "provider_id", "store_id", "sku", "price", "delivery",
-    "payment", "wallet",
+    "selection",
+    "selected",
+    "product_id",
+    "qty",
+    "quantity",
+    "cart",
+    "order_id",
+    "provider_id",
+    "store_id",
+    "sku",
+    "price",
+    "delivery",
+    "payment",
+    "wallet",
     # Generalize the coupling CLASS, not just the literal reported word --
     # any of these appearing as a literal dict key read off `.parameters`
     # in an OS file is the same mistake in a different domain's clothes.
-    "machine_ref", "robot_id", "target", "patient_id", "invoice_id",
+    "machine_ref",
+    "robot_id",
+    "target",
+    "patient_id",
+    "invoice_id",
 }
 
 
@@ -96,8 +112,8 @@ def test_os_runtime_file_never_inspects_domain_shaped_parameters(relative_path: 
     violations = _find_forbidden_parameter_accesses(source_path.read_text())
     assert not violations, (
         f"{relative_path} inspects a domain-specific parameter key -- the OS/runtime "
-        f"layer must only react to generic, top-level result keys (e.g. \"recoverable\", "
-        f"\"requires_approval\"), never a domain's own parameter schema: "
+        f'layer must only react to generic, top-level result keys (e.g. "recoverable", '
+        f'"requires_approval"), never a domain\'s own parameter schema: '
         f"{[(f'line {ln}', key) for ln, key in violations]}"
     )
 
@@ -119,8 +135,6 @@ def test_guard_does_not_false_positive_on_the_generic_recoverable_contract():
     """The one dict key the OS legitimately reacts to (on outcome.result,
     not action.parameters) must never trip this guard."""
     generic_contract = (
-        "def execute(outcome):\n"
-        "    if outcome.result.get('recoverable'):\n"
-        "        return retry(outcome)\n"
+        "def execute(outcome):\n    if outcome.result.get('recoverable'):\n        return retry(outcome)\n"
     )
     assert _find_forbidden_parameter_accesses(generic_contract) == []

@@ -1,4 +1,5 @@
 """Job scheduler."""
+
 from __future__ import annotations
 
 
@@ -6,11 +7,13 @@ import typer
 
 from repl._helpers import _load_jobs, _save_jobs, _brain_post, _brain_url, _log_file
 
+
 def scheduler_list(
     json_output: bool = typer.Option(False, "--json", help="Raw JSON output"),
 ):
     """List all scheduled workloads.  [like crontab -l]"""
     import json as _json
+
     jobs = _load_jobs()
     if json_output:
         typer.echo(_json.dumps(jobs, indent=2))
@@ -19,10 +22,11 @@ def scheduler_list(
         typer.echo("  No scheduled jobs.")
         return
     typer.echo(f"  {'ID':<6s} {'SCHEDULE':<18s} {'WORKLOAD':<20s} {'GOAL'}")
-    typer.echo(f"  {'-'*6} {'-'*18} {'-'*20} {'-'*40}")
+    typer.echo(f"  {'-' * 6} {'-' * 18} {'-' * 20} {'-' * 40}")
     for j in jobs:
-        typer.echo(f"  {str(j.get('id','')):<6s} {j.get('schedule',''):<18s} {j.get('workload',''):<20s} {j.get('goal','')[:60]}")
-
+        typer.echo(
+            f"  {str(j.get('id', '')):<6s} {j.get('schedule', ''):<18s} {j.get('workload', ''):<20s} {j.get('goal', '')[:60]}"
+        )
 
 
 def scheduler_add(
@@ -72,7 +76,6 @@ def scheduler_add(
             typer.echo(f"  OS crontab registration failed", err=True)
 
 
-
 def scheduler_remove(
     job_id: str = typer.Argument(..., help="Job ID to remove"),
 ):
@@ -87,7 +90,6 @@ def scheduler_remove(
     typer.echo(f"  Removed job #{job_id}")
 
 
-
 def scheduler_run(
     job_id: str = typer.Argument(..., help="Job ID to run immediately"),
     json_output: bool = typer.Option(False, "--json", help="Raw JSON output"),
@@ -98,7 +100,7 @@ def scheduler_run(
     if not job:
         typer.echo(f"  Job #{job_id} not found.", err=True)
         raise typer.Exit(1)
-    typer.echo(f"  Running job #{job_id}: {job['workload']} — '{job.get('goal','')}'")
+    typer.echo(f"  Running job #{job_id}: {job['workload']} — '{job.get('goal', '')}'")
     _brain_post(
         "/api/v1/agentos/prompt",
         job.get("brain_url", _brain_url()),
@@ -110,4 +112,3 @@ def scheduler_run(
 # ===========================================================================
 # Top-level OS-mapped commands
 # ===========================================================================
-

@@ -11,5 +11,6 @@ class FamilyAffiliation(Affiliation):
         Origin: mother, father, siblings (given by birth)
         Creation: spouse, children (created by choice)
     """
-    branch: str = ""      # "origin" | "creation"
-    relation: str = ""    # "mother" | "father" | "sibling" | "spouse" | "child"
+
+    branch: str = ""  # "origin" | "creation"
+    relation: str = ""  # "mother" | "father" | "sibling" | "spouse" | "child"

@@ -3,6 +3,7 @@
 Responsibility: Execute cognitive workload through goal executor.
 Depends on: GoalExecutor, persistence, event bus, graph store
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,7 +61,7 @@ class ExecutionCoordinator(ServiceInterface):
         logger.debug(
             "[coordinator] Executing workload: run_id=%s, mode=%s",
             context.run_id,
-            context.execution_mode.name if hasattr(context.execution_mode, "name") else str(context.execution_mode),
+            (context.execution_mode.name if hasattr(context.execution_mode, "name") else str(context.execution_mode)),
         )
 
         answer, semantic_hits, graph_paths, llm_answered = await self._goal_executor.execute_context(
@@ -167,12 +168,18 @@ class ExecutionCoordinator(ServiceInterface):
             domain = str(meta.get("capability_group") or meta.get("domain") or "execution")
 
             try:
-                from src.monkey_brain.kernel.compile.world_tensor import observe_execution
+                from src.monkey_brain.kernel.compile.world_tensor import (
+                    observe_execution,
+                )
+
                 observe_execution(agents, agent_edges, domain=domain, reward=1.0)
             except Exception as exc:
                 logger.warning("[coordinator] observe_execution failed: %s", exc)
 
-            from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+            from src.monkey_brain.persistence.graph_store import (
+                get_graph_store_instance,
+            )
+
             store = get_graph_store_instance()
             if store is None or not store.is_connected():
                 return
@@ -181,7 +188,11 @@ class ExecutionCoordinator(ServiceInterface):
             await store.compute_capability_pagerank()
             await store.compute_execution_mesh_pagerank()
         except Exception as e:
-            logger.warning("run=%r execution-mesh persistence failed: %s", getattr(context, "run_id", "?"), e)
+            logger.warning(
+                "run=%r execution-mesh persistence failed: %s",
+                getattr(context, "run_id", "?"),
+                e,
+            )
 
     def _mark_execution_graph_observed(
         self,
@@ -199,18 +210,14 @@ class ExecutionCoordinator(ServiceInterface):
         if graph_run_id and graph_run_id != str(run_id):
             logger.warning(
                 "run=%r skipping graph observation: execution_graph belongs to run=%r",
-                run_id, graph_run_id,
+                run_id,
+                graph_run_id,
             )
             return
         raw_success = bool(llm_answered) and not str(answer).lower().startswith("error executing goal")
         terminal_states = ("complete", "failed", "unimplemented")
-        nodes = [
-            n for n in execution_graph.get("nodes", [])
-            if isinstance(n, dict) and str(n.get("id", ""))
-        ]
-        has_recorded_failure = any(
-            str(n.get("state", "")) in ("failed", "unimplemented") for n in nodes
-        )
+        nodes = [n for n in execution_graph.get("nodes", []) if isinstance(n, dict) and str(n.get("id", ""))]
+        has_recorded_failure = any(str(n.get("state", "")) in ("failed", "unimplemented") for n in nodes)
         overall_success = raw_success and not has_recorded_failure
         state = dict(execution_graph.get("state", {}))
         for node in nodes:

@@ -1,4 +1,5 @@
 """Tests for Event Sourcing Layer."""
+
 from __future__ import annotations
 
 import pytest
@@ -6,7 +7,14 @@ import pytest
 from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor
 from src.monkey_brain.kernel.compile.society import Actor, ActorNetwork
 from src.monkey_brain.kernel.compile.trust import Relationship
-from src.monkey_brain.kernel.compile.event_sourcing import EventStore, EventType, Event, Snapshot, EventReplayEngine, SubscriptionManager
+from src.monkey_brain.kernel.compile.event_sourcing import (
+    EventStore,
+    EventType,
+    Event,
+    Snapshot,
+    EventReplayEngine,
+    SubscriptionManager,
+)
 
 
 class TestEvent:
@@ -16,7 +24,8 @@ class TestEvent:
         event = Event(
             event_type=EventType.TRANSITION,
             actor_id="alice",
-            src="s1", dst="s2",
+            src="s1",
+            dst="s2",
             domain="manufacturing",
         )
         assert event.event_type == EventType.TRANSITION
@@ -26,7 +35,8 @@ class TestEvent:
         event = Event(
             event_type=EventType.BELIEF,
             actor_id="alice",
-            src="s1", dst="s2",
+            src="s1",
+            dst="s2",
             new_value=0.8,
         )
         d = event.to_dict()
@@ -40,7 +50,8 @@ class TestEvent:
             "event_type": "world.transition",
             "timestamp": 1234567890.0,
             "actor_id": "alice",
-            "src": "s1", "dst": "s2",
+            "src": "s1",
+            "dst": "s2",
         }
         event = Event.from_dict(d)
         assert event.event_id == "test-123"
@@ -130,7 +141,7 @@ class TestEventStore:
 
         # Create some events
         for i in range(10):
-            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i+1}"))
+            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i + 1}"))
 
         # Create a snapshot
         snapshot = store.create_snapshot(
@@ -149,7 +160,7 @@ class TestEventStore:
 
         # Create events
         for i in range(5):
-            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i+1}"))
+            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i + 1}"))
 
         # Create snapshot at event 3
         snapshot = store.create_snapshot(
@@ -160,7 +171,7 @@ class TestEventStore:
 
         # More events
         for i in range(5, 10):
-            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i+1}"))
+            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i + 1}"))
 
         # Replay from snapshot
         events_since = store.replay_from_snapshot(snapshot)
@@ -171,7 +182,7 @@ class TestEventStore:
 
         # Create events
         for i in range(5):
-            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i+1}"))
+            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i + 1}"))
 
         # Create snapshot
         snapshot = store.create_snapshot(
@@ -249,9 +260,33 @@ class TestEventProjection:
 
     def test_project_actor_beliefs(self):
         store = EventStore()
-        store.append(Event(event_type=EventType.BELIEF, actor_id="alice", src="s1", dst="s2", new_value=0.8))
-        store.append(Event(event_type=EventType.BELIEF, actor_id="bob", src="s1", dst="s2", new_value=0.6))
-        store.append(Event(event_type=EventType.BELIEF, actor_id="alice", src="s2", dst="s3", new_value=0.9))
+        store.append(
+            Event(
+                event_type=EventType.BELIEF,
+                actor_id="alice",
+                src="s1",
+                dst="s2",
+                new_value=0.8,
+            )
+        )
+        store.append(
+            Event(
+                event_type=EventType.BELIEF,
+                actor_id="bob",
+                src="s1",
+                dst="s2",
+                new_value=0.6,
+            )
+        )
+        store.append(
+            Event(
+                event_type=EventType.BELIEF,
+                actor_id="alice",
+                src="s2",
+                dst="s3",
+                new_value=0.9,
+            )
+        )
 
         beliefs = store.project_actor_beliefs()
         assert "alice" in beliefs
@@ -261,9 +296,33 @@ class TestEventProjection:
 
     def test_project_world_transitions(self):
         store = EventStore()
-        store.append(Event(event_type=EventType.TRANSITION, src="s1", dst="s2", domain="manufacturing", new_value=0.7))
-        store.append(Event(event_type=EventType.TRANSITION, src="s1", dst="s2", domain="manufacturing", new_value=0.8))
-        store.append(Event(event_type=EventType.TRANSITION, src="s2", dst="s3", domain="manufacturing", new_value=0.5))
+        store.append(
+            Event(
+                event_type=EventType.TRANSITION,
+                src="s1",
+                dst="s2",
+                domain="manufacturing",
+                new_value=0.7,
+            )
+        )
+        store.append(
+            Event(
+                event_type=EventType.TRANSITION,
+                src="s1",
+                dst="s2",
+                domain="manufacturing",
+                new_value=0.8,
+            )
+        )
+        store.append(
+            Event(
+                event_type=EventType.TRANSITION,
+                src="s2",
+                dst="s3",
+                domain="manufacturing",
+                new_value=0.5,
+            )
+        )
 
         transitions = store.project_world_transitions()
         assert "s1→s2" in transitions
@@ -272,13 +331,17 @@ class TestEventProjection:
 
     def test_project_conflicts(self):
         store = EventStore()
-        store.append(Event(
-            event_type=EventType.CONFLICT,
-            src="s1", dst="s2",
-            actor_id="alice",
-            old_value=0.9, new_value=0.7,
-            metadata={"strategy": "trust_weighted", "severity": 0.5},
-        ))
+        store.append(
+            Event(
+                event_type=EventType.CONFLICT,
+                src="s1",
+                dst="s2",
+                actor_id="alice",
+                old_value=0.9,
+                new_value=0.7,
+                metadata={"strategy": "trust_weighted", "severity": 0.5},
+            )
+        )
 
         conflicts = store.project_conflicts()
         assert len(conflicts) == 1
@@ -303,7 +366,7 @@ class TestEventProjection:
 
         # Add many events
         for i in range(100):
-            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i+1}"))
+            store.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i + 1}"))
 
         # Projection should be fast (built from events)
         stats = store.project_statistics()
@@ -368,8 +431,24 @@ class TestEventReplayEngine:
 
     def test_rebuild_actor_beliefs(self):
         store = EventStore()
-        store.append(Event(event_type=EventType.BELIEF, actor_id="alice", src="s1", dst="s2", new_value=0.9))
-        store.append(Event(event_type=EventType.BELIEF, actor_id="bob", src="s1", dst="s2", new_value=0.3))
+        store.append(
+            Event(
+                event_type=EventType.BELIEF,
+                actor_id="alice",
+                src="s1",
+                dst="s2",
+                new_value=0.9,
+            )
+        )
+        store.append(
+            Event(
+                event_type=EventType.BELIEF,
+                actor_id="bob",
+                src="s1",
+                dst="s2",
+                new_value=0.3,
+            )
+        )
 
         engine = EventReplayEngine(store)
         alice_beliefs = engine.rebuild_actor_beliefs("alice")
@@ -379,8 +458,24 @@ class TestEventReplayEngine:
 
     def test_rebuild_all_actor_beliefs(self):
         store = EventStore()
-        store.append(Event(event_type=EventType.BELIEF, actor_id="alice", src="s1", dst="s2", new_value=0.9))
-        store.append(Event(event_type=EventType.BELIEF, actor_id="bob", src="s1", dst="s2", new_value=0.3))
+        store.append(
+            Event(
+                event_type=EventType.BELIEF,
+                actor_id="alice",
+                src="s1",
+                dst="s2",
+                new_value=0.9,
+            )
+        )
+        store.append(
+            Event(
+                event_type=EventType.BELIEF,
+                actor_id="bob",
+                src="s1",
+                dst="s2",
+                new_value=0.3,
+            )
+        )
 
         engine = EventReplayEngine(store)
         all_beliefs = engine.rebuild_all_actor_beliefs()
@@ -390,12 +485,16 @@ class TestEventReplayEngine:
 
     def test_rebuild_conflict_history(self):
         store = EventStore()
-        store.append(Event(
-            event_type=EventType.CONFLICT,
-            src="s1", dst="s2",
-            old_value=0.9, new_value=0.7,
-            metadata={"strategy": "trust_weighted", "severity": 0.5},
-        ))
+        store.append(
+            Event(
+                event_type=EventType.CONFLICT,
+                src="s1",
+                dst="s2",
+                old_value=0.9,
+                new_value=0.7,
+                metadata={"strategy": "trust_weighted", "severity": 0.5},
+            )
+        )
 
         engine = EventReplayEngine(store)
         history = engine.rebuild_conflict_history()
@@ -406,7 +505,15 @@ class TestEventReplayEngine:
     def test_temporal_query(self):
         store = EventStore()
         store.append(Event(event_type=EventType.TRANSITION, src="s1", dst="s2", timestamp=1.0))
-        store.append(Event(event_type=EventType.BELIEF, actor_id="alice", src="s1", dst="s2", timestamp=2.0))
+        store.append(
+            Event(
+                event_type=EventType.BELIEF,
+                actor_id="alice",
+                src="s1",
+                dst="s2",
+                timestamp=2.0,
+            )
+        )
         store.append(Event(event_type=EventType.TRANSITION, src="s2", dst="s3", timestamp=3.0))
 
         engine = EventReplayEngine(store)
@@ -566,7 +673,7 @@ class TestEventPersistence:
 
             store1 = EventStore(persist_path=path)
             for i in range(10):
-                store1.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i+1}"))
+                store1.append(Event(event_type=EventType.TRANSITION, src=f"s{i}", dst=f"s{i + 1}"))
             store1.create_snapshot(world_state={"transitions": 10}, actor_states={})
 
             store2 = EventStore(persist_path=path)

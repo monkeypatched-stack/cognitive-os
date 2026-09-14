@@ -3,6 +3,7 @@
 Reads router.py + schemas.py from the generated service, loads the api-client
 somatic chart invariants, and calls CodeGenAgent to produce the client package.
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,8 +47,11 @@ class ClientGenAgent(BaseETASSAgent):
         if not svc_dir.exists():
             self._reward(False, 0.0)
             return self._result(
-                payload={"generated": False, "error": f"service dir not found: {svc_dir}"},
-                observations=[f"run codegen first"],
+                payload={
+                    "generated": False,
+                    "error": f"service dir not found: {svc_dir}",
+                },
+                observations=["run codegen first"],
             )
 
         # ── Find API files ────────────────────────────────────────────────────
@@ -72,7 +76,10 @@ class ClientGenAgent(BaseETASSAgent):
         if not router_content and not schemas_content:
             self._reward(False, 0.1)
             return self._result(
-                payload={"generated": False, "error": "no api/router.py or api/schemas.py found"},
+                payload={
+                    "generated": False,
+                    "error": "no api/router.py or api/schemas.py found",
+                },
                 observations=["API files not found — run codegen first"],
             )
 
@@ -82,17 +89,15 @@ class ClientGenAgent(BaseETASSAgent):
         if chart_path.exists():
             try:
                 import yaml
+
                 chart = yaml.safe_load(chart_path.read_text()) or {}
                 chart_preamble = chart.get("preamble", {}).get("statement", "")
                 steps = chart.get("cot", {}).get("steps", [])
                 chart_cot = "\n".join(
-                    f"Step {s.get('step','?')}: {s.get('title','')} — {s.get('description','')}"
-                    for s in steps
+                    f"Step {s.get('step', '?')}: {s.get('title', '')} — {s.get('description', '')}" for s in steps
                 )
                 invs = chart.get("invariants", [])
-                chart_invariants_str = "\n".join(
-                    f"  [{inv.get('id','')}] {inv.get('statement','')}" for inv in invs
-                )
+                chart_invariants_str = "\n".join(f"  [{inv.get('id', '')}] {inv.get('statement', '')}" for inv in invs)
             except Exception as e:
                 logger.debug("[client_gen] chart load failed: %s", e)
 
@@ -146,7 +151,10 @@ class ClientGenAgent(BaseETASSAgent):
         for rel_path, content in files.items():
             # Strip any leading package prefix the LLM may add
             parts = Path(rel_path).parts
-            if parts and parts[0] in (f"{service_slug}_client", f"{service_slug}-client"):
+            if parts and parts[0] in (
+                f"{service_slug}_client",
+                f"{service_slug}-client",
+            ):
                 dest = client_dir / Path(*parts[1:])
             else:
                 dest = client_dir / rel_path

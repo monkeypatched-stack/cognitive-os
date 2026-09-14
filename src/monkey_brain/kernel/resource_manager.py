@@ -14,6 +14,7 @@ Health states:
 
 Retry: exponential backoff with configurable ceiling.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,6 +28,7 @@ logger = logging.getLogger("agentos.resource_manager")
 
 
 # ── Health & Error Models ────────────────────────────────────────────────────
+
 
 class ResourceState(StrEnum):
     STARTING = "starting"
@@ -90,6 +92,7 @@ class ResourceConfig:
 
 # ── Resource Protocol ────────────────────────────────────────────────────────
 
+
 @runtime_checkable
 class Resource(Protocol):
     """Every external resource must implement this protocol."""
@@ -108,6 +111,7 @@ class Resource(Protocol):
 
 
 # ── Retry Backoff ────────────────────────────────────────────────────────────
+
 
 class BackoffRetryPolicy:
     """Backoff with ceiling — 1s, 5s, 30s, 60s, 300s (the sprint spec's exact
@@ -139,6 +143,7 @@ class BackoffRetryPolicy:
 
 # ── Config Validator ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class ConfigIssue:
     resource: str
@@ -158,19 +163,24 @@ class ConfigValidator:
                 continue
             for key in rc.config_keys:
                 import os
+
                 val = os.environ.get(key, "").strip()
                 if not val and rc.required:
-                    issues.append(ConfigIssue(
-                        resource=rc.name, key=key,
-                        category=ErrorCategory.CONFIGURATION,
-                        message=f"Required config {key} is not set",
-                    ))
+                    issues.append(
+                        ConfigIssue(
+                            resource=rc.name,
+                            key=key,
+                            category=ErrorCategory.CONFIGURATION,
+                            message=f"Required config {key} is not set",
+                        )
+                    )
                 elif not val and not rc.required:
                     pass  # optional — no issue
         return issues
 
 
 # ── Resource Manager ─────────────────────────────────────────────────────────
+
 
 class ResourceManager:
     """Manages all external resources with health tracking and graceful degradation."""
@@ -212,7 +222,12 @@ class ResourceManager:
         issues = self.validate_config()
         if issues:
             for issue in issues:
-                logger.warning("[resource] %s: %s — %s", issue.resource, issue.category, issue.message)
+                logger.warning(
+                    "[resource] %s: %s — %s",
+                    issue.resource,
+                    issue.category,
+                    issue.message,
+                )
                 self._health[issue.resource] = ResourceHealth(
                     name=issue.resource,
                     state=ResourceState.FAILED,
@@ -226,7 +241,9 @@ class ResourceManager:
             cfg = self._configs[name]
             if not cfg.enabled:
                 self._health[name] = ResourceHealth(
-                    name=name, state=ResourceState.DISABLED, required=cfg.required,
+                    name=name,
+                    state=ResourceState.DISABLED,
+                    required=cfg.required,
                 )
                 continue
 
@@ -242,7 +259,9 @@ class ResourceManager:
             # during boot — and start_background_retry() picks up the full
             # retry budget afterward without holding up startup.
             health = await self._try_initialize(
-                resource, name, max_retries_override=None if cfg.required else 0,
+                resource,
+                name,
+                max_retries_override=None if cfg.required else 0,
             )
             self._health[name] = health
 
@@ -253,7 +272,10 @@ class ResourceManager:
         return dict(self._health)
 
     async def _try_initialize(
-        self, resource: Resource, name: str, max_retries_override: int | None = None,
+        self,
+        resource: Resource,
+        name: str,
+        max_retries_override: int | None = None,
     ) -> ResourceHealth:
         """Initialize a resource with retry on transient failures.
 
@@ -288,18 +310,23 @@ class ResourceManager:
                         logger.info("[resource] %s recovered after %d retries", name, attempt)
                     return health
 
-                # if failed then retry 
+                # if failed then retry
                 if health.state == ResourceState.FAILED:
                     if not _should_retry(attempt):
                         return health
                     delay = policy.delay(attempt)
                     health.next_retry_at = time.time() + delay
-                    logger.debug("[resource] %s init returned FAILED, retrying in %.1fs (attempt %d/%d)",
-                                 name, delay, attempt + 1, max_retries)
+                    logger.debug(
+                        "[resource] %s init returned FAILED, retrying in %.1fs (attempt %d/%d)",
+                        name,
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
-                # if unavaialable then retry 
+                # if unavaialable then retry
                 if health.state == ResourceState.UNAVAILABLE:
                     if not cfg.required:
                         health.category = ErrorCategory.OPTIONAL_MISSING
@@ -308,8 +335,13 @@ class ResourceManager:
                         return health
                     delay = policy.delay(attempt)
                     health.next_retry_at = time.time() + delay
-                    logger.debug("[resource] %s UNAVAILABLE, retrying in %.1fs (attempt %d/%d)",
-                                 name, delay, attempt + 1, max_retries)
+                    logger.debug(
+                        "[resource] %s UNAVAILABLE, retrying in %.1fs (attempt %d/%d)",
+                        name,
+                        delay,
+                        attempt + 1,
+                        max_retries,
+                    )
                     await asyncio.sleep(delay)
                     continue
 
@@ -317,10 +349,12 @@ class ResourceManager:
 
             except asyncio.TimeoutError:
                 health = ResourceHealth(
-                    name=name, state=ResourceState.UNAVAILABLE,
+                    name=name,
+                    state=ResourceState.UNAVAILABLE,
                     reason=f"Connection timed out after {cfg.timeout_sec}s",
                     category=ErrorCategory.NETWORK,
-                    required=cfg.required, retry_count=attempt,
+                    required=cfg.required,
+                    retry_count=attempt,
                 )
                 if not _should_retry(attempt):
                     return health
@@ -331,9 +365,12 @@ class ResourceManager:
             except Exception as exc:
                 category = self._classify_error(exc)
                 health = ResourceHealth(
-                    name=name, state=ResourceState.FAILED,
-                    reason=str(exc)[:200], category=category,
-                    required=cfg.required, retry_count=attempt,
+                    name=name,
+                    state=ResourceState.FAILED,
+                    reason=str(exc)[:200],
+                    category=category,
+                    required=cfg.required,
+                    retry_count=attempt,
                 )
                 if not _should_retry(attempt):
                     return health
@@ -342,9 +379,11 @@ class ResourceManager:
                 await asyncio.sleep(delay)
 
         return ResourceHealth(
-            name=name, state=ResourceState.FAILED,
+            name=name,
+            state=ResourceState.FAILED,
             reason=f"Exhausted {max_retries} retries",
-            required=cfg.required, retry_count=max_retries,
+            required=cfg.required,
+            retry_count=max_retries,
         )
 
     def start_background_retry(self, interval_sec: float = 10.0) -> None:
@@ -373,8 +412,11 @@ class ResourceManager:
     # every interval_sec just spams logs (observed: a permanently-uninstalled
     # optional dep like mem0ai logging a warning every ~10s indefinitely).
     # Installing a package or fixing a config file needs a deploy, not a retry.
-    _PERMANENT_CATEGORIES = (ErrorCategory.DEPENDENCY_MISSING, ErrorCategory.OPTIONAL_MISSING,
-                              ErrorCategory.CONFIGURATION)
+    _PERMANENT_CATEGORIES = (
+        ErrorCategory.DEPENDENCY_MISSING,
+        ErrorCategory.OPTIONAL_MISSING,
+        ErrorCategory.CONFIGURATION,
+    )
 
     async def _background_retry_loop(self, interval_sec: float) -> None:
         gave_up: set[str] = set()
@@ -383,14 +425,21 @@ class ResourceManager:
             now = time.time()
             for name, resource in self._resources.items():
                 health = self._health.get(name)
-                if health is None or health.state in (ResourceState.READY, ResourceState.DEGRADED, ResourceState.DISABLED):
+                if health is None or health.state in (
+                    ResourceState.READY,
+                    ResourceState.DEGRADED,
+                    ResourceState.DISABLED,
+                ):
                     continue
                 if health.category in self._PERMANENT_CATEGORIES:
                     if name not in gave_up:
                         gave_up.add(name)
                         logger.info(
                             "[resource] %s giving up on background retry — %s is not something "
-                            "a retry can fix (reason: %s)", name, health.category.value, health.reason,
+                            "a retry can fix (reason: %s)",
+                            name,
+                            health.category.value,
+                            health.reason,
                         )
                     continue
                 if health.next_retry_at and health.next_retry_at > now:
@@ -401,7 +450,12 @@ class ResourceManager:
                     logger.debug("[resource] background retry crashed for %s: %s", name, exc)
                     continue
                 if new_health.state != health.state:
-                    logger.info("[resource] %s transitioned %s -> %s", name, health.state.value, new_health.state.value)
+                    logger.info(
+                        "[resource] %s transitioned %s -> %s",
+                        name,
+                        health.state.value,
+                        new_health.state.value,
+                    )
                 self._health[name] = new_health
                 gave_up.discard(name)
 
@@ -424,7 +478,10 @@ class ResourceManager:
     async def health_all(self) -> dict[str, ResourceHealth]:
         """Check health of all resources."""
         for name, resource in self._resources.items():
-            if self._health[name].state in (ResourceState.DISABLED, ResourceState.FAILED):
+            if self._health[name].state in (
+                ResourceState.DISABLED,
+                ResourceState.FAILED,
+            ):
                 continue
             try:
                 health = await asyncio.wait_for(resource.health(), timeout=5.0)
@@ -432,8 +489,10 @@ class ResourceManager:
                 self._health[name] = health
             except Exception as exc:
                 self._health[name] = ResourceHealth(
-                    name=name, state=ResourceState.UNAVAILABLE,
-                    reason=str(exc)[:200], category=self._classify_error(exc),
+                    name=name,
+                    state=ResourceState.UNAVAILABLE,
+                    reason=str(exc)[:200],
+                    category=self._classify_error(exc),
                     required=self._configs[name].required,
                 )
         return dict(self._health)
@@ -458,16 +517,18 @@ class ResourceManager:
         for name in self._resources:
             h = self._health.get(name, ResourceHealth(name=name, state=ResourceState.STARTING))
             cfg = self._configs.get(name, ResourceConfig(name=name))
-            result.append({
-                "name": name,
-                "state": h.state.value,
-                "icon": h.icon,
-                "reason": h.reason,
-                "category": h.category.value if h.category else None,
-                "required": cfg.required,
-                "enabled": cfg.enabled,
-                "retry_count": h.retry_count,
-            })
+            result.append(
+                {
+                    "name": name,
+                    "state": h.state.value,
+                    "icon": h.icon,
+                    "reason": h.reason,
+                    "category": h.category.value if h.category else None,
+                    "required": cfg.required,
+                    "enabled": cfg.enabled,
+                    "retry_count": h.retry_count,
+                }
+            )
         return result
 
     async def shutdown_all(self) -> None:
@@ -478,6 +539,7 @@ class ResourceManager:
             except Exception:
                 logger.debug("shutdown_all: suppressed exception", exc_info=True)
             self._health[name] = ResourceHealth(
-                name=name, state=ResourceState.DISABLED,
+                name=name,
+                state=ResourceState.DISABLED,
                 required=self._configs[name].required,
             )

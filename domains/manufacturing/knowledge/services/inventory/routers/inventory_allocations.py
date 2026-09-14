@@ -27,7 +27,9 @@ async def list_inventory_allocations(
     return {"total": total, "page": page, "page_size": page_size, "results": records}
 
 
-@router.get("/by-workstation/{workstation_id}", response_model=list[InventoryAllocationResponse])
+@router.get(
+    "/by-workstation/{workstation_id}", response_model=list[InventoryAllocationResponse]
+)
 async def list_inventory_allocations_by_workstation(
     workstation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -36,7 +38,9 @@ async def list_inventory_allocations_by_workstation(
     return await crud.get_by_workstation_id(db, workstation_id)
 
 
-@router.get("/by-warehouse/{warehouse_id}", response_model=list[InventoryAllocationResponse])
+@router.get(
+    "/by-warehouse/{warehouse_id}", response_model=list[InventoryAllocationResponse]
+)
 async def list_inventory_allocations_by_warehouse(
     warehouse_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -54,7 +58,9 @@ async def list_inventory_allocations_by_sku(
     return await crud.get_by_sku(db, sku)
 
 
-@router.get("/by-status/{allocation_status}", response_model=list[InventoryAllocationResponse])
+@router.get(
+    "/by-status/{allocation_status}", response_model=list[InventoryAllocationResponse]
+)
 async def list_inventory_allocations_by_status(
     allocation_status: AllocationStatus,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -63,7 +69,9 @@ async def list_inventory_allocations_by_status(
     return await crud.get_by_status(db, allocation_status.value)
 
 
-@router.get("/by-request-type/{request_type}", response_model=list[InventoryAllocationResponse])
+@router.get(
+    "/by-request-type/{request_type}", response_model=list[InventoryAllocationResponse]
+)
 async def list_inventory_allocations_by_request_type(
     request_type: AllocationRequestType,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -87,7 +95,9 @@ async def get_inventory_allocation(
     return record
 
 
-@router.post("/", response_model=InventoryAllocationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=InventoryAllocationResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_inventory_allocation(
     data: InventoryAllocationCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

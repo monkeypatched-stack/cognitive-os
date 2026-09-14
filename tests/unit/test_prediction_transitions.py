@@ -5,13 +5,17 @@ real world/belief objects, no execution. Fake duck-typed action/fact/belief
 stand-ins exercise the Any-typed inputs the same way the engine itself
 treats them (getattr-based, never assuming a real class).
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.prediction.domain import Prediction
 from src.monkey_brain.kernel.pipeline.prediction.transitions import (
-    TransitionKind, TransitionModel, TransitionPredictionEngine, WorldTransition,
+    TransitionKind,
+    TransitionModel,
+    TransitionPredictionEngine,
+    WorldTransition,
 )
 
 
@@ -33,32 +37,55 @@ class _Belief:
 
 
 def _milk_model() -> TransitionModel:
-    return TransitionModel(known_transitions={
-        ("", "check_inventory_store_a"): (
-            WorldTransition(description="Inventory confirmed", probability=1.0, confidence=0.95,
-                             resulting_world_delta={"store_a.has_milk": True}),
-        ),
-        ("", "drive_to_store_a"): (
-            WorldTransition(description="Arrived on time", probability=0.9, confidence=0.8,
-                             resulting_world_delta={"actor.location": "store_a"}),
-            WorldTransition(description="Traffic delay", probability=0.1, confidence=0.8,
-                             resulting_world_delta={"actor.location": "en_route"}),
-        ),
-        ("", "ask_stranger_for_directions"): (
-            WorldTransition(description="Directions correct", probability=1.0, confidence=0.15,
-                             resulting_world_delta={"actor.knows_route": True}),
-        ),
-        ("", "purchase_milk"): (
-            WorldTransition(description="Milk purchased", probability=1.0, confidence=0.5,
-                             resulting_world_delta={"actor.has_milk": True},
-                             grounding_fact_key="store_a.stocks_whole_milk"),
-        ),
-    })
+    return TransitionModel(
+        known_transitions={
+            ("", "check_inventory_store_a"): (
+                WorldTransition(
+                    description="Inventory confirmed",
+                    probability=1.0,
+                    confidence=0.95,
+                    resulting_world_delta={"store_a.has_milk": True},
+                ),
+            ),
+            ("", "drive_to_store_a"): (
+                WorldTransition(
+                    description="Arrived on time",
+                    probability=0.9,
+                    confidence=0.8,
+                    resulting_world_delta={"actor.location": "store_a"},
+                ),
+                WorldTransition(
+                    description="Traffic delay",
+                    probability=0.1,
+                    confidence=0.8,
+                    resulting_world_delta={"actor.location": "en_route"},
+                ),
+            ),
+            ("", "ask_stranger_for_directions"): (
+                WorldTransition(
+                    description="Directions correct",
+                    probability=1.0,
+                    confidence=0.15,
+                    resulting_world_delta={"actor.knows_route": True},
+                ),
+            ),
+            ("", "purchase_milk"): (
+                WorldTransition(
+                    description="Milk purchased",
+                    probability=1.0,
+                    confidence=0.5,
+                    resulting_world_delta={"actor.has_milk": True},
+                    grounding_fact_key="store_a.stocks_whole_milk",
+                ),
+            ),
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # The four required transition kinds
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDeterministicTransitions:
     def test_single_certain_outcome_classified_deterministic(self):
@@ -126,6 +153,7 @@ class TestMissingKnowledge:
 # Belief grounding
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBeliefGrounding:
     def test_matching_fact_overrides_registered_confidence(self):
         engine = TransitionPredictionEngine(_milk_model())
@@ -158,6 +186,7 @@ class TestBeliefGrounding:
 # predict_future_world — folding a sequence of actions
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPredictFutureWorld:
     def test_folds_most_likely_transition_per_action(self):
         engine = TransitionPredictionEngine(_milk_model())
@@ -185,6 +214,7 @@ class TestPredictFutureWorld:
 # predict — the full Prediction domain object
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPredict:
     def test_returns_a_prediction(self):
         engine = TransitionPredictionEngine(_milk_model())
@@ -203,7 +233,10 @@ class TestPredict:
 
     def test_confidence_is_the_minimum_across_actions(self):
         engine = TransitionPredictionEngine(_milk_model())
-        actions = (_Action("check_inventory_store_a"), _Action("drive_to_store_a"))  # confidences 0.95, 0.8
+        actions = (
+            _Action("check_inventory_store_a"),
+            _Action("drive_to_store_a"),
+        )  # confidences 0.95, 0.8
 
         pred = engine.predict(None, None, actions)
 
@@ -211,7 +244,11 @@ class TestPredict:
 
     def test_outcome_count_matches_action_count(self):
         engine = TransitionPredictionEngine(_milk_model())
-        actions = (_Action("check_inventory_store_a"), _Action("drive_to_store_a"), _Action("fly_to_the_moon"))
+        actions = (
+            _Action("check_inventory_store_a"),
+            _Action("drive_to_store_a"),
+            _Action("fly_to_the_moon"),
+        )
         pred = engine.predict(None, None, actions)
         assert len(pred.predicted_outcomes) == 3
 
@@ -238,9 +275,11 @@ class TestPredict:
 # Ownership boundary — read-only, no execution coupling
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -254,12 +293,19 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_execution_or_runtime_coupling(self):
         import src.monkey_brain.kernel.pipeline.prediction.transitions as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "kernel.pipeline.execution", "action_executor", "learning."):
+        for forbidden in (
+            "belief_runtime",
+            "kernel.pipeline.execution",
+            "action_executor",
+            "learning.",
+        ):
             assert forbidden not in imports, f"transitions.py must not import: {forbidden}"
 
     def test_depends_only_on_prediction_domain(self):
         import src.monkey_brain.kernel.pipeline.prediction.transitions as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         assert project_imports == ["src.monkey_brain.kernel.pipeline.prediction.domain"]

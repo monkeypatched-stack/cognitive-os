@@ -6,6 +6,7 @@ git commits, prompt compilation, chart values): this agent packages the
 version/changelog — so ReleaseAgent/DeploymentAgent has something concrete
 to ship rather than a source checkout.
 """
+
 from __future__ import annotations
 import asyncio
 import logging
@@ -51,7 +52,10 @@ class ArtifactPackagingAgent(BaseETASSAgent):
         if not service_dir.exists():
             self._reward(False, 0.1)
             return self._result(
-                payload={"packaged": False, "error": f"service dir not found: {service_dir}"},
+                payload={
+                    "packaged": False,
+                    "error": f"service dir not found: {service_dir}",
+                },
                 observations=[f"generated service directory missing: {service_dir}"],
             )
 
@@ -63,6 +67,7 @@ class ArtifactPackagingAgent(BaseETASSAgent):
         artifacts = []
         try:
             from src.monkey_brain.kernel.execute.runtime.outcome import Artifact
+
             if build_ok:
                 artifacts = [Artifact(kind="container_image", name=image_tag, uri=image_tag)]
         except ImportError:
@@ -76,7 +81,7 @@ class ArtifactPackagingAgent(BaseETASSAgent):
                 "changelog_entry": changelog_entry,
             },
             artifacts=artifacts,
-            observations=[build_output[-300:]] if not build_ok else [f"built {image_tag}"],
+            observations=([build_output[-300:]] if not build_ok else [f"built {image_tag}"]),
         )
 
     def _bump_version(self, service_dir: Path, context: dict) -> str:
@@ -98,7 +103,9 @@ class ArtifactPackagingAgent(BaseETASSAgent):
         return _bump_patch(current)
 
     def _write_changelog(self, service_dir: Path, service_slug: str, version: str, context: dict) -> str:
-        entry = f"## {version} — {date.today().isoformat()}\n\n- {context.get('changelog_note', 'Automated release.')}\n\n"
+        entry = (
+            f"## {version} — {date.today().isoformat()}\n\n- {context.get('changelog_note', 'Automated release.')}\n\n"
+        )
         try:
             changelog = service_dir / "CHANGELOG.md"
             existing = changelog.read_text() if changelog.exists() else f"# {service_slug} Changelog\n\n"
@@ -118,7 +125,10 @@ class ArtifactPackagingAgent(BaseETASSAgent):
                 None,
                 lambda: subprocess.run(
                     ["docker", "build", "-t", image_tag, "."],
-                    cwd=str(service_dir), capture_output=True, text=True, timeout=300,
+                    cwd=str(service_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
                 ),
             )
             return image_tag, r.returncode == 0, (r.stdout + r.stderr)

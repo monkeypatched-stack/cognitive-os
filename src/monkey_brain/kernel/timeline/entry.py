@@ -15,6 +15,7 @@ check in scripts/check_architecture_conformance.py) — callers append
 through TimelineStore.append()/PresenceTimeline.move_actor(), not by
 instantiating these dataclasses directly.
 """
+
 from __future__ import annotations
 
 import time
@@ -40,6 +41,7 @@ class TimelineKind(Enum):
 @dataclass(frozen=True)
 class TimelineEntry:
     """Common shape every timeline entry shares, regardless of kind."""
+
     entry_id: str = field(default_factory=lambda: uuid4().hex)
     actor_id: str = ""
     start_time: float = field(default_factory=time.time)
@@ -80,6 +82,7 @@ class TimelineEntry:
 @dataclass(frozen=True)
 class Presence(TimelineEntry):
     """Actor LOCATED_IN Space, valid_time=[start_time, end_time or now)."""
+
     space_id: str = ""
     activity: str = ""
 
@@ -111,6 +114,7 @@ class MembershipRecord(TimelineEntry):
     "is this the current row for this membership_id," exactly like
     Presence — just keyed by membership_id instead of "one open row per
     actor," since an actor can hold several concurrent memberships."""
+
     membership_id: str = ""
     society_id: str = ""
     team_id: str = ""
@@ -124,10 +128,16 @@ class MembershipRecord(TimelineEntry):
 
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
-        d.update(membership_id=self.membership_id, society_id=self.society_id,
-                  team_id=self.team_id, roles=list(self.roles), status=self.status,
-                  permissions=list(self.permissions), trust_score=self.trust_score,
-                  reason=self.reason)
+        d.update(
+            membership_id=self.membership_id,
+            society_id=self.society_id,
+            team_id=self.team_id,
+            roles=list(self.roles),
+            status=self.status,
+            permissions=list(self.permissions),
+            trust_score=self.trust_score,
+            reason=self.reason,
+        )
         return d
 
 
@@ -135,6 +145,7 @@ class MembershipRecord(TimelineEntry):
 class GoalRecord(TimelineEntry):
     """Replaces kernel/pipeline/belief_state.py::BeliefState.goal as a
     mutable field — see kernel/pipeline/belief_state.py's goal @property."""
+
     name: str = ""
     description: str = ""
     success_criteria: tuple[str, ...] = ()
@@ -146,10 +157,14 @@ class GoalRecord(TimelineEntry):
 
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
-        d.update(name=self.name, description=self.description,
-                  success_criteria=list(self.success_criteria),
-                  optimization_objective=self.optimization_objective,
-                  priority=self.priority, status=self.status)
+        d.update(
+            name=self.name,
+            description=self.description,
+            success_criteria=list(self.success_criteria),
+            optimization_objective=self.optimization_objective,
+            priority=self.priority,
+            status=self.status,
+        )
         return d
 
 
@@ -158,6 +173,7 @@ class BeliefRecord(TimelineEntry):
     """One observed/fused belief hypothesis — additive history layer
     alongside kernel/society/belief.py::BeliefFusion's existing per-subject
     current-hypothesis view (which is unchanged by this refactor)."""
+
     subject: str = ""
     predicate: str = ""
     value: Any = None
@@ -173,6 +189,7 @@ class ExecutionRecord(TimelineEntry):
     """One completed tick's execution — naturally append-only already
     (a fresh ExecutionResult per tick, never mutated); this is what
     persists it instead of discarding it after the tick."""
+
     goal: str = ""
     plan_summary: tuple[str, ...] = ()
     outcome: str = ""
@@ -188,10 +205,14 @@ class ExecutionRecord(TimelineEntry):
 
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
-        d.update(goal=self.goal, plan_summary=list(self.plan_summary),
-                  outcome=self.outcome, failure_reason=self.failure_reason,
-                  capabilities_used=list(self.capabilities_used),
-                  step_failures=list(self.step_failures))
+        d.update(
+            goal=self.goal,
+            plan_summary=list(self.plan_summary),
+            outcome=self.outcome,
+            failure_reason=self.failure_reason,
+            capabilities_used=list(self.capabilities_used),
+            step_failures=list(self.step_failures),
+        )
         return d
 
 
@@ -201,6 +222,7 @@ class IntentRecord(TimelineEntry):
     (type/confidence/metadata) is set every tick and discarded once that
     tick's CognitiveState goes out of scope — this persists it. confidence
     is inherited from the base TimelineEntry, not duplicated here."""
+
     intent_type: str = ""
     entities: tuple[str, ...] = ()
     constraints: tuple[str, ...] = ()
@@ -208,8 +230,12 @@ class IntentRecord(TimelineEntry):
 
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
-        d.update(intent_type=self.intent_type, entities=list(self.entities),
-                  constraints=list(self.constraints), priority=self.priority)
+        d.update(
+            intent_type=self.intent_type,
+            entities=list(self.entities),
+            constraints=list(self.constraints),
+            priority=self.priority,
+        )
         return d
 
 
@@ -220,6 +246,7 @@ class PlanRecord(TimelineEntry):
     no history kept anywhere — this persists one PlanRecord per tick that
     produced a plan. confidence (base) carries the plan's own confidence,
     matching Plan.confidence."""
+
     plan_id: str = field(default_factory=lambda: uuid4().hex)
     goal: str = ""
     steps: tuple[str, ...] = ()
@@ -243,10 +270,18 @@ class PlanRecord(TimelineEntry):
 
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
-        d.update(plan_id=self.plan_id, goal=self.goal, steps=list(self.steps),
-                  step_descriptions=list(self.step_descriptions),
-                  node_count=self.node_count, completed_nodes=self.completed_nodes,
-                  cost=self.cost, risk=self.risk, status=self.status, result=self.result)
+        d.update(
+            plan_id=self.plan_id,
+            goal=self.goal,
+            steps=list(self.steps),
+            step_descriptions=list(self.step_descriptions),
+            node_count=self.node_count,
+            completed_nodes=self.completed_nodes,
+            cost=self.cost,
+            risk=self.risk,
+            status=self.status,
+            result=self.result,
+        )
         return d
 
 
@@ -260,6 +295,7 @@ class DecisionRecord(TimelineEntry):
     for actors that actually went through that coordination path — no
     DecisionRecord yet means no such decision was made, not a gap.
     confidence (base) doubles as decision confidence."""
+
     selected_strategy: str = ""
     reason: str = ""
     utility: float = 0.0
@@ -270,9 +306,13 @@ class DecisionRecord(TimelineEntry):
 
     def to_dict(self) -> dict[str, Any]:
         d = super().to_dict()
-        d.update(selected_strategy=self.selected_strategy, reason=self.reason,
-                  utility=self.utility, evidence=list(self.evidence),
-                  candidates=[dict(c) for c in self.candidates])
+        d.update(
+            selected_strategy=self.selected_strategy,
+            reason=self.reason,
+            utility=self.utility,
+            evidence=list(self.evidence),
+            candidates=[dict(c) for c in self.candidates],
+        )
         return d
 
 
@@ -282,6 +322,7 @@ class RelationshipRecord(TimelineEntry):
     RelationshipHistoryEntry — see TimelineQueryEngine.replay(), which
     needs one common entry shape across all 7 kinds. Not a second store:
     RelationshipGraph stays the source of truth for relationships."""
+
     kind: str = ""
     target_id: str = ""
 
@@ -295,6 +336,7 @@ class RelationshipRecord(TimelineEntry):
 class ActivityRecord(TimelineEntry):
     """Actor PERFORMING <activity>, independent of location — may span
     multiple Presence records (e.g. "driving" spans several Spaces)."""
+
     activity: str = ""
     presence_ids: tuple[str, ...] = ()
 

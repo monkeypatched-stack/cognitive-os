@@ -23,10 +23,14 @@ async def list_procedures(
     _: dict = Depends(require_permission("perm-view-changeovers")),
 ):
     results, total = await crud.get_all_procedures(db, page=page, page_size=page_size)
-    return PaginatedChangeoverProcedureResponse(total=total, page=page, page_size=page_size, results=results)
+    return PaginatedChangeoverProcedureResponse(
+        total=total, page=page, page_size=page_size, results=results
+    )
 
 
-@router.get("/by-factory/{factory_id}", response_model=list[ChangeoverProcedureResponse])
+@router.get(
+    "/by-factory/{factory_id}", response_model=list[ChangeoverProcedureResponse]
+)
 async def list_procedures_by_factory(
     factory_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -52,18 +56,26 @@ async def get_procedure(
 ):
     record = await crud.get_procedure_by_id(db, procedure_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover procedure '{procedure_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Changeover procedure '{procedure_id}' not found",
+        )
     return record
 
 
-@router.post("", response_model=ChangeoverProcedureResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=ChangeoverProcedureResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_procedure(
     data: ChangeoverProcedureCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-create-changeovers")),
 ):
     if await crud.get_procedure_by_id(db, str(data.id)):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Changeover procedure '{data.id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Changeover procedure '{data.id}' already exists",
+        )
     return await crud.create_procedure(db, data)
 
 
@@ -76,11 +88,16 @@ async def update_procedure(
 ):
     updated = await crud.update_procedure(db, procedure_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover procedure '{procedure_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Changeover procedure '{procedure_id}' not found",
+        )
     return updated
 
 
-@router.patch("/{procedure_id}/tasks/{task_id}", response_model=ChangeoverProcedureResponse)
+@router.patch(
+    "/{procedure_id}/tasks/{task_id}", response_model=ChangeoverProcedureResponse
+)
 async def update_procedure_task(
     procedure_id: str,
     task_id: str,
@@ -90,11 +107,16 @@ async def update_procedure_task(
 ):
     updated = await crud.update_procedure_task(db, procedure_id, task_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover task '{task_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Changeover task '{task_id}' not found"
+        )
     return updated
 
 
-@router.patch("/{procedure_id}/tasks/{task_id}/complete", response_model=ChangeoverProcedureResponse)
+@router.patch(
+    "/{procedure_id}/tasks/{task_id}/complete",
+    response_model=ChangeoverProcedureResponse,
+)
 async def set_procedure_task_complete(
     procedure_id: str,
     task_id: str,
@@ -104,7 +126,9 @@ async def set_procedure_task_complete(
 ):
     updated = await crud.set_procedure_task_complete(db, procedure_id, task_id, value)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover task '{task_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Changeover task '{task_id}' not found"
+        )
     return updated
 
 
@@ -115,4 +139,7 @@ async def delete_procedure(
     _: dict = Depends(require_permission("perm-delete-changeovers")),
 ):
     if not await crud.delete_procedure(db, procedure_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover procedure '{procedure_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Changeover procedure '{procedure_id}' not found",
+        )

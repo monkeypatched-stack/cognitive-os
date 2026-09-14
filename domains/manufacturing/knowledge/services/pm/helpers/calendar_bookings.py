@@ -7,7 +7,10 @@ from uuid import UUID
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.pm.models.calendar_booking import CalendarBookingCreate, CalendarBookingUpdate
+from services.pm.models.calendar_booking import (
+    CalendarBookingCreate,
+    CalendarBookingUpdate,
+)
 
 COLLECTION = "calendar_bookings"
 
@@ -82,9 +85,12 @@ async def has_conflict(
     end_at: datetime,
     exclude_id: Optional[str] = None,
 ) -> bool:
-    return await db[COLLECTION].find_one(
-        _overlap_query(calendar_id, start_at, end_at, exclude_id=exclude_id)
-    ) is not None
+    return (
+        await db[COLLECTION].find_one(
+            _overlap_query(calendar_id, start_at, end_at, exclude_id=exclude_id)
+        )
+        is not None
+    )
 
 
 async def create(db: AsyncIOMotorDatabase, data: CalendarBookingCreate) -> dict:

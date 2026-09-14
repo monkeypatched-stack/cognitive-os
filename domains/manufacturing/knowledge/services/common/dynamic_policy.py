@@ -27,31 +27,56 @@ logger = logging.getLogger(__name__)
 # ---- risk classification rules -----------------------------------------------
 # Actions and resource patterns that elevate risk level.
 
-_HIGH_RISK_ACTIONS = frozenset({
-    "delete", "purge", "revoke", "deactivate", "drop", "truncate",
-    "approve", "release", "deploy", "promote",
-})
-_CRITICAL_RISK_ACTIONS = frozenset({
-    "admin", "root", "sudo", "impersonate", "federation_trust",
-})
-_SENSITIVE_RESOURCES = frozenset({
-    "production", "credentials", "secrets", "ca", "root_ca", "pki",
-    "audit_log", "compliance", "billing",
-})
+_HIGH_RISK_ACTIONS = frozenset(
+    {
+        "delete",
+        "purge",
+        "revoke",
+        "deactivate",
+        "drop",
+        "truncate",
+        "approve",
+        "release",
+        "deploy",
+        "promote",
+    }
+)
+_CRITICAL_RISK_ACTIONS = frozenset(
+    {
+        "admin",
+        "root",
+        "sudo",
+        "impersonate",
+        "federation_trust",
+    }
+)
+_SENSITIVE_RESOURCES = frozenset(
+    {
+        "production",
+        "credentials",
+        "secrets",
+        "ca",
+        "root_ca",
+        "pki",
+        "audit_log",
+        "compliance",
+        "billing",
+    }
+)
 
 # Business hours (UTC) outside which elevated risk applies
-_BUSINESS_HOURS_START = 7   # 07:00 UTC
-_BUSINESS_HOURS_END   = 19  # 19:00 UTC
+_BUSINESS_HOURS_START = 7  # 07:00 UTC
+_BUSINESS_HOURS_END = 19  # 19:00 UTC
 
 
 @dataclass
 class DynamicPolicyContext:
-    risk_level:        str   = "low"     # low | medium | high | critical
-    reliability_score: float = 1.0       # 0.0–1.0 from RL history (1.0 = no data = trust)
-    audit_flagged:     bool  = False     # True if principal appears in recent deny events
-    off_hours:         bool  = False     # True if request is outside business hours
-    requires_quorum:   bool  = False     # derived from risk_level
-    read_only_enforced: bool = False     # derived from low reliability_score
+    risk_level: str = "low"  # low | medium | high | critical
+    reliability_score: float = 1.0  # 0.0–1.0 from RL history (1.0 = no data = trust)
+    audit_flagged: bool = False  # True if principal appears in recent deny events
+    off_hours: bool = False  # True if request is outside business hours
+    requires_quorum: bool = False  # derived from risk_level
+    read_only_enforced: bool = False  # derived from low reliability_score
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -68,12 +93,15 @@ class DynamicPolicyContext:
 # Risk classification
 # ---------------------------------------------------------------------------
 
+
 def classify_risk(action: str, resource: str) -> str:
     """Classify request risk from action + resource keywords."""
     a = action.lower()
     r = resource.lower()
 
-    if a in _CRITICAL_RISK_ACTIONS or any(kw in r for kw in ("root_ca", "federation_trust", "impersonate")):
+    if a in _CRITICAL_RISK_ACTIONS or any(
+        kw in r for kw in ("root_ca", "federation_trust", "impersonate")
+    ):
         return "critical"
     if a in _HIGH_RISK_ACTIONS or any(kw in r for kw in _SENSITIVE_RESOURCES):
         return "high"
@@ -91,6 +119,7 @@ def _is_off_hours() -> bool:
 # Reliability scoring from BellmanPolicy Q-table
 # ---------------------------------------------------------------------------
 
+
 def _reliability_from_policy(agent_type: str) -> float:
     """Look up the agent's avg reward from the BellmanPolicy Q-table.
 
@@ -99,6 +128,7 @@ def _reliability_from_policy(agent_type: str) -> float:
     """
     try:
         from broca.registry import get_registry
+
         registry = get_registry()
         runtime = getattr(registry, "_runtime", None)
         if runtime is None:
@@ -120,15 +150,17 @@ def _reliability_from_policy(agent_type: str) -> float:
 # Audit flag detection (Redis-based: were there recent denies for this subject?)
 # ---------------------------------------------------------------------------
 
+
 async def _is_audit_flagged(subject: str) -> bool:
     """Check if this principal appeared as a deny in the recent audit window (5 min)."""
     try:
         import redis.asyncio as aioredis
+
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         r: aioredis.Redis = aioredis.from_url(redis_url, decode_responses=True)
         count = await r.get(f"audit:deny:{subject}")
         await r.aclose()
-        return int(count or 0) >= 3   # 3+ denies in TTL window → flagged
+        return int(count or 0) >= 3  # 3+ denies in TTL window → flagged
     except Exception:
         return False
 
@@ -137,6 +169,7 @@ async def _record_audit_deny(subject: str) -> None:
     """Increment the deny counter for this subject (TTL 5 min)."""
     try:
         import redis.asyncio as aioredis
+
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         r: aioredis.Redis = aioredis.from_url(redis_url, decode_responses=True)
         key = f"audit:deny:{subject}"
@@ -150,6 +183,7 @@ async def _record_audit_deny(subject: str) -> None:
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 async def build_dynamic_context(
     principal: dict[str, Any],

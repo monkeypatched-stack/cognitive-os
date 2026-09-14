@@ -37,6 +37,7 @@ required authentication: already on governed path
 required policy: already evaluated
 required audit: execution audit around the capability
 """
+
 from __future__ import annotations
 
 import logging
@@ -86,7 +87,7 @@ class SecurityBoundaryDenied(Exception):
 
 class HumanApprovalRequired(Exception):
     """Raised when an operation requires human approval before execution.
-    
+
     The operation is NOT failed — it is queued for HITL (human-in-the-loop).
     The caller should use the approval_id to poll for approval status.
     """
@@ -148,7 +149,10 @@ def _note(stage: str) -> None:
 
 
 def build_opa_input(
-    *, action: str, resource: str, extra: dict[str, Any] | None = None,
+    *,
+    action: str,
+    resource: str,
+    extra: dict[str, Any] | None = None,
     recipient_spiffe_id: str = "",
     verified_delegation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -196,14 +200,20 @@ def build_opa_input(
 
 
 async def _authorize(
-    action: str, resource: str, extra: dict[str, Any] | None,
-    *, verified_delegation: dict[str, Any] | None = None,
+    action: str,
+    resource: str,
+    extra: dict[str, Any] | None,
+    *,
+    verified_delegation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.governance import get_governance_engine
 
     gov = get_governance_engine()
     opa_input = build_opa_input(
-        action=action, resource=resource, extra=extra, verified_delegation=verified_delegation,
+        action=action,
+        resource=resource,
+        extra=extra,
+        verified_delegation=verified_delegation,
     )
     result = await gov.evaluate(opa_input["runtime_id"], action, opa_input["context"])
     if not result.get("allowed"):
@@ -229,6 +239,7 @@ def _assert_idempotency(operation_id: str = "") -> None:
         return
     try:
         from src.monkey_brain.api.idempotency import get_idempotency_store
+
         store = get_idempotency_store()
         if store is None or not store.is_available():
             raise SecurityBoundaryDenied("idempotency store missing", stage="IDEMPOTENCY")
@@ -257,6 +268,7 @@ def _assert_idempotency(operation_id: str = "") -> None:
 def _release_admission(operation_id: str) -> None:
     try:
         from src.monkey_brain.api.idempotency import get_idempotency_store
+
         get_idempotency_store().release(f"governed:{operation_id}")
     except Exception:
         logger.debug("idempotency release skipped for %s", operation_id, exc_info=True)
@@ -265,6 +277,7 @@ def _release_admission(operation_id: str) -> None:
 def _complete_admission(operation_id: str, body: dict[str, Any]) -> None:
     try:
         from src.monkey_brain.api.idempotency import get_idempotency_store
+
         get_idempotency_store().complete(f"governed:{operation_id}", operation_id, body)
     except Exception:
         logger.debug("idempotency complete skipped for %s", operation_id, exc_info=True)
@@ -284,6 +297,7 @@ def _reopen_admission_for_retry(operation_id: str) -> None:
     """
     try:
         from src.monkey_brain.api.idempotency import get_idempotency_store
+
         get_idempotency_store().release(f"governed:{operation_id}")
     except Exception:
         logger.debug("idempotency reopen skipped for %s", operation_id, exc_info=True)
@@ -341,7 +355,10 @@ def _audit_attempt_event(
         )
     except Exception:
         logger.debug(
-            "attempt audit event %s skipped for %s", event, attempt.execution_attempt_id, exc_info=True,
+            "attempt audit event %s skipped for %s",
+            event,
+            attempt.execution_attempt_id,
+            exc_info=True,
         )
 
 
@@ -386,25 +403,41 @@ def _audit_reconciliation_event(
         )
     except Exception:
         logger.debug(
-            "reconciliation audit event %s skipped for %s", event, attempt.execution_attempt_id, exc_info=True,
+            "reconciliation audit event %s skipped for %s",
+            event,
+            attempt.execution_attempt_id,
+            exc_info=True,
         )
 
 
 def _mark_unknown_and_require_reconciliation(
-    *, evidence: Any, action: str, resource: str, operation_id: str, attempt: Any, extra: dict[str, Any] | None = None,
+    *,
+    evidence: Any,
+    action: str,
+    resource: str,
+    operation_id: str,
+    attempt: Any,
+    extra: dict[str, Any] | None = None,
 ) -> None:
     """UNKNOWN is never a resting state (Part 3/16): the moment an attempt
     lands on UNKNOWN, it advances immediately to RECONCILIATION_REQUIRED —
     automatic bookkeeping, not itself an outcome claim, so it needs no
     reconciliation evidence of its own.
     """
-    from src.monkey_brain.kernel.execution_attempt import ExecutionAttemptState, transition_attempt
+    from src.monkey_brain.kernel.execution_attempt import (
+        ExecutionAttemptState,
+        transition_attempt,
+    )
 
     transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.UNKNOWN, evidence=extra)
     transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.RECONCILIATION_REQUIRED)
     _audit_reconciliation_event(
-        evidence=evidence, action=action, resource=resource, operation_id=operation_id,
-        attempt=attempt, event="required",
+        evidence=evidence,
+        action=action,
+        resource=resource,
+        operation_id=operation_id,
+        attempt=attempt,
+        event="required",
     )
 
 
@@ -476,28 +509,45 @@ async def _execute_attempt_pipeline(
     # COMMITTED. Only now may an execution attempt exist for this operation.
     attempt = new_attempt_after(op_id, idempotent_effect=idempotent_effect, reconciled=reconciled)
     _audit_attempt_event(
-        evidence=evidence, action=action, resource=resource, operation_id=op_id,
-        attempt=attempt, event="created",
+        evidence=evidence,
+        action=action,
+        resource=resource,
+        operation_id=op_id,
+        attempt=attempt,
+        event="created",
     )
     transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.READY)
     _audit_attempt_event(
-        evidence=evidence, action=action, resource=resource, operation_id=op_id,
-        attempt=attempt, event="ready",
+        evidence=evidence,
+        action=action,
+        resource=resource,
+        operation_id=op_id,
+        attempt=attempt,
+        event="ready",
     )
     transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.STARTED)
     _audit_attempt_event(
-        evidence=evidence, action=action, resource=resource, operation_id=op_id,
-        attempt=attempt, event="started",
+        evidence=evidence,
+        action=action,
+        resource=resource,
+        operation_id=op_id,
+        attempt=attempt,
+        event="started",
     )
     ledger.transition(op_id, SecurityOperationState.EXECUTING)
     transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
     _audit_attempt_event(
-        evidence=evidence, action=action, resource=resource, operation_id=op_id,
-        attempt=attempt, event="submitted",
+        evidence=evidence,
+        action=action,
+        resource=resource,
+        operation_id=op_id,
+        attempt=attempt,
+        event="submitted",
     )
-    
+
     # NEW: Approval validation gate — check that operation is approved before mutation
     from src.monkey_brain.kernel.approval import validate_approval_for_execution
+
     approval_mode = policy.get("approval_mode", "AUTO_APPROVE")
     is_approved, approval_reason = validate_approval_for_execution(op_id, approval_mode, action, resource)
     if not is_approved:
@@ -514,7 +564,7 @@ async def _execute_attempt_pipeline(
             stage="APPROVAL_VALIDATION",
         )
     _note("APPROVAL_VALIDATED")
-    
+
     try:
         result = mutate()
         if hasattr(result, "__await__"):
@@ -525,11 +575,7 @@ async def _execute_attempt_pipeline(
         kind = classify_external_exception(exc)
         outcome = "unknown" if kind == "unknown" else "failure"
         attempt_state = ExecutionAttemptState.UNKNOWN if kind == "unknown" else ExecutionAttemptState.FAILED
-        state = (
-            SecurityOperationState.RECONCILIATION_REQUIRED
-            if kind == "unknown"
-            else SecurityOperationState.FAILED
-        )
+        state = SecurityOperationState.RECONCILIATION_REQUIRED if kind == "unknown" else SecurityOperationState.FAILED
         try:
             get_audit_log().record(
                 runtime_id=evidence.principal_id or "unknown",
@@ -553,14 +599,20 @@ async def _execute_attempt_pipeline(
             _note("AUDIT_RESULT")
         except AuditPersistenceError:
             ledger.transition(
-                op_id, SecurityOperationState.RECONCILIATION_REQUIRED,
-                audit_result="unavailable", mutations=mutations,
+                op_id,
+                SecurityOperationState.RECONCILIATION_REQUIRED,
+                audit_result="unavailable",
+                mutations=mutations,
             )
             # Effect outcome genuinely unresolved (audit-result persistence
             # failed too) — never claim FAILED/SUCCEEDED here (P5).
             _mark_unknown_and_require_reconciliation(
-                evidence=evidence, action=action, resource=resource, operation_id=op_id,
-                attempt=attempt, extra={"audit_result": "unavailable"},
+                evidence=evidence,
+                action=action,
+                resource=resource,
+                operation_id=op_id,
+                attempt=attempt,
+                extra={"audit_result": "unavailable"},
             )
             logger.error("audit result persistence failed after mutation error op=%s", op_id)
             raise AuditResultUnavailable(
@@ -570,7 +622,11 @@ async def _execute_attempt_pipeline(
             ) from exc
         if kind == "unknown":
             _mark_unknown_and_require_reconciliation(
-                evidence=evidence, action=action, resource=resource, operation_id=op_id, attempt=attempt,
+                evidence=evidence,
+                action=action,
+                resource=resource,
+                operation_id=op_id,
+                attempt=attempt,
             )
             ledger.transition(op_id, state)
             _complete_admission(op_id, {"outcome": "unknown"})
@@ -602,8 +658,10 @@ async def _execute_attempt_pipeline(
         )
     except AuditPersistenceError as exc:
         ledger.transition(
-            op_id, SecurityOperationState.RECONCILIATION_REQUIRED,
-            audit_result="unavailable", mutations=mutations,
+            op_id,
+            SecurityOperationState.RECONCILIATION_REQUIRED,
+            audit_result="unavailable",
+            mutations=mutations,
         )
         # The effect DID occur (mutate() returned) — the attempt itself
         # succeeded. What's unresolved is durable confirmation of that
@@ -611,7 +669,8 @@ async def _execute_attempt_pipeline(
         # execution-attempt-outcome concern (Part E: attempt state must
         # not claim more, or less, certainty than its own evidence supports).
         transition_attempt(
-            attempt.execution_attempt_id, ExecutionAttemptState.SUCCEEDED,
+            attempt.execution_attempt_id,
+            ExecutionAttemptState.SUCCEEDED,
             evidence={"audit_result": "unavailable"},
         )
         raise AuditResultUnavailable(
@@ -712,7 +771,11 @@ async def run_governed_mutation(
     )
 
     async def _authorize_and_gate(
-        *, op_id: str, tx_class: Any, ledger: Any, evidence: Any,
+        *,
+        op_id: str,
+        tx_class: Any,
+        ledger: Any,
+        evidence: Any,
     ) -> dict[str, Any]:
         """AUTH -> AUTHZ -> approval-artifact -> DENY/HITL gate, shared by
         the top-level (non-nested) commitment path and by force_authorize
@@ -748,6 +811,7 @@ async def run_governed_mutation(
         # CRITICAL: Prevent self-approval at artifact creation time
         # If the approving_principal is set (non-empty) and equals requesting_principal, reject
         from src.monkey_brain.kernel.approval import prevent_self_approval
+
         is_not_self_approval, self_approval_reason = prevent_self_approval(
             approval_artifact.requesting_principal,
             approval_artifact.approving_principal,
@@ -765,7 +829,7 @@ async def run_governed_mutation(
 
         # Store approval artifact
         store = get_approval_store()
-        if hasattr(store, 'create'):
+        if hasattr(store, "create"):
             # Support both sync (ApprovalArtifactStore) and async (MongoApprovalArtifactStore)
             result = store.create(approval_artifact)
             if hasattr(result, "__await__"):
@@ -795,17 +859,19 @@ async def run_governed_mutation(
             # Store the operation in ledger as AWAITING_APPROVAL
             # The caller will get back the approval_id to poll
             try:
-                ledger.create(SecurityOperation(
-                    operation_id=op_id,
-                    action=action,
-                    resource=resource,
-                    state=SecurityOperationState.AWAITING_APPROVAL,
-                    transaction_class=tx_class,
-                    principal_id=evidence.principal_id,
-                    mfa_status=evidence.mfa_status,
-                    policy_decision=f"human_approval_required:{approval_artifact.approval_id}",
-                    idempotency_key=str((extra or {}).get("idempotency_key") or op_id),
-                ))
+                ledger.create(
+                    SecurityOperation(
+                        operation_id=op_id,
+                        action=action,
+                        resource=resource,
+                        state=SecurityOperationState.AWAITING_APPROVAL,
+                        transaction_class=tx_class,
+                        principal_id=evidence.principal_id,
+                        mfa_status=evidence.mfa_status,
+                        policy_decision=f"human_approval_required:{approval_artifact.approval_id}",
+                        idempotency_key=str((extra or {}).get("idempotency_key") or op_id),
+                    )
+                )
             except DuplicateSecurityOperation as exc:
                 raise SecurityBoundaryDenied(
                     f"duplicate operation {exc.operation_id}",
@@ -819,17 +885,19 @@ async def run_governed_mutation(
         # else: AUTO_APPROVE — continue to execution
 
         try:
-            ledger.create(SecurityOperation(
-                operation_id=op_id,
-                action=action,
-                resource=resource,
-                state=SecurityOperationState.AUTHORIZED,
-                transaction_class=tx_class,
-                principal_id=evidence.principal_id,
-                mfa_status=evidence.mfa_status,
-                policy_decision=str(policy.get("reason") or "allow"),
-                idempotency_key=str((extra or {}).get("idempotency_key") or op_id),
-            ))
+            ledger.create(
+                SecurityOperation(
+                    operation_id=op_id,
+                    action=action,
+                    resource=resource,
+                    state=SecurityOperationState.AUTHORIZED,
+                    transaction_class=tx_class,
+                    principal_id=evidence.principal_id,
+                    mfa_status=evidence.mfa_status,
+                    policy_decision=str(policy.get("reason") or "allow"),
+                    idempotency_key=str((extra or {}).get("idempotency_key") or op_id),
+                )
+            )
         except DuplicateSecurityOperation as exc:
             raise SecurityBoundaryDenied(
                 f"duplicate operation {exc.operation_id}",
@@ -842,6 +910,7 @@ async def run_governed_mutation(
             # decision) because a verified delegation whose OWN operation
             # was then DENIED by OPA/approval never reaches this line.
             from src.monkey_brain.kernel.delegation import _audit_delegation_event
+
             _audit_delegation_event(
                 "delegation_exercised",
                 delegation_id=str(verified_delegation.get("delegation_id", "")),
@@ -875,8 +944,13 @@ async def run_governed_mutation(
     try:
         policy = await _authorize_and_gate(op_id=op_id, tx_class=tx_class, ledger=ledger, evidence=evidence)
         return await _execute_attempt_pipeline(
-            action=action, resource=resource, op_id=op_id, mutate=mutate,
-            policy=policy, ledger=ledger, evidence=evidence,
+            action=action,
+            resource=resource,
+            op_id=op_id,
+            mutate=mutate,
+            policy=policy,
+            ledger=ledger,
+            evidence=evidence,
             idempotent_effect=idempotent_effect,
         )
     finally:
@@ -914,8 +988,15 @@ async def retry_execution_attempt(
         no reconciliation has resolved it (Part L rule 10 — never a blind
         retry of a non-idempotent, unresolved effect)
     """
-    from src.monkey_brain.kernel.execution_attempt import UnsafeBlindRetry, assert_retry_safe, get_attempt_store
-    from src.monkey_brain.kernel.security_operation import SecurityOperationState, get_operation_ledger
+    from src.monkey_brain.kernel.execution_attempt import (
+        UnsafeBlindRetry,
+        assert_retry_safe,
+        get_attempt_store,
+    )
+    from src.monkey_brain.kernel.security_operation import (
+        SecurityOperationState,
+        get_operation_ledger,
+    )
 
     ledger = get_operation_ledger()
     op = ledger.get(operation_id)
@@ -923,7 +1004,8 @@ async def retry_execution_attempt(
         raise SecurityBoundaryDenied(f"no commitment for {operation_id}", stage="IDEMPOTENCY")
     if op.state is SecurityOperationState.SUCCEEDED:
         raise SecurityBoundaryDenied(
-            f"operation {operation_id} already succeeded; retry refused", stage="IDEMPOTENCY",
+            f"operation {operation_id} already succeeded; retry refused",
+            stage="IDEMPOTENCY",
         )
     if op.state in (
         SecurityOperationState.AUTHORIZED,
@@ -931,7 +1013,8 @@ async def retry_execution_attempt(
         SecurityOperationState.EXECUTING,
     ):
         raise SecurityBoundaryDenied(
-            f"operation {operation_id} already in flight; retry refused", stage="IDEMPOTENCY",
+            f"operation {operation_id} already in flight; retry refused",
+            stage="IDEMPOTENCY",
         )
     if commitment_active():
         raise SecurityBoundaryDenied("cannot retry from inside an active commitment", stage="IDEMPOTENCY")
@@ -953,8 +1036,13 @@ async def retry_execution_attempt(
 
     if prior_attempt is not None:
         _audit_reconciliation_event(
-            evidence=get_trusted_auth(), action=op.action, resource=op.resource, operation_id=operation_id,
-            attempt=prior_attempt, event="retry_authorized", outcome="success",
+            evidence=get_trusted_auth(),
+            action=op.action,
+            resource=op.resource,
+            operation_id=operation_id,
+            attempt=prior_attempt,
+            event="retry_authorized",
+            outcome="success",
             extra={"idempotent_effect": idempotent_effect, "reconciled": reconciled},
         )
 
@@ -974,9 +1062,15 @@ async def retry_execution_attempt(
         ledger.transition(operation_id, SecurityOperationState.AUTHORIZED, retrying=True)
         _reopen_admission_for_retry(operation_id)
         return await _execute_attempt_pipeline(
-            action=action, resource=resource, op_id=operation_id, mutate=mutate,
-            policy=policy, ledger=ledger, evidence=evidence,
-            idempotent_effect=idempotent_effect, reconciled=reconciled,
+            action=action,
+            resource=resource,
+            op_id=operation_id,
+            mutate=mutate,
+            policy=policy,
+            ledger=ledger,
+            evidence=evidence,
+            idempotent_effect=idempotent_effect,
+            reconciled=reconciled,
         )
     finally:
         snap = _pipeline.get()
@@ -995,7 +1089,10 @@ def begin_reconciliation(operation_id: str, *, lease_seconds: float = 60.0) -> s
     another worker's lease is still live — that caller must not
     independently retry/recover (Part 12).
     """
-    from src.monkey_brain.kernel.execution_attempt import get_attempt_store, claim_reconciliation
+    from src.monkey_brain.kernel.execution_attempt import (
+        get_attempt_store,
+        claim_reconciliation,
+    )
 
     attempt = get_attempt_store().latest_for(operation_id)
     if attempt is None:
@@ -1009,8 +1106,12 @@ def begin_reconciliation(operation_id: str, *, lease_seconds: float = 60.0) -> s
     resource = op.resource if op is not None else ""
     attempt = get_attempt_store().get(attempt.execution_attempt_id)  # refresh: reconciliation_id/state just changed
     _audit_reconciliation_event(
-        evidence=evidence, action=action, resource=resource, operation_id=operation_id,
-        attempt=attempt, event="started",
+        evidence=evidence,
+        action=action,
+        resource=resource,
+        operation_id=operation_id,
+        attempt=attempt,
+        event="started",
     )
     return reconciliation_id
 
@@ -1039,7 +1140,10 @@ def complete_reconciliation(
         get_attempt_store,
         record_reconciliation_result,
     )
-    from src.monkey_brain.kernel.security_operation import get_operation_ledger, reconcile_operation
+    from src.monkey_brain.kernel.security_operation import (
+        get_operation_ledger,
+        reconcile_operation,
+    )
 
     if confirmed not in ("succeeded", "failed", "unknown"):
         raise ValueError("confirmed must be succeeded|failed|unknown")
@@ -1052,8 +1156,14 @@ def complete_reconciliation(
         "unknown": ExecutionAttemptState.UNKNOWN,
     }[confirmed]
     result = record_reconciliation_result(
-        attempt.execution_attempt_id, reconciliation_id, outcome,
-        evidence={**(evidence or {}), "reconciled": True, "evidence_source": evidence_source},
+        attempt.execution_attempt_id,
+        reconciliation_id,
+        outcome,
+        evidence={
+            **(evidence or {}),
+            "reconciled": True,
+            "evidence_source": evidence_source,
+        },
     )
     op = get_operation_ledger().get(operation_id)
     evidence_auth = get_trusted_auth()
@@ -1065,8 +1175,13 @@ def complete_reconciliation(
         "unknown": "unresolved",
     }[confirmed]
     _audit_reconciliation_event(
-        evidence=evidence_auth, action=action, resource=resource, operation_id=operation_id,
-        attempt=result, event=event, outcome=confirmed,
+        evidence=evidence_auth,
+        action=action,
+        resource=resource,
+        operation_id=operation_id,
+        attempt=result,
+        event=event,
+        outcome=confirmed,
         extra={"evidence_source": evidence_source},
     )
     # Keep the commitment ledger's own outcome in lockstep — two separate
@@ -1155,16 +1270,21 @@ async def ensure_governed(
     # governance record at all, while genuinely relaxed controls stay
     # exactly as relaxed as they already were.
     return await run_governed_mutation(
-        action=action, resource=resource, mutate=effect, extra=extra, skip_authz=skip_authz,
-        operation_id=operation_id, force_authorize=force_authorize,
-        verified_delegation=verified_delegation, local_policy_decision=local_policy_decision,
+        action=action,
+        resource=resource,
+        mutate=effect,
+        extra=extra,
+        skip_authz=skip_authz,
+        operation_id=operation_id,
+        force_authorize=force_authorize,
+        verified_delegation=verified_delegation,
+        local_policy_decision=local_policy_decision,
     )
-
 
 
 def reset_governed_pipeline_for_tests() -> None:
     """Reset the governance pipeline for testing.
-    
+
     This clears the context variables used for pipeline tracking.
     Only for use in tests.
     """

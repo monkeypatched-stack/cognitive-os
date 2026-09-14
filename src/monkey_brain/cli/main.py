@@ -312,7 +312,14 @@ def start_service(svc: DBService) -> None:
             influx_data.mkdir(parents=True, exist_ok=True)
             log = LOG_DIR / "influxdb.log"
             pid_file = PID_DIR / "influxdb.pid"
-            cmd = ["influxd3", "serve", "--data-dir", str(influx_data), "--http-bind", f":{svc.default_port}"]
+            cmd = [
+                "influxd3",
+                "serve",
+                "--data-dir",
+                str(influx_data),
+                "--http-bind",
+                f":{svc.default_port}",
+            ]
             with open(log, "w") as log_f:
                 proc = subprocess.Popen(cmd, stdout=log_f, stderr=subprocess.STDOUT)
             pid_file.write_text(str(proc.pid))
@@ -382,8 +389,25 @@ def step_install_deps() -> None:
     import shutil
 
     uv_bin = shutil.which("uv")
-    if uv_bin:
+    lock_file = SOURCE_DIR / "uv.lock"
+    if uv_bin and lock_file.exists():
         C.info("Using uv for fast installs")
+        req_file = VENV_DIR / "requirements.lock.txt"
+        run(
+            [
+                uv_bin,
+                "export",
+                "--frozen",
+                "--no-dev",
+                "--no-hashes",
+                "--no-emit-project",
+                "--project",
+                str(SOURCE_DIR),
+                "-o",
+                str(req_file),
+            ],
+            check=False,
+        )
         run(
             [
                 uv_bin,
@@ -392,42 +416,12 @@ def step_install_deps() -> None:
                 "--python",
                 str(VENV_DIR / "bin" / "python"),
                 "-r",
-                str(SOURCE_DIR / "requirements.txt"),
+                str(req_file),
             ],
             check=False,
         )
     else:
-        pip = str(VENV_DIR / "bin" / "pip")
-        run([pip, "install", "--upgrade", "pip"], check=False)
-        req_file = SOURCE_DIR / "requirements.txt"
-        if req_file.exists():
-            run([pip, "install", "-r", str(req_file)])
-        else:
-            pkgs = [
-                "fastapi",
-                "uvicorn[standard]",
-                "motor",
-                "pydantic",
-                "pydantic-settings",
-                "pymongo",
-                "python-jose[cryptography]",
-                "redis[asyncio]",
-                "neo4j",
-                "nats-py",
-                "influxdb-client",
-                "paho-mqtt",
-                "python-multipart",
-                "bcrypt",
-                "boto3",
-                "httpx",
-                "mem0ai",
-                "PyYAML",
-                "spacy",
-                "httpx[http2]",
-                "elasticsearch[async]",
-                "aiohttp",
-            ]
-            run([pip, "install", *pkgs])
+        raise RuntimeError("uv and uv.lock are required for reproducible installation; install uv and retry")
     C.ok("Dependencies installed")
 
 
@@ -484,7 +478,11 @@ def step_create_config(args: argparse.Namespace) -> None:
     es_url = args.elasticsearch_url or f"http://localhost:{args.elasticsearch_port}"
     nats_url = args.nats_url or f"nats://localhost:{args.nats_port}"
 
-    db_config["mongodb"] = {"url": mongo_url, "database": args.db_name, "port": args.mongo_port}
+    db_config["mongodb"] = {
+        "url": mongo_url,
+        "database": args.db_name,
+        "port": args.mongo_port,
+    }
     db_config["redis"] = {"url": redis_url, "port": args.redis_port}
     db_config["neo4j"] = {
         "uri": neo4j_uri,
@@ -1553,12 +1551,22 @@ def build_parser() -> argparse.ArgumentParser:
     db = db_group.add_argument_group("Database configuration")
     db.add_argument("--mongo-port", type=int, default=27017, help="MongoDB port (default: 27017)")
     db.add_argument("--mongo-url", type=str, default=None, help="MongoDB full URL")
-    db.add_argument("--db-name", type=str, default="demo", help="MongoDB database name (default: demo)")
+    db.add_argument(
+        "--db-name",
+        type=str,
+        default="demo",
+        help="MongoDB database name (default: demo)",
+    )
     db.add_argument("--redis-port", type=int, default=6379, help="Redis port (default: 6379)")
     db.add_argument("--redis-url", type=str, default=None, help="Redis full URL")
     db.add_argument("--neo4j-port", type=int, default=7687, help="Neo4j Bolt port (default: 7687)")
     db.add_argument("--neo4j-uri", type=str, default=None, help="Neo4j full URI")
-    db.add_argument("--neo4j-user", type=str, default="neo4j", help="Neo4j username (default: neo4j)")
+    db.add_argument(
+        "--neo4j-user",
+        type=str,
+        default="neo4j",
+        help="Neo4j username (default: neo4j)",
+    )
     db.add_argument(
         "--neo4j-password",
         type=str,
@@ -1567,23 +1575,47 @@ def build_parser() -> argparse.ArgumentParser:
     )
     db.add_argument("--influxdb-port", type=int, default=8181, help="InfluxDB port (default: 8181)")
     db.add_argument("--influxdb-url", type=str, default=None, help="InfluxDB full URL")
-    db.add_argument("--influxdb-org", type=str, default="indus", help="InfluxDB org (default: indus)")
-    db.add_argument("--influxdb-bucket", type=str, default="events", help="InfluxDB bucket (default: events)")
+    db.add_argument(
+        "--influxdb-org",
+        type=str,
+        default="indus",
+        help="InfluxDB org (default: indus)",
+    )
+    db.add_argument(
+        "--influxdb-bucket",
+        type=str,
+        default="events",
+        help="InfluxDB bucket (default: events)",
+    )
     db.add_argument(
         "--influxdb-token",
         type=str,
         default=os.getenv("INFLUXDB_TOKEN", ""),
         help="InfluxDB token (env: INFLUXDB_TOKEN)",
     )
-    db.add_argument("--elasticsearch-port", type=int, default=9200, help="Elasticsearch port (default: 9200)")
+    db.add_argument(
+        "--elasticsearch-port",
+        type=int,
+        default=9200,
+        help="Elasticsearch port (default: 9200)",
+    )
     db.add_argument("--elasticsearch-url", type=str, default=None, help="Elasticsearch full URL")
     db.add_argument("--nats-port", type=int, default=4222, help="NATS port (default: 4222)")
     db.add_argument("--nats-url", type=str, default=None, help="NATS full URL")
     db.add_argument("--port", type=int, default=8031, help="MonkeyBrain API port (default: 8031)")
 
     install_p = sub.add_parser("install", parents=[db_group], help="Full installation")
-    install_p.add_argument("--auto-install", action="store_true", help="Auto-install missing database services")
-    install_p.add_argument("--skip", nargs="*", default=[], help="Services to skip (e.g. neo4j elasticsearch)")
+    install_p.add_argument(
+        "--auto-install",
+        action="store_true",
+        help="Auto-install missing database services",
+    )
+    install_p.add_argument(
+        "--skip",
+        nargs="*",
+        default=[],
+        help="Services to skip (e.g. neo4j elasticsearch)",
+    )
 
     start_p = sub.add_parser("start", parents=[db_group], help="Start all services")
     start_p.add_argument("--skip", nargs="*", default=[], help="Services to skip")
@@ -1605,21 +1637,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="Runtime target (default: execute)",
     )
     plan_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
-    plan_p.add_argument("--json", action="store_true", help="Output raw JSON instead of formatted display")
+    plan_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Output raw JSON instead of formatted display",
+    )
 
     act_p = sub.add_parser("act", help="Plan and execute a question end-to-end")
     act_p.add_argument("question", help="The question to plan and execute")
     act_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
-    act_p.add_argument("--json", action="store_true", help="Output raw JSON instead of formatted display")
+    act_p.add_argument(
+        "--json",
+        action="store_true",
+        help="Output raw JSON instead of formatted display",
+    )
 
     discover_p = sub.add_parser("discover", help="Discover: plan, execute, or chat with an agent")
     discover_p.add_argument("question", help="The question to discover")
     discover_p.add_argument("--spec", action="store_true", help="Plan only (show the execution graph)")
     discover_p.add_argument("--execute", action="store_true", help="Plan and execute end-to-end")
-    discover_p.add_argument("--act", action="store_true", help="Execute directly via capability classification")
+    discover_p.add_argument(
+        "--act",
+        action="store_true",
+        help="Execute directly via capability classification",
+    )
     discover_p.add_argument("--simulate", action="store_true", help="Simulate via simulation runtime")
-    discover_p.add_argument("--observe", action="store_true", help="Show Lemon observability traces after operation")
-    discover_p.add_argument("--dashboard", action="store_true", help="Generate interactive Plotly HTML dashboard")
+    discover_p.add_argument(
+        "--observe",
+        action="store_true",
+        help="Show Lemon observability traces after operation",
+    )
+    discover_p.add_argument(
+        "--dashboard",
+        action="store_true",
+        help="Generate interactive Plotly HTML dashboard",
+    )
     discover_p.add_argument("--log", action="store_true", help="Show server logs after operation")
     discover_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
     discover_p.add_argument("--json", action="store_true", help="Output raw JSON")
@@ -1630,7 +1682,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     export_p = knowledge_sub.add_parser("export", help="Export knowledge bundle to file")
     export_p.add_argument(
-        "--output", "-o", type=str, default=None, help="Output file path (default: knowledge_export_<timestamp>.json)"
+        "--output",
+        "-o",
+        type=str,
+        default=None,
+        help="Output file path (default: knowledge_export_<timestamp>.json)",
     )
     export_p.add_argument("--port", type=int, default=8031, help="API port (default: 8031)")
     export_p.add_argument("--json", action="store_true", help="Output raw JSON")

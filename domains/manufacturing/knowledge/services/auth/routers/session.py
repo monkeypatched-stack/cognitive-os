@@ -15,7 +15,6 @@ from services.auth.models.session import (
 )
 from services.common.auth import get_current_user
 
-
 router = APIRouter()
 
 ALLOWED_KEYS = {
@@ -84,7 +83,9 @@ ALLOWED_KEY_PATTERNS = [
     re.compile(rf"^supply-chain-graph-{_KEY_PART}-canvas-visual-nodes$"),
     re.compile(rf"^supply-chain-graph-{_KEY_PART}-canvas-imported-nodes$"),
     re.compile(rf"^supply-chain-graph-{_KEY_PART}-canvas-snapshot$"),
-    re.compile(rf"^indus-dashboard-process-definition-steps(?:-[A-Za-z0-9_.:-]+)*-canvas-(positions|links|visual-nodes|imported-nodes|snapshot)$"),
+    re.compile(
+        rf"^indus-dashboard-process-definition-steps(?:-[A-Za-z0-9_.:-]+)*-canvas-(positions|links|visual-nodes|imported-nodes|snapshot)$"
+    ),
     re.compile(rf"^indus-dashboard-{_KEY_PART}s$"),
 ]
 
@@ -106,7 +107,9 @@ def _validate_key(key: str) -> str:
             detail="Session key must be between 1 and 256 characters",
         )
 
-    if key in ALLOWED_KEYS or any(pattern.match(key) for pattern in ALLOWED_KEY_PATTERNS):
+    if key in ALLOWED_KEYS or any(
+        pattern.match(key) for pattern in ALLOWED_KEY_PATTERNS
+    ):
         return key
 
     raise HTTPException(

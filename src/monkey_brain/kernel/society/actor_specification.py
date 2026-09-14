@@ -39,6 +39,7 @@ create-or-update, matching `kubectl apply`) lives in
 api/routes/actors.py::apply_actor_specification, which is the one place
 that actually calls PlanetaryRuntime.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -151,7 +152,10 @@ class ActorSpecification:
         required_capabilities = tuple(placement.get("required_capabilities", []) or ())
 
         result = ActorSpecification(
-            api_version=api_version, kind=kind, name=name, actor_id=actor_id,
+            api_version=api_version,
+            kind=kind,
+            name=name,
+            actor_id=actor_id,
             artifact=str(spec.get("artifact", "cognitiveos-actor") or "cognitiveos-actor"),
             artifact_version=str(spec.get("version", "") or ""),
             node_class=node_class,
@@ -199,7 +203,9 @@ class ActorSpecification:
                 },
                 "resources": {"capacity": self.capacity_hint},
                 "configuration": {
-                    "goals": list(self.goals), "objective": self.objective, "tenant_id": self.tenant_id,
+                    "goals": list(self.goals),
+                    "objective": self.objective,
+                    "tenant_id": self.tenant_id,
                 },
             },
         }

@@ -4,11 +4,16 @@ append-only TimelineStore, PresenceTimeline's write-path invariants
 Membership timelines never losing history on update, and cross-kind
 replay() ordering.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.timeline.store import TimelineStore
 from src.monkey_brain.kernel.timeline.entry import (
-    Presence, GoalRecord, MembershipRecord, ExecutionRecord, TimelineKind,
+    Presence,
+    GoalRecord,
+    MembershipRecord,
+    ExecutionRecord,
+    TimelineKind,
 )
 from src.monkey_brain.kernel.timeline.presence import PresenceTimeline
 from src.monkey_brain.kernel.timeline.query import TimelineQueryEngine
@@ -31,6 +36,7 @@ def _build_space_chain(registry: GeographicRegistry):
 
 
 # ── TimelineStore: append/query/current/close ────────────────────────────
+
 
 def test_append_and_query_ordering():
     store = TimelineStore()
@@ -70,6 +76,7 @@ def test_at_point_in_time_lookup():
 
 
 # ── PresenceTimeline invariants ───────────────────────────────────────────
+
 
 def test_presence_no_overlap_exactly_one_open():
     registry = GeographicRegistry()
@@ -121,6 +128,7 @@ def test_presence_occupants():
 
 # ── Goal/Membership timelines never lose history ─────────────────────────
 
+
 def test_goal_history_preserved_across_updates():
     from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
 
@@ -160,6 +168,7 @@ def test_membership_history_preserved_across_leave_and_rejoin():
 
 # ── Cross-kind replay() ───────────────────────────────────────────────────
 
+
 def test_replay_merges_all_kinds_sorted_by_time():
     store = TimelineStore()
     store.record(TimelineKind.GOAL, actor_id="replay-actor", name="g1", start_time=10.0)
@@ -168,7 +177,11 @@ def test_replay_merges_all_kinds_sorted_by_time():
 
     engine = TimelineQueryEngine(store)
     entries = engine.replay("replay-actor")
-    assert [type(e).__name__ for e in entries] == ["Presence", "GoalRecord", "ExecutionRecord"]
+    assert [type(e).__name__ for e in entries] == [
+        "Presence",
+        "GoalRecord",
+        "ExecutionRecord",
+    ]
 
 
 def test_replay_respects_time_range():
@@ -184,8 +197,20 @@ def test_replay_respects_time_range():
 
 def test_current_state_derivation():
     store = TimelineStore()
-    store.record(TimelineKind.GOAL, actor_id="cs-actor", name="active-goal", status="active", start_time=1.0)
-    store.record(TimelineKind.GOAL, actor_id="cs-actor", name="done-goal", status="completed", start_time=2.0)
+    store.record(
+        TimelineKind.GOAL,
+        actor_id="cs-actor",
+        name="active-goal",
+        status="active",
+        start_time=1.0,
+    )
+    store.record(
+        TimelineKind.GOAL,
+        actor_id="cs-actor",
+        name="done-goal",
+        status="completed",
+        start_time=2.0,
+    )
 
     engine = TimelineQueryEngine(store)
     state = engine.current_state("cs-actor")
@@ -195,6 +220,7 @@ def test_current_state_derivation():
 
 
 # ── Independence: timeline entries don't interfere across kinds/actors ────
+
 
 def test_timelines_independent_across_actors():
     store = TimelineStore()

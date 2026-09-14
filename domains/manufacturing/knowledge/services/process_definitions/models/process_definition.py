@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from services.process_definitions.models.process_steps import ProcessSteps
 
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -27,12 +28,12 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 
 class Status(str, Enum):
-    PENDING     = "pending"
+    PENDING = "pending"
     IN_PROGRESS = "in_progress"
-    COMPLETED   = "completed"
-    FAILED      = "failed"
-    SKIPPED     = "skipped"
-    BLOCKED     = "blocked"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    BLOCKED = "blocked"
 
 
 class ProcessType(str, Enum):
@@ -97,7 +98,9 @@ class IpcSamplingPlan(BaseModel):
 class IpcCheckpoint(BaseModel):
     checkpoint_id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
-    checkpoint_type: IpcCheckpointType = Field(default=IpcCheckpointType.IN_PROCESS_CONTROL)
+    checkpoint_type: IpcCheckpointType = Field(
+        default=IpcCheckpointType.IN_PROCESS_CONTROL
+    )
     process_step_id: Optional[str] = None
     stage_id: Optional[str] = None
     workstation_id: Optional[str] = None
@@ -157,7 +160,9 @@ class ProcessInstructionStep(BaseModel):
 
 class ProcessInstructionTemplate(BaseModel):
     instruction_template_id: str = Field(..., min_length=1)
-    template_type: InstructionTemplateType = Field(default=InstructionTemplateType.MANUFACTURING)
+    template_type: InstructionTemplateType = Field(
+        default=InstructionTemplateType.MANUFACTURING
+    )
     title: str = Field(..., min_length=1)
     version: str = Field(default="1.0.0")
     revision: str = Field(default="A")
@@ -327,7 +332,9 @@ class ProcessDefinitionCanvasNodeProperties(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     hyperlinks: list[ProcessDefinitionCanvasHyperlink] = Field(default_factory=list)
     attachments: list[ProcessDefinitionCanvasAttachment] = Field(default_factory=list)
-    webhook_events: list[ProcessDefinitionCanvasWebhookEvent] = Field(default_factory=list)
+    webhook_events: list[ProcessDefinitionCanvasWebhookEvent] = Field(
+        default_factory=list
+    )
     last_webhook_event: Optional[ProcessDefinitionCanvasWebhookEvent] = None
 
 
@@ -380,7 +387,9 @@ class ProcessDefinitionCanvasNodePosition(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     hyperlinks: list[ProcessDefinitionCanvasHyperlink] = Field(default_factory=list)
     attachments: list[ProcessDefinitionCanvasAttachment] = Field(default_factory=list)
-    webhook_events: list[ProcessDefinitionCanvasWebhookEvent] = Field(default_factory=list)
+    webhook_events: list[ProcessDefinitionCanvasWebhookEvent] = Field(
+        default_factory=list
+    )
     last_webhook_event: Optional[ProcessDefinitionCanvasWebhookEvent] = None
 
     @model_validator(mode="before")
@@ -389,7 +398,11 @@ class ProcessDefinitionCanvasNodePosition(BaseModel):
         if isinstance(value, dict):
             updates = dict(value)
             if not updates.get("node_id"):
-                alias = updates.get("id") or updates.get("nodeId") or updates.get("canvas_node_id")
+                alias = (
+                    updates.get("id")
+                    or updates.get("nodeId")
+                    or updates.get("canvas_node_id")
+                )
                 if alias:
                     updates["node_id"] = alias
             if not updates.get("node_type"):
@@ -439,16 +452,30 @@ class ProcessDefinitionCanvasEdge(BaseModel):
                 if edge_id:
                     updates["edge_id"] = edge_id
             if not updates.get("source_node_id"):
-                source = updates.get("source") or updates.get("sourceNodeId") or updates.get("sourceId")
+                source = (
+                    updates.get("source")
+                    or updates.get("sourceNodeId")
+                    or updates.get("sourceId")
+                )
                 if source:
                     updates["source_node_id"] = source
             if not updates.get("target_node_id"):
-                target = updates.get("target") or updates.get("targetNodeId") or updates.get("targetId")
+                target = (
+                    updates.get("target")
+                    or updates.get("targetNodeId")
+                    or updates.get("targetId")
+                )
                 if target:
                     updates["target_node_id"] = target
-            if updates.get("source_port") is None and updates.get("sourcePort") is not None:
+            if (
+                updates.get("source_port") is None
+                and updates.get("sourcePort") is not None
+            ):
                 updates["source_port"] = updates["sourcePort"]
-            if updates.get("target_port") is None and updates.get("targetPort") is not None:
+            if (
+                updates.get("target_port") is None
+                and updates.get("targetPort") is not None
+            ):
                 updates["target_port"] = updates["targetPort"]
             return updates
         return value
@@ -484,7 +511,11 @@ class ProcessDefinitionCanvasLayout(BaseModel):
                 if page_id:
                     updates["page_id"] = page_id
             if not updates.get("nodes"):
-                nodes = updates.get("positions") or updates.get("node_positions") or updates.get("nodePositions")
+                nodes = (
+                    updates.get("positions")
+                    or updates.get("node_positions")
+                    or updates.get("nodePositions")
+                )
                 if nodes:
                     updates["nodes"] = nodes
             if not updates.get("edges"):
@@ -539,7 +570,11 @@ class ProcessDefinitionCanvasLayoutUpdate(BaseModel):
                 if page_id:
                     updates["page_id"] = page_id
             if not updates.get("nodes"):
-                nodes = updates.get("positions") or updates.get("node_positions") or updates.get("nodePositions")
+                nodes = (
+                    updates.get("positions")
+                    or updates.get("node_positions")
+                    or updates.get("nodePositions")
+                )
                 if nodes:
                     updates["nodes"] = nodes
             if not updates.get("edges"):
@@ -607,7 +642,9 @@ class ProcessDefinition(BaseModel):
     material_flow_edge_ids: List[str] = Field(default_factory=list)
     ipc_checkpoints: List[IpcCheckpoint] = Field(default_factory=list)
     cleaning_requirements: List[CleaningRequirement] = Field(default_factory=list)
-    instruction_templates: List[ProcessInstructionTemplate] = Field(default_factory=list)
+    instruction_templates: List[ProcessInstructionTemplate] = Field(
+        default_factory=list
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
     steps: ProcessSteps
     created_at: datetime = Field(default_factory=utc_now)
@@ -679,7 +716,7 @@ class ProcessDefinitionResponse(ProcessDefinition):
 
 
 class PaginatedProcessDefinitionResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[ProcessDefinitionResponse]
+    results: list[ProcessDefinitionResponse]

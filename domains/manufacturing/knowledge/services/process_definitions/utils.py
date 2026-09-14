@@ -5,7 +5,6 @@ from __future__ import annotations
 from urllib.parse import urlparse
 import ipaddress
 
-
 _BLOCKED_SCHEMES = {"file", "gopher", "dict", "ftp"}
 _BLOCKED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "169.254.169.254"}
 

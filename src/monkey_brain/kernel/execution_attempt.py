@@ -48,6 +48,7 @@ record_reconciliation_result()) to assert SUCCEEDED (or any other state)
 commitment or explicit privileged-infrastructure context, exactly like
 security_operation.reconcile_operation().
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,19 +74,23 @@ class ExecutionAttemptState(str, Enum):
     CANCELLED = "cancelled"
 
 
-TERMINAL_STATES = frozenset({
-    ExecutionAttemptState.SUCCEEDED,
-    ExecutionAttemptState.FAILED,
-    ExecutionAttemptState.CANCELLED,
-})
+TERMINAL_STATES = frozenset(
+    {
+        ExecutionAttemptState.SUCCEEDED,
+        ExecutionAttemptState.FAILED,
+        ExecutionAttemptState.CANCELLED,
+    }
+)
 
 # Outcomes a reconciliation pass may record (RECONCILING's implicit exit
 # set — deliberately NOT part of _TRANSITIONS; see record_reconciliation_result()).
-_RECONCILING_OUTCOMES = frozenset({
-    ExecutionAttemptState.SUCCEEDED,
-    ExecutionAttemptState.FAILED,
-    ExecutionAttemptState.UNKNOWN,
-})
+_RECONCILING_OUTCOMES = frozenset(
+    {
+        ExecutionAttemptState.SUCCEEDED,
+        ExecutionAttemptState.FAILED,
+        ExecutionAttemptState.UNKNOWN,
+    }
+)
 
 
 def is_terminal(state: ExecutionAttemptState) -> bool:
@@ -126,31 +131,41 @@ def _require_own_enum(value: Any) -> None:
 # lease and jump straight to SUCCEEDED" (Part 16), regardless of any flag
 # a caller might pass to the generic transition function.
 _TRANSITIONS: dict[ExecutionAttemptState, frozenset[ExecutionAttemptState]] = {
-    ExecutionAttemptState.NOT_STARTED: frozenset({
-        ExecutionAttemptState.READY,
-        ExecutionAttemptState.CANCELLED,
-    }),
-    ExecutionAttemptState.READY: frozenset({
-        ExecutionAttemptState.STARTED,
-        ExecutionAttemptState.CANCELLED,
-    }),
-    ExecutionAttemptState.STARTED: frozenset({
-        ExecutionAttemptState.SUBMITTED,
-        ExecutionAttemptState.CANCELLED,
-        ExecutionAttemptState.UNKNOWN,
-    }),
-    ExecutionAttemptState.SUBMITTED: frozenset({
-        ExecutionAttemptState.SUCCEEDED,
-        ExecutionAttemptState.FAILED,
-        ExecutionAttemptState.UNKNOWN,
-    }),
-    ExecutionAttemptState.UNKNOWN: frozenset({
-        # The ONLY edge out of UNKNOWN. Never SUCCEEDED/FAILED/UNKNOWN
-        # directly — UNKNOWN != RECONCILIATION_REQUIRED (Part 3), but the
-        # transition between them is automatic bookkeeping, not itself an
-        # outcome claim, so it needs no special evidence gate.
-        ExecutionAttemptState.RECONCILIATION_REQUIRED,
-    }),
+    ExecutionAttemptState.NOT_STARTED: frozenset(
+        {
+            ExecutionAttemptState.READY,
+            ExecutionAttemptState.CANCELLED,
+        }
+    ),
+    ExecutionAttemptState.READY: frozenset(
+        {
+            ExecutionAttemptState.STARTED,
+            ExecutionAttemptState.CANCELLED,
+        }
+    ),
+    ExecutionAttemptState.STARTED: frozenset(
+        {
+            ExecutionAttemptState.SUBMITTED,
+            ExecutionAttemptState.CANCELLED,
+            ExecutionAttemptState.UNKNOWN,
+        }
+    ),
+    ExecutionAttemptState.SUBMITTED: frozenset(
+        {
+            ExecutionAttemptState.SUCCEEDED,
+            ExecutionAttemptState.FAILED,
+            ExecutionAttemptState.UNKNOWN,
+        }
+    ),
+    ExecutionAttemptState.UNKNOWN: frozenset(
+        {
+            # The ONLY edge out of UNKNOWN. Never SUCCEEDED/FAILED/UNKNOWN
+            # directly — UNKNOWN != RECONCILIATION_REQUIRED (Part 3), but the
+            # transition between them is automatic bookkeeping, not itself an
+            # outcome claim, so it needs no special evidence gate.
+            ExecutionAttemptState.RECONCILIATION_REQUIRED,
+        }
+    ),
     ExecutionAttemptState.RECONCILIATION_REQUIRED: frozenset(),
     ExecutionAttemptState.RECONCILING: frozenset(),
     ExecutionAttemptState.SUCCEEDED: frozenset(),
@@ -158,10 +173,16 @@ _TRANSITIONS: dict[ExecutionAttemptState, frozenset[ExecutionAttemptState]] = {
     ExecutionAttemptState.CANCELLED: frozenset(),
 }
 
+
 class InvalidAttemptTransition(Exception):
     """A transition outside the canonical state graph."""
 
-    def __init__(self, attempt_id: str, source: ExecutionAttemptState, target: ExecutionAttemptState) -> None:
+    def __init__(
+        self,
+        attempt_id: str,
+        source: ExecutionAttemptState,
+        target: ExecutionAttemptState,
+    ) -> None:
         self.attempt_id = attempt_id
         self.source = source
         self.target = target
@@ -356,7 +377,9 @@ class AttemptStore:
                     raise ReconciliationAlreadyInProgress(attempt_id, attempt.reconciliation_id)
                 logger.warning(
                     "reclaiming expired reconciliation lease for %s (generation %d -> %d)",
-                    attempt_id, attempt.reconciliation_generation, attempt.reconciliation_generation + 1,
+                    attempt_id,
+                    attempt.reconciliation_generation,
+                    attempt.reconciliation_generation + 1,
                 )
             elif attempt.state is not ExecutionAttemptState.RECONCILIATION_REQUIRED:
                 raise InvalidAttemptTransition(attempt_id, attempt.state, ExecutionAttemptState.RECONCILING)
@@ -400,9 +423,7 @@ class AttemptStore:
                     "already claimed or resolved this attempt",
                 )
             final = (
-                ExecutionAttemptState.RECONCILIATION_REQUIRED
-                if outcome is ExecutionAttemptState.UNKNOWN
-                else outcome
+                ExecutionAttemptState.RECONCILIATION_REQUIRED if outcome is ExecutionAttemptState.UNKNOWN else outcome
             )
             attempt.state = final
             attempt.updated_at = time.time()
@@ -431,7 +452,10 @@ def reset_attempt_store_for_tests() -> None:
 
 def _require_governed_context(action: str) -> None:
     from src.monkey_brain.kernel.production_gates import insecure_dev_mode
-    from src.monkey_brain.kernel.security_boundary import commitment_active, privileged_infra_active
+    from src.monkey_brain.kernel.security_boundary import (
+        commitment_active,
+        privileged_infra_active,
+    )
 
     if not (commitment_active() or privileged_infra_active() or insecure_dev_mode()):
         raise PermissionError(f"{action} requires governed execution")
@@ -496,7 +520,10 @@ def record_reconciliation_result(
     """
     _require_governed_context("reconciliation")
     return get_attempt_store().record_reconciliation_result(
-        attempt_id, reconciliation_id, outcome, evidence=evidence,
+        attempt_id,
+        reconciliation_id,
+        outcome,
+        evidence=evidence,
     )
 
 
@@ -513,11 +540,13 @@ def cancel_attempt(attempt_id: str, *, proof_no_effect_submitted: bool) -> Execu
         raise AttemptNotFound(attempt_id)
     if attempt.state is ExecutionAttemptState.STARTED and (attempt.submitted or not proof_no_effect_submitted):
         return transition_attempt(
-            attempt_id, ExecutionAttemptState.UNKNOWN,
+            attempt_id,
+            ExecutionAttemptState.UNKNOWN,
             evidence={"cancel_requested": True, "no_effect_submitted": False},
         )
     return transition_attempt(
-        attempt_id, ExecutionAttemptState.CANCELLED,
+        attempt_id,
+        ExecutionAttemptState.CANCELLED,
         evidence={"no_effect_submitted": proof_no_effect_submitted},
     )
 
@@ -527,11 +556,13 @@ def cancel_attempt(attempt_id: str, *, proof_no_effect_submitted: bool) -> Execu
 # reconciliation) is refused for all three, not just bare UNKNOWN (Part
 # 3/16): RECONCILIATION_REQUIRED and RECONCILING are equally "we do not
 # yet have a safe basis for another attempt".
-_UNRESOLVED_RETRY_BLOCKING_STATES = frozenset({
-    ExecutionAttemptState.UNKNOWN,
-    ExecutionAttemptState.RECONCILIATION_REQUIRED,
-    ExecutionAttemptState.RECONCILING,
-})
+_UNRESOLVED_RETRY_BLOCKING_STATES = frozenset(
+    {
+        ExecutionAttemptState.UNKNOWN,
+        ExecutionAttemptState.RECONCILIATION_REQUIRED,
+        ExecutionAttemptState.RECONCILING,
+    }
+)
 
 
 def assert_retry_safe(
@@ -581,7 +612,10 @@ def new_attempt_after(
 
 
 def reconcile_execution_attempt(
-    operation_id: str, *, confirmed: str, evidence: dict[str, Any] | None = None,
+    operation_id: str,
+    *,
+    confirmed: str,
+    evidence: dict[str, Any] | None = None,
 ) -> ExecutionAttempt:
     """Kernel-only convenience: run one full, single-shot reconciliation
     pass for operation_id's latest attempt through the EXPLICIT states
@@ -617,7 +651,9 @@ def reconcile_execution_attempt(
         "unknown": ExecutionAttemptState.UNKNOWN,
     }[confirmed]
     return record_reconciliation_result(
-        attempt.execution_attempt_id, reconciliation_id, outcome,
+        attempt.execution_attempt_id,
+        reconciliation_id,
+        outcome,
         evidence={**(evidence or {}), "reconciled": True},
     )
 
@@ -630,7 +666,9 @@ _STAGE_TO_STATE = {
 }
 
 
-def reconstruct_attempts_from_audit(entries: list[dict[str, Any]]) -> dict[str, ExecutionAttemptState]:
+def reconstruct_attempts_from_audit(
+    entries: list[dict[str, Any]],
+) -> dict[str, ExecutionAttemptState]:
     """Recover execution-attempt state from durable audit evidence.
 
     Mirrors security_operation.reconstruct_operations_from_audit but at
@@ -641,8 +679,10 @@ def reconstruct_attempts_from_audit(entries: list[dict[str, Any]]) -> dict[str, 
     lifecycle stage seen (created < ready < started < submitted) wins.
     """
     order = [
-        ExecutionAttemptState.NOT_STARTED, ExecutionAttemptState.READY,
-        ExecutionAttemptState.STARTED, ExecutionAttemptState.SUBMITTED,
+        ExecutionAttemptState.NOT_STARTED,
+        ExecutionAttemptState.READY,
+        ExecutionAttemptState.STARTED,
+        ExecutionAttemptState.SUBMITTED,
     ]
     rank = {state: i for i, state in enumerate(order)}
     best: dict[str, ExecutionAttemptState] = {}

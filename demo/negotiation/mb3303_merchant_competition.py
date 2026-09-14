@@ -10,6 +10,7 @@ and strategic evaluation, not fixed ordering.
 Usage:
     python3 demo/negotiation/mb3303_merchant_competition.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -20,8 +21,11 @@ from bootstrap_mb3303 import DELIVERY_SLOT_NAME, bootstrap_world
 
 def evaluate_round(c, actor_id: str, actor_name: str) -> dict | None:
     steps, actions = force_round(
-        c, actor_id, actor_name, "EvaluateStrategy",
-        f'Only 1 {DELIVERY_SLOT_NAME} remains and another merchant wants it too. Evaluate whether '
+        c,
+        actor_id,
+        actor_name,
+        "EvaluateStrategy",
+        f"Only 1 {DELIVERY_SLOT_NAME} remains and another merchant wants it too. Evaluate whether "
         f'claiming it right now is worth it to you. Use parameters {{"candidates": [{{"name": '
         f'"claim_now", "attributes": {{"speed": 1.0, "cost": -1.0}}}}, {{"name": "wait", '
         f'"attributes": {{"speed": 0.0, "cost": 0.0}}}}]}}.',
@@ -36,8 +40,11 @@ def evaluate_round(c, actor_id: str, actor_name: str) -> dict | None:
 
 def compete_round(c, actor_id: str, actor_name: str, slot_id: str) -> dict | None:
     steps, actions = force_round(
-        c, actor_id, actor_name, "CompeteForResource",
-        f'Try to claim the last {DELIVERY_SLOT_NAME} for yourself. Use parameters '
+        c,
+        actor_id,
+        actor_name,
+        "CompeteForResource",
+        f"Try to claim the last {DELIVERY_SLOT_NAME} for yourself. Use parameters "
         f'{{"resource_id": "{slot_id}", "qty": 1}}.',
     )
     result = first_result("CompeteForResource", steps, actions)
@@ -55,8 +62,11 @@ def respond_round(c, actor_id: str, actor_name: str, compete_result: dict | None
     else:
         fact = "Your claim attempt did not produce a usable result."
     steps, actions = force_round(
-        c, actor_id, actor_name, "RespondToInquiry",
-        f'{fact} Explain what happened and why, in your own words, as your final answer.',
+        c,
+        actor_id,
+        actor_name,
+        "RespondToInquiry",
+        f"{fact} Explain what happened and why, in your own words, as your final answer.",
         extra_context=fact,
     )
     result = first_result("RespondToInquiry", steps, actions)
@@ -94,14 +104,22 @@ def main() -> int:
 
             section("Verification")
             checks = [
-                ("Competition detected (both attempted CompeteForResource)",
-                 a_compete is not None and b_compete is not None),
-                ("Strategic evaluation occurred (real utility numbers)",
-                 bool(a_eval and a_eval.get("evaluations")) and bool(b_eval and b_eval.get("evaluations"))),
-                ("Allocation followed the real CAS outcome, not fixed ordering (one real winner, one real loser)",
-                 bool(a_compete) and bool(b_compete) and (a_compete.get("won") != b_compete.get("won"))),
-                ("Losing merchant received a real, non-empty explanation",
-                 bool(a_answer if not (a_compete or {}).get("won") else b_answer)),
+                (
+                    "Competition detected (both attempted CompeteForResource)",
+                    a_compete is not None and b_compete is not None,
+                ),
+                (
+                    "Strategic evaluation occurred (real utility numbers)",
+                    bool(a_eval and a_eval.get("evaluations")) and bool(b_eval and b_eval.get("evaluations")),
+                ),
+                (
+                    "Allocation followed the real CAS outcome, not fixed ordering (one real winner, one real loser)",
+                    bool(a_compete) and bool(b_compete) and (a_compete.get("won") != b_compete.get("won")),
+                ),
+                (
+                    "Losing merchant received a real, non-empty explanation",
+                    bool(a_answer if not (a_compete or {}).get("won") else b_answer),
+                ),
             ]
             all_pass = True
             for label, ok in checks:

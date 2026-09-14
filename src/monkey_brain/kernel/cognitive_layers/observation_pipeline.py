@@ -3,6 +3,7 @@
 Responsibility: Sensor fusion, world state estimation, observation aggregation.
 Depends on: sensor fusion, world state estimator, trust network, world coordinator
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,23 +33,23 @@ class ObservationPipeline:
         Best-effort: fusion failures never block execution.
         """
         try:
-            from src.monkey_brain.kernel.sensor.fusion import SensorFusion, ModalityObservation
+            from src.monkey_brain.kernel.sensor.fusion import (
+                SensorFusion,
+                ModalityObservation,
+            )
 
             observations = []
 
             if question:
-                observations.append(ModalityObservation(
-                    modality="document", content=question, confidence=0.7))
+                observations.append(ModalityObservation(modality="document", content=question, confidence=0.7))
 
             nodes = simulation_graph.get("nodes", []) if isinstance(simulation_graph, dict) else []
             if nodes:
                 graph_desc = " ".join(
-                    n.get("agent", n.get("name", n.get("id", "")))
-                    for n in nodes if isinstance(n, dict)
+                    n.get("agent", n.get("name", n.get("id", ""))) for n in nodes if isinstance(n, dict)
                 )
                 if graph_desc:
-                    observations.append(ModalityObservation(
-                        modality="graph", content=graph_desc, confidence=0.6))
+                    observations.append(ModalityObservation(modality="graph", content=graph_desc, confidence=0.6))
 
             metadata = simulation_graph.get("metadata", {}) if isinstance(simulation_graph, dict) else {}
             summary = metadata.get("summary", {})
@@ -57,8 +58,7 @@ class ObservationPipeline:
                     f"grounding={summary.get('grounding_score', 0)} "
                     f"feasibility={summary.get('feasibility_verdict', 'unknown')}"
                 )
-                observations.append(ModalityObservation(
-                    modality="telemetry", content=telemetry, confidence=0.8))
+                observations.append(ModalityObservation(modality="telemetry", content=telemetry, confidence=0.8))
 
             if not observations:
                 return None
@@ -68,8 +68,10 @@ class ObservationPipeline:
 
             if result.fusion_confidence > 0 and publish_world_update_fn:
                 publish_world_update_fn(
-                    "fused_state", question[:50],
-                    domain="sensor", weight=result.fusion_confidence,
+                    "fused_state",
+                    question[:50],
+                    domain="sensor",
+                    weight=result.fusion_confidence,
                     source="sensor_fusion",
                 )
 
@@ -93,7 +95,10 @@ class ObservationPipeline:
         if not observations:
             return
         try:
-            from src.monkey_brain.kernel.sensor.world_state import WorldStateEstimator, ExecutionOutcome
+            from src.monkey_brain.kernel.sensor.world_state import (
+                WorldStateEstimator,
+                ExecutionOutcome,
+            )
 
             outcomes = [
                 ExecutionOutcome(
@@ -116,6 +121,7 @@ class ObservationPipeline:
 
             if self._trust_network is None:
                 from src.monkey_brain.kernel.compile.trust import TrustNetwork
+
                 self._trust_network = TrustNetwork()
 
             if state.fusion_confidence > 0 and publish_world_update_fn:
@@ -125,11 +131,15 @@ class ObservationPipeline:
                         continue
                     agent_trust = self._trust_network.trust("self", agent_name)
                     publish_world_update_fn(
-                        agent_name, "exec_state",
+                        agent_name,
+                        "exec_state",
                         domain="execution",
                         weight=outcome.reward if outcome.success else -0.5,
                         source="world_state_estimator",
-                        metadata={"latency_ms": outcome.latency_ms, "trust": agent_trust},
+                        metadata={
+                            "latency_ms": outcome.latency_ms,
+                            "trust": agent_trust,
+                        },
                     )
 
         except Exception as exc:

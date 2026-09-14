@@ -1,6 +1,10 @@
 from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.taxonomy.models.subclass import EquipmentSubClassCreate, EquipmentSubClassUpdate
+from services.taxonomy.models.subclass import (
+    EquipmentSubClassCreate,
+    EquipmentSubClassUpdate,
+)
+
 COLLECTION = "subclasses"
 
 

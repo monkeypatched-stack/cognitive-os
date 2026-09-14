@@ -52,6 +52,7 @@ def test_runtime_registry_tracks_lifecycle_health_and_shutdown_metadata():
 
     registry.set_lifecycle("runtime-1", "ready")
     from src.monkey_brain.kernel.kernel import ComponentHealth, HealthState
+
     registry.set_health("runtime-1", ComponentHealth("runtime-1", HealthState.HEALTHY))
 
     result = registry.descriptor("runtime-1")
@@ -64,20 +65,40 @@ def test_runtime_registry_rejects_duplicate_ids_and_names():
     registry = RuntimeRegistry()
     registry.register("one", _Runtime(), descriptor=RuntimeDescriptor(runtime_id="one", name="same"))
     with pytest.raises(ValueError, match="already registered"):
-        registry.register("one", _Runtime(), descriptor=RuntimeDescriptor(runtime_id="one", name="other"))
+        registry.register(
+            "one",
+            _Runtime(),
+            descriptor=RuntimeDescriptor(runtime_id="one", name="other"),
+        )
     with pytest.raises(ValueError, match="name already registered"):
-        registry.register("two", _Runtime(), descriptor=RuntimeDescriptor(runtime_id="two", name="same"))
+        registry.register(
+            "two",
+            _Runtime(),
+            descriptor=RuntimeDescriptor(runtime_id="two", name="same"),
+        )
 
 
 def test_runtime_registry_validates_missing_dependencies_and_cycles():
     missing = RuntimeRegistry()
-    missing.register("one", _Runtime(), descriptor=RuntimeDescriptor(runtime_id="one", name="one", dependencies=["missing"]))
+    missing.register(
+        "one",
+        _Runtime(),
+        descriptor=RuntimeDescriptor(runtime_id="one", name="one", dependencies=["missing"]),
+    )
     with pytest.raises(RuntimeError, match="missing dependencies"):
         missing.validate()
 
     cycle = RuntimeRegistry()
-    cycle.register("one", _Runtime(), descriptor=RuntimeDescriptor(runtime_id="one", name="one", dependencies=["two"]))
-    cycle.register("two", _Runtime(), descriptor=RuntimeDescriptor(runtime_id="two", name="two", dependencies=["one"]))
+    cycle.register(
+        "one",
+        _Runtime(),
+        descriptor=RuntimeDescriptor(runtime_id="one", name="one", dependencies=["two"]),
+    )
+    cycle.register(
+        "two",
+        _Runtime(),
+        descriptor=RuntimeDescriptor(runtime_id="two", name="two", dependencies=["one"]),
+    )
     with pytest.raises(RuntimeError, match="dependency cycle"):
         cycle.validate()
 
@@ -85,9 +106,17 @@ def test_runtime_registry_validates_missing_dependencies_and_cycles():
 def test_runtime_registry_rejects_invalid_states():
     registry = RuntimeRegistry()
     with pytest.raises(ValueError, match="lifecycle"):
-        registry.register("one", _Runtime(), descriptor=RuntimeDescriptor(runtime_id="one", lifecycle_state="invalid"))
+        registry.register(
+            "one",
+            _Runtime(),
+            descriptor=RuntimeDescriptor(runtime_id="one", lifecycle_state="invalid"),
+        )
     with pytest.raises(ValueError, match="health"):
-        registry.register("two", _Runtime(), descriptor=RuntimeDescriptor(runtime_id="two", health_state="invalid"))
+        registry.register(
+            "two",
+            _Runtime(),
+            descriptor=RuntimeDescriptor(runtime_id="two", health_state="invalid"),
+        )
 
 
 def test_agent_registry_adapts_local_backend():

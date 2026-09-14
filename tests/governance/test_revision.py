@@ -5,6 +5,7 @@ trees at the same commit" gap identified during discovery.
 Every test operates on its own throwaway git repo under tmp_path — never
 the real monkeypatched repository.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -12,7 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from governance.revision import RepositoryRevision, compute_repository_revision, revision_diff
+from governance.revision import (
+    RepositoryRevision,
+    compute_repository_revision,
+    revision_diff,
+)
 
 
 def _init_repo(root: Path) -> None:

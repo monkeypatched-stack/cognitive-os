@@ -42,11 +42,16 @@ same execution_id this test already correlates PLAN/DECISION records
 by) — so this test now reads the Comparator's real, unmocked outcome
 for THIS SPECIFIC execution_id directly, no log-tailing needed.
 """
+
 from __future__ import annotations
 
 from tests.e2e.cognitive_loop._boundary import (
-    actor_get, find_actor_id, first_failure_stage, prompt,
-    requires_live_backend, tick_result,
+    actor_get,
+    find_actor_id,
+    first_failure_stage,
+    prompt,
+    requires_live_backend,
+    tick_result,
 )
 
 QUESTION = "Buy 2 liters of whole milk."
@@ -65,7 +70,10 @@ def test_e2e01_complete_happy_path():
     # real Comparator outcome for this specific tick (see module
     # docstring's "Comparator attribution fix"), used below. ──────────
     plans = actor_get(actor_id, "plans")["plans"]
-    matching_plan = next((p for p in plans if p.get("metadata", {}).get("execution_id") == execution_id), None)
+    matching_plan = next(
+        (p for p in plans if p.get("metadata", {}).get("execution_id") == execution_id),
+        None,
+    )
     assert matching_plan is not None, (
         f"identifiers not connected: no persisted PLAN record tagged with execution_id={execution_id}"
     )
@@ -127,8 +135,7 @@ def test_e2e01_complete_happy_path():
     assert predicted["candidates"], "PREDICTION: no candidate scenarios were evaluated"
     recommendation = predicted.get("recommendation", "")
     assert recommendation.startswith("Execute"), (
-        f"PREDICTION decision != ACCEPT: recommendation={recommendation!r} "
-        f"(rationale={predicted.get('rationale')!r})"
+        f"PREDICTION decision != ACCEPT: recommendation={recommendation!r} (rationale={predicted.get('rationale')!r})"
     )
 
     # ── execution reaches a successful terminal state ───────────────────
@@ -179,7 +186,9 @@ def test_e2e01_complete_happy_path():
     assert tick["learned"] is True, "LEARNING: tick.learned is False — pipeline did not complete cleanly"
 
     # ── belief update exists, final belief reflects the observed result ──
-    assert tick["belief_updated"] is True, "BELIEF: tick.belief_updated is False — canonical BeliefState.version did not move"
+    assert tick["belief_updated"] is True, (
+        "BELIEF: tick.belief_updated is False — canonical BeliefState.version did not move"
+    )
 
     # ── identifiers remain connected: request -> goal_id -> plan_id ->
     # execution_id -> observation_id -> comparison -> learning -> belief.

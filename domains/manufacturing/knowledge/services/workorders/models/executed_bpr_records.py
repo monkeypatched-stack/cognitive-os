@@ -3,9 +3,18 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
-ExecutedBprStatus = Literal["Draft", "In Progress", "Completed", "Under QA Review", "Approved", "Rejected", "Voided"]
-ExecutedBprStepStatus = Literal["Pending", "In Progress", "Completed", "Skipped", "Rejected"]
+ExecutedBprStatus = Literal[
+    "Draft",
+    "In Progress",
+    "Completed",
+    "Under QA Review",
+    "Approved",
+    "Rejected",
+    "Voided",
+]
+ExecutedBprStepStatus = Literal[
+    "Pending", "In Progress", "Completed", "Skipped", "Rejected"
+]
 
 
 def utc_now() -> datetime:
@@ -20,17 +29,35 @@ def ensure_utc(value: Optional[datetime]) -> Optional[datetime]:
     return value.astimezone(timezone.utc)
 
 
-def required_cleaning_coverage(metadata: dict[str, Any], cleaning_record_ids: list[str]) -> tuple[list[str], list[str]]:
-    required = [str(item) for item in metadata.get("required_cleaning_requirement_ids") or [] if item]
-    coverage = metadata.get("cleaning_requirement_record_map") if isinstance(metadata.get("cleaning_requirement_record_map"), dict) else {}
-    missing = [requirement_id for requirement_id in required if not coverage.get(requirement_id)]
+def required_cleaning_coverage(
+    metadata: dict[str, Any], cleaning_record_ids: list[str]
+) -> tuple[list[str], list[str]]:
+    required = [
+        str(item)
+        for item in metadata.get("required_cleaning_requirement_ids") or []
+        if item
+    ]
+    coverage = (
+        metadata.get("cleaning_requirement_record_map")
+        if isinstance(metadata.get("cleaning_requirement_record_map"), dict)
+        else {}
+    )
+    missing = [
+        requirement_id
+        for requirement_id in required
+        if not coverage.get(requirement_id)
+    ]
     referenced_records = {str(value) for value in coverage.values() if value}
     missing_records = sorted(referenced_records.difference(set(cleaning_record_ids)))
     return missing, missing_records
 
 
-def missing_required_equipment_usage(metadata: dict[str, Any], equipment_usage_ids: list[str]) -> list[str]:
-    required = {str(item) for item in metadata.get("required_equipment_usage_ids") or [] if item}
+def missing_required_equipment_usage(
+    metadata: dict[str, Any], equipment_usage_ids: list[str]
+) -> list[str]:
+    required = {
+        str(item) for item in metadata.get("required_equipment_usage_ids") or [] if item
+    }
     attached = {str(item) for item in equipment_usage_ids if item}
     return sorted(required.difference(attached))
 
@@ -62,15 +89,27 @@ class ExecutedBprStep(BaseModel):
     def normalize_and_validate(self) -> "ExecutedBprStep":
         self.started_at = ensure_utc(self.started_at)
         self.completed_at = ensure_utc(self.completed_at)
-        if self.completed_at and self.started_at and self.completed_at < self.started_at:
-            raise ValueError("completed_at cannot be before started_at for an executed BPR step.")
+        if (
+            self.completed_at
+            and self.started_at
+            and self.completed_at < self.started_at
+        ):
+            raise ValueError(
+                "completed_at cannot be before started_at for an executed BPR step."
+            )
         if self.status == "Completed":
             if not self.completed_at:
-                raise ValueError("completed executed BPR steps must include completed_at.")
+                raise ValueError(
+                    "completed executed BPR steps must include completed_at."
+                )
             if not self.performed_by:
-                raise ValueError("completed executed BPR steps must include performed_by.")
+                raise ValueError(
+                    "completed executed BPR steps must include performed_by."
+                )
             if not self.signature_ids:
-                raise ValueError("completed executed BPR steps must include signature_ids.")
+                raise ValueError(
+                    "completed executed BPR steps must include signature_ids."
+                )
         return self
 
 
@@ -134,39 +173,74 @@ class ExecutedBatchPackagingRecord(BaseModel):
 
         if self.status in {"Completed", "Under QA Review", "Approved"}:
             if not self.generated_from_approved_instruction:
-                raise ValueError("executed BPR records must be generated from an approved packing instruction.")
+                raise ValueError(
+                    "executed BPR records must be generated from an approved packing instruction."
+                )
             if not self.steps:
-                raise ValueError("completed executed BPR records must include executed packaging steps.")
+                raise ValueError(
+                    "completed executed BPR records must include executed packaging steps."
+                )
             if not self.evidence_document_ids:
-                raise ValueError("completed executed BPR records must include evidence_document_ids.")
+                raise ValueError(
+                    "completed executed BPR records must include evidence_document_ids."
+                )
             if not self.executed_by or not self.executed_at:
-                raise ValueError("completed executed BPR records must include executed_by and executed_at.")
-            missing_requirements, missing_records = required_cleaning_coverage(self.metadata, self.cleaning_record_ids)
+                raise ValueError(
+                    "completed executed BPR records must include executed_by and executed_at."
+                )
+            missing_requirements, missing_records = required_cleaning_coverage(
+                self.metadata, self.cleaning_record_ids
+            )
             if missing_requirements:
-                raise ValueError(f"executed BPR records missing required cleaning coverage: {', '.join(missing_requirements)}.")
+                raise ValueError(
+                    f"executed BPR records missing required cleaning coverage: {', '.join(missing_requirements)}."
+                )
             if missing_records:
-                raise ValueError(f"executed BPR records reference cleaning records not attached to BPR package: {', '.join(missing_records)}.")
-            missing_equipment_usage = missing_required_equipment_usage(self.metadata, self.equipment_usage_ids)
+                raise ValueError(
+                    f"executed BPR records reference cleaning records not attached to BPR package: {', '.join(missing_records)}."
+                )
+            missing_equipment_usage = missing_required_equipment_usage(
+                self.metadata, self.equipment_usage_ids
+            )
             if missing_equipment_usage:
-                raise ValueError(f"executed BPR records missing required regulated equipment usage: {', '.join(missing_equipment_usage)}.")
-            incomplete = [step.title for step in self.steps if step.status not in {"Completed", "Skipped"}]
+                raise ValueError(
+                    f"executed BPR records missing required regulated equipment usage: {', '.join(missing_equipment_usage)}."
+                )
+            incomplete = [
+                step.title
+                for step in self.steps
+                if step.status not in {"Completed", "Skipped"}
+            ]
             if incomplete:
-                raise ValueError(f"completed executed BPR records have incomplete steps: {', '.join(incomplete)}.")
+                raise ValueError(
+                    f"completed executed BPR records have incomplete steps: {', '.join(incomplete)}."
+                )
             unbound_steps = [
                 step.title
                 for step in self.steps
-                if step.status == "Completed" and (not step.report_template_ids or not step.report_template_section_ids)
+                if step.status == "Completed"
+                and (
+                    not step.report_template_ids or not step.report_template_section_ids
+                )
             ]
             if unbound_steps:
-                raise ValueError(f"completed executed BPR steps missing report template binding: {', '.join(unbound_steps)}.")
+                raise ValueError(
+                    f"completed executed BPR steps missing report template binding: {', '.join(unbound_steps)}."
+                )
         if self.status in {"Under QA Review", "Approved"}:
             if not self.reviewed_by or not self.reviewed_at:
-                raise ValueError("reviewed/approved executed BPR records must include reviewed_by and reviewed_at.")
+                raise ValueError(
+                    "reviewed/approved executed BPR records must include reviewed_by and reviewed_at."
+                )
         if self.status == "Approved":
             if not self.approved_by or not self.approved_at:
-                raise ValueError("approved executed BPR records must include approved_by and approved_at.")
+                raise ValueError(
+                    "approved executed BPR records must include approved_by and approved_at."
+                )
             if not self.signature_ids:
-                raise ValueError("approved executed BPR records must include signature_ids.")
+                raise ValueError(
+                    "approved executed BPR records must include signature_ids."
+                )
         return self
 
 

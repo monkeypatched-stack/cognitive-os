@@ -1,18 +1,28 @@
 """CCB-400 — cross-store learning and dynamic reputation."""
+
 from src.monkey_brain.kernel.pipeline.belief_state import Goal
 from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
-from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
-from src.monkey_brain.kernel.society.commerce_network import CommerceExperience, CommerceNetwork
+from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+    ContextConstructionEngine,
+)
+from src.monkey_brain.kernel.society.commerce_network import (
+    CommerceExperience,
+    CommerceNetwork,
+)
 from src.monkey_brain.kernel.society.commerce_network import CapabilityPublication
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
 def test_supplier_experience_is_published_and_available_to_network_planning():
     network = CommerceNetwork()
-    network.publish_experience(CommerceExperience(
-        source_store_id="store-a", subject="milk supplier",
-        lesson="Supplier X reduces spoilage", confidence=0.95,
-    ))
+    network.publish_experience(
+        CommerceExperience(
+            source_store_id="store-a",
+            subject="milk supplier",
+            lesson="Supplier X reduces spoilage",
+            confidence=0.95,
+        )
+    )
     facts = network.planning_facts("milk")
 
     assert any(f["lesson"] == "Supplier X reduces spoilage" for f in facts)
@@ -33,10 +43,14 @@ def test_repeated_late_delivery_lowers_store_reputation():
 def test_network_facts_reach_llm_planning_context():
     pr = PlanetaryRuntime()
     network = pr.commerce_network
-    network.publish_experience(CommerceExperience(
-        source_store_id="costco", subject="milk supplier",
-        lesson="Supplier X reduces spoilage", confidence=0.9,
-    ))
+    network.publish_experience(
+        CommerceExperience(
+            source_store_id="costco",
+            subject="milk supplier",
+            lesson="Supplier X reduces spoilage",
+            confidence=0.9,
+        )
+    )
     network.record_delivery("walmart", late=True)
     engine = ContextConstructionEngine(planetary_runtime=pr)
     context = engine.build("unknown", Goal(name="buy milk"))
@@ -58,10 +72,13 @@ def test_household_and_store_preferences_are_learned_without_reasking():
 
 def test_store_capability_is_published_and_adopted():
     network = CommerceNetwork()
-    network.publish_capability(CapabilityPublication(
-        publisher_store_id="costco", name="holiday_inventory_optimization",
-        description="Optimize holiday inventory before peak demand.",
-    ))
+    network.publish_capability(
+        CapabilityPublication(
+            publisher_store_id="costco",
+            name="holiday_inventory_optimization",
+            description="Optimize holiday inventory before peak demand.",
+        )
+    )
 
     adoption = network.adopt_capability("aldi", "holiday_inventory_optimization")
     assert adoption["publisher_store_id"] == "costco"

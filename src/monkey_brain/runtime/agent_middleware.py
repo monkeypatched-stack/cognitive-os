@@ -26,6 +26,7 @@ Runtime Responsibilities:
 
 Nothing else.
 """
+
 from __future__ import annotations
 
 import json
@@ -40,11 +41,18 @@ from src.monkey_brain.runtime.capability_result import CapabilityResult, Respons
 from src.monkey_brain.runtime.repository_manager import RepositoryManager
 from src.monkey_brain.runtime.intent_resolver import IntentResolver
 from src.monkey_brain.runtime.clarification_result import ClarificationResult
-from src.monkey_brain.runtime.capability_classifier import CapabilityClassifier, CapabilityClassification
+from src.monkey_brain.runtime.capability_classifier import (
+    CapabilityClassifier,
+    CapabilityClassification,
+)
 from src.monkey_brain.runtime.capability_router import CapabilityRouter, CapabilityRoute
-from src.monkey_brain.runtime.capability_resolver import CapabilityResolver, CapabilityResolution
+from src.monkey_brain.runtime.capability_resolver import (
+    CapabilityResolver,
+    CapabilityResolution,
+)
 from src.monkey_brain.runtime.capability_types import (
-    CapabilityType, capability_type_for_group,
+    CapabilityType,
+    capability_type_for_group,
 )
 
 logger = logging.getLogger("agentos.agent_middleware")
@@ -53,6 +61,7 @@ logger = logging.getLogger("agentos.agent_middleware")
 def _get_lemon():
     try:
         from src.introspection.lemon import get_lemon as _lemon
+
         return _lemon()
     except Exception:
         return None
@@ -70,11 +79,48 @@ class IntentType(str, Enum):
 
 # ── Intent Detection (domain-agnostic) ────────────────────────────────────────
 
-_CREATE_WORDS = {"add", "create", "new", "write", "draft", "generate", "compose", "build", "make"}
-_RETRIEVE_WORDS = {"get", "show", "list", "find", "search", "what", "how many", "status", "read"}
-_UPDATE_WORDS = {"update", "edit", "modify", "change", "set", "mark", "complete", "finish"}
+_CREATE_WORDS = {
+    "add",
+    "create",
+    "new",
+    "write",
+    "draft",
+    "generate",
+    "compose",
+    "build",
+    "make",
+}
+_RETRIEVE_WORDS = {
+    "get",
+    "show",
+    "list",
+    "find",
+    "search",
+    "what",
+    "how many",
+    "status",
+    "read",
+}
+_UPDATE_WORDS = {
+    "update",
+    "edit",
+    "modify",
+    "change",
+    "set",
+    "mark",
+    "complete",
+    "finish",
+}
 _DELETE_WORDS = {"delete", "remove", "drop", "clear"}
-_ANALYZE_WORDS = {"analyze", "analysis", "summarize", "summary", "explain", "review", "evaluate"}
+_ANALYZE_WORDS = {
+    "analyze",
+    "analysis",
+    "summarize",
+    "summary",
+    "explain",
+    "review",
+    "evaluate",
+}
 _COMPARE_WORDS = {"compare", "diff", "difference", "versus", "vs"}
 
 
@@ -99,6 +145,7 @@ def detect_intent(question: str) -> IntentType:
 
 
 # ── Knowledge Grounding (domain-agnostic) ─────────────────────────────────────
+
 
 def _identity_from_state(state: dict | None) -> dict | None:
     """Extract caller identity (user/tenant/roles) from execution state for knowledge
@@ -151,6 +198,7 @@ def load_knowledge_context(question: str, identity: dict | None = None) -> dict:
     """
     try:
         import yaml
+
         kp_dir = Path(__file__).parents[3] / "somatic" / "knowledge_packs"
         if not kp_dir.exists():
             return {"sources": [], "context": "", "grounding_confidence": 0.0}
@@ -164,7 +212,7 @@ def load_knowledge_context(question: str, identity: dict | None = None) -> dict:
                     data = yaml.safe_load(f)
                 pack_meta = data.get("pack", {}) or {}
                 if not _pack_permitted(pack_meta, identity):
-                    continue                      # caller not authorized for this pack
+                    continue  # caller not authorized for this pack
                 pack_name = pack_meta.get("name", kp_file.stem)
                 items = data.get("items", [])
 
@@ -172,11 +220,13 @@ def load_knowledge_context(question: str, identity: dict | None = None) -> dict:
                     content = item.get("content", "")
                     if content:
                         context_parts.append(content.strip()[:500])
-                        sources.append({
-                            "pack": pack_name,
-                            "item_id": item.get("id", ""),
-                            "provenance": item.get("provenance", 0.0),
-                        })
+                        sources.append(
+                            {
+                                "pack": pack_name,
+                                "item_id": item.get("id", ""),
+                                "provenance": item.get("provenance", 0.0),
+                            }
+                        )
             except Exception:
                 continue
 
@@ -196,8 +246,10 @@ def load_knowledge_context(question: str, identity: dict | None = None) -> dict:
 
 # ── Serialization (domain-agnostic) ───────────────────────────────────────────
 
+
 def serialize_response(response: Response) -> dict[str, Any]:
     """Serialize a Response object to JSON-safe dict."""
+
     def _sanitize(obj: Any) -> Any:
         if isinstance(obj, (str, int, float, bool, type(None))):
             return obj
@@ -207,14 +259,17 @@ def serialize_response(response: Response) -> dict[str, Any]:
             return [_sanitize(v) for v in obj]
         return str(obj)
 
-    return _sanitize({
-        "answer": response.answer,
-        "format": response.format,
-        "metadata": response.metadata,
-    })
+    return _sanitize(
+        {
+            "answer": response.answer,
+            "format": response.format,
+            "metadata": response.metadata,
+        }
+    )
 
 
 # ── Middleware Class (completely domain-agnostic) ─────────────────────────────
+
 
 class AgentMiddleware:
     """Enforces standardized lifecycle for all agent executions.
@@ -273,8 +328,15 @@ class AgentMiddleware:
 
                 lemon = _get_lemon()
                 if lemon:
-                    lemon.counter("middleware.agent.executed", agent=getattr(agent, "agent_type", self.agent_name))
-                    lemon.histogram("middleware.agent.latency_ms", elapsed, agent=getattr(agent, "agent_type", self.agent_name))
+                    lemon.counter(
+                        "middleware.agent.executed",
+                        agent=getattr(agent, "agent_type", self.agent_name),
+                    )
+                    lemon.histogram(
+                        "middleware.agent.latency_ms",
+                        elapsed,
+                        agent=getattr(agent, "agent_type", self.agent_name),
+                    )
 
                 return capability_result
 
@@ -286,10 +348,12 @@ class AgentMiddleware:
             # Whether the *question* itself resolved to a real capability. The
             # answer text can never revise this — it comes from the agent whose
             # capability is in doubt. This is the grounding gate below.
-            question_unresolved = (
-                classification.capability == "unknown" or classification.confidence < 0.5
+            question_unresolved = classification.capability == "unknown" or classification.confidence < 0.5
+            logger.info(
+                "[middleware] Classified capability: %s (confidence: %.2f)",
+                classification.capability,
+                classification.confidence,
             )
-            logger.info("[middleware] Classified capability: %s (confidence: %.2f)", classification.capability, classification.confidence)
 
             # 3. Resolve Intent — detect ambiguity
             intent_resolver = IntentResolver()
@@ -298,7 +362,10 @@ class AgentMiddleware:
             # 4. If clarification required, return ClarificationResult
             if resolution.requires_clarification:
                 elapsed = (time.monotonic() - t0) * 1000
-                logger.info("[middleware] Ambiguity detected for '%s', requesting clarification", question[:50])
+                logger.info(
+                    "[middleware] Ambiguity detected for '%s', requesting clarification",
+                    question[:50],
+                )
                 lemon = _get_lemon()
                 if lemon:
                     lemon.counter("middleware.clarification_required")
@@ -324,7 +391,11 @@ class AgentMiddleware:
                 # IS the deliverable (summarize/translate: a single LLM call
                 # suffices, no multi-step pipeline needed).
                 if lemon:
-                    lemon.counter("middleware.capability.routed", capability=classification.capability, group=route.group)
+                    lemon.counter(
+                        "middleware.capability.routed",
+                        capability=classification.capability,
+                        group=route.group,
+                    )
                     lemon.counter("middleware.generative.invoked")
                 knowledge = load_knowledge_context(question, identity=_identity_from_state(state))
                 capability_result = await self._generate_via_llm(question, classification.capability, knowledge)
@@ -336,7 +407,11 @@ class AgentMiddleware:
                 # research -> generate -> review -> publish). See
                 # capability_types.COMPOSITE_RECIPES and _execute_composite.
                 if lemon:
-                    lemon.counter("middleware.capability.routed", capability=classification.capability, group=route.group)
+                    lemon.counter(
+                        "middleware.capability.routed",
+                        capability=classification.capability,
+                        group=route.group,
+                    )
                     lemon.counter("middleware.composite.invoked")
                 knowledge = load_knowledge_context(question, identity=_identity_from_state(state))
                 capability_result = await self._execute_composite(route.group, question, knowledge)
@@ -345,11 +420,22 @@ class AgentMiddleware:
             else:
                 # 6. Resolve implementation
                 impl = self.resolver.resolve(route.group)
-                logger.info("[middleware] Resolved implementation: %s (%s)", impl.implementation, impl.implementation_type)
+                logger.info(
+                    "[middleware] Resolved implementation: %s (%s)",
+                    impl.implementation,
+                    impl.implementation_type,
+                )
 
                 if lemon:
-                    lemon.counter("middleware.capability.routed", capability=classification.capability, group=route.group)
-                    lemon.counter("middleware.implementation.resolved", implementation=impl.implementation)
+                    lemon.counter(
+                        "middleware.capability.routed",
+                        capability=classification.capability,
+                        group=route.group,
+                    )
+                    lemon.counter(
+                        "middleware.implementation.resolved",
+                        implementation=impl.implementation,
+                    )
 
                 # 7. Load Context
                 context = {
@@ -359,7 +445,7 @@ class AgentMiddleware:
                     "capability_group": route.group,
                     "question": question,
                     "knowledge": {},
-                    "resolved_parameters": resolution.best_candidate.parameters if resolution.best_candidate else {},
+                    "resolved_parameters": (resolution.best_candidate.parameters if resolution.best_candidate else {}),
                 }
 
                 # 8. Retrieve Knowledge (domain-agnostic)
@@ -368,6 +454,7 @@ class AgentMiddleware:
 
                 # 9. Resolve & Invoke Capability
                 from src.monkey_brain.runtime.agent_resolver import get_resolver
+
                 resolver = get_resolver()
                 # impl.implementation_type == "generated" means CapabilityResolver
                 # had no real mapping and fabricated f"{group}Agent" as a
@@ -375,7 +462,11 @@ class AgentMiddleware:
                 # responsibility behind that name, so it must never trigger a
                 # real n8n workflow creation. Broca/provider discovery of an
                 # already-real agent under that name is still allowed.
-                agent = await resolver.resolve(impl.implementation, allow_create=impl.implementation_type != "generated", question=question)
+                agent = await resolver.resolve(
+                    impl.implementation,
+                    allow_create=impl.implementation_type != "generated",
+                    question=question,
+                )
                 if agent is None:
                     return CapabilityResult(
                         success=False,
@@ -477,11 +568,18 @@ class AgentMiddleware:
                 lemon.observe_agent_reasoning(
                     agent_type=executed_implementation,
                     perception={"question": question[:200], "intent": intent.value},
-                    decision={"capability": classification.capability, "group": route.group},
+                    decision={
+                        "capability": classification.capability,
+                        "group": route.group,
+                    },
                     latency_ms=elapsed,
                 )
                 lemon.counter("middleware.agent.executed", agent=executed_implementation)
-                lemon.histogram("middleware.agent.latency_ms", elapsed, agent=executed_implementation)
+                lemon.histogram(
+                    "middleware.agent.latency_ms",
+                    elapsed,
+                    agent=executed_implementation,
+                )
 
             return capability_result
 
@@ -515,9 +613,7 @@ class AgentMiddleware:
             capability_result.metadata["intent"] = intent.value if intent else ""
             capability_result.metadata["agent"] = self.agent_name
             capability_result.metadata["resolution_confidence"] = (
-                resolution.best_candidate.confidence
-                if resolution and resolution.best_candidate
-                else 0.0
+                resolution.best_candidate.confidence if resolution and resolution.best_candidate else 0.0
             )
             capability_result.metadata["latency_ms"] = elapsed
 
@@ -711,14 +807,14 @@ class AgentMiddleware:
             unreachable = result.metadata.get("providers_unreachable") or []
             detail = f" ({', '.join(unreachable)} unreachable)" if unreachable else ""
             result.metadata.setdefault(
-                "blocker", f"capability availability could not be confirmed{detail} — try again",
+                "blocker",
+                f"capability availability could not be confirmed{detail} — try again",
             )
 
         answer = (result.response.answer or "").strip()
         if not answer:
             result.response.answer = (
-                "No capability is available to execute this request, and no "
-                "advisory answer could be produced."
+                "No capability is available to execute this request, and no advisory answer could be produced."
             )
 
     async def _execute_composite(self, group: str, question: str, knowledge: dict) -> CapabilityResult:
@@ -740,8 +836,15 @@ class AgentMiddleware:
         if meta.get("failed"):
             return CapabilityResult(
                 success=False,
-                response=Response(answer=f"Composition for {group!r} failed: {meta.get('error', 'no output produced')}"),
-                metadata={"executable": False, "composite": True, "blocker": meta.get("error", "composition failed"), "trace": meta.get("trace", [])},
+                response=Response(
+                    answer=f"Composition for {group!r} failed: {meta.get('error', 'no output produced')}"
+                ),
+                metadata={
+                    "executable": False,
+                    "composite": True,
+                    "blocker": meta.get("error", "composition failed"),
+                    "trace": meta.get("trace", []),
+                },
             )
         return CapabilityResult(
             success=True,
@@ -758,8 +861,14 @@ class AgentMiddleware:
         )
 
     async def _compose_capability(
-        self, capability: str, question: str, prior_context: str = "", depth: int = 0, max_depth: int = 3,
-        skip_direct_resolution: bool = False, ancestry: frozenset[str] = frozenset(),
+        self,
+        capability: str,
+        question: str,
+        prior_context: str = "",
+        depth: int = 0,
+        max_depth: int = 3,
+        skip_direct_resolution: bool = False,
+        ancestry: frozenset[str] = frozenset(),
     ) -> tuple[str, dict[str, Any]]:
         """Recursively resolve a capability into real output.
 
@@ -792,7 +901,16 @@ class AgentMiddleware:
         if not skip_direct_resolution:
             answer, meta = await self._resolve_composite_subcapability(capability, question, prior_context)
             if not meta.get("failed"):
-                return answer, {"failed": False, "trace": [{"capability": capability, "via": "real_implementation", "implementation": meta.get("implementation")}]}
+                return answer, {
+                    "failed": False,
+                    "trace": [
+                        {
+                            "capability": capability,
+                            "via": "real_implementation",
+                            "implementation": meta.get("implementation"),
+                        }
+                    ],
+                }
 
             # Direct resolution under this exact name failed — before
             # composing/generating from scratch, check whether this is
@@ -819,7 +937,14 @@ class AgentMiddleware:
                         await self._link_capability_generalization(capability, general)
                     return gen_answer, {
                         "failed": False,
-                        "trace": [{"capability": capability, "via": "generalization", "generalizes_to": general, "implementation": gen_meta.get("implementation")}],
+                        "trace": [
+                            {
+                                "capability": capability,
+                                "via": "generalization",
+                                "generalizes_to": general,
+                                "implementation": gen_meta.get("implementation"),
+                            }
+                        ],
                     }
                 # The linked/discovered general capability doesn't actually
                 # resolve either (stale link, or a bad discovery this time)
@@ -835,14 +960,26 @@ class AgentMiddleware:
             if not mesh_meta.get("failed"):
                 return mesh_answer, {
                     "failed": False,
-                    "trace": [{"capability": capability, "via": "execution_mesh_subgraph", **{k: v for k, v in mesh_meta.items() if k in ("graph_key", "goal", "agents")}}],
+                    "trace": [
+                        {
+                            "capability": capability,
+                            "via": "execution_mesh_subgraph",
+                            **{k: v for k, v in mesh_meta.items() if k in ("graph_key", "goal", "agents")},
+                        }
+                    ],
                 }
 
         if depth >= max_depth:
             text, gen_meta = await self._composite_llm_step("generate", question, prior_context, {})
             if gen_meta.get("failed"):
-                return "", {"failed": True, "error": f"depth budget exhausted and LLM fallback failed for {capability!r}: {gen_meta.get('error','')}"}
-            return text, {"failed": False, "trace": [{"capability": capability, "via": "llm_direct_depth_limit"}]}
+                return "", {
+                    "failed": True,
+                    "error": f"depth budget exhausted and LLM fallback failed for {capability!r}: {gen_meta.get('error', '')}",
+                }
+            return text, {
+                "failed": False,
+                "trace": [{"capability": capability, "via": "llm_direct_depth_limit"}],
+            }
 
         sub_capabilities = await self._lookup_capability_composition(capability)
         from_mesh = sub_capabilities is not None
@@ -855,14 +992,26 @@ class AgentMiddleware:
             role = "generate" if depth == 0 else "generate"
             text, gen_meta = await self._composite_llm_step(role, question, prior_context, {})
             if gen_meta.get("failed"):
-                return "", {"failed": True, "error": f"atomic capability {capability!r} has no implementation and LLM generation failed: {gen_meta.get('error','')}"}
-            return text, {"failed": False, "trace": [{"capability": capability, "via": "llm_direct_atomic"}]}
+                return "", {
+                    "failed": True,
+                    "error": f"atomic capability {capability!r} has no implementation and LLM generation failed: {gen_meta.get('error', '')}",
+                }
+            return text, {
+                "failed": False,
+                "trace": [{"capability": capability, "via": "llm_direct_atomic"}],
+            }
 
         if not from_mesh:
             await self._persist_capability_composition(capability, sub_capabilities)
 
         context_so_far = prior_context
-        trace: list[dict[str, Any]] = [{"capability": capability, "via": "mesh" if from_mesh else "llm_decomposed", "composed_from": sub_capabilities}]
+        trace: list[dict[str, Any]] = [
+            {
+                "capability": capability,
+                "via": "mesh" if from_mesh else "llm_decomposed",
+                "composed_from": sub_capabilities,
+            }
+        ]
         next_ancestry = ancestry | {capability}
         for sub in sub_capabilities:
             if sub in next_ancestry:
@@ -872,15 +1021,37 @@ class AgentMiddleware:
                 # would just re-derive the same cycle up to max_depth, wasting
                 # real LLM calls at every level for no new information.
                 # Resolve this one occurrence directly instead of recursing.
-                logger.debug("[middleware] cycle detected composing %r: %r already in ancestry %r — resolving directly", capability, sub, next_ancestry)
+                logger.debug(
+                    "[middleware] cycle detected composing %r: %r already in ancestry %r — resolving directly",
+                    capability,
+                    sub,
+                    next_ancestry,
+                )
                 sub_answer, sub_meta = await self._composite_llm_step("generate", question, context_so_far, {})
                 if sub_meta.get("failed"):
-                    return "", {"failed": True, "error": f"sub-capability {sub!r} (cyclic) failed: {sub_meta.get('error', '')}", "composed_from": sub_capabilities, "trace": trace}
+                    return "", {
+                        "failed": True,
+                        "error": f"sub-capability {sub!r} (cyclic) failed: {sub_meta.get('error', '')}",
+                        "composed_from": sub_capabilities,
+                        "trace": trace,
+                    }
                 trace.append({"capability": sub, "via": "llm_direct_cycle_guard"})
             else:
-                sub_answer, sub_meta = await self._compose_capability(sub, question, context_so_far, depth + 1, max_depth, ancestry=next_ancestry)
+                sub_answer, sub_meta = await self._compose_capability(
+                    sub,
+                    question,
+                    context_so_far,
+                    depth + 1,
+                    max_depth,
+                    ancestry=next_ancestry,
+                )
                 if sub_meta.get("failed"):
-                    return "", {"failed": True, "error": f"sub-capability {sub!r} failed: {sub_meta.get('error', '')}", "composed_from": sub_capabilities, "trace": trace}
+                    return "", {
+                        "failed": True,
+                        "error": f"sub-capability {sub!r} failed: {sub_meta.get('error', '')}",
+                        "composed_from": sub_capabilities,
+                        "trace": trace,
+                    }
                 trace.extend(sub_meta.get("trace", []))
             if sub_answer:
                 context_so_far = sub_answer
@@ -892,7 +1063,9 @@ class AgentMiddleware:
             "trace": trace,
         }
 
-    async def _resolve_via_execution_mesh(self, capability: str, question: str, prior_context: str) -> tuple[str, dict[str, Any]]:
+    async def _resolve_via_execution_mesh(
+        self, capability: str, question: str, prior_context: str
+    ) -> tuple[str, dict[str, Any]]:
         """Expand an existing reusable ExecutionGraph as a subgraph for this
         capability — the recursive-composition path: an unresolved
         capability can be a whole workflow the mesh already knows, not just
@@ -903,7 +1076,10 @@ class AgentMiddleware:
         node gets, threading each step's output into the next.
         """
         try:
-            from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+            from src.monkey_brain.persistence.graph_store import (
+                get_graph_store_instance,
+            )
+
             store = get_graph_store_instance()
             if store is None or not store.is_connected():
                 return "", {"failed": True, "error": "graph store unavailable"}
@@ -929,18 +1105,29 @@ class AgentMiddleware:
                 ordered.extend(ready)
                 remaining -= set(ready)
 
-            logger.info("[middleware] expanding ExecutionGraph %r (%s) as subgraph for capability %r", match.get("goal"), match.get("graph_key"), capability)
+            logger.info(
+                "[middleware] expanding ExecutionGraph %r (%s) as subgraph for capability %r",
+                match.get("goal"),
+                match.get("graph_key"),
+                capability,
+            )
             context_so_far = prior_context
             executed: list[str] = []
             for agent_type in ordered:
                 sub_answer, sub_meta = await self._resolve_known_agent_type(agent_type, question, context_so_far)
                 if sub_meta.get("failed"):
-                    return "", {"failed": True, "error": f"subgraph agent {agent_type!r} failed: {sub_meta.get('error', '')}"}
+                    return "", {
+                        "failed": True,
+                        "error": f"subgraph agent {agent_type!r} failed: {sub_meta.get('error', '')}",
+                    }
                 executed.append(agent_type)
                 if sub_answer:
                     context_so_far = sub_answer
             if not executed:
-                return "", {"failed": True, "error": "mesh graph had no executable agents"}
+                return "", {
+                    "failed": True,
+                    "error": "mesh graph had no executable agents",
+                }
             return context_so_far, {
                 "failed": False,
                 "graph_key": match.get("graph_key"),
@@ -957,17 +1144,28 @@ class AgentMiddleware:
         unavailable must never fail the request whose result it's recording.
         """
         try:
-            from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+            from src.monkey_brain.persistence.graph_store import (
+                get_graph_store_instance,
+            )
+
             store = get_graph_store_instance()
             if store is None or not store.is_connected():
                 return
             await store.register_capability_provider(agent_name, capability)
         except Exception as e:
-            logger.debug("[middleware] capability provider registration failed for %s/%s: %s", agent_name, capability, e)
+            logger.debug(
+                "[middleware] capability provider registration failed for %s/%s: %s",
+                agent_name,
+                capability,
+                e,
+            )
 
     async def _lookup_capability_composition(self, capability: str) -> list[str] | None:
         try:
-            from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+            from src.monkey_brain.persistence.graph_store import (
+                get_graph_store_instance,
+            )
+
             store = get_graph_store_instance()
             if store is None or not store.is_connected():
                 return None
@@ -978,7 +1176,10 @@ class AgentMiddleware:
 
     async def _persist_capability_composition(self, capability: str, sub_capabilities: list[str]) -> None:
         try:
-            from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+            from src.monkey_brain.persistence.graph_store import (
+                get_graph_store_instance,
+            )
+
             store = get_graph_store_instance()
             if store is None or not store.is_connected():
                 return
@@ -995,6 +1196,7 @@ class AgentMiddleware:
         """
         try:
             from broca.agents.graph_generator_agent import GraphGeneratorAgent
+
             generator = GraphGeneratorAgent()
             if generator._llm is None:
                 return [capability]
@@ -1018,6 +1220,7 @@ class AgentMiddleware:
         try:
             raw = await generator._llm.generate(prompt, system=system)
             import re
+
             m = re.search(r"\[.*\]", raw, re.DOTALL)
             if not m:
                 return [capability]
@@ -1037,8 +1240,20 @@ class AgentMiddleware:
     # result — quarantined by _looks_like_commentary rather than passed
     # downstream, where it would silently overwrite real content.
     _COMMENTARY_OPENERS = (
-        "excellent", "great", "i understand", "sure", "certainly", "okay", "sounds good",
-        "thank you", "thanks", "of course", "here is", "here's", "got it", "i've",
+        "excellent",
+        "great",
+        "i understand",
+        "sure",
+        "certainly",
+        "okay",
+        "sounds good",
+        "thank you",
+        "thanks",
+        "of course",
+        "here is",
+        "here's",
+        "got it",
+        "i've",
     )
 
     @classmethod
@@ -1052,7 +1267,9 @@ class AgentMiddleware:
         much_shorter = input_text and len(text) < len(input_text) * 0.5
         return opens_conversationally and much_shorter
 
-    async def _composite_llm_step(self, role: str, question: str, prior_context: str, knowledge: dict) -> tuple[str, dict[str, Any]]:
+    async def _composite_llm_step(
+        self, role: str, question: str, prior_context: str, knowledge: dict
+    ) -> tuple[str, dict[str, Any]]:
         """One LLM-backed step of a composite pipeline (generate/review/publish).
 
         Never has access to anything beyond the prior step's real output and
@@ -1065,6 +1282,7 @@ class AgentMiddleware:
         """
         try:
             from broca.agents.graph_generator_agent import GraphGeneratorAgent
+
             generator = GraphGeneratorAgent()
             if generator._llm is None:
                 return "", {"failed": True, "error": "no LLM provider configured"}
@@ -1107,7 +1325,10 @@ class AgentMiddleware:
             return "", {"failed": True, "error": "LLM returned empty content"}
 
         if role in ("review", "publish") and self._looks_like_commentary(result, prior_context):
-            logger.warning("[middleware] composite %s step returned commentary instead of a transform — passing prior content through unchanged", role)
+            logger.warning(
+                "[middleware] composite %s step returned commentary instead of a transform — passing prior content through unchanged",
+                role,
+            )
             return prior_context, {"failed": False, "passthrough": True}
 
         return result, {"failed": False}
@@ -1131,7 +1352,9 @@ class AgentMiddleware:
                     hits.append(f"[{repo_name}] {json.dumps(entity, default=str)[:300]}")
         return "\n".join(hits[:10])
 
-    async def _resolve_composite_subcapability(self, group: str, question: str, prior_context: str) -> tuple[str, dict[str, Any]]:
+    async def _resolve_composite_subcapability(
+        self, group: str, question: str, prior_context: str
+    ) -> tuple[str, dict[str, Any]]:
         """Resolve a composite step that's a real capability group (not an
         LLM role) through the normal provider hierarchy — e.g. the
         "research" step of content_generation resolving through
@@ -1171,10 +1394,14 @@ class AgentMiddleware:
         if group == "knowledge_management":
             db_hits = self._search_repositories(question)
             if db_hits:
-                return db_hits, {"failed": False, "implementation": "repository_manager_search"}
+                return db_hits, {
+                    "failed": False,
+                    "implementation": "repository_manager_search",
+                }
 
         try:
             from src.monkey_brain.runtime.agent_resolver import get_resolver
+
             resolver = get_resolver()
 
             known_agent_name = await self._lookup_known_provider(group)
@@ -1183,18 +1410,32 @@ class AgentMiddleware:
                 if agent is not None:
                     result = await agent.execute({"question": question, "capability_group": group})
                     cap_result = self._extract_capability_result(result)
-                    is_synthetic = bool(cap_result.metadata.get("synthetic")) or cap_result.metadata.get("source") == "codegen"
+                    is_synthetic = (
+                        bool(cap_result.metadata.get("synthetic")) or cap_result.metadata.get("source") == "codegen"
+                    )
                     if not is_synthetic and cap_result.success:
-                        return (cap_result.response.answer or ""), {"failed": False, "implementation": known_agent_name, "via_mesh_index": True}
+                        return (cap_result.response.answer or ""), {
+                            "failed": False,
+                            "implementation": known_agent_name,
+                            "via_mesh_index": True,
+                        }
                     # Mesh pointed at something that no longer actually works
                     # (e.g. an n8n workflow that got deleted/deactivated) —
                     # fall through to full discovery below rather than
                     # trusting a stale index entry.
 
             impl = self.resolver.resolve(group)
-            agent = await resolver.resolve(impl.implementation, allow_create=impl.implementation_type != "generated", question=question)
+            agent = await resolver.resolve(
+                impl.implementation,
+                allow_create=impl.implementation_type != "generated",
+                question=question,
+            )
             if agent is None:
-                return "", {"failed": True, "error": f"no implementation for {impl.implementation}", "implementation": impl.implementation}
+                return "", {
+                    "failed": True,
+                    "error": f"no implementation for {impl.implementation}",
+                    "implementation": impl.implementation,
+                }
             result = await agent.execute({"question": question, "capability_group": group})
         except Exception as e:
             return "", {"failed": True, "error": str(e)}
@@ -1202,12 +1443,19 @@ class AgentMiddleware:
         cap_result = self._extract_capability_result(result)
         is_synthetic = bool(cap_result.metadata.get("synthetic")) or cap_result.metadata.get("source") == "codegen"
         if is_synthetic or not cap_result.success:
-            return "", {"failed": True, "error": cap_result.metadata.get("error", "resolved only to an advisory/synthetic answer"), "implementation": impl.implementation}
+            return "", {
+                "failed": True,
+                "error": cap_result.metadata.get("error", "resolved only to an advisory/synthetic answer"),
+                "implementation": impl.implementation,
+            }
         # Full discovery found a real provider — index it so the *next*
         # request for this capability hits _lookup_known_provider above
         # instead of paying for ARD/OpenClaw/n8n discovery again.
         await self._register_capability_provider(impl.implementation, group)
-        return (cap_result.response.answer or ""), {"failed": False, "implementation": impl.implementation}
+        return (cap_result.response.answer or ""), {
+            "failed": False,
+            "implementation": impl.implementation,
+        }
 
     @staticmethod
     async def _lookup_known_provider(capability: str) -> str | None:
@@ -1215,7 +1463,10 @@ class AgentMiddleware:
         mesh — None if the mesh has no record (first time this capability
         has ever been resolved) or Neo4j is unavailable."""
         try:
-            from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+            from src.monkey_brain.persistence.graph_store import (
+                get_graph_store_instance,
+            )
+
             store = get_graph_store_instance()
             if store is None or not store.is_connected():
                 return None
@@ -1225,7 +1476,9 @@ class AgentMiddleware:
             logger.debug("[middleware] known-provider lookup failed for %r: %s", capability, e)
             return None
 
-    async def _resolve_known_agent_type(self, agent_type: str, question: str, prior_context: str) -> tuple[str, dict[str, Any]]:
+    async def _resolve_known_agent_type(
+        self, agent_type: str, question: str, prior_context: str
+    ) -> tuple[str, dict[str, Any]]:
         """Resolve a real Broca agent_type directly (no CapabilityResolver
         group indirection) — used for generalization targets, which are
         already-real agent names (e.g. "appointment"), not capability
@@ -1235,10 +1488,14 @@ class AgentMiddleware:
         """
         try:
             from src.monkey_brain.runtime.agent_resolver import get_resolver
+
             resolver = get_resolver()
             agent = await resolver.resolve(agent_type, allow_create=False, question=question)
             if agent is None:
-                return "", {"failed": True, "error": f"no implementation for {agent_type}"}
+                return "", {
+                    "failed": True,
+                    "error": f"no implementation for {agent_type}",
+                }
             result = await agent.execute({"question": question, "prior_context": prior_context})
         except Exception as e:
             return "", {"failed": True, "error": str(e)}
@@ -1246,13 +1503,23 @@ class AgentMiddleware:
         cap_result = self._extract_capability_result(result)
         is_synthetic = bool(cap_result.metadata.get("synthetic")) or cap_result.metadata.get("source") == "codegen"
         if is_synthetic or not cap_result.success:
-            return "", {"failed": True, "error": cap_result.metadata.get("error", "resolved only to an advisory/synthetic answer"), "implementation": agent_type}
-        return (cap_result.response.answer or ""), {"failed": False, "implementation": agent_type}
+            return "", {
+                "failed": True,
+                "error": cap_result.metadata.get("error", "resolved only to an advisory/synthetic answer"),
+                "implementation": agent_type,
+            }
+        return (cap_result.response.answer or ""), {
+            "failed": False,
+            "implementation": agent_type,
+        }
 
     @staticmethod
     async def _lookup_generalization(capability: str) -> str | None:
         try:
-            from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+            from src.monkey_brain.persistence.graph_store import (
+                get_graph_store_instance,
+            )
+
             store = get_graph_store_instance()
             if store is None or not store.is_connected():
                 return None
@@ -1264,13 +1531,21 @@ class AgentMiddleware:
     @staticmethod
     async def _link_capability_generalization(specific: str, general: str) -> None:
         try:
-            from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+            from src.monkey_brain.persistence.graph_store import (
+                get_graph_store_instance,
+            )
+
             store = get_graph_store_instance()
             if store is None or not store.is_connected():
                 return
             await store.link_capability_generalization(specific, general)
         except Exception as e:
-            logger.debug("[middleware] generalization link failed for %r -> %r: %s", specific, general, e)
+            logger.debug(
+                "[middleware] generalization link failed for %r -> %r: %s",
+                specific,
+                general,
+                e,
+            )
 
     @staticmethod
     async def _discover_generalization(capability: str, question: str) -> str | None:
@@ -1286,6 +1561,7 @@ class AgentMiddleware:
         """
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
             all_types = registry.agent_types()
         except Exception:
@@ -1299,7 +1575,7 @@ class AgentMiddleware:
         # (it's *longer* than "appointment", not a match in either
         # direction). Split on case boundaries first, exactly like
         # runtime.py's own humanization of planner node names.
-        humanized_capability = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', capability)
+        humanized_capability = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", capability)
         words = {w for w in re.findall(r"[a-z0-9]+", humanized_capability.lower()) if len(w) > 2}
         words |= {w for w in re.findall(r"[a-z0-9]+", question.lower()) if len(w) > 2}
         shortlist = [t for t in all_types if any(w in t.replace("_", "") for w in words)]
@@ -1309,6 +1585,7 @@ class AgentMiddleware:
 
         try:
             from broca.agents.graph_generator_agent import GraphGeneratorAgent
+
             generator = GraphGeneratorAgent()
             if generator._llm is None:
                 return None
@@ -1325,11 +1602,15 @@ class AgentMiddleware:
                 f"Request it came from: {question!r}\n\n"
                 f"Candidate existing real capabilities: {shortlist}\n\n"
                 f"Is {capability!r} a specific instance of exactly one of these candidates? "
-                "If yes, respond with that candidate's exact name. If no genuine match, respond \"none\"."
+                'If yes, respond with that candidate\'s exact name. If no genuine match, respond "none".'
             )
             raw = (await generator._llm.generate(prompt, system=system)).strip().strip('"').strip("'")
         except Exception as e:
-            logger.debug("[middleware] generalization discovery LLM call failed for %r: %s", capability, e)
+            logger.debug(
+                "[middleware] generalization discovery LLM call failed for %r: %s",
+                capability,
+                e,
+            )
             return None
 
         if raw.lower() == "none" or raw not in shortlist:
@@ -1350,19 +1631,34 @@ class AgentMiddleware:
         """
         try:
             from broca.agents.graph_generator_agent import GraphGeneratorAgent
+
             generator = GraphGeneratorAgent()
         except Exception as e:
-            logger.warning("[middleware] no LLM provider available for generative capability %r: %s", capability, e)
+            logger.warning(
+                "[middleware] no LLM provider available for generative capability %r: %s",
+                capability,
+                e,
+            )
             return CapabilityResult(
                 success=False,
                 response=Response(answer=f"No LLM provider is available to fulfill this request ({capability})."),
-                metadata={"executable": False, "generative": True, "unimplemented": True, "blocker": f"LLM provider unavailable: {e}"},
+                metadata={
+                    "executable": False,
+                    "generative": True,
+                    "unimplemented": True,
+                    "blocker": f"LLM provider unavailable: {e}",
+                },
             )
         if generator._llm is None:
             return CapabilityResult(
                 success=False,
                 response=Response(answer=f"No LLM provider is available to fulfill this request ({capability})."),
-                metadata={"executable": False, "generative": True, "unimplemented": True, "blocker": "no LLM provider configured"},
+                metadata={
+                    "executable": False,
+                    "generative": True,
+                    "unimplemented": True,
+                    "blocker": "no LLM provider configured",
+                },
             )
 
         system = (
@@ -1381,7 +1677,12 @@ class AgentMiddleware:
             return CapabilityResult(
                 success=False,
                 response=Response(answer=f"The LLM provider failed to fulfill this request ({capability})."),
-                metadata={"executable": False, "generative": True, "unimplemented": False, "blocker": f"LLM call failed: {e}"},
+                metadata={
+                    "executable": False,
+                    "generative": True,
+                    "unimplemented": False,
+                    "blocker": f"LLM call failed: {e}",
+                },
             )
 
         content = (content or "").strip()
@@ -1389,7 +1690,12 @@ class AgentMiddleware:
             return CapabilityResult(
                 success=False,
                 response=Response(answer=f"The LLM provider returned no content for this request ({capability})."),
-                metadata={"executable": False, "generative": True, "unimplemented": False, "blocker": "LLM returned empty content"},
+                metadata={
+                    "executable": False,
+                    "generative": True,
+                    "unimplemented": False,
+                    "blocker": "LLM returned empty content",
+                },
             )
 
         return CapabilityResult(
@@ -1431,6 +1737,7 @@ class AgentMiddleware:
 
         try:
             from broca.agents.graph_generator_agent import GraphGeneratorAgent
+
             generator = GraphGeneratorAgent()
             if generator._llm is None:
                 return None
@@ -1462,6 +1769,7 @@ class AgentMiddleware:
         """
         try:
             from src.monkey_brain.runtime.telemetry import get_telemetry
+
             telemetry = get_telemetry()
             trace = telemetry.start_trace(f"{self.agent_name}_{int(time.time())}")
             trace.intent = intent.value if intent else ""

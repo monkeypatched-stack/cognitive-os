@@ -10,7 +10,6 @@ from services.workorders.models.ipc_result_records import (
     IpcResultRecordUpdate,
 )
 
-
 COLLECTION = "ipc_result_records"
 
 
@@ -40,7 +39,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -57,7 +58,9 @@ async def _attach_to_batch_record(db: AsyncIOMotorDatabase, record: dict) -> Non
             "$addToSet": {
                 "metadata.batch_record_package.ipc_result_record_ids": ipc_result_id,
                 "metadata.bmr_package.ipc_result_record_ids": ipc_result_id,
-                "evidence_document_ids": {"$each": record.get("evidence_document_ids") or []},
+                "evidence_document_ids": {
+                    "$each": record.get("evidence_document_ids") or []
+                },
             }
         },
     )
@@ -105,7 +108,9 @@ async def create(db: AsyncIOMotorDatabase, data: IpcResultRecordCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, ipc_result_id: str, data: IpcResultRecordUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, ipc_result_id: str, data: IpcResultRecordUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(exclude_unset=True))
     if not fields:
         return await get_by_id(db, ipc_result_id)

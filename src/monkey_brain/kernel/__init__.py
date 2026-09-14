@@ -25,10 +25,16 @@ from src.monkey_brain.kernel.learn.observer.observer import Observer, Observatio
 from src.monkey_brain.kernel.fix.loss.loss import Loss, compute_loss
 from src.monkey_brain.kernel.learn.learning import Learning, Transition
 from src.monkey_brain.kernel.fix.policy.policy import IPolicy, BellmanPolicy
-from src.monkey_brain.kernel.fix.policy.transition import Transition as RLTransition, TransitionTable
+from src.monkey_brain.kernel.fix.policy.transition import (
+    Transition as RLTransition,
+    TransitionTable,
+)
 from src.monkey_brain.kernel.fix.policy.reward import RewardModel, RewardSignal
 from src.monkey_brain.kernel.learn.epa.learner import Learner, LearningMetrics
-from src.monkey_brain.kernel.execute.provider.llm_explorer import LLMExplorer, WorkflowCandidate
+from src.monkey_brain.kernel.execute.provider.llm_explorer import (
+    LLMExplorer,
+    WorkflowCandidate,
+)
 
 __all__ = [
     "Workload",

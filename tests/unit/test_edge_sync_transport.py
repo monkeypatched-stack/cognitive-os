@@ -4,6 +4,7 @@ NetworkSyncTransport), that NetworkSyncTransport's retry/timeout/auth/
 malformed-response handling is real (exercised against httpx.MockTransport,
 not a live server), and that EdgeSyncClient needs ZERO changes to consume
 either transport via TransportSyncSource."""
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,10 @@ import httpx
 import pytest
 
 from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
-from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache, issue_policy_snapshot
+from src.monkey_brain.kernel.edge.policy_cache import (
+    EdgePolicyCache,
+    issue_policy_snapshot,
+)
 from src.monkey_brain.kernel.edge.sync import EdgeSyncClient
 from src.monkey_brain.kernel.edge.sync_transport import (
     InProcessSyncTransport,
@@ -33,10 +37,16 @@ class _FakeBackend:
             return []
         import time
 
-        return [{
-            "principal": "p1", "action": "a", "resource": "r",
-            "approval_mode": "AUTO_APPROVE", "issued_at": time.time(), "expires_at": time.time() + 300,
-        }]
+        return [
+            {
+                "principal": "p1",
+                "action": "a",
+                "resource": "r",
+                "approval_mode": "AUTO_APPROVE",
+                "issued_at": time.time(),
+                "expires_at": time.time() + 300,
+            }
+        ]
 
     def get_world_projection(self, *, keys: tuple[str, ...]) -> dict:
         return {k: {"value": 1, "version": "v1"} for k in keys}
@@ -93,8 +103,10 @@ class TestNetworkSyncTransportFailureHandling:
             return httpx.Response(200, json={"epoch": 1})
 
         transport = NetworkSyncTransport(
-            _mock_transport_client(handler), "https://control-plane.example",
-            max_retries=5, backoff_seconds=0.001,
+            _mock_transport_client(handler),
+            "https://control-plane.example",
+            max_retries=5,
+            backoff_seconds=0.001,
         )
         assert transport.get_epoch() == 1
         assert calls["n"] == 3
@@ -104,8 +116,10 @@ class TestNetworkSyncTransportFailureHandling:
             raise httpx.ConnectError("connection refused", request=request)
 
         transport = NetworkSyncTransport(
-            _mock_transport_client(handler), "https://control-plane.example",
-            max_retries=3, backoff_seconds=0.001,
+            _mock_transport_client(handler),
+            "https://control-plane.example",
+            max_retries=3,
+            backoff_seconds=0.001,
         )
         with pytest.raises(SyncTransportUnavailableError):
             transport.get_epoch()
@@ -117,7 +131,11 @@ class TestNetworkSyncTransportFailureHandling:
             calls["n"] += 1
             return httpx.Response(401, json={"error": "unauthorized"})
 
-        transport = NetworkSyncTransport(_mock_transport_client(handler), "https://control-plane.example", max_retries=5)
+        transport = NetworkSyncTransport(
+            _mock_transport_client(handler),
+            "https://control-plane.example",
+            max_retries=5,
+        )
         with pytest.raises(SyncTransportAuthenticationError):
             transport.get_epoch()
         assert calls["n"] == 1, "auth failure must not be retried like a transient error"
@@ -159,8 +177,10 @@ class TestNetworkSyncTransportFailureHandling:
             return httpx.Response(500, json={"error": "internal"})
 
         transport = NetworkSyncTransport(
-            _mock_transport_client(handler), "https://control-plane.example",
-            max_retries=2, backoff_seconds=0.001,
+            _mock_transport_client(handler),
+            "https://control-plane.example",
+            max_retries=2,
+            backoff_seconds=0.001,
         )
         with pytest.raises(SyncTransportUnavailableError):
             transport.get_epoch()
@@ -169,7 +189,11 @@ class TestNetworkSyncTransportFailureHandling:
         def handler(request):
             raise httpx.ConnectError("down", request=request)
 
-        transport = NetworkSyncTransport(_mock_transport_client(handler), "https://control-plane.example", max_retries=1)
+        transport = NetworkSyncTransport(
+            _mock_transport_client(handler),
+            "https://control-plane.example",
+            max_retries=1,
+        )
         transport.acknowledge(stream="policy", epoch=1)  # must not raise
 
 

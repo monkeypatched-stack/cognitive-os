@@ -15,6 +15,7 @@ Nothing is ever mutated in place: close() (used by Presence/Membership to
 end an open interval) APPENDS a new, closed copy of the entry rather than
 editing the original — the store stays genuinely append-only end to end.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,7 +25,11 @@ import threading
 from collections import OrderedDict
 from typing import Any
 
-from src.monkey_brain.kernel.timeline.entry import ENTRY_CLASSES, TimelineEntry, TimelineKind
+from src.monkey_brain.kernel.timeline.entry import (
+    ENTRY_CLASSES,
+    TimelineEntry,
+    TimelineKind,
+)
 
 logger = logging.getLogger("agentos.timeline_store")
 
@@ -32,8 +37,12 @@ DEFAULT_CAPACITY_PER_ACTOR_KIND = int(os.getenv("TIMELINE_STORE_CAPACITY", "5000
 
 
 def _entry_to_json(entry: TimelineEntry) -> str:
-    return json.dumps({"kind": next(k.value for k, cls in ENTRY_CLASSES.items() if cls is type(entry)),
-                        **entry.to_dict()})
+    return json.dumps(
+        {
+            "kind": next(k.value for k, cls in ENTRY_CLASSES.items() if cls is type(entry)),
+            **entry.to_dict(),
+        }
+    )
 
 
 def _entry_from_json(raw: str) -> TimelineEntry:
@@ -74,7 +83,13 @@ class _InMemoryTimelineBackend:
                 del bucket[: len(bucket) - self._capacity]
         return entry
 
-    def close(self, actor_id: str, kind: TimelineKind, entry_id: str, closed_entry: TimelineEntry) -> None:
+    def close(
+        self,
+        actor_id: str,
+        kind: TimelineKind,
+        entry_id: str,
+        closed_entry: TimelineEntry,
+    ) -> None:
         """Set end_time on the record identified by entry_id — the one
         exception to "append only new rows": closing an interval that is
         already open is part of that interval's own lifecycle (recording
@@ -88,8 +103,13 @@ class _InMemoryTimelineBackend:
                     bucket[i] = closed_entry
                     return
 
-    def query(self, actor_id: str, kind: TimelineKind,
-              since: float | None, until: float | None) -> tuple[TimelineEntry, ...]:
+    def query(
+        self,
+        actor_id: str,
+        kind: TimelineKind,
+        since: float | None,
+        until: float | None,
+    ) -> tuple[TimelineEntry, ...]:
         with self._lock:
             bucket = list(self._entries.get((actor_id, kind.value), ()))
         if since is not None:
@@ -153,8 +173,10 @@ class _RedisTimelineBackend:
 
     def _connect(self) -> Any:
         import redis
+
         return redis.from_url(
-            self._url, decode_responses=True,
+            self._url,
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -184,27 +206,63 @@ class _RedisTimelineBackend:
     def append(self, entry: TimelineEntry, kind: TimelineKind) -> TimelineEntry:
         try:
             pipe = self._r.pipeline()
-            pipe.set(self._entry_key(entry.actor_id, kind, entry.entry_id), _entry_to_json(entry), ex=self._ttl)
-            pipe.zadd(self._index_key(entry.actor_id, kind), {entry.entry_id: entry.start_time})
-            pipe.zremrangebyrank(self._index_key(entry.actor_id, kind), 0, -(DEFAULT_CAPACITY_PER_ACTOR_KIND + 1))
+            pipe.set(
+                self._entry_key(entry.actor_id, kind, entry.entry_id),
+                _entry_to_json(entry),
+                ex=self._ttl,
+            )
+            pipe.zadd(
+                self._index_key(entry.actor_id, kind),
+                {entry.entry_id: entry.start_time},
+            )
+            pipe.zremrangebyrank(
+                self._index_key(entry.actor_id, kind),
+                0,
+                -(DEFAULT_CAPACITY_PER_ACTOR_KIND + 1),
+            )
             pipe.execute()
         except Exception as exc:
-            logger.warning("TimelineStore(redis).append failed for actor=%r kind=%s: %s", entry.actor_id, kind, exc)
+            logger.warning(
+                "TimelineStore(redis).append failed for actor=%r kind=%s: %s",
+                entry.actor_id,
+                kind,
+                exc,
+            )
         return entry
 
-    def close(self, actor_id: str, kind: TimelineKind, entry_id: str, closed_entry: TimelineEntry) -> None:
+    def close(
+        self,
+        actor_id: str,
+        kind: TimelineKind,
+        entry_id: str,
+        closed_entry: TimelineEntry,
+    ) -> None:
         """Overwrite the SAME entry_id's JSON with end_time now set — the
         ZSET index's score (start_time) is unchanged, so this is the one
         in-place update this store performs, and only ever to add an
         end_time to a record that already exists (see the in-memory
         backend's close() docstring for why this isn't a retroactive edit)."""
         try:
-            self._r.set(self._entry_key(actor_id, kind, entry_id), _entry_to_json(closed_entry), ex=self._ttl)
+            self._r.set(
+                self._entry_key(actor_id, kind, entry_id),
+                _entry_to_json(closed_entry),
+                ex=self._ttl,
+            )
         except Exception as exc:
-            logger.warning("TimelineStore(redis).close failed for actor=%r kind=%s: %s", actor_id, kind, exc)
+            logger.warning(
+                "TimelineStore(redis).close failed for actor=%r kind=%s: %s",
+                actor_id,
+                kind,
+                exc,
+            )
 
-    def query(self, actor_id: str, kind: TimelineKind,
-              since: float | None, until: float | None) -> tuple[TimelineEntry, ...]:
+    def query(
+        self,
+        actor_id: str,
+        kind: TimelineKind,
+        since: float | None,
+        until: float | None,
+    ) -> tuple[TimelineEntry, ...]:
         try:
             lo = since if since is not None else "-inf"
             hi = until if until is not None else "+inf"
@@ -306,26 +364,51 @@ class _EdgeLocalTimelineBackend:
     def _provenance(self) -> Any:
         from src.monkey_brain.kernel.edge.freshness import CacheProvenance
         import time as _time
-        return CacheProvenance(source="edge_local:timeline", observed_at=_time.time(), freshness_requirement="safe_offline")
+
+        return CacheProvenance(
+            source="edge_local:timeline",
+            observed_at=_time.time(),
+            freshness_requirement="safe_offline",
+        )
 
     def append(self, entry: TimelineEntry, kind: TimelineKind) -> TimelineEntry:
         try:
             self._store.put(
-                self._namespace(kind), self._key(entry.actor_id, entry.entry_id),
-                json.loads(_entry_to_json(entry)), self._provenance(),
+                self._namespace(kind),
+                self._key(entry.actor_id, entry.entry_id),
+                json.loads(_entry_to_json(entry)),
+                self._provenance(),
             )
         except Exception as exc:
-            logger.warning("TimelineStore(edge_local).append failed for actor=%r kind=%s: %s", entry.actor_id, kind, exc)
+            logger.warning(
+                "TimelineStore(edge_local).append failed for actor=%r kind=%s: %s",
+                entry.actor_id,
+                kind,
+                exc,
+            )
         return entry
 
-    def close(self, actor_id: str, kind: TimelineKind, entry_id: str, closed_entry: TimelineEntry) -> None:
+    def close(
+        self,
+        actor_id: str,
+        kind: TimelineKind,
+        entry_id: str,
+        closed_entry: TimelineEntry,
+    ) -> None:
         try:
             self._store.put(
-                self._namespace(kind), self._key(actor_id, entry_id),
-                json.loads(_entry_to_json(closed_entry)), self._provenance(),
+                self._namespace(kind),
+                self._key(actor_id, entry_id),
+                json.loads(_entry_to_json(closed_entry)),
+                self._provenance(),
             )
         except Exception as exc:
-            logger.warning("TimelineStore(edge_local).close failed for actor=%r kind=%s: %s", actor_id, kind, exc)
+            logger.warning(
+                "TimelineStore(edge_local).close failed for actor=%r kind=%s: %s",
+                actor_id,
+                kind,
+                exc,
+            )
 
     def _all_entries(self, kind: TimelineKind) -> list[TimelineEntry]:
         try:
@@ -338,11 +421,20 @@ class _EdgeLocalTimelineBackend:
             try:
                 out.append(_entry_from_json(json.dumps(cache_entry.value)))
             except Exception as exc:
-                logger.warning("TimelineStore(edge_local) corrupt entry %s: %s", cache_entry.key, exc)
+                logger.warning(
+                    "TimelineStore(edge_local) corrupt entry %s: %s",
+                    cache_entry.key,
+                    exc,
+                )
         return out
 
-    def query(self, actor_id: str, kind: TimelineKind,
-              since: float | None, until: float | None) -> tuple[TimelineEntry, ...]:
+    def query(
+        self,
+        actor_id: str,
+        kind: TimelineKind,
+        since: float | None,
+        until: float | None,
+    ) -> tuple[TimelineEntry, ...]:
         entries = [e for e in self._all_entries(kind) if e.actor_id == actor_id]
         if since is not None:
             entries = [e for e in entries if e.start_time >= since]
@@ -385,11 +477,18 @@ def _make_backend() -> Any:
     if choice == "edge_local" or (choice == "auto" and prefers_edge_local):
         try:
             from src.monkey_brain.kernel.edge.local_store import get_edge_local_store
-            logger.info("TimelineStore: edge-local SQLite backend (node_class=%s)", node_class_hint)
+
+            logger.info(
+                "TimelineStore: edge-local SQLite backend (node_class=%s)",
+                node_class_hint,
+            )
             return _EdgeLocalTimelineBackend(get_edge_local_store())
         except Exception as exc:
             if choice == "edge_local":
-                logger.error("TimelineStore: TIMELINE_STORE_BACKEND=edge_local but EdgeLocalStore unavailable: %s", exc)
+                logger.error(
+                    "TimelineStore: TIMELINE_STORE_BACKEND=edge_local but EdgeLocalStore unavailable: %s",
+                    exc,
+                )
             # "auto" falls through to the Redis/memory logic below.
     # REDIS_URL is the explicit override; PlanetaryRuntime's own Redis
     # connection (kernel/society/integration.py::_init_persistence) uses
@@ -452,11 +551,21 @@ class TimelineStore:
         entry_cls = ENTRY_CLASSES[kind]
         return self.append(entry_cls(**fields), kind)
 
-    def query(self, actor_id: str, kind: TimelineKind,
-              since: float | None = None, until: float | None = None) -> tuple[TimelineEntry, ...]:
+    def query(
+        self,
+        actor_id: str,
+        kind: TimelineKind,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> tuple[TimelineEntry, ...]:
         """Every entry for actor_id/kind with start_time in [since, until],
         ordered oldest-first."""
-        return tuple(sorted(self._backend.query(actor_id, kind, since, until), key=lambda e: e.start_time))
+        return tuple(
+            sorted(
+                self._backend.query(actor_id, kind, since, until),
+                key=lambda e: e.start_time,
+            )
+        )
 
     def current(self, actor_id: str, kind: TimelineKind) -> TimelineEntry | None:
         """The open entry (end_time is None) if one exists, else the most
@@ -476,7 +585,8 @@ class TimelineStore:
         """The entry valid at `timestamp` — start_time <= timestamp and
         (end_time is None or end_time >= timestamp)."""
         candidates = [
-            e for e in self.query(actor_id, kind)
+            e
+            for e in self.query(actor_id, kind)
             if e.start_time <= timestamp and (e.end_time is None or e.end_time >= timestamp)
         ]
         if not candidates:
@@ -493,6 +603,7 @@ class TimelineStore:
         well-defined closing transition every open interval goes through
         exactly once."""
         import dataclasses
+
         closed = dataclasses.replace(entry, end_time=end_time)
         self._backend.close(entry.actor_id, kind, entry.entry_id, closed)
         return closed

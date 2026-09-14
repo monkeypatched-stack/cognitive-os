@@ -25,6 +25,7 @@ not something this split closes). Workflow Engine and Transactions have no
 real implementation anywhere in this codebase — these are honest,
 self-documented stubs, not invented behavior.
 """
+
 from __future__ import annotations
 
 import logging
@@ -90,6 +91,7 @@ class ExecutionRuntime:
         _execute_plan). Exposed for discoverability/future wiring, honestly
         documented as disconnected today."""
         from src.monkey_brain.runtime.agent_runtime import AgentRuntime
+
         return AgentRuntime
 
     @property
@@ -99,8 +101,13 @@ class ExecutionRuntime:
         kernel/fix/self_healing/workload.py::SelfHealingPolicy is
         deliberately excluded — it's scoped to the separate GoalExecutor/
         Workload path, outside this actor-tick boundary."""
-        from src.monkey_brain.kernel.pipeline.execution_runtime.retry import RecoveryPolicy
-        from src.monkey_brain.kernel.compile.error_recovery import get_error_recovery_registry
+        from src.monkey_brain.kernel.pipeline.execution_runtime.retry import (
+            RecoveryPolicy,
+        )
+        from src.monkey_brain.kernel.compile.error_recovery import (
+            get_error_recovery_registry,
+        )
+
         return {
             "step_recovery_policy": RecoveryPolicy,
             "circuit_breaker_registry": get_error_recovery_registry(),

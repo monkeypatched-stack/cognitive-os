@@ -36,6 +36,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/scenarios/test_actor_runtime_artifact.py -v
 """
+
 from __future__ import annotations
 
 import json
@@ -49,12 +50,25 @@ os.environ["RATE_LIMIT_RPS"] = "100000"
 os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType, ActorStatus
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+    ActorStatus,
+)
 from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode, NodeClass
 from src.monkey_brain.kernel.pipeline.offline_safety import (
-    ConnectivityStatus, assess_connectivity, check_operation_allowed, classify_capability, OperationSafety,
+    ConnectivityStatus,
+    assess_connectivity,
+    check_operation_allowed,
+    classify_capability,
+    OperationSafety,
 )
-from src.monkey_brain.actor_runtime import ActorRuntime, ActorRuntimeConfig, ReadinessState
+from src.monkey_brain.actor_runtime import (
+    ActorRuntime,
+    ActorRuntimeConfig,
+    ReadinessState,
+)
 
 
 class _FakeRedis:
@@ -158,7 +172,8 @@ class _FakeRedis:
 
 def _register(pr: PlanetaryRuntime, name: str, **kwargs):
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)),
+        **kwargs,
     )
 
 
@@ -193,6 +208,7 @@ def _pr(redis=None, node_id: str = "") -> PlanetaryRuntime:
 
 # ── 1-2: Real CognitiveActor on EDGE / CLOUD node classes ────────────────
 
+
 def test_01_real_actor_placed_and_started_on_edge_node_class():
     redis = _FakeRedis()
     pr = _pr(redis, "edge-node-1")
@@ -223,6 +239,7 @@ def test_02_same_code_path_places_on_cloud_node_class():
 
 # ── 3: Migration CLOUD -> EDGE ────────────────────────────────────────────
 
+
 def test_03_migration_cloud_to_edge_preserves_identity():
     redis = _FakeRedis()
     pr_cloud = _pr(redis, "cloud-node-1")
@@ -251,6 +268,7 @@ def test_03_migration_cloud_to_edge_preserves_identity():
 
 
 # ── 4: Node failure EDGE -> recovers on CLOUD ─────────────────────────────
+
 
 def test_04_edge_node_failure_recovers_actor_on_cloud():
     redis = _FakeRedis()
@@ -281,6 +299,7 @@ def test_04_edge_node_failure_recovers_actor_on_cloud():
 
 # ── 5: Actor-to-actor across node classes ─────────────────────────────────
 
+
 def test_05_actor_to_actor_resolves_across_node_classes():
     """Alice (cloud) can resolve Bob (edge) purely via the Actor Registry
     -- confirms location-independent addressing already holds regardless
@@ -301,6 +320,7 @@ def test_05_actor_to_actor_resolves_across_node_classes():
 
 
 # ── 6-8: Offline safety classification ────────────────────────────────────
+
 
 def test_06_safe_offline_capability_always_allowed():
     allowed, waiting_state, _ = check_operation_allowed("AnswerQuestionCapability", ConnectivityStatus.DISCONNECTED)
@@ -325,6 +345,7 @@ def test_08_requires_authority_allowed_when_connected():
 
 
 # ── 9-13: Config loading ──────────────────────────────────────────────────
+
 
 def test_09_config_from_env_vars_only(monkeypatch):
     monkeypatch.setenv("ACTOR_ID", "actor-from-env")
@@ -369,6 +390,7 @@ def test_13_missing_actor_id_raises_clearly(monkeypatch):
 
 # ── 14-15: Identity establishment ──────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_14_actor_must_preexist_unless_bootstrap():
     redis = _FakeRedis()
@@ -396,6 +418,7 @@ async def test_15_bootstrap_creates_actor_when_requested():
 
 # ── 16: Startup reaches READY ──────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_16_startup_reaches_ready_for_preregistered_actor():
     redis = _FakeRedis()
@@ -404,7 +427,12 @@ async def test_16_startup_reaches_ready_for_preregistered_actor():
 
     pr = _pr(redis, "edge-node-1")
     pr.register_node(ExecutionNode(node_id="edge-node-1", node_class=NodeClass.EDGE, capacity=1))
-    config = ActorRuntimeConfig(actor_id=preregistered, node_id="edge-node-1", node_class="edge", claim_placement=True)
+    config = ActorRuntimeConfig(
+        actor_id=preregistered,
+        node_id="edge-node-1",
+        node_class="edge",
+        claim_placement=True,
+    )
     runtime = ActorRuntime(config, planetary_runtime_factory=lambda: pr)
     await runtime.start()
     assert runtime.state == ReadinessState.READY
@@ -416,6 +444,7 @@ async def test_16_startup_reaches_ready_for_preregistered_actor():
 
 
 # ── 17: Two Actor instances from the "same binary" ────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_17_two_actor_instances_run_independently():
@@ -456,6 +485,7 @@ async def test_17_two_actor_instances_run_independently():
 
 # ── 18: Restart -- new process, same identity, no duplication ────────────
 
+
 @pytest.mark.asyncio
 async def test_18_restart_same_actor_id_no_duplicate():
     redis = _FakeRedis()
@@ -489,6 +519,7 @@ async def test_18_restart_same_actor_id_no_duplicate():
 
 # ── 19: Artifact metadata surfaces on the registry entry ──────────────────
 
+
 @pytest.mark.asyncio
 async def test_19_artifact_metadata_recorded_on_registry_entry():
     redis = _FakeRedis()
@@ -511,6 +542,7 @@ async def test_19_artifact_metadata_recorded_on_registry_entry():
 
 
 # ── 20: Graceful shutdown checkpoints, never deletes the Actor ───────────
+
 
 @pytest.mark.asyncio
 async def test_20_shutdown_checkpoints_and_deregisters_but_never_deletes():
@@ -538,6 +570,7 @@ async def test_20_shutdown_checkpoints_and_deregisters_but_never_deletes():
 
 
 # ── 21-22: claim_placement / SCHEDULED_ELSEWHERE ──────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_21_claim_placement_explicitly_claims_this_node():
@@ -581,6 +614,7 @@ async def test_22_scheduled_elsewhere_when_another_node_already_claimed():
 
 # ── 23: status()/artifact_info() shape ─────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_23_status_and_artifact_info_shape():
     redis = _FakeRedis()
@@ -596,9 +630,28 @@ async def test_23_status_and_artifact_info_shape():
     await runtime.start()
 
     status = runtime.status()
-    for key in ("state", "reason", "ready", "ready_since", "observed", "actor_id", "artifact_version", "runtime_version", "node_id", "node_class", "started_at"):
+    for key in (
+        "state",
+        "reason",
+        "ready",
+        "ready_since",
+        "observed",
+        "actor_id",
+        "artifact_version",
+        "runtime_version",
+        "node_id",
+        "node_class",
+        "started_at",
+    ):
         assert key in status
     info = runtime.artifact_info()
-    for key in ("actor_id", "artifact_version", "runtime_version", "node_id", "node_class", "started_at"):
+    for key in (
+        "actor_id",
+        "artifact_version",
+        "runtime_version",
+        "node_id",
+        "node_class",
+        "started_at",
+    ):
         assert key in info
     await runtime.shutdown()

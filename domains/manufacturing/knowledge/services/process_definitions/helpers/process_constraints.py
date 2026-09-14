@@ -19,7 +19,7 @@ from services.process_definitions.models.process_constraints import (
     ProcessConstraintsUpdate,
     ProcessStepConstraintsCreate,
     ProcessStepConstraintsUpdate,
-    ConstraintCreate
+    ConstraintCreate,
 )
 
 WORKFLOW_COLLECTION = "process_constraints"
@@ -53,7 +53,9 @@ async def _infer_process_definition_id_for_step(
         {"process_definition_id": 1, "id": 1},
     )
     if process_definition:
-        return process_definition.get("process_definition_id") or process_definition.get("id")
+        return process_definition.get(
+            "process_definition_id"
+        ) or process_definition.get("id")
     return None
 
 
@@ -82,6 +84,7 @@ async def _sync_embedded_step_constraints(
 # ---------------------------------------------------------------------------
 # Read
 # ---------------------------------------------------------------------------
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,
@@ -116,7 +119,9 @@ async def get_by_process_definition_id(
     """Fetch the constraints container that belongs to a given process_definition."""
     if not process_definition_id:
         return None
-    doc = await db[WORKFLOW_COLLECTION].find_one({"process_definition_id": process_definition_id})
+    doc = await db[WORKFLOW_COLLECTION].find_one(
+        {"process_definition_id": process_definition_id}
+    )
     return _serialize(doc) if doc else None
 
 
@@ -130,7 +135,8 @@ async def get_constraints_by_type(
     if not doc:
         return []
     return [
-        c for c in doc.get("constraints", [])
+        c
+        for c in doc.get("constraints", [])
         if c.get("constraint_type") == constraint_type
     ]
 
@@ -144,10 +150,7 @@ async def get_constraints_by_severity(
     doc = await db[WORKFLOW_COLLECTION].find_one({"id": constraints_id})
     if not doc:
         return []
-    return [
-        c for c in doc.get("constraints", [])
-        if c.get("severity") == severity
-    ]
+    return [c for c in doc.get("constraints", []) if c.get("severity") == severity]
 
 
 async def get_hard_constraints(
@@ -159,14 +162,14 @@ async def get_hard_constraints(
     if not doc:
         return []
     return [
-        c for c in doc.get("constraints", [])
-        if c.get("is_hard_constraint") is True
+        c for c in doc.get("constraints", []) if c.get("is_hard_constraint") is True
     ]
 
 
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create(
     db: AsyncIOMotorDatabase,
@@ -260,7 +263,9 @@ async def delete_by_process_definition_id(
     process_definition_id: str,
 ) -> bool:
     """Delete the constraints container that belongs to a process_definition (cascade delete)."""
-    result = await db[WORKFLOW_COLLECTION].delete_one({"process_definition_id": process_definition_id})
+    result = await db[WORKFLOW_COLLECTION].delete_one(
+        {"process_definition_id": process_definition_id}
+    )
     return result.deleted_count == 1
 
 
@@ -271,6 +276,7 @@ async def delete_by_process_definition_id(
 # ---------------------------------------------------------------------------
 # Read
 # ---------------------------------------------------------------------------
+
 
 async def get_step_constraints_by_id(
     db: AsyncIOMotorDatabase,
@@ -313,7 +319,8 @@ async def get_step_constraints_by_type(
     if not doc:
         return []
     return [
-        c for c in doc.get("constraints", [])
+        c
+        for c in doc.get("constraints", [])
         if c.get("constraint_type") == constraint_type
     ]
 
@@ -327,14 +334,14 @@ async def get_step_hard_constraints(
     if not doc:
         return []
     return [
-        c for c in doc.get("constraints", [])
-        if c.get("is_hard_constraint") is True
+        c for c in doc.get("constraints", []) if c.get("is_hard_constraint") is True
     ]
 
 
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create_step_constraints(
     db: AsyncIOMotorDatabase,

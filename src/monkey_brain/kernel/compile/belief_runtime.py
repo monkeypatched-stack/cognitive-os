@@ -14,6 +14,7 @@ Owns complete belief lifecycle:
 
 Decoupled from trust and cognition so belief can be tested independently.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,16 +33,18 @@ logger = logging.getLogger("agentos.compile.belief_runtime")
 
 class ConsolidationStrategy(Enum):
     """Conflict resolution strategies for belief fusion."""
-    ACCEPT_ALL = "accept_all"           # fuse all observations
-    TRUST_WEIGHTED = "trust_weighted"   # weight by trust (default)
-    QUARANTINE = "quarantine"           # skip conflicting observations
-    MAJORITY_VOTE = "majority_vote"     # only high-agreement edges
+
+    ACCEPT_ALL = "accept_all"  # fuse all observations
+    TRUST_WEIGHTED = "trust_weighted"  # weight by trust (default)
+    QUARANTINE = "quarantine"  # skip conflicting observations
+    MAJORITY_VOTE = "majority_vote"  # only high-agreement edges
 
 
 @dataclass
 class BeliefConflict:
     """Conflict between observation and current belief."""
-    edge: tuple[str, str]               # (src, dst)
+
+    edge: tuple[str, str]  # (src, dst)
     local_reward: float
     proposed_reward: float
     delta: float
@@ -63,9 +66,13 @@ class BeliefRuntime:
       - trust_runtime (for weighting observations)
     """
 
-    def __init__(self, local_belief: SparseTransitionTensor, context: Context,
-                 trust_runtime: TrustRuntime | None = None,
-                 consolidation_strategy: ConsolidationStrategy | None = None) -> None:
+    def __init__(
+        self,
+        local_belief: SparseTransitionTensor,
+        context: Context,
+        trust_runtime: TrustRuntime | None = None,
+        consolidation_strategy: ConsolidationStrategy | None = None,
+    ) -> None:
         self.belief = local_belief
         self.context = context
         self._trust = trust_runtime or TrustRuntime()
@@ -76,7 +83,7 @@ class BeliefRuntime:
 
         # 2. Observation caching: track recent observations
         self._recent_observations: dict[tuple, dict] = {}  # key → observation
-        self._observation_history: list[dict] = []         # chronological log
+        self._observation_history: list[dict] = []  # chronological log
 
         # 5. Belief versioning: track evolution
         self._belief_version = 0
@@ -87,7 +94,7 @@ class BeliefRuntime:
 
     @property
     def _actor_id(self) -> str:
-        return self.context.actor_id if hasattr(self.context, 'actor_id') else "unknown"
+        return self.context.actor_id if hasattr(self.context, "actor_id") else "unknown"
 
     # ── 1. Observation Queue: Layer 1 → Layer 2 handoff ────────────
 
@@ -107,10 +114,16 @@ class BeliefRuntime:
             "queued_at": time.time(),
         }
         self._observation_queue.append(observation)
-        _obs.gauge("belief.observation_queue_size", float(len(self._observation_queue)), actor=self._actor_id)
+        _obs.gauge(
+            "belief.observation_queue_size",
+            float(len(self._observation_queue)),
+            actor=self._actor_id,
+        )
         logger.debug(
             "[belief_runtime] %s queued proposal from %s (%d transitions)",
-            self._actor_id, proposal.origin, len(proposal.transitions)
+            self._actor_id,
+            proposal.origin,
+            len(proposal.transitions),
         )
 
     # ── 2. Observation Caching ─────────────────────────────────────
@@ -139,21 +152,23 @@ class BeliefRuntime:
         """
         conflicts: list[BeliefConflict] = []
 
-        for (src, dst, reward) in observation["transitions"]:
+        for src, dst, reward in observation["transitions"]:
             if self.belief.has_edge(src, dst):
                 local_reward = self.belief.feature(src, dst, Feature.REWARD)
                 proposed_reward = float(reward) if reward is not None else 0.0
                 delta = abs(local_reward - proposed_reward)
 
                 if delta > 1e-6:  # non-trivial difference
-                    conflicts.append(BeliefConflict(
-                        edge=(src, dst),
-                        local_reward=local_reward,
-                        proposed_reward=proposed_reward,
-                        delta=delta,
-                        confidence=observation.get("confidence", 0.5),
-                        origin=observation["origin"],
-                    ))
+                    conflicts.append(
+                        BeliefConflict(
+                            edge=(src, dst),
+                            local_reward=local_reward,
+                            proposed_reward=proposed_reward,
+                            delta=delta,
+                            confidence=observation.get("confidence", 0.5),
+                            origin=observation["origin"],
+                        )
+                    )
 
         return conflicts
 
@@ -201,14 +216,21 @@ class BeliefRuntime:
 
         logger.info(
             "[belief_runtime] %s fused %d obs, %d conflicts (weight=%.2f, v=%d, nnz=%d)",
-            self._actor_id, result["fused_count"], result["conflicts"],
-            result["total_weight"], self._belief_version, self.belief.nnz()
+            self._actor_id,
+            result["fused_count"],
+            result["conflicts"],
+            result["total_weight"],
+            self._belief_version,
+            self.belief.nnz(),
         )
-        _obs.event("belief.fusion", actor=self._actor_id,
-                   fused_count=result["fused_count"],
-                   conflicts=result["conflicts"],
-                   total_weight=round(result["total_weight"], 3),
-                   belief_version=self._belief_version)
+        _obs.event(
+            "belief.fusion",
+            actor=self._actor_id,
+            fused_count=result["fused_count"],
+            conflicts=result["conflicts"],
+            total_weight=round(result["total_weight"], 3),
+            belief_version=self._belief_version,
+        )
         _obs.gauge("belief.nnz", float(self.belief.nnz()), actor=self._actor_id)
 
         return {
@@ -221,22 +243,23 @@ class BeliefRuntime:
 
     def _fuse_trust_weighted(self) -> dict:
         """Fuse all observations, weighted by trust."""
-        return self._fuse_loop(weight_mode="trust", skip_on_conflict=False,
-                               record_conflicts=True)
+        return self._fuse_loop(weight_mode="trust", skip_on_conflict=False, record_conflicts=True)
 
     def _fuse_accept_all(self) -> dict:
         """Fuse all observations with base weight 1.0."""
-        return self._fuse_loop(weight_mode="fixed", skip_on_conflict=False,
-                               record_conflicts=False)
+        return self._fuse_loop(weight_mode="fixed", skip_on_conflict=False, record_conflicts=False)
 
     def _fuse_quarantine(self) -> dict:
         """Skip observations with conflicts."""
-        return self._fuse_loop(weight_mode="trust", skip_on_conflict=True,
-                               record_conflicts=True)
+        return self._fuse_loop(weight_mode="trust", skip_on_conflict=True, record_conflicts=True)
 
-    def _fuse_loop(self, *, weight_mode: str = "trust",
-                   skip_on_conflict: bool = False,
-                   record_conflicts: bool = True) -> dict:
+    def _fuse_loop(
+        self,
+        *,
+        weight_mode: str = "trust",
+        skip_on_conflict: bool = False,
+        record_conflicts: bool = True,
+    ) -> dict:
         """Common fusion loop shared by all strategies.
 
         Args:
@@ -262,24 +285,35 @@ class BeliefRuntime:
                     if len(self._recent_conflicts) > 5000:
                         self._recent_conflicts = self._recent_conflicts[-5000:]
                 if skip_on_conflict:
-                    logger.warning("[belief_runtime] quarantine: %d conflicts from %s",
-                                  len(conflicts), origin)
+                    logger.warning(
+                        "[belief_runtime] quarantine: %d conflicts from %s",
+                        len(conflicts),
+                        origin,
+                    )
                     continue
 
-            for (src, dst, reward) in transitions:
+            for src, dst, reward in transitions:
                 if weight_mode == "trust":
                     weight = self._trust.weight_observation(1.0, origin, self._actor_id)
                 else:
                     weight = 1.0
-                self.belief.observe(src, dst, domain=domain,
-                                   reward=float(reward) if reward else 0.0,
-                                   weight=weight)
+                self.belief.observe(
+                    src,
+                    dst,
+                    domain=domain,
+                    reward=float(reward) if reward else 0.0,
+                    weight=weight,
+                )
                 fused_count += 1
                 total_weight += weight
 
             self._cache_observation(observation)
 
-        return {"fused_count": fused_count, "total_weight": total_weight, "conflicts": conflicts_count}
+        return {
+            "fused_count": fused_count,
+            "total_weight": total_weight,
+            "conflicts": conflicts_count,
+        }
 
     def _fuse_majority_vote(self) -> dict:
         """Only fuse edges with high agreement across observations."""
@@ -287,7 +321,7 @@ class BeliefRuntime:
         transition_votes: dict[tuple, list[float]] = {}
 
         for observation in self._observation_queue:
-            for (src, dst, reward) in observation["transitions"]:
+            for src, dst, reward in observation["transitions"]:
                 key = (src, dst)
                 if key not in transition_votes:
                     transition_votes[key] = []
@@ -311,7 +345,11 @@ class BeliefRuntime:
             self._cache_observation(obs)
 
         skipped = len(transition_votes) - fused_count
-        return {"fused_count": fused_count, "total_weight": total_weight, "conflicts": skipped}
+        return {
+            "fused_count": fused_count,
+            "total_weight": total_weight,
+            "conflicts": skipped,
+        }
 
     @staticmethod
     def _variance(values: list[float]) -> float:
@@ -390,8 +428,12 @@ class BeliefRuntime:
         finally:
             if tmp.exists():
                 tmp.unlink()
-        logger.info("[belief_runtime] %s checkpointed belief runtime (v%d) -> %s",
-                    self._actor_id, self._belief_version, p)
+        logger.info(
+            "[belief_runtime] %s checkpointed belief runtime (v%d) -> %s",
+            self._actor_id,
+            self._belief_version,
+            p,
+        )
 
     def restore(self, path: str) -> None:
         """Rebuild belief-formation state from a checkpoint written by
@@ -402,14 +444,21 @@ class BeliefRuntime:
 
         p = Path(path)
         if not p.exists():
-            logger.debug("[belief_runtime] %s no checkpoint at %s — starting fresh",
-                         self._actor_id, p)
+            logger.debug(
+                "[belief_runtime] %s no checkpoint at %s — starting fresh",
+                self._actor_id,
+                p,
+            )
             return
         try:
             payload = json.loads(p.read_text())
         except Exception as e:
-            logger.warning("[belief_runtime] %s checkpoint at %s unreadable, starting fresh: %s",
-                           self._actor_id, p, e)
+            logger.warning(
+                "[belief_runtime] %s checkpoint at %s unreadable, starting fresh: %s",
+                self._actor_id,
+                p,
+                e,
+            )
             return
 
         self._belief_version = payload.get("belief_version", 0)
@@ -422,14 +471,21 @@ class BeliefRuntime:
         self._observation_history = payload.get("observation_history", [])
         self._recent_conflicts = [
             BeliefConflict(
-                edge=tuple(c["edge"]), local_reward=c["local_reward"],
-                proposed_reward=c["proposed_reward"], delta=c["delta"],
-                confidence=c["confidence"], origin=c["origin"],
+                edge=tuple(c["edge"]),
+                local_reward=c["local_reward"],
+                proposed_reward=c["proposed_reward"],
+                delta=c["delta"],
+                confidence=c["confidence"],
+                origin=c["origin"],
             )
             for c in payload.get("recent_conflicts", [])
         ]
-        logger.info("[belief_runtime] %s restored belief runtime (v%d) <- %s",
-                    self._actor_id, self._belief_version, p)
+        logger.info(
+            "[belief_runtime] %s restored belief runtime (v%d) <- %s",
+            self._actor_id,
+            self._belief_version,
+            p,
+        )
 
     # ── 7. Introspection ───────────────────────────────────────────
 
@@ -463,20 +519,19 @@ class BeliefRuntime:
     def conflicting_observations(self, limit: int = 10) -> list[dict]:
         """Recent observations that had conflicts."""
         conflicts_by_obs = {}
-        for conflict in self._recent_conflicts[-limit * 5:]:
+        for conflict in self._recent_conflicts[-limit * 5 :]:
             obs_key = conflict.origin
             if obs_key not in conflicts_by_obs:
                 conflicts_by_obs[obs_key] = []
-            conflicts_by_obs[obs_key].append({
-                "edge": conflict.edge,
-                "local": conflict.local_reward,
-                "proposed": conflict.proposed_reward,
-                "delta": conflict.delta,
-            })
-        return [
-            {"origin": origin, "conflicts": confs}
-            for origin, confs in list(conflicts_by_obs.items())[-limit:]
-        ]
+            conflicts_by_obs[obs_key].append(
+                {
+                    "edge": conflict.edge,
+                    "local": conflict.local_reward,
+                    "proposed": conflict.proposed_reward,
+                    "delta": conflict.delta,
+                }
+            )
+        return [{"origin": origin, "conflicts": confs} for origin, confs in list(conflicts_by_obs.items())[-limit:]]
 
     def recent_outcome_history(self, limit: int = 10) -> list[dict]:
         """Recent observations from history."""

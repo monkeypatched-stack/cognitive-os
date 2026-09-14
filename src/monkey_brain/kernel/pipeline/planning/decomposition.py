@@ -17,6 +17,7 @@ No cost optimization, no candidate generation, no scoring — this step only
 produces the hierarchy. Purely additive: no coupling to CognitiveRuntime or
 ExecutionEngine.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
@@ -36,6 +37,7 @@ class SubGoalSpec:
     other SubGoalSpec.name values within the *same* rule; the decomposer
     resolves those names to real goal_ids after creating all siblings.
     """
+
     name: str = ""
     description: str = ""
     completion_criteria: tuple[str, ...] = ()
@@ -46,6 +48,7 @@ class SubGoalSpec:
 @dataclass(frozen=True)
 class DecompositionRule:
     """Declares how to decompose a goal matched by name into subgoals."""
+
     goal_name: str = ""
     subgoals: tuple[SubGoalSpec, ...] = ()
 
@@ -58,6 +61,7 @@ class GoalTree:
     `children` are its immediate decomposition, recursively decomposed in turn.
     A node with no children is a leaf.
     """
+
     goal: GoalNode
     children: tuple["GoalTree", ...] = ()
 
@@ -91,23 +95,43 @@ DEFAULT_RULES: dict[str, DecompositionRule] = {
     "prepare_breakfast": DecompositionRule(
         goal_name="prepare_breakfast",
         subgoals=(
-            SubGoalSpec(name="buy_milk", description="Buy milk", completion_criteria=("milk_acquired",)),
-            SubGoalSpec(name="buy_eggs", description="Buy eggs", completion_criteria=("eggs_acquired",)),
-            SubGoalSpec(name="buy_bread", description="Buy bread", completion_criteria=("bread_acquired",)),
+            SubGoalSpec(
+                name="buy_milk",
+                description="Buy milk",
+                completion_criteria=("milk_acquired",),
+            ),
+            SubGoalSpec(
+                name="buy_eggs",
+                description="Buy eggs",
+                completion_criteria=("eggs_acquired",),
+            ),
+            SubGoalSpec(
+                name="buy_bread",
+                description="Buy bread",
+                completion_criteria=("bread_acquired",),
+            ),
         ),
     ),
     # Demonstrates genuine dependency chains (not just independent subgoals).
     "bake_bread": DecompositionRule(
         goal_name="bake_bread",
         subgoals=(
-            SubGoalSpec(name="buy_flour", description="Buy flour", completion_criteria=("flour_acquired",)),
             SubGoalSpec(
-                name="mix_dough", description="Mix the dough",
-                completion_criteria=("dough_ready",), depends_on_names=("buy_flour",),
+                name="buy_flour",
+                description="Buy flour",
+                completion_criteria=("flour_acquired",),
             ),
             SubGoalSpec(
-                name="bake", description="Bake the bread",
-                completion_criteria=("bread_baked",), depends_on_names=("mix_dough",),
+                name="mix_dough",
+                description="Mix the dough",
+                completion_criteria=("dough_ready",),
+                depends_on_names=("buy_flour",),
+            ),
+            SubGoalSpec(
+                name="bake",
+                description="Bake the bread",
+                completion_criteria=("bread_baked",),
+                depends_on_names=("mix_dough",),
             ),
         ),
     ),
@@ -149,9 +173,7 @@ class GoalDecomposer:
         children: tuple[GoalTree, ...] = ()
         if depth < max_depth - 1:
             subgoals = self.decompose(node)
-            children = tuple(
-                self._build_tree(sg, depth=depth + 1, max_depth=max_depth) for sg in subgoals
-            )
+            children = tuple(self._build_tree(sg, depth=depth + 1, max_depth=max_depth) for sg in subgoals)
         return GoalTree(goal=node, children=children)
 
     def _from_rule(self, parent_goal_id: str, rule: DecompositionRule) -> tuple[SubGoal, ...]:
@@ -175,9 +197,15 @@ class GoalDecomposer:
         return tuple(resolved)
 
     def _from_completion_criteria(
-        self, parent_goal_id: str, criteria: tuple[str, ...],
+        self,
+        parent_goal_id: str,
+        criteria: tuple[str, ...],
     ) -> tuple[SubGoal, ...]:
         return tuple(
-            SubGoal(parent_goal_id=parent_goal_id, name=criterion, completion_criteria=(criterion,))
+            SubGoal(
+                parent_goal_id=parent_goal_id,
+                name=criterion,
+                completion_criteria=(criterion,),
+            )
             for criterion in criteria
         )

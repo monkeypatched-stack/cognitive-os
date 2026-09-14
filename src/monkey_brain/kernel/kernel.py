@@ -606,7 +606,11 @@ class Kernel:
         app.state._provider_registry = init_providers()
         self.agent_registry.attach_provider_registry(app.state._provider_registry)
         for provider in app.state._provider_registry.list_providers():
-            logger.info("[kernel] Provider registered: %s (available=%s)", provider["name"], provider["available"])
+            logger.info(
+                "[kernel] Provider registered: %s (available=%s)",
+                provider["name"],
+                provider["available"],
+            )
 
         await self.resource_manager.initialize_all()
         self._health["resource_manager"] = ComponentHealth(name="resource_manager", state=HealthState.HEALTHY)
@@ -1053,7 +1057,7 @@ class Kernel:
         self._health["sittingface"] = ComponentHealth(
             name="sittingface",
             state=HealthState.HEALTHY if compiler else HealthState.DEGRADED,
-            message=f"{len(getattr(compiler, 'charts', []))} charts" if compiler else "not loaded",
+            message=(f"{len(getattr(compiler, 'charts', []))} charts" if compiler else "not loaded"),
         )
 
         from src.monkey_brain.kernel.resources.sittingface import SittingFaceResource
@@ -1135,9 +1139,11 @@ class Kernel:
         app.state._graph_store = await init_graph_store(app, app.state._wolverine, app.state._execution_graph)
         self._health["graph_store"] = ComponentHealth(
             name="graph_store",
-            state=HealthState.HEALTHY
-            if app.state._graph_store and app.state._graph_store.is_connected()
-            else HealthState.DEGRADED,
+            state=(
+                HealthState.HEALTHY
+                if app.state._graph_store and app.state._graph_store.is_connected()
+                else HealthState.DEGRADED
+            ),
         )
 
         # Neo4jResource used to be registered here, wrapping app.state._graph_store
@@ -1671,7 +1677,9 @@ class Kernel:
         from src.hybrid import HybridRouter
         from src.llm.llm_provider import LLMProviderFactory
         from src.monkey_brain.kernel.pipeline.compiler import RequestCompiler
-        from src.monkey_brain.kernel.pipeline.learning.integration import build_learning_integrated_runtime
+        from src.monkey_brain.kernel.pipeline.learning.integration import (
+            build_learning_integrated_runtime,
+        )
         from src.monkey_brain.kernel.pipeline.orchestrator import PipelineOrchestrator
 
         try:
@@ -1800,7 +1808,13 @@ class Kernel:
         for adapter_name in getattr(self.persistence, "_adapters", {}):
             adapter = self.persistence._adapters.get(adapter_name)
             connected = hasattr(adapter, "_client") and getattr(adapter, "_client", None) is not None
-            persistence_items.append((adapter_name, "✓" if connected else "⚠", "" if connected else "not connected"))
+            persistence_items.append(
+                (
+                    adapter_name,
+                    "✓" if connected else "⚠",
+                    "" if connected else "not connected",
+                )
+            )
         _section("Persistence", persistence_items or [("No adapters", "?", "")])
 
         # Providers
@@ -1957,7 +1971,11 @@ class Kernel:
         type(self)._booted = False
 
         if errors:
-            logger.warning("Kernel shutdown completed with %d error(s): %s", len(errors), "; ".join(errors))
+            logger.warning(
+                "Kernel shutdown completed with %d error(s): %s",
+                len(errors),
+                "; ".join(errors),
+            )
         else:
             logger.info("Kernel shutdown complete")
 

@@ -1,6 +1,7 @@
 """Failure-mode classification table (kernel/edge/failure_modes.py) --
 proves every failure this task enumerates has exactly one classification
 and that the security-critical ones are never LOCAL_CONTINUE."""
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.edge.failure_modes import (
@@ -44,6 +45,10 @@ def test_actor_restart_is_a_non_event_for_durable_local_state():
 
 
 def test_no_security_critical_failure_is_local_continue():
-    security_critical = {FailureMode.REVOKED_DELEGATION, FailureMode.EXPIRED_DELEGATION, FailureMode.STALE_POLICY}
+    security_critical = {
+        FailureMode.REVOKED_DELEGATION,
+        FailureMode.EXPIRED_DELEGATION,
+        FailureMode.STALE_POLICY,
+    }
     for mode in security_critical:
         assert classify(mode).response is not FailureResponse.LOCAL_CONTINUE

@@ -11,7 +11,6 @@ from services.documents.models.report_templates import (
     ReportTemplateUpdate,
 )
 
-
 router = APIRouter()
 
 
@@ -35,7 +34,9 @@ async def list_report_templates(
         batch_execution_record_id=batch_execution_record_id,
         status=status_filter,
     )
-    return PaginatedReportTemplateResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedReportTemplateResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{report_template_id}", response_model=ReportTemplateResponse)
@@ -46,18 +47,26 @@ async def get_report_template(
 ):
     record = await crud.get_by_id(db, report_template_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Report template '{report_template_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Report template '{report_template_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=ReportTemplateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=ReportTemplateResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_report_template(
     data: ReportTemplateCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-documents")),
 ):
     if await crud.get_by_id(db, data.report_template_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Report template '{data.report_template_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Report template '{data.report_template_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
@@ -72,7 +81,10 @@ async def update_report_template(
 ):
     updated = await crud.update(db, report_template_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Report template '{report_template_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Report template '{report_template_id}' not found",
+        )
     return updated
 
 
@@ -83,4 +95,7 @@ async def delete_report_template(
     _: dict = Depends(require_permission("perm-delete-documents")),
 ):
     if not await crud.delete(db, report_template_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Report template '{report_template_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Report template '{report_template_id}' not found",
+        )

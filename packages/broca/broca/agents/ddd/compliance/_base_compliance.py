@@ -27,6 +27,7 @@ act() always returns:
     "high_count":      int,
   }
 """
+
 from __future__ import annotations
 
 import logging
@@ -58,16 +59,20 @@ class BaseComplianceAgent(BaseDDDAgent):
                 get_trusted_auth,
                 strip_untrusted_security_signals,
             )
-            signals = strip_untrusted_security_signals({
-                **context.get("data_signals", {}),
-                **context.get("system_attributes", {}),
-            })
+
+            signals = strip_untrusted_security_signals(
+                {
+                    **context.get("data_signals", {}),
+                    **context.get("system_attributes", {}),
+                }
+            )
             evidence = get_trusted_auth()
             signals["mfa_enforced"] = evidence.mfa_satisfied()
             principal = evidence.to_opa_auth()
         except Exception:
             signals = {
-                k: v for k, v in {
+                k: v
+                for k, v in {
                     **context.get("data_signals", {}),
                     **context.get("system_attributes", {}),
                 }.items()
@@ -88,17 +93,26 @@ class BaseComplianceAgent(BaseDDDAgent):
     def _evaluate_rules(self, perception: dict[str, Any]) -> list[dict[str, Any]]:
         signals = perception.get("signals", {})
         findings: list[dict[str, Any]] = []
-        for trigger_key, check_key, severity, article, description, remediation in self.RULES:
+        for (
+            trigger_key,
+            check_key,
+            severity,
+            article,
+            description,
+            remediation,
+        ) in self.RULES:
             if not signals.get(trigger_key):
                 continue  # rule not applicable
             if check_key is None or not signals.get(check_key):
-                findings.append({
-                    "rule": trigger_key if check_key is None else f"{trigger_key}:{check_key}_missing",
-                    "severity": severity,
-                    "article": article,
-                    "description": description,
-                    "remediation": remediation,
-                })
+                findings.append(
+                    {
+                        "rule": (trigger_key if check_key is None else f"{trigger_key}:{check_key}_missing"),
+                        "severity": severity,
+                        "article": article,
+                        "description": description,
+                        "remediation": remediation,
+                    }
+                )
         return findings
 
     async def _opa_compliance_check(self, perception: dict[str, Any]) -> list[dict[str, Any]]:
@@ -106,6 +120,7 @@ class BaseComplianceAgent(BaseDDDAgent):
             return []
         try:
             from services.common.opa import evaluate_full
+
             result = await evaluate_full(
                 self.opa_policy_path,
                 {
@@ -119,13 +134,15 @@ class BaseComplianceAgent(BaseDDDAgent):
                 default_allow=False,
             )
             if not result.get("allowed", True):
-                return [{
-                    "rule": f"opa:{self.opa_policy_path}",
-                    "severity": "HIGH",
-                    "article": "OPA",
-                    "description": f"OPA policy {self.opa_policy_path!r} denied",
-                    "remediation": "Review OPA policy output for specific violations",
-                }]
+                return [
+                    {
+                        "rule": f"opa:{self.opa_policy_path}",
+                        "severity": "HIGH",
+                        "article": "OPA",
+                        "description": f"OPA policy {self.opa_policy_path!r} denied",
+                        "remediation": "Review OPA policy output for specific violations",
+                    }
+                ]
         except Exception as exc:
             logger.debug("[%s] OPA compliance check skipped: %s", self.agent_type, exc)
         return []
@@ -147,19 +164,21 @@ class BaseComplianceAgent(BaseDDDAgent):
         compliant = decision.get("compliant", True)
         action = "compliant" if compliant else "non_compliant"
         if not compliant:
-            self._violations_log.append({
-                "standard": self.standard,
-                "findings": [f["rule"] for f in findings if f["severity"] in ("CRITICAL", "HIGH")],
-            })
+            self._violations_log.append(
+                {
+                    "standard": self.standard,
+                    "findings": [f["rule"] for f in findings if f["severity"] in ("CRITICAL", "HIGH")],
+                }
+            )
         return {
             "action": action,
             "standard": self.standard,
             "compliant": compliant,
             "findings": findings,
             "critical_count": sum(1 for f in findings if f["severity"] == "CRITICAL"),
-            "high_count":     sum(1 for f in findings if f["severity"] == "HIGH"),
-            "medium_count":   sum(1 for f in findings if f["severity"] == "MEDIUM"),
-            "low_count":      sum(1 for f in findings if f["severity"] == "LOW"),
+            "high_count": sum(1 for f in findings if f["severity"] == "HIGH"),
+            "medium_count": sum(1 for f in findings if f["severity"] == "MEDIUM"),
+            "low_count": sum(1 for f in findings if f["severity"] == "LOW"),
         }
 
     def learn(self, outcome: dict[str, Any]) -> None:

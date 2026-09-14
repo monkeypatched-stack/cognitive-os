@@ -25,6 +25,7 @@ the authority on "does this observation invalidate the plan"; this module
 only decides whether that check is even worth doing, i.e. whether
 reasoning is needed at all before reaching for the expensive machinery).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -53,6 +54,7 @@ class CommittedPlanRecord:
     (kernel/pipeline/belief_state.py::Plan) is already an immutable,
     frozen dataclass -- this only adds the version stamps needed to
     decide reuse, it does not wrap or replace Plan."""
+
     plan: Any
     goal_hash: str
     world_state_version: str
@@ -61,8 +63,12 @@ class CommittedPlanRecord:
 
 
 def classify_reasoning_need(
-    *, goal: Any, goal_achieved: bool, goal_hash: str,
-    world_state_version: str, policy_version: str,
+    *,
+    goal: Any,
+    goal_achieved: bool,
+    goal_hash: str,
+    world_state_version: str,
+    policy_version: str,
     committed_plan: CommittedPlanRecord | None,
     plan_invalidated_by_observation: bool = False,
     local_rule_available: bool = False,
@@ -76,7 +82,10 @@ def classify_reasoning_need(
         return ReasoningDecision(ReasoningNeed.NO_REASONING_REQUIRED, "no active, unsatisfied goal")
 
     if local_rule_available:
-        return ReasoningDecision(ReasoningNeed.LOCAL_RULE, "a deterministic local rule already covers this goal")
+        return ReasoningDecision(
+            ReasoningNeed.LOCAL_RULE,
+            "a deterministic local rule already covers this goal",
+        )
 
     if committed_plan is not None and not plan_invalidated_by_observation:
         same_goal = committed_plan.goal_hash == goal_hash

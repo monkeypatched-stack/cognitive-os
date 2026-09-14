@@ -6,6 +6,7 @@ because re-running converges to the same state", and "safe to re-run only
 because the capability itself de-duplicates via a caller-supplied key". Those
 three cases warrant different retry behavior, so they're distinct classes.
 """
+
 from __future__ import annotations
 
 from enum import Enum

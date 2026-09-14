@@ -20,7 +20,7 @@ from uuid import uuid4
 @dataclass
 class HealthCheck:
     """A single health check result."""
-    
+
     check_id: str = field(default_factory=lambda: f"health-{uuid4().hex[:8]}")
     name: str = ""
     status: str = "healthy"  # healthy | degraded | unhealthy | unknown
@@ -29,7 +29,7 @@ class HealthCheck:
     dependencies: list[dict[str, Any]] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "check_id": self.check_id,
@@ -44,17 +44,17 @@ class HealthCheck:
 
 class HealthMonitor:
     """Health monitoring manager.
-    
+
     Responsibilities:
     - Run health checks
     - Track health history
     - Aggregate health status
     """
-    
+
     def __init__(self):
         self._checks: dict[str, HealthCheck] = {}
         self._history: list[HealthCheck] = []
-    
+
     def check(self, name: str, status: str = "healthy", message: str = "", **metadata: Any) -> HealthCheck:
         """Record a health check."""
         check = HealthCheck(
@@ -68,19 +68,19 @@ class HealthMonitor:
         if len(self._history) > 1000:
             self._history = self._history[-500:]
         return check
-    
+
     def healthy(self, name: str, **metadata: Any) -> HealthCheck:
         return self.check(name, "healthy", **metadata)
-    
+
     def degraded(self, name: str, message: str = "", **metadata: Any) -> HealthCheck:
         return self.check(name, "degraded", message, **metadata)
-    
+
     def unhealthy(self, name: str, message: str = "", **metadata: Any) -> HealthCheck:
         return self.check(name, "unhealthy", message, **metadata)
-    
+
     def get_health(self, name: str) -> HealthCheck | None:
         return self._checks.get(name)
-    
+
     def overall_status(self) -> str:
         statuses = [c.status for c in self._checks.values()]
         if not statuses:
@@ -92,7 +92,7 @@ class HealthMonitor:
         if all(s in ("healthy", "disconnected") for s in statuses):
             return "healthy"
         return "unknown"
-    
+
     def summary(self) -> dict:
         return {
             "overall": self.overall_status(),

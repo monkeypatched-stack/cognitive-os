@@ -23,10 +23,7 @@ print(result)
 ### MonkeyBrainClient
 
 ```python
-client = MonkeyBrainClient(
-    base_url="http://localhost:8032",
-    api_key="your-api-key"
-)
+client = MonkeyBrainClient(base_url="http://localhost:8032", api_key="your-api-key")
 
 # Query
 result = await client.query("question")

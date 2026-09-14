@@ -10,7 +10,7 @@ async def approval_query_question_answer(client, question, force=False):
         collection = db["approvals"]
 
         # Extract specific approval ID if mentioned
-        apr_match = re.search(r'(APR-\d+)', question, re.IGNORECASE)
+        apr_match = re.search(r"(APR-\d+)", question, re.IGNORECASE)
         if apr_match:
             apr_id = apr_match.group(1)
             doc = await collection.find_one({"approval_id": apr_id})
@@ -28,21 +28,16 @@ async def approval_query_question_answer(client, question, force=False):
                 return (f"Approval {apr_id} not found.", [], [], False)
 
         # Count questions
-        if re.search(r'how many|count|total', question, re.IGNORECASE):
+        if re.search(r"how many|count|total", question, re.IGNORECASE):
             total = await collection.count_documents({})
             pending = await collection.count_documents({"status": "Pending"})
             approved = await collection.count_documents({"status": "Approved"})
             rejected = await collection.count_documents({"status": "Rejected"})
-            answer = (
-                f"Approvals: {total} total\n"
-                f"  Pending: {pending}\n"
-                f"  Approved: {approved}\n"
-                f"  Rejected: {rejected}"
-            )
+            answer = f"Approvals: {total} total\n  Pending: {pending}\n  Approved: {approved}\n  Rejected: {rejected}"
             return (answer, [], [], False)
 
         # Status filter
-        status_match = re.search(r'(pending|approved|rejected|open|closed)', question, re.IGNORECASE)
+        status_match = re.search(r"(pending|approved|rejected|open|closed)", question, re.IGNORECASE)
         if status_match:
             status = status_match.group(1).title()
             cursor = collection.find({"status": status}).limit(10)
@@ -51,13 +46,15 @@ async def approval_query_question_answer(client, question, force=False):
             if docs:
                 lines = [f"Found {total} {status.lower()} approvals:"]
                 for doc in docs:
-                    lines.append(f"  - {doc.get('approval_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]")
+                    lines.append(
+                        f"  - {doc.get('approval_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]"
+                    )
             else:
                 lines = [f"No {status.lower()} approvals found."]
             return ("\n".join(lines), [], [], False)
 
         # Department filter
-        dept_match = re.search(r'(?:in|for|from)\s+(.+?)(?:\?|$)', question, re.IGNORECASE)
+        dept_match = re.search(r"(?:in|for|from)\s+(.+?)(?:\?|$)", question, re.IGNORECASE)
         if dept_match:
             dept = dept_match.group(1).strip()
             cursor = collection.find({"department_name": {"$regex": dept, "$options": "i"}}).limit(10)
@@ -65,7 +62,9 @@ async def approval_query_question_answer(client, question, force=False):
             if docs:
                 lines = [f"Approvals in '{dept}':"]
                 for doc in docs:
-                    lines.append(f"  - {doc.get('approval_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]")
+                    lines.append(
+                        f"  - {doc.get('approval_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]"
+                    )
                 return ("\n".join(lines), [], [], False)
 
         # Default: list pending
@@ -90,9 +89,34 @@ def is_approval_query_question(question):
     q = question.lower()
     if "approval" not in q and "approve" not in q:
         return False
-    if any(kw in q for kw in ("create", "submit", "initiate", "raise", "approve ", "reject", "deny", "on hold", "hold approval")):
+    if any(
+        kw in q
+        for kw in (
+            "create",
+            "submit",
+            "initiate",
+            "raise",
+            "approve ",
+            "reject",
+            "deny",
+            "on hold",
+            "hold approval",
+        )
+    ):
         return False
-    return any(kw in q for kw in (
-        "show", "list", "get", "find", "pending", "status", "how many",
-        "all approval", "approval status", "approval list", "approval request",
-    ))
+    return any(
+        kw in q
+        for kw in (
+            "show",
+            "list",
+            "get",
+            "find",
+            "pending",
+            "status",
+            "how many",
+            "all approval",
+            "approval status",
+            "approval list",
+            "approval request",
+        )
+    )

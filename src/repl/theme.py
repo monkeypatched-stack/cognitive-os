@@ -3,6 +3,7 @@
 Clean, minimal aesthetic with the signature orange accent. Full-width
 panels, consistent styling across all commands.
 """
+
 from __future__ import annotations
 
 import os
@@ -18,20 +19,22 @@ from rich.theme import Theme
 # single warm terracotta accent (Anthropic's brand color) for the logo,
 # prompt, and highlights, dim grey for secondary/meta text, and red/green
 # reserved for errors/success. No rainbow syntax-highlight palette.
-_THEME = Theme({
-    "accent": "bold #D97757",
-    "accent.dim": "#D97757",
-    "muted": "grey58",
-    "success": "bold #6BBF7B",
-    "warning": "bold #D9A257",
-    "error": "bold #E5636B",
-    "heading": "bold #D97757",
-    "path": "grey70",
-    "git": "grey58",
-    "command": "bold white",
-    "agent": "bold #D97757",
-    "bullet": "#D97757",
-})
+_THEME = Theme(
+    {
+        "accent": "bold #D97757",
+        "accent.dim": "#D97757",
+        "muted": "grey58",
+        "success": "bold #6BBF7B",
+        "warning": "bold #D9A257",
+        "error": "bold #E5636B",
+        "heading": "bold #D97757",
+        "path": "grey70",
+        "git": "grey58",
+        "command": "bold white",
+        "agent": "bold #D97757",
+        "bullet": "#D97757",
+    }
+)
 
 console = Console(theme=_THEME, highlight=False, force_terminal=True, file=_sys.stdout)
 
@@ -61,7 +64,7 @@ def _cwd_label() -> str:
     if cwd == home:
         return "~"
     if cwd.startswith(home + os.sep):
-        return "~" + cwd[len(home):]
+        return "~" + cwd[len(home) :]
     return os.path.basename(cwd) or cwd
 
 

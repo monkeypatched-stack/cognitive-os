@@ -26,7 +26,9 @@ async def list_goods_receipts(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-products")),
 ):
-    records, total = await crud.get_all_goods_receipts(db, page=page, page_size=page_size)
+    records, total = await crud.get_all_goods_receipts(
+        db, page=page, page_size=page_size
+    )
     return PaginatedGoodsReceiptResponse(
         total=total,
         page=page,
@@ -53,7 +55,9 @@ async def list_goods_receipts_by_status(
     return await crud.get_goods_receipts_by_status(db, receipt_status.value)
 
 
-@router.post("/", response_model=GoodsReceiptResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=GoodsReceiptResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_goods_receipt(
     data: GoodsReceiptCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -74,7 +78,9 @@ async def list_quarantine_holds(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-products")),
 ):
-    records, total = await crud.get_all_quarantine_holds(db, page=page, page_size=page_size)
+    records, total = await crud.get_all_quarantine_holds(
+        db, page=page, page_size=page_size
+    )
     return PaginatedQuarantineHoldResponse(
         total=total,
         page=page,
@@ -91,7 +97,9 @@ async def list_active_quarantine_holds(
     return await crud.get_active_quarantine_holds(db)
 
 
-@router.get("/quarantine-holds/by-gr/{gr_id}", response_model=list[QuarantineHoldResponse])
+@router.get(
+    "/quarantine-holds/by-gr/{gr_id}", response_model=list[QuarantineHoldResponse]
+)
 async def list_quarantine_holds_by_gr(
     gr_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),

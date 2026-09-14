@@ -21,8 +21,8 @@ from services.assets.routers.families import router as families_router
 from services.assets.routers.classes import router as classes_router
 from services.assets.routers.subclasses import router as subclasses_router
 
-
 logger = configure_service_logging("assets")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,7 +42,9 @@ install_route_tracing(app, "assets")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,16 +58,20 @@ app.include_router(parts_router, prefix="/api/v1/parts", tags=["Parts"])
 app.include_router(plc_router, prefix="/api/v1/plcs", tags=["PLCs"])
 app.include_router(tags_router, prefix="/api/v1/rfid-tags", tags=["RFID Tags"])
 app.include_router(tools_router, prefix="/api/v1/tools", tags=["Tools"])
-app.include_router(instruments_router, prefix="/api/v1/instruments", tags=["Instruments"])
+app.include_router(
+    instruments_router, prefix="/api/v1/instruments", tags=["Instruments"]
+)
 app.include_router(families_router, prefix="/api/v1/families", tags=["Families"])
 app.include_router(classes_router, prefix="/api/v1/classes", tags=["Classes"])
 app.include_router(subclasses_router, prefix="/api/v1/subclasses", tags=["Subclasses"])
 app.include_router(
-    collection_router([
-        "/api/v1/equipment-groups",
-        "/api/v1/machine-groups",
-        "/api/v1/raw-material-groups",
-    ]),
+    collection_router(
+        [
+            "/api/v1/equipment-groups",
+            "/api/v1/machine-groups",
+            "/api/v1/raw-material-groups",
+        ]
+    ),
     tags=["Compatibility"],
 )
 

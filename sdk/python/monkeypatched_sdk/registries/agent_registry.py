@@ -110,15 +110,13 @@ class AgentRegistry:
             return None
 
         if constraints:
-            candidates = [
-                a for a in candidates
-                if all(a.model_constraints.get(k) == v for k, v in constraints.items())
-            ]
+            candidates = [a for a in candidates if all(a.model_constraints.get(k) == v for k, v in constraints.items())]
 
         if not candidates:
             logger.warning(
                 "No agents for capability '%s' satisfy constraints %s",
-                capability, constraints,
+                capability,
+                constraints,
             )
             return None
 
@@ -133,8 +131,5 @@ class AgentRegistry:
     def summary(self) -> dict[str, Any]:
         return {
             "agent_count": len(self._agents),
-            "agents": {
-                a.agent_id: {"name": a.name, "capabilities": a.capabilities}
-                for a in self._agents.values()
-            },
+            "agents": {a.agent_id: {"name": a.name, "capabilities": a.capabilities} for a in self._agents.values()},
         }

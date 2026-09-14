@@ -11,7 +11,6 @@ from services.workorders.models.executed_instruction_evidence import (
     PaginatedExecutedInstructionEvidenceResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -35,10 +34,15 @@ async def list_executed_instruction_evidence(
         batch_id=batch_id,
         status=status_filter,
     )
-    return PaginatedExecutedInstructionEvidenceResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedExecutedInstructionEvidenceResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
-@router.get("/{executed_instruction_evidence_id}", response_model=ExecutedInstructionEvidenceResponse)
+@router.get(
+    "/{executed_instruction_evidence_id}",
+    response_model=ExecutedInstructionEvidenceResponse,
+)
 async def get_executed_instruction_evidence(
     executed_instruction_evidence_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -46,24 +50,37 @@ async def get_executed_instruction_evidence(
 ):
     record = await crud.get_by_id(db, executed_instruction_evidence_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Executed instruction evidence '{executed_instruction_evidence_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Executed instruction evidence '{executed_instruction_evidence_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=ExecutedInstructionEvidenceResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=ExecutedInstructionEvidenceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_executed_instruction_evidence(
     data: ExecutedInstructionEvidenceCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-tasks")),
 ):
     if await crud.get_by_id(db, data.executed_instruction_evidence_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Executed instruction evidence '{data.executed_instruction_evidence_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Executed instruction evidence '{data.executed_instruction_evidence_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
 
 
-@router.patch("/{executed_instruction_evidence_id}", response_model=ExecutedInstructionEvidenceResponse)
+@router.patch(
+    "/{executed_instruction_evidence_id}",
+    response_model=ExecutedInstructionEvidenceResponse,
+)
 async def update_executed_instruction_evidence(
     executed_instruction_evidence_id: str,
     data: ExecutedInstructionEvidenceUpdate,
@@ -72,15 +89,23 @@ async def update_executed_instruction_evidence(
 ):
     updated = await crud.update(db, executed_instruction_evidence_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Executed instruction evidence '{executed_instruction_evidence_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Executed instruction evidence '{executed_instruction_evidence_id}' not found",
+        )
     return updated
 
 
-@router.delete("/{executed_instruction_evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{executed_instruction_evidence_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_executed_instruction_evidence(
     executed_instruction_evidence_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-delete-tasks")),
 ):
     if not await crud.delete(db, executed_instruction_evidence_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Executed instruction evidence '{executed_instruction_evidence_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Executed instruction evidence '{executed_instruction_evidence_id}' not found",
+        )

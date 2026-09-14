@@ -27,6 +27,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedPlantResponse)
 async def list_plants(
     page: int = Query(1, ge=1),
@@ -58,6 +59,7 @@ async def list_plants(
 
 
 # ── Get One ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{plant_id}/lines", response_model=list[IndustrialLineResponse])
 async def list_plant_lines(
@@ -108,7 +110,9 @@ async def list_plant_machines(
     return await machine_crud.get_by_plant(db, str(record.get("id") or plant_id))
 
 
-@router.get("/{plant_id}/equipment", response_model=list[PharmaceuticalEquipmentResponse])
+@router.get(
+    "/{plant_id}/equipment", response_model=list[PharmaceuticalEquipmentResponse]
+)
 async def list_plant_equipment(
     plant_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -149,7 +153,10 @@ async def _resolve_plant(db: AsyncIOMotorDatabase, plant_id: str) -> dict | None
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=IndustrialPlantResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=IndustrialPlantResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_plant(
     data: IndustrialPlantCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -164,6 +171,7 @@ async def create_plant(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{plant_id}", response_model=IndustrialPlantResponse)
 async def update_plant(
@@ -182,6 +190,7 @@ async def update_plant(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{plant_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_plant(

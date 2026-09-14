@@ -22,9 +22,13 @@ outstanding (paid_amount - total_refunded already issued), not the
 original paid_amount blindly. Without this, a partial refund followed
 by a full cancellation/return would double-refund the same money.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.domains.commerce import CommerceCapability, CommerceCapabilityBus
+from src.monkey_brain.kernel.domains.commerce import (
+    CommerceCapability,
+    CommerceCapabilityBus,
+)
 from src.monkey_brain.kernel.domains.grocery import (
     RefundOrderCapability,
     approve_return,
@@ -39,13 +43,26 @@ ORDER_ID = "ORD-1"
 
 def _seed_paid_order(status: str = "confirmed") -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity("wallet_1", EntityType.ACCOUNT, "Alice Wallet", {"account_type": "debit", "balance": 20.0})
+    kg.add_entity(
+        "wallet_1",
+        EntityType.ACCOUNT,
+        "Alice Wallet",
+        {"account_type": "debit", "balance": 20.0},
+    )
     kg.add_entity("prod_1", EntityType.ASSET, "Oat Milk", {"price": 4.5, "quantity": 5})
-    kg.add_entity(ORDER_ID, EntityType.EVENT, "Grocery Order", {
-        "items": [{"product_id": "prod_1", "qty": 2}],
-        "total": 9.0, "status": status,
-        "paid_wallet_id": "wallet_1", "paid_amount": 9.0, "payment_status": "paid",
-    })
+    kg.add_entity(
+        ORDER_ID,
+        EntityType.EVENT,
+        "Grocery Order",
+        {
+            "items": [{"product_id": "prod_1", "qty": 2}],
+            "total": 9.0,
+            "status": status,
+            "paid_wallet_id": "wallet_1",
+            "paid_amount": 9.0,
+            "payment_status": "paid",
+        },
+    )
     return kg
 
 
@@ -138,9 +155,16 @@ def test_mb3027_refund_via_capability_wrapper():
     kg = _seed_paid_order()
     cap = RefundOrderCapability()
 
-    result = cap.handle({"context": {
-        "knowledge_graph": kg, "order_id": ORDER_ID, "refund_amount": 2.0, "actor_id": "agent",
-    }})
+    result = cap.handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "order_id": ORDER_ID,
+                "refund_amount": 2.0,
+                "actor_id": "agent",
+            }
+        }
+    )
 
     assert result["success"] is True
     assert result["refunded"] == 2.0

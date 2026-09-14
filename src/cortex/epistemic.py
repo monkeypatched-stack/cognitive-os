@@ -21,11 +21,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Session 1 — Epistemic State
 # K = {k_1, …, k_n} where each item carries multi-dimensional attributes
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class KnowledgeItem:
@@ -45,6 +45,7 @@ class KnowledgeItem:
     uncertainty : explicit epistemic uncertainty — set high when source conflicts exist [0, 1]
     verification_history : ordered list of {"date", "result", "verifier"} dicts
     """
+
     id: str
     content: str = ""
     modality: str = "document"
@@ -66,6 +67,7 @@ class KnowledgeItem:
         freshness=0.01 cannot compensate by having provenance=1.0.
         """
         import math
+
         prov = _provenance_score(self.provenance) if isinstance(self.provenance, str) else float(self.provenance)
         fresh = _freshness_score(self.freshness) if isinstance(self.freshness, str) else float(self.freshness)
         dims = {
@@ -78,9 +80,13 @@ class KnowledgeItem:
             "certainty": max(1.0 - self.uncertainty, 1e-9),
         }
         weights = {
-            "provenance": 0.20, "freshness": 0.12, "completeness": 0.12,
-            "consistency": 0.12, "simulation_success": 0.18,
-            "validation": 0.12, "certainty": 0.14,
+            "provenance": 0.20,
+            "freshness": 0.12,
+            "completeness": 0.12,
+            "consistency": 0.12,
+            "simulation_success": 0.18,
+            "validation": 0.12,
+            "certainty": 0.14,
         }
         log_sum = sum(weights[k] * math.log(v) for k, v in dims.items())
         return math.exp(log_sum)
@@ -129,37 +135,135 @@ class KnowledgeItem:
 # ---------------------------------------------------------------------------
 
 MODALITIES = {
-    "document", "image", "cad", "video", "telemetry",
-    "code", "graph", "ontology", "db", "simulation",
+    "document",
+    "image",
+    "cad",
+    "video",
+    "telemetry",
+    "code",
+    "graph",
+    "ontology",
+    "db",
+    "simulation",
 }
 
 # Per-modality dimension weights — must sum to ~1.0 per row
 _MODALITY_WEIGHTS: dict[str, dict[str, float]] = {
     #               prov    consist  fresh   complet  valid   sim_suc
-    "document":  {"provenance": 0.30, "consistency": 0.20, "freshness": 0.15, "completeness": 0.20, "validation": 0.10, "simulation_success": 0.05},
-    "image":     {"provenance": 0.10, "consistency": 0.20, "freshness": 0.35, "completeness": 0.12, "validation": 0.18, "simulation_success": 0.05},
-    "cad":       {"provenance": 0.20, "consistency": 0.35, "freshness": 0.08, "completeness": 0.22, "validation": 0.10, "simulation_success": 0.05},
-    "video":     {"provenance": 0.08, "consistency": 0.18, "freshness": 0.42, "completeness": 0.12, "validation": 0.15, "simulation_success": 0.05},
-    "telemetry": {"provenance": 0.04, "consistency": 0.18, "freshness": 0.58, "completeness": 0.08, "validation": 0.07, "simulation_success": 0.05},
-    "code":      {"provenance": 0.20, "consistency": 0.35, "freshness": 0.10, "completeness": 0.20, "validation": 0.10, "simulation_success": 0.05},
-    "graph":     {"provenance": 0.18, "consistency": 0.35, "freshness": 0.10, "completeness": 0.22, "validation": 0.10, "simulation_success": 0.05},
-    "ontology":  {"provenance": 0.30, "consistency": 0.32, "freshness": 0.05, "completeness": 0.20, "validation": 0.08, "simulation_success": 0.05},
-    "db":        {"provenance": 0.08, "consistency": 0.22, "freshness": 0.32, "completeness": 0.22, "validation": 0.10, "simulation_success": 0.06},
-    "simulation":{"provenance": 0.05, "consistency": 0.18, "freshness": 0.12, "completeness": 0.15, "validation": 0.10, "simulation_success": 0.40},
+    "document": {
+        "provenance": 0.30,
+        "consistency": 0.20,
+        "freshness": 0.15,
+        "completeness": 0.20,
+        "validation": 0.10,
+        "simulation_success": 0.05,
+    },
+    "image": {
+        "provenance": 0.10,
+        "consistency": 0.20,
+        "freshness": 0.35,
+        "completeness": 0.12,
+        "validation": 0.18,
+        "simulation_success": 0.05,
+    },
+    "cad": {
+        "provenance": 0.20,
+        "consistency": 0.35,
+        "freshness": 0.08,
+        "completeness": 0.22,
+        "validation": 0.10,
+        "simulation_success": 0.05,
+    },
+    "video": {
+        "provenance": 0.08,
+        "consistency": 0.18,
+        "freshness": 0.42,
+        "completeness": 0.12,
+        "validation": 0.15,
+        "simulation_success": 0.05,
+    },
+    "telemetry": {
+        "provenance": 0.04,
+        "consistency": 0.18,
+        "freshness": 0.58,
+        "completeness": 0.08,
+        "validation": 0.07,
+        "simulation_success": 0.05,
+    },
+    "code": {
+        "provenance": 0.20,
+        "consistency": 0.35,
+        "freshness": 0.10,
+        "completeness": 0.20,
+        "validation": 0.10,
+        "simulation_success": 0.05,
+    },
+    "graph": {
+        "provenance": 0.18,
+        "consistency": 0.35,
+        "freshness": 0.10,
+        "completeness": 0.22,
+        "validation": 0.10,
+        "simulation_success": 0.05,
+    },
+    "ontology": {
+        "provenance": 0.30,
+        "consistency": 0.32,
+        "freshness": 0.05,
+        "completeness": 0.20,
+        "validation": 0.08,
+        "simulation_success": 0.05,
+    },
+    "db": {
+        "provenance": 0.08,
+        "consistency": 0.22,
+        "freshness": 0.32,
+        "completeness": 0.22,
+        "validation": 0.10,
+        "simulation_success": 0.06,
+    },
+    "simulation": {
+        "provenance": 0.05,
+        "consistency": 0.18,
+        "freshness": 0.12,
+        "completeness": 0.15,
+        "validation": 0.10,
+        "simulation_success": 0.40,
+    },
 }
 _DEFAULT_MODALITY_WEIGHTS = {
-    "provenance": 0.20, "consistency": 0.20, "freshness": 0.20,
-    "completeness": 0.15, "validation": 0.15, "simulation_success": 0.10,
+    "provenance": 0.20,
+    "consistency": 0.20,
+    "freshness": 0.20,
+    "completeness": 0.15,
+    "validation": 0.15,
+    "simulation_success": 0.10,
 }
 
 # Named authority → provenance trust score
 _PROVENANCE_SCORES: dict[str, float] = {
-    "ISO13485": 1.00, "ISO9001": 1.00, "ISO27001": 1.00, "ISO14971": 1.00,
-    "ISO62304": 1.00, "ISO45001": 0.98, "ISO25010": 0.95,
-    "FDA": 0.98, "EMA": 0.98, "GDPR": 0.97, "HIPAA": 0.97,
-    "SOC2": 0.95, "PCI-DSS": 0.95, "FCC": 0.93,
-    "NIST": 0.92, "IEEE": 0.90, "OWASP": 0.90, "CIS": 0.88, "TOGAF": 0.85,
-    "internal-validated": 0.75, "internal-draft": 0.60, "internal": 0.65,
+    "ISO13485": 1.00,
+    "ISO9001": 1.00,
+    "ISO27001": 1.00,
+    "ISO14971": 1.00,
+    "ISO62304": 1.00,
+    "ISO45001": 0.98,
+    "ISO25010": 0.95,
+    "FDA": 0.98,
+    "EMA": 0.98,
+    "GDPR": 0.97,
+    "HIPAA": 0.97,
+    "SOC2": 0.95,
+    "PCI-DSS": 0.95,
+    "FCC": 0.93,
+    "NIST": 0.92,
+    "IEEE": 0.90,
+    "OWASP": 0.90,
+    "CIS": 0.88,
+    "TOGAF": 0.85,
+    "internal-validated": 0.75,
+    "internal-draft": 0.60,
+    "internal": 0.65,
 }
 
 
@@ -180,13 +284,19 @@ def _freshness_score(freshness: str) -> float:
         return 0.70
     try:
         from datetime import date, datetime
+
         d = datetime.strptime(freshness[:10], "%Y-%m-%d").date()
         age = (date.today() - d).days
-        if age < 0:   return 1.00
-        if age < 30:  return 1.00
-        if age < 90:  return 0.85
-        if age < 180: return 0.70
-        if age < 365: return 0.55
+        if age < 0:
+            return 1.00
+        if age < 30:
+            return 1.00
+        if age < 90:
+            return 0.85
+        if age < 180:
+            return 0.70
+        if age < 365:
+            return 0.55
         return 0.30
     except (ValueError, TypeError):
         return 0.70
@@ -196,16 +306,16 @@ def _item_confidence(item: KnowledgeItem) -> float:
     """C_knowledge for a single item — weighted by modality."""
     weights = _MODALITY_WEIGHTS.get(item.modality, _DEFAULT_MODALITY_WEIGHTS)
 
-    prov  = _provenance_score(item.provenance)
+    prov = _provenance_score(item.provenance)
     fresh = _freshness_score(item.freshness)
 
     dims = {
-        "provenance":        prov,
-        "consistency":       item.consistency,
-        "freshness":         fresh,
-        "completeness":      item.completeness,
-        "validation":        item.validation,
-        "simulation_success":item.simulation_success,
+        "provenance": prov,
+        "consistency": item.consistency,
+        "freshness": fresh,
+        "completeness": item.completeness,
+        "validation": item.validation,
+        "simulation_success": item.simulation_success,
     }
     # Penalise explicit uncertainty regardless of other dimensions
     base = sum(weights.get(k, 0.0) * v for k, v in dims.items())
@@ -244,28 +354,28 @@ def _contradiction_penalty(items: list[KnowledgeItem]) -> float:
 
 # Modality → which loss components it primarily reduces
 _MODALITY_RELEVANCE: dict[str, dict[str, float]] = {
-    "telemetry":  {"state": 0.8, "goal": 0.5},
-    "document":   {"action": 0.7, "constraint": 0.8},
-    "ontology":   {"affordance": 0.8, "constraint": 0.7},
-    "code":       {"constraint": 0.8, "action": 0.5},
-    "db":         {"state": 0.7, "goal": 0.6},
+    "telemetry": {"state": 0.8, "goal": 0.5},
+    "document": {"action": 0.7, "constraint": 0.8},
+    "ontology": {"affordance": 0.8, "constraint": 0.7},
+    "code": {"constraint": 0.8, "action": 0.5},
+    "db": {"state": 0.7, "goal": 0.6},
     "simulation": {"state": 0.6, "affordance": 0.6},
-    "graph":      {"affordance": 0.7, "action": 0.5},
-    "cad":        {"state": 0.5, "constraint": 0.6},
-    "image":      {"state": 0.4},
-    "video":      {"state": 0.4, "action": 0.4},
+    "graph": {"affordance": 0.7, "action": 0.5},
+    "cad": {"state": 0.5, "constraint": 0.6},
+    "image": {"state": 0.4},
+    "video": {"state": 0.4, "action": 0.4},
 }
 
 # Normalised retrieval cost by source type [0, 1]
 RETRIEVAL_COSTS: dict[str, float] = {
-    "sensor_read":     0.02,
-    "db_query":        0.05,
-    "file_read":       0.03,
-    "vector_search":   0.08,
-    "web_search":      0.20,
-    "llm_inference":   0.35,
-    "external_api":    0.25,
-    "simulation_run":  0.50,
+    "sensor_read": 0.02,
+    "db_query": 0.05,
+    "file_read": 0.03,
+    "vector_search": 0.08,
+    "web_search": 0.20,
+    "llm_inference": 0.35,
+    "external_api": 0.25,
+    "simulation_run": 0.50,
 }
 
 
@@ -273,13 +383,15 @@ RETRIEVAL_COSTS: dict[str, float] = {
 # Session 4 — Knowledge Evolution
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SimulationOutcome:
     """What happened in one G→A→R round — feeds K_t → K_{t+1}."""
-    converged: bool = False           # zero adversarial findings
-    knowledge_loss: float = 0.0       # L_knowledge from this round
-    constraint_violations: int = 0    # count of constraint findings
-    confidence_delta: float = 0.0     # positive = design improved
+
+    converged: bool = False  # zero adversarial findings
+    knowledge_loss: float = 0.0  # L_knowledge from this round
+    constraint_violations: int = 0  # count of constraint findings
+    confidence_delta: float = 0.0  # positive = design improved
     findings_count: int = 0
 
     @classmethod
@@ -288,7 +400,8 @@ class SimulationOutcome:
             converged=adv_dict.get("terminated") == "attacks_exhausted" or not adv_dict.get("findings"),
             knowledge_loss=sim_loss_dict.get("knowledge", 0.0),
             constraint_violations=sum(
-                1 for f in adv_dict.get("findings", [])
+                1
+                for f in adv_dict.get("findings", [])
                 if f.get("finding_type") in ("violated_invariant", "ddd_violation", "constraint_violation")
             ),
             confidence_delta=adv_dict.get("confidence_delta", 0.0),
@@ -299,6 +412,7 @@ class SimulationOutcome:
 # ---------------------------------------------------------------------------
 # EpistemicState — the full K with fusion, retrieval policy, and evolution
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class EpistemicState:
@@ -311,6 +425,7 @@ class EpistemicState:
       update()             K_t → K_{t+1} after a simulation round
       add_item()           inject new knowledge (from retrieval or observation)
     """
+
     items: list[KnowledgeItem] = field(default_factory=list)
 
     # ── Session 2 — Multimodal Confidence Fusion ────────────────────────────
@@ -350,7 +465,7 @@ class EpistemicState:
         Diminishing returns: gain shrinks as confidence approaches 1.0.
         """
         current_conf = self.confidence()
-        headroom = 1.0 - current_conf   # maximum possible improvement
+        headroom = 1.0 - current_conf  # maximum possible improvement
 
         relevance = _MODALITY_RELEVANCE.get(retrieval_modality, {})
         # Weighted relevance: how much does this modality help the current worst dimensions?
@@ -394,14 +509,14 @@ class EpistemicState:
     def _evolve_item(self, item: KnowledgeItem, outcome: SimulationOutcome) -> KnowledgeItem:
         sim_success = item.simulation_success
         consistency = item.consistency
-        validation  = item.validation
+        validation = item.validation
         uncertainty = item.uncertainty
 
         if outcome.converged and outcome.confidence_delta > 0:
             # Simulation agreed with this knowledge — reinforce
             sim_success = min(1.0, sim_success + 0.03)
             uncertainty = max(0.0, uncertainty - 0.02)
-            validation  = min(1.0, validation + 0.01)
+            validation = min(1.0, validation + 0.01)
 
         elif outcome.constraint_violations > 0:
             # Constraint violations: at least one item was wrong or incomplete
@@ -418,12 +533,14 @@ class EpistemicState:
             uncertainty = min(1.0, uncertainty + 0.005)
 
         history = item.verification_history.copy()
-        history.append({
-            "event": "simulation_round",
-            "converged": outcome.converged,
-            "confidence_delta": outcome.confidence_delta,
-            "constraint_violations": outcome.constraint_violations,
-        })
+        history.append(
+            {
+                "event": "simulation_round",
+                "converged": outcome.converged,
+                "confidence_delta": outcome.confidence_delta,
+                "constraint_violations": outcome.constraint_violations,
+            }
+        )
 
         return KnowledgeItem(
             id=item.id,
@@ -436,7 +553,7 @@ class EpistemicState:
             validation=round(validation, 4),
             simulation_success=round(sim_success, 4),
             uncertainty=round(uncertainty, 4),
-            verification_history=history[-20:],   # keep last 20 events
+            verification_history=history[-20:],  # keep last 20 events
         )
 
     # ── Session 5 — Learning Loop helpers ───────────────────────────────────
@@ -495,28 +612,45 @@ class EpistemicState:
             # Handle nested confidence dict
             conf = pack.get("confidence", {})
             if isinstance(conf, dict):
-                consistency       = float(conf.get("consistency",  0.90))
-                validation        = float(conf.get("validation",   0.90))
-                simulation_success= float(conf.get("simulation",   0.90))
+                consistency = float(conf.get("consistency", 0.90))
+                validation = float(conf.get("validation", 0.90))
+                simulation_success = float(conf.get("simulation", 0.90))
                 fresh = conf.get("freshness", pack.get("freshness", ""))
             else:
-                consistency        = float(pack.get("consistency",   float(conf) if isinstance(conf, (int, float)) else 0.90))
-                validation         = float(pack.get("validation",    float(conf) if isinstance(conf, (int, float)) else 0.90))
-                simulation_success = float(pack.get("simulation",    float(conf) if isinstance(conf, (int, float)) else 0.90))
+                consistency = float(
+                    pack.get(
+                        "consistency",
+                        float(conf) if isinstance(conf, (int, float)) else 0.90,
+                    )
+                )
+                validation = float(
+                    pack.get(
+                        "validation",
+                        float(conf) if isinstance(conf, (int, float)) else 0.90,
+                    )
+                )
+                simulation_success = float(
+                    pack.get(
+                        "simulation",
+                        float(conf) if isinstance(conf, (int, float)) else 0.90,
+                    )
+                )
                 fresh = pack.get("freshness", "")
 
-            items.append(KnowledgeItem(
-                id=pack.get("id", f"pack-{i}"),
-                content=pack.get("content", pack.get("description", "")),
-                modality=pack.get("modality", "document"),
-                provenance=pack.get("provenance", ""),
-                freshness=str(fresh),
-                completeness=float(pack.get("completeness", 0.90)),
-                consistency=consistency,
-                validation=validation,
-                simulation_success=simulation_success,
-                uncertainty=float(pack.get("uncertainty", 0.0)),
-            ))
+            items.append(
+                KnowledgeItem(
+                    id=pack.get("id", f"pack-{i}"),
+                    content=pack.get("content", pack.get("description", "")),
+                    modality=pack.get("modality", "document"),
+                    provenance=pack.get("provenance", ""),
+                    freshness=str(fresh),
+                    completeness=float(pack.get("completeness", 0.90)),
+                    consistency=consistency,
+                    validation=validation,
+                    simulation_success=simulation_success,
+                    uncertainty=float(pack.get("uncertainty", 0.0)),
+                )
+            )
         return cls(items=items)
 
 
@@ -534,6 +668,7 @@ class EpistemicState:
 #
 # This function is called by run_adversarial_refinement_loop() after each round.
 # ---------------------------------------------------------------------------
+
 
 def evolve_epistemic_state(
     epistemic: EpistemicState,
@@ -561,6 +696,7 @@ def evolve_epistemic_state(
 #   L_E = L_S + L_B + L_A + L_M
 # ===========================================================================
 
+
 @dataclass
 class UncertaintyEstimate:
     """Aleatoric + epistemic uncertainty decomposition.
@@ -570,6 +706,7 @@ class UncertaintyEstimate:
     epistemic  — reducible (we don't know yet, but could find out).
                  Retrieval / simulation reduce this.
     """
+
     aleatoric: float = 0.0
     epistemic: float = 0.0
 
@@ -599,7 +736,11 @@ class UncertaintyEstimate:
         )
 
     def to_dict(self) -> dict[str, float]:
-        return {"aleatoric": self.aleatoric, "epistemic": self.epistemic, "total": self.total}
+        return {
+            "aleatoric": self.aleatoric,
+            "epistemic": self.epistemic,
+            "total": self.total,
+        }
 
 
 @dataclass
@@ -616,10 +757,11 @@ class BeliefState:
     L_B = belief prediction error = f(knowledge_loss, uncertainty_growth,
                                        confidence_decay, constraint_violation)
     """
+
     # ASSUMPTION: confidence is a scalar in [0, 1], not a distribution.
     # Epistemic uncertainty about confidence itself is not modelled.
     knowledge: list[KnowledgeItem] = field(default_factory=list)
-    confidence: float = 1.0           # scalar from EpistemicState.confidence()
+    confidence: float = 1.0  # scalar from EpistemicState.confidence()
     uncertainty: UncertaintyEstimate = field(default_factory=UncertaintyEstimate)
 
     # ── Loss ──────────────────────────────────────────────────────────────────
@@ -631,8 +773,8 @@ class BeliefState:
         Three equally-weighted components: 1 - confidence, epistemic uncertainty,
         consistency penalty from contradictions.
         """
-        l_knowledge   = 1.0 - max(0.0, min(1.0, self.confidence))
-        l_uncertainty = self.uncertainty.epistemic          # reducible — dominates planning
+        l_knowledge = 1.0 - max(0.0, min(1.0, self.confidence))
+        l_uncertainty = self.uncertainty.epistemic  # reducible — dominates planning
         l_consistency = self._consistency_penalty()
         return round((l_knowledge + l_uncertainty + l_consistency) / 3.0, 4)
 
@@ -697,10 +839,11 @@ class GoalState:
     L_S (did the world move toward the goal?) and L_B (did beliefs update
     in a way that's useful for the goal?).
     """
-    objective: str = ""               # natural language description
+
+    objective: str = ""  # natural language description
     target_predicates: list[str] = field(default_factory=list)
-    priority: float = 1.0             # [0, 1] — higher = more urgent
-    deadline_s: float | None = None   # monotonic seconds; None = no deadline
+    priority: float = 1.0  # [0, 1] — higher = more urgent
+    deadline_s: float | None = None  # monotonic seconds; None = no deadline
 
     def progress(self, world_state: dict[str, Any]) -> float:
         """Fraction of target predicates satisfied in world_state. [0, 1]"""
@@ -722,12 +865,18 @@ class GoalState:
                 lv = self._resolve(lhs.strip(), ws)
                 rv = self._coerce(rhs.strip())
                 try:
-                    if op == "==":  return lv == rv
-                    if op == "!=":  return lv != rv
-                    if op == ">":   return lv > rv   # type: ignore[operator]
-                    if op == ">=":  return lv >= rv  # type: ignore[operator]
-                    if op == "<":   return lv < rv   # type: ignore[operator]
-                    if op == "<=":  return lv <= rv  # type: ignore[operator]
+                    if op == "==":
+                        return lv == rv
+                    if op == "!=":
+                        return lv != rv
+                    if op == ">":
+                        return lv > rv  # type: ignore[operator]
+                    if op == ">=":
+                        return lv >= rv  # type: ignore[operator]
+                    if op == "<":
+                        return lv < rv  # type: ignore[operator]
+                    if op == "<=":
+                        return lv <= rv  # type: ignore[operator]
                 except Exception:
                     return False
         return predicate.lower() in str(ws).lower()
@@ -741,12 +890,18 @@ class GoalState:
 
     @staticmethod
     def _coerce(v: str) -> Any:
-        if v.lower() in ("true", "yes"): return True
-        if v.lower() in ("false", "no"): return False
-        try: return int(v)
-        except ValueError: pass
-        try: return float(v)
-        except ValueError: pass
+        if v.lower() in ("true", "yes"):
+            return True
+        if v.lower() in ("false", "no"):
+            return False
+        try:
+            return int(v)
+        except ValueError:
+            pass
+        try:
+            return float(v)
+        except ValueError:
+            pass
         return v.strip("'\"")
 
     def to_dict(self) -> dict[str, Any]:

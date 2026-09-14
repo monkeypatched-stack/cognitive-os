@@ -13,8 +13,8 @@ from services.iot.routers.sensors import router as sensors_router
 from services.iot.routers.servers import router as servers_router
 from services.iot.routers.uwb_device import router as uwb_devices_router
 
-
 logger = configure_service_logging("iot")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -36,16 +36,22 @@ install_route_tracing(app, "iot")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(ble_devices_router, prefix="/api/v1/ble-devices", tags=["BLE Devices"])
+app.include_router(
+    ble_devices_router, prefix="/api/v1/ble-devices", tags=["BLE Devices"]
+)
 app.include_router(sensors_router, prefix="/api/v1/sensors", tags=["Sensors"])
 app.include_router(servers_router, prefix="/api/v1/servers", tags=["Servers"])
-app.include_router(uwb_devices_router, prefix="/api/v1/uwb-devices", tags=["UWB Devices"])
+app.include_router(
+    uwb_devices_router, prefix="/api/v1/uwb-devices", tags=["UWB Devices"]
+)
 
 
 @app.get("/health", tags=["Health"])

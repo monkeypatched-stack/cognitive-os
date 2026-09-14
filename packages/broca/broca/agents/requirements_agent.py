@@ -8,6 +8,7 @@ requirements themselves: functional requirements, non-functional constraints,
 and acceptance criteria a later ArchitectureDecisionAgent/PlannerAgent can
 consume, and a CodeReviewAgent can later check an implementation against.
 """
+
 from __future__ import annotations
 import json
 import logging
@@ -30,12 +31,16 @@ class RequirementsAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
                 if output.get("requirements"):
                     self._reward(True)
-                    return self._result(payload=output, observations=[f"{len(output['requirements'])} requirements captured"])
+                    return self._result(
+                        payload=output,
+                        observations=[f"{len(output['requirements'])} requirements captured"],
+                    )
             except Exception as e:
                 logger.warning("[requirements] capability failed: %s — spec-driven LLM", e)
 
@@ -45,7 +50,10 @@ class RequirementsAgent(BaseETASSAgent):
         ask = str(context.get("question") or context.get("ask") or "").strip()
         if not ask:
             self._reward(False, 0.0)
-            return self._result(payload={"requirements": []}, observations=["no ask/question in context"])
+            return self._result(
+                payload={"requirements": []},
+                observations=["no ask/question in context"],
+            )
 
         goal = (
             f"Analyze this stakeholder ask and produce a structured requirements artifact:\n\n{ask}\n\n"
@@ -80,6 +88,10 @@ class RequirementsAgent(BaseETASSAgent):
         reqs = data.get("requirements", [])
         self._reward(bool(reqs), 0.3)
         return self._result(
-            payload={"requirements": reqs, "open_questions": data.get("open_questions", [])},
-            observations=[f"{len(reqs)} requirements captured"] + [f"open: {q}" for q in data.get("open_questions", [])],
+            payload={
+                "requirements": reqs,
+                "open_questions": data.get("open_questions", []),
+            },
+            observations=[f"{len(reqs)} requirements captured"]
+            + [f"open: {q}" for q in data.get("open_questions", [])],
         )

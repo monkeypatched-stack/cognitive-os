@@ -8,6 +8,7 @@ receiving Support's own reply) — the relay itself happens because
 Support Agent's OWN next real ask is a second, independent call this
 script also makes, exactly as demo/conversation established.
 """
+
 from __future__ import annotations
 
 import sys
@@ -23,7 +24,9 @@ def main() -> int:
         world = bootstrap_world(c)
         actors = world["actors"]
         customer_id, agent_id, worker_id = (
-            actors["Customer"], actors["Support Agent"], actors["Warehouse Worker"],
+            actors["Customer"],
+            actors["Support Agent"],
+            actors["Warehouse Worker"],
         )
 
         section("Customer attempts to address the Warehouse Worker directly")
@@ -41,7 +44,10 @@ def main() -> int:
 
         section("Support Agent relays to the Warehouse (shared warehouse_team affiliation)")
         status, body = ask_actor(
-            c, agent_id, "Support Agent", worker_id,
+            c,
+            agent_id,
+            "Support Agent",
+            worker_id,
             "A customer is asking where their order is — what is its packing status?",
         )
         kv("HTTP status", status)

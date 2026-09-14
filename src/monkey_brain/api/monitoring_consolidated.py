@@ -8,6 +8,7 @@ DO NOT create new monitoring implementations here. Import from:
 - introspection/metrics.py (metrics collection)
 - kernel/compile/metrics.py (kernel metrics)
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +24,7 @@ logger = logging.getLogger("agentos.monitoring")
 # Lemon (Cognitive Observability Hub)
 try:
     from src.introspection.lemon import Lemon
+
     LEMON_AVAILABLE = True
 except ImportError:
     LEMON_AVAILABLE = False
@@ -31,6 +33,7 @@ except ImportError:
 # Metrics
 try:
     from src.introspection.metrics import MetricsCollector
+
     METRICS_AVAILABLE = True
 except ImportError:
     METRICS_AVAILABLE = False
@@ -39,6 +42,7 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Unified Monitoring Interface
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class MonitoringService:
     """Unified monitoring interface using Lemon.

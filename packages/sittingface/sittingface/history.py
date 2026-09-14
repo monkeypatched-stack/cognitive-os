@@ -10,8 +10,6 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-
 
 SOMA_DIR = Path(".soma")
 
@@ -19,7 +17,13 @@ SOMA_DIR = Path(".soma")
 class SomaticCommit:
     """A single commit of chart state."""
 
-    def __init__(self, message: str, charts: dict[str, str], author: str = "", parent: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        charts: dict[str, str],
+        author: str = "",
+        parent: str | None = None,
+    ):
         self.commit_id = self._generate_id(message, charts)
         self.message = message
         self.author = author or "soma-cli"
@@ -63,7 +67,12 @@ class SomaticTag:
         self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
-        return {"name": self.name, "commit_id": self.commit_id, "message": self.message, "timestamp": self.timestamp}
+        return {
+            "name": self.name,
+            "commit_id": self.commit_id,
+            "message": self.message,
+            "timestamp": self.timestamp,
+        }
 
     @classmethod
     def from_dict(cls, d: dict) -> "SomaticTag":
@@ -124,11 +133,12 @@ class SomaticHistory:
 
     def _checksum(self, path: Path) -> str:
         import hashlib
+
         return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
     def _get_current_charts(self) -> dict[str, str]:
         """Get checksums of all current charts."""
-        import yaml
+
         charts = {}
         somatic_dir = self.repo_root / "somatic" / "charts"
         if not somatic_dir.exists():
@@ -239,7 +249,11 @@ class SomaticHistory:
             commits = self._load_commits()
             prev = commits[-1]["charts"] if commits else {}
 
-        changed = {k: {"old": prev.get(k), "new": charts.get(k)} for k in set(list(charts.keys()) + list(prev.keys())) if charts.get(k) != prev.get(k)}
+        changed = {
+            k: {"old": prev.get(k), "new": charts.get(k)}
+            for k in set(list(charts.keys()) + list(prev.keys()))
+            if charts.get(k) != prev.get(k)
+        }
 
         return {
             "changed": len(changed),

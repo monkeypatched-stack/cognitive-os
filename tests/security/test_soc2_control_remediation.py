@@ -1,4 +1,5 @@
 """Regression tests for SOC 2 control remediations F1–F7."""
+
 from __future__ import annotations
 
 import os
@@ -47,35 +48,46 @@ def secure_env(monkeypatch):
 class TestF1JwtSecrets:
     def test_rejects_placeholder(self):
         from services.common.secrets import reject_insecure_hmac_secret
+
         with pytest.raises(ValueError, match="placeholder"):
             reject_insecure_hmac_secret("REPLACE_ME", name="ACCESS_TOKEN_SECRET")
 
     def test_rejects_compose_default(self):
         from services.common.secrets import reject_insecure_hmac_secret
+
         with pytest.raises(ValueError):
             reject_insecure_hmac_secret("dev-access-token-secret")
 
     def test_rejects_short_secret(self):
         from services.common.secrets import reject_insecure_hmac_secret
+
         with pytest.raises(ValueError, match="32"):
             reject_insecure_hmac_secret("short-but-not-placeholder")
 
     def test_accepts_unique_secret(self):
         from services.common.secrets import reject_insecure_hmac_secret
+
         value = reject_insecure_hmac_secret("unit-test-hmac-key-not-a-placeholder!!")
         assert len(value) >= 32
 
     def test_env_validation_missing(self, monkeypatch):
         from services.common.secrets import validate_hmac_secrets_from_env
+
         monkeypatch.delenv("ACCESS_TOKEN_SECRET", raising=False)
         monkeypatch.delenv("REFRESH_TOKEN_SECRET", raising=False)
         with pytest.raises(RuntimeError, match="missing"):
             validate_hmac_secrets_from_env()
 
     def test_jwt_roundtrip_with_valid_secret(self):
-        from services.auth.helpers.tokens import create_access_token, decode_access_token
+        from services.auth.helpers.tokens import (
+            create_access_token,
+            decode_access_token,
+        )
+
         token = create_access_token(
-            "u1", "u@example.com", "user",
+            "u1",
+            "u@example.com",
+            "user",
             permissions=["perm-view-x"],
             mfa_status="satisfied",
         )
@@ -128,8 +140,12 @@ class TestF2DurableAudit:
         log = AuditLog()
         log.set_store(store)
         entry = log.record(
-            "rt", "authorization", "execute",
-            actor="alice", correlation_id="req-1", policy_decision="allow",
+            "rt",
+            "authorization",
+            "execute",
+            actor="alice",
+            correlation_id="req-1",
+            policy_decision="allow",
         )
         assert entry.details["correlation_id"] == "req-1"
         assert entry.details["policy_decision"] == "allow"
@@ -157,18 +173,24 @@ class TestF3MfaTrusted:
 
     def test_compliance_agent_ignores_payload_mfa(self, secure_env):
         from broca.agents.ddd.compliance.soc2 import SOC2Agent
+
         bind_trusted_auth(unauthenticated_evidence())
         agent = SOC2Agent()
-        perception = agent.perceive({
-            "data_signals": {"has_user_access": True, "mfa_enforced": True},
-            "system_attributes": {"mfa_enforced": True},
-        })
+        perception = agent.perceive(
+            {
+                "data_signals": {"has_user_access": True, "mfa_enforced": True},
+                "system_attributes": {"mfa_enforced": True},
+            }
+        )
         assert perception["signals"]["mfa_enforced"] is False
 
 
 class TestF4RedisDiscovery:
     def test_empty_redis_falls_back_to_mongo(self):
-        from src.monkey_brain.kernel.society.integration import ActorRegistryEntry, PlanetaryRuntime
+        from src.monkey_brain.kernel.society.integration import (
+            ActorRegistryEntry,
+            PlanetaryRuntime,
+        )
 
         pr = SimpleNamespace(
             _redis=SimpleNamespace(hgetall=lambda k: {}, hget=lambda k, i: None, hset=lambda *a, **k: None),
@@ -183,8 +205,13 @@ class TestF4RedisDiscovery:
         pr._ACTORS_HASH_KEY = PlanetaryRuntime._ACTORS_HASH_KEY
         pr.rebuild_redis_index_from_mongodb = lambda: SimpleNamespace(summary=lambda: "ok")
         entry = ActorRegistryEntry(
-            actor_id="a1", actor_type="human", name="alice",
-            society_id="s1", status="active", node_id="n1", updated_at=1.0,
+            actor_id="a1",
+            actor_type="human",
+            name="alice",
+            society_id="s1",
+            status="active",
+            node_id="n1",
+            updated_at=1.0,
         )
         pr._list_registry_from_mongodb = lambda: (entry,)
         pr._locate_actor_from_mongodb = lambda aid: entry if aid == "a1" else None
@@ -225,6 +252,7 @@ class TestF7OpaDenyByDefault:
     @pytest.mark.asyncio
     async def test_missing_identity_deny(self, secure_env):
         from src.monkey_brain.kernel.governance import GovernanceEngine
+
         bind_trusted_auth(unauthenticated_evidence())
         engine = GovernanceEngine()
         result = await engine.evaluate("rt", "execute", {})
@@ -233,6 +261,7 @@ class TestF7OpaDenyByDefault:
     @pytest.mark.asyncio
     async def test_opa_unavailable_deny(self, secure_env, monkeypatch):
         from src.monkey_brain.kernel.governance import GovernanceEngine
+
         monkeypatch.setenv("OPA_URL", "http://opa.internal:8181")
 
         async def boom(*a, **k):
@@ -246,16 +275,22 @@ class TestF7OpaDenyByDefault:
     @pytest.mark.asyncio
     async def test_explicit_allow(self, secure_env, monkeypatch):
         from src.monkey_brain.kernel.governance import GovernanceEngine
+
         monkeypatch.setenv("OPA_URL", "http://opa.internal:8181")
 
         async def allow(*a, **k):
             return {"allowed": True, "reason": "", "source": "opa"}
 
         monkeypatch.setattr("services.common.opa.evaluate_full", allow)
-        bind_trusted_auth(TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id="alice",
-            principal_type="human", mfa_status="satisfied",
-        ))
+        bind_trusted_auth(
+            TrustedAuthEvidence(
+                authenticated=True,
+                token_valid=True,
+                principal_id="alice",
+                principal_type="human",
+                mfa_status="satisfied",
+            )
+        )
         engine = GovernanceEngine()
         result = await engine.evaluate("rt", "execute", {})
         assert result["allowed"] is True

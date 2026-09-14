@@ -2,6 +2,7 @@
 
 Writes PID to ~/.monkeybrain/pids/<service>.pid and notifies MotorCortexAgent.
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,7 +43,10 @@ class ServeAgent(BaseETASSAgent):
         if not svc_dir.exists():
             self._reward(False, 0.0)
             return self._result(
-                payload={"running": False, "error": f"service dir not found: {svc_dir}"},
+                payload={
+                    "running": False,
+                    "error": f"service dir not found: {svc_dir}",
+                },
                 observations=[f"run codegen first: monkeypatched make codegen {service_slug}"],
             )
 
@@ -64,14 +68,25 @@ class ServeAgent(BaseETASSAgent):
         pids_dir.mkdir(parents=True, exist_ok=True)
         pid_file = pids_dir / f"{service_slug}.pid"
 
-        cmd = [sys.executable, "-m", "uvicorn", app_module, "--host", host, "--port", str(port)]
+        cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            app_module,
+            "--host",
+            host,
+            "--port",
+            str(port),
+        ]
         pid: int | None = None
 
         try:
             if background:
                 proc = subprocess.Popen(
-                    cmd, cwd=str(out_base),
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    cmd,
+                    cwd=str(out_base),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
                 pid = proc.pid
                 pid_file.write_text(str(pid))
@@ -87,11 +102,17 @@ class ServeAgent(BaseETASSAgent):
         # Notify MotorCortexAgent (best-effort)
         try:
             from broca.agents.motor_cortex import MotorCortexAgent
+
             mca = MotorCortexAgent()
-            await mca.handle({
-                "action": "serve", "service": service_slug,
-                "host": host, "port": port, "pid": str(pid or ""),
-            })
+            await mca.handle(
+                {
+                    "action": "serve",
+                    "service": service_slug,
+                    "host": host,
+                    "port": port,
+                    "pid": str(pid or ""),
+                }
+            )
         except Exception as e:
             logger.debug("[serve] MotorCortexAgent notify failed: %s", e)
 

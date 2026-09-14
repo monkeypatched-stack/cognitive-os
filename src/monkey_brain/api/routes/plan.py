@@ -21,13 +21,20 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from src.introspection.lemon import get_lemon
 from src.monkey_brain.api.dependencies import require_permission
-from src.monkey_brain.api.helpers.run_helpers import _get_grounding_confidence, get_cognitive_runtime
+from src.monkey_brain.api.helpers.run_helpers import (
+    _get_grounding_confidence,
+    get_cognitive_runtime,
+)
 from src.monkey_brain.api.idempotency import idempotent
 from src.monkey_brain.kernel.cognitive_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.config import PLANNING_CONFIDENCE_THRESHOLD
 from src.monkey_brain.kernel.execute.models import ExecutionMode
 from src.monkey_brain.kernel.execute.orchestration.routing import unsupported_response
-from src.monkey_brain.kernel.learn.telemetry.telemetry import profile_add, profile_end, profile_start
+from src.monkey_brain.kernel.learn.telemetry.telemetry import (
+    profile_add,
+    profile_end,
+    profile_start,
+)
 from src.monkey_brain.kernel.models.plan import PlanRequest, PlanResponse
 from src.monkey_brain.persistence.plan_store import get_plan_store
 from src.monkey_brain.runtime.routers import get_mongo_client
@@ -55,7 +62,10 @@ def _available_agent_types() -> list[str]:
     except Exception as exc:
         # Degrades planning quality (the prompt loses its agent list), so don't hide it —
         # return the empty default but say why.
-        logger.warning("[plan] could not load registered agent types for the planner prompt: %s", exc)
+        logger.warning(
+            "[plan] could not load registered agent types for the planner prompt: %s",
+            exc,
+        )
         return []
 
 
@@ -135,7 +145,11 @@ async def plan_execution(
         logger.error("run=%r [plan] failed to resolve graph store: %s", run_id, exc)
         return JSONResponse(
             status_code=500,
-            content={"error": "graph_store_error", "detail": "Failed to access the graph store", "run_id": run_id},
+            content={
+                "error": "graph_store_error",
+                "detail": "Failed to access the graph store",
+                "run_id": run_id,
+            },
         )
     logger.info("run=%r [plan] user=%r question=%r", run_id, user_id, payload.question[:100])
 
@@ -152,14 +166,24 @@ async def plan_execution(
         if not gov_result.get("allowed"):
             logger.warning("run=%r [plan] governance denied: %s", run_id, gov_result.get("reason"))
             return JSONResponse(
-                status_code=403, content={"error": "governance_denied", "detail": gov_result.get("reason")}
+                status_code=403,
+                content={
+                    "error": "governance_denied",
+                    "detail": gov_result.get("reason"),
+                },
             )
     except ImportError:
         logger.error("Governance module not available — denying plan")
-        return JSONResponse(status_code=500, content={"error": "governance_error", "detail": "Governance unavailable"})
+        return JSONResponse(
+            status_code=500,
+            content={"error": "governance_error", "detail": "Governance unavailable"},
+        )
     except Exception as exc:
         logger.error("Governance check failed — denying plan: %s", exc)
-        return JSONResponse(status_code=500, content={"error": "governance_error", "detail": "Governance check failed"})
+        return JSONResponse(
+            status_code=500,
+            content={"error": "governance_error", "detail": "Governance check failed"},
+        )
 
     # 4. Audit: record plan request. Best-effort observability — a failed audit write must
     #    not block planning, but it must not vanish silently either (it may be a compliance
@@ -220,12 +244,19 @@ async def plan_execution(
         if not execution_graph.get("nodes"):
             answer, _, _, _ = unsupported_response()
             steps = []
-            intent_dict = {"intent": "unknown", "confidence": 0.0, "workload_id": "unknown"}
+            intent_dict = {
+                "intent": "unknown",
+                "confidence": 0.0,
+                "workload_id": "unknown",
+            }
             intent_ir_dict = None
             if execution_graph is None:
                 execution_graph = {}
             execution_graph["graph_type"] = "unknown"
-            logger.warning("run=%r [plan] planner returned no nodes — defaulting to UNKNOWN plan.", run_id)
+            logger.warning(
+                "run=%r [plan] planner returned no nodes — defaulting to UNKNOWN plan.",
+                run_id,
+            )
         else:
             # 6.3 ── Graph generated → Build IntentIR → Return Plan ──────
             workload_id = execution_graph.get("workload_id", "")
@@ -298,7 +329,9 @@ async def plan_execution(
             execution_graph["metadata"].setdefault("run_id", run_id)
             execution_graph["metadata"].setdefault("goal_id", run_id)
 
-            from src.monkey_brain.kernel.pipeline.plan_compiler import compile_broca_graph
+            from src.monkey_brain.kernel.pipeline.plan_compiler import (
+                compile_broca_graph,
+            )
 
             compile_outcome = compile_broca_graph(
                 execution_graph,
@@ -449,7 +482,9 @@ async def plan_execution(
                 }
             )
             if drafted:
-                from src.monkey_brain.persistence.graph_store import get_graph_store_instance
+                from src.monkey_brain.persistence.graph_store import (
+                    get_graph_store_instance,
+                )
 
                 store = get_graph_store_instance()
                 if store is not None and store.is_connected():
@@ -520,9 +555,16 @@ async def plan_execution(
                                 # /execute reads this run's snapshot from the
                                 # run store — re-store so the adopted graph is
                                 # what actually runs, and re-save durably.
-                                from src.monkey_brain.kernel.plan.goals.run_store import get_run_store
+                                from src.monkey_brain.kernel.plan.goals.run_store import (
+                                    get_run_store,
+                                )
 
-                                get_run_store().store(run_id, ir, target=payload.target, graph_snapshot=execution_graph)
+                                get_run_store().store(
+                                    run_id,
+                                    ir,
+                                    target=payload.target,
+                                    graph_snapshot=execution_graph,
+                                )
                                 await get_plan_store().save(
                                     run_id=run_id,
                                     graph=execution_graph,
@@ -542,7 +584,11 @@ async def plan_execution(
             # freshly planned graph — already stored above — is returned unchanged, so this
             # never fails the request; but it was hidden at debug level, so a persistently
             # broken reuse path (e.g. a graph-store outage) looked like it was never tried.
-            logger.warning("run=%r [plan] mesh reuse check failed — returning the freshly planned graph: %s", run_id, e)
+            logger.warning(
+                "run=%r [plan] mesh reuse check failed — returning the freshly planned graph: %s",
+                run_id,
+                e,
+            )
             if lemon:
                 lemon.counter("api.plan.mesh_reuse_failed")
 
@@ -558,7 +604,11 @@ async def plan_execution(
                 # have raised long before here if the key system were broken). So don't 500
                 # — but signing failing at THIS point is genuinely unexpected, so log it at
                 # error and count it rather than returning a silently-unsigned graph.
-                logger.error("run=%r [plan] failed to sign execution graph — returning it unsigned: %s", run_id, exc)
+                logger.error(
+                    "run=%r [plan] failed to sign execution graph — returning it unsigned: %s",
+                    run_id,
+                    exc,
+                )
                 if lemon:
                     lemon.counter("api.plan.graph_signing_failed")
 
@@ -572,7 +622,12 @@ async def plan_execution(
                 event_type="plan",
                 action="plan_completed",
                 actor=user_id,
-                details={"run_id": run_id, "nodes": node_count, "edges": edge_count, "mesh_reuse": bool(mesh_reuse)},
+                details={
+                    "run_id": run_id,
+                    "nodes": node_count,
+                    "edges": edge_count,
+                    "mesh_reuse": bool(mesh_reuse),
+                },
             )
         except Exception as exc:
             logger.warning("run=%r [plan] audit record (plan_completed) failed: %s", run_id, exc)
@@ -642,9 +697,9 @@ async def plan_execution(
             timestamp=execution_graph.get("timestamp") if execution_graph else None,
             nodes=execution_graph.get("nodes") if execution_graph else None,
             edges=execution_graph.get("edges") if execution_graph else None,
-            execution_order=_normalize_execution_order(execution_graph.get("execution_order"))
-            if execution_graph
-            else None,
+            execution_order=(
+                _normalize_execution_order(execution_graph.get("execution_order")) if execution_graph else None
+            ),
             annotations=execution_graph.get("annotations") if execution_graph else None,
             state=execution_graph.get("state") if execution_graph else None,
         )

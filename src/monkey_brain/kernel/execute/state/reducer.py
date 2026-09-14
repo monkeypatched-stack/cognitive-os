@@ -24,12 +24,13 @@ class StateReducer(Protocol):
     Implementations must be deterministic and produce no side effects.
     The returned dict becomes the immutable state payload of the next StateNode.
     """
+
     action_type: str
 
     def reduce(
         self,
         current_state: dict[str, Any],
-        payload:       dict[str, Any],
+        payload: dict[str, Any],
     ) -> dict[str, Any]: ...
 
 
@@ -49,10 +50,10 @@ class ReducerRegistry:
 
     def dispatch(
         self,
-        current:     StateNode | None,
+        current: StateNode | None,
         action_type: str,
-        payload:     dict[str, Any],
-        ttl:         float = 300.0,
+        payload: dict[str, Any],
+        ttl: float = 300.0,
     ) -> StateNode:
         """Run the reducer for action_type and wrap the result in a new StateNode.
 
@@ -62,11 +63,10 @@ class ReducerRegistry:
         reducer = self._reducers.get(action_type)
         if not reducer:
             raise UnknownActionError(
-                f"No reducer registered for action_type={action_type!r}. "
-                f"Registered types: {sorted(self._reducers)}"
+                f"No reducer registered for action_type={action_type!r}. Registered types: {sorted(self._reducers)}"
             )
         current_state = current.state if current else {}
-        next_state    = reducer.reduce(current_state, payload)
+        next_state = reducer.reduce(current_state, payload)
         return StateNode(
             parent_id=current.node_id if current else None,
             action_type=action_type,

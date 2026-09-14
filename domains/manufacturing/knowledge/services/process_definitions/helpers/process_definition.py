@@ -29,12 +29,19 @@ from services.process_definitions.models.process_definition import (
     ProcessType,
     normalize_canvas_page_id,
 )
-from services.process_definitions.models.process_constraints import ProcessStepConstraints
+from services.process_definitions.models.process_constraints import (
+    ProcessStepConstraints,
+)
 from services.process_definitions.models.process_corrections import CorrectiveActions
-from services.process_definitions.models.process_post_checks import ProcessStepPostchecks
+from services.process_definitions.models.process_post_checks import (
+    ProcessStepPostchecks,
+)
 from services.process_definitions.models.process_pre_checks import ProcessStepPrechecks
 from services.process_definitions.models.process_steps import ProcessStep, ProcessSteps
-from services.process_definitions.helpers.process_node_catalog import catalog_defaults_for, catalog_metadata_for
+from services.process_definitions.helpers.process_node_catalog import (
+    catalog_defaults_for,
+    catalog_metadata_for,
+)
 
 COLLECTION = "process_definitions"
 CANVAS_COLLECTION = "process_definition_canvas_layouts"
@@ -102,10 +109,20 @@ def _node_properties_from_record(node: dict) -> dict:
         "node_category": node.get("node_category"),
         "backend": node.get("backend"),
         "config": node.get("config") if isinstance(node.get("config"), dict) else {},
-        "metadata": node.get("metadata") if isinstance(node.get("metadata"), dict) else {},
-        "hyperlinks": node.get("hyperlinks") if isinstance(node.get("hyperlinks"), list) else [],
-        "attachments": node.get("attachments") if isinstance(node.get("attachments"), list) else [],
-        "webhook_events": node.get("webhook_events") if isinstance(node.get("webhook_events"), list) else [],
+        "metadata": (
+            node.get("metadata") if isinstance(node.get("metadata"), dict) else {}
+        ),
+        "hyperlinks": (
+            node.get("hyperlinks") if isinstance(node.get("hyperlinks"), list) else []
+        ),
+        "attachments": (
+            node.get("attachments") if isinstance(node.get("attachments"), list) else []
+        ),
+        "webhook_events": (
+            node.get("webhook_events")
+            if isinstance(node.get("webhook_events"), list)
+            else []
+        ),
         "last_webhook_event": node.get("last_webhook_event"),
     }
 
@@ -127,12 +144,15 @@ async def _sync_canvas_layout_to_graph(layout: Optional[dict]) -> None:
     try:
         await save_graph_state(CANVAS_GRAPH_USER_ID, f"{layout_id}-canvas", payload)
     except Exception:
-        logger.exception("Failed to mirror process_definition canvas layout %s to Neo4j", layout_id)
+        logger.exception(
+            "Failed to mirror process_definition canvas layout %s to Neo4j", layout_id
+        )
 
 
 # ---------------------------------------------------------------------------
 # Read
 # ---------------------------------------------------------------------------
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,
@@ -142,12 +162,7 @@ async def get_all(
     """Return a paginated list of all process definitions and the total count."""
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
-    cursor = (
-        db[COLLECTION]
-        .find(query)
-        .skip((page - 1) * page_size)
-        .limit(page_size)
-    )
+    cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(d) async for d in cursor], total
 
 
@@ -156,7 +171,9 @@ async def get_by_id(
     process_definition_id: str,
 ) -> Optional[dict]:
     """Fetch a single process_definition by its process_definition_id."""
-    doc = await db[COLLECTION].find_one({"process_definition_id": process_definition_id})
+    doc = await db[COLLECTION].find_one(
+        {"process_definition_id": process_definition_id}
+    )
     return _serialize(doc) if doc else None
 
 
@@ -180,12 +197,7 @@ async def get_by_status(
     """Return paginated process definitions filtered by lifecycle status."""
     query = {"status": status}
     total = await db[COLLECTION].count_documents(query)
-    cursor = (
-        db[COLLECTION]
-        .find(query)
-        .skip((page - 1) * page_size)
-        .limit(page_size)
-    )
+    cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(d) async for d in cursor], total
 
 
@@ -203,6 +215,7 @@ async def get_by_tag(
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create(
     db: AsyncIOMotorDatabase,
@@ -228,7 +241,11 @@ async def update(
     if not fields:
         return await get_by_id(db, process_definition_id)
     existing = await get_by_id(db, process_definition_id)
-    if existing and str(existing.get("approval_status") or "").lower() in IMMUTABLE_APPROVAL_STATUSES:
+    if (
+        existing
+        and str(existing.get("approval_status") or "").lower()
+        in IMMUTABLE_APPROVAL_STATUSES
+    ):
         raise ValueError(
             "Approved, effective, and retired process definitions are immutable. Create a new revision instead."
         )
@@ -247,9 +264,19 @@ async def submit_for_review(
     result = await db[COLLECTION].find_one_and_update(
         {
             "process_definition_id": process_definition_id,
-            "approval_status": {"$in": [ProcessApprovalStatus.DRAFT.value, ProcessApprovalStatus.REJECTED.value]},
+            "approval_status": {
+                "$in": [
+                    ProcessApprovalStatus.DRAFT.value,
+                    ProcessApprovalStatus.REJECTED.value,
+                ]
+            },
         },
-        {"$set": {"approval_status": ProcessApprovalStatus.IN_REVIEW.value, "updated_at": _utc_now()}},
+        {
+            "$set": {
+                "approval_status": ProcessApprovalStatus.IN_REVIEW.value,
+                "updated_at": _utc_now(),
+            }
+        },
         return_document=ReturnDocument.AFTER,
     )
     return _serialize(result) if result else None
@@ -262,11 +289,20 @@ async def approve(
     make_effective: bool = True,
 ) -> Optional[dict]:
     now = _utc_now()
-    approval_status = ProcessApprovalStatus.EFFECTIVE.value if make_effective else ProcessApprovalStatus.APPROVED.value
+    approval_status = (
+        ProcessApprovalStatus.EFFECTIVE.value
+        if make_effective
+        else ProcessApprovalStatus.APPROVED.value
+    )
     result = await db[COLLECTION].find_one_and_update(
         {
             "process_definition_id": process_definition_id,
-            "approval_status": {"$in": [ProcessApprovalStatus.IN_REVIEW.value, ProcessApprovalStatus.DRAFT.value]},
+            "approval_status": {
+                "$in": [
+                    ProcessApprovalStatus.IN_REVIEW.value,
+                    ProcessApprovalStatus.DRAFT.value,
+                ]
+            },
         },
         {
             "$set": {
@@ -333,7 +369,9 @@ async def create_new_revision(
     return _serialize(existing)
 
 
-def _empty_step_prechecks(process_definition_id: str, step_id: str) -> ProcessStepPrechecks:
+def _empty_step_prechecks(
+    process_definition_id: str, step_id: str
+) -> ProcessStepPrechecks:
     return ProcessStepPrechecks(
         id=f"{step_id}-prechecks",
         process_definition_id=process_definition_id,
@@ -342,7 +380,9 @@ def _empty_step_prechecks(process_definition_id: str, step_id: str) -> ProcessSt
     )
 
 
-def _empty_step_postchecks(process_definition_id: str, step_id: str) -> ProcessStepPostchecks:
+def _empty_step_postchecks(
+    process_definition_id: str, step_id: str
+) -> ProcessStepPostchecks:
     return ProcessStepPostchecks(
         id=f"{step_id}-postchecks",
         process_definition_id=process_definition_id,
@@ -351,7 +391,9 @@ def _empty_step_postchecks(process_definition_id: str, step_id: str) -> ProcessS
     )
 
 
-def _empty_step_constraints(process_definition_id: str, step_id: str) -> ProcessStepConstraints:
+def _empty_step_constraints(
+    process_definition_id: str, step_id: str
+) -> ProcessStepConstraints:
     return ProcessStepConstraints(
         id=f"{step_id}-constraints",
         process_definition_id=process_definition_id,
@@ -359,7 +401,9 @@ def _empty_step_constraints(process_definition_id: str, step_id: str) -> Process
     )
 
 
-def _empty_step_corrections(process_definition_id: str, step_id: str) -> CorrectiveActions:
+def _empty_step_corrections(
+    process_definition_id: str, step_id: str
+) -> CorrectiveActions:
     return CorrectiveActions(
         id=f"{step_id}-corrections",
         process_definition_id=process_definition_id,
@@ -375,16 +419,24 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
     updated = 0
     skipped = 0
     for route in routes:
-        process_definition_id = str(route.get("route_id") or route.get("id") or "").strip()
+        process_definition_id = str(
+            route.get("route_id") or route.get("id") or ""
+        ).strip()
         if not process_definition_id:
             skipped += 1
             continue
 
         recipe = await db.batch_recipes.find_one({"route_id": process_definition_id})
         route_steps = route.get("steps") if isinstance(route.get("steps"), list) else []
-        route_stage_ids = [str(step.get("stage_id")) for step in route_steps if isinstance(step, dict) and step.get("stage_id")]
+        route_stage_ids = [
+            str(step.get("stage_id"))
+            for step in route_steps
+            if isinstance(step, dict) and step.get("stage_id")
+        ]
         flow_ids = []
-        for source_stage_id, target_stage_id in zip(route_stage_ids, route_stage_ids[1:]):
+        for source_stage_id, target_stage_id in zip(
+            route_stage_ids, route_stage_ids[1:]
+        ):
             flow = await db.material_flows.find_one(
                 {
                     "source_stage_id": source_stage_id,
@@ -404,7 +456,11 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
                 continue
             sequence = int(step.get("sequence") or fallback_sequence)
             stage_id = str(step.get("stage_id") or "")
-            operation = str(step.get("operation") or step.get("stage_name") or f"Route step {sequence}")
+            operation = str(
+                step.get("operation")
+                or step.get("stage_name")
+                or f"Route step {sequence}"
+            )
             instruction_text = str(
                 step.get("instruction")
                 or step.get("instructions")
@@ -413,40 +469,112 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
             )
             step_id = f"{process_definition_id}-step-{sequence:03d}"
             step_ipc_checkpoint_ids = []
-            raw_ipc_checkpoints = step.get("ipc_checkpoints") if isinstance(step.get("ipc_checkpoints"), list) else []
+            raw_ipc_checkpoints = (
+                step.get("ipc_checkpoints")
+                if isinstance(step.get("ipc_checkpoints"), list)
+                else []
+            )
             for checkpoint_index, checkpoint in enumerate(raw_ipc_checkpoints, start=1):
                 if not isinstance(checkpoint, dict):
                     continue
-                checkpoint_id = str(checkpoint.get("checkpoint_id") or checkpoint.get("id") or f"{step_id}-ipc-{checkpoint_index:02d}")
+                checkpoint_id = str(
+                    checkpoint.get("checkpoint_id")
+                    or checkpoint.get("id")
+                    or f"{step_id}-ipc-{checkpoint_index:02d}"
+                )
                 step_ipc_checkpoint_ids.append(checkpoint_id)
-                sampling_plan = checkpoint.get("sampling_plan") if isinstance(checkpoint.get("sampling_plan"), dict) else {}
+                sampling_plan = (
+                    checkpoint.get("sampling_plan")
+                    if isinstance(checkpoint.get("sampling_plan"), dict)
+                    else {}
+                )
                 ipc_checkpoints.append(
                     {
                         "checkpoint_id": checkpoint_id,
-                        "name": str(checkpoint.get("name") or checkpoint.get("parameter") or f"IPC checkpoint {sequence}.{checkpoint_index}"),
-                        "checkpoint_type": str(checkpoint.get("checkpoint_type") or checkpoint.get("type") or "in_process_control"),
+                        "name": str(
+                            checkpoint.get("name")
+                            or checkpoint.get("parameter")
+                            or f"IPC checkpoint {sequence}.{checkpoint_index}"
+                        ),
+                        "checkpoint_type": str(
+                            checkpoint.get("checkpoint_type")
+                            or checkpoint.get("type")
+                            or "in_process_control"
+                        ),
                         "process_step_id": step_id,
                         "stage_id": stage_id or checkpoint.get("stage_id"),
-                        "workstation_id": checkpoint.get("workstation_id") or step.get("workstation_id"),
-                        "method": str(checkpoint.get("method") or checkpoint.get("test_method") or checkpoint.get("sampling_method") or "operator_verification"),
-                        "method_reference": checkpoint.get("method_reference") or checkpoint.get("sop_id"),
-                        "cqa_ids": [str(value) for value in checkpoint.get("cqa_ids", []) if value] if isinstance(checkpoint.get("cqa_ids"), list) else [],
-                        "cpp_ids": [str(value) for value in checkpoint.get("cpp_ids", []) if value] if isinstance(checkpoint.get("cpp_ids"), list) else [],
-                        "limits": checkpoint.get("limits") if isinstance(checkpoint.get("limits"), list) else [],
+                        "workstation_id": checkpoint.get("workstation_id")
+                        or step.get("workstation_id"),
+                        "method": str(
+                            checkpoint.get("method")
+                            or checkpoint.get("test_method")
+                            or checkpoint.get("sampling_method")
+                            or "operator_verification"
+                        ),
+                        "method_reference": checkpoint.get("method_reference")
+                        or checkpoint.get("sop_id"),
+                        "cqa_ids": (
+                            [
+                                str(value)
+                                for value in checkpoint.get("cqa_ids", [])
+                                if value
+                            ]
+                            if isinstance(checkpoint.get("cqa_ids"), list)
+                            else []
+                        ),
+                        "cpp_ids": (
+                            [
+                                str(value)
+                                for value in checkpoint.get("cpp_ids", [])
+                                if value
+                            ]
+                            if isinstance(checkpoint.get("cpp_ids"), list)
+                            else []
+                        ),
+                        "limits": (
+                            checkpoint.get("limits")
+                            if isinstance(checkpoint.get("limits"), list)
+                            else []
+                        ),
                         "sampling_plan": {
-                            "sampling_method": str(sampling_plan.get("sampling_method") or checkpoint.get("sampling_method") or "defined_by_protocol"),
-                            "sample_size": sampling_plan.get("sample_size") or checkpoint.get("sample_size"),
-                            "frequency": sampling_plan.get("frequency") or checkpoint.get("frequency"),
-                            "sample_location": sampling_plan.get("sample_location") or checkpoint.get("sample_location"),
-                            "aql_level": sampling_plan.get("aql_level") or checkpoint.get("aql_level"),
-                            "retain_sample_required": bool(sampling_plan.get("retain_sample_required") or checkpoint.get("retain_sample_required") or False),
-                            "instructions": sampling_plan.get("instructions") or checkpoint.get("sampling_instructions"),
+                            "sampling_method": str(
+                                sampling_plan.get("sampling_method")
+                                or checkpoint.get("sampling_method")
+                                or "defined_by_protocol"
+                            ),
+                            "sample_size": sampling_plan.get("sample_size")
+                            or checkpoint.get("sample_size"),
+                            "frequency": sampling_plan.get("frequency")
+                            or checkpoint.get("frequency"),
+                            "sample_location": sampling_plan.get("sample_location")
+                            or checkpoint.get("sample_location"),
+                            "aql_level": sampling_plan.get("aql_level")
+                            or checkpoint.get("aql_level"),
+                            "retain_sample_required": bool(
+                                sampling_plan.get("retain_sample_required")
+                                or checkpoint.get("retain_sample_required")
+                                or False
+                            ),
+                            "instructions": sampling_plan.get("instructions")
+                            or checkpoint.get("sampling_instructions"),
                         },
                         "required": bool(checkpoint.get("required", True)),
-                        "evidence_required": bool(checkpoint.get("evidence_required", True)),
-                        "signature_required": bool(checkpoint.get("signature_required", False)),
-                        "alarm_on_failure": bool(checkpoint.get("alarm_on_failure", True)),
-                        "metadata": {"source_route_step": {key: value for key, value in step.items() if key not in {"embedding"}}},
+                        "evidence_required": bool(
+                            checkpoint.get("evidence_required", True)
+                        ),
+                        "signature_required": bool(
+                            checkpoint.get("signature_required", False)
+                        ),
+                        "alarm_on_failure": bool(
+                            checkpoint.get("alarm_on_failure", True)
+                        ),
+                        "metadata": {
+                            "source_route_step": {
+                                key: value
+                                for key, value in step.items()
+                                if key not in {"embedding"}
+                            }
+                        },
                     }
                 )
             process_steps.append(
@@ -461,7 +589,9 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
                     prechecks=_empty_step_prechecks(process_definition_id, step_id),
                     postchecks=_empty_step_postchecks(process_definition_id, step_id),
                     constraints=_empty_step_constraints(process_definition_id, step_id),
-                    corrective_actions=_empty_step_corrections(process_definition_id, step_id),
+                    corrective_actions=_empty_step_corrections(
+                        process_definition_id, step_id
+                    ),
                     notes=f"Backfilled from recipe route stage {stage_id}.",
                 )
             )
@@ -473,19 +603,45 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
                     "process_step_id": step_id,
                     "stage_id": stage_id or None,
                     "workstation_id": step.get("workstation_id"),
-                    "equipment_ids": [str(value) for value in step.get("equipment_ids", []) if value] if isinstance(step.get("equipment_ids"), list) else [],
-                    "material_ids": [str(value) for value in step.get("material_ids", []) if value] if isinstance(step.get("material_ids"), list) else [],
+                    "equipment_ids": (
+                        [str(value) for value in step.get("equipment_ids", []) if value]
+                        if isinstance(step.get("equipment_ids"), list)
+                        else []
+                    ),
+                    "material_ids": (
+                        [str(value) for value in step.get("material_ids", []) if value]
+                        if isinstance(step.get("material_ids"), list)
+                        else []
+                    ),
                     "acceptance_criteria": step.get("acceptance_criteria"),
                     "ipc_checkpoint_ids": step_ipc_checkpoint_ids,
                     "evidence_required": True,
                     "signature_required": False,
-                    "metadata": {"source_route_step": {key: value for key, value in step.items() if key not in {"embedding"}}},
+                    "metadata": {
+                        "source_route_step": {
+                            key: value
+                            for key, value in step.items()
+                            if key not in {"embedding"}
+                        }
+                    },
                 }
             )
 
-        route_process_type = str(route.get("process_type") or route.get("type") or ProcessType.MANUFACTURING.value).lower()
-        instruction_template_type = "packing" if route_process_type == ProcessType.PACKAGING.value else "manufacturing"
-        instruction_template_title = "Packing Instructions" if instruction_template_type == "packing" else "Manufacturing Instructions"
+        route_process_type = str(
+            route.get("process_type")
+            or route.get("type")
+            or ProcessType.MANUFACTURING.value
+        ).lower()
+        instruction_template_type = (
+            "packing"
+            if route_process_type == ProcessType.PACKAGING.value
+            else "manufacturing"
+        )
+        instruction_template_title = (
+            "Packing Instructions"
+            if instruction_template_type == "packing"
+            else "Manufacturing Instructions"
+        )
         instruction_templates = [
             {
                 "instruction_template_id": f"{process_definition_id}-{instruction_template_type}-instructions",
@@ -499,9 +655,21 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
                 "effective_to": route.get("effective_to"),
                 "approved_by": None,
                 "approved_at": None,
-                "derived_from_sop_ids": [str(value) for value in route.get("sop_ids", []) if value] if isinstance(route.get("sop_ids"), list) else [],
-                "derived_from_sop_document_ids": [str(value) for value in route.get("sop_document_ids", []) if value] if isinstance(route.get("sop_document_ids"), list) else [],
-                "derived_from_process_step_ids": [item["process_step_id"] for item in instruction_steps if item.get("process_step_id")],
+                "derived_from_sop_ids": (
+                    [str(value) for value in route.get("sop_ids", []) if value]
+                    if isinstance(route.get("sop_ids"), list)
+                    else []
+                ),
+                "derived_from_sop_document_ids": (
+                    [str(value) for value in route.get("sop_document_ids", []) if value]
+                    if isinstance(route.get("sop_document_ids"), list)
+                    else []
+                ),
+                "derived_from_process_step_ids": [
+                    item["process_step_id"]
+                    for item in instruction_steps
+                    if item.get("process_step_id")
+                ],
                 "steps": instruction_steps,
                 "metadata": {"source": "recipe_route_backfill"},
             }
@@ -512,14 +680,26 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
             "name": str(route.get("name") or process_definition_id),
             "description": str(route.get("description") or ""),
             "version": str(route.get("version") or "1.0.0"),
-            "route_version": str(route.get("route_version") or route.get("version") or "1.0.0"),
+            "route_version": str(
+                route.get("route_version") or route.get("version") or "1.0.0"
+            ),
             "revision": str(route.get("revision") or "A"),
-            "process_type": ProcessType.PACKAGING.value if instruction_template_type == "packing" else ProcessType.MANUFACTURING.value,
-            "product_family": route.get("product_family") or (recipe or {}).get("product_family"),
+            "process_type": (
+                ProcessType.PACKAGING.value
+                if instruction_template_type == "packing"
+                else ProcessType.MANUFACTURING.value
+            ),
+            "product_family": route.get("product_family")
+            or (recipe or {}).get("product_family"),
             "plant_id": route.get("plant_id") or (recipe or {}).get("plant_id"),
             "recipe_id": route.get("recipe_id") or (recipe or {}).get("recipe_id"),
             "owner": route.get("owner"),
-            "tags": sorted(set(["route", "recipe-route", "backfilled-process-definition"] + [str(tag) for tag in route.get("tags", []) if tag])),
+            "tags": sorted(
+                set(
+                    ["route", "recipe-route", "backfilled-process-definition"]
+                    + [str(tag) for tag in route.get("tags", []) if tag]
+                )
+            ),
             "status": "pending",
             "approval_status": ProcessApprovalStatus.DRAFT.value,
             "route_stage_ids": route_stage_ids,
@@ -531,7 +711,11 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
                 "source_route_id": process_definition_id,
                 "source_recipe_id": route.get("recipe_id"),
                 "route_selection_rule": (recipe or {}).get("route_selection_rule"),
-                "legacy_route": {key: value for key, value in route.items() if key not in {"_id", "embedding"}},
+                "legacy_route": {
+                    key: value
+                    for key, value in route.items()
+                    if key not in {"_id", "embedding"}
+                },
             },
             "steps": ProcessSteps(
                 id=f"{process_definition_id}-steps",
@@ -542,13 +726,24 @@ async def backfill_recipe_routes(db: AsyncIOMotorDatabase) -> dict:
             "created_at": route.get("created_at") or _utc_now(),
             "updated_at": _utc_now(),
         }
-        existing = await db[COLLECTION].find_one({"process_definition_id": process_definition_id})
-        await db[COLLECTION].update_one({"process_definition_id": process_definition_id}, {"$set": process}, upsert=True)
+        existing = await db[COLLECTION].find_one(
+            {"process_definition_id": process_definition_id}
+        )
+        await db[COLLECTION].update_one(
+            {"process_definition_id": process_definition_id},
+            {"$set": process},
+            upsert=True,
+        )
         if existing:
             updated += 1
         else:
             created += 1
-    return {"created": created, "updated": updated, "skipped": skipped, "total_routes": len(routes)}
+    return {
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "total_routes": len(routes),
+    }
 
 
 async def update_status(
@@ -570,13 +765,16 @@ async def delete(
     process_definition_id: str,
 ) -> bool:
     """Delete a process_definition by ID. Returns True if a document was removed."""
-    result = await db[COLLECTION].delete_one({"process_definition_id": process_definition_id})
+    result = await db[COLLECTION].delete_one(
+        {"process_definition_id": process_definition_id}
+    )
     return result.deleted_count == 1
 
 
 # ---------------------------------------------------------------------------
 # ProcessDefinition canvas layouts
 # ---------------------------------------------------------------------------
+
 
 async def get_all_canvas_layouts(
     db: AsyncIOMotorDatabase,
@@ -586,10 +784,7 @@ async def get_all_canvas_layouts(
     query: dict = {}
     total = await db[CANVAS_COLLECTION].count_documents(query)
     cursor = (
-        db[CANVAS_COLLECTION]
-        .find(query)
-        .skip((page - 1) * page_size)
-        .limit(page_size)
+        db[CANVAS_COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     )
     return [_serialize(d) async for d in cursor], total
 
@@ -610,7 +805,9 @@ async def get_canvas_layout_by_id(
         }
         alias = aliases.get(layout_id)
         if alias:
-            doc = await db[CANVAS_COLLECTION].find_one({"layout_id": alias}) or await db[CANVAS_COLLECTION].find_one({"page_id": alias})
+            doc = await db[CANVAS_COLLECTION].find_one(
+                {"layout_id": alias}
+            ) or await db[CANVAS_COLLECTION].find_one({"page_id": alias})
     return _serialize(doc) if doc else None
 
 
@@ -618,7 +815,9 @@ async def get_canvas_layouts_by_process_definition(
     db: AsyncIOMotorDatabase,
     process_definition_id: str,
 ) -> list[dict]:
-    cursor = db[CANVAS_COLLECTION].find({"process_definition_id": process_definition_id})
+    cursor = db[CANVAS_COLLECTION].find(
+        {"process_definition_id": process_definition_id}
+    )
     return [_serialize(d) async for d in cursor]
 
 
@@ -851,9 +1050,13 @@ async def get_connected_canvas_nodes(
         source = str(edge.get("source_node_id") or edge.get("source") or "")
         target = str(edge.get("target_node_id") or edge.get("target") or "")
         if target == canvas_node_id and source in nodes:
-            incoming.append({"edge": edge, "node": _node_properties_from_record(nodes[source])})
+            incoming.append(
+                {"edge": edge, "node": _node_properties_from_record(nodes[source])}
+            )
         if source == canvas_node_id and target in nodes:
-            outgoing.append({"edge": edge, "node": _node_properties_from_record(nodes[target])})
+            outgoing.append(
+                {"edge": edge, "node": _node_properties_from_record(nodes[target])}
+            )
     return {"incoming": incoming, "outgoing": outgoing}
 
 
@@ -873,8 +1076,12 @@ async def add_canvas_node(
         return existing
 
     node_data = data.model_dump()
-    metadata = node_data.get("metadata") if isinstance(node_data.get("metadata"), dict) else {}
-    backend = node_data.get("backend") if isinstance(node_data.get("backend"), dict) else {}
+    metadata = (
+        node_data.get("metadata") if isinstance(node_data.get("metadata"), dict) else {}
+    )
+    backend = (
+        node_data.get("backend") if isinstance(node_data.get("backend"), dict) else {}
+    )
     catalog_identifier = (
         node_data.get("node_type")
         or node_data.get("node_category")
@@ -890,15 +1097,29 @@ async def add_canvas_node(
         or node_data.get("name")
         or data.node_id
     )
-    catalog_metadata = catalog_metadata_for(str(catalog_identifier) if catalog_identifier is not None else None)
+    catalog_metadata = catalog_metadata_for(
+        str(catalog_identifier) if catalog_identifier is not None else None
+    )
     if catalog_metadata:
         catalog_defaults = catalog_defaults_for(str(catalog_identifier))
-        default_config = catalog_defaults.get("config") if isinstance(catalog_defaults.get("config"), dict) else {}
-        current_config = node_data.get("config") if isinstance(node_data.get("config"), dict) else {}
+        default_config = (
+            catalog_defaults.get("config")
+            if isinstance(catalog_defaults.get("config"), dict)
+            else {}
+        )
+        current_config = (
+            node_data.get("config") if isinstance(node_data.get("config"), dict) else {}
+        )
         node_data["metadata"] = {**metadata, **catalog_metadata}
-        node_data["node_type"] = node_data.get("node_type") or catalog_metadata["nodeType"]
-        node_data["node_category"] = node_data.get("node_category") or catalog_metadata["nodeCategory"]
-        node_data["backend"] = node_data.get("backend") or catalog_metadata.get("backend")
+        node_data["node_type"] = (
+            node_data.get("node_type") or catalog_metadata["nodeType"]
+        )
+        node_data["node_category"] = (
+            node_data.get("node_category") or catalog_metadata["nodeCategory"]
+        )
+        node_data["backend"] = node_data.get("backend") or catalog_metadata.get(
+            "backend"
+        )
         node_data["config"] = {**default_config, **current_config}
         node_data["title"] = node_data.get("title") or catalog_metadata["nodeLabel"]
         node_data["name"] = node_data.get("name") or catalog_metadata["nodeLabel"]

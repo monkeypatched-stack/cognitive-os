@@ -2,6 +2,7 @@
 
 Validates the compilation pipeline: PipelineRequest → CompiledRequest.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,10 +19,10 @@ from src.monkey_brain.kernel.pipeline.compiler import (
     CompilationError,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _make_request(question: str = "get 2 l of milk", **kwargs) -> PipelineRequest:
     return PipelineRequest(question=question, **kwargs)
@@ -39,6 +40,7 @@ def _mock_goal():
         required_outputs = ["acquired"]
         constraints = {}
         confidence = 1.0
+
     return Goal()
 
 
@@ -54,12 +56,14 @@ def _mock_intent_ir():
         execution_metadata = {}
         created_at = 1234567890.0
         signature = "test-sig"
+
     return IntentIR()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Construction
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRequestCompilerConstruction:
     def test_creates_with_default_actor_id(self):
@@ -75,22 +79,19 @@ class TestRequestCompilerConstruction:
 # Successful Compilation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCompilation:
     @pytest.mark.asyncio
     async def test_successful_compilation(self):
         request = _make_request()
 
-        with patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent"
-        ) as mock_intent, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal"
-        ) as mock_goal, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_intent_ir"
-        ) as mock_ir, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_goal_ir"
-        ) as mock_gir, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_execution_context"
-        ) as mock_ctx:
+        with (
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent") as mock_intent,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal") as mock_goal,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_intent_ir") as mock_ir,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_goal_ir") as mock_gir,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_execution_context") as mock_ctx,
+        ):
             mock_intent.return_value = _mock_intent()
             mock_goal.return_value = _mock_goal()
             mock_ir.return_value = _mock_intent_ir()
@@ -111,17 +112,13 @@ class TestCompilation:
         """Same request → same compiled output (except timestamps)."""
         request = _make_request(question="test question")
 
-        with patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent"
-        ) as mock_intent, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal"
-        ) as mock_goal, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_intent_ir"
-        ) as mock_ir, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_goal_ir"
-        ) as mock_gir, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_execution_context"
-        ) as mock_ctx:
+        with (
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent") as mock_intent,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal") as mock_goal,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_intent_ir") as mock_ir,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_goal_ir") as mock_gir,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_execution_context") as mock_ctx,
+        ):
             mock_intent.return_value = _mock_intent()
             mock_goal.return_value = _mock_goal()
             mock_ir.return_value = _mock_intent_ir()
@@ -142,17 +139,21 @@ class TestCompilation:
 # Error Handling
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCompilationErrors:
     @pytest.mark.asyncio
     async def test_intent_classification_failure(self):
         request = _make_request(question="gibberish xyzzy")
 
-        with patch(
-            "src.monkey_brain.kernel.execute.orchestration.routing.resolve_intent",
-            return_value=None,
-        ), patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._try_auto_register",
-            return_value=None,
+        with (
+            patch(
+                "src.monkey_brain.kernel.execute.orchestration.routing.resolve_intent",
+                return_value=None,
+            ),
+            patch(
+                "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._try_auto_register",
+                return_value=None,
+            ),
         ):
             compiler = RequestCompiler()
             with pytest.raises(CompilationError) as exc_info:
@@ -163,11 +164,12 @@ class TestCompilationErrors:
     async def test_goal_resolution_failure(self):
         request = _make_request()
 
-        with patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent"
-        ) as mock_intent, patch(
-            "src.monkey_brain.kernel.execute.orchestration.routing.resolve_goal_from_intent",
-            side_effect=RuntimeError("goal broken"),
+        with (
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent") as mock_intent,
+            patch(
+                "src.monkey_brain.kernel.execute.orchestration.routing.resolve_goal_from_intent",
+                side_effect=RuntimeError("goal broken"),
+            ),
         ):
             mock_intent.return_value = _mock_intent()
 
@@ -180,15 +182,19 @@ class TestCompilationErrors:
     async def test_unseen_domain_failure(self):
         request = _make_request(question="quantum flux capacitor analysis")
 
-        with patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent"
-        ) as mock_intent, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal"
-        ) as mock_goal, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._explore_unseen_domain",
-            return_value=None,  # no domain found
+        with (
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent") as mock_intent,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal") as mock_goal,
+            patch(
+                "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._explore_unseen_domain",
+                return_value=None,  # no domain found
+            ),
         ):
-            mock_intent.return_value = {"intent": "unknown", "confidence": 0.3, "workload_id": "none"}
+            mock_intent.return_value = {
+                "intent": "unknown",
+                "confidence": 0.3,
+                "workload_id": "none",
+            }
             mock_goal.return_value = _mock_goal()
 
             compiler = RequestCompiler()
@@ -201,22 +207,19 @@ class TestCompilationErrors:
 # CompiledRequest Contents
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCompiledRequestContents:
     @pytest.mark.asyncio
     async def test_compiled_request_has_all_fields(self):
         request = _make_request()
 
-        with patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent"
-        ) as mock_intent, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal"
-        ) as mock_goal, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_intent_ir"
-        ) as mock_ir, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_goal_ir"
-        ) as mock_gir, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_execution_context"
-        ) as mock_ctx:
+        with (
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent") as mock_intent,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal") as mock_goal,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_intent_ir") as mock_ir,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_goal_ir") as mock_gir,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_execution_context") as mock_ctx,
+        ):
             mock_intent.return_value = _mock_intent()
             mock_goal.return_value = _mock_goal()
             mock_ir.return_value = _mock_intent_ir()
@@ -239,17 +242,13 @@ class TestCompiledRequestContents:
     async def test_compiled_request_immutable(self):
         request = _make_request()
 
-        with patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent"
-        ) as mock_intent, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal"
-        ) as mock_goal, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_intent_ir"
-        ) as mock_ir, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_goal_ir"
-        ) as mock_gir, patch(
-            "src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_execution_context"
-        ) as mock_ctx:
+        with (
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_intent") as mock_intent,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._resolve_goal") as mock_goal,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_intent_ir") as mock_ir,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_goal_ir") as mock_gir,
+            patch("src.monkey_brain.kernel.pipeline.compiler.RequestCompiler._compile_execution_context") as mock_ctx,
+        ):
             mock_intent.return_value = _mock_intent()
             mock_goal.return_value = _mock_goal()
             mock_ir.return_value = _mock_intent_ir()
@@ -260,6 +259,7 @@ class TestCompiledRequestContents:
             result = await compiler.compile(request)
 
             from dataclasses import FrozenInstanceError
+
             with pytest.raises(FrozenInstanceError):
                 result.request = _make_request(question="hacked")
 
@@ -268,11 +268,13 @@ class TestCompiledRequestContents:
 # No Runtime Dependencies
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNoRuntimeDependencies:
     def test_compiler_has_no_runtime_imports(self):
         """compiler.py must not import any runtime implementation."""
         import inspect
         import src.monkey_brain.kernel.pipeline.compiler as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "from src.monkey_brain.kernel.compile.society",
@@ -289,6 +291,7 @@ class TestNoRuntimeDependencies:
 # ═══════════════════════════════════════════════════════════════════════════
 # CompilationError
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCompilationError:
     def test_error_construction(self):

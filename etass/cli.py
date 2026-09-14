@@ -29,25 +29,46 @@ def build_parser() -> argparse.ArgumentParser:
         prog="etass",
         description="ETASS — orchestration CLI",
     )
-    p.add_argument("--url",         default="http://localhost:8031",
-                   help="MonkeyBrain base URL (default: http://localhost:8031)")
-    p.add_argument("--timeout",     type=float, default=120.0,
-                   help="Request timeout seconds (default: 120)")
-    p.add_argument("--no-simulate", action="store_true",
-                   help="Skip the simulation leg (v1.0 mode only)")
-    p.add_argument("--json",        action="store_true",
-                   help="Print raw JSON response")
+    p.add_argument(
+        "--url",
+        default="http://localhost:8031",
+        help="MonkeyBrain base URL (default: http://localhost:8031)",
+    )
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=120.0,
+        help="Request timeout seconds (default: 120)",
+    )
+    p.add_argument(
+        "--no-simulate",
+        action="store_true",
+        help="Skip the simulation leg (v1.0 mode only)",
+    )
+    p.add_argument("--json", action="store_true", help="Print raw JSON response")
     # Pipeline mode
-    p.add_argument("--pipeline",    action="store_true",
-                   help="Run full ETASS pipeline (Compiler→Planner→DAG→4 adapters)")
-    p.add_argument("--workload",    default="etass",
-                   help="Workload type for pipeline mode (default: etass)")
-    p.add_argument("--goal",        default="",
-                   help="Goal string for pipeline mode")
-    p.add_argument("--domain",      default="software_engineering",
-                   help="DDD domain for pipeline mode (default: software_engineering)")
-    p.add_argument("--context",     default="",  dest="bounded_context",
-                   help="DDD bounded context for pipeline mode")
+    p.add_argument(
+        "--pipeline",
+        action="store_true",
+        help="Run full ETASS pipeline (Compiler→Planner→DAG→4 adapters)",
+    )
+    p.add_argument(
+        "--workload",
+        default="etass",
+        help="Workload type for pipeline mode (default: etass)",
+    )
+    p.add_argument("--goal", default="", help="Goal string for pipeline mode")
+    p.add_argument(
+        "--domain",
+        default="software_engineering",
+        help="DDD domain for pipeline mode (default: software_engineering)",
+    )
+    p.add_argument(
+        "--context",
+        default="",
+        dest="bounded_context",
+        help="DDD bounded context for pipeline mode",
+    )
     return p
 
 
@@ -88,8 +109,10 @@ def _print_pipeline_result(result) -> None:
     print("  Adapter Results:")
     for a in result.adapters:
         icon = "✓" if a.status == "ok" else "✗" if a.status == "error" else "–"
-        print(f"    {icon} {a.adapter:<18} {a.status:<12} {a.elapsed_ms:.0f}ms"
-              + (f"  [{a.error[:60]}]" if a.error else ""))
+        print(
+            f"    {icon} {a.adapter:<18} {a.status:<12} {a.elapsed_ms:.0f}ms"
+            + (f"  [{a.error[:60]}]" if a.error else "")
+        )
     if result.mermaid:
         print()
         print("  Mermaid Diagram:")
@@ -108,10 +131,10 @@ async def run(args: argparse.Namespace) -> int:
 
     try:
         result = await submit_to_monkeybrain(
-            base_url     = args.url,
-            run_query    = True,
-            run_simulate = not args.no_simulate,
-            timeout      = args.timeout,
+            base_url=args.url,
+            run_query=True,
+            run_simulate=not args.no_simulate,
+            timeout=args.timeout,
         )
     except Exception as e:
         logger.error("Failed to reach MonkeyBrain: %s", e)

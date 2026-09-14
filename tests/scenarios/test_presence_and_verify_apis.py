@@ -19,6 +19,7 @@ one comprehensive report, not four separately-meaningful ones; splitting
 them would mean either running the same checks four times or building
 three thin wrappers with no real distinction.
 """
+
 from __future__ import annotations
 
 import os

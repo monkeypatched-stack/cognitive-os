@@ -1,4 +1,5 @@
 """ValueObjectAgent — validates, transforms, and composes immutable values."""
+
 from __future__ import annotations
 import logging
 from typing import Any, Callable
@@ -21,7 +22,12 @@ class ValueObjectAgent(BaseDDDAgent):
     ddd_layer = "value_object"
     workload_spec = "code_generation"
 
-    def __init__(self, validators: list[Callable] | None = None, transformations: list[Callable] | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        validators: list[Callable] | None = None,
+        transformations: list[Callable] | None = None,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self._validators: list[Callable] = validators or []
         self._transformations: list[Callable] = transformations or []

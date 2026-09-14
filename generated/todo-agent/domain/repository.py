@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+
 class TodoAgentItem:
     pass  # Assuming this is defined in domain/entities.py
 
+
 class TodoAgent:
     pass  # Assuming this is defined in domain/aggregates.py
+
 
 class TodoAgentRepository(ABC):
     @abstractmethod
@@ -24,11 +27,14 @@ class TodoAgentRepository(ABC):
     async def delete(self, id: str) -> None:
         """Delete a TodoAgent from the repository."""
 
+
 class RepositoryException(Exception):
     pass
 
+
 class RepositoryConflict(RepositoryException):
     pass
+
 
 class RepositoryNotFound(RepositoryException):
     pass

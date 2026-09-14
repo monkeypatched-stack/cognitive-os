@@ -12,13 +12,20 @@ Customer's payment fails (no wallet account). Verifies:
 Usage:
     python3 demo/coordination/mb3102_payment_declined.py
 """
+
 from __future__ import annotations
 
 import sys
 import time
 from typing import Any
 
-from bootstrap_mb3102 import ApiError, TRACKED_PRODUCT_NAME, _call, _client, bootstrap_world
+from bootstrap_mb3102 import (
+    ApiError,
+    TRACKED_PRODUCT_NAME,
+    _call,
+    _client,
+    bootstrap_world,
+)
 
 PROMPT = "Buy a wireless gaming mouse."
 
@@ -48,11 +55,15 @@ def kv(label: str, value: Any, width: int = 28) -> None:
     print(f"{label} {dots} {value}")
 
 
-def _prompt_with_retry(client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0) -> dict[str, Any]:
+def _prompt_with_retry(
+    client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0
+) -> dict[str, Any]:
     last_response: dict[str, Any] = {}
     for attempt in range(attempts):
         response = _call(
-            client, "POST", "/prompt",
+            client,
+            "POST",
+            "/prompt",
             json={"question": question},
             headers={"X-User-ID": actor_id},
         )
@@ -121,8 +132,7 @@ def print_scope_and_trace(execution: dict[str, Any]) -> list[dict[str, Any]]:
     for step in trace:
         events = ", ".join(step.get("events") or [])
         actors = ", ".join(step.get("actors_ticked") or []) or "(none)"
-        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} "
-              f"-> actors ticked: {actors}")
+        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} -> actors ticked: {actors}")
     return trace
 
 

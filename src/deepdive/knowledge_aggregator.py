@@ -27,10 +27,12 @@ logger = logging.getLogger("deepdive.knowledge_aggregator")
 CONFIDENCE_THRESHOLD: float = 0.6
 
 # Knowledge packs land here; each pack is one YAML file named <knowledge_type>.yaml
-_PACK_DIR = Path(os.environ.get(
-    "MONKEYBRAIN_KNOWLEDGE_PACKS_DIR",
-    str(Path(__file__).parents[4] / "somatic" / "knowledge_packs"),
-))
+_PACK_DIR = Path(
+    os.environ.get(
+        "MONKEYBRAIN_KNOWLEDGE_PACKS_DIR",
+        str(Path(__file__).parents[4] / "somatic" / "knowledge_packs"),
+    )
+)
 
 
 @dataclass
@@ -123,7 +125,7 @@ class KnowledgeAggregator:
             knowledge_type=knowledge_type,
             entries=entries[:100],
             total_nodes=len(nodes),
-            avg_confidence=sum(e.confidence for e in entries) / len(entries) if entries else 0.0,
+            avg_confidence=(sum(e.confidence for e in entries) / len(entries) if entries else 0.0),
         )
 
     def get_by_node(self, node_id: str) -> list[KnowledgeEntry]:
@@ -166,9 +168,7 @@ class KnowledgeAggregator:
         skipped = 0
         written_packs: list[str] = []
 
-        all_types = set(
-            key.split(":")[0] for key in self._entries
-        )
+        all_types = set(key.split(":")[0] for key in self._entries)
         below_threshold_types = all_types - set(by_type)
         skipped = len(below_threshold_types)
 
@@ -189,7 +189,10 @@ class KnowledgeAggregator:
             flushed += 1
             logger.info(
                 "[knowledge] flushed pack %s: %d entries avg_confidence=%.3f → %s",
-                ktype, len(entries), avg_conf, pack_path,
+                ktype,
+                len(entries),
+                avg_conf,
+                pack_path,
             )
 
             # Merge into somatic chart values.yaml if one exists
@@ -306,13 +309,15 @@ class KnowledgeAggregator:
             try:
                 with open(pack_path) as f:
                     data = yaml.safe_load(f) or {}
-                packs.append({
-                    "knowledge_type": data.get("knowledge_type", pack_path.stem),
-                    "entry_count": data.get("entry_count", 0),
-                    "avg_confidence": data.get("avg_confidence", 0.0),
-                    "generated_at": data.get("generated_at", ""),
-                    "pack_id": data.get("pack_id", ""),
-                })
+                packs.append(
+                    {
+                        "knowledge_type": data.get("knowledge_type", pack_path.stem),
+                        "entry_count": data.get("entry_count", 0),
+                        "avg_confidence": data.get("avg_confidence", 0.0),
+                        "generated_at": data.get("generated_at", ""),
+                        "pack_id": data.get("pack_id", ""),
+                    }
+                )
             except Exception as e:
                 logger.debug("Exception caught: %s", e)
         return packs
@@ -331,7 +336,9 @@ class KnowledgeAggregator:
         result = self.flush_to_charts()
         logger.info(
             "[knowledge] end_of_run: flushed=%d skipped=%d packs=%s",
-            result["flushed"], result["skipped"], result["packs"],
+            result["flushed"],
+            result["skipped"],
+            result["packs"],
         )
         return result
 
@@ -346,6 +353,7 @@ class KnowledgeAggregator:
         aggregated = self.aggregate("policy")
         if aggregated.entries:
             from src.monkey_brain.persistence.events import PersistenceEvent, EventType
+
             event = PersistenceEvent(
                 event_type=EventType.ENTITY_CREATED,
                 entity_type="knowledge_aggregation",

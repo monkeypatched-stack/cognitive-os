@@ -2,18 +2,23 @@
 
 No hardcoded prompts. The spec defines reasoning strategy, constraints, and output format.
 """
+
 from __future__ import annotations
-import json, logging, re
+import json
+import logging
+import re
 from pathlib import Path
 from typing import Any
 from ._base import BaseETASSAgent
 import os as _os
 
 logger = logging.getLogger("broca.agents.chart_evolution")
-_CHARTS_DIR = Path(_os.environ.get(
-    "MONKEYBRAIN_CHARTS_DIR",
-    str(Path(_os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4]))) / "somatic/charts")
-))
+_CHARTS_DIR = Path(
+    _os.environ.get(
+        "MONKEYBRAIN_CHARTS_DIR",
+        str(Path(_os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4]))) / "somatic/charts"),
+    )
+)
 
 
 class ChartEvolutionAgent(BaseETASSAgent):
@@ -35,6 +40,7 @@ class ChartEvolutionAgent(BaseETASSAgent):
             )
 
         import os
+
         if not os.environ.get("ANTHROPIC_API_KEY"):
             self._reward(True, 0.6)
             return self._result(
@@ -53,11 +59,14 @@ class ChartEvolutionAgent(BaseETASSAgent):
             raw = await self._llm_from_spec(
                 "chart_evolution",
                 goal_override=goal,
-                extra_evidence=[f"chart: {chart_name}", f"evidence_items: {len(evidence)}"],
+                extra_evidence=[
+                    f"chart: {chart_name}",
+                    f"evidence_items: {len(evidence)}",
+                ],
                 system_override='Reply JSON only: {"suggestions": [{"field": "...", "current": "...", "proposed": "...", "reason": "..."}], "priority": "low|medium|high"}',
                 max_tokens=1024,
             )
-            m = re.search(r'\{.*\}', raw, re.DOTALL)
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
             data = json.loads(m.group(0)) if m else {"suggestions": [], "priority": "low"}
             suggestions = data.get("suggestions", [])
             priority = data.get("priority", "low")

@@ -3,6 +3,7 @@
 This module lives in api/ (not kernel/) because it imports API-layer types.
 Kernel code re-exports from here for backward compatibility.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -19,7 +20,10 @@ def graph_query_response(
     data_source: str | None = None,
 ) -> Any:
     from src.monkey_brain.kernel.models.graph_query import GraphRagQueryResponse
-    from src.monkey_brain.kernel.plan.intents.helpers import clean_user_answer_for_question, semantic_hit_citation
+    from src.monkey_brain.kernel.plan.intents.helpers import (
+        clean_user_answer_for_question,
+        semantic_hit_citation,
+    )
 
     semantic_hits = semantic_hits or []
     graph_paths = graph_paths or []

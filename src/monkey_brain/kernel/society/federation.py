@@ -32,6 +32,7 @@ societies. Each society's `SharedWorld` stays genuinely separate;
 state. `SharedWorld` has no merge/diff primitive to build real world
 synchronization on top of — inventing one is a separate, larger feature.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -54,6 +55,7 @@ class FederationPolicy:
     governs individual actors WITHIN one society. This governs societies
     relative to each other: what one society may share with another, how
     inter-society disputes are resolved, etc."""
+
     policy_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -89,7 +91,7 @@ class FederationPolicy:
             policy_id=d.get("policy_id", uuid4().hex),
             name=d.get("name", ""),
             description=d.get("description", ""),
-            scope=FederationPolicyScope(d["scope"]) if "scope" in d else FederationPolicyScope.ALL_MEMBERS,
+            scope=(FederationPolicyScope(d["scope"]) if "scope" in d else FederationPolicyScope.ALL_MEMBERS),
             applies_to_society_ids=tuple(d.get("applies_to_society_ids", [])),
             rules=tuple(d.get("rules", [])),
             enabled=d.get("enabled", True),
@@ -103,6 +105,7 @@ class Federation:
     Holds no mutation logic itself; every change flows through
     `FederationManager`, which replaces it via `dataclasses.replace()`,
     the same pattern `SocietyRuntime` already uses for `Society`."""
+
     federation_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -157,10 +160,12 @@ class FederationManager:
     def __init__(self) -> None:
         self._federations: dict[str, Federation] = {}
 
-    def create_federation(self, name: str, description: str = "",
-                          member_society_ids: tuple[str, ...] = ()) -> Federation:
+    def create_federation(
+        self, name: str, description: str = "", member_society_ids: tuple[str, ...] = ()
+    ) -> Federation:
         federation = Federation(
-            name=name, description=description,
+            name=name,
+            description=description,
             member_society_ids=member_society_ids,
         )
         self._federations[federation.federation_id] = federation
@@ -182,7 +187,8 @@ class FederationManager:
         if federation.has_member(society_id):
             return federation
         updated = dataclasses.replace(
-            federation, member_society_ids=federation.member_society_ids + (society_id,),
+            federation,
+            member_society_ids=federation.member_society_ids + (society_id,),
         )
         self._federations[federation_id] = updated
         return updated

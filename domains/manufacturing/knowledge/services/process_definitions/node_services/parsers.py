@@ -30,19 +30,29 @@ async def execute_parser_node(
     value = nested_value(message, prop)
     try:
         if node_type == "json":
-            result = json.loads(value) if mode == "parse" and isinstance(value, str) else json.dumps(value)
+            result = (
+                json.loads(value)
+                if mode == "parse" and isinstance(value, str)
+                else json.dumps(value)
+            )
         elif node_type == "csv":
             delimiter = str(config_value(config, "delimiter", ","))[:1] or ","
             if mode == "parse":
                 text = "" if value is None else str(value)
-                reader = csv.DictReader(io.StringIO(text), delimiter=delimiter) if config.get("has_header", True) else csv.reader(io.StringIO(text), delimiter=delimiter)
+                reader = (
+                    csv.DictReader(io.StringIO(text), delimiter=delimiter)
+                    if config.get("has_header", True)
+                    else csv.reader(io.StringIO(text), delimiter=delimiter)
+                )
                 result = list(reader)
             else:
                 rows = value if isinstance(value, list) else [value]
                 output = io.StringIO()
                 if rows and all(isinstance(row, dict) for row in rows):
                     fieldnames = list({key for row in rows for key in row.keys()})
-                    writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter=delimiter)
+                    writer = csv.DictWriter(
+                        output, fieldnames=fieldnames, delimiter=delimiter
+                    )
                     if config.get("has_header", True):
                         writer.writeheader()
                     writer.writerows(rows)
@@ -56,7 +66,11 @@ async def execute_parser_node(
                 parser = SimpleHTMLExtractor()
                 parser.feed("" if value is None else str(value))
                 extract = str(config_value(config, "extract", "text"))
-                result = parser.links if extract == "links" else value if extract == "raw" else " ".join(parser.text)
+                result = (
+                    parser.links
+                    if extract == "links"
+                    else value if extract == "raw" else " ".join(parser.text)
+                )
             else:
                 result = "" if value is None else str(value)
         elif node_type == "xml":
@@ -76,12 +90,24 @@ async def execute_parser_node(
             except Exception:
                 yaml = None
             if mode == "parse":
-                result = yaml.safe_load(value) if yaml else simple_yaml_parse("" if value is None else str(value))
+                result = (
+                    yaml.safe_load(value)
+                    if yaml
+                    else simple_yaml_parse("" if value is None else str(value))
+                )
             else:
-                result = yaml.safe_dump(value, sort_keys=False) if yaml else simple_yaml_dump(value)
+                result = (
+                    yaml.safe_dump(value, sort_keys=False)
+                    if yaml
+                    else simple_yaml_dump(value)
+                )
         else:
             result = value
     except Exception as exc:
         return NodeExecutionResult(False, None, None, str(exc))
     set_nested_value(message, prop, result)
-    return NodeExecutionResult(True, None, {"status": f"{node_type}-{mode}", "message": message, "value": result})
+    return NodeExecutionResult(
+        True,
+        None,
+        {"status": f"{node_type}-{mode}", "message": message, "value": result},
+    )

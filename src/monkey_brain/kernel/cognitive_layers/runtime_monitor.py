@@ -3,6 +3,7 @@
 Responsibility: Health monitoring, logging, and observability.
 Depends on: health check interface, event bus
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,11 +48,7 @@ class RuntimeMonitor(HealthMonitorInterface):
             "status": "healthy" if self._error_count == 0 else "degraded",
             "executions": self._execution_count,
             "errors": self._error_count,
-            "error_rate": (
-                self._error_count / self._execution_count
-                if self._execution_count > 0
-                else 0.0
-            ),
+            "error_rate": (self._error_count / self._execution_count if self._execution_count > 0 else 0.0),
             "last_execution_time": self._last_execution_time,
         }
 
@@ -115,11 +112,7 @@ class RuntimeMonitor(HealthMonitorInterface):
                 if self._execution_count > 0
                 else 1.0
             ),
-            "error_rate": (
-                self._error_count / self._execution_count
-                if self._execution_count > 0
-                else 0.0
-            ),
+            "error_rate": (self._error_count / self._execution_count if self._execution_count > 0 else 0.0),
             "last_execution_time": self._last_execution_time,
         }
 

@@ -24,6 +24,7 @@ vertical-agnostic version of the same idea, usable before a capability
 bus even exists (e.g. a robot deciding a reservation with another robot
 actor with no cloud round trip).
 """
+
 from __future__ import annotations
 
 import time
@@ -58,6 +59,7 @@ class Agreement:
     (ensure_governed, locally or centrally) keyed off the SAME
     capability/resource/constraints named here, not off this agreement's
     mere existence."""
+
     agreement_id: str = field(default_factory=lambda: uuid4().hex)
     kind: NegotiationKind = NegotiationKind.RESOURCE_REQUEST
     initiator: str = ""
@@ -79,10 +81,18 @@ class Agreement:
         return self.expires_at > 0 and time.time() > self.expires_at
 
 
-_FORBIDDEN_TERM_KEYS = frozenset({
-    "authorized", "approved", "allow", "allowed", "governance_allowed",
-    "opa_allow", "approval_mode", "human_approved",
-})
+_FORBIDDEN_TERM_KEYS = frozenset(
+    {
+        "authorized",
+        "approved",
+        "allow",
+        "allowed",
+        "governance_allowed",
+        "opa_allow",
+        "approval_mode",
+        "human_approved",
+    }
+)
 
 
 class NegotiationError(Exception):
@@ -98,9 +108,16 @@ class LocalNegotiationEngine:
     entirely to governance, evaluated separately and later."""
 
     def propose(
-        self, *, kind: NegotiationKind, initiator: str, counterparty: str,
-        capability: str, resource: str, terms: dict[str, Any],
-        ttl_seconds: float = 120.0, delegation: Any = None,
+        self,
+        *,
+        kind: NegotiationKind,
+        initiator: str,
+        counterparty: str,
+        capability: str,
+        resource: str,
+        terms: dict[str, Any],
+        ttl_seconds: float = 120.0,
+        delegation: Any = None,
     ) -> Agreement:
         for key in terms:
             if key.lower() in _FORBIDDEN_TERM_KEYS:
@@ -111,8 +128,12 @@ class LocalNegotiationEngine:
         if delegation is not None:
             self._require_terms_within_delegation(terms, delegation)
         return Agreement(
-            kind=kind, initiator=initiator, counterparty=counterparty,
-            capability=capability, resource=resource, terms=dict(terms),
+            kind=kind,
+            initiator=initiator,
+            counterparty=counterparty,
+            capability=capability,
+            resource=resource,
+            terms=dict(terms),
             expires_at=time.time() + ttl_seconds,
             delegation_id=getattr(delegation, "delegation_id", ""),
         )
@@ -128,6 +149,7 @@ class LocalNegotiationEngine:
     @staticmethod
     def _with_status(agreement: Agreement, status: AgreementStatus) -> Agreement:
         from dataclasses import replace
+
         return replace(agreement, status=status)
 
     @staticmethod
@@ -135,7 +157,9 @@ class LocalNegotiationEngine:
         """Constraint-by-constraint check reusing kernel/delegation.py's
         OWN conservative narrowing logic -- never a second, competing
         interpretation of what "within delegated authority" means."""
-        from src.monkey_brain.kernel.delegation import _constraints_are_narrower_or_equal
+        from src.monkey_brain.kernel.delegation import (
+            _constraints_are_narrower_or_equal,
+        )
 
         constraints = getattr(delegation, "constraints", None)
         if constraints is None:

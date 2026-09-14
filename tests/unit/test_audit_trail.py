@@ -4,10 +4,13 @@ writes PLAN/DECISION lifecycle events (previously unused
 TimelineKind.PLAN, per the architecture exploration this feature was
 built from).
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.pipeline.audit_trail import (
-    query_audit_timeline, record_decision_event, record_plan_event,
+    query_audit_timeline,
+    record_decision_event,
+    record_plan_event,
 )
 from src.monkey_brain.kernel.timeline.entry import TimelineKind
 from src.monkey_brain.kernel.timeline.store import TimelineStore
@@ -19,8 +22,12 @@ def setup_function(_fn):
 
 def test_record_plan_event_is_queryable_by_execution_id():
     record_plan_event(
-        "generated", plan_id="plan_001", actor_id="alice", execution_id="exec_1",
-        goal="buy milk", steps=("ProductSelection", "OrderCreation"),
+        "generated",
+        plan_id="plan_001",
+        actor_id="alice",
+        execution_id="exec_1",
+        goal="buy milk",
+        steps=("ProductSelection", "OrderCreation"),
     )
     entries = TimelineStore().query("alice", TimelineKind.PLAN)
     assert len(entries) == 1
@@ -33,14 +40,28 @@ def test_plan_lifecycle_is_append_only_not_overwritten():
     """The exact "plan_001 invalidated / plan_002 active" history the
     spec asks for — achieved by writing NEW entries, never mutating the
     original generated record."""
-    record_plan_event("generated", plan_id="plan_001", actor_id="alice", execution_id="exec_1", goal="buy milk")
     record_plan_event(
-        "invalidated", plan_id="plan_001", actor_id="alice", execution_id="exec_2",
-        goal="buy milk", result="Whole Milk: out of stock (quantity=0)",
+        "generated",
+        plan_id="plan_001",
+        actor_id="alice",
+        execution_id="exec_1",
+        goal="buy milk",
     )
     record_plan_event(
-        "generated", plan_id="plan_002", actor_id="alice", execution_id="exec_2",
-        goal="buy milk", metadata={"replaces": "plan_001"},
+        "invalidated",
+        plan_id="plan_001",
+        actor_id="alice",
+        execution_id="exec_2",
+        goal="buy milk",
+        result="Whole Milk: out of stock (quantity=0)",
+    )
+    record_plan_event(
+        "generated",
+        plan_id="plan_002",
+        actor_id="alice",
+        execution_id="exec_2",
+        goal="buy milk",
+        metadata={"replaces": "plan_001"},
     )
 
     all_plan_entries = TimelineStore().query("alice", TimelineKind.PLAN)
@@ -53,7 +74,9 @@ def test_plan_lifecycle_is_append_only_not_overwritten():
 
 def test_record_decision_event_for_idempotency_replay():
     record_decision_event(
-        "idempotency_replay", actor_id="alice", execution_id="key-abc",
+        "idempotency_replay",
+        actor_id="alice",
+        execution_id="key-abc",
         reason="Idempotency-Key 'key-abc' replayed cached result",
     )
     entries = TimelineStore().query("alice", TimelineKind.DECISION)
@@ -63,12 +86,33 @@ def test_record_decision_event_for_idempotency_replay():
 
 
 def test_query_audit_timeline_merges_plan_execution_decision_by_correlation_id():
-    record_plan_event("generated", plan_id="plan_001", actor_id="bob", execution_id="exec_9", goal="buy eggs")
-    record_decision_event("payment_completed", actor_id="bob", execution_id="exec_9", reason="Charged $5.49")
+    record_plan_event(
+        "generated",
+        plan_id="plan_001",
+        actor_id="bob",
+        execution_id="exec_9",
+        goal="buy eggs",
+    )
+    record_decision_event(
+        "payment_completed",
+        actor_id="bob",
+        execution_id="exec_9",
+        reason="Charged $5.49",
+    )
     # A different execution for the same actor must not leak in.
-    record_plan_event("generated", plan_id="plan_999", actor_id="bob", execution_id="exec_OTHER", goal="unrelated")
+    record_plan_event(
+        "generated",
+        plan_id="plan_999",
+        actor_id="bob",
+        execution_id="exec_OTHER",
+        goal="unrelated",
+    )
     TimelineStore().record(
-        TimelineKind.EXECUTION, actor_id="bob", goal="buy eggs", outcome="success", correlation_id="exec_9",
+        TimelineKind.EXECUTION,
+        actor_id="bob",
+        goal="buy eggs",
+        outcome="success",
+        correlation_id="exec_9",
     )
 
     timeline = query_audit_timeline("bob", "exec_9")

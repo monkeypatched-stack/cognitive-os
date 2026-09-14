@@ -4,6 +4,7 @@ Validates construction, defaults, immutability, and computed properties for
 all execution domain types. Pure data — no algorithm, no mocking needed.
 Mirrors tests/unit/test_planning_domain.py's structure and conventions.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -24,10 +25,10 @@ from src.monkey_brain.kernel.pipeline.execution_runtime import (
     ExecutionResult,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # RetryPolicy
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRetryPolicy:
     def test_defaults_mean_no_retry(self):
@@ -37,8 +38,10 @@ class TestRetryPolicy:
 
     def test_exponential_backoff_construction(self):
         policy = RetryPolicy(
-            strategy=RetryStrategy.EXPONENTIAL_BACKOFF, max_attempts=5,
-            base_delay_seconds=1.0, max_delay_seconds=30.0,
+            strategy=RetryStrategy.EXPONENTIAL_BACKOFF,
+            max_attempts=5,
+            base_delay_seconds=1.0,
+            max_delay_seconds=30.0,
         )
         assert policy.max_attempts == 5
         assert policy.max_delay_seconds == 30.0
@@ -52,6 +55,7 @@ class TestRetryPolicy:
 # ═══════════════════════════════════════════════════════════════════════════
 # ExecutionStep
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExecutionStep:
     def test_construction_minimal(self):
@@ -92,10 +96,13 @@ class TestExecutionStep:
 # ExecutionPlan / ExecutionRequest / ExecutionContext
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExecutionPlan:
     def test_composes_steps(self):
-        steps = (ExecutionStep(operator=PlanningOperator(name="Navigate")),
-                  ExecutionStep(operator=PlanningOperator(name="AcquireItem")))
+        steps = (
+            ExecutionStep(operator=PlanningOperator(name="Navigate")),
+            ExecutionStep(operator=PlanningOperator(name="AcquireItem")),
+        )
         plan = ExecutionPlan(steps=steps)
         assert len(plan.steps) == 2
         assert plan.steps[0].operator.name == "Navigate"
@@ -125,7 +132,8 @@ class TestExecutionContext:
     def test_composes_request_and_capabilities(self):
         request = ExecutionRequest(actor_id="alice")
         context = ExecutionContext(
-            request=request, available_capabilities=("navigation", "shopping"),
+            request=request,
+            available_capabilities=("navigation", "shopping"),
             completed_step_ids=("step-0",),
         )
         assert context.request.actor_id == "alice"
@@ -147,6 +155,7 @@ class TestExecutionContext:
 # ═══════════════════════════════════════════════════════════════════════════
 # ExecutionError / ExecutionOutcome
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExecutionError:
     def test_construction(self):
@@ -195,6 +204,7 @@ class TestExecutionOutcome:
 # ExecutionMetrics / ExecutionResult
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExecutionMetrics:
     def test_success_rate(self):
         metrics = ExecutionMetrics(total_steps=4, succeeded=3, failed=1)
@@ -239,12 +249,14 @@ class TestExecutionResult:
 # Ownership boundary — model-only, no coupling to runtime/execution engine
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_planning_engine_or_cognitive_runtime_coupling(self):
         """Step 9.1 must not import PlanningEngine or CognitiveRuntime —
         those stay untouched until Step 9.7."""
         import inspect
         import src.monkey_brain.kernel.pipeline.execution_runtime.domain as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",
@@ -260,5 +272,6 @@ class TestOwnershipBoundary:
         PlanningOperator -> ExecutionHandler mapping needs it)."""
         import inspect
         import src.monkey_brain.kernel.pipeline.execution_runtime.domain as mod
+
         source = inspect.getsource(mod)
         assert "from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator" in source

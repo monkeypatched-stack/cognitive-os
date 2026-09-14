@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 
 from services.iot.models.ble_device import BLEDeviceCreate, BLEDeviceUpdate
 
-
 COLLECTION = "ble_devices"
 
 
@@ -50,8 +49,12 @@ async def get_by_id(db: AsyncIOMotorDatabase, device_id: str) -> Optional[dict]:
     return _serialize(await db[COLLECTION].find_one({"id": device_id}))
 
 
-async def get_by_mac_address(db: AsyncIOMotorDatabase, mac_address: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"mac_address": mac_address.strip().upper()}))
+async def get_by_mac_address(
+    db: AsyncIOMotorDatabase, mac_address: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"mac_address": mac_address.strip().upper()})
+    )
 
 
 async def get_by_active(db: AsyncIOMotorDatabase, active: bool) -> list[dict]:
@@ -70,7 +73,9 @@ async def create(db: AsyncIOMotorDatabase, data: BLEDeviceCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, device_id: str, data: BLEDeviceUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, device_id: str, data: BLEDeviceUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, device_id)

@@ -1,4 +1,5 @@
 """Unit tests for MeshOptimizer.spawn() fix — spawned_for and capabilities populated."""
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
@@ -12,6 +13,7 @@ def _make_mesh():
 
 def _make_optimizer(registry=None):
     from broca.mesh import MeshOptimizer
+
     return MeshOptimizer(registry=registry)
 
 
@@ -26,14 +28,18 @@ def mesh():
 
 
 class TestMeshOptimizerSpawn:
-
     def test_spawn_receives_spawned_for(self, optimizer, mesh):
         """spawn() must be called with a `spawned_for` argument."""
         world_state = {"x": 0.5}
 
-        with patch.object(optimizer, "_estimate_loss", return_value=0.5), \
-             patch.object(optimizer, "_find_best_addition",
-                          side_effect=[("agent_alpha", 0.3), (None, 0.0)]):
+        with (
+            patch.object(optimizer, "_estimate_loss", return_value=0.5),
+            patch.object(
+                optimizer,
+                "_find_best_addition",
+                side_effect=[("agent_alpha", 0.3), (None, 0.0)],
+            ),
+        ):
             optimizer.optimize(mesh, world_state, prompt="test")
 
         assert mesh.spawn.called
@@ -45,9 +51,14 @@ class TestMeshOptimizerSpawn:
         """spawn() must be called with a `capabilities` argument."""
         world_state = {"x": 0.5}
 
-        with patch.object(optimizer, "_estimate_loss", return_value=0.5), \
-             patch.object(optimizer, "_find_best_addition",
-                          side_effect=[("agent_alpha", 0.3), (None, 0.0)]):
+        with (
+            patch.object(optimizer, "_estimate_loss", return_value=0.5),
+            patch.object(
+                optimizer,
+                "_find_best_addition",
+                side_effect=[("agent_alpha", 0.3), (None, 0.0)],
+            ),
+        ):
             optimizer.optimize(mesh, world_state, prompt="test")
 
         _, kwargs = mesh.spawn.call_args
@@ -57,9 +68,14 @@ class TestMeshOptimizerSpawn:
     def test_spawn_receives_ephemeral(self, optimizer, mesh):
         world_state = {"x": 0.5}
 
-        with patch.object(optimizer, "_estimate_loss", return_value=0.5), \
-             patch.object(optimizer, "_find_best_addition",
-                          side_effect=[("agent_alpha", 0.3), (None, 0.0)]):
+        with (
+            patch.object(optimizer, "_estimate_loss", return_value=0.5),
+            patch.object(
+                optimizer,
+                "_find_best_addition",
+                side_effect=[("agent_alpha", 0.3), (None, 0.0)],
+            ),
+        ):
             optimizer.optimize(mesh, world_state, prompt="test")
 
         _, kwargs = mesh.spawn.call_args
@@ -68,9 +84,10 @@ class TestMeshOptimizerSpawn:
     def test_optimize_does_not_raise(self, optimizer, mesh):
         world_state = {}
 
-        with patch.object(optimizer, "_estimate_loss", return_value=0.8), \
-             patch.object(optimizer, "_find_best_addition",
-                          side_effect=[(None, 0.0)]):
+        with (
+            patch.object(optimizer, "_estimate_loss", return_value=0.8),
+            patch.object(optimizer, "_find_best_addition", side_effect=[(None, 0.0)]),
+        ):
             result = optimizer.optimize(mesh, world_state)
 
         assert "iterations" in result
@@ -85,9 +102,14 @@ class TestMeshOptimizerSpawn:
         registry.get_capabilities_for = MagicMock(return_value=["cap_x", "cap_y"])
         opt = _make_optimizer(registry=registry)
 
-        with patch.object(opt, "_estimate_loss", return_value=0.5), \
-             patch.object(opt, "_find_best_addition",
-                          side_effect=[("agent_beta", 0.3), (None, 0.0)]):
+        with (
+            patch.object(opt, "_estimate_loss", return_value=0.5),
+            patch.object(
+                opt,
+                "_find_best_addition",
+                side_effect=[("agent_beta", 0.3), (None, 0.0)],
+            ),
+        ):
             opt.optimize(mesh, {})
 
         _, kwargs = mesh.spawn.call_args

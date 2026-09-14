@@ -19,6 +19,7 @@ def get_db() -> AsyncIOMotorDatabase:
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("/", response_model=PaginatedDeviceResponse)
 async def list_devices(
     page: int = Query(1, ge=1),
@@ -27,7 +28,9 @@ async def list_devices(
     _: dict = Depends(require_permission("perm-view-devices")),
 ):
     devices, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedDeviceResponse(total=total, page=page, page_size=page_size, results=devices)
+    return PaginatedDeviceResponse(
+        total=total, page=page, page_size=page_size, results=devices
+    )
 
 
 @router.get("/{device_id}", response_model=DeviceResponse)
@@ -74,7 +77,8 @@ async def delete_device(
 ):
     if not await crud.delete(db, device_id):
         raise HTTPException(404, detail=f"Device '{device_id}' not found")
-    
+
+
 @router.get("/by-user/{user_id}", response_model=list[DeviceResponse])
 async def get_devices_by_user(
     user_id: str,

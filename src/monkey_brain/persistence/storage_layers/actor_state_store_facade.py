@@ -8,15 +8,24 @@ Delegates to specialized components:
 
 Maintains backward compatibility with existing ActorStateStore interface.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any
 
-from src.monkey_brain.persistence.storage_layers.actor_schema_manager import ActorSchemaManager
-from src.monkey_brain.persistence.storage_layers.actor_state_persistence import ActorStatePersistence
-from src.monkey_brain.persistence.storage_layers.actor_state_repository import ActorStateRepository
-from src.monkey_brain.persistence.storage_layers.batch_operation_executor import BatchOperationExecutor
+from src.monkey_brain.persistence.storage_layers.actor_schema_manager import (
+    ActorSchemaManager,
+)
+from src.monkey_brain.persistence.storage_layers.actor_state_persistence import (
+    ActorStatePersistence,
+)
+from src.monkey_brain.persistence.storage_layers.actor_state_repository import (
+    ActorStateRepository,
+)
+from src.monkey_brain.persistence.storage_layers.batch_operation_executor import (
+    BatchOperationExecutor,
+)
 
 if TYPE_CHECKING:
     from src.monkey_brain.persistence.actor_state_store import PersistedActorState

@@ -168,7 +168,7 @@ pointing at `src.monkey_brain.actor_runtime:app` instead of the main
 API or the old `edge_server:app`). This directly satisfies "do not
 require a different Actor implementation for Docker — package the Actor
 binary" by construction: there is only ever one image, one set of
-dependencies, one `requirements.txt`.
+dependencies, one `uv.lock`.
 
 ## Kubernetes deployment
 

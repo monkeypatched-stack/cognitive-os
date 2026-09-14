@@ -13,16 +13,17 @@ class CanonicalGraph(BaseModel):
 
     Every endpoint returns exactly one graph. No duplicated fields.
     """
+
     model_config = {"extra": "allow"}
 
-    graph_id:         str = ""
-    graph_type:       str = "execution"
-    timestamp:        str = ""
-    nodes:            list[dict] = Field(default_factory=list)
-    edges:            list[dict] = Field(default_factory=list)
-    execution_order:  list[list[str]] = Field(default_factory=list)
-    annotations:      dict = Field(default_factory=dict)
-    state:            dict = Field(default_factory=dict)
+    graph_id: str = ""
+    graph_type: str = "execution"
+    timestamp: str = ""
+    nodes: list[dict] = Field(default_factory=list)
+    edges: list[dict] = Field(default_factory=list)
+    execution_order: list[list[str]] = Field(default_factory=list)
+    annotations: dict = Field(default_factory=dict)
+    state: dict = Field(default_factory=dict)
 
 
 @dataclass

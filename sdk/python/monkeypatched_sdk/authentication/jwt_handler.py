@@ -69,9 +69,7 @@ class JWTHandler:
 
     async def is_valid(self) -> bool:
         """Return True if a valid, non-expired token is cached."""
-        return self._token is not None and (
-            self.expiry_seconds == 0 or time.monotonic() < self._token_expiry
-        )
+        return self._token is not None and (self.expiry_seconds == 0 or time.monotonic() < self._token_expiry)
 
     async def refresh(self) -> None:
         """Generate a fresh JWT."""
@@ -94,8 +92,7 @@ class JWTHandler:
                 return
             except ImportError:
                 raise AuthenticationError(
-                    "JWTHandler requires python-jose or PyJWT. "
-                    "Install with: pip install python-jose[cryptography]"
+                    "JWTHandler requires python-jose or PyJWT. Install with: pip install python-jose[cryptography]"
                 )
 
         claims = dict(self.base_payload)

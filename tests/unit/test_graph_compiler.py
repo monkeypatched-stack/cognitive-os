@@ -4,6 +4,7 @@ Pure module — no infra needed. Covers: row-stochastic compile, DAG semantics
 preservation (path-sum + policy agreement), determinism, dangling policies,
 coarsening, and the cyclic (fixed-point) verify regime.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.compile import (
@@ -12,7 +13,9 @@ from src.monkey_brain.kernel.compile import (
     GraphCompiler,
     SemanticGraphSnapshot,
 )
-from src.monkey_brain.kernel.compile.registry import DomainOperatorRegistry  # deprecated, imported directly
+from src.monkey_brain.kernel.compile.registry import (
+    DomainOperatorRegistry,
+)  # deprecated, imported directly
 
 
 def _two_domain_graph() -> SemanticGraphSnapshot:
@@ -24,13 +27,15 @@ def _two_domain_graph() -> SemanticGraphSnapshot:
         {"id": "R", "agent": "RadarAgent", "domain": "weather"},
     ]
     edges = [
-        {"from": "A", "to": "B"},            # intra apiary
-        {"from": "W", "to": "R"},            # intra weather
-        {"from": "W", "to": "B"},            # cross-domain
+        {"from": "A", "to": "B"},  # intra apiary
+        {"from": "W", "to": "R"},  # intra weather
+        {"from": "W", "to": "B"},  # cross-domain
     ]
-    strengths = {("ApiaryRegistryAgent", "HiveInspectionAgent"): 0.8,
-                 ("WeatherAgent", "RadarAgent"): 0.5,
-                 ("WeatherAgent", "HiveInspectionAgent"): 0.3}
+    strengths = {
+        ("ApiaryRegistryAgent", "HiveInspectionAgent"): 0.8,
+        ("WeatherAgent", "RadarAgent"): 0.5,
+        ("WeatherAgent", "HiveInspectionAgent"): 0.3,
+    }
     return SemanticGraphSnapshot(nodes=nodes, edges=edges, strengths=strengths, graph_id="multi", revision=3)
 
 
@@ -38,12 +43,16 @@ def _diamond() -> SemanticGraphSnapshot:
     # A → B, A → C, B → D, C → D   (a DAG diamond); D is a sink.
     nodes = [{"id": n, "agent": n} for n in ("A", "B", "C", "D")]
     edges = [
-        {"from": "A", "to": "B"}, {"from": "A", "to": "C"},
-        {"from": "B", "to": "D"}, {"from": "C", "to": "D"},
+        {"from": "A", "to": "B"},
+        {"from": "A", "to": "C"},
+        {"from": "B", "to": "D"},
+        {"from": "C", "to": "D"},
     ]
     strengths = {
-        ("A", "B"): 0.9, ("A", "C"): 0.1,   # A strongly prefers B
-        ("B", "D"): 0.7, ("C", "D"): 0.4,
+        ("A", "B"): 0.9,
+        ("A", "C"): 0.1,  # A strongly prefers B
+        ("B", "D"): 0.7,
+        ("C", "D"): 0.4,
     }
     return SemanticGraphSnapshot(nodes=nodes, edges=edges, strengths=strengths, graph_id="diamond", revision=1)
 
@@ -79,9 +88,13 @@ def test_determinism_hash():
     b = GraphCompiler().compile(g)
     assert a.compile_hash == b.compile_hash
     # A changed strength → different hash
-    g2 = SemanticGraphSnapshot(nodes=g.nodes, edges=g.edges,
-                       strengths={**dict(g.strengths), ("A", "B"): 0.5},
-                       graph_id=g.graph_id, revision=2)
+    g2 = SemanticGraphSnapshot(
+        nodes=g.nodes,
+        edges=g.edges,
+        strengths={**dict(g.strengths), ("A", "B"): 0.5},
+        graph_id=g.graph_id,
+        revision=2,
+    )
     assert GraphCompiler().compile(g2).compile_hash != a.compile_hash
 
 
@@ -137,7 +150,10 @@ def test_compile_by_domain_block_diagonal():
     assert set(op_set.domains) == {"apiary", "weather"}
     assert op_set.domains["apiary"].n == 2 and op_set.domains["weather"].n == 2
     for d, op in op_set.domains.items():
-        assert c.verify(SemanticGraphSnapshot(nodes=[], edges=[]), op).regime in ("dag", "empty")
+        assert c.verify(SemanticGraphSnapshot(nodes=[], edges=[]), op).regime in (
+            "dag",
+            "empty",
+        )
     # the cross-domain edge W→B is not inside either block; it lives in the mesh
     assert op_set.cross_edges == 1
     assert op_set.mesh is not None and op_set.mesh.n == 2  # apiary, weather as domain-nodes

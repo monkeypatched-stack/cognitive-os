@@ -15,7 +15,7 @@ def _is_missing_table(status_code: int, detail: str) -> bool:
 def _query_sensor_table(sensor_id: str, limit: int) -> list[dict]:
     table = nats_store.sensor_subject(sensor_id)
     query = (
-        'SELECT time, reading_json '
+        "SELECT time, reading_json "
         f'FROM "{table}" '
         "ORDER BY time DESC "
         f"LIMIT {limit}"
@@ -34,9 +34,13 @@ def _query_sensor_table(sensor_id: str, limit: int) -> list[dict]:
         detail = exc.read().decode("utf-8", errors="replace")
         if _is_missing_table(exc.code, detail):
             return []
-        raise RuntimeError(f"InfluxDB query failed with status {exc.code}: {detail}") from exc
+        raise RuntimeError(
+            f"InfluxDB query failed with status {exc.code}: {detail}"
+        ) from exc
     except URLError as exc:
-        raise RuntimeError(f"Unable to connect to InfluxDB at {settings.INFLUXDB_URL}: {exc}") from exc
+        raise RuntimeError(
+            f"Unable to connect to InfluxDB at {settings.INFLUXDB_URL}: {exc}"
+        ) from exc
 
 
 def _reading_from_row(row: dict) -> dict:

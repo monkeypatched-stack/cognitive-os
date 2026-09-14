@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from src.monkey_brain.kernel.predict.optimizer.base import ISolver, SolverClass, SolverResult
+from src.monkey_brain.kernel.predict.optimizer.base import (
+    ISolver,
+    SolverClass,
+    SolverResult,
+)
 
 
 class OptimizerSolver(ISolver):
     """Mathematical optimization solver using gradient descent."""
+
     name = "optimizer"
     solver_class = SolverClass.OPTIMIZER
 
@@ -46,9 +51,14 @@ class OptimizerSolver(ISolver):
                 best = dict(current)
 
         return SolverResult(
-            solver_name=self.name, solver_class=self.solver_class,
-            solution={"optimal": True, "value": best_value, "variables": best,
-                      "iterations": iterations},
+            solver_name=self.name,
+            solver_class=self.solver_class,
+            solution={
+                "optimal": True,
+                "value": best_value,
+                "variables": best,
+                "iterations": iterations,
+            },
             confidence=0.85,
             proof=f"Optimizer converged after {iterations} iterations, value={best_value:.4f}",
         )

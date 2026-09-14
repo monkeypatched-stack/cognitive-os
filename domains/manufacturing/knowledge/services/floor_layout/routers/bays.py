@@ -17,6 +17,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedBayResponse)
 async def list_bays(
     page: int = Query(1, ge=1),
@@ -34,6 +35,7 @@ async def list_bays(
 
 
 # ── Hierarchy Queries ─────────────────────────────────────────────────────────
+
 
 @router.get("/by-room/{room_id}", response_model=list[BayResponse])
 async def list_bays_by_room(
@@ -73,6 +75,7 @@ async def list_bays_by_facility(
 
 # ── Get One ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/{bay_id}", response_model=BayResponse)
 async def get_bay(
     bay_id: str,
@@ -90,6 +93,7 @@ async def get_bay(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 @router.post("/", response_model=BayResponse, status_code=status.HTTP_201_CREATED)
 async def create_bay(
     data: BayCreate,
@@ -105,6 +109,7 @@ async def create_bay(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{bay_id}", response_model=BayResponse)
 async def update_bay(
@@ -123,6 +128,7 @@ async def update_bay(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{bay_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_bay(

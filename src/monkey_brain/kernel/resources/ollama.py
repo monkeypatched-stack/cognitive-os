@@ -3,6 +3,7 @@ server, mirroring the exact TCP-connect pattern already used by
 broca/agents/specification_discovery_agent.py's _ollama_available() and
 sittingface/codegen_agent.py's OllamaClient/_try_ollama probing.
 """
+
 from __future__ import annotations
 
 import os
@@ -46,7 +47,9 @@ class OllamaResource:
                 return ResourceHealth(name=self.name, state=ResourceState.READY, required=False)
         except Exception as exc:
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name,
+                state=ResourceState.UNAVAILABLE,
                 reason=f"Cannot reach Ollama at {host}:{port}: {exc}",
-                category=ErrorCategory.NETWORK, required=False,
+                category=ErrorCategory.NETWORK,
+                required=False,
             )

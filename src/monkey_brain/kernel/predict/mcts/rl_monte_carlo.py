@@ -28,6 +28,7 @@ When the transition table is empty (cold start) every rollout is deterministic
 and mc_value collapses to the plain discounted Q-sum — which degrades gracefully
 to Bellman-only behaviour.
 """
+
 from __future__ import annotations
 
 
@@ -37,7 +38,10 @@ from dataclasses import dataclass
 from statistics import mean, stdev
 from typing import TYPE_CHECKING, Any
 
-from src.monkey_brain.kernel.fix.policy.transition import ReadOnlyTransitionView, hash_state
+from src.monkey_brain.kernel.fix.policy.transition import (
+    ReadOnlyTransitionView,
+    hash_state,
+)
 from src.monkey_brain.kernel.fix.policy.consensus import ProvenanceTracker
 
 if TYPE_CHECKING:
@@ -47,42 +51,43 @@ if TYPE_CHECKING:
 logger = logging.getLogger("monkey_brain.rl.monte_carlo")
 
 _DEFAULT_N_ROLLOUTS = 32
-_DEFAULT_MAX_DEPTH  = 10
-_DEFAULT_W_Q        = 0.30   # weight: Bellman Q-value
-_DEFAULT_W_MC       = 0.50   # weight: MC rollout mean
-_DEFAULT_W_CONF     = 0.20   # weight: LLM confidence
-_DEFAULT_W_VAR      = 0.10   # penalty: rollout std dev
+_DEFAULT_MAX_DEPTH = 10
+_DEFAULT_W_Q = 0.30  # weight: Bellman Q-value
+_DEFAULT_W_MC = 0.50  # weight: MC rollout mean
+_DEFAULT_W_CONF = 0.20  # weight: LLM confidence
+_DEFAULT_W_VAR = 0.10  # penalty: rollout std dev
 
 
 @dataclass
 class RankedCandidate:
     """A workload candidate annotated with Monte Carlo simulation results."""
-    workload:            "Workload"
-    candidate:           "WorkflowCandidate"
-    q_value:             float   # Q(state, first_step_capability) — historical signal
-    mc_value:            float   # mean discounted return across rollouts
-    mc_std:              float   # rollout standard deviation
-    mc_ucb:              float   # optimistic upper confidence bound
-    llm_confidence:      float   # explorer's self-assessed probability
-    combined_score:      float   # final ranking score fed to the policy
-    rollouts_run:        int
+
+    workload: "Workload"
+    candidate: "WorkflowCandidate"
+    q_value: float  # Q(state, first_step_capability) — historical signal
+    mc_value: float  # mean discounted return across rollouts
+    mc_std: float  # rollout standard deviation
+    mc_ucb: float  # optimistic upper confidence bound
+    llm_confidence: float  # explorer's self-assessed probability
+    combined_score: float  # final ranking score fed to the policy
+    rollouts_run: int
     real_trace_fraction: float = 0.0  # fraction of Q-updates backed by real executed traces
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "workload_id":         self.workload.workload_id,
-            "candidate_name":      self.candidate.name,
-            "candidate_id":        self.candidate.candidate_id,
-            "source":              self.candidate.source,
-            "q_value":             round(self.q_value, 6),
-            "mc_value":            round(self.mc_value, 6),
-            "mc_std":              round(self.mc_std, 6),
-            "mc_ucb":              round(self.mc_ucb, 6),
-            "llm_confidence":      round(self.llm_confidence, 4),
-            "combined_score":      round(self.combined_score, 6),
-            "rollouts_run":        self.rollouts_run,
+            "workload_id": self.workload.workload_id,
+            "candidate_name": self.candidate.name,
+            "candidate_id": self.candidate.candidate_id,
+            "source": self.candidate.source,
+            "q_value": round(self.q_value, 6),
+            "mc_value": round(self.mc_value, 6),
+            "mc_std": round(self.mc_std, 6),
+            "mc_ucb": round(self.mc_ucb, 6),
+            "llm_confidence": round(self.llm_confidence, 4),
+            "combined_score": round(self.combined_score, 6),
+            "rollouts_run": self.rollouts_run,
             "real_trace_fraction": round(self.real_trace_fraction, 4),
-            "step_count":          len(self.candidate.steps),
+            "step_count": len(self.candidate.steps),
         }
 
 
@@ -111,19 +116,19 @@ class MonteCarloPlanner:
     def __init__(
         self,
         n_rollouts: int = _DEFAULT_N_ROLLOUTS,
-        max_depth:  int = _DEFAULT_MAX_DEPTH,
-        w_q:        float = _DEFAULT_W_Q,
-        w_mc:       float = _DEFAULT_W_MC,
-        w_conf:     float = _DEFAULT_W_CONF,
-        w_var:      float = _DEFAULT_W_VAR,
+        max_depth: int = _DEFAULT_MAX_DEPTH,
+        w_q: float = _DEFAULT_W_Q,
+        w_mc: float = _DEFAULT_W_MC,
+        w_conf: float = _DEFAULT_W_CONF,
+        w_var: float = _DEFAULT_W_VAR,
         exploration_constant: float = 0.1,
     ) -> None:
-        self.n_rollouts           = n_rollouts
-        self.max_depth            = max_depth
-        self.w_q                  = w_q
-        self.w_mc                 = w_mc
-        self.w_conf               = w_conf
-        self.w_var                = w_var
+        self.n_rollouts = n_rollouts
+        self.max_depth = max_depth
+        self.w_q = w_q
+        self.w_mc = w_mc
+        self.w_conf = w_conf
+        self.w_var = w_var
         self.exploration_constant = exploration_constant
 
         self._total_rollouts: int = 0
@@ -135,13 +140,13 @@ class MonteCarloPlanner:
 
     def simulate(
         self,
-        candidates:           list["WorkflowCandidate"],
-        workloads:            list["Workload"],
-        initial_state:        dict[str, Any],
-        q_table:              dict[tuple[str, str], float],
-        transition_table:     ReadOnlyTransitionView,
-        gamma:                float = 0.95,
-        provenance:           ProvenanceTracker | None = None,
+        candidates: list["WorkflowCandidate"],
+        workloads: list["Workload"],
+        initial_state: dict[str, Any],
+        q_table: dict[tuple[str, str], float],
+        transition_table: ReadOnlyTransitionView,
+        gamma: float = 0.95,
+        provenance: ProvenanceTracker | None = None,
         grounding_confidence: float = 1.0,
     ) -> list[RankedCandidate]:
         """Run MC rollouts for every candidate and return them ranked best-first.
@@ -157,17 +162,21 @@ class MonteCarloPlanner:
             return []
 
         if len(candidates) != len(workloads):
-            raise ValueError(
-                f"candidates ({len(candidates)}) and workloads ({len(workloads)}) must be same length"
-            )
+            raise ValueError(f"candidates ({len(candidates)}) and workloads ({len(workloads)}) must be same length")
 
         state_hash_init = hash_state(initial_state)
         ranked: list[RankedCandidate] = []
 
         for candidate, workload in zip(candidates, workloads):
             rc = self._rank_candidate(
-                candidate, workload, initial_state, state_hash_init,
-                q_table, transition_table, gamma, provenance,
+                candidate,
+                workload,
+                initial_state,
+                state_hash_init,
+                q_table,
+                transition_table,
+                gamma,
+                provenance,
                 grounding_confidence=grounding_confidence,
             )
             ranked.append(rc)
@@ -179,8 +188,13 @@ class MonteCarloPlanner:
             for i, r in enumerate(ranked):
                 logger.debug(
                     "MC rank %d: %s  score=%.4f  mc=%.4f±%.4f  q=%.4f  conf=%.2f",
-                    i + 1, r.candidate.name, r.combined_score,
-                    r.mc_value, r.mc_std, r.q_value, r.llm_confidence,
+                    i + 1,
+                    r.candidate.name,
+                    r.combined_score,
+                    r.mc_value,
+                    r.mc_std,
+                    r.q_value,
+                    r.llm_confidence,
                 )
 
         return ranked
@@ -191,14 +205,14 @@ class MonteCarloPlanner:
 
     def _rank_candidate(
         self,
-        candidate:            "WorkflowCandidate",
-        workload:             "Workload",
-        initial_state:        dict[str, Any],
-        state_hash_init:      str,
-        q_table:              dict[tuple[str, str], float],
-        transition_table:     ReadOnlyTransitionView,
-        gamma:                float,
-        provenance:           ProvenanceTracker | None = None,
+        candidate: "WorkflowCandidate",
+        workload: "Workload",
+        initial_state: dict[str, Any],
+        state_hash_init: str,
+        q_table: dict[tuple[str, str], float],
+        transition_table: ReadOnlyTransitionView,
+        gamma: float,
+        provenance: ProvenanceTracker | None = None,
         grounding_confidence: float = 1.0,
     ) -> RankedCandidate:
         step_actions = [s.capability_name for s in workload.steps][: self.max_depth]
@@ -206,43 +220,38 @@ class MonteCarloPlanner:
         # Q-value: keyed by first-step capability (matches what BellmanPolicy.update()
         # stores via transition.action = capability_name).
         first_action = step_actions[0] if step_actions else workload.workload_id
-        q_value      = q_table.get((state_hash_init, first_action), 0.0)
+        q_value = q_table.get((state_hash_init, first_action), 0.0)
 
         # Real-trace fraction for the first step's Q-value — tells the consensus gate
         # how much authority this Q estimate actually has.
-        real_trace_fraction = (
-            provenance.real_trace_fraction(state_hash_init, first_action)
-            if provenance else 0.0
-        )
+        real_trace_fraction = provenance.real_trace_fraction(state_hash_init, first_action) if provenance else 0.0
 
         if not step_actions:
             return self._zero_ranked(candidate, workload, q_value, real_trace_fraction)
 
         returns: list[float] = []
         for _ in range(self.n_rollouts):
-            r = self._rollout(
-                step_actions, initial_state, q_table, transition_table, gamma
-            )
+            r = self._rollout(step_actions, initial_state, q_table, transition_table, gamma)
             returns.append(r)
 
         self._total_rollouts += len(returns)
 
         mc_value = mean(returns)
-        mc_std   = stdev(returns) if len(returns) >= 2 else 0.0
-        mc_ucb   = mc_value + self.exploration_constant * mc_std
+        mc_std = stdev(returns) if len(returns) >= 2 else 0.0
+        mc_ucb = mc_value + self.exploration_constant * mc_std
 
         # When grounding_confidence is low the knowledge pack doesn't cover this
         # planning context well — MC rollouts are speculative.  Shift weight from
         # w_mc (simulation-based) toward w_q (empirically grounded real transitions).
         gc = max(0.0, min(1.0, grounding_confidence))
         effective_w_mc = self.w_mc * gc
-        effective_w_q  = self.w_q  + self.w_mc * (1.0 - gc)
+        effective_w_q = self.w_q + self.w_mc * (1.0 - gc)
 
         combined = (
-            effective_w_q  * q_value
+            effective_w_q * q_value
             + effective_w_mc * mc_value
-            + self.w_conf    * candidate.confidence
-            - self.w_var     * mc_std
+            + self.w_conf * candidate.confidence
+            - self.w_var * mc_std
         )
 
         return RankedCandidate(
@@ -260,20 +269,20 @@ class MonteCarloPlanner:
 
     def _rollout(
         self,
-        step_actions:     list[str],
-        initial_state:    dict[str, Any],
-        q_table:          dict[tuple[str, str], float],
+        step_actions: list[str],
+        initial_state: dict[str, Any],
+        q_table: dict[tuple[str, str], float],
         transition_table: ReadOnlyTransitionView,
-        gamma:            float,
+        gamma: float,
     ) -> float:
-        state    = dict(initial_state)
-        total    = 0.0
+        state = dict(initial_state)
+        total = 0.0
         discount = 1.0
 
         for action in step_actions:
-            sh   = hash_state(state)
-            q_i  = q_table.get((sh, action), 0.0)
-            total   += discount * q_i
+            sh = hash_state(state)
+            q_i = q_table.get((sh, action), 0.0)
+            total += discount * q_i
             discount *= gamma
 
             # Sample next state from empirical transition model
@@ -289,9 +298,9 @@ class MonteCarloPlanner:
 
     def _zero_ranked(
         self,
-        candidate:           "WorkflowCandidate",
-        workload:            "Workload",
-        q_value:             float,
+        candidate: "WorkflowCandidate",
+        workload: "Workload",
+        q_value: float,
         real_trace_fraction: float = 0.0,
     ) -> RankedCandidate:
         combined = self.w_q * q_value + self.w_conf * candidate.confidence
@@ -314,10 +323,15 @@ class MonteCarloPlanner:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "n_rollouts":          self.n_rollouts,
-            "max_depth":           self.max_depth,
-            "weights":             {"q": self.w_q, "mc": self.w_mc, "conf": self.w_conf, "var": self.w_var},
+            "n_rollouts": self.n_rollouts,
+            "max_depth": self.max_depth,
+            "weights": {
+                "q": self.w_q,
+                "mc": self.w_mc,
+                "conf": self.w_conf,
+                "var": self.w_var,
+            },
             "exploration_constant": self.exploration_constant,
-            "total_simulations":   self._total_simulations,
-            "total_rollouts":      self._total_rollouts,
+            "total_simulations": self._total_simulations,
+            "total_rollouts": self._total_rollouts,
         }

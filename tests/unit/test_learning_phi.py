@@ -25,7 +25,9 @@ from src.monkey_brain.kernel.pipeline.learning.phi import (
     compile_phi,
     phi_to_dict,
 )
-from src.monkey_brain.kernel.pipeline.learning.policies import ReinforcementLearningPolicy
+from src.monkey_brain.kernel.pipeline.learning.policies import (
+    ReinforcementLearningPolicy,
+)
 from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
 
 
@@ -103,10 +105,14 @@ class TestGoalSignature:
         in CapabilityPromotionTracker's streaks — see domain.py's
         scoped_goal_signature docstring."""
         acme = LearningExperience(
-            goal="g", metadata={"goal_name": "acquire_milk"}, provenance=Provenance(tenant_id="acme")
+            goal="g",
+            metadata={"goal_name": "acquire_milk"},
+            provenance=Provenance(tenant_id="acme"),
         )
         globex = LearningExperience(
-            goal="g", metadata={"goal_name": "acquire_milk"}, provenance=Provenance(tenant_id="globex")
+            goal="g",
+            metadata={"goal_name": "acquire_milk"},
+            provenance=Provenance(tenant_id="globex"),
         )
         assert compile_phi(acme, LearningResult()).goal_signature == "acme::acquire_milk"
         assert compile_phi(globex, LearningResult()).goal_signature == "globex::acquire_milk"
@@ -294,7 +300,12 @@ class TestOwnershipBoundary:
         import src.monkey_brain.kernel.pipeline.learning.phi as mod
 
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "belief_state", "execution_state", "action_executor"):
+        for forbidden in (
+            "belief_runtime",
+            "belief_state",
+            "execution_state",
+            "action_executor",
+        ):
             assert forbidden not in imports, f"phi.py must not import: {forbidden}"
 
     def test_depends_only_on_learning_domain(self):

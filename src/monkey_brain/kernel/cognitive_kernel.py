@@ -17,6 +17,7 @@ Architecture:
     ├── Agent Mesh Runtime
     └── Repair Engine (LossDrivenRepair)
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,7 +36,9 @@ from cortex.reasoning_scheduler import ReasoningScheduler
 from .loss_decomposer import LossDecomposer
 from .loss_driven_repair import LossDrivenRepair
 from domains.software_engineering.knowledge.telemetry import EngineeringReport
-from domains.software_engineering.knowledge.pack import SoftwareEngineeringKnowledgePublisher
+from domains.software_engineering.knowledge.pack import (
+    SoftwareEngineeringKnowledgePublisher,
+)
 from .capability_interface import ICapability, CapabilityResult
 from .execute.capabilities.bus import CapabilityBus
 from .config import (
@@ -52,6 +55,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Cognitive Kernel
 # ---------------------------------------------------------------------------
+
 
 class CognitiveKernel:
     """The unified epistemic optimizer.
@@ -74,6 +78,7 @@ class CognitiveKernel:
         # Broca AgentMesh — EPA topology layer providing M_t
         try:
             from broca.mesh import AgentMesh as BrocaMesh
+
             self._broca_mesh = BrocaMesh()
         except Exception as e:
             logger.debug("Broca mesh unavailable: %s", e)
@@ -82,6 +87,7 @@ class CognitiveKernel:
         # Primary EPA state (E_t = S, B, A, M)
         try:
             from cerebellum.graph import get_global_graph
+
             self.state: EpistemicPredictiveState = EpistemicPredictiveState.from_world_state(
                 {},
                 capability_graph=get_global_graph(),
@@ -154,6 +160,7 @@ class CognitiveKernel:
         cap_graph = None
         try:
             from cerebellum.graph import get_global_graph
+
             cap_graph = get_global_graph()
         except Exception as e:
             logger.debug("Cerebellum graph unavailable for evidence: %s", e)
@@ -180,8 +187,11 @@ class CognitiveKernel:
         try:
             kp_fusion = self.knowledge_pack.fuse()
             actual_quality = float(
-                getattr(kp_fusion, "effective_knowledge",
-                        getattr(kp_fusion, "updated_confidence", E_next.B.confidence))
+                getattr(
+                    kp_fusion,
+                    "effective_knowledge",
+                    getattr(kp_fusion, "updated_confidence", E_next.B.confidence),
+                )
             )
             l_k = round(max(0.0, float(E_next.B.confidence) - actual_quality), 4)
         except Exception as e:
@@ -201,12 +211,25 @@ class CognitiveKernel:
 
         try:
             loss_dict = epa_loss(
-                E_next, self.state, world_model=self._jepa, l_k=l_k,
-                goal_progress=goal_progress, constraint_violations=constraint_violations,
+                E_next,
+                self.state,
+                world_model=self._jepa,
+                l_k=l_k,
+                goal_progress=goal_progress,
+                constraint_violations=constraint_violations,
             )
         except Exception as e:
             logger.warning("epa_loss failed: %s — defaulting to zero loss", e)
-            loss_dict = {"L_S": 0, "L_B": 0, "L_A": 0, "L_M": 0, "L_K": 0, "L_C": 0, "L_G": 0, "L_E": 0}
+            loss_dict = {
+                "L_S": 0,
+                "L_B": 0,
+                "L_A": 0,
+                "L_M": 0,
+                "L_K": 0,
+                "L_C": 0,
+                "L_G": 0,
+                "L_E": 0,
+            }
 
         # 8. Learning loop update
         await self._update_learning(self.state, E_next, action, evidence, loss_dict)
@@ -218,7 +241,9 @@ class CognitiveKernel:
             if l_k > 0.1:
                 candidates = list(self.state.B.knowledge)
                 retrieval_decision = self.retrieval_policy.evaluate(
-                    self.knowledge_pack, candidates, loss_dict.get("L_E", 0),
+                    self.knowledge_pack,
+                    candidates,
+                    loss_dict.get("L_E", 0),
                 )
                 if retrieval_decision.should_retrieve:
                     # Actually fetch and add retrieved items to KnowledgePack
@@ -237,7 +262,10 @@ class CognitiveKernel:
                 spec_id=f"step-{self._step}",
                 goal=self._goal.objective,
                 domain="runtime",
-                benchmark_results={"L_E": loss_dict.get("L_E", 0), "confidence": E_next.B.confidence},
+                benchmark_results={
+                    "L_E": loss_dict.get("L_E", 0),
+                    "confidence": E_next.B.confidence,
+                },
                 workflow_topology=[action],
                 confidence=E_next.B.confidence,
             )
@@ -247,9 +275,19 @@ class CognitiveKernel:
         # 9. Loss-driven repair — Mode B only (runtime domains)
         l_e = loss_dict.get("L_E", 0.0)
         is_runtime = execution_mode == "runtime" or (
-            execution_mode == "auto" and self._goal.objective and
-            not any(kw in self._goal.objective.lower() for kw in
-                    ("generate", "build", "create", "compile", "codegen", "service"))
+            execution_mode == "auto"
+            and self._goal.objective
+            and not any(
+                kw in self._goal.objective.lower()
+                for kw in (
+                    "generate",
+                    "build",
+                    "create",
+                    "compile",
+                    "codegen",
+                    "service",
+                )
+            )
         )
         if is_runtime and l_e > self.repair_engine.loss_threshold and self._step > 1:
             try:
@@ -271,10 +309,7 @@ class CognitiveKernel:
                             sum(self._transition_quality[-10:]) / max(len(self._transition_quality[-10:]), 1)
                         ),
                     },
-                    "runtime_errors": [
-                        e for e in self._history[-5:]
-                        if not e.get("capability_success", True)
-                    ],
+                    "runtime_errors": [e for e in self._history[-5:] if not e.get("capability_success", True)],
                 }
                 repair_report = self.repair_engine.run(
                     initial_loss=l_e,
@@ -315,7 +350,7 @@ class CognitiveKernel:
 
         self._history.append(step_result)
         if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
+            self._history = self._history[-self._max_history :]
         return step_result
 
     async def _update_learning(
@@ -339,14 +374,12 @@ class CognitiveKernel:
 
         # 2. Per-capability utility tracking (EMA of 1 - L_E per action)
         prev = self._capability_utility.get(action, 1.0)
-        self._capability_utility[action] = round(
-            (1 - LEARNING_RATE) * prev + LEARNING_RATE * (1.0 - l_e), 4
-        )
+        self._capability_utility[action] = round((1 - LEARNING_RATE) * prev + LEARNING_RATE * (1.0 - l_e), 4)
 
         # 3. Transition model quality — track L_E over time
         self._transition_quality.append(l_e)
         if len(self._transition_quality) > self._max_quality:
-            self._transition_quality = self._transition_quality[-self._max_quality:]
+            self._transition_quality = self._transition_quality[-self._max_quality :]
 
         # 4. Planner policy — goal-conditioned action selection improves over time.
         # This passed (objective, action, l_e) against update(plan_id, reward,
@@ -361,16 +394,14 @@ class CognitiveKernel:
         except Exception as e:
             logger.warning("Planner policy update failed for action=%r: %s", action, e)
 
-    def _build_evidence(
-        self, action: str, cap_result: CapabilityResult | None
-    ) -> dict[str, Any]:
+    def _build_evidence(self, action: str, cap_result: CapabilityResult | None) -> dict[str, Any]:
         """Construct evidence dict from capability execution result."""
         if cap_result is None:
             return {}
         return {
             "converged": cap_result.success,
             "action": action,
-            "confidence_delta": CONFIDENCE_DELTA_SUCCESS if cap_result.success else CONFIDENCE_DELTA_FAILURE,
+            "confidence_delta": (CONFIDENCE_DELTA_SUCCESS if cap_result.success else CONFIDENCE_DELTA_FAILURE),
             "knowledge_loss": 0.0 if cap_result.success else KNOWLEDGE_LOSS_ON_FAILURE,
             "constraint_violations": 0 if cap_result.success else 1,
             "findings_count": 0 if cap_result.success else 1,
@@ -386,7 +417,11 @@ class CognitiveKernel:
         """Register a capability with the bus."""
         self.capability_bus.register_capability(cap)
 
-    def spawn_agent(self, role: AgentRole = AgentRole.WORKER, required_capabilities: list[str] | None = None) -> None:
+    def spawn_agent(
+        self,
+        role: AgentRole = AgentRole.WORKER,
+        required_capabilities: list[str] | None = None,
+    ) -> None:
         """Spawn an agent in the mesh with optional capability auto-discovery."""
         spec = AgentSpec(role=role, required_capabilities=required_capabilities or [])
         self.execution_pool.spawn(spec, capability_bus=self.capability_bus)

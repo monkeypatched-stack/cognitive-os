@@ -10,6 +10,7 @@ Transport serialization belongs to the runtime.
 Business objects belong to the capability.
 Presentation formatting belongs to the interface layer.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -27,6 +28,7 @@ class ResponseStatus(str, Enum):
 @dataclass
 class AgentResponse:
     """Standardized response from any agent execution."""
+
     answer: str
     success: bool = True
     status: ResponseStatus = ResponseStatus.SUCCESS
@@ -53,6 +55,7 @@ class AgentResponse:
 @dataclass
 class TaskResponse(AgentResponse):
     """Response for task-related agents."""
+
     tasks: list[dict[str, Any]] = field(default_factory=list)
     task_count: int = 0
 
@@ -66,6 +69,7 @@ class TaskResponse(AgentResponse):
 @dataclass
 class BlogResponse(AgentResponse):
     """Response for blog/writing agents."""
+
     article: str = ""
     word_count: int = 0
     sections: list[str] = field(default_factory=list)
@@ -81,6 +85,7 @@ class BlogResponse(AgentResponse):
 @dataclass
 class ErrorResponse(AgentResponse):
     """Standardized error response."""
+
     error_code: str = ""
     error_detail: str = ""
 

@@ -3,7 +3,10 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.shipping.models.shipping_provider_details import ShippingProviderDetailsCreate, ShippingProviderDetailsUpdate
+from services.shipping.models.shipping_provider_details import (
+    ShippingProviderDetailsCreate,
+    ShippingProviderDetailsUpdate,
+)
 
 COLLECTION = "shipping_provider_details"
 
@@ -16,7 +19,9 @@ def _serialize(doc: Optional[dict]) -> Optional[dict]:
     return doc
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -28,7 +33,9 @@ async def get_by_id(db: AsyncIOMotorDatabase, provider_id: str) -> Optional[dict
 
 
 async def get_by_name(db: AsyncIOMotorDatabase, provider_name: str) -> list[dict]:
-    cursor = db[COLLECTION].find({"provider_name": {"$regex": provider_name, "$options": "i"}})
+    cursor = db[COLLECTION].find(
+        {"provider_name": {"$regex": provider_name, "$options": "i"}}
+    )
     return [_serialize(d) async for d in cursor]
 
 

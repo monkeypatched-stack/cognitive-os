@@ -15,11 +15,14 @@ functions' own comments for exactly where.
 Same in-process Action-tuple + ActionExecutor style as
 test_world_mutation.py — deterministic, no LLM planner dependency.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.grocery import negotiate_price
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
@@ -35,16 +38,38 @@ BUYER_TARGET_PRICE = 3.20
 def _seed_world():
     kg = KnowledgeGraph()
     store_id = onboard_merchant(kg, "merchant_a", "Trader Joe's", delivery_fee=1.99)["store_id"]
-    milk_id = list_product(kg, store_id, "merchant_a", "Milk", price=LISTED_PRICE, quantity=5, store_name="Trader Joe's")["product_id"]
-    kg.add_entity("wallet_1", EntityType.ACCOUNT, "Wallet", {"account_type": "debit", "balance": 100.0, "owner": ACTOR_ID})
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {"type": "payment_processor", "priority": 0})
+    milk_id = list_product(
+        kg,
+        store_id,
+        "merchant_a",
+        "Milk",
+        price=LISTED_PRICE,
+        quantity=5,
+        store_name="Trader Joe's",
+    )["product_id"]
+    kg.add_entity(
+        "wallet_1",
+        EntityType.ACCOUNT,
+        "Wallet",
+        {"account_type": "debit", "balance": 100.0, "owner": ACTOR_ID},
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {"type": "payment_processor", "priority": 0},
+    )
     return kg, milk_id
 
 
 @pytest.mark.asyncio
 async def test_agreed_negotiation_changes_what_order_creation_actually_charges():
     kg, milk_id = _seed_world()
-    context = {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "negotiate milk down, then buy it"}
+    context = {
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "negotiate milk down, then buy it",
+    }
     executor = build_execution_engine("grocery")
 
     expected_deal = negotiate_price(LISTED_PRICE, MIN_SELLER_PRICE, BUYER_TARGET_PRICE)
@@ -52,14 +77,31 @@ async def test_agreed_negotiation_changes_what_order_creation_actually_charges()
     assert expected_deal["price"] < LISTED_PRICE, "test setup must produce a genuinely lower price"
 
     actions = (
-        Action(action_id="a0", capability="ProductSelection", step_index=0,
-               parameters={"selection": [{"id": milk_id, "qty": 1}]}),
-        Action(action_id="a1", capability="NegotiatePrice", step_index=1, depends_on=(0,), parameters={
-            "listed_price": LISTED_PRICE, "min_seller_price": MIN_SELLER_PRICE,
-            "buyer_target_price": BUYER_TARGET_PRICE, "product_id": milk_id,
-        }),
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            parameters={"selection": [{"id": milk_id, "qty": 1}]},
+        ),
+        Action(
+            action_id="a1",
+            capability="NegotiatePrice",
+            step_index=1,
+            depends_on=(0,),
+            parameters={
+                "listed_price": LISTED_PRICE,
+                "min_seller_price": MIN_SELLER_PRICE,
+                "buyer_target_price": BUYER_TARGET_PRICE,
+                "product_id": milk_id,
+            },
+        ),
         Action(action_id="a2", capability="OrderCreation", step_index=2, depends_on=(0, 1)),
-        Action(action_id="a3", capability="PaymentConfirmation", step_index=3, depends_on=(2,)),
+        Action(
+            action_id="a3",
+            capability="PaymentConfirmation",
+            step_index=3,
+            depends_on=(2,),
+        ),
         Action(action_id="a4", capability="Payment", step_index=4, depends_on=(3,)),
     )
 
@@ -88,16 +130,31 @@ async def test_negotiation_without_product_id_is_reported_but_not_applied():
     negotiation with no purchase to follow) — it must not accidentally
     override an unrelated cart item's price."""
     kg, milk_id = _seed_world()
-    context = {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "just tell me the negotiated price"}
+    context = {
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "just tell me the negotiated price",
+    }
     executor = build_execution_engine("grocery")
 
     actions = (
-        Action(action_id="a0", capability="ProductSelection", step_index=0,
-               parameters={"selection": [{"id": milk_id, "qty": 1}]}),
-        Action(action_id="a1", capability="NegotiatePrice", step_index=1, depends_on=(0,), parameters={
-            "listed_price": LISTED_PRICE, "min_seller_price": MIN_SELLER_PRICE,
-            "buyer_target_price": BUYER_TARGET_PRICE,
-        }),
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            parameters={"selection": [{"id": milk_id, "qty": 1}]},
+        ),
+        Action(
+            action_id="a1",
+            capability="NegotiatePrice",
+            step_index=1,
+            depends_on=(0,),
+            parameters={
+                "listed_price": LISTED_PRICE,
+                "min_seller_price": MIN_SELLER_PRICE,
+                "buyer_target_price": BUYER_TARGET_PRICE,
+            },
+        ),
         Action(action_id="a2", capability="OrderCreation", step_index=2, depends_on=(0, 1)),
     )
 

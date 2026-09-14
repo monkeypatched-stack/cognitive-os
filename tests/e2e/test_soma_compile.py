@@ -23,6 +23,7 @@ AGENTOS_URL = os.getenv("AGENTOS_URL", "http://localhost:8031")
 def _reachable(url: str) -> bool:
     try:
         import httpx
+
         return httpx.get(f"{url}/health", timeout=3.0).status_code < 500
     except Exception:
         return False
@@ -30,12 +31,14 @@ def _reachable(url: str) -> bool:
 
 # ── Unit tests (no network) ───────────────────────────────────────────────────
 
+
 class TestSomaticCompilerUnit:
     """Direct SomaticCompiler tests — no running services required."""
 
     @pytest.fixture(scope="class")
     def compiler(self):
         from sittingface.somatic_compiler import SomaticCompiler
+
         c = SomaticCompiler()
         c.load_all()
         return c
@@ -49,8 +52,11 @@ class TestSomaticCompilerUnit:
     def test_charts_have_required_fields(self, compiler):
         for chart in compiler.charts:
             assert chart.name, f"Chart missing name: {chart}"
-            assert chart.chart_type in ("module", "capability", "agent"), \
-                f"Unknown chart_type '{chart.chart_type}' in {chart.name}"
+            assert chart.chart_type in (
+                "module",
+                "capability",
+                "agent",
+            ), f"Unknown chart_type '{chart.chart_type}' in {chart.name}"
             assert chart.values, f"Chart {chart.name} has empty values"
 
     def test_compile_prompts_returns_list(self, compiler):
@@ -82,8 +88,7 @@ class TestSomaticCompilerUnit:
         s = compiler.summary()
         by_type = s["by_type"]
         total = sum(by_type.values())
-        assert total == s["total_charts"], \
-            f"by_type sum {total} != total_charts {s['total_charts']}"
+        assert total == s["total_charts"], f"by_type sum {total} != total_charts {s['total_charts']}"
 
     def test_capability_charts_loaded(self, compiler):
         caps = [c for c in compiler.charts if c.chart_type == "capability"]
@@ -101,12 +106,11 @@ class TestSomaticCompilerUnit:
         prompts = compiler.compile_prompts()
         chart_names = {c.name for c in compiler.charts}
         for p in prompts:
-            assert p.chart_name in chart_names, \
-                f"Prompt references unknown chart: {p.chart_name}"
+            assert p.chart_name in chart_names, f"Prompt references unknown chart: {p.chart_name}"
 
     def test_idempotent_compile(self, compiler):
         """Compiling twice returns the same number of prompts."""
-        first  = len(compiler.compile_prompts())
+        first = len(compiler.compile_prompts())
         second = len(compiler.compile_prompts())
         assert first == second
 
@@ -136,8 +140,7 @@ class TestSomaticCompilerUnit:
         written = compiler.write_prompts(tmp_path)
         for path, prompt in zip(written, compiler.prompts):
             content = path.read_text()
-            assert prompt.chart_name in content, \
-                f"{path.name} missing chart_name header"
+            assert prompt.chart_name in content, f"{path.name} missing chart_name header"
 
     def test_written_files_contain_cot_steps(self, compiler, tmp_path):
         compiler.compile_prompts()
@@ -145,8 +148,7 @@ class TestSomaticCompilerUnit:
         for path, prompt in zip(written, compiler.prompts):
             if prompt.cot_steps:
                 content = path.read_text()
-                assert "Chain of Thought" in content, \
-                    f"{path.name} missing CoT section"
+                assert "Chain of Thought" in content, f"{path.name} missing CoT section"
 
     def test_written_files_contain_preamble(self, compiler, tmp_path):
         compiler.compile_prompts()
@@ -154,8 +156,7 @@ class TestSomaticCompilerUnit:
         for path, prompt in zip(written, compiler.prompts):
             if prompt.preamble:
                 content = path.read_text()
-                assert "Preamble" in content, \
-                    f"{path.name} missing Preamble section"
+                assert "Preamble" in content, f"{path.name} missing Preamble section"
 
     def test_written_files_with_constraints_have_frontmatter(self, compiler, tmp_path):
         compiler.compile_prompts()
@@ -163,13 +164,12 @@ class TestSomaticCompilerUnit:
         for path, prompt in zip(written, compiler.prompts):
             if prompt.constraints:
                 content = path.read_text()
-                assert content.startswith("---"), \
-                    f"{path.name} has constraints but no YAML frontmatter"
+                assert content.startswith("---"), f"{path.name} has constraints but no YAML frontmatter"
 
     def test_write_prompts_idempotent(self, compiler, tmp_path):
         """Writing twice produces the same files (no duplicates)."""
         compiler.compile_prompts()
-        first  = compiler.write_prompts(tmp_path)
+        first = compiler.write_prompts(tmp_path)
         second = compiler.write_prompts(tmp_path)
         assert len(first) == len(second)
         assert {p.name for p in first} == {p.name for p in second}
@@ -178,14 +178,14 @@ class TestSomaticCompilerUnit:
         compiler.compile_prompts()
         written = compiler.write_prompts(tmp_path)
         files = list(tmp_path.glob("*.prompt.md"))
-        assert len(files) == len(compiler.prompts), \
-            f"Expected {len(compiler.prompts)} files, found {len(files)}"
+        assert len(files) == len(compiler.prompts), f"Expected {len(compiler.prompts)} files, found {len(files)}"
 
     # ── load_path tests ──────────────────────────────────────────────────────
 
     def test_load_path_single_file(self, tmp_path):
         """load_path with a values.yaml file loads exactly one chart."""
         from sittingface.somatic_compiler import SomaticCompiler
+
         # Find a real values.yaml
         compiler = SomaticCompiler()
         compiler.load_all()
@@ -203,6 +203,7 @@ class TestSomaticCompilerUnit:
     def test_load_path_chart_folder(self, tmp_path):
         """load_path with a chart folder loads exactly one chart."""
         from sittingface.somatic_compiler import SomaticCompiler
+
         compiler = SomaticCompiler()
         compiler.load_all()
         if not compiler.charts:
@@ -218,6 +219,7 @@ class TestSomaticCompilerUnit:
     def test_load_path_charts_directory(self):
         """load_path with the full charts dir loads the same set as load_all."""
         from sittingface.somatic_compiler import SomaticCompiler
+
         compiler = SomaticCompiler()
         all_charts = compiler.load_all()
 
@@ -227,12 +229,14 @@ class TestSomaticCompilerUnit:
 
     def test_load_path_missing_raises(self, tmp_path):
         from sittingface.somatic_compiler import SomaticCompiler
+
         compiler = SomaticCompiler()
         with pytest.raises(FileNotFoundError):
             compiler.load_path(tmp_path / "does_not_exist")
 
 
 # ── E2E tests (requires live MonkeyBrain) ────────────────────────────────────
+
 
 @pytest.mark.skipif(not _reachable(AGENTOS_URL), reason=f"MonkeyBrain not running at {AGENTOS_URL}")
 class TestSomaticEndpointsE2E:
@@ -241,6 +245,7 @@ class TestSomaticEndpointsE2E:
     @pytest.fixture(scope="class")
     def brain(self):
         import httpx
+
         return httpx.Client(base_url=AGENTOS_URL, timeout=15.0)
 
     def test_charts_endpoint_returns_list(self, brain):
@@ -275,11 +280,11 @@ class TestSomaticEndpointsE2E:
     def test_recompile_counts_match_charts(self, brain):
         recompile = brain.post("/somatic/recompile").json()
         charts_resp = brain.get("/somatic/charts").json()
-        chart_count = len(charts_resp) if isinstance(charts_resp, list) else \
-            len(charts_resp.get("charts", []))
+        chart_count = len(charts_resp) if isinstance(charts_resp, list) else len(charts_resp.get("charts", []))
         compiled_count = recompile.get("charts") or recompile.get("total_charts", 0)
-        assert compiled_count == chart_count, \
+        assert compiled_count == chart_count, (
             f"Recompile says {compiled_count} charts but /somatic/charts shows {chart_count}"
+        )
 
     def test_prompts_have_cot_steps_after_recompile(self, brain):
         brain.post("/somatic/recompile")
@@ -294,30 +299,37 @@ class TestSomaticEndpointsE2E:
 
 # ── CLI command test ──────────────────────────────────────────────────────────
 
+
 class TestSomaCompileCLI:
     """Test the `monkeypatched make compile` command via subprocess."""
 
     def test_compile_exits_zero(self, tmp_path):
         import subprocess
+
         result = subprocess.run(
             ["monkeypatched", "soma", "compile", "--output-dir", str(tmp_path)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0, f"compile failed:\n{result.stdout}\n{result.stderr}"
 
     def test_compile_prints_chart_count(self, tmp_path):
         import subprocess
+
         result = subprocess.run(
             ["monkeypatched", "soma", "compile", "--output-dir", str(tmp_path)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "Charts loaded" in result.stdout or "charts" in result.stdout.lower()
 
     def test_compile_writes_prompt_files(self, tmp_path):
         import subprocess
+
         result = subprocess.run(
             ["monkeypatched", "soma", "compile", "--output-dir", str(tmp_path)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         files = list(tmp_path.glob("*.prompt.md"))
@@ -325,9 +337,11 @@ class TestSomaCompileCLI:
 
     def test_compile_prompt_files_are_readable_markdown(self, tmp_path):
         import subprocess
+
         subprocess.run(
             ["monkeypatched", "soma", "compile", "--output-dir", str(tmp_path)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         for f in tmp_path.glob("*.prompt.md"):
             content = f.read_text()
@@ -336,9 +350,18 @@ class TestSomaCompileCLI:
 
     def test_compile_json_output_is_valid(self, tmp_path):
         import subprocess
+
         result = subprocess.run(
-            ["monkeypatched", "soma", "compile", "--json", "--output-dir", str(tmp_path)],
-            capture_output=True, text=True,
+            [
+                "monkeypatched",
+                "soma",
+                "compile",
+                "--json",
+                "--output-dir",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -349,9 +372,18 @@ class TestSomaCompileCLI:
 
     def test_compile_json_files_written_matches_disk(self, tmp_path):
         import subprocess
+
         result = subprocess.run(
-            ["monkeypatched", "soma", "compile", "--json", "--output-dir", str(tmp_path)],
-            capture_output=True, text=True,
+            [
+                "monkeypatched",
+                "soma",
+                "compile",
+                "--json",
+                "--output-dir",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
         )
         data = json.loads(result.stdout)
         files_on_disk = list(tmp_path.glob("*.prompt.md"))
@@ -359,9 +391,18 @@ class TestSomaCompileCLI:
 
     def test_compile_json_prompts_have_required_keys(self, tmp_path):
         import subprocess
+
         result = subprocess.run(
-            ["monkeypatched", "soma", "compile", "--json", "--output-dir", str(tmp_path)],
-            capture_output=True, text=True,
+            [
+                "monkeypatched",
+                "soma",
+                "compile",
+                "--json",
+                "--output-dir",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
         )
         data = json.loads(result.stdout)
         for p in data.get("prompts", []):

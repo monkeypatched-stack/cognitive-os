@@ -10,6 +10,7 @@ ownership rule list_product() (MB-3038) establishes at creation time) —
 a merchant can never edit another merchant's listing. A partial update
 (e.g. price alone) never touches fields the caller didn't mention.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import (

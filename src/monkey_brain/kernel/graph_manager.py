@@ -8,6 +8,7 @@ Each runtime owns its own graph:
 The Execution Graph is the persistent cognitive state.
 The Q-table is the persistent execution policy.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,6 +40,7 @@ class QTable:
         self._discount: float = 0.95
         # Phase 2: PolicyStore is authoritative
         from src.monkey_brain.kernel.policy.store import PolicyStore
+
         self._policy_store = PolicyStore(lr=lr_initial, discount=0.95)
 
     @property
@@ -99,8 +101,12 @@ class QTable:
 
         # Record in PolicyStore's replay buffer (no second Bellman update)
         self._policy_store.append_replay(
-            state=agent, action="__self__", reward=reward,
-            next_state=next_agent, old_q=old, new_q=new_q,
+            state=agent,
+            action="__self__",
+            reward=reward,
+            next_state=next_agent,
+            old_q=old,
+            new_q=new_q,
             td_error=td_error,
         )
 
@@ -194,6 +200,7 @@ class GraphManager:
         # default-constructed GraphManager (here, CognitiveRuntime, /learn) raised
         # AttributeError on its first Q-table touch.
         from src.monkey_brain.kernel.compile.world_tensor import get_world_tensor
+
         self.graph: dict = {}
         self._tenant_id = tenant_id
         self._tensor = tensor or get_world_tensor(tenant_id)
@@ -274,10 +281,7 @@ class GraphManager:
         # feedback edge as a duplicate of the execution edge between the same pair and
         # dropped it — the two mean opposite things (one imposes execution order, the
         # other is explicitly excluded from it).
-        existing_edges = {
-            (e["from"], e["to"], e.get("type", "depends_on"))
-            for e in self.graph.get("edges", [])
-        }
+        existing_edges = {(e["from"], e["to"], e.get("type", "depends_on")) for e in self.graph.get("edges", [])}
         for edge in new_edges:
             key = (edge["from"], edge["to"], edge.get("type", "depends_on"))
             if key not in existing_edges:
@@ -288,8 +292,7 @@ class GraphManager:
             remove_set = set(remove_nodes)
             self.graph["nodes"] = [n for n in self.graph.get("nodes", []) if n["id"] not in remove_set]
             self.graph["edges"] = [
-                e for e in self.graph.get("edges", [])
-                if e["from"] not in remove_set and e["to"] not in remove_set
+                e for e in self.graph.get("edges", []) if e["from"] not in remove_set and e["to"] not in remove_set
             ]
 
         self._epoch_count += 1
@@ -338,10 +341,7 @@ class GraphManager:
             for nid in nodes:
                 i = idx_of.get(nid)
                 if i is not None:
-                    succ_map[nid] = [
-                        node_of[j] for j in indices[indptr[i]:indptr[i + 1]]
-                        if node_of[j] in nodes
-                    ]
+                    succ_map[nid] = [node_of[j] for j in indices[indptr[i] : indptr[i + 1]] if node_of[j] in nodes]
         if not succ_map:
             for e in edges:
                 if e.get("type") != "feedback":
@@ -391,8 +391,7 @@ class GraphManager:
         declared = [n["id"] for n in nodes]
         node_ids = set(declared)
         real_edges = [
-            e for e in edges
-            if e.get("type") != "feedback" and e.get("from") in node_ids and e.get("to") in node_ids
+            e for e in edges if e.get("type") != "feedback" and e.get("from") in node_ids and e.get("to") in node_ids
         ]
         in_degree = {nid: 0 for nid in declared}
         for e in real_edges:
@@ -417,7 +416,9 @@ class GraphManager:
                 "[graph_manager] execution graph has a dependency cycle — %d of %d nodes "
                 "could not be ordered (%s); appending them in declaration order so they "
                 "are not silently dropped",
-                len(stranded), len(declared), ", ".join(stranded),
+                len(stranded),
+                len(declared),
+                ", ".join(stranded),
             )
             order.extend(stranded)
         return order
@@ -552,10 +553,7 @@ class GraphManager:
         new_nodes = [node for node in simulation_graph.get("nodes", []) if node["id"] not in exec_ids]
 
         exec_edges = {(e["from"], e["to"]) for e in self.graph.get("edges", [])}
-        new_edges = [
-            edge for edge in simulation_graph.get("edges", [])
-            if (edge["from"], edge["to"]) not in exec_edges
-        ]
+        new_edges = [edge for edge in simulation_graph.get("edges", []) if (edge["from"], edge["to"]) not in exec_edges]
 
         return {
             "nodes": new_nodes,
@@ -578,10 +576,14 @@ class GraphManager:
         (path / "graph.json").write_text(json.dumps(self.graph, indent=2))
         self.q_table.save(path / "q_table.json")
         (path / "annotations.json").write_text(json.dumps(self.annotations, indent=2, default=str))
-        (path / "meta.json").write_text(json.dumps({
-            "epoch_count": self._epoch_count,
-            "loss": self._last_loss,
-        }))
+        (path / "meta.json").write_text(
+            json.dumps(
+                {
+                    "epoch_count": self._epoch_count,
+                    "loss": self._last_loss,
+                }
+            )
+        )
 
     def load(self, path: Path | None = None) -> None:
         path = path or Path(os.environ.get("GRAPH_MANAGER_PATH", "/tmp/monkeybrain-graph-state"))

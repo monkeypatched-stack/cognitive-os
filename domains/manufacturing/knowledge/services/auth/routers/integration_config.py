@@ -28,12 +28,19 @@ from services.module_control.helpers.integration_config import (
     upsert_integration_config_manifest,
 )
 
-
 router = APIRouter()
 
 INTEGRATION_CONFIG_COLLECTION = "integration_configs"
 INTEGRATION_CONFIG_AUDIT_EVENT_TYPE = "integration-config-upserted"
-SECRET_KEYS = {"password", "secret", "token", "api_key", "client_secret", "access_token", "refresh_token"}
+SECRET_KEYS = {
+    "password",
+    "secret",
+    "token",
+    "api_key",
+    "client_secret",
+    "access_token",
+    "refresh_token",
+}
 
 FRONTEND_TO_BACKEND_MODULES = {
     "internet-of-things": "iot",
@@ -139,7 +146,9 @@ def _text(value: Any, fallback: str = "") -> str:
 def _redact(value: Any) -> Any:
     if isinstance(value, dict):
         return {
-            key: ("***redacted***" if str(key).lower() in SECRET_KEYS else _redact(item))
+            key: (
+                "***redacted***" if str(key).lower() in SECRET_KEYS else _redact(item)
+            )
             for key, item in value.items()
         }
     if isinstance(value, list):
@@ -155,7 +164,10 @@ def _serialize(document: dict[str, Any]) -> dict[str, Any]:
 
 def _audit_elasticsearch_auth() -> tuple[str, str] | None:
     if settings.AUDIT_ELASTICSEARCH_USERNAME:
-        return (settings.AUDIT_ELASTICSEARCH_USERNAME, settings.AUDIT_ELASTICSEARCH_PASSWORD)
+        return (
+            settings.AUDIT_ELASTICSEARCH_USERNAME,
+            settings.AUDIT_ELASTICSEARCH_PASSWORD,
+        )
     return None
 
 
@@ -168,8 +180,19 @@ def _audit_elasticsearch_headers() -> dict[str, str]:
 
 async def _index_integration_config_audit(event: dict[str, Any]) -> dict[str, Any]:
     if not settings.AUDIT_ELASTICSEARCH_ENABLED:
-        return {"enabled": False, "indexed": False, "index": settings.AUDIT_ELASTICSEARCH_INDEX}
-    document = jsonable_encoder({**event, "search_text": " ".join(str(value) for value in event.values() if value is not None)})
+        return {
+            "enabled": False,
+            "indexed": False,
+            "index": settings.AUDIT_ELASTICSEARCH_INDEX,
+        }
+    document = jsonable_encoder(
+        {
+            **event,
+            "search_text": " ".join(
+                str(value) for value in event.values() if value is not None
+            ),
+        }
+    )
     try:
         async with httpx.AsyncClient(
             base_url=settings.AUDIT_ELASTICSEARCH_URL.rstrip("/"),
@@ -177,7 +200,9 @@ async def _index_integration_config_audit(event: dict[str, Any]) -> dict[str, An
             auth=_audit_elasticsearch_auth(),
             headers=_audit_elasticsearch_headers(),
         ) as client:
-            response = await client.post(f"/{settings.AUDIT_ELASTICSEARCH_INDEX}/_doc", json=document)
+            response = await client.post(
+                f"/{settings.AUDIT_ELASTICSEARCH_INDEX}/_doc", json=document
+            )
             response.raise_for_status()
             payload = response.json()
         return {
@@ -198,7 +223,11 @@ async def _index_integration_config_audit(event: dict[str, Any]) -> dict[str, An
 def _extract_frontend_module_ids(activation: dict[str, Any] | None) -> list[str]:
     if not isinstance(activation, dict):
         return []
-    frontend = activation.get("frontend") if isinstance(activation.get("frontend"), dict) else {}
+    frontend = (
+        activation.get("frontend")
+        if isinstance(activation.get("frontend"), dict)
+        else {}
+    )
     ids = frontend.get("module_ids") or activation.get("module_ids") or []
     if not isinstance(ids, list):
         return []
@@ -214,13 +243,27 @@ def _candidate_terms(declaration: IntegrationConfigDeclaration) -> list[str]:
     config = declaration.config if isinstance(declaration.config, dict) else {}
     metadata = declaration.metadata if isinstance(declaration.metadata, dict) else {}
     for source in (config, metadata):
-        for key in ("kind", "type", "provider", "domain", "domains", "topics", "modules", "capabilities", "features"):
+        for key in (
+            "kind",
+            "type",
+            "provider",
+            "domain",
+            "domains",
+            "topics",
+            "modules",
+            "capabilities",
+            "features",
+        ):
             value = source.get(key)
             if isinstance(value, list):
                 terms.extend(str(item) for item in value)
             else:
                 terms.append(value)
-    return [str(term).strip().lower().replace("-", "_").replace(" ", "_") for term in terms if str(term or "").strip()]
+    return [
+        str(term).strip().lower().replace("-", "_").replace(" ", "_")
+        for term in terms
+        if str(term or "").strip()
+    ]
 
 
 def _backend_modules_for(declaration: IntegrationConfigDeclaration) -> list[str]:
@@ -251,10 +294,19 @@ def _integration_ids_for(declaration: IntegrationConfigDeclaration) -> list[str]
 
 def _looks_like_manifest(value: Any) -> bool:
     adapters = _adapter_ids()
-    return isinstance(value, dict) and bool(value) and all(str(key) in adapters and isinstance(item, dict) for key, item in value.items())
+    return (
+        isinstance(value, dict)
+        and bool(value)
+        and all(
+            str(key) in adapters and isinstance(item, dict)
+            for key, item in value.items()
+        )
+    )
 
 
-def _manifest_from_declaration(declaration: IntegrationConfigDeclaration) -> dict[str, Any] | None:
+def _manifest_from_declaration(
+    declaration: IntegrationConfigDeclaration,
+) -> dict[str, Any] | None:
     if _looks_like_manifest(declaration.manifest):
         return declaration.manifest
     if _looks_like_manifest(declaration.config):
@@ -283,7 +335,9 @@ def _config_id_for(declaration: IntegrationConfigDeclaration) -> str:
         declaration.id,
         _text(
             declaration.config_id,
-            _slug(f"{declaration.kind or 'custom'}-{declaration.name or 'integration'}"),
+            _slug(
+                f"{declaration.kind or 'custom'}-{declaration.name or 'integration'}"
+            ),
         ),
     )
 
@@ -303,9 +357,15 @@ async def _apply_backend_activation(
     if backend_modules:
         patch["modules"] = {module_id: not enabled for module_id in backend_modules}
     if integration_ids:
-        patch["integrations"] = {integration_id: enabled for integration_id in integration_ids}
+        patch["integrations"] = {
+            integration_id: enabled for integration_id in integration_ids
+        }
     if len(patch) == 1:
-        return {"updated": False, "modules": backend_modules, "integrations": integration_ids}
+        return {
+            "updated": False,
+            "modules": backend_modules,
+            "integrations": integration_ids,
+        }
     policy = await save_module_control_policy(db, patch, actor=actor)
     return {
         "updated": True,
@@ -324,7 +384,9 @@ async def _upsert_declaration(
 ) -> dict[str, Any]:
     now = utc_now()
     config_id = _config_id_for(declaration)
-    existing = await db[INTEGRATION_CONFIG_COLLECTION].find_one({"config_id": config_id})
+    existing = await db[INTEGRATION_CONFIG_COLLECTION].find_one(
+        {"config_id": config_id}
+    )
     document = {
         "id": config_id,
         "config_id": config_id,
@@ -343,7 +405,9 @@ async def _upsert_declaration(
     }
     backend_activation = await _apply_backend_activation(db, declaration, actor=actor)
     document["backend_activation"] = backend_activation
-    await db[INTEGRATION_CONFIG_COLLECTION].replace_one({"config_id": config_id}, document, upsert=True)
+    await db[INTEGRATION_CONFIG_COLLECTION].replace_one(
+        {"config_id": config_id}, document, upsert=True
+    )
     audit_event = {
         "event_type": INTEGRATION_CONFIG_AUDIT_EVENT_TYPE,
         "config_id": config_id,
@@ -357,16 +421,22 @@ async def _upsert_declaration(
 
     manifest = _manifest_from_declaration(declaration)
     if manifest:
-        await upsert_integration_config_manifest(db, manifest, actor=actor, source=source)
+        await upsert_integration_config_manifest(
+            db, manifest, actor=actor, source=source
+        )
 
     return _serialize(document)
 
 
 async def _actor(current_user: dict[str, Any]) -> str:
-    return str(current_user.get("email") or current_user.get("sub") or "integration-config")
+    return str(
+        current_user.get("email") or current_user.get("sub") or "integration-config"
+    )
 
 
-def _source_with_defaults(source: dict[str, Any] | None, **defaults: Any) -> dict[str, Any]:
+def _source_with_defaults(
+    source: dict[str, Any] | None, **defaults: Any
+) -> dict[str, Any]:
     merged = {key: value for key, value in defaults.items() if value not in (None, "")}
     merged.update(source or {})
     return merged
@@ -389,7 +459,9 @@ def _databricks_config_with_defaults(
     )
 
 
-def _parse_batch_upload(raw: bytes, filename: str | None) -> list[dict[str, Any]] | dict[str, Any]:
+def _parse_batch_upload(
+    raw: bytes, filename: str | None
+) -> list[dict[str, Any]] | dict[str, Any]:
     name = str(filename or "").lower()
     text = raw.decode("utf-8")
     try:
@@ -402,16 +474,23 @@ def _parse_batch_upload(raw: bytes, filename: str | None) -> list[dict[str, Any]
         else:
             parsed = json.loads(text)
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid batch ingestion file: {exc}") from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid batch ingestion file: {exc}",
+        ) from exc
     if isinstance(parsed, dict) and isinstance(parsed.get("records"), list):
         return parsed["records"]
     if isinstance(parsed, (dict, list)):
         return parsed
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Batch ingestion file must contain a JSON/YAML object, array, CSV, or NDJSON records.")
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="Batch ingestion file must contain a JSON/YAML object, array, CSV, or NDJSON records.",
+    )
+
 
 # publishes the event to nats and returns the same payload for now,
-# eventually needs telegraph integration for data transform 
-# and must the create the nodes in the graph 
+# eventually needs telegraph integration for data transform
+# and must the create the nodes in the graph
 async def _publish_ingestion_request(
     db: AsyncIOMotorDatabase,
     request: ExternalIngestionRequest,
@@ -430,7 +509,9 @@ async def _publish_ingestion_request(
         requested_by=actor,
     )
 
+
 # ─── Non-Databricks routes ────────────────────────────────────────────────────
+
 
 @router.get("")
 async def read_integration_configs(
@@ -455,7 +536,9 @@ async def read_integration_config(
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> dict[str, Any]:
     db = get_database()
-    document = await db[INTEGRATION_CONFIG_COLLECTION].find_one({"config_id": config_id})
+    document = await db[INTEGRATION_CONFIG_COLLECTION].find_one(
+        {"config_id": config_id}
+    )
     if document:
         clean = _serialize(document)
         clean["read_by"] = await _actor(current_user)
@@ -463,7 +546,10 @@ async def read_integration_config(
     manifest = await get_integration_config(db, config_id)
     if manifest:
         return manifest
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Integration config '{config_id}' not found.")
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Integration config '{config_id}' not found.",
+    )
 
 
 @router.post("/ingest/spark-mini-batch")
@@ -476,7 +562,9 @@ async def ingest_spark_mini_batch(
         db,
         request,
         ingestion_mode="spark_mini_batch",
-        source=_source_with_defaults(request.source, engine="spark", cadence="mini_batch"),
+        source=_source_with_defaults(
+            request.source, engine="spark", cadence="mini_batch"
+        ),
         actor=await _actor(current_user),
     )
 
@@ -491,7 +579,9 @@ async def ingest_kafka_realtime(
         db,
         request,
         ingestion_mode="kafka_realtime",
-        source=_source_with_defaults(request.source, engine="kafka", cadence="real_time"),
+        source=_source_with_defaults(
+            request.source, engine="kafka", cadence="real_time"
+        ),
         actor=await _actor(current_user),
     )
 
@@ -506,7 +596,9 @@ async def ingest_flink_realtime(
         db,
         request,
         ingestion_mode="flink_realtime",
-        source=_source_with_defaults(request.source, engine="flink", cadence="real_time"),
+        source=_source_with_defaults(
+            request.source, engine="flink", cadence="real_time"
+        ),
         actor=await _actor(current_user),
     )
 
@@ -539,14 +631,26 @@ async def upload_batch_ingestion(
     try:
         source_payload = json.loads(source) if source else {}
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid source metadata JSON: {exc}") from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid source metadata JSON: {exc}",
+        ) from exc
     if not isinstance(source_payload, dict):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="source metadata must be a JSON object.")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="source metadata must be a JSON object.",
+        )
     request = ExternalIngestionRequest(
         adapter_id=adapter_id,
         source_object=source_object,
         records=records,
-        source=_source_with_defaults(source_payload, engine="batch", cadence="batch", filename=file.filename, content_type=file.content_type),
+        source=_source_with_defaults(
+            source_payload,
+            engine="batch",
+            cadence="batch",
+            filename=file.filename,
+            content_type=file.content_type,
+        ),
     )
     return await _publish_ingestion_request(
         db,
@@ -559,6 +663,7 @@ async def upload_batch_ingestion(
 
 # ─── Databricks config routes ─────────────────────────────────────────────────
 
+
 @router.post("")
 @router.post("/databricks/config")
 async def upsert_integration_config(
@@ -566,7 +671,10 @@ async def upsert_integration_config(
     current_user: dict[str, Any] = Depends(get_current_user),
 ) -> dict[str, Any]:
     db = get_database()
-    return await _upsert_declaration(db, request, actor=await _actor(current_user), source="json-api")
+    return await _upsert_declaration(
+        db, request, actor=await _actor(current_user), source="json-api"
+    )
+
 
 @router.post("/upload")
 @router.post("/databricks/upload/config")
@@ -582,11 +690,21 @@ async def upload_integration_config(
     db = get_database()
     raw = await file.read()
     try:
-        parsed = json.loads(raw.decode("utf-8")) if (file.filename or "").lower().endswith(".json") else yaml.safe_load(raw.decode("utf-8"))
+        parsed = (
+            json.loads(raw.decode("utf-8"))
+            if (file.filename or "").lower().endswith(".json")
+            else yaml.safe_load(raw.decode("utf-8"))
+        )
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid YAML/JSON file: {exc}") from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid YAML/JSON file: {exc}",
+        ) from exc
     if not isinstance(parsed, dict):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Uploaded integration config must be a YAML/JSON object.")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Uploaded integration config must be a YAML/JSON object.",
+        )
 
     parsed_activation = json.loads(activation) if activation else None
     parsed_metadata = json.loads(metadata) if metadata else {}
@@ -603,9 +721,16 @@ async def upload_integration_config(
         },
         manifest=parsed if _looks_like_manifest(parsed) else None,
     )
-    return await _upsert_declaration(db, declaration, actor=await _actor(current_user), source=file.filename or "upload")
+    return await _upsert_declaration(
+        db,
+        declaration,
+        actor=await _actor(current_user),
+        source=file.filename or "upload",
+    )
+
 
 # ─── Databricks routes ────────────────────────────────────────────────────────
+
 
 class DatabricksJobTriggerRequest(BaseModel):
     job_id: str = Field(..., min_length=1)
@@ -627,10 +752,16 @@ async def databricks_health() -> dict[str, Any]:
     if not configured:
         return {"status": "unconfigured", "configured": False}
     try:
-        async with await _databricks_client(_databricks_config_with_defaults()) as client:
+        async with await _databricks_client(
+            _databricks_config_with_defaults()
+        ) as client:
             response = await client.get("/api/2.1/jobs/list", params={"limit": 1})
             response.raise_for_status()
-        return {"status": "ok", "configured": True, "host": settings.DATABRICKS_HOST.rstrip("/")}
+        return {
+            "status": "ok",
+            "configured": True,
+            "host": settings.DATABRICKS_HOST.rstrip("/"),
+        }
     except httpx.HTTPError as exc:
         return {"status": "error", "configured": True, "error": str(exc)}
 
@@ -698,6 +829,8 @@ async def ingest_databricks(
         db,
         request,
         ingestion_mode="nats_jetstream",
-        source=_source_with_defaults(request.source, engine="databricks", cadence="real_time"),
+        source=_source_with_defaults(
+            request.source, engine="databricks", cadence="real_time"
+        ),
         actor=await _actor(current_user),
     )

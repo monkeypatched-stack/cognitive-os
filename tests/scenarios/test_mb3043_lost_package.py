@@ -10,6 +10,7 @@ before it's even shipped, and once "delivered" it's not lost, it's a
 different problem (a delivery dispute). issue_replacement_shipment()
 (MB-3044) is the recovery path once a shipment reaches "lost".
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.logistics import (

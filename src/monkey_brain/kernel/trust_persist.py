@@ -3,6 +3,7 @@
 Thread-safe.  On kernel boot, loads all edges from Neo4j into TrustNetwork.
 On trust operations, persists changes to Neo4j.
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,7 +31,9 @@ class TrustPersistence:
                 try:
                     rel = Relationship(e.get("relationship", "colleague"))
                     self._net.connect(
-                        e["src"], e["dst"], rel,
+                        e["src"],
+                        e["dst"],
+                        rel,
                         trust=e.get("trust_score", 0.5),
                         permissions=set(e.get("permissions", [])),
                         knowledge_scope=set(e.get("knowledge_scope", [])),
@@ -40,11 +43,14 @@ class TrustPersistence:
                     )
                     # Restore reputation
                     if e.get("reputation", 0.5) != 0.5:
-                        self._net.update_reputation(e["src"], e["dst"],
-                                                     e["reputation"] - 0.5)
+                        self._net.update_reputation(e["src"], e["dst"], e["reputation"] - 0.5)
                 except Exception as exc:
-                    logger.warning("[trust] failed to load edge %s→%s: %s",
-                                   e.get("src"), e.get("dst"), exc)
+                    logger.warning(
+                        "[trust] failed to load edge %s→%s: %s",
+                        e.get("src"),
+                        e.get("dst"),
+                        exc,
+                    )
             logger.info("[trust] loaded %d edges from Neo4j", len(edges))
             return len(edges)
         except Exception as exc:
@@ -57,7 +63,8 @@ class TrustPersistence:
             return
         try:
             await self._store.save_trust_edge(
-                src=edge.src, dst=edge.dst,
+                src=edge.src,
+                dst=edge.dst,
                 relationship=edge.relationship.value,
                 permissions=sorted(edge.permissions),
                 trust_score=edge.trust_score,

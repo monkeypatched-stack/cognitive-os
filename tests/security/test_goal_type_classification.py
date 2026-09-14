@@ -29,18 +29,21 @@ from src.monkey_brain.kernel.plan.goals.goal_type import (
 )
 
 
-@pytest.mark.parametrize("question,expected", [
-    ("build a simple todo agent",                      GoalType.CREATE),   # was QUERY
-    ("create a work order for line 3",                 GoalType.CREATE),
-    ("delete every work order",                        GoalType.DELETE),   # was QUERY
-    ("remove the calibration record",                  GoalType.DELETE),
-    ("update the calibration interval for P-301",      GoalType.UPDATE),
-    ("mark the work order complete",                   GoalType.UPDATE),
-    ("how many instruments are overdue?",              GoalType.AGGREGATE),
-    ("summarize downtime last week",                   GoalType.ANALYZE),
-    ("which pumps are due for calibration?",           GoalType.SEARCH),
-    ("show me the tablet line",                        GoalType.QUERY),
-])
+@pytest.mark.parametrize(
+    "question,expected",
+    [
+        ("build a simple todo agent", GoalType.CREATE),  # was QUERY
+        ("create a work order for line 3", GoalType.CREATE),
+        ("delete every work order", GoalType.DELETE),  # was QUERY
+        ("remove the calibration record", GoalType.DELETE),
+        ("update the calibration interval for P-301", GoalType.UPDATE),
+        ("mark the work order complete", GoalType.UPDATE),
+        ("how many instruments are overdue?", GoalType.AGGREGATE),
+        ("summarize downtime last week", GoalType.ANALYZE),
+        ("which pumps are due for calibration?", GoalType.SEARCH),
+        ("show me the tablet line", GoalType.QUERY),
+    ],
+)
 def test_the_request_is_classified_from_the_question(question, expected):
     goal_type, confidence = classify_goal_type(question)
     assert goal_type is expected
@@ -54,6 +57,7 @@ def test_the_mutation_gate_can_now_actually_fire():
     assert is_mutating(goal_type) is True
 
     from src.monkey_brain.kernel.plan.goals.executor import _MUTATING_GOAL_TYPES
+
     assert goal_type in _MUTATING_GOAL_TYPES, "the executor would not refuse this"
 
 
@@ -64,9 +68,11 @@ def test_a_read_is_not_treated_as_a_mutation():
 
 # ------------------------------------------------------------------ the leading verb decides
 
+
 def test_the_earliest_verb_carries_the_request():
     """Same two verbs, opposite requests. Only their position separates them — which is why
-    detect_intent()'s fixed if-order (CREATE tested first, always) could not tell them apart."""
+    detect_intent()'s fixed if-order (CREATE tested first, always) could not tell them apart.
+    """
     assert classify_goal_type("build a todo agent that deletes old tasks")[0] is GoalType.CREATE
     assert classify_goal_type("delete the todo agent I built")[0] is GoalType.DELETE
 
@@ -81,6 +87,7 @@ def test_a_question_about_a_destructive_action_is_still_a_question():
 
 
 # ------------------------------------------------------------------ the old bugs, specifically
+
 
 def test_keywords_match_whole_words_only():
     """detect_intent() matched on split() tokens, so 'set' inside 'asset' was safe by accident.
@@ -98,8 +105,8 @@ def test_multi_word_keywords_actually_match():
 def test_an_unrecognised_request_does_not_claim_confidence_it_lacks():
     """The old code asserted confidence=1.0 on a value it never computed."""
     goal_type, confidence = classify_goal_type("blorp the frobnicator")
-    assert goal_type is GoalType.QUERY          # the safe default
-    assert confidence == UNMATCHED_CONFIDENCE   # but honestly held
+    assert goal_type is GoalType.QUERY  # the safe default
+    assert confidence == UNMATCHED_CONFIDENCE  # but honestly held
     assert confidence < MATCHED_CONFIDENCE
 
 
@@ -110,8 +117,10 @@ def test_empty_question_is_safe():
 
 # ------------------------------------------------------------------ the route
 
+
 def test_the_plan_route_no_longer_hardcodes_the_goal_type():
     from pathlib import Path
+
     src = Path("src/monkey_brain/api/routes/plan.py").read_text()
     code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
     assert "goal_type=GoalType.QUERY" not in code, "every plan is a query again"

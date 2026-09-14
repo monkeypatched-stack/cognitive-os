@@ -1,4 +1,5 @@
 """Broca ETASS agents — each handles one step type, discovers capabilities at runtime."""
+
 from ._base import BaseETASSAgent
 from .auth_policy import AuthPolicyAgent
 from .cingulate import CingulateAgent

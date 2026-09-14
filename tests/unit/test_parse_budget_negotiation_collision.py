@@ -11,6 +11,7 @@ $12.98 order with "exceeds the $8.00 budget stated in the request" —
 parse_budget matched ANY dollar amount anywhere in the text,
 unconditionally. Now gated on real budget language.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import parse_budget

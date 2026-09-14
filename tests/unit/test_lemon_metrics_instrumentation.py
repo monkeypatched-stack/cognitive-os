@@ -5,6 +5,7 @@ pattern tests/scenarios/test_mb3056_lemon_metrics.py already established
 for capturing real emitted telemetry without a live Lemon/Elasticsearch
 backend.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,26 +20,49 @@ import time
 import src.monkey_brain.kernel.comparator_runtime as comparator_module
 from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
 from src.monkey_brain.kernel.compile import _obs
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 from src.monkey_brain.kernel.policy.store import PolicyStore
-from src.monkey_brain.kernel.pipeline.action_executor import ActionOutcome, ExecutionResult
+from src.monkey_brain.kernel.pipeline.action_executor import (
+    ActionOutcome,
+    ExecutionResult,
+)
 from src.monkey_brain.kernel.pipeline.actor import Actor
-from src.monkey_brain.kernel.pipeline.audit_trail import query_audit_timeline, record_plan_event
+from src.monkey_brain.kernel.pipeline.audit_trail import (
+    query_audit_timeline,
+    record_plan_event,
+)
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
 from src.monkey_brain.kernel.pipeline.comparison.integration import (
-    ComparisonIntegratedPolicy, _apply_transition_learning, _run_comparison, _run_decide,
+    ComparisonIntegratedPolicy,
+    _apply_transition_learning,
+    _run_comparison,
+    _run_decide,
 )
 from src.monkey_brain.kernel.pipeline.execution import Action
-from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState, WorldSnapshot
-from src.monkey_brain.kernel.pipeline.planning.current_plan_store import CurrentPlanRecord, plan_to_dict
+from src.monkey_brain.kernel.pipeline.execution_state import (
+    CognitiveState,
+    WorldSnapshot,
+)
+from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+    CurrentPlanRecord,
+    plan_to_dict,
+)
 from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
-from src.monkey_brain.kernel.pipeline.planning.plan_staleness import capture_entity_versions
-from src.monkey_brain.kernel.pipeline.learning.integration import LearningIntegratedPolicy
-from src.monkey_brain.kernel.pipeline.prediction.integration import PredictionIntegratedPolicy
+from src.monkey_brain.kernel.pipeline.planning.plan_staleness import (
+    capture_entity_versions,
+)
+from src.monkey_brain.kernel.pipeline.learning.integration import (
+    LearningIntegratedPolicy,
+)
+from src.monkey_brain.kernel.pipeline.prediction.integration import (
+    PredictionIntegratedPolicy,
+)
 from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
 from src.monkey_brain.kernel.timeline.store import TimelineStore
 
@@ -65,8 +89,11 @@ class TestExecutionCounters:
         belief = BeliefState(actor_id="alice")
         plan = _plan()
         exec_result = ExecutionResult(
-            actions=(_outcome(True), _outcome(True)), success_count=2, failure_count=0,
-            total_latency_ms=42.0, goal_achieved=True,
+            actions=(_outcome(True), _outcome(True)),
+            success_count=2,
+            failure_count=0,
+            total_latency_ms=42.0,
+            goal_achieved=True,
         )
         rt._record_execution(belief, plan, exec_result, "exec_1")
 
@@ -82,7 +109,10 @@ class TestExecutionCounters:
         plan = _plan()
         exec_result = ExecutionResult(
             actions=(_outcome(False, "insufficient balance"), _outcome(True)),
-            success_count=1, failure_count=1, total_latency_ms=20.0, goal_achieved=False,
+            success_count=1,
+            failure_count=1,
+            total_latency_ms=20.0,
+            goal_achieved=False,
         )
         rt._record_execution(belief, plan, exec_result, "exec_2")
 
@@ -101,10 +131,22 @@ class TestExecutionCounters:
         milk_id = list_product(kg, store, "m1", "Milk", price=3.0, quantity=10)["product_id"]
         executor = build_execution_engine("grocery")
 
-        a1 = Action(action_id="a1", capability="ProductSelection", step_index=0, depends_on=(1,),
-                    parameters={"selection": [{"id": milk_id, "qty": 1}]}, correlation_id="exec_3")
-        a2 = Action(action_id="a2", capability="OrderCreation", step_index=1, depends_on=(0,),
-                    parameters={}, correlation_id="exec_3")
+        a1 = Action(
+            action_id="a1",
+            capability="ProductSelection",
+            step_index=0,
+            depends_on=(1,),
+            parameters={"selection": [{"id": milk_id, "qty": 1}]},
+            correlation_id="exec_3",
+        )
+        a2 = Action(
+            action_id="a2",
+            capability="OrderCreation",
+            step_index=1,
+            depends_on=(0,),
+            parameters={},
+            correlation_id="exec_3",
+        )
         ctx = {"knowledge_graph": kg, "actor_id": "alice", "question": ""}
         asyncio.run(executor.execute((a1, a2), ctx))
 
@@ -121,24 +163,40 @@ class TestPlanCounters:
 
     def test_plan_invalidation_increments_stale_and_replan_counters(self, _sink):
         kg, milk_id = self._seeded_kg()
-        old_plan = Plan(goal="buy milk", steps=(
-            PlanStep(action="ProductSelection", parameters={"selection": [{"id": milk_id, "qty": 1}]}),
-            PlanStep(action="OrderCreation", parameters={}),
-        ))
+        old_plan = Plan(
+            goal="buy milk",
+            steps=(
+                PlanStep(
+                    action="ProductSelection",
+                    parameters={"selection": [{"id": milk_id, "qty": 1}]},
+                ),
+                PlanStep(action="OrderCreation", parameters={}),
+            ),
+        )
         current = CurrentPlanRecord(
-            plan_id="plan_A", actor_id="arjun", goal="buy milk",
-            steps=tuple(s.action for s in old_plan.steps), score=0.9,
-            plan=plan_to_dict(old_plan), entity_versions=capture_entity_versions(kg, old_plan),
+            plan_id="plan_A",
+            actor_id="arjun",
+            goal="buy milk",
+            steps=tuple(s.action for s in old_plan.steps),
+            score=0.9,
+            plan=plan_to_dict(old_plan),
+            entity_versions=capture_entity_versions(kg, old_plan),
         )
         kg.update_entity(milk_id, attributes={"quantity": 0})
 
         policy = ComparisonIntegratedPolicy()
         policy._current_plans[canonicalize_goal("buy milk")] = current
 
-        new_plan = Plan(goal="buy milk", steps=(
-            PlanStep(action="ProductSelection", parameters={"selection": [{"id": milk_id, "qty": 1}]}),
-            PlanStep(action="OrderCreation", parameters={}),
-        ))
+        new_plan = Plan(
+            goal="buy milk",
+            steps=(
+                PlanStep(
+                    action="ProductSelection",
+                    parameters={"selection": [{"id": milk_id, "qty": 1}]},
+                ),
+                PlanStep(action="OrderCreation", parameters={}),
+            ),
+        )
         actor = Actor(actor_id="arjun", tenant_id="acme")
         belief = BeliefState(actor_id="arjun", tenant_id="acme")
         belief.update_goal(name="buy milk")
@@ -192,9 +250,20 @@ class TestCapabilityCounters:
 
         # Hallucinated product id -> ProductSelectionCapability rejects it
         # with a plain error string (not the "blocked:" prefix) -> "failed".
-        bad = Action(action_id="a1", capability="ProductSelection", step_index=0, depends_on=(),
-                     parameters={"selection": [{"id": "product_totally_fake", "qty": 1}]}, correlation_id="exec_5")
-        ctx = {"knowledge_graph": kg, "actor_id": "alice", "question": "", "_relevant_knowledge_ids": {"product_totally_fake"}}
+        bad = Action(
+            action_id="a1",
+            capability="ProductSelection",
+            step_index=0,
+            depends_on=(),
+            parameters={"selection": [{"id": "product_totally_fake", "qty": 1}]},
+            correlation_id="exec_5",
+        )
+        ctx = {
+            "knowledge_graph": kg,
+            "actor_id": "alice",
+            "question": "",
+            "_relevant_knowledge_ids": {"product_totally_fake"},
+        }
         asyncio.run(executor.execute((bad,), ctx))
 
         events = [e for e in _sink.events if e[1] == "capability.calls.total"]
@@ -222,7 +291,11 @@ def _make_idempotency_test_app(calls: dict) -> FastAPI:
 
     @app.post("/x")
     @idempotent("x.create")
-    async def handler(body: _IdempotencyTestBody, request: Request, user_id: str = Depends(_idempotency_fake_auth)) -> dict:
+    async def handler(
+        body: _IdempotencyTestBody,
+        request: Request,
+        user_id: str = Depends(_idempotency_fake_auth),
+    ) -> dict:
         calls["n"] += 1
         return {"n": calls["n"]}
 
@@ -236,6 +309,7 @@ class TestIdempotencyCounters:
     def test_replay_increments_replay_counter(self, _sink, monkeypatch):
         monkeypatch.setenv("IDEMPOTENCY_STORE_BACKEND", "memory")
         from src.monkey_brain.api.idempotency import IdempotencyStore
+
         IdempotencyStore._instance = None
         client = TestClient(self._app({"n": 0}))
         client.post("/x", json={"name": "a"}, headers={"Idempotency-Key": "k1"})
@@ -248,6 +322,7 @@ class TestIdempotencyCounters:
     def test_conflict_increments_conflict_counter(self, _sink, monkeypatch):
         monkeypatch.setenv("IDEMPOTENCY_STORE_BACKEND", "memory")
         from src.monkey_brain.api.idempotency import IdempotencyStore
+
         IdempotencyStore._instance = None
         client = TestClient(self._app({"n": 0}))
         client.post("/x", json={"name": "a"}, headers={"Idempotency-Key": "k2"})
@@ -269,6 +344,7 @@ class TestAuditCounters:
         # backend's already-swallowed error path.
         def _raise(*a, **kw):
             raise RuntimeError("boom")
+
         monkeypatch.setattr(TimelineStore, "record", _raise)
 
         record_plan_event("generated", plan_id="p1", actor_id="alice", execution_id="exec_6", goal="x")
@@ -280,7 +356,12 @@ class TestAuditCounters:
     def test_audit_success_increments_success_status(self, _sink):
         from src.monkey_brain.kernel.pipeline.audit_trail import record_decision_event
 
-        record_decision_event("payment_completed", actor_id="alice", execution_id="exec_7", reason="Charged $5")
+        record_decision_event(
+            "payment_completed",
+            actor_id="alice",
+            execution_id="exec_7",
+            reason="Charged $5",
+        )
 
         events = [e for e in _sink.events if e[1] == "audit.events.total"]
         assert any(e[3].get("status") == "success" and e[3].get("event_type") == "decision" for e in events)
@@ -300,8 +381,10 @@ class TestMetricBackendFailureIsNonFatal:
         class _BrokenLemon:
             def counter(self, *a, **kw):
                 raise RuntimeError("lemon down")
+
             def gauge(self, *a, **kw):
                 raise RuntimeError("lemon down")
+
             def histogram(self, *a, **kw):
                 raise RuntimeError("lemon down")
 
@@ -311,8 +394,11 @@ class TestMetricBackendFailureIsNonFatal:
         belief = BeliefState(actor_id="alice")
         plan = _plan()
         exec_result = ExecutionResult(
-            actions=(_outcome(True),), success_count=1, failure_count=0,
-            total_latency_ms=10.0, goal_achieved=True,
+            actions=(_outcome(True),),
+            success_count=1,
+            failure_count=0,
+            total_latency_ms=10.0,
+            goal_achieved=True,
         )
         # Must not raise.
         rt._record_execution(belief, plan, exec_result, "exec_8")
@@ -328,30 +414,66 @@ class TestNoHighCardinalityLabels:
     pipeline.cognitive_tick_total_ms), which is out of this sprint's scope
     to change."""
 
-    _FORBIDDEN = ("execution_id", "actor_id", "goal_id", "plan_id", "order_id",
-                  "payment_id", "product_id", "provider_id", "request_id", "idempotency_key")
+    _FORBIDDEN = (
+        "execution_id",
+        "actor_id",
+        "goal_id",
+        "plan_id",
+        "order_id",
+        "payment_id",
+        "product_id",
+        "provider_id",
+        "request_id",
+        "idempotency_key",
+    )
     _NEW_METRIC_NAMES = (
-        "execution.total", "execution.duration_ms", "execution.step.total", "execution.step.duration_ms",
-        "execution.active", "plan.total", "plan.validation.total", "plan.replan.total",
-        "llm.calls.total", "llm.call.duration_ms", "capability.calls.total", "capability.duration_ms",
-        "idempotency.requests.total", "audit.events.total", "audit.write_errors.total",
-        "grounding.requests.total", "grounding.duration_ms",
+        "execution.total",
+        "execution.duration_ms",
+        "execution.step.total",
+        "execution.step.duration_ms",
+        "execution.active",
+        "plan.total",
+        "plan.validation.total",
+        "plan.replan.total",
+        "llm.calls.total",
+        "llm.call.duration_ms",
+        "capability.calls.total",
+        "capability.duration_ms",
+        "idempotency.requests.total",
+        "audit.events.total",
+        "audit.write_errors.total",
+        "grounding.requests.total",
+        "grounding.duration_ms",
         # Cognitive Loop instrumentation pass (Predict/TransitionGate/Compare/
         # LearnTransitions were previously uninstrumented -- see
         # living-world-explorer/src/components/ArchitectureDiagram.tsx and
         # LemonMetricsPanel.tsx's Pipeline Stages drawers).
-        "prediction.total", "prediction.candidates", "prediction.selected_probability", "prediction.duration_ms",
+        "prediction.total",
+        "prediction.candidates",
+        "prediction.selected_probability",
+        "prediction.duration_ms",
         "transition_gate.evaluations.total",
-        "compare.total", "compare.actor_loss", "compare.world_loss", "compare.policy_loss",
-        "learn.transitions.total", "learn.skipped.total", "learn.policy_store_updates.total",
+        "compare.total",
+        "compare.actor_loss",
+        "compare.world_loss",
+        "compare.policy_loss",
+        "learn.transitions.total",
+        "learn.skipped.total",
+        "learn.policy_store_updates.total",
         "learn.known_transitions",
         # Remaining structural gaps closed in the same pass (Observe/
         # Observe Outcome/Learn(base)/World Commit).
-        "observe.total", "observe.observations_acquired", "observe.world_snapshot_states",
+        "observe.total",
+        "observe.observations_acquired",
+        "observe.world_snapshot_states",
         "observe.duration_ms",
-        "observe_outcome.total", "observe_outcome.actions_executed",
-        "learn.total", "learn.reward", "learn.signals_applied",
-        "learn.belief_updated.total", "learn.world_updated.total",
+        "observe_outcome.total",
+        "observe_outcome.actions_executed",
+        "learn.total",
+        "learn.reward",
+        "learn.signals_applied",
+        "learn.belief_updated.total",
+        "learn.world_updated.total",
         "world_commit.total",
     )
     _FILES = (
@@ -368,21 +490,21 @@ class TestNoHighCardinalityLabels:
 
     def test_no_forbidden_label_keywords_near_new_metric_calls(self):
         import re
+
         for path in self._FILES:
             with open(path) as f:
                 lines = f.readlines()
             for i, line in enumerate(lines):
                 is_new_metric_call = (
-                    ("_obs.counter(" in line or "_obs.histogram(" in line or "_obs.gauge(" in line)
-                    and any(f'"{name}"' in line for name in self._NEW_METRIC_NAMES)
-                )
+                    "_obs.counter(" in line or "_obs.histogram(" in line or "_obs.gauge(" in line
+                ) and any(f'"{name}"' in line for name in self._NEW_METRIC_NAMES)
                 if is_new_metric_call:
-                    window = "".join(lines[i:i + 4])
+                    window = "".join(lines[i : i + 4])
                     call_end = window.find(")")
                     call_text = window[:call_end] if call_end != -1 else window
                     for forbidden in self._FORBIDDEN:
                         assert not re.search(rf"\b{forbidden}\s*=", call_text), (
-                            f"{path}:{i+1} tags a metric with {forbidden!r} -- high-cardinality label"
+                            f"{path}:{i + 1} tags a metric with {forbidden!r} -- high-cardinality label"
                         )
 
 
@@ -428,6 +550,7 @@ class TestNoHighCardinalityLabels:
 #     python -m pytest tests/unit/test_lemon_metrics_instrumentation.py -v
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def _noop_stage(state):
     return state
 
@@ -442,9 +565,15 @@ def _configured_policy(policy):
     function, which every downstream getattr(..., None) call already
     tolerates -- confirmed by reading configure() directly, not assumed."""
     policy.configure(
-        observe=_noop_stage, believe=_noop_stage, plan=_noop_stage, execute=_noop_stage,
-        observe_outcome=_noop_stage, learn=_noop_stage, compile_phi=_noop_stage,
-        predict=_noop_stage, commit=_noop_stage,
+        observe=_noop_stage,
+        believe=_noop_stage,
+        plan=_noop_stage,
+        execute=_noop_stage,
+        observe_outcome=_noop_stage,
+        learn=_noop_stage,
+        compile_phi=_noop_stage,
+        predict=_noop_stage,
+        commit=_noop_stage,
     )
     return policy
 
@@ -460,9 +589,19 @@ class TestStageOrderMatchesTargetArchitecture:
         policy = _configured_policy(ComparisonIntegratedPolicy())
         names = [name for name, _ in policy._stages]
         assert names == [
-            "observe", "believe", "plan", "predict", "decide", "execute",
-            "observe_outcome", "plan_outcome_feedback", "compare", "learn",
-            "learn_transitions", "compile_phi", "commit",
+            "observe",
+            "believe",
+            "plan",
+            "predict",
+            "decide",
+            "execute",
+            "observe_outcome",
+            "plan_outcome_feedback",
+            "compare",
+            "learn",
+            "learn_transitions",
+            "compile_phi",
+            "commit",
         ], f"live stage order diverges from target architecture: {names}"
 
     def test_execute_group_stage_precedes_compare_and_learn(self):
@@ -489,7 +628,9 @@ class TestPredictAgainstPreExecutionSnapshot:
     (JEPA/MCTS) tree, which this test does not import or touch."""
 
     @pytest.mark.asyncio
-    async def test_predict_reads_but_never_mutates_the_pre_execution_snapshot_and_timestamp_precedes_execute(self):
+    async def test_predict_reads_but_never_mutates_the_pre_execution_snapshot_and_timestamp_precedes_execute(
+        self,
+    ):
         policy = _configured_policy(PredictionIntegratedPolicy())
         integrated_predict = dict(policy._stages)["predict"]
 
@@ -534,10 +675,12 @@ class TestCompareMeasurementOnly:
     async def test_run_comparison_never_calls_transition_model_or_policy_store_update(self, monkeypatch, _sink):
         monkeypatch.setattr(comparator_module, "get_comparator_runtime", lambda: ComparatorRuntime())
         calls: list[str] = []
-        monkeypatch.setattr(TransitionModel, "learn_from_execution",
-                             lambda self, **kw: calls.append("transition_model") or self)
-        monkeypatch.setattr(PolicyStore, "update",
-                             lambda self, *a, **kw: calls.append("policy_store"))
+        monkeypatch.setattr(
+            TransitionModel,
+            "learn_from_execution",
+            lambda self, **kw: calls.append("transition_model") or self,
+        )
+        monkeypatch.setattr(PolicyStore, "update", lambda self, *a, **kw: calls.append("policy_store"))
 
         actor = Actor(actor_id="arjun", tenant_id="acme")
         belief = BeliefState(actor_id="arjun", tenant_id="acme")
@@ -551,7 +694,10 @@ class TestCompareMeasurementOnly:
         selected = {"prediction": {"predicted_outcomes": outcomes}, "probability": 0.9}
         state.prediction_result = {"candidates": [selected], "selected": selected}
         state.execution_result = ExecutionResult(
-            actions=(_outcome(True), _outcome(True)), success_count=2, failure_count=0, goal_achieved=True,
+            actions=(_outcome(True), _outcome(True)),
+            success_count=2,
+            failure_count=0,
+            goal_achieved=True,
         )
 
         state = await _run_comparison(state)
@@ -587,9 +733,15 @@ class TestLearnTransitionsGatedOnComparatorEvidence:
 
     def test_verified_success_increments_transition_and_policy_store_counters(self, _sink):
         state = self._actor_state("exec_learn_1")
-        state.comparison_result = {"outcome": "success", "node_diffs": {"BuyMilk": {"actual_success": True}}}
+        state.comparison_result = {
+            "outcome": "success",
+            "node_diffs": {"BuyMilk": {"actual_success": True}},
+        }
         state.execution_result = ExecutionResult(
-            actions=(_outcome(True),), success_count=1, failure_count=0, goal_achieved=True,
+            actions=(_outcome(True),),
+            success_count=1,
+            failure_count=0,
+            goal_achieved=True,
         )
 
         _apply_transition_learning(state, self._Policy())
@@ -604,7 +756,10 @@ class TestLearnTransitionsGatedOnComparatorEvidence:
         # actual_success=None is exactly the Comparator's real "never
         # executed" signal (blocked_by_dependency / not_attempted) --
         # see _execution_to_graph's own module comment.
-        state.comparison_result = {"outcome": "partial_success", "node_diffs": {"BuyMilk": {"actual_success": None}}}
+        state.comparison_result = {
+            "outcome": "partial_success",
+            "node_diffs": {"BuyMilk": {"actual_success": None}},
+        }
         state.execution_result = ExecutionResult(actions=(), success_count=0, failure_count=0, goal_achieved=False)
 
         _apply_transition_learning(state, self._Policy())
@@ -630,13 +785,34 @@ class TestTransitionGateCounters:
     @pytest.mark.asyncio
     async def test_no_contention_purchase_records_allow_true_no_negotiation(self, _sink):
         kg, product_id = self._seed(price=3.99, quantity=10)
-        kg.add_entity("wallet_buyer_a", EntityType.ACCOUNT, "buyer_a Wallet", {"owner": "buyer_a", "balance": 1000.0})
+        kg.add_entity(
+            "wallet_buyer_a",
+            EntityType.ACCOUNT,
+            "buyer_a Wallet",
+            {"owner": "buyer_a", "balance": 1000.0},
+        )
         executor = build_execution_engine("grocery")
-        context = {"knowledge_graph": kg, "actor_id": "buyer_a", "question": "buy 1L milk"}
+        context = {
+            "knowledge_graph": kg,
+            "actor_id": "buyer_a",
+            "question": "buy 1L milk",
+        }
         actions = (
-            Action(action_id="a0", capability="ProductSelection", step_index=0, depends_on=(),
-                   correlation_id="", parameters={"selection": [{"id": product_id, "qty": 1}]}),
-            Action(action_id="a1", capability="OrderCreation", step_index=1, depends_on=(0,), correlation_id=""),
+            Action(
+                action_id="a0",
+                capability="ProductSelection",
+                step_index=0,
+                depends_on=(),
+                correlation_id="",
+                parameters={"selection": [{"id": product_id, "qty": 1}]},
+            ),
+            Action(
+                action_id="a1",
+                capability="OrderCreation",
+                step_index=1,
+                depends_on=(0,),
+                correlation_id="",
+            ),
         )
 
         result = await executor.execute(actions, context)
@@ -645,7 +821,8 @@ class TestTransitionGateCounters:
         assert _sink.count("transition_gate.evaluations.total") >= 1
         assert any(
             e[1] == "transition_gate.evaluations.total"
-            and e[3].get("allow") == "True" and e[3].get("requires_negotiation") == "False"
+            and e[3].get("allow") == "True"
+            and e[3].get("requires_negotiation") == "False"
             for e in _sink.events
         )
         # World Commit — same real call path, right after the gate clears
@@ -685,8 +862,11 @@ class TestObserveOutcomeCounters:
         belief = BeliefState(actor_id="arjun", tenant_id="acme")
         state = CognitiveState(actor=actor, belief=belief)
         state.execution_result = ExecutionResult(
-            actions=(_outcome(True), _outcome(True)), success_count=2, failure_count=0,
-            total_latency_ms=20.0, goal_achieved=True,
+            actions=(_outcome(True), _outcome(True)),
+            success_count=2,
+            failure_count=0,
+            total_latency_ms=20.0,
+            goal_achieved=True,
         )
 
         asyncio.run(rt._observe_outcome(state))
@@ -730,7 +910,10 @@ class TestLearnCounters:
         state.plan = plan
         state.metrics = {"execution_id": "exec_learn_base_1"}
         state.execution_result = ExecutionResult(
-            actions=(_outcome(True),), success_count=1, failure_count=0, goal_achieved=True,
+            actions=(_outcome(True),),
+            success_count=1,
+            failure_count=0,
+            goal_achieved=True,
         )
 
         await integrated_learn(state)
@@ -759,32 +942,54 @@ class TestReplanEventOrdering:
     def test_generated_then_invalidated_then_replanned_generated(self, _sink):
         TimelineStore.reset_for_testing()
         kg, milk_id = self._seeded_kg()
-        old_plan = Plan(goal="buy milk", steps=(
-            PlanStep(action="ProductSelection", parameters={"selection": [{"id": milk_id, "qty": 1}]}),
-            PlanStep(action="OrderCreation", parameters={}),
-        ))
+        old_plan = Plan(
+            goal="buy milk",
+            steps=(
+                PlanStep(
+                    action="ProductSelection",
+                    parameters={"selection": [{"id": milk_id, "qty": 1}]},
+                ),
+                PlanStep(action="OrderCreation", parameters={}),
+            ),
+        )
         # Simulates the earlier real tick that originally produced this
         # Current Plan (in production this is a prior _run_decide's own
         # "replace" branch) -- constructing it directly here, matching
         # test_plan_invalidation_e2e.py's own established convention of
         # fixture-constructing CurrentPlanRecord rather than driving two
         # full ticks.
-        record_plan_event("generated", plan_id="plan_A", actor_id="arjun", execution_id="exec_replan",
-                           goal="buy milk", steps=tuple(s.action for s in old_plan.steps))
+        record_plan_event(
+            "generated",
+            plan_id="plan_A",
+            actor_id="arjun",
+            execution_id="exec_replan",
+            goal="buy milk",
+            steps=tuple(s.action for s in old_plan.steps),
+        )
         current = CurrentPlanRecord(
-            plan_id="plan_A", actor_id="arjun", goal="buy milk",
-            steps=tuple(s.action for s in old_plan.steps), score=0.9,
-            plan=plan_to_dict(old_plan), entity_versions=capture_entity_versions(kg, old_plan),
+            plan_id="plan_A",
+            actor_id="arjun",
+            goal="buy milk",
+            steps=tuple(s.action for s in old_plan.steps),
+            score=0.9,
+            plan=plan_to_dict(old_plan),
+            entity_versions=capture_entity_versions(kg, old_plan),
         )
         kg.update_entity(milk_id, attributes={"quantity": 0})  # world changes -> plan invalidated
 
         policy = ComparisonIntegratedPolicy()
         policy._current_plans[canonicalize_goal("buy milk")] = current
 
-        new_plan = Plan(goal="buy milk", steps=(
-            PlanStep(action="ProductSelection", parameters={"selection": [{"id": milk_id, "qty": 1}]}),
-            PlanStep(action="OrderCreation", parameters={}),
-        ))
+        new_plan = Plan(
+            goal="buy milk",
+            steps=(
+                PlanStep(
+                    action="ProductSelection",
+                    parameters={"selection": [{"id": milk_id, "qty": 1}]},
+                ),
+                PlanStep(action="OrderCreation", parameters={}),
+            ),
+        )
         actor = Actor(actor_id="arjun", tenant_id="acme")
         belief = BeliefState(actor_id="arjun", tenant_id="acme")
         belief.update_goal(name="buy milk")

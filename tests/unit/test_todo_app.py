@@ -6,16 +6,17 @@ Two actors collaborate on a shared todo list:
 
 They share a world of todo transitions and learn from each other's actions.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor, Feature
 from src.monkey_brain.kernel.compile.society import Actor, ActorNetwork
 from src.monkey_brain.kernel.policy.store import PolicyStore
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # The World: Todo Transitions
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def create_todo_world() -> SparseTransitionTensor:
     """Create a world with todo lifecycle transitions."""
@@ -42,6 +43,7 @@ def create_todo_world() -> SparseTransitionTensor:
 # Actors: User and Assistant
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def create_todo_actors(world: SparseTransitionTensor) -> ActorNetwork:
     """Create a user and assistant that collaborate on todos."""
     from src.monkey_brain.kernel.compile.trust import Relationship
@@ -59,6 +61,7 @@ def create_todo_actors(world: SparseTransitionTensor) -> ActorNetwork:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test: Basic Todo Flow
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestTodoApp:
     """Simple todo app with actor-to-actor communication."""
@@ -180,6 +183,7 @@ class TestTodoApp:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test: Edge Cases
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestTodoEdgeCases:
     """Edge cases in todo actor communication."""

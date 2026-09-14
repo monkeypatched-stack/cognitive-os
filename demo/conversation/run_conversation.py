@@ -25,6 +25,7 @@ Five demonstrations, run against one shared, evolving world:
 Usage:
     python3 demo/conversation/run_conversation.py
 """
+
 from __future__ import annotations
 
 import datetime
@@ -53,16 +54,29 @@ def _ts(t: float) -> str:
     return datetime.datetime.fromtimestamp(t).strftime("%H:%M:%S")
 
 
-def ask(client, world: dict[str, Any], to_name: str, question: str, from_name: str | None = None) -> dict[str, Any]:
+def ask(
+    client,
+    world: dict[str, Any],
+    to_name: str,
+    question: str,
+    from_name: str | None = None,
+) -> dict[str, Any]:
     """The only function in this script that talks to an actor.
     Everything else is either real world-state mutation (bootstrap.py
     calls, order/shipment lifecycle) or relaying a PREVIOUS real answer
     into the next question — never a scripted reply."""
     to_actor_id = world["actors"][to_name]
     from_actor_id = world["actors"].get(from_name) if from_name else None
-    result = _call(client, "POST", f"/actors/{to_actor_id}/ask", json={
-        "question": question, "from_actor_id": from_actor_id, "from_actor_name": from_name,
-    })
+    result = _call(
+        client,
+        "POST",
+        f"/actors/{to_actor_id}/ask",
+        json={
+            "question": question,
+            "from_actor_id": from_actor_id,
+            "from_actor_name": from_name,
+        },
+    )
 
     society_name = result.get("society_name", "?")
     print(f"\n{from_name or '(orchestrator)'}")
@@ -70,98 +84,150 @@ def ask(client, world: dict[str, Any], to_name: str, question: str, from_name: s
     print(f"{society_name}")
     print(f"    ↓")
     print(f"{to_name}")
-    print(f'  Sender ....... {from_name or "(orchestrator)"}')
-    print(f'  Recipient .... {to_name}')
-    print(f'  Society ...... {society_name}')
-    print(f'  Timestamp .... {_ts(result.get("timestamp", time.time()))}')
+    print(f"  Sender ....... {from_name or '(orchestrator)'}")
+    print(f"  Recipient .... {to_name}")
+    print(f"  Society ...... {society_name}")
+    print(f"  Timestamp .... {_ts(result.get('timestamp', time.time()))}")
     print(f'\n  "{question}"')
-    print(f"\n  -> {to_name}: \"{result.get('answer', '')}\"")
+    print(f'\n  -> {to_name}: "{result.get("answer", "")}"')
     return result
 
 
 # ── World progression between conversation turns (real API calls) ───────
 
+
 def place_real_order(client, world: dict[str, Any]) -> str:
     product_id = world["commerce"]["products"][TRACKED_PRODUCT_NAME]
-    order = _call(client, "POST", "/orders", json={
-        "actor_id": world["actors"]["Customer"],
-        "items": [{"id": product_id, "name": TRACKED_PRODUCT_NAME, "qty": 1, "price": 59.99}],
-        "question": "buy the wireless gaming mouse",
-    })
+    order = _call(
+        client,
+        "POST",
+        "/orders",
+        json={
+            "actor_id": world["actors"]["Customer"],
+            "items": [
+                {
+                    "id": product_id,
+                    "name": TRACKED_PRODUCT_NAME,
+                    "qty": 1,
+                    "price": 59.99,
+                }
+            ],
+            "question": "buy the wireless gaming mouse",
+        },
+    )
     return order.get("order_id", "")
 
 
 def pack_and_ship(client, world: dict[str, Any], order_id: str) -> str:
     product_id = world["commerce"]["products"][TRACKED_PRODUCT_NAME]
-    shipment = _call(client, "POST", "/shipments", json={
-        "order_id": order_id,
-        "packages": [{"box": 1, "items": [product_id]}],
-        "rider_id": world["rider_id"],
-    })
+    shipment = _call(
+        client,
+        "POST",
+        "/shipments",
+        json={
+            "order_id": order_id,
+            "packages": [{"box": 1, "items": [product_id]}],
+            "rider_id": world["rider_id"],
+        },
+    )
     return shipment.get("shipment_id", "")
 
 
 # ── Demonstrations ────────────────────────────────────────────────────
 
+
 def demo_1_customer_warehouse(client, world: dict[str, Any]) -> None:
     banner("Demonstration 1 — Customer and Warehouse")
-    ask(client, world, "Warehouse Worker",
+    ask(
+        client,
+        world,
+        "Warehouse Worker",
         "I would like to buy a wireless gaming mouse under $100. Can it arrive tomorrow?",
-        from_name="Customer")
+        from_name="Customer",
+    )
 
 
 def demo_2_warehouse_driver(client, world: dict[str, Any], order_id: str) -> str:
     banner("Demonstration 2 — Warehouse and Driver")
-    result = ask(client, world, "Driver",
+    result = ask(
+        client,
+        world,
+        "Driver",
         f"Order {order_id} has been packed. Can you deliver it tomorrow?",
-        from_name="Warehouse Worker")
+        from_name="Warehouse Worker",
+    )
     return result.get("answer", "")
 
 
 def demo_3_negotiation(client, world: dict[str, Any]) -> None:
     banner("Demonstration 3 — Negotiation")
-    ask(client, world, "Warehouse Worker",
+    ask(
+        client,
+        world,
+        "Warehouse Worker",
         "Traffic is unusually heavy today. Can packing be delayed by two hours?",
-        from_name="Driver")
+        from_name="Driver",
+    )
 
 
 def demo_4_information_request(client, world: dict[str, Any], order_id: str) -> None:
     banner("Demonstration 4 — Information Request")
     ask(client, world, "Support Agent", "Where is my package?", from_name="Customer")
 
-    warehouse_reply = ask(client, world, "Warehouse Worker",
+    warehouse_reply = ask(
+        client,
+        world,
+        "Warehouse Worker",
         f"Has Order {order_id} been dispatched?",
-        from_name="Support Agent").get("answer", "")
+        from_name="Support Agent",
+    ).get("answer", "")
 
-    ask(client, world, "Support Agent",
+    ask(
+        client,
+        world,
+        "Support Agent",
         f'The warehouse just told you: "{warehouse_reply}" '
         f"Relay this to the customer who asked where their package is, in your own words.",
-        from_name="(orchestrator, relaying Warehouse Worker's real answer)")
+        from_name="(orchestrator, relaying Warehouse Worker's real answer)",
+    )
 
 
 def demo_5_collaboration(client, world: dict[str, Any], order_id: str) -> None:
     banner("Demonstration 5 — Multi-Actor Collaboration")
     print(f'\nCustomer asks: "Can order {order_id} arrive tomorrow?"')
 
-    warehouse_reply = ask(client, world, "Warehouse Worker",
-        f"The customer is asking whether order {order_id} can arrive tomorrow. "
-        f"Can you confirm it's ready to go?",
-        from_name="Customer").get("answer", "")
+    warehouse_reply = ask(
+        client,
+        world,
+        "Warehouse Worker",
+        f"The customer is asking whether order {order_id} can arrive tomorrow. Can you confirm it's ready to go?",
+        from_name="Customer",
+    ).get("answer", "")
 
-    inventory_reply = ask(client, world, "Inventory Robot",
-        f'Warehouse update: "{warehouse_reply}" '
-        f"Can you confirm the stock situation for this order?",
-        from_name="Warehouse Worker").get("answer", "")
+    inventory_reply = ask(
+        client,
+        world,
+        "Inventory Robot",
+        f'Warehouse update: "{warehouse_reply}" Can you confirm the stock situation for this order?',
+        from_name="Warehouse Worker",
+    ).get("answer", "")
 
-    driver_reply = ask(client, world, "Driver",
-        f'Inventory update: "{inventory_reply}" '
-        f"Given that, can you deliver order {order_id} tomorrow?",
-        from_name="Inventory Robot").get("answer", "")
+    driver_reply = ask(
+        client,
+        world,
+        "Driver",
+        f'Inventory update: "{inventory_reply}" Given that, can you deliver order {order_id} tomorrow?',
+        from_name="Inventory Robot",
+    ).get("answer", "")
 
-    support_reply = ask(client, world, "Support Agent",
+    support_reply = ask(
+        client,
+        world,
+        "Support Agent",
         f'Driver update: "{driver_reply}" '
         f"Please confirm to the customer whether order {order_id} will arrive tomorrow.",
-        from_name="Driver").get("answer", "")
+        from_name="Driver",
+    ).get("answer", "")
 
     section("Final Answer to Customer (synthesized across 4 independent actors)")
     print(f'\nSupport Agent -> Customer: "{support_reply}"')

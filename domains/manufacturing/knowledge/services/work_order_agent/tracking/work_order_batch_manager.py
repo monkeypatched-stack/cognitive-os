@@ -137,9 +137,9 @@ class BatchMetrics:
             "total_variance_count": self.variance_count,
             "created_at": self.created_at.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat()
-            if self.completed_at
-            else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "elapsed_time_minutes": self.get_elapsed_time_minutes(),
             "last_updated_at": self.last_updated_at.isoformat(),
         }

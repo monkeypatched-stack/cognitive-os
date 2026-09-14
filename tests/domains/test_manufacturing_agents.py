@@ -30,22 +30,56 @@ from domains.manufacturing.agents.lines import LineResolverAgent, resolve_line
 
 # the real shape of the demo data: two lines, neither of them "3", and not a pump in sight
 INSTRUMENTS = [
-    {"serial_number": "SN-INS-TAB-06-02", "name": "Timer", "category": "Measurement",
-     "line_id": "LINE-TAB-001", "workstation_id": "WS-TAB-06", "status": "Active"},
-    {"serial_number": "SN-INS-TAB-08-02", "name": "Viscometer", "category": "Analytical",
-     "line_id": "LINE-TAB-001", "workstation_id": "WS-TAB-08", "status": "Active"},
+    {
+        "serial_number": "SN-INS-TAB-06-02",
+        "name": "Timer",
+        "category": "Measurement",
+        "line_id": "LINE-TAB-001",
+        "workstation_id": "WS-TAB-06",
+        "status": "Active",
+    },
+    {
+        "serial_number": "SN-INS-TAB-08-02",
+        "name": "Viscometer",
+        "category": "Analytical",
+        "line_id": "LINE-TAB-001",
+        "workstation_id": "WS-TAB-08",
+        "status": "Active",
+    },
 ]
 EQUIPMENT = [
-    {"equipment_id": "EQP-TAB-01-01", "name": "LAF Sampling Booth", "category": "Dispensing",
-     "line_id": "LINE-TAB-001", "workstation_id": "WS-TAB-01", "status": "active"},
-    {"equipment_id": "EQP-CAP-02-02", "name": "Conical Mill", "category": "Milling",
-     "line_id": "LINE-CAP-001", "workstation_id": "WS-CAP-02", "status": "active"},
+    {
+        "equipment_id": "EQP-TAB-01-01",
+        "name": "LAF Sampling Booth",
+        "category": "Dispensing",
+        "line_id": "LINE-TAB-001",
+        "workstation_id": "WS-TAB-01",
+        "status": "active",
+    },
+    {
+        "equipment_id": "EQP-CAP-02-02",
+        "name": "Conical Mill",
+        "category": "Milling",
+        "line_id": "LINE-CAP-001",
+        "workstation_id": "WS-CAP-02",
+        "status": "active",
+    },
 ]
 RECORDS = [
-    {"record_id": "CAL-SN-INS-TAB-06-02", "equipment_id": "SN-INS-TAB-06-02",
-     "next_due_date": "2026-07-04", "status": "Overdue", "calibration_interval_days": 90},
-    {"record_id": "CAL-EQP-TAB-01-01", "equipment_id": "EQP-TAB-01-01",
-     "next_due_date": "2027-01-01", "status": "Completed", "calibration_interval_days": 365},
+    {
+        "record_id": "CAL-SN-INS-TAB-06-02",
+        "equipment_id": "SN-INS-TAB-06-02",
+        "next_due_date": "2026-07-04",
+        "status": "Overdue",
+        "calibration_interval_days": 90,
+    },
+    {
+        "record_id": "CAL-EQP-TAB-01-01",
+        "equipment_id": "EQP-TAB-01-01",
+        "next_due_date": "2027-01-01",
+        "status": "Completed",
+        "calibration_interval_days": 365,
+    },
 ]
 
 
@@ -53,8 +87,12 @@ RECORDS = [
 def data(monkeypatch):
     """Stub the data layer. `absent` lists collections that do not exist at all."""
     state = {"absent": set()}
-    rows = {"instruments": INSTRUMENTS, "pharmaceutical_equipment": EQUIPMENT,
-            "calibration_records": RECORDS, "plant_locations": []}
+    rows = {
+        "instruments": INSTRUMENTS,
+        "pharmaceutical_equipment": EQUIPMENT,
+        "calibration_records": RECORDS,
+        "plant_locations": [],
+    }
 
     async def fake_find(collection, query=None, projection=None, limit=200):
         if collection in state["absent"]:
@@ -89,6 +127,7 @@ def _run(coro):
 
 # ---------------------------------------------------------------- the line that never existed
 
+
 def test_line_3_is_refused_and_the_real_lines_are_named(data):
     """A truthful negative is an ANSWER, not a malfunction.
 
@@ -97,18 +136,26 @@ def test_line_3_is_refused_and_the_real_lines_are_named(data):
     layer discards a FAILED capability and substitutes an LLM guess for it, which is exactly
     how "line 3" became five fabricated pumps. `resolved` carries the real verdict.
     """
-    out = _run(_payload(LineResolverAgent(), "which pumps on line 3 are due for calibration?"))
+    out = _run(
+        _payload(LineResolverAgent(), "which pumps on line 3 are due for calibration?")
+    )
     assert out["success"] is True
     assert out["resolved"] is False
     assert "no line matching line 3 exists" in out["answer"]
     assert "LINE-TAB-001" in out["answer"] and "LINE-CAP-001" in out["answer"]
 
 
-@pytest.mark.parametrize("question,expected", [
-    ("what is due on the tablet line?", "LINE-TAB-001"),   # 'tablet' -> TAB, by prefix
-    ("what is due on the capsule line?", "LINE-CAP-001"),  # 'capsule' -> CAP
-    ("show me LINE-CAP-001", "LINE-CAP-001"),              # the id itself
-])
+@pytest.mark.parametrize(
+    "question,expected",
+    [
+        (
+            "what is due on the tablet line?",
+            "LINE-TAB-001",
+        ),  # 'tablet' -> TAB, by prefix
+        ("what is due on the capsule line?", "LINE-CAP-001"),  # 'capsule' -> CAP
+        ("show me LINE-CAP-001", "LINE-CAP-001"),  # the id itself
+    ],
+)
 def test_a_real_line_reference_resolves(data, question, expected):
     out = _run(_payload(LineResolverAgent(), question))
     assert out["success"] is True
@@ -130,6 +177,7 @@ def test_the_resolver_cites_what_it_read(data):
 
 # ---------------------------------------------------------------- the pumps that never existed
 
+
 def test_asset_kind_is_read_from_the_question():
     assert _asset_kind("which pumps are due?") == "pump"
     assert _asset_kind("which mixers are due?") == "mixer"
@@ -138,19 +186,26 @@ def test_asset_kind_is_read_from_the_question():
 
 def test_no_pumps_is_an_answer_not_an_invention(data):
     """The line exists and has assets; none is a pump. That is a grounded negative — the
-    single most important behaviour in this file, because it is where P-301 came from."""
-    out = _run(_payload(EquipmentInventoryAgent(), "which pumps are on the tablet line?"))
-    assert out["success"] is True          # the query ran; "none" is the true answer
+    single most important behaviour in this file, because it is where P-301 came from.
+    """
+    out = _run(
+        _payload(EquipmentInventoryAgent(), "which pumps are on the tablet line?")
+    )
+    assert out["success"] is True  # the query ran; "none" is the true answer
     assert out["count"] == 0
     assert "no pumps on LINE-TAB-001" in out["summary"]
     assert out["sources"]
 
 
 def test_inventory_returns_the_real_assets(data):
-    out = _run(_payload(EquipmentInventoryAgent(), "what equipment is on the tablet line?"))
+    out = _run(
+        _payload(EquipmentInventoryAgent(), "what equipment is on the tablet line?")
+    )
     assert out["success"] is True
     assert "EQP-TAB-01-01" in out["asset_ids"]
-    assert "EQP-CAP-02-02" not in out["asset_ids"], "an asset from the other line leaked in"
+    assert (
+        "EQP-CAP-02-02" not in out["asset_ids"]
+    ), "an asset from the other line leaked in"
 
 
 def test_inventory_on_a_line_that_does_not_exist_fails(data):
@@ -160,6 +215,7 @@ def test_inventory_on_a_line_that_does_not_exist_fails(data):
 
 
 # ---------------------------------------------------------------- calibration
+
 
 def test_evaluate_due_splits_by_the_date_and_invents_nothing():
     today = date(2026, 7, 14)
@@ -176,8 +232,12 @@ def test_a_record_with_no_due_date_is_undated_not_ok():
 
 
 def test_calibration_reports_what_is_actually_overdue(data):
-    out = _run(_payload(CalibrationDueEvaluatorAgent(),
-                        "what is due for calibration on the tablet line?"))
+    out = _run(
+        _payload(
+            CalibrationDueEvaluatorAgent(),
+            "what is due for calibration on the tablet line?",
+        )
+    )
     assert out["success"] is True
     assert any(e["equipment_id"] == "SN-INS-TAB-06-02" for e in out["overdue"])
     assert any(s["source"].endswith("/calibration_records") for s in out["sources"])
@@ -197,8 +257,12 @@ def test_missing_calibration_collection_fails_rather_than_guesses(data):
 
 def test_calibration_on_a_nonexistent_line_answers_rather_than_fails(data):
     """Same rule: no line 3 is a grounded answer. Only a missing collection is a failure."""
-    out = _run(_payload(CalibrationDueEvaluatorAgent(),
-                        "which pumps on line 3 are due for calibration?"))
+    out = _run(
+        _payload(
+            CalibrationDueEvaluatorAgent(),
+            "which pumps on line 3 are due for calibration?",
+        )
+    )
     assert out["success"] is True
     assert out["resolved"] is False
     assert "line 3" in out["answer"]
@@ -206,6 +270,7 @@ def test_calibration_on_a_nonexistent_line_answers_rather_than_fails(data):
 
 
 # ---------------------------------------------------------------- the grounding contract
+
 
 def test_every_successful_agent_declares_a_source(data):
     """kernel.execute.grounding.extract_step_citations reads `sources` off the payload. An
@@ -221,15 +286,22 @@ def test_every_successful_agent_declares_a_source(data):
     ):
         out = _run(_payload(agent, question))
         assert out["success"] is True
-        cites = extract_step_citations([{"agent": agent.agent_type, "success": True, "output": out}])
+        cites = extract_step_citations(
+            [{"agent": agent.agent_type, "success": True, "output": out}]
+        )
         assert cites, f"{agent.agent_type} produced data the grounding check cannot see"
 
 
 def test_agents_are_readonly(data):
     """These read the plant's records. BaseDDDAgent's readonly guard rejects any act() that
-    returns a mutating action, so a future edit cannot quietly turn one into a writer."""
-    for agent in (LineResolverAgent(), EquipmentInventoryAgent(),
-                  CalibrationScheduleAgent(), CalibrationDueEvaluatorAgent()):
+    returns a mutating action, so a future edit cannot quietly turn one into a writer.
+    """
+    for agent in (
+        LineResolverAgent(),
+        EquipmentInventoryAgent(),
+        CalibrationScheduleAgent(),
+        CalibrationDueEvaluatorAgent(),
+    ):
         assert agent.readonly is True
         out = _run(_payload(agent, "what is on the tablet line?"))
         assert out["action"] == "report"

@@ -17,6 +17,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedRoleResponse)
 async def list_roles(
     page: int = Query(1, ge=1),
@@ -25,10 +26,13 @@ async def list_roles(
     _: dict = Depends(require_permission("perm-view-roles")),
 ):
     roles, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedRoleResponse(total=total, page=page, page_size=page_size, results=roles)
+    return PaginatedRoleResponse(
+        total=total, page=page, page_size=page_size, results=roles
+    )
 
 
 # ── Get by permission ─────────────────────────────────────────────────────────
+
 
 @router.get("/by-permission/{permission_id}", response_model=list[RoleResponse])
 async def list_roles_by_permission(
@@ -40,6 +44,7 @@ async def list_roles_by_permission(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{role_id}", response_model=RoleResponse)
 async def get_role(
@@ -58,6 +63,7 @@ async def get_role(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 @router.post("/", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
 async def create_role(
     data: RoleCreate,
@@ -73,6 +79,7 @@ async def create_role(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{role_id}", response_model=RoleResponse)
 async def update_role(
@@ -92,6 +99,7 @@ async def update_role(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 @router.delete("/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_role(
     role_id: str,
@@ -106,6 +114,7 @@ async def delete_role(
 
 
 # ── Permission management ─────────────────────────────────────────────────────
+
 
 @router.post("/{role_id}/permissions/{permission_id}", response_model=RoleResponse)
 async def add_permission_to_role(

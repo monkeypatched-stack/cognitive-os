@@ -11,6 +11,7 @@ TestClient — running it resets any previously-seeded demo world (re-run
 scripts/seed_world.py afterward to restore it). This matches existing repo
 convention, not something new introduced here.
 """
+
 from __future__ import annotations
 
 import os
@@ -29,28 +30,44 @@ from src.monkey_brain.kernel.timeline.store import TimelineStore
 @pytest.fixture(scope="module")
 def client():
     import subprocess
+
     try:
         subprocess.run(
-            ["redis-cli", "-h", os.getenv("REDIS_HOST", "localhost"),
-             "-p", os.getenv("REDIS_PORT", "6379"), "flushdb"],
-            timeout=2, capture_output=True, check=False,
+            [
+                "redis-cli",
+                "-h",
+                os.getenv("REDIS_HOST", "localhost"),
+                "-p",
+                os.getenv("REDIS_PORT", "6379"),
+                "flushdb",
+            ],
+            timeout=2,
+            capture_output=True,
+            check=False,
         )
     except Exception:
         pass
 
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
 
 def _create_actor(client, name="Plan Analyzer Test Actor"):
-    r = client.post("/api/v1/agentos/actors", json={
-        "name": name, "actor_type": "human",
-        "goals": ["buy groceries"], "capabilities": [{"name": "general"}],
-    })
+    r = client.post(
+        "/api/v1/agentos/actors",
+        json={
+            "name": name,
+            "actor_type": "human",
+            "goals": ["buy groceries"],
+            "capabilities": [{"name": "general"}],
+        },
+    )
     assert r.status_code == 200, f"Create actor failed: {r.status_code} {r.text}"
     return r.json()["actor_id"]
 
@@ -101,7 +118,11 @@ class TestPlanBranching:
 
     def test_plan_graph_can_have_real_branching(self, client):
         actor_id = _create_actor(client, "Plan Test Branching")
-        r = _plan(client, actor_id, "Find the cheapest grocery provider and buy 2 liters of milk.")
+        r = _plan(
+            client,
+            actor_id,
+            "Find the cheapest grocery provider and buy 2 liters of milk.",
+        )
         assert r.status_code == 200, r.text
         graph = r.json()["graph"]
         execution_order = graph.get("execution_order") or []
@@ -150,9 +171,18 @@ class TestExecuteThisPlan:
         # A hand-built body with no intent_ir — /execute must refuse it
         # rather than silently executing an unplanned request.
         fake_plan_body = {
-            "graph": {"graph_id": "", "graph_type": "execution", "nodes": [], "edges": []},
-            "run_id": "not-a-real-run", "target": "execute", "question": "Buy milk.",
-            "intent_ir": None, "elapsed_ms": 0.0, "metadata": {},
+            "graph": {
+                "graph_id": "",
+                "graph_type": "execution",
+                "nodes": [],
+                "edges": [],
+            },
+            "run_id": "not-a-real-run",
+            "target": "execute",
+            "question": "Buy milk.",
+            "intent_ir": None,
+            "elapsed_ms": 0.0,
+            "metadata": {},
         }
         r = _execute(client, actor_id, fake_plan_body)
         assert r.status_code == 400, r.text
@@ -171,17 +201,23 @@ class TestPlanValidationFailure:
             )
         if r.status_code == 422:
             body = r.json()
-            assert body.get("error") in ("planner_produced_no_graph", "Graph validation failed after repair attempts")
+            assert body.get("error") in (
+                "planner_produced_no_graph",
+                "Graph validation failed after repair attempts",
+            )
 
 
 class TestPlanEdgesNeverDangle:
     """The graph the frontend renders must never reference a fabricated edge."""
 
-    @pytest.mark.parametrize("question", [
-        "Buy 2 liters of whole milk.",
-        "Buy milk and pizza with a shared budget.",
-        "Buy milk for the infant first.",
-    ])
+    @pytest.mark.parametrize(
+        "question",
+        [
+            "Buy 2 liters of whole milk.",
+            "Buy milk and pizza with a shared budget.",
+            "Buy milk for the infant first.",
+        ],
+    )
     def test_plan_edges_never_dangle(self, client, question):
         actor_id = _create_actor(client, f"Plan Test Dangle {question[:10]}")
         r = _plan(client, actor_id, question)

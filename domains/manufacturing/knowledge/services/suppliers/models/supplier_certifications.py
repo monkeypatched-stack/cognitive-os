@@ -10,21 +10,53 @@ def datetime_now() -> datetime:
 
 class CertificationModel(BaseModel):
     supplier_id: str = Field(..., description="Unique identifier for the supplier.")
-    certification_name: str = Field(..., description="Name of the certification or standard achieved by the supplier.")
-    certification_type: str = Field(..., description="Type of certification, for example Quality, Environmental, Safety, or Industry-Specific.")
-    issuing_authority: str = Field(..., description="Organization or authority that issued the certification.")
-    certification_number: Optional[str] = Field(None, description="Unique identification number for the certification, if applicable.")
-    issue_date: datetime = Field(..., description="Date on which the certification was issued.")
+    certification_name: str = Field(
+        ...,
+        description="Name of the certification or standard achieved by the supplier.",
+    )
+    certification_type: str = Field(
+        ...,
+        description="Type of certification, for example Quality, Environmental, Safety, or Industry-Specific.",
+    )
+    issuing_authority: str = Field(
+        ..., description="Organization or authority that issued the certification."
+    )
+    certification_number: Optional[str] = Field(
+        None,
+        description="Unique identification number for the certification, if applicable.",
+    )
+    issue_date: datetime = Field(
+        ..., description="Date on which the certification was issued."
+    )
     expiry_date: Optional[datetime] = Field(default_factory=datetime_now)
-    renewal_required: bool = Field(..., description="Indicates if the certification requires periodic renewal.")
-    renewal_frequency: Optional[str] = Field(None, description="How often the certification must be renewed, for example Annual or Every 3 Years.")
-    scope_of_certification: str = Field(..., description="Description of the areas or processes covered by the certification.")
-    audit_required: bool = Field(..., description="Indicates if regular audits are required to maintain the certification.")
+    renewal_required: bool = Field(
+        ..., description="Indicates if the certification requires periodic renewal."
+    )
+    renewal_frequency: Optional[str] = Field(
+        None,
+        description="How often the certification must be renewed, for example Annual or Every 3 Years.",
+    )
+    scope_of_certification: str = Field(
+        ...,
+        description="Description of the areas or processes covered by the certification.",
+    )
+    audit_required: bool = Field(
+        ...,
+        description="Indicates if regular audits are required to maintain the certification.",
+    )
     last_audit_date: Optional[datetime] = Field(default_factory=datetime_now)
     next_audit_date: Optional[datetime] = Field(default_factory=datetime_now)
-    certification_status: str = Field(..., description="Current status of the certification, for example Active, Pending Renewal, or Expired.")
-    certificate_document: Optional[str] = Field(None, description="Reference to the digital copy of the certificate or a link to its location.")
-    remarks: Optional[str] = Field(None, description="Additional notes or observations about the certification.")
+    certification_status: str = Field(
+        ...,
+        description="Current status of the certification, for example Active, Pending Renewal, or Expired.",
+    )
+    certificate_document: Optional[str] = Field(
+        None,
+        description="Reference to the digital copy of the certificate or a link to its location.",
+    )
+    remarks: Optional[str] = Field(
+        None, description="Additional notes or observations about the certification."
+    )
 
 
 class CertificationCreate(CertificationModel):

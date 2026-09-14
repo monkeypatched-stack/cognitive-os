@@ -6,7 +6,6 @@ from typing import Any
 
 from bson import ObjectId
 
-
 EMBEDDING_DIMENSIONS = 64
 EMBEDDING_MODEL = "local-hash-v1"
 EXCLUDED_TEXT_KEYS = {
@@ -79,7 +78,9 @@ def build_embedding(collection: str, document: dict[str, Any]) -> dict[str, Any]
     }
     text = embedding_text(collection, source_document)
     source_hash = hashlib.sha256(
-        json.dumps(source_document, sort_keys=True, default=_json_default).encode("utf-8")
+        json.dumps(source_document, sort_keys=True, default=_json_default).encode(
+            "utf-8"
+        )
     ).hexdigest()
     return {
         "text": text,
@@ -91,7 +92,9 @@ def build_embedding(collection: str, document: dict[str, Any]) -> dict[str, Any]
     }
 
 
-def enrich_document_embedding(collection: str, document: dict[str, Any]) -> dict[str, Any]:
+def enrich_document_embedding(
+    collection: str, document: dict[str, Any]
+) -> dict[str, Any]:
     enriched = dict(document)
     enriched["embedding"] = build_embedding(collection, enriched)
     return enriched

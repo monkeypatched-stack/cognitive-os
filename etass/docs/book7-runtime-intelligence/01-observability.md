@@ -447,31 +447,28 @@ class CerebellumAgent:
         self.logger = observability_client.get_logger(__name__)
         self.metrics = observability_client.get_metrics(__name__)
         self.tracer = observability_client.get_tracer(__name__)
-    
+
     def execute(self, specification):
         with self.tracer.start_span("cerebellum_execution"):
             # Start performance metrics
             start_time = time.time()
             self.metrics.increment("agent.executions.started")
-            
+
             try:
-                self.logger.info("Starting plan generation", 
-                               specification=specification.id)
-                
+                self.logger.info("Starting plan generation", specification=specification.id)
+
                 # Agent logic here
                 plan = self._generate_plan(specification)
-                
+
                 # Record success
                 duration = time.time() - start_time
                 self.metrics.record("agent.execution.duration", duration)
                 self.metrics.increment("agent.executions.success")
-                
-                self.logger.info("Plan generation completed", 
-                               duration=duration,
-                               plan_steps=len(plan.steps))
-                
+
+                self.logger.info("Plan generation completed", duration=duration, plan_steps=len(plan.steps))
+
                 return plan
-                
+
             except Exception as e:
                 self.metrics.increment("agent.executions.failed")
                 self.logger.error("Plan generation failed", error=str(e))

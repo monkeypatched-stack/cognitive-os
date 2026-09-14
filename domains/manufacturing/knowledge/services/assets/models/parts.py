@@ -1,8 +1,12 @@
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, model_validator
 
-PartCategory = Literal["Mechanical", "Electrical", "Hydraulic", "Pneumatic", "Electronic", "Consumable"]
-PartStatus = Literal["In Stock", "Low Stock", "Out of Stock", "On Order", "Discontinued"]
+PartCategory = Literal[
+    "Mechanical", "Electrical", "Hydraulic", "Pneumatic", "Electronic", "Consumable"
+]
+PartStatus = Literal[
+    "In Stock", "Low Stock", "Out of Stock", "On Order", "Discontinued"
+]
 
 
 class MachinePart(BaseModel):

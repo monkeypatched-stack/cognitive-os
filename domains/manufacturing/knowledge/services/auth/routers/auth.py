@@ -14,7 +14,17 @@ from pathlib import Path
 from urllib.parse import quote
 from uuid import uuid4
 from bson import ObjectId
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, Response, Cookie, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    Cookie,
+    status,
+)
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse
 import httpx
@@ -22,7 +32,10 @@ from jose import JWTError
 from pydantic import BaseModel, Field
 
 from services.auth.helpers.permissions import get_by_permission_id
-from services.auth.helpers.roles import get_by_name as get_role_by_name, get_by_id as get_role_by_id  # ← import get_by_id
+from services.auth.helpers.roles import (
+    get_by_name as get_role_by_name,
+    get_by_id as get_role_by_id,
+)  # ← import get_by_id
 from services.auth.models.login import LoginRequest, RefreshTokenRequest, TokenResponse
 from services.auth.helpers.tokens import (
     create_access_token,
@@ -70,7 +83,11 @@ from services.common.approval_chains import (
 from services.common.neo4j_mirror import mirror_document, safe_mirror
 from services.common.n8n_auth import n8n_webhook_auth_headers
 from services.auth.helpers.revocation import block_jti, is_jti_revoked
-from services.auth.helpers.store import revoke_refresh_token, save_refresh_token, token_exists
+from services.auth.helpers.store import (
+    revoke_refresh_token,
+    save_refresh_token,
+    token_exists,
+)
 from services.auth.helpers import nats_store
 from services.auth.helpers.approval_decisions import (
     ApprovalAlreadyDecidedError,
@@ -86,9 +103,9 @@ router = APIRouter()
 COOKIE_OPTIONS = dict(
     key=settings.REFRESH_COOKIE_NAME,
     httponly=True,
-    secure=False,          # set True in production (HTTPS only)
+    secure=False,  # set True in production (HTTPS only)
     samesite="strict",
-    max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
 )
 
 
@@ -127,10 +144,10 @@ class ManualAuditTrailRequest(BaseModel):
     detail: str | None = Field(default=None, max_length=4000)
 
 
-
-
 class ComplianceTestExecutionRequest(BaseModel):
-    scope: str = Field(default="all", pattern="^(all|iq|oq|pq|gqa|test-execution-reports)$")
+    scope: str = Field(
+        default="all", pattern="^(all|iq|oq|pq|gqa|test-execution-reports)$"
+    )
 
 
 class ComplianceAgentRunRequest(BaseModel):
@@ -162,7 +179,10 @@ class ElectronicSignatureResponse(BaseModel):
 
 def _audit_elasticsearch_auth():
     if settings.AUDIT_ELASTICSEARCH_USERNAME:
-        return (settings.AUDIT_ELASTICSEARCH_USERNAME, settings.AUDIT_ELASTICSEARCH_PASSWORD)
+        return (
+            settings.AUDIT_ELASTICSEARCH_USERNAME,
+            settings.AUDIT_ELASTICSEARCH_PASSWORD,
+        )
     return None
 
 
@@ -226,7 +246,9 @@ async def _search_audit_trail_elasticsearch(
             auth=_audit_elasticsearch_auth(),
             headers=_audit_elasticsearch_headers(),
         ) as client:
-            response = await client.post(f"/{settings.AUDIT_ELASTICSEARCH_INDEX}/_search", json=payload)
+            response = await client.post(
+                f"/{settings.AUDIT_ELASTICSEARCH_INDEX}/_search", json=payload
+            )
             if response.status_code == 404:
                 return None
             response.raise_for_status()
@@ -235,14 +257,20 @@ async def _search_audit_trail_elasticsearch(
         return None
 
     total_value = data.get("hits", {}).get("total", 0)
-    total = total_value.get("value", 0) if isinstance(total_value, dict) else int(total_value or 0)
+    total = (
+        total_value.get("value", 0)
+        if isinstance(total_value, dict)
+        else int(total_value or 0)
+    )
     return {
         "total": total,
         "page": page,
         "page_size": page_size,
         "source": "elasticsearch",
         "index": settings.AUDIT_ELASTICSEARCH_INDEX,
-        "results": [hit.get("_source", {}) for hit in data.get("hits", {}).get("hits", [])],
+        "results": [
+            hit.get("_source", {}) for hit in data.get("hits", {}).get("hits", [])
+        ],
     }
 
 
@@ -285,7 +313,9 @@ class UserRequirementInput(BaseModel):
     description: str = Field(..., min_length=1, max_length=4000)
     category: str = Field(default="Compliance", min_length=1, max_length=128)
     priority: str = Field(default="High", pattern=r"^(Critical|High|Medium|Low)$")
-    source: str = Field(default="User Requirement Specification", min_length=1, max_length=255)
+    source: str = Field(
+        default="User Requirement Specification", min_length=1, max_length=255
+    )
     acceptance_criteria: list[str] = Field(default_factory=list)
     linked_controls: list[str] = Field(default_factory=list)
     linked_tests: list[str] = Field(default_factory=list)
@@ -429,7 +459,9 @@ async def _link_signature_to_entity(db, signature: dict) -> None:
 
 
 async def _link_change_control_to_entities(db, change_control: dict) -> None:
-    reference = entity_compliance_reference(change_control, reference_type="change_control")
+    reference = entity_compliance_reference(
+        change_control, reference_type="change_control"
+    )
     for entity in change_control.get("affected_entities") or []:
         collection = entity.get("collection") or _entity_collection(entity)
         record_id = entity.get("entity_id") or _entity_id(entity)
@@ -440,8 +472,12 @@ async def _link_change_control_to_entities(db, change_control: dict) -> None:
             {
                 "$set": {
                     "compliance.change_management_enabled": True,
-                    "compliance.last_change_control_id": change_control.get("change_control_id"),
-                    "compliance.last_change_control_status": change_control.get("status"),
+                    "compliance.last_change_control_id": change_control.get(
+                        "change_control_id"
+                    ),
+                    "compliance.last_change_control_status": change_control.get(
+                        "status"
+                    ),
                 },
                 "$addToSet": {
                     "compliance.change_controls": reference,
@@ -460,7 +496,9 @@ def _proposed_values_from_payload(payload: dict) -> dict:
         set_values = proposed_update.get("$set")
         if isinstance(set_values, dict) and set_values:
             return dict(set_values)
-        if proposed_update and not any(str(key).startswith("$") for key in proposed_update):
+        if proposed_update and not any(
+            str(key).startswith("$") for key in proposed_update
+        ):
             return dict(proposed_update)
     return {}
 
@@ -473,7 +511,9 @@ def _record_key_values(record: dict) -> dict:
     return {key: record.get(key) for key in keys if record.get(key) is not None}
 
 
-async def _create_proposed_change_nodes(db, change_control: dict, current_user: dict) -> list[dict]:
+async def _create_proposed_change_nodes(
+    db, change_control: dict, current_user: dict
+) -> list[dict]:
     proposed_nodes: list[dict] = []
     now = utc_now()
     requested_changes = change_control.get("proposed_changes")
@@ -500,8 +540,14 @@ async def _create_proposed_change_nodes(db, change_control: dict, current_user: 
         entity_id = spec.get("entity_id") or spec.get("id") or spec.get("record_id")
         if not collection or not entity_id:
             continue
-        live_record = await db[str(collection)].find_one(_record_lookup_query(str(entity_id)), {"_id": 0, "embedding": 0})
-        pending_values = spec.get("proposed_values") if isinstance(spec.get("proposed_values"), dict) else proposed_values
+        live_record = await db[str(collection)].find_one(
+            _record_lookup_query(str(entity_id)), {"_id": 0, "embedding": 0}
+        )
+        pending_values = (
+            spec.get("proposed_values")
+            if isinstance(spec.get("proposed_values"), dict)
+            else proposed_values
+        )
         node = {
             "proposed_change_id": f"proposed_change-{uuid4().hex}",
             "change_control_id": change_control.get("change_control_id"),
@@ -511,7 +557,10 @@ async def _create_proposed_change_nodes(db, change_control: dict, current_user: 
             "lifecycle_state": "proposed",
             "source_collection": collection,
             "source_id": str(entity_id),
-            "source_name": spec.get("entity_name") or (live_record or {}).get("name") or (live_record or {}).get("title") or str(entity_id),
+            "source_name": spec.get("entity_name")
+            or (live_record or {}).get("name")
+            or (live_record or {}).get("title")
+            or str(entity_id),
             "source_key": _record_key_values(live_record or {"id": entity_id}),
             "source_snapshot": live_record or {},
             "pending_properties": dict(pending_values or {}),
@@ -520,7 +569,9 @@ async def _create_proposed_change_nodes(db, change_control: dict, current_user: 
             "rolled_back": False,
             "live_node_touched": False,
             "approval_chain": change_control.get("approval_chain") or [],
-            "approval_assignment_basis": change_control.get("approval_assignment_basis"),
+            "approval_assignment_basis": change_control.get(
+                "approval_assignment_basis"
+            ),
             "created_at": now,
             "updated_at": now,
             "created_by": _current_user_id(current_user),
@@ -569,7 +620,9 @@ def _current_user_id(current_user: dict) -> str:
     return current_user.get("user_id") or current_user.get("sub")
 
 
-async def _insert_gxp_record(db, collection: str, prefix: str, payload: dict, current_user: dict) -> dict:
+async def _insert_gxp_record(
+    db, collection: str, prefix: str, payload: dict, current_user: dict
+) -> dict:
     now = utc_now()
     record_id = f"{prefix}-{uuid4().hex}"
     record = {
@@ -587,14 +640,35 @@ async def _insert_gxp_record(db, collection: str, prefix: str, payload: dict, cu
     return jsonable_encoder(record)
 
 
-async def _list_gxp_records(db, collection: str, page: int, page_size: int, status_value: str | None = None) -> dict:
+async def _list_gxp_records(
+    db, collection: str, page: int, page_size: int, status_value: str | None = None
+) -> dict:
     query = {"status": status_value} if status_value else {}
     total = await db[collection].count_documents(query)
-    cursor = db[collection].find(query, {"_id": 0}).sort("_id", -1).skip((page - 1) * page_size).limit(page_size)
-    return {"total": total, "page": page, "page_size": page_size, "results": [item async for item in cursor]}
+    cursor = (
+        db[collection]
+        .find(query, {"_id": 0})
+        .sort("_id", -1)
+        .skip((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "results": [item async for item in cursor],
+    }
 
 
-OPEN_CHANGE_STATUSES = {"Open", "Draft", "Submitted", "Under Review", "Approved", "Implementation", "Verification"}
+OPEN_CHANGE_STATUSES = {
+    "Open",
+    "Draft",
+    "Submitted",
+    "Under Review",
+    "Approved",
+    "Implementation",
+    "Verification",
+}
 
 
 def _change_control_number(now: datetime, sequence: int) -> str:
@@ -615,7 +689,9 @@ def _entity_collection(entity: dict) -> str | None:
             "machines": "pharmaceutical_machines",
             "equipment": "pharmaceutical_equipment",
         }.get(collection_name, collection_name)
-    entity_type = str(entity.get("type") or entity.get("entity_type") or "").strip().lower()
+    entity_type = (
+        str(entity.get("type") or entity.get("entity_type") or "").strip().lower()
+    )
     return {
         "machine": "pharmaceutical_machines",
         "equipment": "pharmaceutical_equipment",
@@ -631,14 +707,27 @@ def _entity_collection(entity: dict) -> str | None:
 
 
 def _entity_id(entity: dict) -> str | None:
-    for key in ("entity_id", "id", "machine_id", "equipment_id", "workstation_id", "sop_id", "stage_id", "line_id", "plant_id", "recipe_id"):
+    for key in (
+        "entity_id",
+        "id",
+        "machine_id",
+        "equipment_id",
+        "workstation_id",
+        "sop_id",
+        "stage_id",
+        "line_id",
+        "plant_id",
+        "recipe_id",
+    ):
         value = entity.get(key)
         if value:
             return str(value)
     return None
 
 
-async def _open_change_for_affected_entities(db, affected_entities: list[dict]) -> dict | None:
+async def _open_change_for_affected_entities(
+    db, affected_entities: list[dict]
+) -> dict | None:
     entity_ids = [_entity_id(entity) for entity in affected_entities]
     entity_ids = [entity_id for entity_id in entity_ids if entity_id]
     if not entity_ids:
@@ -663,8 +752,18 @@ async def _resolve_affected_entities(db, affected_entities: list[dict]) -> list[
             name_query = []
             if entity_name:
                 name_query = [
-                    {"name": {"$regex": f"^{re.escape(entity_name)}$", "$options": "i"}},
-                    {"title": {"$regex": f"^{re.escape(entity_name)}$", "$options": "i"}},
+                    {
+                        "name": {
+                            "$regex": f"^{re.escape(entity_name)}$",
+                            "$options": "i",
+                        }
+                    },
+                    {
+                        "title": {
+                            "$regex": f"^{re.escape(entity_name)}$",
+                            "$options": "i",
+                        }
+                    },
                 ]
             record = await db[collection].find_one(
                 {
@@ -678,7 +777,8 @@ async def _resolve_affected_entities(db, affected_entities: list[dict]) -> list[
                         {"stage_id": entity_id},
                         {"line_id": entity_id},
                         {"plant_id": entity_id},
-                    ] + name_query
+                    ]
+                    + name_query
                 },
                 {"_id": 0, "embedding": 0},
             )
@@ -700,7 +800,10 @@ async def _resolve_affected_entities(db, affected_entities: list[dict]) -> list[
                 **entity,
                 "entity_id": entity_id,
                 "collection": collection,
-                "name": entity.get("name") or (record or {}).get("name") or (record or {}).get("title") or entity_id,
+                "name": entity.get("name")
+                or (record or {}).get("name")
+                or (record or {}).get("title")
+                or entity_id,
                 "status": entity.get("status") or (record or {}).get("status"),
                 "resolved": bool(record),
             }
@@ -709,49 +812,98 @@ async def _resolve_affected_entities(db, affected_entities: list[dict]) -> list[
 
 
 async def _change_impact_assessment(db, affected_entities: list[dict]) -> dict:
-    entity_ids = [str(entity.get("entity_id")) for entity in affected_entities if entity.get("entity_id")]
-    machine_ids = [entity["entity_id"] for entity in affected_entities if entity.get("collection") == "pharmaceutical_machines" and entity.get("entity_id")]
-    equipment_ids = [entity["entity_id"] for entity in affected_entities if entity.get("collection") == "pharmaceutical_equipment" and entity.get("entity_id")]
-    workstation_ids = [entity["entity_id"] for entity in affected_entities if entity.get("collection") == "workstations" and entity.get("entity_id")]
-    stage_ids = [entity["entity_id"] for entity in affected_entities if entity.get("collection") == "industrial_stages" and entity.get("entity_id")]
+    entity_ids = [
+        str(entity.get("entity_id"))
+        for entity in affected_entities
+        if entity.get("entity_id")
+    ]
+    machine_ids = [
+        entity["entity_id"]
+        for entity in affected_entities
+        if entity.get("collection") == "pharmaceutical_machines"
+        and entity.get("entity_id")
+    ]
+    equipment_ids = [
+        entity["entity_id"]
+        for entity in affected_entities
+        if entity.get("collection") == "pharmaceutical_equipment"
+        and entity.get("entity_id")
+    ]
+    workstation_ids = [
+        entity["entity_id"]
+        for entity in affected_entities
+        if entity.get("collection") == "workstations" and entity.get("entity_id")
+    ]
+    stage_ids = [
+        entity["entity_id"]
+        for entity in affected_entities
+        if entity.get("collection") == "industrial_stages" and entity.get("entity_id")
+    ]
 
-    sops = await db["sops"].find(
-        {
-            "$or": [
-                {"entity_id": {"$in": entity_ids}},
-                {"machine_id": {"$in": machine_ids}},
-                {"equipment_id": {"$in": equipment_ids}},
-                {"workstation_id": {"$in": workstation_ids}},
-                {"stage_id": {"$in": stage_ids}},
-            ]
-        },
-        {"_id": 0, "id": 1, "sop_id": 1, "title": 1, "name": 1, "entity_name": 1, "workstation_id": 1, "stage_id": 1, "line_id": 1, "plant_id": 1},
-    ).to_list(length=100)
-    work_orders = await db["work_orders"].find(
-        {
-            "$or": [
-                {"machine_id": {"$in": machine_ids}},
-                {"equipment_id": {"$in": equipment_ids}},
-                {"workstation_id": {"$in": workstation_ids}},
-                {"status": {"$in": ["Open", "In Progress", "Scheduled"]}},
-            ]
-        },
-        {"_id": 0, "work_order_id": 1, "title": 1, "status": 1},
-    ).to_list(length=100)
-    operators = await db["users"].find(
-        {
-            "$or": [
-                {"workstation_id": {"$in": workstation_ids}},
-                {"stage_id": {"$in": stage_ids}},
-            ],
-            "title": "Production Worker",
-        },
-        {"_id": 0, "user_id": 1, "name": 1, "workstation_id": 1, "stage_id": 1},
-    ).to_list(length=100)
-    open_batches = await db["batch_records"].find(
-        {"status": {"$in": ["Open", "In Progress", "Released"]}},
-        {"_id": 0, "batch_id": 1, "status": 1},
-    ).to_list(length=100)
+    sops = (
+        await db["sops"]
+        .find(
+            {
+                "$or": [
+                    {"entity_id": {"$in": entity_ids}},
+                    {"machine_id": {"$in": machine_ids}},
+                    {"equipment_id": {"$in": equipment_ids}},
+                    {"workstation_id": {"$in": workstation_ids}},
+                    {"stage_id": {"$in": stage_ids}},
+                ]
+            },
+            {
+                "_id": 0,
+                "id": 1,
+                "sop_id": 1,
+                "title": 1,
+                "name": 1,
+                "entity_name": 1,
+                "workstation_id": 1,
+                "stage_id": 1,
+                "line_id": 1,
+                "plant_id": 1,
+            },
+        )
+        .to_list(length=100)
+    )
+    work_orders = (
+        await db["work_orders"]
+        .find(
+            {
+                "$or": [
+                    {"machine_id": {"$in": machine_ids}},
+                    {"equipment_id": {"$in": equipment_ids}},
+                    {"workstation_id": {"$in": workstation_ids}},
+                    {"status": {"$in": ["Open", "In Progress", "Scheduled"]}},
+                ]
+            },
+            {"_id": 0, "work_order_id": 1, "title": 1, "status": 1},
+        )
+        .to_list(length=100)
+    )
+    operators = (
+        await db["users"]
+        .find(
+            {
+                "$or": [
+                    {"workstation_id": {"$in": workstation_ids}},
+                    {"stage_id": {"$in": stage_ids}},
+                ],
+                "title": "Production Worker",
+            },
+            {"_id": 0, "user_id": 1, "name": 1, "workstation_id": 1, "stage_id": 1},
+        )
+        .to_list(length=100)
+    )
+    open_batches = (
+        await db["batch_records"]
+        .find(
+            {"status": {"$in": ["Open", "In Progress", "Released"]}},
+            {"_id": 0, "batch_id": 1, "status": 1},
+        )
+        .to_list(length=100)
+    )
 
     return {
         "directly_affected_entities": affected_entities,
@@ -761,7 +913,11 @@ async def _change_impact_assessment(db, affected_entities: list[dict]) -> dict:
         "open_batches": open_batches,
         "downstream_compliance_records": [],
         "flags": {
-            "validated_system_review_required": any(entity.get("collection") in {"pharmaceutical_machines", "pharmaceutical_equipment", "sops"} for entity in affected_entities),
+            "validated_system_review_required": any(
+                entity.get("collection")
+                in {"pharmaceutical_machines", "pharmaceutical_equipment", "sops"}
+                for entity in affected_entities
+            ),
             "quality_manager_signoff_required": True,
             "asset_hold_required": bool(machine_ids or equipment_ids),
         },
@@ -772,30 +928,102 @@ def _change_decisions(payload: dict, impact: dict) -> dict:
     change_type = payload.get("change_type")
     risk_score = payload.get("risk_score") or 0
     major_or_risky = change_type in {"Major", "Emergency"} or risk_score >= 40
-    sop_related = any(entity.get("collection") == "sops" for entity in payload.get("affected_entities") or [])
-    process_related = any(entity.get("collection") in {"industrial_stages", "recipe_routes"} for entity in payload.get("affected_entities") or [])
+    sop_related = any(
+        entity.get("collection") == "sops"
+        for entity in payload.get("affected_entities") or []
+    )
+    process_related = any(
+        entity.get("collection") in {"industrial_stages", "recipe_routes"}
+        for entity in payload.get("affected_entities") or []
+    )
     return {
-        "revalidation_required": payload.get("revalidation_required") if payload.get("revalidation_required") is not None else major_or_risky,
-        "requalification_required": payload.get("requalification_required") if payload.get("requalification_required") is not None else impact["flags"]["asset_hold_required"],
-        "sop_revision_required": payload.get("sop_revision_required") if payload.get("sop_revision_required") is not None else sop_related or process_related,
-        "retraining_required": payload.get("retraining_required") if payload.get("retraining_required") is not None else sop_related or process_related,
-        "regulatory_notification_required": payload.get("regulatory_notification_required") if payload.get("regulatory_notification_required") is not None else change_type == "Major" and risk_score >= 60,
-        "stability_study_required": payload.get("stability_study_required") if payload.get("stability_study_required") is not None else False,
+        "revalidation_required": (
+            payload.get("revalidation_required")
+            if payload.get("revalidation_required") is not None
+            else major_or_risky
+        ),
+        "requalification_required": (
+            payload.get("requalification_required")
+            if payload.get("requalification_required") is not None
+            else impact["flags"]["asset_hold_required"]
+        ),
+        "sop_revision_required": (
+            payload.get("sop_revision_required")
+            if payload.get("sop_revision_required") is not None
+            else sop_related or process_related
+        ),
+        "retraining_required": (
+            payload.get("retraining_required")
+            if payload.get("retraining_required") is not None
+            else sop_related or process_related
+        ),
+        "regulatory_notification_required": (
+            payload.get("regulatory_notification_required")
+            if payload.get("regulatory_notification_required") is not None
+            else change_type == "Major" and risk_score >= 60
+        ),
+        "stability_study_required": (
+            payload.get("stability_study_required")
+            if payload.get("stability_study_required") is not None
+            else False
+        ),
     }
 
 
 def _implementation_tasks(payload: dict, impact: dict, decisions: dict) -> list[dict]:
     tasks = [
-        {"task_id": f"task-{uuid4().hex}", "title": "Review graph-generated impact assessment", "owner_role": "Reviewer", "status": "Pending", "evidence_required": False},
-        {"task_id": f"task-{uuid4().hex}", "title": "Implement approved change", "owner_role": "Implementer", "status": "Pending", "evidence_required": True},
-        {"task_id": f"task-{uuid4().hex}", "title": "Verify implementation effectiveness", "owner_role": "Verifier", "status": "Pending", "evidence_required": True},
+        {
+            "task_id": f"task-{uuid4().hex}",
+            "title": "Review graph-generated impact assessment",
+            "owner_role": "Reviewer",
+            "status": "Pending",
+            "evidence_required": False,
+        },
+        {
+            "task_id": f"task-{uuid4().hex}",
+            "title": "Implement approved change",
+            "owner_role": "Implementer",
+            "status": "Pending",
+            "evidence_required": True,
+        },
+        {
+            "task_id": f"task-{uuid4().hex}",
+            "title": "Verify implementation effectiveness",
+            "owner_role": "Verifier",
+            "status": "Pending",
+            "evidence_required": True,
+        },
     ]
     if decisions.get("sop_revision_required"):
-        tasks.append({"task_id": f"task-{uuid4().hex}", "title": "Revise affected SOP/document", "owner_role": "Document Owner", "status": "Pending", "evidence_required": True})
+        tasks.append(
+            {
+                "task_id": f"task-{uuid4().hex}",
+                "title": "Revise affected SOP/document",
+                "owner_role": "Document Owner",
+                "status": "Pending",
+                "evidence_required": True,
+            }
+        )
     if decisions.get("retraining_required"):
-        tasks.append({"task_id": f"task-{uuid4().hex}", "title": "Complete affected-operator retraining", "owner_role": "Training Coordinator", "status": "Pending", "evidence_required": True})
+        tasks.append(
+            {
+                "task_id": f"task-{uuid4().hex}",
+                "title": "Complete affected-operator retraining",
+                "owner_role": "Training Coordinator",
+                "status": "Pending",
+                "evidence_required": True,
+            }
+        )
     if decisions.get("requalification_required"):
-        tasks.append({"task_id": f"task-{uuid4().hex}", "title": "Complete equipment requalification or calibration evidence", "owner_role": "Engineering", "status": "Pending", "evidence_required": True})
+        tasks.append(
+            {
+                "task_id": f"task-{uuid4().hex}",
+                "title": "Complete equipment requalification or calibration evidence",
+                "owner_role": "Engineering",
+                "status": "Pending",
+                "evidence_required": True,
+            }
+        )
     return tasks
 
 
@@ -838,7 +1066,9 @@ SYSTEM_APPROVAL_USERS = {
 
 async def _ensure_system_approval_user(db, key: str) -> dict:
     base = dict(SYSTEM_APPROVAL_USERS[key])
-    existing = await db["users"].find_one({"user_id": base["user_id"]}, {"embedding": 0})
+    existing = await db["users"].find_one(
+        {"user_id": base["user_id"]}, {"embedding": 0}
+    )
     now = utc_now()
     document = {
         **base,
@@ -846,13 +1076,21 @@ async def _ensure_system_approval_user(db, key: str) -> dict:
         "created_at": (existing or {}).get("created_at") or now,
         "updated_at": now,
     }
-    await db["users"].update_one({"user_id": document["user_id"]}, {"$set": document}, upsert=True)
+    await db["users"].update_one(
+        {"user_id": document["user_id"]}, {"$set": document}, upsert=True
+    )
     # Project OUT the credential fields: this document is both mirrored to Neo4j and returned
     # to the caller. Re-reading the full user record pulled hashed_password / refresh_tokens
     # back in (the same fields the worker query at ~3535 already knows to exclude).
     stored = await db["users"].find_one(
         {"user_id": document["user_id"]},
-        {"_id": 0, "embedding": 0, "password": 0, "hashed_password": 0, "refresh_tokens": 0},
+        {
+            "_id": 0,
+            "embedding": 0,
+            "password": 0,
+            "hashed_password": 0,
+            "refresh_tokens": 0,
+        },
     )
     await safe_mirror(mirror_document("users", stored or document, "update"))
     return stored or document
@@ -867,7 +1105,11 @@ def _approval_user_summary(user: dict | None, fallback_role: str) -> dict:
             "role": fallback_role,
             "email": None,
         }
-    fallback_email = f"{str(user.get('user_id')).lower()}@internal.example" if user.get("user_id") else None
+    fallback_email = (
+        f"{str(user.get('user_id')).lower()}@internal.example"
+        if user.get("user_id")
+        else None
+    )
     return {
         "user_id": user.get("user_id"),
         "name": user.get("name") or user.get("email") or user.get("user_id"),
@@ -884,7 +1126,9 @@ async def _approval_user_by_id(db, user_id: str | None) -> dict | None:
 
 
 async def _approval_user_by_dialog_step(db, step: dict) -> dict | None:
-    assigned_user = step.get("assigned_user") if isinstance(step.get("assigned_user"), dict) else {}
+    assigned_user = (
+        step.get("assigned_user") if isinstance(step.get("assigned_user"), dict) else {}
+    )
     user_id = (
         step.get("assigned_user_id")
         or step.get("user_id")
@@ -894,30 +1138,56 @@ async def _approval_user_by_dialog_step(db, step: dict) -> dict | None:
     user = await _approval_user_by_id(db, str(user_id) if user_id else None)
     if user:
         return user
-    email = step.get("assigned_user_email") or step.get("email") or assigned_user.get("email")
-    name = step.get("assigned_user_name") or step.get("name") or step.get("approver_name") or assigned_user.get("name")
+    email = (
+        step.get("assigned_user_email")
+        or step.get("email")
+        or assigned_user.get("email")
+    )
+    name = (
+        step.get("assigned_user_name")
+        or step.get("name")
+        or step.get("approver_name")
+        or assigned_user.get("name")
+    )
     clauses = []
     if email:
-        clauses.append({"email": {"$regex": f"^{re.escape(str(email).strip())}$", "$options": "i"}})
+        clauses.append(
+            {"email": {"$regex": f"^{re.escape(str(email).strip())}$", "$options": "i"}}
+        )
     if name:
-        clauses.append({"name": {"$regex": f"^{re.escape(str(name).strip())}$", "$options": "i"}})
+        clauses.append(
+            {"name": {"$regex": f"^{re.escape(str(name).strip())}$", "$options": "i"}}
+        )
     if not clauses:
         return None
     return await db["users"].find_one({"$or": clauses}, {"_id": 0, "embedding": 0})
 
 
 def _manual_chain_from_payload(payload: dict) -> list[dict]:
-    chain = payload.get("approval_chain") if isinstance(payload.get("approval_chain"), list) else []
+    chain = (
+        payload.get("approval_chain")
+        if isinstance(payload.get("approval_chain"), list)
+        else []
+    )
     if not chain:
-        chain = payload.get("manual_approval_chain") if isinstance(payload.get("manual_approval_chain"), list) else []
+        chain = (
+            payload.get("manual_approval_chain")
+            if isinstance(payload.get("manual_approval_chain"), list)
+            else []
+        )
     return chain
 
 
-async def _resolve_manual_approval_chain(db, chain: list[dict], basis: dict) -> list[dict]:
+async def _resolve_manual_approval_chain(
+    db, chain: list[dict], basis: dict
+) -> list[dict]:
     normalized: list[dict] = []
     for index, step in enumerate(chain, start=1):
         if not isinstance(step, dict):
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Approval step {index} must be an object.")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Approval step {index} must be an object.",
+            )
         user = await _approval_user_by_dialog_step(db, step)
         if not user:
             label = step.get("stage") or step.get("step") or step.get("role") or index
@@ -948,7 +1218,8 @@ async def _resolve_manual_approval_chain(db, chain: list[dict], basis: dict) -> 
                 "assigned_user_id": assigned_user.get("user_id"),
                 "assigned_user_name": assigned_user.get("name"),
                 "assigned_user_title": assigned_user.get("title"),
-                "assigned_user_email": assigned_user.get("email") or step.get("assigned_user_email"),
+                "assigned_user_email": assigned_user.get("email")
+                or step.get("assigned_user_email"),
                 "minimum_approvals": step.get("minimum_approvals") or 1,
                 "routing": step.get("routing") or "sequential",
                 "source": step.get("source") or "manual_dialog",
@@ -959,7 +1230,11 @@ async def _resolve_manual_approval_chain(db, chain: list[dict], basis: dict) -> 
     for index, step in enumerate(normalized, start=1):
         step["sequence"] = index
     validate_named_approval_chain(normalized)
-    missing_email = [step.get("assigned_user_name") or step.get("assigned_user_id") for step in normalized if not approval_step_email(step)]
+    missing_email = [
+        step.get("assigned_user_name") or step.get("assigned_user_id")
+        for step in normalized
+        if not approval_step_email(step)
+    ]
     if missing_email:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -976,10 +1251,18 @@ def _approval_email_payload(notification: dict) -> dict:
         if approval_id
         else None
     )
-    source_title = notification.get("source_title") or notification.get("source_id") or "Approval request"
+    source_title = (
+        notification.get("source_title")
+        or notification.get("source_id")
+        or "Approval request"
+    )
     stage = notification.get("stage") or "Approval"
     role = notification.get("role") or "Approver"
-    approver = notification.get("assigned_user_name") or notification.get("assigned_user_id") or "Assigned approver"
+    approver = (
+        notification.get("assigned_user_name")
+        or notification.get("assigned_user_id")
+        or "Assigned approver"
+    )
     expires_at = notification.get("approval_token_expires_at")
     lines = [
         notification.get("body") or f"Approval is pending for {source_title}.",
@@ -988,7 +1271,11 @@ def _approval_email_payload(notification: dict) -> dict:
         f"Role: {role}",
         f"Approver: {approver}",
         f"Source: {source_title}",
-        f"Link Expires: {expires_at}" if expires_at else "Link Expires: 24 hours from issue",
+        (
+            f"Link Expires: {expires_at}"
+            if expires_at
+            else "Link Expires: 24 hours from issue"
+        ),
         f"Approval Link: {approval_url}" if approval_url else "",
     ]
     body = "\n".join(line for line in lines if line is not None).strip()
@@ -1099,7 +1386,11 @@ async def _post_approval_notifications_to_n8n(event: dict) -> dict:
         for notification in notifications:
             status_payload["attempted"] += 1
             try:
-                response = await client.post(webhook_url, json=_approval_email_payload(notification), headers=n8n_webhook_auth_headers())
+                response = await client.post(
+                    webhook_url,
+                    json=_approval_email_payload(notification),
+                    headers=n8n_webhook_auth_headers(),
+                )
                 if 200 <= response.status_code < 300:
                     status_payload["queued"] += 1
                 else:
@@ -1113,14 +1404,29 @@ async def _post_approval_notifications_to_n8n(event: dict) -> dict:
                     )
             except httpx.HTTPError as exc:
                 status_payload["failed"] += 1
-                status_payload["errors"].append({"recipient": notification.get("assigned_user_email"), "error": str(exc)})
+                status_payload["errors"].append(
+                    {
+                        "recipient": notification.get("assigned_user_email"),
+                        "error": str(exc),
+                    }
+                )
     return status_payload
 
 
-async def _workstation_context_for_change(db, payload: dict, impact: dict) -> tuple[dict | None, dict | None, dict | None]:
-    entity_ids = [str(entity.get("entity_id")) for entity in payload.get("affected_entities") or [] if entity.get("entity_id")]
+async def _workstation_context_for_change(
+    db, payload: dict, impact: dict
+) -> tuple[dict | None, dict | None, dict | None]:
+    entity_ids = [
+        str(entity.get("entity_id"))
+        for entity in payload.get("affected_entities") or []
+        if entity.get("entity_id")
+    ]
     connected_sops = impact.get("connected_sops") or []
-    connected_sop_ids = [sop.get("id") or sop.get("sop_id") for sop in connected_sops if sop.get("id") or sop.get("sop_id")]
+    connected_sop_ids = [
+        sop.get("id") or sop.get("sop_id")
+        for sop in connected_sops
+        if sop.get("id") or sop.get("sop_id")
+    ]
     sop_query = {
         "$or": [
             {"id": {"$in": entity_ids}},
@@ -1129,8 +1435,14 @@ async def _workstation_context_for_change(db, payload: dict, impact: dict) -> tu
             {"sop_id": {"$in": connected_sop_ids}},
         ]
     }
-    sop = await db["sops"].find_one(sop_query, {"_id": 0, "embedding": 0}) if entity_ids or connected_sop_ids else None
-    sop_workstation_ids = [str(sop.get("workstation_id"))] if sop and sop.get("workstation_id") else []
+    sop = (
+        await db["sops"].find_one(sop_query, {"_id": 0, "embedding": 0})
+        if entity_ids or connected_sop_ids
+        else None
+    )
+    sop_workstation_ids = (
+        [str(sop.get("workstation_id"))] if sop and sop.get("workstation_id") else []
+    )
     workstation_ids = [
         str(entity.get("entity_id"))
         for entity in payload.get("affected_entities") or []
@@ -1141,17 +1453,33 @@ async def _workstation_context_for_change(db, payload: dict, impact: dict) -> tu
         for entity in payload.get("affected_entities") or []
         if entity.get("collection") == "industrial_stages" and entity.get("entity_id")
     ]
-    workstation = await db["workstations"].find_one(
-        {"$or": [{"id": {"$in": workstation_ids}}, {"workstation_id": {"$in": workstation_ids}}]},
-        {"_id": 0, "embedding": 0},
-    ) if workstation_ids else None
+    workstation = (
+        await db["workstations"].find_one(
+            {
+                "$or": [
+                    {"id": {"$in": workstation_ids}},
+                    {"workstation_id": {"$in": workstation_ids}},
+                ]
+            },
+            {"_id": 0, "embedding": 0},
+        )
+        if workstation_ids
+        else None
+    )
     if not workstation and sop and sop.get("workstation_id"):
         workstation = await db["workstations"].find_one(
-            {"$or": [{"id": sop.get("workstation_id")}, {"workstation_id": sop.get("workstation_id")}]},
+            {
+                "$or": [
+                    {"id": sop.get("workstation_id")},
+                    {"workstation_id": sop.get("workstation_id")},
+                ]
+            },
             {"_id": 0, "embedding": 0},
         )
     if not workstation and stage_ids:
-        workstation = await db["workstations"].find_one({"stage_id": {"$in": stage_ids}}, {"_id": 0, "embedding": 0})
+        workstation = await db["workstations"].find_one(
+            {"stage_id": {"$in": stage_ids}}, {"_id": 0, "embedding": 0}
+        )
     operator = None
     if workstation:
         operator = await db["users"].find_one(
@@ -1169,13 +1497,21 @@ async def _workstation_context_for_change(db, payload: dict, impact: dict) -> tu
     return sop, workstation, operator
 
 
-async def _approval_workflow(db, payload: dict, impact: dict) -> tuple[list[dict], dict]:
+async def _approval_workflow(
+    db, payload: dict, impact: dict
+) -> tuple[list[dict], dict]:
     document_controller = await _ensure_system_approval_user(db, "document_controller")
     quality_control = await _ensure_system_approval_user(db, "quality_control")
     change_control = await _ensure_system_approval_user(db, "change_control")
-    sop, workstation, operator = await _workstation_context_for_change(db, payload, impact)
-    line_manager = await _approval_user_by_id(db, (workstation or {}).get("line_manager_id"))
-    plant_manager = await _approval_user_by_id(db, (workstation or {}).get("site_manager_id"))
+    sop, workstation, operator = await _workstation_context_for_change(
+        db, payload, impact
+    )
+    line_manager = await _approval_user_by_id(
+        db, (workstation or {}).get("line_manager_id")
+    )
+    plant_manager = await _approval_user_by_id(
+        db, (workstation or {}).get("site_manager_id")
+    )
 
     context = {
         "sop_id": (sop or {}).get("id") or (sop or {}).get("sop_id"),
@@ -1187,9 +1523,19 @@ async def _approval_workflow(db, payload: dict, impact: dict) -> tuple[list[dict
         "plant_id": (workstation or {}).get("plant_id") or (sop or {}).get("plant_id"),
     }
     steps = [
-        ("Document Review", "Document Controller", document_controller, "document_control"),
+        (
+            "Document Review",
+            "Document Controller",
+            document_controller,
+            "document_control",
+        ),
         ("Workstation Impact Review", "Production Worker", operator, "workstation"),
-        ("Quality Control Review", "Quality Control", quality_control, "quality_control"),
+        (
+            "Quality Control Review",
+            "Quality Control",
+            quality_control,
+            "quality_control",
+        ),
         ("Change Control Approval", "Change Control", change_control, "change_control"),
         ("Line Manager Approval", "Line Manager", line_manager, "line"),
         ("Plant Manager Approval", "Plant Manager", plant_manager, "plant"),
@@ -1232,9 +1578,15 @@ async def _approval_workflow(db, payload: dict, impact: dict) -> tuple[list[dict
     return workflow, assignment_basis
 
 
-def _change_control_graph_relationships(resolved_entities: list[dict], workflow: list[dict], basis: dict) -> list[dict]:
+def _change_control_graph_relationships(
+    resolved_entities: list[dict], workflow: list[dict], basis: dict
+) -> list[dict]:
     relationships = [
-        {"type": "AFFECTS", "target_collection": entity.get("collection"), "target_id": entity.get("entity_id")}
+        {
+            "type": "AFFECTS",
+            "target_collection": entity.get("collection"),
+            "target_id": entity.get("entity_id"),
+        }
         for entity in resolved_entities
         if entity.get("entity_id")
     ]
@@ -1245,13 +1597,17 @@ def _change_control_graph_relationships(resolved_entities: list[dict], workflow:
 async def _build_change_control_record(db, payload: dict, current_user: dict) -> dict:
     now = utc_now()
     manual_chain = _manual_chain_from_payload(payload)
-    existing = await _open_change_for_affected_entities(db, payload.get("affected_entities") or [])
+    existing = await _open_change_for_affected_entities(
+        db, payload.get("affected_entities") or []
+    )
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Open change already exists for an affected entity: {existing.get('change_control_number') or existing.get('change_control_id')}",
         )
-    resolved_entities = await _resolve_affected_entities(db, payload.get("affected_entities") or [])
+    resolved_entities = await _resolve_affected_entities(
+        db, payload.get("affected_entities") or []
+    )
     payload["affected_entities"] = resolved_entities
     impact = await _change_impact_assessment(db, resolved_entities)
     decisions = _change_decisions(payload, impact)
@@ -1266,7 +1622,9 @@ async def _build_change_control_record(db, payload: dict, current_user: dict) ->
         current_user_id=_current_user_id(current_user),
     )
     if manual_chain:
-        approval_workflow = await _resolve_manual_approval_chain(db, manual_chain, approval_assignment_basis)
+        approval_workflow = await _resolve_manual_approval_chain(
+            db, manual_chain, approval_assignment_basis
+        )
         approval_assignment_basis = {
             **approval_assignment_basis,
             "mode": "manual_dialog_assignment",
@@ -1304,10 +1662,13 @@ async def _build_change_control_record(db, payload: dict, current_user: dict) ->
         "electronic_signatures": [],
         "effectiveness_check": {
             "required": True,
-            "window_days": payload.get("effectiveness_check_days") or (30 if payload.get("change_type") == "Emergency" else 14),
+            "window_days": payload.get("effectiveness_check_days")
+            or (30 if payload.get("change_type") == "Emergency" else 14),
             "status": "Pending",
         },
-        "graph_relationships": _change_control_graph_relationships(resolved_entities, approval_workflow, approval_assignment_basis),
+        "graph_relationships": _change_control_graph_relationships(
+            resolved_entities, approval_workflow, approval_assignment_basis
+        ),
         "status": payload.get("status") or "Open",
         "created_at": now,
         "updated_at": now,
@@ -1323,7 +1684,11 @@ def _new_mfa_secret() -> str:
 
 
 def _normalize_mfa_code(code: str) -> str:
-    return "".join(character for character in code.strip().replace(" ", "").replace("-", "") if character.isalnum())
+    return "".join(
+        character
+        for character in code.strip().replace(" ", "").replace("-", "")
+        if character.isalnum()
+    )
 
 
 def _totp(secret: str, counter: int, digits: int = 6) -> str:
@@ -1340,7 +1705,10 @@ def _verify_totp(secret: str, code: str, window: int = 1) -> bool:
     if not normalized.isdigit():
         return False
     counter = int(time.time() // 30)
-    return any(hmac.compare_digest(_totp(secret, counter + drift), normalized) for drift in range(-window, window + 1))
+    return any(
+        hmac.compare_digest(_totp(secret, counter + drift), normalized)
+        for drift in range(-window, window + 1)
+    )
 
 
 def _new_backup_codes(count: int = 10) -> list[str]:
@@ -1558,9 +1926,13 @@ def _approval_page_shell(title: str, body: str) -> str:
 
 
 def _approval_meta_html(approval: dict) -> str:
-    title = _escape_html(approval.get("source_title") or approval.get("source_id") or "Approval")
+    title = _escape_html(
+        approval.get("source_title") or approval.get("source_id") or "Approval"
+    )
     stage = _escape_html(approval.get("stage") or "Approval")
-    approver = _escape_html(approval.get("assigned_user_name") or approval.get("assigned_user_id"))
+    approver = _escape_html(
+        approval.get("assigned_user_name") or approval.get("assigned_user_id")
+    )
     return f"""
       <div class="meta">
         <div class="meta-item">
@@ -1580,7 +1952,9 @@ def _approval_meta_html(approval: dict) -> str:
 
 
 def _approval_login_html(approval: dict, token: str, error: str | None = None) -> str:
-    error_block = f'<div class="alert alert-error">{_escape_html(error)}</div>' if error else ""
+    error_block = (
+        f'<div class="alert alert-error">{_escape_html(error)}</div>' if error else ""
+    )
     body = f"""
       <section class="panel">
         <div class="panel-header">
@@ -1608,9 +1982,20 @@ def _approval_login_html(approval: dict, token: str, error: str | None = None) -
     return _approval_page_shell("Sign In To Review Approval", body)
 
 
-def _approval_form_html(approval: dict, token: str, error: str | None = None, current_user: dict | None = None) -> str:
-    error_block = f'<div class="alert alert-error">{_escape_html(error)}</div>' if error else ""
-    signed_in_as = _escape_html((current_user or {}).get("email") or (current_user or {}).get("sub") or "Authenticated user")
+def _approval_form_html(
+    approval: dict,
+    token: str,
+    error: str | None = None,
+    current_user: dict | None = None,
+) -> str:
+    error_block = (
+        f'<div class="alert alert-error">{_escape_html(error)}</div>' if error else ""
+    )
+    signed_in_as = _escape_html(
+        (current_user or {}).get("email")
+        or (current_user or {}).get("sub")
+        or "Authenticated user"
+    )
     body = f"""
       <section class="panel">
         <div class="panel-header">
@@ -1659,11 +2044,17 @@ def _approval_complete_html(approval: dict, decision: str) -> str:
     return _approval_page_shell("Decision Submitted", body)
 
 
-def _legacy_approval_form_html(approval: dict, token: str, error: str | None = None) -> str:
+def _legacy_approval_form_html(
+    approval: dict, token: str, error: str | None = None
+) -> str:
     error_block = f"<p style='color:#b91c1c'>{_escape_html(error)}</p>" if error else ""
-    title = _escape_html(approval.get("source_title") or approval.get("source_id") or "Approval")
+    title = _escape_html(
+        approval.get("source_title") or approval.get("source_id") or "Approval"
+    )
     stage = _escape_html(approval.get("stage") or "Approval")
-    approver = _escape_html(approval.get("assigned_user_name") or approval.get("assigned_user_id"))
+    approver = _escape_html(
+        approval.get("assigned_user_name") or approval.get("assigned_user_id")
+    )
     return f"""
 <!doctype html>
 <html>
@@ -1685,13 +2076,18 @@ def _approval_user_matches(approval: dict, user: dict | None) -> bool:
     email = str(user.get("email") or "").strip().lower()
     assigned_id = str(approval.get("assigned_user_id") or "").strip()
     assigned_email = str(approval.get("assigned_user_email") or "").strip().lower()
-    return bool((assigned_id and user_id == assigned_id) or (assigned_email and email == assigned_email))
+    return bool(
+        (assigned_id and user_id == assigned_id)
+        or (assigned_email and email == assigned_email)
+    )
 
 
 def _approval_token_error(approval: dict | None, token: str) -> str | None:
     if not approval or approval.get("approval_token") != token:
         return "Invalid or expired approval link."
-    terminal_status = str(approval.get("status") or approval.get("decision") or "").strip().title()
+    terminal_status = (
+        str(approval.get("status") or approval.get("decision") or "").strip().title()
+    )
     if terminal_status in {"Approved", "Rejected"}:
         return "Approval has already been decided."
     expires_at = _as_aware_utc(approval.get("approval_token_expires_at"))
@@ -1724,7 +2120,9 @@ async def _approval_user_from_request(request: Request | None) -> dict | None:
     return payload
 
 
-async def _approval_login_user(db, email: str | None, password: str | None) -> dict | None:
+async def _approval_login_user(
+    db, email: str | None, password: str | None
+) -> dict | None:
     if not email or not password:
         return None
     result = await get_by_email(db, email)
@@ -1743,8 +2141,13 @@ async def _approval_login_user(db, email: str | None, password: str | None) -> d
 
 
 def _set_approval_access_cookie(response: HTMLResponse, user: dict) -> None:
-    token = create_access_token(user["user_id"], user.get("email") or "", user.get("role") or "", [],
-                                tenant=user_tenant(user))
+    token = create_access_token(
+        user["user_id"],
+        user.get("email") or "",
+        user.get("role") or "",
+        [],
+        tenant=user_tenant(user),
+    )
     response.set_cookie(
         key=APPROVAL_ACCESS_COOKIE_NAME,
         value=token,
@@ -1765,7 +2168,10 @@ async def _issue_login_tokens(db, response: Response, user: dict) -> TokenRespon
     # never ran, and the wrong role's permissions were resolved into the token.
     access = await _get_permissions(db, user.get("role_id") or user["role"])
     access_token = create_access_token(
-        user["user_id"], user["email"], user["role"], access,
+        user["user_id"],
+        user["email"],
+        user["role"],
+        access,
         tenant=user_tenant(user),
         mfa_status="satisfied" if user.get("mfa_enabled") else "not_satisfied",
     )
@@ -1786,7 +2192,12 @@ async def _verify_mfa_or_backup_code(db, user: dict, code: str) -> bool:
         backup_hashes.remove(code_hash)
         await db["users"].update_one(
             {"user_id": user["user_id"]},
-            {"$set": {"mfa_backup_code_hashes": backup_hashes, "mfa_backup_code_used_at": utc_now()}},
+            {
+                "$set": {
+                    "mfa_backup_code_hashes": backup_hashes,
+                    "mfa_backup_code_used_at": utc_now(),
+                }
+            },
         )
         return True
     return False
@@ -1807,9 +2218,9 @@ async def _get_permissions(db, role_id: str) -> list:
             detail=f"Role '{role_id}' not found — check that the roles collection is seeded",
         )
 
-    permissions = await asyncio.gather(*[
-        get_by_permission_id(db, p) for p in role["permissions"]
-    ])
+    permissions = await asyncio.gather(
+        *[get_by_permission_id(db, p) for p in role["permissions"]]
+    )
     return [
         p
         for sublist in permissions
@@ -1868,7 +2279,9 @@ async def login(
             user_id=user.get("user_id"),
             reason=f"Account locked until {locked_until.isoformat()}",
         )
-        raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account is locked")
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED, detail="Account is locked"
+        )
     if user and not user.get("is_active", False):
         await _record_login_event(
             db,
@@ -1878,10 +2291,14 @@ async def login(
             user_id=user.get("user_id"),
             reason="Inactive account",
         )
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive"
+        )
 
     # Always run bcrypt to prevent timing-based user enumeration
-    _DUMMY = "$2b$12$eImiTXuWVxfM37uY4JANjQ=="  # invalid hash — compare will always fail
+    _DUMMY = (
+        "$2b$12$eImiTXuWVxfM37uY4JANjQ=="  # invalid hash — compare will always fail
+    )
     candidate_hash = user.get("password") if user else _DUMMY
     if not candidate_hash:
         candidate_hash = _DUMMY
@@ -1955,16 +2372,22 @@ async def login(
 async def refresh(
     response: Response,
     body: RefreshTokenRequest | None = None,
-    refresh_token: str | None = Cookie(default=None, alias=settings.REFRESH_COOKIE_NAME),
+    refresh_token: str | None = Cookie(
+        default=None, alias=settings.REFRESH_COOKIE_NAME
+    ),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     token = body.refresh_token if body and body.refresh_token else refresh_token
     if not token:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Refresh token missing")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Refresh token missing"
+        )
 
     exists = await token_exists(token)
     if not exists:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Refresh token revoked")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Refresh token revoked"
+        )
 
     try:
         payload = decode_refresh_token(token)
@@ -1974,13 +2397,18 @@ async def refresh(
     user = await get_by_id(db, payload["sub"])
 
     if not user:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="User not found"
+        )
 
     # See _issue_login_tokens for why role_id, not role, must be passed here.
     access = await _get_permissions(db, user.get("role_id") or user["role"])
 
     access_token = create_access_token(
-        user["user_id"], user["email"], user["role"], access,
+        user["user_id"],
+        user["email"],
+        user["role"],
+        access,
         tenant=user_tenant(user),
         mfa_status="satisfied",
     )
@@ -2000,11 +2428,15 @@ async def verify_mfa_challenge(
     try:
         payload = decode_mfa_challenge_token(body.mfa_challenge_token)
     except JWTError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
+        ) from exc
 
     user = await get_by_id(db, payload["sub"])
     if not user or not user.get("mfa_enabled"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="MFA is not enabled")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="MFA is not enabled"
+        )
 
     if not await _verify_mfa_or_backup_code(db, user, body.code):
         await _record_login_event(
@@ -2015,9 +2447,13 @@ async def verify_mfa_challenge(
             user_id=user.get("user_id"),
             reason="Invalid MFA code",
         )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code"
+        )
 
-    await db["users"].update_one({"user_id": user["user_id"]}, {"$set": {"mfa_last_verified_at": utc_now()}})
+    await db["users"].update_one(
+        {"user_id": user["user_id"]}, {"$set": {"mfa_last_verified_at": utc_now()}}
+    )
     await _record_login_event(
         db,
         email=user.get("email") or "",
@@ -2037,9 +2473,13 @@ async def enroll_mfa(
     user_id = _current_user_id(current_user)
     user = await get_by_id(db, user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
     if not verify_password(body.password, user.get("password") or ""):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password invalid")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Password invalid"
+        )
 
     secret = _new_mfa_secret()
     backup_codes = _new_backup_codes()
@@ -2050,12 +2490,18 @@ async def enroll_mfa(
                 "mfa_secret": secret,
                 "mfa_enabled": False,
                 "mfa_enrolled_at": utc_now(),
-                "mfa_backup_code_hashes": [_hash_backup_code(code) for code in backup_codes],
+                "mfa_backup_code_hashes": [
+                    _hash_backup_code(code) for code in backup_codes
+                ],
             }
         },
     )
     next_user = {**user, "mfa_secret": secret}
-    return MfaEnrollResponse(secret=secret, otpauth_uri=_otpauth_uri(next_user, secret), backup_codes=backup_codes)
+    return MfaEnrollResponse(
+        secret=secret,
+        otpauth_uri=_otpauth_uri(next_user, secret),
+        backup_codes=backup_codes,
+    )
 
 
 @router.post("/mfa/enable")
@@ -2067,12 +2513,23 @@ async def enable_mfa(
     user_id = _current_user_id(current_user)
     user = await get_by_id(db, user_id)
     if not user or not user.get("mfa_secret"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA enrollment is not started")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MFA enrollment is not started",
+        )
     if not _verify_totp(user["mfa_secret"], body.code):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code"
+        )
     await db["users"].update_one(
         {"user_id": user_id},
-        {"$set": {"mfa_enabled": True, "mfa_enabled_at": utc_now(), "mfa_last_verified_at": utc_now()}},
+        {
+            "$set": {
+                "mfa_enabled": True,
+                "mfa_enabled_at": utc_now(),
+                "mfa_last_verified_at": utc_now(),
+            }
+        },
     )
     return {"mfa_enabled": True}
 
@@ -2086,11 +2543,19 @@ async def disable_mfa(
     user_id = _current_user_id(current_user)
     user = await get_by_id(db, user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
     if not verify_password(body.password, user.get("password") or ""):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password invalid")
-    if user.get("mfa_enabled") and not await _verify_mfa_or_backup_code(db, user, body.code):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Password invalid"
+        )
+    if user.get("mfa_enabled") and not await _verify_mfa_or_backup_code(
+        db, user, body.code
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code"
+        )
     await db["users"].update_one(
         {"user_id": user_id},
         {
@@ -2114,7 +2579,9 @@ async def mfa_status(
     return {
         "mfa_enabled": bool(user and user.get("mfa_enabled")),
         "mfa_enrolled": bool(user and user.get("mfa_secret")),
-        "backup_codes_remaining": len(user.get("mfa_backup_code_hashes") or []) if user else 0,
+        "backup_codes_remaining": (
+            len(user.get("mfa_backup_code_hashes") or []) if user else 0
+        ),
     }
 
 
@@ -2125,7 +2592,9 @@ async def mfa_status(
 async def logout(
     response: Response,
     request: Request,
-    refresh_token: str | None = Cookie(default=None, alias=settings.REFRESH_COOKIE_NAME),
+    refresh_token: str | None = Cookie(
+        default=None, alias=settings.REFRESH_COOKIE_NAME
+    ),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     """
@@ -2175,11 +2644,16 @@ async def create_electronic_signature(
     user_id = _current_user_id(current_user)
     user = await get_by_id(db, user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
 
     candidate_hash = user.get("password")
     if not candidate_hash or not verify_password(body.password, candidate_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Electronic signature password invalid")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Electronic signature password invalid",
+        )
 
     record = await _find_signed_record(db, body.collection, body.record_id)
     if not record:
@@ -2271,7 +2745,11 @@ async def create_manual_audit_trail_entry(
         result={"source": "manual_audit_entry"},
     )
     entry = await db[AUDIT_COLLECTION].find_one(
-        {"collection": body.collection, "record_id": body.record_id, "action": body.action},
+        {
+            "collection": body.collection,
+            "record_id": body.record_id,
+            "action": body.action,
+        },
         {"_id": 0},
         sort=[("_id", -1)],
     )
@@ -2321,13 +2799,15 @@ async def list_audit_trail(
         .skip((page - 1) * page_size)
         .limit(page_size)
     )
-    return _bson_safe({
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "source": "mongodb",
-        "results": [entry async for entry in cursor],
-    })
+    return _bson_safe(
+        {
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "source": "mongodb",
+            "results": [entry async for entry in cursor],
+        }
+    )
 
 
 @router.get("/audit-trail/verify")
@@ -2341,7 +2821,11 @@ async def verify_audit_trail(
     async for entry in cursor:
         checked += 1
         stored_hash = entry.get("entry_hash")
-        payload = {key: value for key, value in entry.items() if key not in {"_id", "entry_hash"}}
+        payload = {
+            key: value
+            for key, value in entry.items()
+            if key not in {"_id", "entry_hash"}
+        }
         expected_hash = sha256_hex(payload)
         if stored_hash != expected_hash or entry.get("previous_hash") != previous_hash:
             return {
@@ -2376,7 +2860,10 @@ async def upsert_retention_policy(
         {"collection": collection},
         {
             "$set": policy,
-            "$setOnInsert": {"policy_id": f"retention-{uuid4().hex}", "created_at": now},
+            "$setOnInsert": {
+                "policy_id": f"retention-{uuid4().hex}",
+                "created_at": now,
+            },
         },
         upsert=True,
     )
@@ -2401,9 +2888,15 @@ async def export_compliance_bundle(
 ):
     record = await _find_signed_record(db, collection, record_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+        )
 
-    audit_cursor = db[AUDIT_COLLECTION].find({"collection": collection, "record_id": record_id}, {"_id": 0}).sort("_id", 1)
+    audit_cursor = (
+        db[AUDIT_COLLECTION]
+        .find({"collection": collection, "record_id": record_id}, {"_id": 0})
+        .sort("_id", 1)
+    )
     version_cursor = (
         db[VERSION_COLLECTION]
         .find({"collection": collection, "record_id": record_id}, {"_id": 0})
@@ -2431,7 +2924,10 @@ async def export_compliance_bundle(
         "audit_trail": [entry async for entry in audit_cursor],
         "versions": [entry async for entry in version_cursor],
         "electronic_signatures": [entry async for entry in signature_cursor],
-        "change_controls": await db[CHANGE_CONTROL_COLLECTION].find({"affected_entities.entity_id": record_id}, {"_id": 0}).sort("_id", -1).to_list(length=100),
+        "change_controls": await db[CHANGE_CONTROL_COLLECTION]
+        .find({"affected_entities.entity_id": record_id}, {"_id": 0})
+        .sort("_id", -1)
+        .to_list(length=100),
     }
     encoded = _bson_safe(bundle)
     encoded["bundle_hash"] = sha256_hex(encoded)
@@ -2450,13 +2946,11 @@ async def export_compliance_bundle(
     return encoded
 
 
-
 @router.get("/compliance/standards")
 async def get_compliance_standards(
     _: dict = Depends(get_current_user),
 ):
     return compliance_readiness()
-
 
 
 def _risk_level(rpn: int) -> str:
@@ -2539,7 +3033,11 @@ def _compliance_proof_risk_rows() -> list[dict]:
                 "risk_priority_number": rpn,
                 "risk_level": _risk_level(rpn),
                 "status": "Open" if rpn >= 35 else "Controlled",
-                "disposition": "Requires QA disposition" if rpn >= 35 else "Acceptable with listed controls",
+                "disposition": (
+                    "Requires QA disposition"
+                    if rpn >= 35
+                    else "Acceptable with listed controls"
+                ),
             }
         )
     return rows
@@ -2554,9 +3052,15 @@ def _default_user_requirements() -> list[dict]:
             "category": "Access Control",
             "priority": "Critical",
             "source": "21 CFR Part 11 / User Requirement Specification",
-            "acceptance_criteria": ["Login is required", "Refresh sessions are controlled", "User identity is captured in regulated records"],
+            "acceptance_criteria": [
+                "Login is required",
+                "Refresh sessions are controlled",
+                "User identity is captured in regulated records",
+            ],
             "linked_controls": ["unique_user_identity", "role_based_access_control"],
-            "linked_tests": ["tests/test_live_smoke_integration.py::test_oq_live_authenticated_api_smoke"],
+            "linked_tests": [
+                "tests/test_live_smoke_integration.py::test_oq_live_authenticated_api_smoke"
+            ],
         },
         {
             "requirement_id": "URS-002",
@@ -2565,9 +3069,18 @@ def _default_user_requirements() -> list[dict]:
             "category": "Electronic Signatures",
             "priority": "Critical",
             "source": "21 CFR Part 11 / User Requirement Specification",
-            "acceptance_criteria": ["Password re-authentication is required", "Signature hash is stored", "Record hash is linked"],
-            "linked_controls": ["electronic_signature_reauthentication", "signature_record_hash_linking"],
-            "linked_tests": ["tests/test_live_smoke_integration.py::test_pq_live_compliance_process_smoke"],
+            "acceptance_criteria": [
+                "Password re-authentication is required",
+                "Signature hash is stored",
+                "Record hash is linked",
+            ],
+            "linked_controls": [
+                "electronic_signature_reauthentication",
+                "signature_record_hash_linking",
+            ],
+            "linked_tests": [
+                "tests/test_live_smoke_integration.py::test_pq_live_compliance_process_smoke"
+            ],
         },
         {
             "requirement_id": "URS-003",
@@ -2576,9 +3089,19 @@ def _default_user_requirements() -> list[dict]:
             "category": "Audit Trail",
             "priority": "Critical",
             "source": "21 CFR Part 11 / User Requirement Specification",
-            "acceptance_criteria": ["Audit entries include actor/action/timestamp", "Audit hashes verify", "Before/after record hashes are retained"],
-            "linked_controls": ["hash_chained_audit_trail", "audit_trail_verification", "record_version_history"],
-            "linked_tests": ["tests/test_live_smoke_integration.py::test_pq_live_compliance_process_smoke"],
+            "acceptance_criteria": [
+                "Audit entries include actor/action/timestamp",
+                "Audit hashes verify",
+                "Before/after record hashes are retained",
+            ],
+            "linked_controls": [
+                "hash_chained_audit_trail",
+                "audit_trail_verification",
+                "record_version_history",
+            ],
+            "linked_tests": [
+                "tests/test_live_smoke_integration.py::test_pq_live_compliance_process_smoke"
+            ],
         },
         {
             "requirement_id": "URS-004",
@@ -2587,7 +3110,11 @@ def _default_user_requirements() -> list[dict]:
             "category": "Validation",
             "priority": "High",
             "source": "EU GMP Annex 11 / Annex 15 / User Requirement Specification",
-            "acceptance_criteria": ["IQ/OQ/PQ reports are generated", "Failed tests are identified", "Evidence is hash recorded"],
+            "acceptance_criteria": [
+                "IQ/OQ/PQ reports are generated",
+                "Failed tests are identified",
+                "Evidence is hash recorded",
+            ],
             "linked_controls": ["record_version_history", "audit_trail_verification"],
             "linked_tests": [
                 "tests/test_live_smoke_integration.py::test_iq_live_service_health_smoke",
@@ -2603,9 +3130,15 @@ def _default_user_requirements() -> list[dict]:
             "category": "Validation",
             "priority": "High",
             "source": "EU GMP Annex 15 / User Requirement Specification",
-            "acceptance_criteria": ["Each requirement has coverage status", "Linked evidence is visible", "Coverage gaps are reported"],
+            "acceptance_criteria": [
+                "Each requirement has coverage status",
+                "Linked evidence is visible",
+                "Coverage gaps are reported",
+            ],
             "linked_controls": ["audit_trail_verification", "record_version_history"],
-            "linked_tests": ["tests/test_live_smoke_integration.py::test_pq_live_compliance_process_smoke"],
+            "linked_tests": [
+                "tests/test_live_smoke_integration.py::test_pq_live_compliance_process_smoke"
+            ],
         },
         {
             "requirement_id": "URS-006",
@@ -2614,20 +3147,33 @@ def _default_user_requirements() -> list[dict]:
             "category": "Compliant Intelligence",
             "priority": "High",
             "source": "User Requirement Specification",
-            "acceptance_criteria": ["Approved questions are routed locally", "Unsupported questions do not create regulated records", "Answers include deterministic evidence"],
+            "acceptance_criteria": [
+                "Approved questions are routed locally",
+                "Unsupported questions do not create regulated records",
+                "Answers include deterministic evidence",
+            ],
             "linked_controls": ["audit_trail_verification"],
-            "linked_tests": ["tests/test_live_smoke_integration.py::test_gqa_live_agentos_smoke"],
+            "linked_tests": [
+                "tests/test_live_smoke_integration.py::test_gqa_live_agentos_smoke"
+            ],
         },
     ]
 
 
 def _requirement_input_to_row(requirement: UserRequirementInput) -> dict:
     row = requirement.model_dump(mode="python")
-    row["requirement_id"] = row.get("requirement_id") or f"URS-{uuid4().hex[:8].upper()}"
+    row["requirement_id"] = (
+        row.get("requirement_id") or f"URS-{uuid4().hex[:8].upper()}"
+    )
     return row
 
 
-def _assess_user_requirement(row: dict, available_controls: set[str], available_tests: set[str], evidence_refs: list[str]) -> dict:
+def _assess_user_requirement(
+    row: dict,
+    available_controls: set[str],
+    available_tests: set[str],
+    evidence_refs: list[str],
+) -> dict:
     linked_controls = list(row.get("linked_controls") or [])
     linked_tests = list(row.get("linked_tests") or [])
     control_hits = [item for item in linked_controls if item in available_controls]
@@ -2646,13 +3192,19 @@ def _assess_user_requirement(row: dict, available_controls: set[str], available_
     if not row.get("acceptance_criteria"):
         gaps.append("No acceptance criteria.")
 
-    status_value = "Satisfied" if not gaps else "Partially Covered" if control_hits or test_hits else "Gap"
+    status_value = (
+        "Satisfied"
+        if not gaps
+        else "Partially Covered" if control_hits or test_hits else "Gap"
+    )
     coverage = {
         "controls_required": len(linked_controls),
         "controls_covered": len(control_hits),
         "tests_required": len(linked_tests),
         "tests_covered": len(test_hits),
-        "evidence_refs": list(dict.fromkeys([*(row.get("linked_evidence") or []), *evidence_refs])),
+        "evidence_refs": list(
+            dict.fromkeys([*(row.get("linked_evidence") or []), *evidence_refs])
+        ),
     }
     return {
         **row,
@@ -2663,7 +3215,13 @@ def _assess_user_requirement(row: dict, available_controls: set[str], available_
 
 
 async def _latest_validation_evidence_refs(db) -> list[str]:
-    records = await db[VALIDATION_EVIDENCE_COLLECTION].find({}, {"_id": 0, "validation_evidence_id": 1, "title": 1}).sort("_id", -1).limit(20).to_list(length=20)
+    records = (
+        await db[VALIDATION_EVIDENCE_COLLECTION]
+        .find({}, {"_id": 0, "validation_evidence_id": 1, "title": 1})
+        .sort("_id", -1)
+        .limit(20)
+        .to_list(length=20)
+    )
     refs: list[str] = []
     for record in records:
         refs.append(str(record.get("validation_evidence_id") or record.get("title")))
@@ -2671,17 +3229,29 @@ async def _latest_validation_evidence_refs(db) -> list[str]:
 
 
 async def _latest_risk_refs(db) -> list[str]:
-    records = await db[RISK_ASSESSMENT_COLLECTION].find({}, {"_id": 0, "risk_assessment_id": 1, "title": 1}).sort("_id", -1).limit(20).to_list(length=20)
+    records = (
+        await db[RISK_ASSESSMENT_COLLECTION]
+        .find({}, {"_id": 0, "risk_assessment_id": 1, "title": 1})
+        .sort("_id", -1)
+        .limit(20)
+        .to_list(length=20)
+    )
     refs: list[str] = []
     for record in records:
         refs.append(str(record.get("risk_assessment_id") or record.get("title")))
     return [item for item in refs if item]
 
 
-def _traceability_rows(requirements: list[dict], risk_refs: list[str], evidence_refs: list[str]) -> list[dict]:
+def _traceability_rows(
+    requirements: list[dict], risk_refs: list[str], evidence_refs: list[str]
+) -> list[dict]:
     rows: list[dict] = []
     for requirement in requirements:
-        coverage = requirement.get("coverage") if isinstance(requirement.get("coverage"), dict) else {}
+        coverage = (
+            requirement.get("coverage")
+            if isinstance(requirement.get("coverage"), dict)
+            else {}
+        )
         rows.append(
             {
                 "requirement_id": requirement.get("requirement_id"),
@@ -2691,7 +3261,11 @@ def _traceability_rows(requirements: list[dict], risk_refs: list[str], evidence_
                 "controls": requirement.get("linked_controls") or [],
                 "risks": risk_refs,
                 "tests": requirement.get("linked_tests") or [],
-                "evidence": list(dict.fromkeys([*(coverage.get("evidence_refs") or []), *evidence_refs])),
+                "evidence": list(
+                    dict.fromkeys(
+                        [*(coverage.get("evidence_refs") or []), *evidence_refs]
+                    )
+                ),
                 "status": requirement.get("status"),
                 "gaps": requirement.get("gaps") or [],
             }
@@ -2711,7 +3285,9 @@ async def run_compliance_risk_assessment(
         "risk_assessment_id": f"risk-assessment-{uuid4().hex}",
         "title": "Pharma Compliance Proof Risk Assessment",
         "standard_id": "ich-q9-r1",
-        "status": "Open" if any(row["risk_level"] != "Low" for row in rows) else "Controlled",
+        "status": (
+            "Open" if any(row["risk_level"] != "Low" for row in rows) else "Controlled"
+        ),
         "assessed_at": assessed_at,
         "assessed_by": assessed_by,
         "summary": {
@@ -2757,9 +3333,13 @@ async def create_risk_assessment(
     current_user: dict = Depends(get_current_user),
 ):
     payload = body.model_dump(mode="python")
-    payload["risk_priority_number"] = body.severity * body.occurrence * body.detectability
+    payload["risk_priority_number"] = (
+        body.severity * body.occurrence * body.detectability
+    )
     payload["standard_id"] = "ich-q9-r1"
-    return await _insert_gxp_record(db, RISK_ASSESSMENT_COLLECTION, "risk_assessment", payload, current_user)
+    return await _insert_gxp_record(
+        db, RISK_ASSESSMENT_COLLECTION, "risk_assessment", payload, current_user
+    )
 
 
 @router.get("/compliance/risk-assessments")
@@ -2770,7 +3350,9 @@ async def list_risk_assessments(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
-    return await _list_gxp_records(db, RISK_ASSESSMENT_COLLECTION, page, page_size, status_value)
+    return await _list_gxp_records(
+        db, RISK_ASSESSMENT_COLLECTION, page, page_size, status_value
+    )
 
 
 @router.post("/compliance/user-requirements/assess")
@@ -2783,7 +3365,10 @@ async def assess_user_requirements(
     assessed_by = _current_user_id(current_user)
     request_body = body or UserRequirementsAssessmentRequest()
     source_rows = (
-        [_requirement_input_to_row(requirement) for requirement in request_body.requirements]
+        [
+            _requirement_input_to_row(requirement)
+            for requirement in request_body.requirements
+        ]
         if request_body.requirements
         else _default_user_requirements()
     )
@@ -2800,7 +3385,9 @@ async def assess_user_requirements(
         for row in source_rows
     ]
     satisfied = sum(1 for row in assessed_rows if row["status"] == "Satisfied")
-    partially_covered = sum(1 for row in assessed_rows if row["status"] == "Partially Covered")
+    partially_covered = sum(
+        1 for row in assessed_rows if row["status"] == "Partially Covered"
+    )
     gaps = sum(1 for row in assessed_rows if row["status"] == "Gap")
     summary = {
         "total": len(assessed_rows),
@@ -2858,7 +3445,9 @@ async def list_user_requirements(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
-    return await _list_gxp_records(db, USER_REQUIREMENT_COLLECTION, page, page_size, status_value)
+    return await _list_gxp_records(
+        db, USER_REQUIREMENT_COLLECTION, page, page_size, status_value
+    )
 
 
 @router.post("/compliance/traceability-matrix/run")
@@ -2878,7 +3467,9 @@ async def run_traceability_matrix(
     requirements = list((latest_assessment or {}).get("requirements") or [])
     if request_body.requirement_ids:
         requested_ids = set(request_body.requirement_ids)
-        requirements = [row for row in requirements if row.get("requirement_id") in requested_ids]
+        requirements = [
+            row for row in requirements if row.get("requirement_id") in requested_ids
+        ]
     if not requirements:
         assessment_payload = await assess_user_requirements(
             UserRequirementsAssessmentRequest(scope=request_body.scope),
@@ -2888,7 +3479,11 @@ async def run_traceability_matrix(
         requirements = list(assessment_payload.get("requirements") or [])
         if request_body.requirement_ids:
             requested_ids = set(request_body.requirement_ids)
-            requirements = [row for row in requirements if row.get("requirement_id") in requested_ids]
+            requirements = [
+                row
+                for row in requirements
+                if row.get("requirement_id") in requested_ids
+            ]
 
     risk_refs = await _latest_risk_refs(db)
     evidence_refs = await _latest_validation_evidence_refs(db)
@@ -2896,9 +3491,19 @@ async def run_traceability_matrix(
     summary = {
         "total_requirements": len(rows),
         "satisfied": sum(1 for row in rows if row["status"] == "Satisfied"),
-        "partially_covered": sum(1 for row in rows if row["status"] == "Partially Covered"),
+        "partially_covered": sum(
+            1 for row in rows if row["status"] == "Partially Covered"
+        ),
         "gaps": sum(1 for row in rows if row["status"] == "Gap"),
-        "coverage_percent": round((sum(1 for row in rows if row["status"] == "Satisfied") / len(rows)) * 100, 2) if rows else 0,
+        "coverage_percent": (
+            round(
+                (sum(1 for row in rows if row["status"] == "Satisfied") / len(rows))
+                * 100,
+                2,
+            )
+            if rows
+            else 0
+        ),
     }
     payload = {
         "traceability_matrix_id": f"traceability-matrix-{uuid4().hex}",
@@ -2943,7 +3548,6 @@ async def assess_traceability_matrix(
     return await run_traceability_matrix(body=body, db=db, current_user=current_user)
 
 
-
 @router.get("/compliance/traceability-matrix/latest")
 async def latest_traceability_matrix_assessment(
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -2965,7 +3569,9 @@ async def list_traceability_matrices(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
-    return await _list_gxp_records(db, TRACEABILITY_MATRIX_COLLECTION, page, page_size, status_value)
+    return await _list_gxp_records(
+        db, TRACEABILITY_MATRIX_COLLECTION, page, page_size, status_value
+    )
 
 
 @router.post("/compliance/validation-evidence", status_code=status.HTTP_201_CREATED)
@@ -2976,7 +3582,9 @@ async def create_validation_evidence(
 ):
     payload = body.model_dump(mode="python")
     payload["standard_id"] = payload.get("standard_id") or "eu-gmp-annex-11"
-    return await _insert_gxp_record(db, VALIDATION_EVIDENCE_COLLECTION, "validation_evidence", payload, current_user)
+    return await _insert_gxp_record(
+        db, VALIDATION_EVIDENCE_COLLECTION, "validation_evidence", payload, current_user
+    )
 
 
 @router.get("/compliance/validation-evidence")
@@ -2987,8 +3595,9 @@ async def list_validation_evidence(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
-    return await _list_gxp_records(db, VALIDATION_EVIDENCE_COLLECTION, page, page_size, status_value)
-
+    return await _list_gxp_records(
+        db, VALIDATION_EVIDENCE_COLLECTION, page, page_size, status_value
+    )
 
 
 COMPLIANCE_TEST_SCOPE_SELECTORS = {
@@ -3002,20 +3611,42 @@ COMPLIANCE_TEST_SCOPE_SELECTORS = {
 
 
 def _compliance_test_command(scope: str) -> list[str]:
-    selector = COMPLIANCE_TEST_SCOPE_SELECTORS.get(scope) or COMPLIANCE_TEST_SCOPE_SELECTORS["all"]
+    selector = (
+        COMPLIANCE_TEST_SCOPE_SELECTORS.get(scope)
+        or COMPLIANCE_TEST_SCOPE_SELECTORS["all"]
+    )
     if selector.startswith("tests/"):
         targets = selector.split()
     else:
         targets = [f"tests/test_pharma_compliance_proof_validation.py::{selector}"]
     return [sys.executable, "-m", "pytest", "-vv", "--no-cov", *targets]
 
+
 def _test_report_name(test_id: str) -> str:
     lowered = test_id.lower()
-    if "test_iq_" in lowered or "empty_table" in lowered or "seeded_database" in lowered or "seed_static" in lowered:
+    if (
+        "test_iq_" in lowered
+        or "empty_table" in lowered
+        or "seeded_database" in lowered
+        or "seed_static" in lowered
+    ):
         return "IQ Execution Report"
-    if "test_oq_" in lowered or "auth" in lowered or "audit" in lowered or "change_control" in lowered or "workflow_canvas" in lowered or "download" in lowered:
+    if (
+        "test_oq_" in lowered
+        or "auth" in lowered
+        or "audit" in lowered
+        or "change_control" in lowered
+        or "workflow_canvas" in lowered
+        or "download" in lowered
+    ):
         return "OQ Execution Report"
-    if "test_pq_" in lowered or "material_flow" in lowered or "ahmedabad" in lowered or "canvas" in lowered or "event_flow" in lowered:
+    if (
+        "test_pq_" in lowered
+        or "material_flow" in lowered
+        or "ahmedabad" in lowered
+        or "canvas" in lowered
+        or "event_flow" in lowered
+    ):
         return "PQ Execution Report"
     if "test_gqa_" in lowered or "agentos" in lowered or "llm_judge" in lowered:
         return "Compliant Intelligence Execution Report"
@@ -3025,7 +3656,10 @@ def _test_report_name(test_id: str) -> str:
 def _parse_pytest_results(output: str) -> list[dict]:
     results: list[dict] = []
     seen: set[str] = set()
-    pattern = re.compile(r"^(tests/[^\s]+?)\s+(PASSED|FAILED|SKIPPED|ERROR|XFAILED|XPASSED)\b", re.MULTILINE)
+    pattern = re.compile(
+        r"^(tests/[^\s]+?)\s+(PASSED|FAILED|SKIPPED|ERROR|XFAILED|XPASSED)\b",
+        re.MULTILINE,
+    )
     for match in pattern.finditer(output):
         test_id = match.group(1).strip()
         status_value = match.group(2).strip().lower()
@@ -3036,7 +3670,11 @@ def _parse_pytest_results(output: str) -> list[dict]:
             {
                 "id": test_id,
                 "report": _test_report_name(test_id),
-                "status": "Passed" if status_value == "passed" else status_value.replace("x", "x-").title(),
+                "status": (
+                    "Passed"
+                    if status_value == "passed"
+                    else status_value.replace("x", "x-").title()
+                ),
                 "evidence": f"pytest {status_value}: {test_id}",
             }
         )
@@ -3054,7 +3692,11 @@ def _summarize_pytest(output: str, returncode: int, results: list[dict]) -> dict
         "failed": failed,
         "skipped": skipped,
         "total": len(results),
-        "summary": summary_matches[-1] if summary_matches else ("pytest completed" if returncode == 0 else "pytest failed"),
+        "summary": (
+            summary_matches[-1]
+            if summary_matches
+            else ("pytest completed" if returncode == 0 else "pytest failed")
+        ),
     }
 
 
@@ -3062,7 +3704,9 @@ def _failed_test_rows(rows: list[dict]) -> list[dict]:
     return [item for item in rows if item["status"] not in {"Passed", "Skipped"}]
 
 
-def _report_evidence(report_name: str, rows: list[dict], executed_at: datetime, executed_by: str) -> str:
+def _report_evidence(
+    report_name: str, rows: list[dict], executed_at: datetime, executed_by: str
+) -> str:
     passed = sum(1 for item in rows if item["status"] == "Passed")
     failed_rows = _failed_test_rows(rows)
     skipped = sum(1 for item in rows if item["status"] == "Skipped")
@@ -3071,12 +3715,16 @@ def _report_evidence(report_name: str, rows: list[dict], executed_at: datetime, 
         f"passed {passed}, failed {len(failed_rows)}, skipped {skipped}"
     )
     if failed_rows:
-        failed_ids = "; ".join(str(item.get("id") or "unknown test") for item in failed_rows)
+        failed_ids = "; ".join(
+            str(item.get("id") or "unknown test") for item in failed_rows
+        )
         evidence = f"{evidence}; failed tests: {failed_ids}"
     return evidence
 
 
-def _compliance_execution_reports(results: list[dict], executed_at: datetime, executed_by: str) -> list[dict]:
+def _compliance_execution_reports(
+    results: list[dict], executed_at: datetime, executed_by: str
+) -> list[dict]:
     reports: list[dict] = []
     for report_name in [
         "IQ Execution Report",
@@ -3097,7 +3745,9 @@ def _compliance_execution_reports(results: list[dict], executed_at: datetime, ex
                 "skipped": sum(1 for item in rows if item["status"] == "Skipped"),
                 "total": len(rows),
                 "scope": f"{len(rows)} integration tests",
-                "evidence": _report_evidence(report_name, rows, executed_at, executed_by),
+                "evidence": _report_evidence(
+                    report_name, rows, executed_at, executed_by
+                ),
                 "failed_tests": failed_tests,
                 "tests": rows,
             }
@@ -3133,7 +3783,9 @@ def _compliance_agent_reports(scope_results: list[dict]) -> list[dict]:
     }
     return [
         {
-            "report": report_names.get(item["scope"], f"{item['scope'].upper()} Execution Report"),
+            "report": report_names.get(
+                item["scope"], f"{item['scope'].upper()} Execution Report"
+            ),
             "scope": item["scope"],
             "status": item["status"],
             "passed": item["passed"],
@@ -3170,11 +3822,13 @@ async def run_compliance_test_execution(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(get_current_user),
 ):
-    repo_root = os.environ.get("MONKEYPATCHED_REPO_ROOT") or str(Path(__file__).resolve().parents[3])
+    repo_root = os.environ.get("MONKEYPATCHED_REPO_ROOT") or str(
+        Path(__file__).resolve().parents[3]
+    )
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", repo_root)
     env.setdefault("RUN_LIVE_SMOKE", "1")
-    scope = (body.scope if body else "all")
+    scope = body.scope if body else "all"
     cmd = _compliance_test_command(scope)
     try:
         process = await asyncio.to_thread(
@@ -3281,8 +3935,16 @@ async def run_compliance_agent(
     summary = {
         "total_scopes": len(scopes),
         "executed_scopes": len(scope_results),
-        "passed_scopes": sum(1 for item in scope_results if item["status"] == "Passed" and item["failed"] == 0),
-        "failed_scopes": sum(1 for item in scope_results if item["status"] != "Passed" or item["failed"] > 0),
+        "passed_scopes": sum(
+            1
+            for item in scope_results
+            if item["status"] == "Passed" and item["failed"] == 0
+        ),
+        "failed_scopes": sum(
+            1
+            for item in scope_results
+            if item["status"] != "Passed" or item["failed"] > 0
+        ),
         "passed": sum(int(item["passed"]) for item in scope_results),
         "failed": sum(int(item["failed"]) for item in scope_results),
         "skipped": sum(int(item["skipped"]) for item in scope_results),
@@ -3312,7 +3974,9 @@ async def run_compliance_agent(
         "scope_results": scope_results,
         "reports": _compliance_agent_reports(scope_results),
         "user_requirements_assessment_id": (urs_assessment or {}).get("assessment_id"),
-        "traceability_matrix_id": (traceability_matrix or {}).get("traceability_matrix_id"),
+        "traceability_matrix_id": (traceability_matrix or {}).get(
+            "traceability_matrix_id"
+        ),
         "notification": {
             "status": summary["status"],
             "message": (
@@ -3354,23 +4018,41 @@ async def save_compliance_agent_report(
     failed_tests = list(body.failed_tests or body.summary.get("failed_tests") or [])
     reports = list(body.reports or [])
     summary = dict(body.summary or {})
-    if reports and not {"passed", "failed", "skipped", "total", "summary"}.issubset(summary.keys()):
+    if reports and not {"passed", "failed", "skipped", "total", "summary"}.issubset(
+        summary.keys()
+    ):
         summary.update(
             {
                 "passed": sum(int(report.get("passed") or 0) for report in reports),
                 "failed": sum(int(report.get("failed") or 0) for report in reports),
                 "skipped": sum(int(report.get("skipped") or 0) for report in reports),
                 "total": sum(int(report.get("total") or 0) for report in reports),
-                "summary": body.message or f"{summary.get('passed_scopes', 0)} of {summary.get('total_scopes', 0)} compliance scopes passed",
+                "summary": body.message
+                or f"{summary.get('passed_scopes', 0)} of {summary.get('total_scopes', 0)} compliance scopes passed",
             }
         )
     else:
         summary.setdefault("passed", int(summary.get("passed_scopes") or 0))
-        summary.setdefault("failed", int(summary.get("failed_scopes") or len(failed_tests)))
+        summary.setdefault(
+            "failed", int(summary.get("failed_scopes") or len(failed_tests))
+        )
         summary.setdefault("skipped", 0)
-        summary.setdefault("total", int(summary.get("total_scopes") or summary.get("passed", 0) + summary.get("failed", 0)))
-        summary.setdefault("summary", body.message or f"{summary.get('passed_scopes', summary.get('passed', 0))} of {summary.get('total_scopes', summary.get('total', 0))} compliance scopes passed")
-    summary.setdefault("status", "Failed" if failed_tests or int(summary.get("failed") or 0) > 0 else "Passed")
+        summary.setdefault(
+            "total",
+            int(
+                summary.get("total_scopes")
+                or summary.get("passed", 0) + summary.get("failed", 0)
+            ),
+        )
+        summary.setdefault(
+            "summary",
+            body.message
+            or f"{summary.get('passed_scopes', summary.get('passed', 0))} of {summary.get('total_scopes', summary.get('total', 0))} compliance scopes passed",
+        )
+    summary.setdefault(
+        "status",
+        "Failed" if failed_tests or int(summary.get("failed") or 0) > 0 else "Passed",
+    )
     payload = {
         "agent_run_id": report_id,
         "execution_id": report_id,
@@ -3394,7 +4076,8 @@ async def save_compliance_agent_report(
         {
             "validation_evidence_id": report_id,
             "title": payload["title"],
-            "description": body.message or f"n8n compliance agent report: {payload['status']}",
+            "description": body.message
+            or f"n8n compliance agent report: {payload['status']}",
             "standard_id": "eu-gmp-annex-11",
             "status": payload["status"],
             "evidence_type": "compliance_agent_run",
@@ -3417,7 +4100,10 @@ async def run_compliance_agent_via_n8n(
 ):
     webhook_url = str(settings.N8N_COMPLIANCE_REPORT_WEBHOOK_URL or "").strip()
     if not webhook_url:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="N8N_COMPLIANCE_REPORT_WEBHOOK_URL is not configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="N8N_COMPLIANCE_REPORT_WEBHOOK_URL is not configured",
+        )
     request_body = body or ComplianceAgentRunRequest()
     payload = {
         "message": "Run compliance report",
@@ -3426,9 +4112,14 @@ async def run_compliance_agent_via_n8n(
         "source": "sentinel-x-chat",
     }
     async with httpx.AsyncClient(timeout=900.0) as client:
-        response = await client.post(webhook_url, json=payload, headers=n8n_webhook_auth_headers())
+        response = await client.post(
+            webhook_url, json=payload, headers=n8n_webhook_auth_headers()
+        )
     if response.status_code >= 400:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"n8n compliance webhook returned HTTP {response.status_code}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"n8n compliance webhook returned HTTP {response.status_code}",
+        )
     try:
         n8n_payload = response.json()
     except ValueError:
@@ -3437,7 +4128,9 @@ async def run_compliance_agent_via_n8n(
         ComplianceAgentReportRequest(
             summary=n8n_payload.get("summary") or {},
             reports=n8n_payload.get("reports") or [],
-            failed_tests=n8n_payload.get("failed_tests") or (n8n_payload.get("summary") or {}).get("failed_tests") or [],
+            failed_tests=n8n_payload.get("failed_tests")
+            or (n8n_payload.get("summary") or {}).get("failed_tests")
+            or [],
             scope_results=n8n_payload.get("scope_results") or [],
             message=n8n_payload.get("message") or "n8n compliance report returned",
             source="n8n",
@@ -3455,7 +4148,10 @@ async def latest_compliance_test_execution(
     _: dict = Depends(get_current_user),
 ):
     record = await db[VALIDATION_EVIDENCE_COLLECTION].find_one(
-        {"evidence_type": {"$in": ["test_execution_report", "compliance_agent_run"]}, "payload": {"$exists": True}},
+        {
+            "evidence_type": {"$in": ["test_execution_report", "compliance_agent_run"]},
+            "payload": {"$exists": True},
+        },
         {"_id": 0, "payload": 1},
         sort=[("_id", -1)],
     )
@@ -3471,13 +4167,21 @@ async def preview_change_control_approval_chain(
 ):
     payload = body.model_dump(mode="python")
     manual_chain = _manual_chain_from_payload(payload)
-    resolved_entities = await _resolve_affected_entities(db, payload.get("affected_entities") or [])
-    preview_id = payload.get("change_control_id") or f"change_control-preview-{uuid4().hex}"
+    resolved_entities = await _resolve_affected_entities(
+        db, payload.get("affected_entities") or []
+    )
+    preview_id = (
+        payload.get("change_control_id") or f"change_control-preview-{uuid4().hex}"
+    )
     auto_chain, basis = await resolve_named_approval_chain(
         db,
         source_collection=CHANGE_CONTROL_COLLECTION,
         source_id=preview_id,
-        source_document={**payload, "change_control_id": preview_id, "affected_entities": resolved_entities},
+        source_document={
+            **payload,
+            "change_control_id": preview_id,
+            "affected_entities": resolved_entities,
+        },
         affected_entities=resolved_entities,
         current_user_id=_current_user_id(current_user),
     )
@@ -3504,7 +4208,11 @@ async def preview_change_control_approval_chain(
             "dialog_contract": {
                 "submit_field": "approval_chain",
                 "required_step_fields": ["stage", "role", "assigned_user_id"],
-                "accepted_worker_fields": ["assigned_user_id", "assigned_user_name", "assigned_user_email"],
+                "accepted_worker_fields": [
+                    "assigned_user_id",
+                    "assigned_user_name",
+                    "assigned_user_email",
+                ],
             },
         }
     )
@@ -3552,7 +4260,14 @@ async def approver_typeahead(
         )
     if role:
         role_pattern = re.escape(role.strip()).replace("\\ ", ".*")
-        filters.append({"$or": [{"role": {"$regex": role_pattern, "$options": "i"}}, {"title": {"$regex": role_pattern, "$options": "i"}}]})
+        filters.append(
+            {
+                "$or": [
+                    {"role": {"$regex": role_pattern, "$options": "i"}},
+                    {"title": {"$regex": role_pattern, "$options": "i"}},
+                ]
+            }
+        )
     context_or = []
     if workstation_id:
         context_or.append({"workstation_id": workstation_id})
@@ -3563,18 +4278,39 @@ async def approver_typeahead(
     if plant_id:
         context_or.append({"plant_id": plant_id})
     if context_or:
-        filters.append({"$or": context_or + [{"title": {"$in": ["Document Controller", "Quality Control", "Change Control", "Plant Manager", "Line Manager"]}}]})
+        filters.append(
+            {
+                "$or": context_or
+                + [
+                    {
+                        "title": {
+                            "$in": [
+                                "Document Controller",
+                                "Quality Control",
+                                "Change Control",
+                                "Plant Manager",
+                                "Line Manager",
+                            ]
+                        }
+                    }
+                ]
+            }
+        )
     query = {"$and": filters} if filters else {}
-    cursor = db["users"].find(
-        query,
-        {
-            "_id": 0,
-            "embedding": 0,
-            "password": 0,
-            "hashed_password": 0,
-            "refresh_tokens": 0,
-        },
-    ).limit(limit)
+    cursor = (
+        db["users"]
+        .find(
+            query,
+            {
+                "_id": 0,
+                "embedding": 0,
+                "password": 0,
+                "hashed_password": 0,
+                "refresh_tokens": 0,
+            },
+        )
+        .limit(limit)
+    )
     workers = []
     async for user in cursor:
         workers.append(
@@ -3591,7 +4327,11 @@ async def approver_typeahead(
                 "workstation_id": user.get("workstation_id"),
                 "label": " - ".join(
                     str(part)
-                    for part in (user.get("name") or user.get("email") or user.get("user_id"), user.get("title"), user.get("email"))
+                    for part in (
+                        user.get("name") or user.get("email") or user.get("user_id"),
+                        user.get("title"),
+                        user.get("email"),
+                    )
                     if part
                 ),
                 "value": user.get("user_id"),
@@ -3616,7 +4356,9 @@ async def create_change_control(
             {
                 "$set": {
                     "proposed_change_nodes": proposed_nodes,
-                    "proposed_change_node_ids": [node.get("proposed_change_id") for node in proposed_nodes],
+                    "proposed_change_node_ids": [
+                        node.get("proposed_change_id") for node in proposed_nodes
+                    ],
                     "live_node_touched": False,
                     "cdc_source": PROPOSED_CHANGE_COLLECTION,
                     "updated_at": utc_now(),
@@ -3626,15 +4368,28 @@ async def create_change_control(
         record = {
             **record,
             "proposed_change_nodes": proposed_nodes,
-            "proposed_change_node_ids": [node.get("proposed_change_id") for node in proposed_nodes],
+            "proposed_change_node_ids": [
+                node.get("proposed_change_id") for node in proposed_nodes
+            ],
             "live_node_touched": False,
             "cdc_source": PROPOSED_CHANGE_COLLECTION,
         }
     await safe_mirror(mirror_document(CHANGE_CONTROL_COLLECTION, record, "create"))
     queue_publication_status = {
-        "change_control_queue": {"published": False, "subject": settings.NATS_CHANGE_CONTROL_SUBJECT},
-        "approval_notification_queue": {"published": False, "subject": settings.NATS_APPROVALS_SUBJECT},
-        "n8n_email_webhook": {"enabled": bool(str(settings.N8N_EMAIL_WEBHOOK_URL or "").strip()), "attempted": 0, "queued": 0, "failed": 0},
+        "change_control_queue": {
+            "published": False,
+            "subject": settings.NATS_CHANGE_CONTROL_SUBJECT,
+        },
+        "approval_notification_queue": {
+            "published": False,
+            "subject": settings.NATS_APPROVALS_SUBJECT,
+        },
+        "n8n_email_webhook": {
+            "enabled": bool(str(settings.N8N_EMAIL_WEBHOOK_URL or "").strip()),
+            "attempted": 0,
+            "queued": 0,
+            "failed": 0,
+        },
     }
     try:
         subject = await nats_store.publish_change_control_event(
@@ -3642,7 +4397,8 @@ async def create_change_control(
                 "event": "change_control_created",
                 "source_collection": CHANGE_CONTROL_COLLECTION,
                 "source_id": record["change_control_id"],
-                "source_title": record.get("title") or record.get("change_control_number"),
+                "source_title": record.get("title")
+                or record.get("change_control_number"),
                 "change_control": _bson_safe(record),
                 "proposed_change_nodes": proposed_nodes,
                 "proposed_node_collection": PROPOSED_CHANGE_COLLECTION,
@@ -3650,40 +4406,52 @@ async def create_change_control(
                 "approval_assignment_basis": record.get("approval_assignment_basis"),
             }
         )
-        queue_publication_status["change_control_queue"] = {"published": True, "subject": subject}
+        queue_publication_status["change_control_queue"] = {
+            "published": True,
+            "subject": subject,
+        }
     except Exception as exc:
         queue_publication_status["change_control_queue"]["error"] = str(exc)
     approval_token_records = await create_approval_tracking_and_notifications(
         db,
         source_collection=CHANGE_CONTROL_COLLECTION,
         source_id=record["change_control_id"],
-        source_title=record.get("title") or record.get("change_control_number") or record["change_control_id"],
+        source_title=record.get("title")
+        or record.get("change_control_number")
+        or record["change_control_id"],
         chain=record["approval_chain"],
         current_user_id=_current_user_id(current_user),
     )
     approval_event = approval_notification_event(
         source_collection=CHANGE_CONTROL_COLLECTION,
         source_id=record["change_control_id"],
-        source_title=record.get("title") or record.get("change_control_number") or record["change_control_id"],
+        source_title=record.get("title")
+        or record.get("change_control_number")
+        or record["change_control_id"],
         source=_bson_safe(record),
         chain=record["approval_chain"],
         token_records=approval_token_records,
     )
     try:
-        subject = await nats_store.publish_approval_event(
-            approval_event
-        )
-        queue_publication_status["approval_notification_queue"] = {"published": True, "subject": subject}
+        subject = await nats_store.publish_approval_event(approval_event)
+        queue_publication_status["approval_notification_queue"] = {
+            "published": True,
+            "subject": subject,
+        }
     except Exception as exc:
         queue_publication_status["approval_notification_queue"]["error"] = str(exc)
-    queue_publication_status["n8n_email_webhook"] = await _post_approval_notifications_to_n8n(approval_event)
+    queue_publication_status["n8n_email_webhook"] = (
+        await _post_approval_notifications_to_n8n(approval_event)
+    )
     response_record = dict(record)
     response_record["queue_publication_status"] = queue_publication_status
     response_record["notification_delivery"] = {
         "mode": "external_nats_queue",
         "approval_subject": settings.NATS_APPROVALS_SUBJECT,
         "expected_consumer": "reviewer assignment / email notification workflow",
-        "n8n_email_webhook_configured": bool(str(settings.N8N_EMAIL_WEBHOOK_URL or "").strip()),
+        "n8n_email_webhook_configured": bool(
+            str(settings.N8N_EMAIL_WEBHOOK_URL or "").strip()
+        ),
     }
     return _bson_safe(response_record)
 
@@ -3696,7 +4464,11 @@ async def list_change_controls(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
-    return _bson_safe(await _list_gxp_records(db, CHANGE_CONTROL_COLLECTION, page, page_size, status_value))
+    return _bson_safe(
+        await _list_gxp_records(
+            db, CHANGE_CONTROL_COLLECTION, page, page_size, status_value
+        )
+    )
 
 
 @router.get("/compliance/approvals/{approval_id}/form", response_class=HTMLResponse)
@@ -3709,12 +4481,22 @@ async def approval_form(
     approval = await db["approvals"].find_one({"approval_id": approval_id}, {"_id": 0})
     token_error = _approval_token_error(approval, token)
     if token_error:
-        return HTMLResponse(_approval_login_html(approval or {"source_title": "Invalid approval"}, token, token_error), status_code=403)
+        return HTMLResponse(
+            _approval_login_html(
+                approval or {"source_title": "Invalid approval"}, token, token_error
+            ),
+            status_code=403,
+        )
     current_user = await _approval_user_from_request(request)
     if not current_user:
         return HTMLResponse(_approval_login_html(approval, token))
     if not _approval_user_matches(approval, current_user):
-        return HTMLResponse(_approval_login_html(approval, token, "This approval is assigned to a different user."), status_code=403)
+        return HTMLResponse(
+            _approval_login_html(
+                approval, token, "This approval is assigned to a different user."
+            ),
+            status_code=403,
+        )
     return HTMLResponse(_approval_form_html(approval, token, current_user=current_user))
 
 
@@ -3734,30 +4516,77 @@ async def submit_approval_form(
     approval = await db["approvals"].find_one({"approval_id": approval_id}, {"_id": 0})
     token_error = _approval_token_error(approval, token)
     if token_error:
-        return HTMLResponse(_approval_login_html(approval or {"source_title": "Invalid approval"}, token, token_error), status_code=403)
+        return HTMLResponse(
+            _approval_login_html(
+                approval or {"source_title": "Invalid approval"}, token, token_error
+            ),
+            status_code=403,
+        )
 
     if action == "login":
         user = await _approval_login_user(db, email, password)
         if not user:
-            return HTMLResponse(_approval_login_html(approval, token, "Invalid credentials or MFA-enabled account."), status_code=401)
-        current_user = {"sub": user.get("user_id"), "email": user.get("email"), "role": user.get("role")}
+            return HTMLResponse(
+                _approval_login_html(
+                    approval, token, "Invalid credentials or MFA-enabled account."
+                ),
+                status_code=401,
+            )
+        current_user = {
+            "sub": user.get("user_id"),
+            "email": user.get("email"),
+            "role": user.get("role"),
+        }
         if not _approval_user_matches(approval, current_user):
-            return HTMLResponse(_approval_login_html(approval, token, "This approval is assigned to a different user."), status_code=403)
-        response = HTMLResponse(_approval_form_html(approval, token, current_user=current_user))
+            return HTMLResponse(
+                _approval_login_html(
+                    approval, token, "This approval is assigned to a different user."
+                ),
+                status_code=403,
+            )
+        response = HTMLResponse(
+            _approval_form_html(approval, token, current_user=current_user)
+        )
         _set_approval_access_cookie(response, user)
         return response
 
     current_user = await _approval_user_from_request(request)
     if not current_user:
-        return HTMLResponse(_approval_login_html(approval, token, "Sign in before submitting this approval."), status_code=401)
+        return HTMLResponse(
+            _approval_login_html(
+                approval, token, "Sign in before submitting this approval."
+            ),
+            status_code=401,
+        )
     if not _approval_user_matches(approval, current_user):
-        return HTMLResponse(_approval_login_html(approval, token, "This approval is assigned to a different user."), status_code=403)
+        return HTMLResponse(
+            _approval_login_html(
+                approval, token, "This approval is assigned to a different user."
+            ),
+            status_code=403,
+        )
 
     normalized_decision = decision.strip().title()
     if normalized_decision not in {"Approved", "Rejected"}:
-        return HTMLResponse(_approval_form_html(approval, token, "Decision must be Approved or Rejected.", current_user=current_user), status_code=400)
+        return HTMLResponse(
+            _approval_form_html(
+                approval,
+                token,
+                "Decision must be Approved or Rejected.",
+                current_user=current_user,
+            ),
+            status_code=400,
+        )
     if normalized_decision == "Rejected" and not str(reason or "").strip():
-        return HTMLResponse(_approval_form_html(approval, token, "Rejection reason is required.", current_user=current_user), status_code=400)
+        return HTMLResponse(
+            _approval_form_html(
+                approval,
+                token,
+                "Rejection reason is required.",
+                current_user=current_user,
+            ),
+            status_code=400,
+        )
 
     try:
         result = await record_approval_decision(
@@ -3770,8 +4599,13 @@ async def submit_approval_form(
             decision_source="sentinel_x_email_form",
         )
     except ApprovalAlreadyDecidedError as exc:
-        return HTMLResponse(_approval_form_html(approval, token, str(exc), current_user=current_user), status_code=409)
-    return HTMLResponse(_approval_complete_html(result["approval"], normalized_decision))
+        return HTMLResponse(
+            _approval_form_html(approval, token, str(exc), current_user=current_user),
+            status_code=409,
+        )
+    return HTMLResponse(
+        _approval_complete_html(result["approval"], normalized_decision)
+    )
 
 
 @router.post("/compliance/approvals/{approval_id}/external-decision")
@@ -3783,7 +4617,11 @@ async def submit_external_approval_decision(
     approval = await db["approvals"].find_one({"approval_id": approval_id}, {"_id": 0})
     token_error = _approval_token_error(approval, body.token)
     if token_error:
-        status_code = status.HTTP_409_CONFLICT if "already been decided" in token_error else status.HTTP_403_FORBIDDEN
+        status_code = (
+            status.HTTP_409_CONFLICT
+            if "already been decided" in token_error
+            else status.HTTP_403_FORBIDDEN
+        )
         raise HTTPException(status_code=status_code, detail=token_error)
     requester = {
         "sub": body.approver_user_id,
@@ -3791,13 +4629,22 @@ async def submit_external_approval_decision(
         "email": body.approver_email,
     }
     if not _approval_user_matches(approval, requester):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This approval is assigned to a different user.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This approval is assigned to a different user.",
+        )
 
     normalized_decision = body.decision.strip().title()
     if normalized_decision not in {"Approved", "Rejected"}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Decision must be Approved or Rejected.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Decision must be Approved or Rejected.",
+        )
     if normalized_decision == "Rejected" and not str(body.reason or "").strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rejection reason is required.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rejection reason is required.",
+        )
 
     try:
         result = await record_approval_decision(
@@ -3810,7 +4657,9 @@ async def submit_external_approval_decision(
             decision_source=body.source or "external_approval_form",
         )
     except ApprovalAlreadyDecidedError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     return _bson_safe(
         {
             "status": "accepted",
@@ -3842,7 +4691,9 @@ async def get_change_control(
         {"_id": 0},
     )
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Change control not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Change control not found"
+        )
     return _bson_safe(record)
 
 
@@ -3854,7 +4705,9 @@ async def create_access_review(
 ):
     payload = body.model_dump(mode="python")
     payload["standard_id"] = "eu-gmp-annex-11"
-    return await _insert_gxp_record(db, ACCESS_REVIEW_COLLECTION, "access_review", payload, current_user)
+    return await _insert_gxp_record(
+        db, ACCESS_REVIEW_COLLECTION, "access_review", payload, current_user
+    )
 
 
 @router.get("/compliance/access-reviews")
@@ -3876,7 +4729,13 @@ async def create_data_integrity_review(
     payload = body.model_dump(mode="python")
     payload["standard_id"] = "mhra-gxp-data-integrity"
     payload["principles"] = compliance_readiness()["data_integrity_principles"]
-    return await _insert_gxp_record(db, DATA_INTEGRITY_REVIEW_COLLECTION, "data_integrity_review", payload, current_user)
+    return await _insert_gxp_record(
+        db,
+        DATA_INTEGRITY_REVIEW_COLLECTION,
+        "data_integrity_review",
+        payload,
+        current_user,
+    )
 
 
 @router.get("/compliance/data-integrity-reviews")
@@ -3886,4 +4745,6 @@ async def list_data_integrity_reviews(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
-    return await _list_gxp_records(db, DATA_INTEGRITY_REVIEW_COLLECTION, page, page_size)
+    return await _list_gxp_records(
+        db, DATA_INTEGRITY_REVIEW_COLLECTION, page, page_size
+    )

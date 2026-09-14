@@ -6,14 +6,26 @@ cascade through GeographicEntityRuntime — the "ticks propagate from planet
 to actors" requirement, now through the FULL 8-tier hierarchy rather than
 the earlier 2-tier Country->City model.
 """
+
 from __future__ import annotations
 
 import asyncio
 import pytest
 
 from src.monkey_brain.kernel.geography.entity import (
-    GeographicEntityType, BuildingType, SpaceType, PARENT_TIER, ROOT_ELIGIBLE,
-    Planet, Country, State, County, City, Street, Building, Space,
+    GeographicEntityType,
+    BuildingType,
+    SpaceType,
+    PARENT_TIER,
+    ROOT_ELIGIBLE,
+    Planet,
+    Country,
+    State,
+    County,
+    City,
+    Street,
+    Building,
+    Space,
 )
 from src.monkey_brain.kernel.geography.registry import GeographicRegistry
 from src.monkey_brain.kernel.geography.runtime import GeographicEntityRuntime
@@ -29,11 +41,15 @@ def _build_full_chain(registry: GeographicRegistry):
     city = registry.create(GeographicEntityType.CITY, "City", parent_id=county.entity_id)
     street = registry.create(GeographicEntityType.STREET, "Street", parent_id=city.entity_id)
     building = registry.create(
-        GeographicEntityType.BUILDING, "Building", parent_id=street.entity_id,
+        GeographicEntityType.BUILDING,
+        "Building",
+        parent_id=street.entity_id,
         building_type=BuildingType.MIXED_USE,
     )
     space = registry.create(
-        GeographicEntityType.SPACE, "Space", parent_id=building.entity_id,
+        GeographicEntityType.SPACE,
+        "Space",
+        parent_id=building.entity_id,
         space_type=SpaceType.OFFICE,
     )
     return planet, country, state, county, city, street, building, space
@@ -72,6 +88,7 @@ class _FakeSocietyRuntime:
 
 
 # ── Tier construction & adjacency ────────────────────────────────────────
+
 
 def test_full_chain_construction():
     registry = GeographicRegistry()
@@ -134,6 +151,7 @@ def test_no_circular_containment_possible_by_construction():
     without ever revisiting a tier on that branch — that termination is
     what rules out a cycle."""
     for tier in GeographicEntityType:
+
         def _walk(current: GeographicEntityType, visited: frozenset[GeographicEntityType]) -> None:
             assert current not in visited, f"cycle detected walking up from {tier}"
             if current not in PARENT_TIER:
@@ -146,6 +164,7 @@ def test_no_circular_containment_possible_by_construction():
 
 
 # ── Society hosting: any tier, single-host ───────────────────────────────
+
 
 def test_society_hosted_at_any_tier():
     registry = GeographicRegistry()
@@ -177,6 +196,7 @@ def test_ancestor_of_type_walks_full_depth():
 
 
 # ── Tick cascade: planet -> actors, full 8-tier depth ────────────────────
+
 
 def test_tick_cascades_full_depth_to_hosted_society():
     registry = GeographicRegistry()
@@ -250,6 +270,7 @@ def test_multiple_societies_hosted_at_different_tiers_all_reached():
 
 # ── Registry.create() — the sole constructor entry point ─────────────────
 
+
 def test_create_rejects_unknown_entity_type_gracefully():
     registry = GeographicRegistry()
 
@@ -314,8 +335,11 @@ class TestOccupantTicksRunConcurrently:
 
         async def run():
             runtime = GeographicEntityRuntime(
-                registry, planet.entity_id, {}.get,
-                presence=presence, actor_ticker=slow_actor_ticker,
+                registry,
+                planet.entity_id,
+                {}.get,
+                presence=presence,
+                actor_ticker=slow_actor_ticker,
             )
             start = time.perf_counter()
             result = await runtime.tick()
@@ -354,8 +378,11 @@ class TestOccupantTicksRunConcurrently:
 
         async def run():
             runtime = GeographicEntityRuntime(
-                registry, planet.entity_id, {}.get,
-                presence=presence, actor_ticker=flaky_actor_ticker,
+                registry,
+                planet.entity_id,
+                {}.get,
+                presence=presence,
+                actor_ticker=flaky_actor_ticker,
             )
             return await runtime.tick()
 

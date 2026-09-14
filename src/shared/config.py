@@ -3,10 +3,10 @@
 These constants were previously in actor/config.py but are needed by both
 kernel and actor. Moving them here breaks the circular import.
 """
+
 from __future__ import annotations
 
 from typing import Any
-
 
 # Actor configuration constants
 ACTOR_CONFIG: dict[str, Any] = {

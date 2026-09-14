@@ -106,6 +106,7 @@ def _estimate_duration(measurement: str, row: dict) -> int:
 
 def _row_to_dict(row: dict) -> dict:
     from datetime import timedelta
+
     payload = _parse_payload(row)
     time_val = row.get("time", "")
     raw_machine_id = row.get("machine_id", payload.get("machine_id", ""))
@@ -113,20 +114,34 @@ def _row_to_dict(row: dict) -> dict:
     duration = payload.get("duration_minutes", payload.get("duration_min"))
     if duration is None:
         duration = _estimate_duration("downtime_log", row)
-    raw_category = row.get("reason", payload.get("reason", payload.get("category", "Mechanical Failure")))
+    raw_category = row.get(
+        "reason", payload.get("reason", payload.get("category", "Mechanical Failure"))
+    )
     category = CATEGORY_MAP.get(raw_category, "Mechanical Failure")
     start_time = payload.get("start_time", time_val)
     end_time = payload.get("end_time")
     if not end_time and start_time and duration:
         try:
             from datetime import datetime as _dt
+
             st = _dt.fromisoformat(start_time.replace("Z", "+00:00"))
             end_time = (st + timedelta(minutes=int(duration))).isoformat()
         except (ValueError, TypeError):
             pass
     log_id = payload.get("id", f"DT-{raw_machine_id[-8:]}" if raw_machine_id else "")
     stage = row.get("stage", payload.get("stage", ""))
-    responsible_team = payload.get("responsible_team", "Mechanical" if "Mechanical" in raw_category else "Operations" if "Operator" in raw_category else "Electrical" if "Electrical" in raw_category else "Operations")
+    responsible_team = payload.get(
+        "responsible_team",
+        (
+            "Mechanical"
+            if "Mechanical" in raw_category
+            else (
+                "Operations"
+                if "Operator" in raw_category
+                else "Electrical" if "Electrical" in raw_category else "Operations"
+            )
+        ),
+    )
     linked_work_order = payload.get("linked_work_order", None)
     return {
         "id": log_id,
@@ -172,10 +187,16 @@ def _record_to_line(data: dict, ts_ns: int) -> str:
 
 # ── Summary: per-equipment total downtime + MTTR ──────────────────────────────
 
+
 async def get_equipment_downtime_summary() -> list[dict]:
     machines: dict[str, dict] = {}
 
-    for measurement in ["downtime_log", "maintenance_log", "calibration_log", "cleaning_log"]:
+    for measurement in [
+        "downtime_log",
+        "maintenance_log",
+        "calibration_log",
+        "cleaning_log",
+    ]:
         sql = f"SELECT * FROM {measurement} ORDER BY time DESC LIMIT 500"
         try:
             rows = _influx_query(sql)
@@ -211,7 +232,11 @@ async def get_equipment_downtime_summary() -> list[dict]:
 
     result = []
     for m in machines.values():
-        m["mttr_minutes"] = round(m["total_downtime_minutes"] / m["event_count"]) if m["event_count"] else 0
+        m["mttr_minutes"] = (
+            round(m["total_downtime_minutes"] / m["event_count"])
+            if m["event_count"]
+            else 0
+        )
         result.append(m)
 
     result.sort(key=lambda x: x["total_downtime_minutes"], reverse=True)
@@ -220,8 +245,10 @@ async def get_equipment_downtime_summary() -> list[dict]:
 
 # ── Read ──────────────────────────────────────────────────────────────────────
 
+
 def _normalize_name(name: str) -> str:
     import re
+
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
@@ -319,7 +346,9 @@ async def get_by_machine(db: AsyncIOMotorDatabase, machine_id: str) -> list[dict
     return [_row_to_dict(r) for r in rows]
 
 
-async def get_by_equipment_id(db: AsyncIOMotorDatabase, equipment_id: str) -> list[dict]:
+async def get_by_equipment_id(
+    db: AsyncIOMotorDatabase, equipment_id: str
+) -> list[dict]:
     sql = f"SELECT * FROM {COLLECTION} LIMIT 500"
     rows = _influx_query(sql)
     return [_row_to_dict(r) for r in rows if r.get("equipment_id") == equipment_id]
@@ -328,7 +357,9 @@ async def get_by_equipment_id(db: AsyncIOMotorDatabase, equipment_id: str) -> li
 async def get_by_line(db: AsyncIOMotorDatabase, line_id: str) -> list[dict]:
     sql = f"SELECT * FROM {COLLECTION} LIMIT 500"
     rows = _influx_query(sql)
-    return [_row_to_dict(r) for r in rows if _parse_payload(r).get("line_id") == line_id]
+    return [
+        _row_to_dict(r) for r in rows if _parse_payload(r).get("line_id") == line_id
+    ]
 
 
 async def get_by_status(db: AsyncIOMotorDatabase, status: str) -> list[dict]:
@@ -339,6 +370,7 @@ async def get_by_status(db: AsyncIOMotorDatabase, status: str) -> list[dict]:
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 async def create(db: AsyncIOMotorDatabase, data: DowntimeLogCreate) -> dict:
     record = data.model_dump()
     ts_ns = int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
@@ -348,6 +380,7 @@ async def create(db: AsyncIOMotorDatabase, data: DowntimeLogCreate) -> dict:
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 async def update(
     db: AsyncIOMotorDatabase, log_id: str, data: DowntimeLogUpdate
@@ -364,6 +397,7 @@ async def update(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 async def delete(db: AsyncIOMotorDatabase, log_id: str) -> bool:
     existing = await get_by_id(db, log_id)

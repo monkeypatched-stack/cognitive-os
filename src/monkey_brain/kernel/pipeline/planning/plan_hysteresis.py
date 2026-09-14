@@ -19,6 +19,7 @@ does not extend it. It scores the real kernel/pipeline/belief_state.py
 ::Plan type that LLMPlanner actually returns and that flows through
 _generate_plan/_execute_plan in production.
 """
+
 from __future__ import annotations
 
 import os
@@ -64,12 +65,7 @@ def score_plan(plan: Any, prediction_result: dict[str, Any] | None) -> tuple[flo
     cost = float(getattr(plan, "cost", 0.0) or 0.0)
     risk = float(getattr(plan, "risk", 0.0) or 0.0)
 
-    score = (
-        W_PROBABILITY * probability
-        + W_EXPECTED_UTILITY * expected_utility
-        - W_COST * cost
-        - W_RISK * risk
-    )
+    score = W_PROBABILITY * probability + W_EXPECTED_UTILITY * expected_utility - W_COST * cost - W_RISK * risk
     components = {
         "probability": probability,
         "expected_utility": expected_utility,
@@ -107,7 +103,9 @@ def decide(new_score: float, current: Any | None) -> HysteresisVerdict:
         return HysteresisVerdict(
             action="replace",
             reason="No existing Current Plan — this becomes the Current Plan.",
-            new_score=new_score, current_score=None, percent_improvement=None,
+            new_score=new_score,
+            current_score=None,
+            percent_improvement=None,
         )
 
     current_score = float(current.score)
@@ -124,8 +122,11 @@ def decide(new_score: float, current: Any | None) -> HysteresisVerdict:
             f"at or above the {margin:.0%} hysteresis threshold."
         )
         return HysteresisVerdict(
-            action="replace", reason=reason, new_score=new_score,
-            current_score=current_score, percent_improvement=percent_improvement,
+            action="replace",
+            reason=reason,
+            new_score=new_score,
+            current_score=current_score,
+            percent_improvement=percent_improvement,
         )
 
     reason = (
@@ -134,6 +135,9 @@ def decide(new_score: float, current: Any | None) -> HysteresisVerdict:
         f"{margin:.0%} hysteresis threshold."
     )
     return HysteresisVerdict(
-        action="keep", reason=reason, new_score=new_score,
-        current_score=current_score, percent_improvement=percent_improvement,
+        action="keep",
+        reason=reason,
+        new_score=new_score,
+        current_score=current_score,
+        percent_improvement=percent_improvement,
     )

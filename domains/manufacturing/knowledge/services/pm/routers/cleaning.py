@@ -15,6 +15,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedCleaningRecordResponse)
 async def list_cleaning_records(
     page: int = Query(1, ge=1),
@@ -30,6 +31,7 @@ async def list_cleaning_records(
 
 # ── Get by machine ────────────────────────────────────────────────────────────
 
+
 @router.get("/by-equipment/{equipment_id}", response_model=list[CleaningRecordResponse])
 async def list_cleaning_records_by_machine(
     equipment_id: str,
@@ -40,6 +42,7 @@ async def list_cleaning_records_by_machine(
 
 
 # ── Get by status ─────────────────────────────────────────────────────────────
+
 
 @router.get("/by-status/{status_value}", response_model=list[CleaningRecordResponse])
 async def list_cleaning_records_by_status(
@@ -52,7 +55,10 @@ async def list_cleaning_records_by_status(
 
 # ── Get by work order ─────────────────────────────────────────────────────────
 
-@router.get("/by-work-order/{work_order_id}", response_model=list[CleaningRecordResponse])
+
+@router.get(
+    "/by-work-order/{work_order_id}", response_model=list[CleaningRecordResponse]
+)
 async def list_cleaning_records_by_work_order(
     work_order_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -62,6 +68,7 @@ async def list_cleaning_records_by_work_order(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{record_id}", response_model=CleaningRecordResponse)
 async def get_cleaning_record(
@@ -80,7 +87,10 @@ async def get_cleaning_record(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=CleaningRecordResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=CleaningRecordResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_cleaning_record(
     data: CleaningRecordCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -95,6 +105,7 @@ async def create_cleaning_record(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{record_id}", response_model=CleaningRecordResponse)
 async def update_cleaning_record(
@@ -113,6 +124,7 @@ async def update_cleaning_record(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_cleaning_record(

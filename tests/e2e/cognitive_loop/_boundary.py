@@ -21,6 +21,7 @@ PLAN Timeline record every tick already writes (tagged with the same
 execution_id). Tests now read comparator_outcome directly off that
 record via actor_get(actor_id, "plans") instead of tailing any log.
 """
+
 from __future__ import annotations
 
 import os
@@ -45,9 +46,20 @@ PROMPT_TIMEOUT = httpx.Timeout(240.0)
 # Stages in the order the task spec defines them, for FIRST FAILURE
 # diagnostics (see first_failure_stage below).
 STAGE_ORDER = (
-    "REQUEST", "INTENT", "GOAL", "KNOWLEDGE", "GROUNDING", "PLAN",
-    "HYSTERESIS", "COMPILATION", "PREDICTION", "EXECUTION",
-    "OBSERVATION", "COMPARATOR", "LEARNING", "BELIEF",
+    "REQUEST",
+    "INTENT",
+    "GOAL",
+    "KNOWLEDGE",
+    "GROUNDING",
+    "PLAN",
+    "HYSTERESIS",
+    "COMPILATION",
+    "PREDICTION",
+    "EXECUTION",
+    "OBSERVATION",
+    "COMPARATOR",
+    "LEARNING",
+    "BELIEF",
 )
 
 
@@ -60,7 +72,8 @@ def _reachable() -> bool:
 
 
 requires_live_backend = pytest.mark.skipif(
-    not _reachable(), reason=f"AgentOS backend not reachable at {AGENTOS_URL}",
+    not _reachable(),
+    reason=f"AgentOS backend not reachable at {AGENTOS_URL}",
 )
 
 
@@ -131,12 +144,16 @@ def prompt(actor_id: str, question: str, *, run_simulate: bool = False, max_retr
     import time
 
     for attempt in range(max_retries + 1):
-        resp = post("/prompt", {"question": question, "run_simulate": run_simulate}, user_id=actor_id)
+        resp = post(
+            "/prompt",
+            {"question": question, "run_simulate": run_simulate},
+            user_id=actor_id,
+        )
         assert resp.status_code == 200, (
             f"REQUEST stage failed: POST /prompt returned {resp.status_code}: {resp.text[:500]}"
         )
         body = resp.json()
-        answer = ((body.get("query_result") or {}).get("answer") or "")
+        answer = (body.get("query_result") or {}).get("answer") or ""
         if "planetary tick is already running" in answer and attempt < max_retries:
             time.sleep(2.0 * (attempt + 1))
             continue

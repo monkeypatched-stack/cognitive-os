@@ -17,6 +17,7 @@ where the model itself gets updated, only ever has actor_id; see
 Cognitive Loop Verification's own trace of CognitiveActor/pipeline
 Actor — neither carries a name field).
 """
+
 from __future__ import annotations
 
 import json
@@ -49,8 +50,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )

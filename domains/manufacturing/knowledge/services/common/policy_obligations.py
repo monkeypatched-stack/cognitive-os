@@ -31,12 +31,12 @@ from typing import Any
 
 
 class ObligationType(str, Enum):
-    HEADER_INJECT   = "header_inject"
+    HEADER_INJECT = "header_inject"
     RESPONSE_REDACT = "response_redact"
-    ROUTE_OVERRIDE  = "route_override"
+    ROUTE_OVERRIDE = "route_override"
     QUORUM_REQUIRED = "quorum_required"
-    RATE_LIMIT      = "rate_limit"
-    AUDIT_FORCE     = "audit_force"
+    RATE_LIMIT = "rate_limit"
+    AUDIT_FORCE = "audit_force"
 
 
 @dataclass
@@ -51,6 +51,7 @@ class PolicyObligation:
 # ---------------------------------------------------------------------------
 # Obligation extraction from OPA result
 # ---------------------------------------------------------------------------
+
 
 def extract_obligations(opa_result: dict[str, Any]) -> list[PolicyObligation]:
     """Parse obligations from an OPA result document."""
@@ -73,6 +74,7 @@ def extract_obligations(opa_result: dict[str, Any]) -> list[PolicyObligation]:
 # Local obligation derivation (no OPA fallback)
 # ---------------------------------------------------------------------------
 
+
 def derive_obligations(
     principal: dict[str, Any],
     action: str,
@@ -92,35 +94,45 @@ def derive_obligations(
     trust_level = "high" if principal.get("mtls_verified") else "standard"
 
     # Always inject trust metadata headers so downstream services can act on them
-    obligations.append(PolicyObligation(
-        type=ObligationType.HEADER_INJECT,
-        params={
-            "headers": {
-                "X-Trust-Level": trust_level,
-                "X-Principal-Type": principal_type,
-                "X-SPIFFE-ID": spiffe_id or "",
-            }
-        },
-    ))
+    obligations.append(
+        PolicyObligation(
+            type=ObligationType.HEADER_INJECT,
+            params={
+                "headers": {
+                    "X-Trust-Level": trust_level,
+                    "X-Principal-Type": principal_type,
+                    "X-SPIFFE-ID": spiffe_id or "",
+                }
+            },
+        )
+    )
 
     # High-risk operations require quorum approval
     if risk_level in ("high", "critical"):
         min_approvers = 3 if risk_level == "critical" else 2
-        obligations.append(PolicyObligation(
-            type=ObligationType.QUORUM_REQUIRED,
-            params={"min_approvers": min_approvers, "timeout_seconds": 60},
-        ))
-        obligations.append(PolicyObligation(
-            type=ObligationType.AUDIT_FORCE,
-            params={"reason": f"risk_level:{risk_level}"},
-        ))
+        obligations.append(
+            PolicyObligation(
+                type=ObligationType.QUORUM_REQUIRED,
+                params={"min_approvers": min_approvers, "timeout_seconds": 60},
+            )
+        )
+        obligations.append(
+            PolicyObligation(
+                type=ObligationType.AUDIT_FORCE,
+                params={"reason": f"risk_level:{risk_level}"},
+            )
+        )
 
     # Agents with restricted scopes (read-only) get PII redacted from responses
     scopes = set(principal.get("scopes") or [])
     if scopes and not any("write" in s or "admin" in s for s in scopes):
-        obligations.append(PolicyObligation(
-            type=ObligationType.RESPONSE_REDACT,
-            params={"fields": ["email", "phone", "ssn", "credit_card", "password_hash"]},
-        ))
+        obligations.append(
+            PolicyObligation(
+                type=ObligationType.RESPONSE_REDACT,
+                params={
+                    "fields": ["email", "phone", "ssn", "credit_card", "password_hash"]
+                },
+            )
+        )
 
     return obligations

@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from services.process_definitions.node_services.models import NodeExecutionResult, config_value
+from services.process_definitions.node_services.models import (
+    NodeExecutionResult,
+    config_value,
+)
 
 
 async def execute_storage_node(
@@ -39,7 +42,9 @@ async def execute_storage_node(
         else:
             text = path.read_text(encoding=encoding)
             value = json.loads(text) if mode == "json" else text
-        return NodeExecutionResult(True, None, {"status": "read", "path": str(path), "payload": value})
+        return NodeExecutionResult(
+            True, None, {"status": "read", "path": str(path), "payload": value}
+        )
     if node_type == "file":
         if config.get("create_dirs", True):
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -48,5 +53,13 @@ async def execute_storage_node(
         mode = "a" if config.get("append") else "w"
         with path.open(mode, encoding=encoding) as handle:
             handle.write(text)
-        return NodeExecutionResult(True, None, {"status": "written", "path": str(path), "bytes": len(text.encode(encoding))})
+        return NodeExecutionResult(
+            True,
+            None,
+            {
+                "status": "written",
+                "path": str(path),
+                "bytes": len(text.encode(encoding)),
+            },
+        )
     return NodeExecutionResult(True, None, {"status": "queued"})

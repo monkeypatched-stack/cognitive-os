@@ -11,8 +11,16 @@ Aggregation never executes pipelines.
 from deepdive.aggregation import Aggregation
 from deepdive.elasticsearch_adapter import ElasticsearchAdapter
 from deepdive.fleet_analytics import FleetAnalytics, NodeMetrics, FleetMetrics
-from deepdive.knowledge_aggregator import KnowledgeAggregator, KnowledgeEntry, AggregatedKnowledge
-from deepdive.digital_twin_aggregator import DigitalTwinAggregator, TwinSnapshot, AggregatedTwin
+from deepdive.knowledge_aggregator import (
+    KnowledgeAggregator,
+    KnowledgeEntry,
+    AggregatedKnowledge,
+)
+from deepdive.digital_twin_aggregator import (
+    DigitalTwinAggregator,
+    TwinSnapshot,
+    AggregatedTwin,
+)
 
 __all__ = [
     "Aggregation",

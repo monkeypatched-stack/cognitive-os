@@ -113,12 +113,11 @@ All 5 failures were in test mocks that did not accept the new `verified_delegati
 **Fix Applied:** Updated all mock `_authorize` functions to accept `verified_delegation` parameter:
 ```python
 # Before (broken)
-async def mock_authorize(action, resource, extra):
-    ...
+async def mock_authorize(action, resource, extra): ...
+
 
 # After (fixed)
-async def mock_authorize(action, resource, extra, *, verified_delegation=None):
-    ...
+async def mock_authorize(action, resource, extra, *, verified_delegation=None): ...
 ```
 
 ### 6. Approval Artifact Store Tests: **PASS** ✅

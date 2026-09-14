@@ -8,6 +8,7 @@ describe an action. Performing one is the execution runtime's job
 (execution.py and its action-execution collaborators), untouched by this
 module.
 """
+
 from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
@@ -22,6 +23,7 @@ class OperatorTemplate(Protocol):
     A template is a pure, parameterized factory for a PlanningOperator. Building
     an operator has no side effects: no execution, no runtime state mutation.
     """
+
     name: str
 
     def build(self, **params: Any) -> PlanningOperator: ...
@@ -29,11 +31,17 @@ class OperatorTemplate(Protocol):
 
 class AcquireItem:
     """Acquire a quantity of an item from a source (e.g. purchase, pick up)."""
+
     name = "AcquireItem"
 
     def build(
-        self, *, item: str, quantity: float = 1.0, unit: str = "unit",
-        estimated_cost: float = 0.2, estimated_duration: float = 180.0,
+        self,
+        *,
+        item: str,
+        quantity: float = 1.0,
+        unit: str = "unit",
+        estimated_cost: float = 0.2,
+        estimated_duration: float = 180.0,
     ) -> PlanningOperator:
         return PlanningOperator(
             name=self.name,
@@ -49,11 +57,16 @@ class AcquireItem:
 
 class Navigate:
     """Travel from the current location to a destination."""
+
     name = "Navigate"
 
     def build(
-        self, *, destination: str, from_location: str = "current_location",
-        estimated_cost: float = 0.1, estimated_duration: float = 600.0,
+        self,
+        *,
+        destination: str,
+        from_location: str = "current_location",
+        estimated_cost: float = 0.1,
+        estimated_duration: float = 600.0,
     ) -> PlanningOperator:
         return PlanningOperator(
             name=self.name,
@@ -69,11 +82,15 @@ class Navigate:
 
 class QueryInventory:
     """Check whether an item is available, without acquiring it. Read-only."""
+
     name = "QueryInventory"
 
     def build(
-        self, *, item: str,
-        estimated_cost: float = 0.02, estimated_duration: float = 5.0,
+        self,
+        *,
+        item: str,
+        estimated_cost: float = 0.02,
+        estimated_duration: float = 5.0,
     ) -> PlanningOperator:
         return PlanningOperator(
             name=self.name,
@@ -89,10 +106,14 @@ class QueryInventory:
 
 class Wait:
     """Pause for a fixed duration (e.g. waiting for a delivery window)."""
+
     name = "Wait"
 
     def build(
-        self, *, duration_seconds: float, reason: str = "",
+        self,
+        *,
+        duration_seconds: float,
+        reason: str = "",
         estimated_cost: float = 0.0,
     ) -> PlanningOperator:
         return PlanningOperator(
@@ -109,11 +130,16 @@ class Wait:
 
 class Notify:
     """Send a notification to a recipient. No runtime state mutation."""
+
     name = "Notify"
 
     def build(
-        self, *, recipient: str, message: str,
-        estimated_cost: float = 0.01, estimated_duration: float = 1.0,
+        self,
+        *,
+        recipient: str,
+        message: str,
+        estimated_cost: float = 0.01,
+        estimated_duration: float = 1.0,
     ) -> PlanningOperator:
         return PlanningOperator(
             name=self.name,
@@ -129,11 +155,17 @@ class Notify:
 
 class ReserveResource:
     """Reserve a quantity of a resource for later use, without consuming it."""
+
     name = "ReserveResource"
 
     def build(
-        self, *, resource: str, quantity: float = 1.0, duration_seconds: float = 0.0,
-        estimated_cost: float = 0.05, estimated_duration: float = 10.0,
+        self,
+        *,
+        resource: str,
+        quantity: float = 1.0,
+        duration_seconds: float = 0.0,
+        estimated_cost: float = 0.05,
+        estimated_duration: float = 10.0,
     ) -> PlanningOperator:
         return PlanningOperator(
             name=self.name,
@@ -143,7 +175,11 @@ class ReserveResource:
             estimated_cost=estimated_cost,
             estimated_duration=estimated_duration,
             required_capabilities=("reservation",),
-            metadata={"resource": resource, "quantity": quantity, "duration_seconds": duration_seconds},
+            metadata={
+                "resource": resource,
+                "quantity": quantity,
+                "duration_seconds": duration_seconds,
+            },
         )
 
 
@@ -151,7 +187,13 @@ class ReserveResource:
 # instance per template is sufficient; 8.3+ can look operators up by name here
 # rather than hardcoding imports.
 OPERATOR_TEMPLATES: dict[str, OperatorTemplate] = {
-    t.name: t for t in (
-        AcquireItem(), Navigate(), QueryInventory(), Wait(), Notify(), ReserveResource(),
+    t.name: t
+    for t in (
+        AcquireItem(),
+        Navigate(),
+        QueryInventory(),
+        Wait(),
+        Notify(),
+        ReserveResource(),
     )
 }

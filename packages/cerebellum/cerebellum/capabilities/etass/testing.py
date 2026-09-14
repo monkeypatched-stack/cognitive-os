@@ -1,6 +1,10 @@
 """PytestCapability — subprocess pytest runner as an ICapability."""
+
 from __future__ import annotations
-import asyncio, logging, subprocess
+import asyncio
+import logging
+import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +18,6 @@ except ImportError:
     ExecutionState = Any  # type: ignore
     CapabilityResult = None  # type: ignore
 
-import os
 _REPO = Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[6])))
 
 
@@ -54,14 +57,21 @@ class PytestCapability(ICapability):
     def _run_pytest(self) -> tuple[bool, str]:
         r = subprocess.run(
             ["python", "-m", "pytest", "--tb=short", "-q"],
-            cwd=str(_REPO), capture_output=True, text=True, timeout=120,
+            cwd=str(_REPO),
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         return r.returncode == 0, (r.stdout + r.stderr)
 
     def _wrap(self, output: dict):
         if CapabilityResult is not None:
             try:
-                return CapabilityResult(success=output["passed"], output=output, metadata={"capability": self.capability_name})
+                return CapabilityResult(
+                    success=output["passed"],
+                    output=output,
+                    metadata={"capability": self.capability_name},
+                )
             except Exception:
                 pass
         return output

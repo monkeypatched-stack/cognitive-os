@@ -42,8 +42,9 @@ RUN . /opt/ros/jazzy/setup.sh && cd /opt/px4_ws && colcon build --packages-selec
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY requirements.txt .
-RUN uv pip install --system --break-system-packages -r requirements.txt
+COPY pyproject.toml uv.lock .
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.lock.txt && \
+    uv pip install --system --break-system-packages -r requirements.lock.txt
 
 COPY src/ ./src/
 

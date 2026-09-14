@@ -19,10 +19,11 @@ class ProvenanceToken:
     a specific policy evaluation, making it traceable to the governance chain
     that authorised the original memory write.
     """
-    trace_id:    str
+
+    trace_id: str
     policy_path: str
-    auth_hash:   str
-    timestamp:   float = field(default_factory=time.time)
+    auth_hash: str
+    timestamp: float = field(default_factory=time.time)
 
 
 @dataclass
@@ -35,10 +36,11 @@ class MemoryNode:
       "semantic"   — distilled world-model facts; versioned, never deleted
       "procedural" — compiled routing shortcuts from BackgroundCompactor
     """
-    node_id:          str
-    memory_type:      str            # working | episodic | semantic | procedural
-    payload:          dict[str, Any]
+
+    node_id: str
+    memory_type: str  # working | episodic | semantic | procedural
+    payload: dict[str, Any]
     vector_embedding: Optional[List[float]] = None
-    access_count:     int = 0
-    last_accessed:    float = field(default_factory=time.time)
-    provenance:       Optional[ProvenanceToken] = None
+    access_count: int = 0
+    last_accessed: float = field(default_factory=time.time)
+    provenance: Optional[ProvenanceToken] = None

@@ -54,6 +54,7 @@ Run with:
     EDGE_DEVICE_ID=edge-007 python -m uvicorn src.monkey_brain.edge_agent:app \\
         --host 0.0.0.0 --port 8061
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -173,30 +174,46 @@ class EdgeAgent:
         self-claim can be."""
         from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
         from src.monkey_brain.kernel.society.domain import Society
-        from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode, NodeClass
+        from src.monkey_brain.kernel.society.actor_scheduler import (
+            ExecutionNode,
+            NodeClass,
+        )
 
         node_id = f"{self.device_id}-edge-agent"
         os.environ.setdefault("COGNITIVEOS_NODE_ID", node_id)
         try:
             pr = PlanetaryRuntime(Society(name=f"edge-agent-{self.device_id}"))
         except Exception as exc:
-            logger.warning("EdgeAgent could not reach control-plane persistence (%s) — device heartbeat disabled, actor subprocess management still works", exc)
+            logger.warning(
+                "EdgeAgent could not reach control-plane persistence (%s) — device heartbeat disabled, actor subprocess management still works",
+                exc,
+            )
             return
         interval = float(os.getenv("EDGE_AGENT_HEARTBEAT_INTERVAL", "30"))
         while True:
             try:
-                pr.register_node(ExecutionNode(
-                    node_id=node_id, node_class=NodeClass.EDGE, capacity=0,
-                    current_actor_count=0,
-                ))
+                pr.register_node(
+                    ExecutionNode(
+                        node_id=node_id,
+                        node_class=NodeClass.EDGE,
+                        capacity=0,
+                        current_actor_count=0,
+                    )
+                )
             except Exception as exc:
                 logger.debug("EdgeAgent device heartbeat failed (non-fatal): %s", exc)
             await asyncio.sleep(interval)
 
     # ── actor subprocess management ──────────────────────────────────────
 
-    def start_actor(self, actor_id: str, *, node_class: str = "edge", artifact_version: str = "",
-                    claim_placement: bool = True) -> dict[str, Any]:
+    def start_actor(
+        self,
+        actor_id: str,
+        *,
+        node_class: str = "edge",
+        artifact_version: str = "",
+        claim_placement: bool = True,
+    ) -> dict[str, Any]:
         """Spawns actor_runtime.py as a local subprocess for actor_id —
         the EXACT same ASGI export (src.monkey_brain.actor_runtime:app)
         and env-var configuration contract Kubernetes' own actor-
@@ -213,25 +230,43 @@ class EdgeAgent:
         port = self._next_port
         self._next_port += 1
         env = dict(os.environ)
-        env.update({
-            "ACTOR_ID": actor_id,
-            "ACTOR_NODE_CLASS": node_class,
-            "ACTOR_NODE_ID": f"{self.device_id}-{actor_id[:12]}",
-            "COGNITIVEOS_NODE_ID": f"{self.device_id}-{actor_id[:12]}",
-            "ACTOR_CLAIM_PLACEMENT": "true" if claim_placement else "false",
-            "ACTOR_RUNTIME_PORT": str(port),
-        })
+        env.update(
+            {
+                "ACTOR_ID": actor_id,
+                "ACTOR_NODE_CLASS": node_class,
+                "ACTOR_NODE_ID": f"{self.device_id}-{actor_id[:12]}",
+                "COGNITIVEOS_NODE_ID": f"{self.device_id}-{actor_id[:12]}",
+                "ACTOR_CLAIM_PLACEMENT": "true" if claim_placement else "false",
+                "ACTOR_RUNTIME_PORT": str(port),
+            }
+        )
         if artifact_version:
             env["ACTOR_ARTIFACT_VERSION"] = artifact_version
 
         process = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "src.monkey_brain.actor_runtime:app",
-             "--host", "127.0.0.1", "--port", str(port)],
-            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "src.monkey_brain.actor_runtime:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+            ],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         managed = _ManagedActor(actor_id=actor_id, node_class=node_class, port=port, process=process)
         self._actors[actor_id] = managed
-        logger.info("EdgeAgent(%s): started actor_id=%s pid=%d port=%d", self.device_id, actor_id, process.pid, port)
+        logger.info(
+            "EdgeAgent(%s): started actor_id=%s pid=%d port=%d",
+            self.device_id,
+            actor_id,
+            process.pid,
+            port,
+        )
         return self._describe(managed)
 
     def stop_actor(self, actor_id: str, *, timeout: float = 15.0) -> bool:
@@ -278,10 +313,14 @@ class EdgeAgent:
     def _describe(self, managed: _ManagedActor) -> dict[str, Any]:
         alive = managed.process.poll() is None
         return {
-            "actor_id": managed.actor_id, "device_id": self.device_id,
-            "node_class": managed.node_class, "port": managed.port,
-            "pid": managed.process.pid, "running": alive,
-            "stopped": managed.stopped, "restart_count": managed.restart_count,
+            "actor_id": managed.actor_id,
+            "device_id": self.device_id,
+            "node_class": managed.node_class,
+            "port": managed.port,
+            "pid": managed.process.pid,
+            "running": alive,
+            "stopped": managed.stopped,
+            "restart_count": managed.restart_count,
             "started_at": managed.started_at,
         }
 
@@ -305,7 +344,10 @@ class EdgeAgent:
                 if managed.process.poll() is not None:
                     logger.warning(
                         "EdgeAgent(%s): actor_id=%s (pid=%d) exited unexpectedly (code=%s) — restarting",
-                        self.device_id, actor_id, managed.process.pid, managed.process.returncode,
+                        self.device_id,
+                        actor_id,
+                        managed.process.pid,
+                        managed.process.returncode,
                     )
                     restart_count = managed.restart_count + 1
                     self.start_actor(actor_id, node_class=managed.node_class)
@@ -314,6 +356,7 @@ class EdgeAgent:
 
 
 # ── ASGI app (uvicorn src.monkey_brain.edge_agent:app) ────────────────────
+
 
 def _build_app() -> Any:
     from fastapi import FastAPI, HTTPException
@@ -350,8 +393,10 @@ def _build_app() -> Any:
     async def health() -> dict:
         agent = _agent()
         return {
-            "status": "alive", "device_id": agent.device_id,
-            "version": EDGE_AGENT_VERSION, "started_at": agent.started_at,
+            "status": "alive",
+            "device_id": agent.device_id,
+            "version": EDGE_AGENT_VERSION,
+            "started_at": agent.started_at,
             "managed_actors": len(agent._actors),
         }
 
@@ -363,7 +408,8 @@ def _build_app() -> Any:
     async def start_actor(actor_id: str, body: dict | None = None) -> dict:
         body = body or {}
         return _agent().start_actor(
-            actor_id, node_class=body.get("node_class", "edge"),
+            actor_id,
+            node_class=body.get("node_class", "edge"),
             artifact_version=body.get("artifact_version", ""),
             claim_placement=body.get("claim_placement", True),
         )
@@ -372,7 +418,10 @@ def _build_app() -> Any:
     async def stop_actor(actor_id: str) -> dict:
         ok = _agent().stop_actor(actor_id)
         if not ok:
-            raise HTTPException(status_code=404, detail=f"actor_id {actor_id!r} not managed on this device")
+            raise HTTPException(
+                status_code=404,
+                detail=f"actor_id {actor_id!r} not managed on this device",
+            )
         return {"actor_id": actor_id, "stopped": True}
 
     @fastapi_app.post("/actors/{actor_id}/restart")
@@ -380,7 +429,10 @@ def _build_app() -> Any:
         agent = _agent()
         managed = agent._actors.get(actor_id)
         if managed is None:
-            raise HTTPException(status_code=404, detail=f"actor_id {actor_id!r} not managed on this device")
+            raise HTTPException(
+                status_code=404,
+                detail=f"actor_id {actor_id!r} not managed on this device",
+            )
         node_class = managed.node_class
         agent.stop_actor(actor_id)
         return agent.start_actor(actor_id, node_class=node_class)
@@ -394,7 +446,10 @@ def _build_app() -> Any:
     async def actor_status(actor_id: str) -> dict:
         status = _agent().status(actor_id)
         if status is None:
-            raise HTTPException(status_code=404, detail=f"actor_id {actor_id!r} not managed on this device")
+            raise HTTPException(
+                status_code=404,
+                detail=f"actor_id {actor_id!r} not managed on this device",
+            )
         return status
 
     return fastapi_app

@@ -11,8 +11,8 @@ from services.taxonomy.routers.family import router as family_router
 from services.taxonomy.routers.classes import router as classes_router
 from services.taxonomy.routers.subclass import router as subclasses_router
 
-
 logger = configure_service_logging("taxonomy")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,7 +32,9 @@ install_route_tracing(app, "taxonomy")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

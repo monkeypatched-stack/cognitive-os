@@ -3,6 +3,7 @@
 Responsibility: Execute batch load/save operations efficiently.
 Depends on: MongoDB database, PersistedActorState dataclass
 """
+
 from __future__ import annotations
 
 import base64
@@ -68,7 +69,9 @@ class BatchOperationExecutor(ExecutorInterface):
             )
 
             # Reconstruct states
-            from src.monkey_brain.persistence.actor_state_store import PersistedActorState
+            from src.monkey_brain.persistence.actor_state_store import (
+                PersistedActorState,
+            )
 
             states = {}
             for doc in docs:
@@ -144,8 +147,7 @@ class BatchOperationExecutor(ExecutorInterface):
             if operations:
                 result = collection.bulk_write(operations)
                 logger.info(
-                    "[batch_executor] Batch saved %d actors "
-                    "(inserted=%d, modified=%d)",
+                    "[batch_executor] Batch saved %d actors (inserted=%d, modified=%d)",
                     len(states),
                     result.inserted_count,
                     result.modified_count,

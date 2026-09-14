@@ -32,7 +32,9 @@ class Address(BaseModel):
 
 class CarrierContact(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
-    role: Optional[str] = Field(None, max_length=100, examples=["Dispatcher", "Account Manager"])
+    role: Optional[str] = Field(
+        None, max_length=100, examples=["Dispatcher", "Account Manager"]
+    )
     phone: str = Field(..., max_length=30)
     email: Optional[EmailStr] = None
 
@@ -44,10 +46,14 @@ class Carrier(BaseModel):
 
     id: UUID = Field(default_factory=uuid4)
     name: str = Field(..., min_length=1, max_length=200)
-    code: str = Field(..., min_length=1, max_length=20, description="Internal carrier code")
+    code: str = Field(
+        ..., min_length=1, max_length=20, description="Internal carrier code"
+    )
     transport_mode: CarrierMode = CarrierMode.ROAD
     scac_code: Optional[str] = Field(
-        None, max_length=4, description="Standard Carrier Alpha Code (SCAC) - North America"
+        None,
+        max_length=4,
+        description="Standard Carrier Alpha Code (SCAC) - North America",
     )
     tax_id: Optional[str] = Field(None, max_length=50)
     address: Address
