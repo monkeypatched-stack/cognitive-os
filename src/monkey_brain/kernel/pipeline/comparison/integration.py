@@ -31,6 +31,7 @@ learning-state mutation) now runs in its own "learn_transitions" stage,
 placed after "learn" so nothing updates learning state before Compare
 has produced its result and Learn has run.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -116,8 +117,15 @@ class ComparisonIntegratedPolicy(PredictionIntegratedPolicy):
         # integrated_predict, integrated_learn, and integrated_compile_phi
         # via LearningIntegratedPolicy.configure() → CognitivePolicy.configure()
         super().configure(
-            observe, believe, plan, execute, observe_outcome,
-            learn, compile_phi, predict, commit,
+            observe,
+            believe,
+            plan,
+            execute,
+            observe_outcome,
+            learn,
+            compile_phi,
+            predict,
+            commit,
         )
 
         # Extract the wired stages so we can reorder them.
@@ -172,19 +180,19 @@ class ComparisonIntegratedPolicy(PredictionIntegratedPolicy):
         # full pipeline always runs — Decide swaps in a plan, it never
         # skips execution.
         self._stages = [
-            ("observe",           stage_map["observe"]),
-            ("believe",           stage_map["believe"]),
-            ("plan",              stage_map["plan"]),
-            ("predict",           predict_with_model),
-            ("decide",            decide_stage),
-            ("execute",           stage_map["execute"]),
-            ("observe_outcome",   stage_map["observe_outcome"]),
+            ("observe", stage_map["observe"]),
+            ("believe", stage_map["believe"]),
+            ("plan", stage_map["plan"]),
+            ("predict", predict_with_model),
+            ("decide", decide_stage),
+            ("execute", stage_map["execute"]),
+            ("observe_outcome", stage_map["observe_outcome"]),
             ("plan_outcome_feedback", plan_outcome_feedback_stage),
-            ("compare",           compare_stage),
-            ("learn",             integrated_learn),
+            ("compare", compare_stage),
+            ("learn", integrated_learn),
             ("learn_transitions", learn_transitions_stage),
-            ("compile_phi",       integrated_compile_phi),
-            ("commit",            stage_map["commit"]),
+            ("compile_phi", integrated_compile_phi),
+            ("commit", stage_map["commit"]),
         ]
 
         # Runtime Encapsulation Refactor follow-up: build the real,
@@ -208,8 +216,14 @@ class ComparisonIntegratedPolicy(PredictionIntegratedPolicy):
         )
         self.execution = ExecutionRuntime(
             self.stages_from(
-                "execute", "observe_outcome", "plan_outcome_feedback", "compare", "learn",
-                "learn_transitions", "compile_phi", "commit",
+                "execute",
+                "observe_outcome",
+                "plan_outcome_feedback",
+                "compare",
+                "learn",
+                "learn_transitions",
+                "compile_phi",
+                "commit",
             ),
             capability_runtime=self._capability_runtime or getattr(runtime_ref, "_capability_runtime", None),
         )
@@ -284,6 +298,7 @@ async def _run_comparison(state: CognitiveState, policy: Any = None) -> Cognitiv
 
     try:
         from src.monkey_brain.kernel.comparator_runtime import get_comparator_runtime
+
         comparator = get_comparator_runtime()
         result = await comparator.compare(sim_graph, exec_graph)
         state.comparison_result = result.to_dict()
@@ -305,7 +320,11 @@ async def _run_comparison(state: CognitiveState, policy: Any = None) -> Cognitiv
         # this file) has no way to tell which line was theirs.
         logger.info(
             "Comparison: execution_id=%s outcome=%s actor_loss=%.4f world_loss=%.4f policy_loss=%.4f",
-            execution_id, result.outcome, result.actor_loss, result.world_loss, result.policy_loss,
+            execution_id,
+            result.outcome,
+            result.actor_loss,
+            result.world_loss,
+            result.policy_loss,
         )
     except Exception as e:
         logger.warning("Comparison failed (non-fatal): %s", e)
@@ -357,6 +376,7 @@ def _apply_transition_learning(state: CognitiveState, policy: Any = None) -> Cog
     policy_store = getattr(policy, "_policy_store", None) if policy else None
     if policy_store is None and policy is not None:
         from src.monkey_brain.kernel.policy.store import PolicyStore
+
         policy_store = PolicyStore(owner_id=getattr(state.belief, "actor_id", None))
         policy._policy_store = policy_store
 
@@ -374,6 +394,7 @@ def _apply_transition_learning(state: CognitiveState, policy: Any = None) -> Cog
         actor_id = getattr(state.actor, "actor_id", "") if getattr(state, "actor", None) else ""
         if actor_id:
             from src.monkey_brain.kernel.pipeline.prediction.persistence import save_transition_model
+
             save_transition_model(actor_id, learned)
 
     return state
@@ -407,9 +428,15 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
     what's about to execute — Compare/Learn downstream must never see a
     prediction for one plan and an execution of another.
     """
+    import os
+
     from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import score_plan, decide
     from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
-        CurrentPlanRecord, plan_to_dict, plan_from_dict, save_current_plan, load_current_plan,
+        CurrentPlanRecord,
+        plan_to_dict,
+        plan_from_dict,
+        save_current_plan,
+        load_current_plan,
     )
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
 
@@ -431,8 +458,7 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
     belief_goal_description = getattr(belief_goal_obj, "description", "") or ""
     plan_goal = getattr(state.plan, "goal", "") or ""
     full_goal_text = (
-        f"{belief_goal_name} {belief_goal_description}".strip()
-        if belief_goal_name else (plan_goal or belief_goal_name)
+        f"{belief_goal_name} {belief_goal_description}".strip() if belief_goal_name else (plan_goal or belief_goal_name)
     )
     goal_key = canonicalize_goal(full_goal_text)
 
@@ -465,18 +491,25 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
     # Current Plan whose world-state assumptions have moved on is treated
     # the same as one that's already demonstrated it doesn't work.
     from src.monkey_brain.kernel.pipeline.planning.plan_staleness import check_plan_staleness
+
     kg = state.context.get("knowledge_graph") if isinstance(state.context, dict) else None
     staleness = check_plan_staleness(kg, current) if current is not None else None
     execution_id = state.metrics.get("execution_id", "") if isinstance(state.metrics, dict) else ""
     from src.monkey_brain.kernel.compile import _obs
+
     if staleness is not None and staleness.is_stale:
         state.metrics["plan_stale"] = staleness.to_dict()
         state.metrics["plan_stale"]["plan_id"] = current.plan_id
         from src.monkey_brain.kernel.pipeline.audit_trail import record_plan_event
+
         record_plan_event(
-            "invalidated", plan_id=current.plan_id, actor_id=state.actor_id,
-            execution_id=execution_id, goal=current.goal,
-            steps=current.steps, step_descriptions=current.step_descriptions,
+            "invalidated",
+            plan_id=current.plan_id,
+            actor_id=state.actor_id,
+            execution_id=execution_id,
+            goal=current.goal,
+            steps=current.steps,
+            step_descriptions=current.step_descriptions,
             result="; ".join(r["reason"] for r in staleness.to_dict()["affected_assumptions"]),
             metadata={"affected_assumptions": staleness.to_dict()["affected_assumptions"]},
         )
@@ -485,7 +518,11 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
     elif staleness is not None:
         _obs.counter("plan.validation.total", result="accepted")
 
-    if has_new_plan and current is not None and (current.last_execution_failed or (staleness is not None and staleness.is_stale)):
+    if (
+        has_new_plan
+        and current is not None
+        and (current.last_execution_failed or (staleness is not None and staleness.is_stale))
+    ):
         # Failure-driven re-plan: score_plan only looks at predicted
         # probability/utility/cost/risk, never actual execution success —
         # a plan that scores competitively can otherwise stay "current"
@@ -496,9 +533,11 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         # asking a fresh candidate to clear the normal 10% margin over a
         # plan that's already demonstrated it doesn't work.
         from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import HysteresisVerdict
+
         new_score, components = score_plan(state.plan, state.prediction_result)
         bypass_reason = (
-            "world-state assumptions are stale" if (staleness is not None and staleness.is_stale)
+            "world-state assumptions are stale"
+            if (staleness is not None and staleness.is_stale)
             else "last execution failed"
         )
         verdict = HysteresisVerdict(
@@ -508,7 +547,40 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
                 f"hysteresis and replacing with a freshly generated plan "
                 f"(new score {new_score:.3f})."
             ),
-            new_score=new_score, current_score=current.score, percent_improvement=None,
+            new_score=new_score,
+            current_score=current.score,
+            percent_improvement=None,
+        )
+    elif has_new_plan and os.environ.get("ACTOR_NODE_CLASS", "cloud") == "robot":
+        # Same bypass shape as the last_execution_failed/staleness branch
+        # above, for a different reason: score_plan's generic confidence/
+        # structure-based score has no way to tell "x=5, y=5, height_m=15"
+        # apart from "x=0, y=0, height_m=2" -- both can score identically
+        # well on plan quality alone. Confirmed live: testing the exact
+        # same flight-mission text repeatedly (a natural consequence of
+        # iterating on a fix) meant every fresh, CORRECTLY-parameterized
+        # plan kept losing this goal_key's hysteresis comparison to an
+        # earlier, wrong-parameter attempt already persisted as the
+        # Current Plan, since it never cleared the 10% margin on a metric
+        # blind to the very thing that was wrong. A robot mission's
+        # numeric parameters are the safety-critical part of the plan;
+        # silently substituting a "similar-scoring" stale one is worse
+        # than the minor replan churn this bypass trades for it. Same
+        # ACTOR_NODE_CLASS convention already used to skip Moss's
+        # semantic plan cache (llm_planner.py) for the identical reason.
+        new_score, components = score_plan(state.plan, state.prediction_result)
+        from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import HysteresisVerdict
+
+        verdict = HysteresisVerdict(
+            action="replace",
+            reason=(
+                f"Robot-class actor — always executing the freshly generated "
+                f"plan rather than comparing scores against the Current Plan "
+                f"(new score {new_score:.3f})."
+            ),
+            new_score=new_score,
+            current_score=current.score if current else None,
+            percent_improvement=None,
         )
     elif has_new_plan:
         new_score, components = score_plan(state.plan, state.prediction_result)
@@ -519,11 +591,14 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         # overwrite a real Current Plan; always keep whatever exists FOR
         # THIS GOAL.
         from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import HysteresisVerdict
+
         new_score, components = 0.0, {}
         verdict = HysteresisVerdict(
             action="keep",
             reason="Empty plan generated — nothing to decide; the existing Current Plan for this goal (if any) is reused.",
-            new_score=0.0, current_score=(current.score if current else None), percent_improvement=None,
+            new_score=0.0,
+            current_score=(current.score if current else None),
+            percent_improvement=None,
         )
 
     state.metrics["decide_action"] = verdict.action
@@ -544,15 +619,18 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         state.metrics["decide_replaced_plan_snapshot"] = current.to_dict() if current else None
 
         from src.monkey_brain.kernel.pipeline.planning.plan_staleness import capture_entity_versions
+
         record = CurrentPlanRecord(
-            plan_id=new_plan_id, actor_id=state.actor_id,
+            plan_id=new_plan_id,
+            actor_id=state.actor_id,
             goal=full_goal_text,
             steps=tuple(s.action for s in state.plan.steps),
             step_descriptions=tuple(s.description for s in state.plan.steps),
             cost=float(getattr(state.plan, "cost", 0.0) or 0.0),
             risk=float(getattr(state.plan, "risk", 0.0) or 0.0),
             confidence=float(getattr(state.plan, "confidence", 0.0) or 0.0),
-            score=new_score, score_components=components,
+            score=new_score,
+            score_components=components,
             plan=plan_to_dict(state.plan),
             entity_versions=capture_entity_versions(kg, state.plan),
         )
@@ -561,10 +639,15 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
             save_current_plan(state.actor_id, goal_key, record)
 
         from src.monkey_brain.kernel.pipeline.audit_trail import record_plan_event
+
         record_plan_event(
-            "generated", plan_id=new_plan_id, actor_id=state.actor_id,
-            execution_id=execution_id, goal=full_goal_text,
-            steps=record.steps, step_descriptions=record.step_descriptions,
+            "generated",
+            plan_id=new_plan_id,
+            actor_id=state.actor_id,
+            execution_id=execution_id,
+            goal=full_goal_text,
+            steps=record.steps,
+            step_descriptions=record.step_descriptions,
             metadata={"replaces": current.plan_id} if current is not None else {},
         )
         _obs.counter("plan.total", status="created")
@@ -603,6 +686,7 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         state = await repredict(state)
 
     import time as _time
+
     updated = dataclasses.replace(current, kept_count=current.kept_count + 1, last_kept_at=_time.time())
     policy._current_plans[goal_key] = updated
     state.metrics["decide_current_plan_id"] = updated.plan_id
@@ -637,9 +721,7 @@ def _record_plan_outcome_feedback(state: CognitiveState, policy: Any) -> Cogniti
     # whether the plan itself works, and outcome's own "nothing executed"
     # fallback defaults goal_achieved to False, which would otherwise
     # read as a false failure.
-    failed = actions_executed > 0 and (
-        bool(outcome.get("failure_count", 0)) or not outcome.get("goal_achieved", True)
-    )
+    failed = actions_executed > 0 and (bool(outcome.get("failure_count", 0)) or not outcome.get("goal_achieved", True))
     if current.last_execution_failed == failed:
         return state
     updated = dataclasses.replace(current, last_execution_failed=failed)
@@ -701,7 +783,8 @@ def _learn_transitions(
     # goal. Write-key must equal read-key across every site listed above.
     goal_key = (
         canonicalize_goal(f"{state.belief.plan.goal} {state.belief.goal.description}".strip())
-        if state.belief and state.belief.plan else ""
+        if state.belief and state.belief.plan
+        else ""
     )
     state.transition_model = current_model
 
@@ -726,6 +809,7 @@ def _learn_transitions(
     already_learned: set[tuple[str, str]] = set()
     if execution_id:
         from src.monkey_brain.kernel.pipeline.learning_event_store import load_learning_events_for_execution
+
         already_learned = {(e.goal_key, e.action_key) for e in load_learning_events_for_execution(execution_id)}
 
     actions = []
@@ -791,7 +875,9 @@ def _learn_transitions(
         logger.info(
             "Transition learning skipped (goal=%s): low-success episode (%d/%d among genuinely-attempted steps) -- "
             "treated as a likely plan-generation defect, not per-action evidence.",
-            goal_key, genuine_success, len(genuine),
+            goal_key,
+            genuine_success,
+            len(genuine),
         )
         _obs.counter("learn.skipped.total", reason="low_success_episode")
         return
@@ -824,10 +910,16 @@ def _learn_transitions(
     learning_rate = 0.15
 
     for i, action in enumerate(actions):
-        action_dict = action if isinstance(action, dict) else (
-            {"action_id": getattr(action, "action_id", f"step_{i}"),
-             "success": getattr(action, "success", True),
-             "result": getattr(action, "result", {})}
+        action_dict = (
+            action
+            if isinstance(action, dict)
+            else (
+                {
+                    "action_id": getattr(action, "action_id", f"step_{i}"),
+                    "success": getattr(action, "success", True),
+                    "result": getattr(action, "result", {}),
+                }
+            )
         )
 
         # Use plan step action as canonical key
@@ -837,7 +929,8 @@ def _learn_transitions(
         if not isinstance(node_diff, dict):
             logger.debug(
                 "Transition learning skipped for %s (goal=%s): no Comparator node evidence.",
-                action_key, goal_key,
+                action_key,
+                goal_key,
             )
             continue
 
@@ -850,14 +943,17 @@ def _learn_transitions(
             # positive or negative evidence.
             logger.debug(
                 "Transition learning skipped for %s (goal=%s): node was not executed.",
-                action_key, goal_key,
+                action_key,
+                goal_key,
             )
             continue
 
         if (goal_key, action_key) in already_learned:
             logger.debug(
-                "Transition learning skipped for %s (goal=%s): already learned for "
-                "execution_id=%s (resumed).", action_key, goal_key, execution_id,
+                "Transition learning skipped for %s (goal=%s): already learned for execution_id=%s (resumed).",
+                action_key,
+                goal_key,
+                execution_id,
             )
             continue
 
@@ -913,20 +1009,34 @@ def _learn_transitions(
         # an unexecuted step never produces an event either -- same
         # invariant _learn_transitions already enforces for the model itself.
         from src.monkey_brain.kernel.pipeline.learning_event_store import LearningEvent, record_learning_event
+
         updated = current_model.known_transitions[(goal_key, action_key)][-1].to_dict()
-        record_learning_event(LearningEvent(
-            execution_id=execution_id,
-            actor_id=getattr(state.actor, "actor_id", "") if getattr(state, "actor", None) else "",
-            goal_key=goal_key, action_key=action_key, success=success,
-            previous=previous, updated=updated,
-        ))
+        record_learning_event(
+            LearningEvent(
+                execution_id=execution_id,
+                actor_id=getattr(state.actor, "actor_id", "") if getattr(state, "actor", None) else "",
+                goal_key=goal_key,
+                action_key=action_key,
+                success=success,
+                previous=previous,
+                updated=updated,
+            )
+        )
 
         if success:
-            logger.debug("Learned transition: %s (goal=%s) -> success (p=%.2f)", action_key, goal_key,
-                        current_model.known_transitions[(goal_key, action_key)][-1].probability)
+            logger.debug(
+                "Learned transition: %s (goal=%s) -> success (p=%.2f)",
+                action_key,
+                goal_key,
+                current_model.known_transitions[(goal_key, action_key)][-1].probability,
+            )
         else:
-            logger.debug("Learned transition: %s (goal=%s) -> failure (p=%.2f)", action_key, goal_key,
-                        current_model.known_transitions[(goal_key, action_key)][-1].probability)
+            logger.debug(
+                "Learned transition: %s (goal=%s) -> failure (p=%.2f)",
+                action_key,
+                goal_key,
+                current_model.known_transitions[(goal_key, action_key)][-1].probability,
+            )
 
     # Real, accumulated learning-state size (this policy's TransitionModel,
     # loaded from persistence at actor-registration time and saved again
@@ -986,20 +1096,24 @@ def _prediction_to_graph(prediction: Any, plan_steps: tuple = (), execution_id: 
     for j, outcome in enumerate(outcomes):
         # Use canonical step ID if available
         node_id = step_ids[j] if j < len(step_ids) else f"step_{j}"
-        nodes.append({
-            "id": node_id,
-            "label": outcome.get("description", node_id),
-            "type": "step",
-            "predicted_success": outcome.get("success", True),
-            "predicted_probability": outcome.get("probability", 1.0),
-        })
+        nodes.append(
+            {
+                "id": node_id,
+                "label": outcome.get("description", node_id),
+                "type": "step",
+                "predicted_success": outcome.get("success", True),
+                "predicted_probability": outcome.get("probability", 1.0),
+            }
+        )
         execution_order.append([node_id])
         if j > 0 and nodes:
-            edges.append({
-                "from": step_ids[j-1] if j-1 < len(step_ids) else f"step_{j-1}",
-                "to": node_id,
-                "type": "depends_on",
-            })
+            edges.append(
+                {
+                    "from": step_ids[j - 1] if j - 1 < len(step_ids) else f"step_{j - 1}",
+                    "to": node_id,
+                    "type": "depends_on",
+                }
+            )
 
     return {
         "graph_id": execution_id,
@@ -1054,12 +1168,18 @@ def _execution_to_graph(execution: Any, plan_steps: tuple = (), execution_id: st
         actions = execution.get("actions", [])
 
     for i, action in enumerate(actions):
-        action_dict = action if isinstance(action, dict) else (
-            {"action_id": getattr(action, "action_id", f"step_{i}"),
-             "success": getattr(action, "success", True),
-             "error": getattr(action, "error", ""),
-             "result": getattr(action, "result", {}),
-             "latency_ms": getattr(action, "latency_ms", 0.0)}
+        action_dict = (
+            action
+            if isinstance(action, dict)
+            else (
+                {
+                    "action_id": getattr(action, "action_id", f"step_{i}"),
+                    "success": getattr(action, "success", True),
+                    "error": getattr(action, "error", ""),
+                    "result": getattr(action, "result", {}),
+                    "latency_ms": getattr(action, "latency_ms", 0.0),
+                }
+            )
         )
         # A step ActionExecutor.execute() never actually dispatched because
         # a dependency failed first (result={"blocked_by_dependency": ...},
@@ -1108,21 +1228,25 @@ def _execution_to_graph(execution: Any, plan_steps: tuple = (), execution_id: st
         # Use canonical step ID
         node_id = step_ids[i] if i < len(step_ids) else action_dict.get("action_id", f"step_{i}")
 
-        nodes.append({
-            "id": node_id,
-            "label": node_id,
-            "type": "step",
-            "success": success,
-            "error": error,
-            "action_id": action_dict.get("action_id", ""),
-        })
+        nodes.append(
+            {
+                "id": node_id,
+                "label": node_id,
+                "type": "step",
+                "success": success,
+                "error": error,
+                "action_id": action_dict.get("action_id", ""),
+            }
+        )
         execution_order.append([node_id])
         if i > 0 and nodes:
-            edges.append({
-                "from": step_ids[i-1] if i-1 < len(step_ids) else f"step_{i-1}",
-                "to": node_id,
-                "type": "depends_on",
-            })
+            edges.append(
+                {
+                    "from": step_ids[i - 1] if i - 1 < len(step_ids) else f"step_{i - 1}",
+                    "to": node_id,
+                    "type": "depends_on",
+                }
+            )
 
     if hasattr(execution, "goal_achieved") and execution.goal_achieved:
         reward = 1.0
@@ -1151,6 +1275,7 @@ def _execution_to_graph(execution: Any, plan_steps: tuple = (), execution_id: st
 def _extract_capability(description: str) -> str:
     """Extract capability name from a prediction description."""
     import re
+
     m = re.search(r"'(Process|Achieve|Execute)\s+(\w+)", description)
     if m:
         return m.group(2).lower()
@@ -1168,7 +1293,7 @@ def build_comparison_integrated_runtime(
     counterfactual_assumptions: tuple[CounterfactualAssumption, ...] = (),
     rejection_threshold: float = DEFAULT_REJECTION_THRESHOLD,
     time_horizon: float = 0.0,
-    observation_provider: Any = None, # only this is passed 
+    observation_provider: Any = None,  # only this is passed
     belief_fusion: Any = None,
     planning_engine: Any = None,
     plan_validator: Any = None,

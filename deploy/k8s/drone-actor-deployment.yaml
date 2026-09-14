@@ -173,7 +173,19 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 30
             timeoutSeconds: 5
-            failureThreshold: 3
+            # Confirmed live: a real multi-waypoint flight mission (climb
+            # to a real altitude, fly a real horizontal distance, return,
+            # land) legitimately runs 100-170+s end to end -- the generic
+            # actor-deployment.yaml's failureThreshold: 3 (90s tolerance)
+            # killed this Pod mid-mission via the liveness probe (exit
+            # 137, kubelet-driven restart, not an OOM), aborting real PX4
+            # execution partway through and making a genuinely-correct
+            # plan (verified via direct log inspection) look like it flew
+            # nowhere. 10 gives 300s of tolerance -- matches the order of
+            # magnitude of _ACTOR_POD_FORWARD_TIMEOUT_SEC (prompt.py) and
+            # Kong's own agentos-service gateway timeout (kong.yml), not
+            # an arbitrarily large number.
+            failureThreshold: 10
           readinessProbe:
             httpGet:
               path: /ready

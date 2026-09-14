@@ -17,6 +17,50 @@ jobs:
       - name: Ruff check
         run: ruff check src tests scripts
 
+  # Broader lint ruleset (bugbear, isort, pyupgrade, comprehensions,
+  # simplify -- everything except flake8-bandit's "S" prefix, which
+  # security-bandit below covers with the real bandit tool instead).
+  # NOT a blocking gate yet: this surfaces ~6,300 pre-existing findings
+  # across src/tests/scripts (verified locally via `ruff check --select
+  # E,F,W,B,I,UP,C4,SIM --statistics`), almost all pre-dating this job.
+  # Same "not a real gate yet" precedent as actor-artifact-build and
+  # docker-image-security-gates below: visible on every PR so debt is
+  # tracked and doesn't grow silently, promotable to blocking (and to
+  # pyproject.toml's own [tool.ruff.lint] select, currently just E9) one
+  # rule/one directory at a time as it's cleaned up.
+  lint-extended:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Ruff check (extended ruleset, informational)
+        run: ruff check --select E,F,W,B,I,UP,C4,SIM src tests scripts
+
+  # Security-focused SAST, distinct from ruff's general lint rules.
+  # Excludes tests/ -- B101 (assert) fires on nearly every pytest assert
+  # and isn't a real finding there. NOT blocking yet: 226 pre-existing
+  # findings verified locally (172 low / 46 medium / 8 high severity,
+  # e.g. B324 weak-hash-for-non-security-use and one B605 shell
+  # subprocess call) -- same incremental-adoption precedent as
+  # lint-extended above.
+  security-bandit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bandit
+        run: pip install bandit
+      - name: Bandit scan (informational)
+        run: bandit -r src -x "*/tests/*"
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +78,29 @@ jobs:
           src/monkey_brain/kernel/audit.py
           src/monkey_brain/kernel/governance.py
           domains/manufacturing/knowledge/services/common/secrets.py
+
+  # Broader type-check coverage beyond the 5 hand-picked security-critical
+  # modules above. NOT blocking yet: 768 pre-existing errors across 136
+  # files verified locally (`mypy --config-file pyproject.toml
+  # --follow-imports=silent src/monkey_brain/kernel`) -- same incremental
+  # precedent as lint-extended/security-bandit. Depends on the
+  # pyproject.toml [tool.mypy] python_version=3.12 fix (see its own
+  # comment) -- without that, this crashes outright parsing numpy's own
+  # stubs before it ever reaches this codebase's files.
+  typecheck-extended:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install mypy
+      - name: mypy (full kernel/, informational)
+        run: mypy --config-file pyproject.toml --follow-imports=silent src/monkey_brain/kernel
 
   test:
     runs-on: ubuntu-latest

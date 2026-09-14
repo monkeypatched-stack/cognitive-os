@@ -9,12 +9,14 @@ interprets what a fact means (no domain vocabulary, no "store:item"
 parsing, no cost/travel/availability formulas) — that reasoning is the
 model's job, reading the same facts a human would.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import re
 import time
+from dataclasses import replace
 from typing import Any
 
 from src.monkey_brain.kernel.pipeline.belief_state import Goal, Plan, PlanStep
@@ -60,25 +62,25 @@ _SYSTEM_PROMPT = (
     "be verified. When a capability exposes candidates, make the business "
     "selection yourself and pass the chosen entity IDs and quantities as "
     "parameters; capabilities must not rank or choose on your behalf. "
-    "Facts and relevant knowledge below may include \"id=...\" for an "
+    'Facts and relevant knowledge below may include "id=..." for an '
     "entity — that id is the real, valid identifier to reference: put it "
-    "in that step's \"parameters\" field as "
-    "{\"selection\": [{\"id\": \"<the id>\", \"qty\": 1}]} (qty defaults "
-    "to 1 if not stated). Leave \"parameters\" as {} for a step with "
+    'in that step\'s "parameters" field as '
+    '{"selection": [{"id": "<the id>", "qty": 1}]} (qty defaults '
+    'to 1 if not stated). Leave "parameters" as {} for a step with '
     "nothing to select. "
     "If 'AskActor' is in the available actions and you genuinely lack "
     "information you need from a specific colleague to proceed, use it "
-    "with parameters {\"target_actor\": \"<their actor_id>\", "
-    "\"question\": \"<your own natural-language question to them>\"} — "
+    'with parameters {"target_actor": "<their actor_id>", '
+    '"question": "<your own natural-language question to them>"} — '
     "write a real, specific question, not a placeholder. When the person "
-    "you want appears in the \"Reachable colleagues\" list below, "
-    "\"target_actor\" MUST be their exact actor_id from that list (copy it "
-    "verbatim, e.g. \"a1b2c3d4...\"), NOT their name — a name is easy to "
+    'you want appears in the "Reachable colleagues" list below, '
+    '"target_actor" MUST be their exact actor_id from that list (copy it '
+    'verbatim, e.g. "a1b2c3d4..."), NOT their name — a name is easy to '
     "abbreviate or misspell, an actor_id is exact and can never be "
-    "ambiguous. Only fall back to a plain role name (e.g. \"Driver\") when "
+    'ambiguous. Only fall back to a plain role name (e.g. "Driver") when '
     "addressing a role rather than a specific listed person, and never use "
-    "an entity id like \"id=...\" or a bare id string such as "
-    "\"rider_ab12...\" or \"product_ab12...\" you may see elsewhere in the "
+    'an entity id like "id=..." or a bare id string such as '
+    '"rider_ab12..." or "product_ab12..." you may see elsewhere in the '
     "facts below — those identify things, not who to ask. "
     "AskActor only reaches someone you share a real affiliation or society "
     "with — naming someone unreachable is not silently ignored, it is "
@@ -87,106 +89,126 @@ _SYSTEM_PROMPT = (
     "whoever needs to know). "
     "If 'DelegateTask' is in the available actions and you need a specific "
     "reachable colleague to actually DO something (not just answer a "
-    "question — e.g. \"have Raj pick up the order\"), use it with "
-    "parameters {\"target_actor\": \"<their exact actor_id from Reachable "
-    "colleagues, same rule as AskActor>\", \"tasks\": [{\"capability\": "
-    "\"<a real action name from Available actions>\", \"parameters\": {}, "
-    "\"depends_on\": []}]} — \"tasks\" is a list because a delegation can "
+    'question — e.g. "have Raj pick up the order"), use it with '
+    'parameters {"target_actor": "<their exact actor_id from Reachable '
+    'colleagues, same rule as AskActor>", "tasks": [{"capability": '
+    '"<a real action name from Available actions>", "parameters": {}, '
+    '"depends_on": []}]} — "tasks" is a list because a delegation can '
     "be a real multi-step chain, not just a single action; each entry's "
-    "own \"capability\"/\"parameters\"/\"depends_on\" follow the exact "
+    'own "capability"/"parameters"/"depends_on" follow the exact '
     "same rules as a normal plan step. When the delegated work is a "
-    "purchase (\"have Raj pick up eggs and milk\"), \"tasks\" MUST be the "
+    'purchase ("have Raj pick up eggs and milk"), "tasks" MUST be the '
     "exact same chain, in the exact same order, as a normal purchase plan "
     "below — starting with 'ProductSelection', never skipping straight to "
     "'OrderCreation' (found live, repeatedly: a delegated purchase chain "
     "starting at 'OrderCreation' with no product ever selected, so it "
-    "fails immediately with \"no products selected\"). Example — "
-    "\"delegate picking up bananas to Raj\": {\"target_actor\": \"<Raj's "
-    "actor_id>\", \"tasks\": [{\"capability\": \"ProductSelection\", "
-    "\"parameters\": {\"selection\": [{\"id\": \"<bananas id>\", \"qty\": "
-    "1}]}, \"depends_on\": []}, {\"capability\": \"OrderCreation\", "
-    "\"parameters\": {}, \"depends_on\": [0]}, {\"capability\": "
-    "\"PaymentConfirmation\", \"parameters\": {}, \"depends_on\": [1]}, "
-    "{\"capability\": \"Payment\", \"parameters\": {}, \"depends_on\": [2]}, "
-    "{\"capability\": \"OrderConfirmation\", \"parameters\": {}, "
-    "\"depends_on\": [3]}]. "
+    'fails immediately with "no products selected"). Example — '
+    '"delegate picking up bananas to Raj": {"target_actor": "<Raj\'s '
+    'actor_id>", "tasks": [{"capability": "ProductSelection", '
+    '"parameters": {"selection": [{"id": "<bananas id>", "qty": '
+    '1}]}, "depends_on": []}, {"capability": "OrderCreation", '
+    '"parameters": {}, "depends_on": [0]}, {"capability": '
+    '"PaymentConfirmation", "parameters": {}, "depends_on": [1]}, '
+    '{"capability": "Payment", "parameters": {}, "depends_on": [2]}, '
+    '{"capability": "OrderConfirmation", "parameters": {}, '
+    '"depends_on": [3]}]. '
     "If 'BroadcastToAffiliation' is in the "
     "available actions and your request is for WHOEVER is available in a "
-    "group rather than one specific named colleague (e.g. \"can someone "
-    "help pack this order\", \"everyone in the warehouse stop\"), use it "
-    "instead of guessing a name — parameters {\"message\": \"<your own "
-    "natural-language request>\"}; it reaches every real, currently-"
+    'group rather than one specific named colleague (e.g. "can someone '
+    'help pack this order", "everyone in the warehouse stop"), use it '
+    'instead of guessing a name — parameters {"message": "<your own '
+    'natural-language request>"}; it reaches every real, currently-'
     "eligible participant, not just one. "
     "If 'RespondToInquiry' "
     "is in the available actions and you already have enough information "
     "(including anything a colleague told you in a fact below, e.g. "
-    "\"X told you: ...\") to give a final answer, use it with parameters "
-    "{\"answer\": \"<your own natural-language answer, written for the "
-    "person who asked>\"} — use exactly this action name, \"RespondToInquiry\", "
+    '"X told you: ...") to give a final answer, use it with parameters '
+    '{"answer": "<your own natural-language answer, written for the '
+    'person who asked>"} — use exactly this action name, "RespondToInquiry", '
     "to conclude a dialogue like this one; a different, similarly-named "
-    "action such as \"AnswerQuestion\" (if listed) is unrelated and will "
+    'action such as "AnswerQuestion" (if listed) is unrelated and will '
     "NOT deliver your answer to the person waiting for it. "
     "Do not use AskActor and RespondToInquiry in the "
     "SAME plan — you have not seen an AskActor reply yet when you write "
     "this plan, so wait for it (it will appear as a fact next time you're "
     "asked) before responding. Talking to a colleague or answering someone "
-    "needs no special permission — leave \"required_permission\" empty "
-    "(\"\") for AskActor, BroadcastToAffiliation, RespondToInquiry, "
+    'needs no special permission — leave "required_permission" empty '
+    '("") for AskActor, BroadcastToAffiliation, RespondToInquiry, '
     "EvaluateStrategy, CompeteForResource, and RecordAgreement steps "
     "specifically, even if "
     "you would tag a permission on other steps in the same plan. "
     "If 'EvaluateStrategy' is listed and you have real, distinct options to "
     "weigh (not just one obvious choice), use it with parameters "
-    "{\"candidates\": [{\"name\": \"...\", \"attributes\": {\"cost\": -12, "
-    "\"speed\": 0.9}}, ...]} — one entry per real option, using real "
+    '{"candidates": [{"name": "...", "attributes": {"cost": -12, '
+    '"speed": 0.9}}, ...]} — one entry per real option, using real '
     "numbers from the facts (negate cost/duration-like numbers so higher "
     "is always better); it returns real utility scores as a fact for your "
     "NEXT round, it does not choose for you. If 'CompeteForResource' is "
     "listed and you need a scarce resource another actor might also want, "
-    "use it with parameters {\"resource_id\": \"<the real id>\", \"qty\": 1} "
-    "— use exactly this action name, \"CompeteForResource\", for this; a "
-    "different, similarly-purposed action such as \"InventoryReserve\" (if "
+    'use it with parameters {"resource_id": "<the real id>", "qty": 1} '
+    '— use exactly this action name, "CompeteForResource", for this; a '
+    'different, similarly-purposed action such as "InventoryReserve" (if '
     "listed) is a separate, unrelated capability. It tells you the real "
     "win/lose outcome as a fact; explain that real outcome yourself "
     "afterward, don't assume you won. Leave this step's "
-    "\"required_permission\" empty (\"\") — as already said above, "
+    '"required_permission" empty ("") — as already said above, '
     "CompeteForResource is one of the actions that never needs one. "
     "If 'RecordAgreement' "
     "is listed and a negotiation you were part of just concluded, use it "
-    "with parameters {\"entity_id\": \"<the real order/shipment id>\", "
-    "\"agreement\": {\"with\": \"<who>\", \"terms\": \"<what was agreed, in "
-    "your own words>\"}} to make it persistent. "
+    'with parameters {"entity_id": "<the real order/shipment id>", '
+    '"agreement": {"with": "<who>", "terms": "<what was agreed, in '
+    'your own words>"}} to make it persistent. '
     "If 'GetAgreements' is listed and you need to recall what was agreed "
     "on an order/shipment from an earlier round — yours or a "
-    "counterparty's — use it with parameters {\"entity_id\": \"<the real "
-    "order/shipment id>\"}; it returns the real, previously-recorded "
+    'counterparty\'s — use it with parameters {"entity_id": "<the real '
+    'order/shipment id>"}; it returns the real, previously-recorded '
     "agreements as a fact for your NEXT round, it does not summarize or "
-    "invent what was agreed. Leave this step's \"required_permission\" "
-    "empty (\"\") too — it's a read, like EvaluateStrategy. "
+    'invent what was agreed. Leave this step\'s "required_permission" '
+    'empty ("") too — it\'s a read, like EvaluateStrategy. '
     "If 'ReportWorldPerturbation' is listed and the goal is reporting a "
     "real change to a store/product's own state (a fire, a stockout, a "
     "closure — not a new purchase), use it with parameters "
-    "{\"entity_id\": \"<the real id from a fact above>\", \"description\": "
-    "\"<what happened, in your own words>\", \"impact_attributes\": "
-    "{\"<the real attribute this changes>\": <its new value>}} — e.g. "
-    "reporting a product out of stock is {\"quantity\": 0}. "
+    '{"entity_id": "<the real id from a fact above>", "description": '
+    '"<what happened, in your own words>", "impact_attributes": '
+    '{"<the real attribute this changes>": <its new value>}} — e.g. '
+    'reporting a product out of stock is {"quantity": 0}. '
     "impact_attributes must be a non-empty dict of REAL attribute names "
-    "you can see on that entity in the facts (e.g. \"quantity\", "
-    "\"is_open\"), never an invented field name. If 'NegotiatePrice' is "
+    'you can see on that entity in the facts (e.g. "quantity", '
+    '"is_open"), never an invented field name. '
+    "If 'Takeoff', 'Waypoint', and/or 'Land' are in the available actions "
+    "(a robot/drone actor), extract the REAL numbers the user actually "
+    'gave you and put them in that step\'s own "parameters" — do NOT '
+    'leave "parameters" as {} for these the way you would for an '
+    "action that genuinely takes none (like 'OrderCreation' above); a "
+    "flight command with no altitude/coordinates is not the same kind of "
+    "step. 'Takeoff' takes {\"height_m\": <target altitude in meters, "
+    'from what the user said, e.g. "take off to 15 meters" means '
+    "height_m=15; default 2.0 only if truly unspecified>}. 'Waypoint' "
+    'takes {"x": <target x offset in meters>, "y": <target y offset '
+    'in meters>, "height_m": <altitude to fly at, carry forward the '
+    'same value Takeoff used unless told otherwise>} — e.g. "fly to '
+    'coordinate x=5, y=5" means {"x": 5, "y": 5, ...}, copied '
+    "verbatim, never left at 0 when the user named a real number. A "
+    'goal naming TWO destinations ("fly to x=5,y=5, then fly back to '
+    "x=0,y=0\") is TWO separate 'Waypoint' steps, each with its OWN "
+    "correct x/y — the second step's parameters are NOT a copy of the "
+    "first's. 'Land' takes {} (no parameters, like 'OrderCreation' "
+    "above — it lands at the current position, wherever that is). "
+    "If 'NegotiatePrice' is "
     "listed and a real price is being bargained over, use it with real "
-    "numbers as parameters {\"listed_price\": ..., \"min_seller_price\": ..., "
-    "\"buyer_target_price\": ...} — it computes the real agreed price for "
+    'numbers as parameters {"listed_price": ..., "min_seller_price": ..., '
+    '"buyer_target_price": ...} — it computes the real agreed price for '
     "you (never invent a negotiated price yourself; use this action so it's "
     "mathematically bounded by the real floor/ceiling). If the goal ALSO "
-    "wants to actually buy that product after haggling (\"negotiate the "
-    "price of milk and then buy it\"), add \"product_id\": \"<the real "
+    'wants to actually buy that product after haggling ("negotiate the '
+    'price of milk and then buy it"), add "product_id": "<the real '
     "product id you're negotiating over>\" to NegotiatePrice's parameters "
     "and place it AFTER 'ProductSelection' (so the product and its real "
     "listed price are already known) and BEFORE 'OrderCreation' — a "
     "successful deal then becomes the real price OrderCreation actually "
     "charges for that item, not just a number reported back to you. "
-    "Worked example — \"negotiate milk down from its listed price, floor "
-    "$3.00, then buy it\":\n"
+    'Worked example — "negotiate milk down from its listed price, floor '
+    '$3.00, then buy it":\n'
     '[{"action": "ProductSelection", "parameters": {"selection": '
     '[{"id": "<milk id>", "qty": 1}]}, "depends_on": []}, '
     '{"action": "NegotiatePrice", "parameters": {"listed_price": <milk\'s '
@@ -196,13 +218,13 @@ _SYSTEM_PROMPT = (
     '{"action": "PaymentConfirmation", "parameters": {}, "depends_on": [2]}, '
     '{"action": "Payment", "parameters": {}, "depends_on": [3]}, '
     '{"action": "OrderConfirmation", "parameters": {}, "depends_on": [4]}]\n'
-    "Omit \"product_id\" only when the goal is purely about the "
+    'Omit "product_id" only when the goal is purely about the '
     "negotiation itself, with no purchase to follow. If 'NegotiateTerms' "
     "is listed and you're bargaining over a real non-price number (a delay "
     "in hours, a priority score), use it with real numbers as parameters "
-    "{\"high_side_opening\": ..., \"high_side_floor\": ..., "
-    "\"low_side_opening\": ...} — the side with a real floor it won't go "
-    "below is \"high_side\", the other is \"low_side\"; it computes the "
+    '{"high_side_opening": ..., "high_side_floor": ..., '
+    '"low_side_opening": ...} — the side with a real floor it won\'t go '
+    'below is "high_side", the other is "low_side"; it computes the '
     "real bounded outcome. "
     "If 'Counterfactual' is listed and the question asks \"what if\" "
     "(a store closing, a price changing) or asks you to compare buying "
@@ -210,21 +232,21 @@ _SYSTEM_PROMPT = (
     "reads your question itself, you supply nothing. Never combine it "
     "with a purchase chain: asking what-if must never itself buy "
     "anything. If 'Explain' is listed and the question asks why a PAST "
-    "purchase was made the way it was (\"why did you choose X\"), use it "
+    'purchase was made the way it was ("why did you choose X"), use it '
     "alone with parameters {} — it reads the real decision trace from "
     "that past order, never a fresh guess. If 'Nutrition' is listed and "
-    "the goal is meeting a nutrition/macro target (\"I need 120g protein "
-    "this week\") rather than naming specific products, use it alone with "
+    'the goal is meeting a nutrition/macro target ("I need 120g protein '
+    'this week") rather than naming specific products, use it alone with '
     "parameters {} — it builds the real shopping list itself from actual "
     "product nutrition data; do not also plan 'ProductSelection' steps "
     "for this. "
     "If 'CancelOrder', 'ReturnOrder', 'ApproveReturn', or 'RefundOrder' is "
     "listed and the goal is about an order that already exists (not a new "
     "purchase), find that real order's id in the facts below — look for a "
-    "line like \"Order ORD-... created\" — and use parameters "
-    "{\"order_id\": \"<that real order id>\"} (add \"reason\": \"<why>\" for "
-    "ReturnOrder/RefundOrder, or \"amount\": <a real number> for a partial "
-    "RefundOrder). The order id always starts with \"ORD-\"; it is never "
+    'line like "Order ORD-... created" — and use parameters '
+    '{"order_id": "<that real order id>"} (add "reason": "<why>" for '
+    'ReturnOrder/RefundOrder, or "amount": <a real number> for a partial '
+    'RefundOrder). The order id always starts with "ORD-"; it is never '
     "the actor's own id, a product id, or a payment/delivery id, even "
     "when those appear nearby in the same facts. "
     "If the goal is to buy/order/purchase a specific product (not a "
@@ -232,14 +254,14 @@ _SYSTEM_PROMPT = (
     "'PaymentConfirmation', 'Payment', 'OrderConfirmation', and/or "
     "'Delivery' are listed, prefer THESE over the negotiation/dialogue "
     "actions above — that's what they're for. If the request explicitly "
-    "says it's acting \"on behalf of\" someone else (a different named "
+    'says it\'s acting "on behalf of" someone else (a different named '
     "person, not the actor making the request) and 'DelegationCheck' is "
     "listed, put it FIRST, before everything else, with parameters {} — "
     "it verifies a real, currently-active permission to act for that "
     "person and denies the whole request if none exists; never skip it "
-    "for an explicit \"on behalf of X\" request just because you assume "
-    "the delegation is fine. Leave this step's \"required_permission\" "
-    "empty (\"\") — it's a security gate, not a business action. "
+    'for an explicit "on behalf of X" request just because you assume '
+    'the delegation is fine. Leave this step\'s "required_permission" '
+    'empty ("") — it\'s a security gate, not a business action. '
     "If 'HouseholdCognition' "
     "and/or 'SocialSourcing' are ALSO listed, put them FIRST, before "
     "'ProductSelection' (parameters {} for both — they read the goal "
@@ -248,8 +270,8 @@ _SYSTEM_PROMPT = (
     "nearby, before ProductSelection buys it from a store; skip whichever "
     "of the two isn't in the 'Available actions' list. Real order, one "
     "step each, skip whichever don't apply: 'ProductSelection' (pick the real "
-    "product, parameters {\"selection\": [{\"id\": \"<id from a fact "
-    "above>\", \"qty\": 1}]}, as already described above — see Compound "
+    'product, parameters {"selection": [{"id": "<id from a fact '
+    'above>", "qty": 1}]}, as already described above — see Compound '
     "Goal Decomposition below for requests naming more than one distinct "
     "product) -> "
     "'OrderCreation' (parameters {}, it reads the selection you just made) "
@@ -261,8 +283,8 @@ _SYSTEM_PROMPT = (
     "if the goal implies delivery rather than pickup). 'InventoryReserve' "
     "is NOT a step you plan — it happens automatically on the inventory "
     "side once an order exists; do not include it. "
-    "Worked example — \"buy bananas\" (single product, exactly this "
-    "shape, only \"id\" and \"qty\" differ for a different product):\n"
+    'Worked example — "buy bananas" (single product, exactly this '
+    'shape, only "id" and "qty" differ for a different product):\n'
     '[{"action": "ProductSelection", "parameters": {"selection": '
     '[{"id": "<bananas id>", "qty": 1}]}, "depends_on": []}, '
     '{"action": "OrderCreation", "parameters": {}, "depends_on": [0]}, '
@@ -280,33 +302,33 @@ _SYSTEM_PROMPT = (
     "'OrderConfirmation' must appear exactly once, immediately before "
     "'Delivery' (or last, if there is no Delivery step) — never earlier. "
     "When a list of 'Available actions' is given below, each step's "
-    "\"action\" field MUST be exactly one of those names, verbatim — "
+    '"action" field MUST be exactly one of those names, verbatim — '
     "steps using an action outside that list cannot actually execute. "
     "If no such list is given, choose whatever action name best "
     "describes the step. "
-    "\"action\" is an internal capability name (implementation detail); "
-    "\"description\" is what a person following this plan should see. "
-    "Write \"description\" in plain business language describing WHAT "
-    "the step accomplishes for the goal (e.g. \"Check if the product is "
-    "in stock\", \"Reserve one unit for this order\", \"Notify the "
-    "warehouse team\") — never the action name itself, an internal "
+    '"action" is an internal capability name (implementation detail); '
+    '"description" is what a person following this plan should see. '
+    'Write "description" in plain business language describing WHAT '
+    'the step accomplishes for the goal (e.g. "Check if the product is '
+    'in stock", "Reserve one unit for this order", "Notify the '
+    'warehouse team") — never the action name itself, an internal '
     "mechanism, or how it's implemented (e.g. do not write things like "
-    "\"Call EvaluateStrategy\" or \"Broadcast to affiliation group\"). "
+    '"Call EvaluateStrategy" or "Broadcast to affiliation group"). '
     "Optionally, if one step can only meaningfully happen after another "
     "specific step in THIS SAME plan succeeds (not just because it's "
     "listed later), list that other step's 0-based position in "
-    "\"depends_on\" (e.g. a payment step that requires an earlier order- "
-    "creation step to have succeeded: \"depends_on\": [1] if order "
-    "creation is steps[1]). Leave \"depends_on\" empty (the default) for "
+    '"depends_on" (e.g. a payment step that requires an earlier order- '
+    'creation step to have succeeded: "depends_on": [1] if order '
+    'creation is steps[1]). Leave "depends_on" empty (the default) for '
     "an ordinary sequential step with no special prerequisite beyond "
     "normal plan order. "
     "ONE ACTION = ONE STEP. NEVER put two different items/actions in one "
-    "step. \"Buy milk and pizza\" names TWO actions, not one — do not "
+    'step. "Buy milk and pizza" names TWO actions, not one — do not '
     "write a single 'ProductSelection' step with both milk and pizza in "
     "its \"selection\" list; write TWO 'ProductSelection' steps, one per "
     "item. This applies to every kind of action, not just "
     "'ProductSelection'. "
-    "Worked example — \"buy pizza and then buy milk\" becomes:\n"
+    'Worked example — "buy pizza and then buy milk" becomes:\n'
     '[{"action": "ProductSelection", "description": "Select pizza", '
     '"parameters": {"selection": [{"id": "<pizza id>", "qty": 1}]}, '
     '"depends_on": []}, '
@@ -315,22 +337,22 @@ _SYSTEM_PROMPT = (
     '"depends_on": [0]}]\n'
     "Step order always matches the order the user named the actions in "
     "(pizza named first above -> pizza is step 0). The step for whichever "
-    "action was named SECOND gets \"depends_on\": [<index of the step "
-    "named first>] — writing the order in \"description\" is not enough, "
-    "\"depends_on\" is the only field that actually enforces it. \"Buy "
-    "milk and pizza\" is the same pattern with milk and pizza swapped "
-    "(milk is step 0, pizza is step 1 with \"depends_on\": [0]). ONLY "
-    "skip \"depends_on\" (leave every step's \"depends_on\": []) when the "
+    'action was named SECOND gets "depends_on": [<index of the step '
+    'named first>] — writing the order in "description" is not enough, '
+    '"depends_on" is the only field that actually enforces it. "Buy '
+    'milk and pizza" is the same pattern with milk and pizza swapped '
+    '(milk is step 0, pizza is step 1 with "depends_on": [0]). ONLY '
+    'skip "depends_on" (leave every step\'s "depends_on": []) when the '
     "user says the actions are independent/separate/parallel/at the same "
-    "time, e.g. \"buy milk and pizza independently\". "
-    "\"cost\" and \"confidence\" below are placeholders showing the "
+    'time, e.g. "buy milk and pizza independently". '
+    '"cost" and "confidence" below are placeholders showing the '
     "field's TYPE, not values to copy verbatim — cost is your own real "
     "estimate (0.0 only when a step genuinely costs nothing, e.g. "
     "AskActor), and confidence is your own real estimate of how likely "
     "THIS SPECIFIC step is to succeed, generally well above 0 for an "
     "ordinary, well-formed step (0.7-0.95 is typical); leaving every "
     "step's confidence at exactly 0.0 reads as \"I have no idea if any "
-    "of this will work\" and gets the whole plan rejected outright, "
+    'of this will work" and gets the whole plan rejected outright, '
     "even when the steps themselves are otherwise correct. "
     "Respond with ONLY a JSON object of this shape, no other "
     "text:\n"
@@ -342,10 +364,19 @@ _SYSTEM_PROMPT = (
     '"summary": "...", "confidence": <your real overall confidence>}'
 )
 
-_NO_PERMISSION_SYNONYMS = frozenset({
-    "none", "n/a", "na", "null", "no permission needed", "no permission required",
-    "not needed", "not required", "empty",
-})
+_NO_PERMISSION_SYNONYMS = frozenset(
+    {
+        "none",
+        "n/a",
+        "na",
+        "null",
+        "no permission needed",
+        "no permission required",
+        "not needed",
+        "not required",
+        "empty",
+    }
+)
 
 
 def _normalize_depends_on(value: Any, *, own_index: int, step_count: int) -> tuple[int, ...]:
@@ -409,6 +440,73 @@ def _normalize_required_permission(value: Any) -> str:
     return text
 
 
+_HEIGHT_METERS_PATTERN = re.compile(r"(-?\d+(?:\.\d+)?)\s*m(?:eter)?s?\b", re.IGNORECASE)
+_XY_COORDINATE_PATTERN = re.compile(
+    r"x\s*=\s*(-?\d+(?:\.\d+)?)\s*,?\s*y\s*=\s*(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+
+def _backfill_px4_parameters(steps: tuple["PlanStep", ...], source_text: str) -> tuple["PlanStep", ...]:
+    """Same boundary-normalization principle as _normalize_required_
+    permission/_normalize_depends_on above, for a different failure mode:
+    confirmed live, repeatedly, against gemma-3-4b-it that adding explicit
+    "Takeoff takes {height_m: ...}, Waypoint takes {x, y, height_m: ...}"
+    guidance to the system prompt (matching every other capability's own
+    worked example) was NOT enough on its own — the model reliably names
+    the right actions in the right order, but still leaves "parameters"
+    at {} (or repeats the same x=0,y=0 for every Waypoint step) even when
+    the user's own request named real numbers explicitly, e.g. "fly to
+    x=5, y=5" flew nowhere and "take off to a height of 15 meters" only
+    reached ~1.7m (Takeoff's own hardcoded 2.0m default). Unlike
+    required_permission's fix (a fixed exemption set), there's no
+    action-invariant constant to fall back to here -- the real values are
+    request-specific -- so this extracts them straight from the ORIGINAL
+    request text instead of trusting the model's own "parameters" field,
+    the same "verify structurally, don't just hope the prompt worked"
+    philosophy as every other boundary-normalization function in this
+    file.
+
+    Only backfills a step whose OWN parameters are still at the
+    structural default (height_m<=0, or x==0 and y==0 both) — a model
+    that DID correctly populate real values is never overridden. Multiple
+    "x=.. y=.." pairs in the text are consumed in order, one per Waypoint
+    step that needs one (own_index tracks position), matching the
+    system prompt's own "TWO separate 'Waypoint' steps" guidance for a
+    there-and-back mission.
+    """
+    xy_pairs = _XY_COORDINATE_PATTERN.findall(source_text)
+    heights = [float(m) for m in _HEIGHT_METERS_PATTERN.findall(source_text)]
+    default_height = heights[0] if heights else None
+
+    xy_index = 0
+    new_steps = []
+    for step in steps:
+        if step.action not in ("Takeoff", "Waypoint"):
+            new_steps.append(step)
+            continue
+        params = dict(step.parameters)
+        changed = False
+        if step.action == "Waypoint":
+            x = float(params.get("x", 0.0) or 0.0)
+            y = float(params.get("y", 0.0) or 0.0)
+            if xy_index < len(xy_pairs):
+                if x == 0.0 and y == 0.0:
+                    x_str, y_str = xy_pairs[xy_index]
+                    params["x"] = float(x_str)
+                    params["y"] = float(y_str)
+                    changed = True
+                xy_index += 1
+        height_m = float(params.get("height_m", 0.0) or 0.0)
+        if height_m <= 0.0 and default_height is not None:
+            params["height_m"] = default_height
+            changed = True
+        if changed:
+            step = replace(step, parameters=params)
+        new_steps.append(step)
+    return tuple(new_steps)
+
+
 class LLMPlanner:
     """The PlanningEngine (kernel/pipeline/planner.py::PlanningEngine
     Protocol) — dual-accepting a PlanningContext or the legacy (belief,
@@ -419,6 +517,7 @@ class LLMPlanner:
     def __init__(self, backend: Any = None) -> None:
         if backend is None:
             from src.monkey_brain.kernel.execute.provider.model_backend import get_backend
+
             backend = get_backend()
         self._backend = backend
 
@@ -455,10 +554,7 @@ class LLMPlanner:
         resolved_goal = context.goal
         goal_id = ""
         if resolved_goal is not None:
-            goal_id = (
-                getattr(resolved_goal, "goal_id", "")
-                or str(context.metadata.get("execution_id", "") or "")
-            )
+            goal_id = getattr(resolved_goal, "goal_id", "") or str(context.metadata.get("execution_id", "") or "")
         if resolved_goal is None or not getattr(resolved_goal, "name", ""):
             return Plan(goal="", confidence=0.0, planner="llm", metadata={"goal_id": goal_id})
 
@@ -466,6 +562,7 @@ class LLMPlanner:
         # of a verified recipe. Learning never activates; see
         # capability_promotion.activate_promoted_capability().
         from src.monkey_brain.kernel.pipeline.learning.capability_promotion import try_resolve_promoted_plan
+
         promoted_plan = try_resolve_promoted_plan(resolved_goal.name)
         if promoted_plan is not None:
             if goal_id and not promoted_plan.metadata.get("goal_id"):
@@ -507,11 +604,29 @@ class LLMPlanner:
         # __init__.py imports LLMPlanner (via .integration), so a
         # module-level import here would be a circular import back into
         # this not-yet-fully-defined module.
+        import os
+
         from src.monkey_brain.kernel.pipeline.planning.moss_plan_cache import get_moss_plan_cache
-        moss_cache = get_moss_plan_cache()
-        facts_text = "; ".join(
-            str(getattr(f, "description", "") or getattr(f, "entity", "")) for f in facts
-        )
+
+        # Confirmed live, and genuinely dangerous, not just wasteful: Moss
+        # matches on GOAL SEMANTIC SIMILARITY, which is exactly right for a
+        # grocery-style goal (two differently-worded requests to buy milk
+        # SHOULD reuse the same plan) but wrong for a robot/drone mission
+        # carrying explicit safety-critical numeric parameters in the goal
+        # text itself -- "fly to x=5, y=5" and "fly to x=10, y=20" embed as
+        # nearly identical goals (same intent, different numbers) despite
+        # needing completely different execution. A stale semantic hit
+        # from an EARLIER mission's cached plan silently replayed the
+        # WRONG coordinates/altitude here -- the drone never actually
+        # left the origin despite this exact request's own freshly-
+        # generated plan (confirmed correct via direct inspection) having
+        # the right x=5/y=5/height_m=15 values the whole time; the cache
+        # hit just never let that correct plan get used. Skipped entirely
+        # (both read and the store_plan write below) for a robot-class
+        # process — same ACTOR_NODE_CLASS convention context_engine.py's
+        # own domain-scoping already uses.
+        moss_cache = get_moss_plan_cache() if os.environ.get("ACTOR_NODE_CLASS", "cloud") != "robot" else None
+        facts_text = "; ".join(str(getattr(f, "description", "") or getattr(f, "entity", "")) for f in facts)
         if moss_cache is not None:
             cached_plan = await moss_cache.get_similar_plan(resolved_goal.name, facts_text)
             if cached_plan is not None:
@@ -563,6 +678,7 @@ class LLMPlanner:
         # real call count). provider/model are getattr-defaulted since
         # self._backend can be a test/fake backend with neither attribute.
         from src.monkey_brain.kernel.compile import _obs
+
         llm_provider = getattr(self._backend, "_provider", "unknown")
         llm_model = getattr(self._backend, "_model", "unknown")
         for attempt in range(_MAX_PARSE_ATTEMPTS):
@@ -589,8 +705,16 @@ class LLMPlanner:
                     this_call_ms = (time.perf_counter() - llm_call_started) * 1000
                     llm_call_ms += this_call_ms
                     llm_call_count += 1
-                    _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="error")
-                    _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
+                    _obs.counter(
+                        "llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="error"
+                    )
+                    _obs.histogram(
+                        "llm.call.duration_ms",
+                        this_call_ms,
+                        provider=llm_provider,
+                        model=llm_model,
+                        operation="planning",
+                    )
                     logger.warning("[llm_planner] planning failed: %s", exc)
                     stage_timings_ms["llm_call_ms"] = round(llm_call_ms, 3)
                     stage_timings_ms["llm_call_count"] = llm_call_count
@@ -598,7 +722,9 @@ class LLMPlanner:
                     if metadata is not None:
                         metadata["_stage_timings_ms"] = stage_timings_ms
                     return Plan(
-                        goal=resolved_goal.name, confidence=0.0, planner="llm",
+                        goal=resolved_goal.name,
+                        confidence=0.0,
+                        planner="llm",
                         metadata={"error": str(exc)},
                     )
                 this_call_ms = (time.perf_counter() - llm_call_started) * 1000
@@ -611,11 +737,21 @@ class LLMPlanner:
             except Exception as exc:
                 response_parse_ms += (time.perf_counter() - parse_started) * 1000
                 parse_error = exc
-                _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="invalid_response")
-                _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
+                _obs.counter(
+                    "llm.calls.total",
+                    provider=llm_provider,
+                    model=llm_model,
+                    operation="planning",
+                    status="invalid_response",
+                )
+                _obs.histogram(
+                    "llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning"
+                )
                 logger.warning(
                     "[llm_planner] plan parse failed (attempt %d/%d): %s",
-                    attempt + 1, _MAX_PARSE_ATTEMPTS, exc,
+                    attempt + 1,
+                    _MAX_PARSE_ATTEMPTS,
+                    exc,
                 )
                 continue
 
@@ -639,22 +775,34 @@ class LLMPlanner:
             # its real rejection reason beats a generic "planning failed".
             _raw_steps_preview = parsed.get("steps", [])
             has_real_confidence = bool(parsed.get("confidence", 0.0) or 0.0) or any(
-                isinstance(s, dict) and float(s.get("confidence", 0.0) or 0.0) > 0.0
-                for s in _raw_steps_preview
+                isinstance(s, dict) and float(s.get("confidence", 0.0) or 0.0) > 0.0 for s in _raw_steps_preview
             )
             if _raw_steps_preview and not has_real_confidence and attempt < _MAX_PARSE_ATTEMPTS - 1:
                 parse_error = ValueError("degenerate plan: every step confidence was 0.0")
-                _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="degenerate_confidence")
-                _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
+                _obs.counter(
+                    "llm.calls.total",
+                    provider=llm_provider,
+                    model=llm_model,
+                    operation="planning",
+                    status="degenerate_confidence",
+                )
+                _obs.histogram(
+                    "llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning"
+                )
                 logger.warning(
                     "[llm_planner] plan parsed but every step confidence was 0.0 (attempt %d/%d) — resampling",
-                    attempt + 1, _MAX_PARSE_ATTEMPTS,
+                    attempt + 1,
+                    _MAX_PARSE_ATTEMPTS,
                 )
                 continue
 
             if cached_raw is None:
-                _obs.counter("llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="success")
-                _obs.histogram("llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning")
+                _obs.counter(
+                    "llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="success"
+                )
+                _obs.histogram(
+                    "llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning"
+                )
                 put_cached_response(llm_model, _SYSTEM_PROMPT, prompt, raw)
             break
         stage_timings_ms["llm_call_ms"] = round(llm_call_ms, 3)
@@ -665,7 +813,9 @@ class LLMPlanner:
         if parsed is None:
             logger.warning("[llm_planner] planning failed after %d attempts: %s", _MAX_PARSE_ATTEMPTS, parse_error)
             return Plan(
-                goal=resolved_goal.name, confidence=0.0, planner="llm",
+                goal=resolved_goal.name,
+                confidence=0.0,
+                planner="llm",
                 metadata={"error": str(parse_error)},
             )
 
@@ -682,6 +832,16 @@ class LLMPlanner:
                 depends_on=_normalize_depends_on(s.get("depends_on"), own_index=i, step_count=len(_raw_steps)),
             )
             for i, s in enumerate(_raw_steps)
+        )
+        # See _backfill_px4_parameters's own docstring: prompt guidance
+        # alone was confirmed live not to be enough for a small model to
+        # reliably carry real Takeoff/Waypoint numbers through from the
+        # user's own request into "parameters" -- this only ever touches
+        # a step whose own parameters are still at the structural
+        # default, so a model that DID populate real values is untouched.
+        steps = _backfill_px4_parameters(
+            steps,
+            f"{resolved_goal.name} {resolved_goal.description or ''}",
         )
         # Same boundary-normalization principle as _normalize_required_
         # permission/_normalize_depends_on above: real, repeatedly observed
@@ -704,10 +864,7 @@ class LLMPlanner:
             if step_confidences:
                 overall_confidence = min(step_confidences)
         summary = str(parsed.get("summary", ""))
-        goal_id = (
-            getattr(resolved_goal, "goal_id", "")
-            or str(context.metadata.get("execution_id", "") or "")
-        )
+        goal_id = getattr(resolved_goal, "goal_id", "") or str(context.metadata.get("execution_id", "") or "")
         final_plan = Plan(
             goal=resolved_goal.name,
             steps=steps,
@@ -753,7 +910,7 @@ class LLMPlanner:
         available_capabilities = getattr(context, "available_capabilities", ())
         if available_capabilities:
             lines.append("")
-            lines.append("Available actions (a step's \"action\" must be one of these, verbatim):")
+            lines.append('Available actions (a step\'s "action" must be one of these, verbatim):')
             for name in available_capabilities:
                 lines.append(f"- {name}")
 
@@ -837,7 +994,9 @@ class LLMPlanner:
             lines.append("")
             lines.append("Reachable colleagues (use actor_id as target_actor for AskActor):")
             for c in colleagues:
-                lines.append(f"- {c.get('name', '')}: actor_id={c.get('actor_id', '')} (society={c.get('society_name', '')})")
+                lines.append(
+                    f"- {c.get('name', '')}: actor_id={c.get('actor_id', '')} (society={c.get('society_name', '')})"
+                )
 
         # Active governance policies (kernel/society/governance.py) for
         # whatever society this goal activated — e.g. a household budget

@@ -1,0 +1,31 @@
+# Production overlay: wraps the existing base (deploy/k8s/) unchanged
+# except for how the `agentos-secrets` Secret is provisioned -- Vault +
+# External Secrets Operator here instead of deploy/k8s/secret.yaml's
+# checked-in placeholder values. Nothing else about the base changes;
+# every other resource (deployment.yaml, auth-deployment.yaml, etc.)
+# renders exactly as it does today.
+#
+# Lives at deploy/overlays/production/, a SIBLING of deploy/k8s/, not
+# nested inside it -- kustomize refuses (cycle detected) to accumulate a
+# base directory that contains the overlay referencing it.
+#
+# Prerequisites this overlay assumes are already installed/configured
+# cluster-side (Vault itself + the External Secrets Operator CRDs/
+# controller + the Vault policy/role) -- see ./README.md. This repo does
+# not, and cannot, install or configure either of those for you.
+#
+# Apply with the same load-restrictor flag the base already requires
+# (opa/policies/*.rego lives above deploy/k8s/):
+#   kubectl apply -k deploy/overlays/production/ --load-restrictor=LoadRestrictionsNone
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monkeybrain
+
+resources:
+  - ../../k8s
+  - vault-auth-rbac.yaml
+  - vault-secretstore.yaml
+  - external-secret.yaml
+
+patches:
+  - path: delete-checked-in-secret.yaml
