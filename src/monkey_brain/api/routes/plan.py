@@ -19,19 +19,18 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-
+from src.introspection.lemon import get_lemon
+from src.monkey_brain.api.dependencies import require_permission
+from src.monkey_brain.api.helpers.run_helpers import _get_grounding_confidence, get_cognitive_runtime
+from src.monkey_brain.api.idempotency import idempotent
 from src.monkey_brain.kernel.cognitive_runtime import CognitiveRuntime
+from src.monkey_brain.kernel.config import PLANNING_CONFIDENCE_THRESHOLD
 from src.monkey_brain.kernel.execute.models import ExecutionMode
 from src.monkey_brain.kernel.execute.orchestration.routing import unsupported_response
-from src.monkey_brain.runtime.routers import get_mongo_client
-from src.monkey_brain.api.dependencies import require_permission
-from src.monkey_brain.api.idempotency import idempotent
-from src.monkey_brain.kernel.learn.telemetry.telemetry import profile_start, profile_end, profile_add
+from src.monkey_brain.kernel.learn.telemetry.telemetry import profile_add, profile_end, profile_start
 from src.monkey_brain.kernel.models.plan import PlanRequest, PlanResponse
-from src.monkey_brain.api.helpers.run_helpers import get_cognitive_runtime, _get_grounding_confidence
-from src.monkey_brain.kernel.config import PLANNING_CONFIDENCE_THRESHOLD
-from src.introspection.lemon import get_lemon
 from src.monkey_brain.persistence.plan_store import get_plan_store
+from src.monkey_brain.runtime.routers import get_mongo_client
 
 logger = logging.getLogger("agentos.plan")
 
@@ -97,7 +96,9 @@ async def plan_execution(
 
     1. Input validation via security module
     2. get the graph store from the request context; this is used to persist the execution graph and related data
-    3. Governance check — validate against charter before planning baiscally this is a policy check to see if the user is allowed to plan with the given question
+    3. Governance check — validate against charter before planning; basically
+       this is a policy check to see if the user is allowed to plan with the
+       given question
     4. Audit: record plan request
     5. Telemetry: start a trace for the plan request if Lemon is available
     6. Planner synthesizes the execution graph, then IntentIR is built from the graph output.
@@ -107,9 +108,10 @@ async def plan_execution(
         6.4 ── Build IntentIR ────────────────────────────────────────────────
         6.5 ── Store in RunStore ───────────────────────────────────────────────
         6.6 ── Store in PlanStore -───────────────────────────────────────────────
-        6.7 ── check the knowledge pack's grounding confidence and log a warning if it's below the threshold --────────────────────────────────────────────
-        6.8 ── log the plan selection and metrics to lemon if available -────────────────────────────────────────────
-        6.9 ── Cache Capabilities and Agents used in the plan for future reuse. ────────────────────────────────────────────
+        6.7 ── check the knowledge pack's grounding confidence and log a
+              warning if it's below the threshold ──────────────────────
+        6.8 ── log the plan selection and metrics to lemon if available ─
+        6.9 ── Cache Capabilities and Agents used in the plan for future reuse. ─────
         6.10. ── A planner that produced no nodes produced no plan. -────────────────────────────────────────────
         6.11 ── Return the plan. ────────────────────────────────────────────
     """
@@ -230,13 +232,13 @@ async def plan_execution(
             execution_graph_id = execution_graph.get("execution_graph_id", "")
             steps = execution_graph.get("nodes", [])
 
-            from src.monkey_brain.kernel.plan.goals.intent_ir import build_intent_ir
             from src.monkey_brain.kernel.plan.goals.goal import Goal, GoalSource
             from src.monkey_brain.kernel.plan.goals.goal_type import (
                 classify_goal_type,
                 is_mutating,
                 mutating_verbs,
             )
+            from src.monkey_brain.kernel.plan.goals.intent_ir import build_intent_ir
 
             execution_intent = {
                 "intent": execution_graph.get("domain", "planned"),
@@ -245,8 +247,10 @@ async def plan_execution(
             }
 
             # classify the goal type based on the question and check for destructive verbs
-            # why do we need to classify id all questions hare the same downsteam pipeline this is good if you want metadata about the question and the goal type for logging and auditing purposes
-            # however it is not used for any downstream processing or decision making in the current implementation
+            # why do we need to classify: id all questions hare the same downsteam pipeline,
+            # this is good if you want metadata about the question and the goal type for
+            # logging and auditing purposes. However it is not used for any downstream
+            # processing or decision making in the current implementation
 
             goal_type, goal_confidence = classify_goal_type(payload.question)
 
@@ -326,8 +330,8 @@ async def plan_execution(
 
             # 6.5 ── Store in RunStore
             # this is telemetry for the plan execution and must be shown in lemon as tracked runs
-            # why is this stored in the run store and not in the plan store? because the run store is for tracking the runs and the plan
-            # store is for tracking the plans. the run store is for tracking the runs and the plan store is for tracking the plans.
+            # why is this stored in the run store and not in the plan store? because the run
+            # store is for tracking the runs and the plan store is for tracking the plans.
 
             get_run_store().store(run_id, ir, target=payload.target, graph_snapshot=execution_graph)
 
@@ -352,7 +356,8 @@ async def plan_execution(
 
         elapsed_ms = (time.monotonic() - t0) * 1000
 
-        # This just adds the elapsed time to the profile for the plan execution, so that we can see how long it took to select a plan.
+        # This just adds the elapsed time to the profile for the plan execution, so that
+        # we can see how long it took to select a plan.
         profile_add("plan", ms=int(elapsed_ms))
 
         profile_entries = profile_end()
@@ -428,12 +433,14 @@ async def plan_execution(
                 )
 
         # 6.9 Cache Capabilities and Agents used in the plan for future reuse.
-        # This is a telemetry feature that tracks what capabilities and agents are used during each execution run.
-        # It allows the system to suggest previously successful plans for similar goals in the future, improving efficiency and reducing planning time.
+        # This is a telemetry feature that tracks what capabilities and agents are used
+        # during each execution run. It allows the system to suggest previously successful
+        # plans for similar goals in the future, improving efficiency and reducing planning time.
 
         mesh_reuse: dict | None = None
         try:
-            # get the nodes from the graph delta and extract the agent names or node names to create a set of drafted agents/nodes
+            # get the nodes from the graph delta and extract the agent names or node names
+            # to create a set of drafted agents/nodes
             drafted = sorted(
                 {
                     str(n.get("agent") or n.get("name", ""))
@@ -453,7 +460,8 @@ async def plan_execution(
                     )
                     if similar:
                         best = similar[0]
-                        # overlap ratio is the number of overlapping nodes divided by the number of drafted nodes, rounded to 3 decimal places
+                        # overlap ratio is the number of overlapping nodes divided by the
+                        # number of drafted nodes, rounded to 3 decimal places
                         overlap_ratio = round(best["overlap"] / max(len(drafted), 1), 3)
                         mesh_reuse = {
                             "run_id": best["run_id"],
@@ -476,19 +484,24 @@ async def plan_execution(
                             lemon.counter("api.plan.mesh_reuse_candidate")
                             lemon.histogram("plan.mesh_overlap_ratio", overlap_ratio)
 
-                        # overlap ration being greater than or equal to the threshold means that the drafted plan is similar enough to a prior plan that we can adopt the prior plan instead of the drafted plan.
-                        # This is a form of plan reuse that can save time and resources.
+                        # overlap ratio being greater than or equal to the threshold means
+                        # that the drafted plan is similar enough to a prior plan that we
+                        # can adopt the prior plan instead of the drafted plan. This is a
+                        # form of plan reuse that can save time and resources.
                         if overlap_ratio >= MESH_REUSE_ADOPT_THRESHOLD:
                             # Prefer the durable local copy (full planner
                             # graph); fall back to Neo4j recovery.
                             prior_graph = get_plan_store().load_local(best["run_id"])
 
-                            # if there is no reuse graph in the local plan store, then we need to get the graph from the graph store by run id.
-                            # This is a fallback mechanism to ensure that we can still retrieve the prior graph even if it is not stored locally.
+                            # if there is no reuse graph in the local plan store, then we need
+                            # to get the graph from the graph store by run id. This is a
+                            # fallback mechanism to ensure that we can still retrieve the
+                            # prior graph even if it is not stored locally.
                             if not (prior_graph and prior_graph.get("nodes")):
                                 prior_graph = await store.get_graph_by_run_id(best["run_id"])
 
-                            # if there is a prior graph and it has nodes, then we can adopt the prior graph as the current plan.
+                            # if there is a prior graph and it has nodes, then we can adopt
+                            # the prior graph as the current plan.
                             if prior_graph and prior_graph.get("nodes"):
                                 execution_graph["nodes"] = prior_graph["nodes"]
                                 execution_graph["edges"] = prior_graph.get("edges", [])
@@ -711,8 +724,8 @@ async def acquire_knowledge_route(
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": "invalid_input", "detail": str(e)})
 
-    from src.monkey_brain.kernel.plan.knowledge_acquisition import acquire_knowledge
     from src.monkey_brain.kernel.cognitive_kernel import get_cognitive_kernel
+    from src.monkey_brain.kernel.plan.knowledge_acquisition import acquire_knowledge
 
     try:
         result = await acquire_knowledge(

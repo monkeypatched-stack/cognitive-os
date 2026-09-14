@@ -77,7 +77,7 @@ class RedisWorldStore:
         self._max = max(1, max_resident)
         self._lr = learning_rate
         self._discount = discount
-        self._resident: "OrderedDict[str, SparseTransitionTensor]" = OrderedDict()
+        self._resident: OrderedDict[str, SparseTransitionTensor] = OrderedDict()
         self._evictions = 0
         self._client: Any = None
         # revision each tenant's resident tensor was loaded at (or last
@@ -97,7 +97,7 @@ class RedisWorldStore:
         self._conflicted_revision: dict[str, int] = {}
 
     @classmethod
-    def connect(cls, **kwargs: Any) -> "RedisWorldStore | None":
+    def connect(cls, **kwargs: Any) -> RedisWorldStore | None:
         """Construct and verify connectivity in one step. Returns None
         (never raises) if Redis is unreachable, so world_tensor.py's
         backend selection can fall back to another store without its own

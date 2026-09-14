@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from src.monkey_brain.kernel.pipeline.learning.domain import (
     LearningExperience,
     LearningObservation,
@@ -20,14 +19,14 @@ from src.monkey_brain.kernel.pipeline.learning.domain import (
     LearningSignal,
     Provenance,
 )
-from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
-from src.monkey_brain.kernel.pipeline.learning.policies import ReinforcementLearningPolicy
 from src.monkey_brain.kernel.pipeline.learning.phi import (
     PhiArtifact,
     PhiCompiler,
     compile_phi,
     phi_to_dict,
 )
+from src.monkey_brain.kernel.pipeline.learning.policies import ReinforcementLearningPolicy
+from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
 
 
 def _milk_experience() -> LearningExperience:

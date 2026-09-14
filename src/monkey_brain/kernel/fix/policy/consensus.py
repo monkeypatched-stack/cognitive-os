@@ -42,7 +42,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from src.monkey_brain.kernel.predict.mcts.rl_monte_carlo import RankedCandidate
@@ -226,7 +226,7 @@ class ConsensusResult:
     structurally_correlated_pairs: list[str]
 
     # Recommendation
-    recommended: "RankedCandidate"
+    recommended: RankedCandidate
     tiebreaker_used: str  # "none" | "majority" | "q_table"
     tiebreak_authority: str  # "n/a" | "majority_vote" | "real_data_privilege" | "synthetic_aggregate"
     dissenting_signals: list[str]
@@ -304,7 +304,7 @@ class ConsensusGate:
 
     def evaluate(
         self,
-        mc_ranking: list["RankedCandidate"],
+        mc_ranking: list[RankedCandidate],
         initial_state_hash: str = "",
     ) -> ConsensusResult:
         """Compute cross-signal agreement and return a gated recommendation.
@@ -549,7 +549,7 @@ class ConsensusGate:
 
     # ── Internals ──────────────────────────────────────────────────────────────
 
-    def _build_trivial(self, rc: "RankedCandidate") -> ConsensusResult:
+    def _build_trivial(self, rc: RankedCandidate) -> ConsensusResult:
         rc.workload.metadata["consensus"] = {
             "agreement_level": "strong",
             "gate_passed": True,
@@ -603,7 +603,7 @@ class ConsensusGate:
     def _notify_cingulate(
         candidate_key: str,
         divergence_count: int,
-        rec_rc: "RankedCandidate",
+        rec_rc: RankedCandidate,
     ) -> None:
         """Best-effort, non-blocking Cingulate escalation notification.
 
@@ -611,8 +611,9 @@ class ConsensusGate:
         The metadata and logger.error() above provide the fallback audit trail.
         """
         try:
-            from src.cingulate.review import CingulateReview
             import asyncio
+
+            from src.cingulate.review import CingulateReview
 
             try:
                 loop = asyncio.get_running_loop()
@@ -659,7 +660,7 @@ def _spearman_rho(ranks_a: list[int], ranks_b: list[int]) -> float:
     n = len(ranks_a)
     if n <= 1:
         return 1.0
-    d_sq = sum((a - b) ** 2 for a, b in zip(ranks_a, ranks_b))
+    d_sq = sum((a - b) ** 2 for a, b in zip(ranks_a, ranks_b, strict=True))
     return round(max(-1.0, min(1.0, 1.0 - 6.0 * d_sq / (n * (n * n - 1)))), 4)
 
 

@@ -19,8 +19,8 @@ import time
 from dataclasses import replace
 from typing import Any
 
-from src.monkey_brain.kernel.pipeline.belief_state import Goal, Plan, PlanStep
 from src.monkey_brain.kernel.compile.error_recovery import CircuitBreaker, CircuitBreakerConfig
+from src.monkey_brain.kernel.pipeline.belief_state import Goal, Plan, PlanStep
 from src.monkey_brain.kernel.pipeline.llm_plan_cache import get_cached_response, put_cached_response
 
 # Gate 11 (production readiness): CircuitBreaker existed (kernel/compile/
@@ -447,7 +447,7 @@ _XY_COORDINATE_PATTERN = re.compile(
 )
 
 
-def _backfill_px4_parameters(steps: tuple["PlanStep", ...], source_text: str) -> tuple["PlanStep", ...]:
+def _backfill_px4_parameters(steps: tuple[PlanStep, ...], source_text: str) -> tuple[PlanStep, ...]:
     """Same boundary-normalization principle as _normalize_required_
     permission/_normalize_depends_on above, for a different failure mode:
     confirmed live, repeatedly, against gemma-3-4b-it that adding explicit

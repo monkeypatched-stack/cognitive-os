@@ -17,40 +17,40 @@ Lemon is the cognitive observability hub. It owns:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from src.introspection.tracing import Tracer, Trace, Span
-from src.introspection.metrics import MetricsCollector, Metric
-from src.introspection.logging import StructuredLogger, LogEntry
-from src.introspection.health import HealthMonitor, HealthCheck
-from src.introspection.alerting import AlertManager, Alert, AlertRule, AlertSeverity
+from src.introspection.alerting import Alert, AlertManager, AlertRule, AlertSeverity
+from src.introspection.analytical_triggers import AnalyticalTriggerEngine
+from src.introspection.health import HealthCheck, HealthMonitor
+from src.introspection.logging import LogEntry, StructuredLogger
+from src.introspection.metrics import Metric, MetricsCollector
+from src.introspection.otel_bridge import get_bridge
 from src.introspection.semantic_trace import (
-    SemanticEventStore,
-    IntentEvent,
-    GoalEvent,
-    PipelineStepEvent,
     AgentReasonEvent,
     AgentReflectEvent,
-    MemoryAccessEvent,
-    WorldModelEvent,
+    GoalEvent,
     GovernanceEvent,
+    IntentEvent,
     LearningEvent,
+    MemoryAccessEvent,
+    PipelineStepEvent,
+    SemanticEventStore,
+    WorldModelEvent,
 )
-from src.introspection.otel_bridge import get_bridge
-from src.introspection.analytical_triggers import AnalyticalTriggerEngine
+from src.introspection.tracing import Span, Trace, Tracer
 
 logger = logging.getLogger(__name__)
 
-_lemon_instance: "Lemon | None" = None
+_lemon_instance: Lemon | None = None
 
 
-def set_lemon(lemon: "Lemon") -> None:
+def set_lemon(lemon: Lemon) -> None:
     global _lemon_instance
     _lemon_instance = lemon
 
 
-def get_lemon() -> "Lemon | None":
+def get_lemon() -> Lemon | None:
     return _lemon_instance
 
 
@@ -160,7 +160,7 @@ class Lemon:
             return {"status": "no_elasticsearch"}
 
         export = self.metrics.export()
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         doc = {
             "timestamp": timestamp,
@@ -667,13 +667,13 @@ class Lemon:
         panel: "intent" | "agent" | "pipeline" | "world_model" | "governance" | "learning" | "all"
         """
         from src.introspection.cognitive_dashboards import (
-            intent_dashboard,
             agent_dashboard,
+            full_dashboard,
+            governance_dashboard,
+            intent_dashboard,
+            learning_dashboard,
             pipeline_dashboard,
             world_model_dashboard,
-            governance_dashboard,
-            learning_dashboard,
-            full_dashboard,
         )
 
         _panels = {

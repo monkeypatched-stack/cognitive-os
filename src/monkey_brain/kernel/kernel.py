@@ -35,9 +35,10 @@ import inspect
 import logging
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Callable
+from typing import Any
 
 from src.monkey_brain.kernel.resource_manager import ResourceManager
 from src.monkey_brain.kernel.scheduler import RuntimeDescriptor
@@ -369,7 +370,7 @@ class Kernel:
     boot() executes exactly once. Subsequent calls return the existing instance.
     """
 
-    _instance: "Kernel | None" = None
+    _instance: Kernel | None = None
     _booted: bool = False
 
     def __init__(self) -> None:
@@ -392,7 +393,7 @@ class Kernel:
         self._broca_registered: bool = False
 
     @classmethod
-    async def boot(cls, app: Any) -> "Kernel":
+    async def boot(cls, app: Any) -> Kernel:
         """Boot the kernel exactly once. Returns existing instance on repeat calls."""
         if cls._booted and cls._instance is not None:
             logger.debug("Kernel already booted — returning existing instance")
@@ -549,6 +550,7 @@ class Kernel:
 
     async def _phase_config(self, app: Any) -> None:
         from pathlib import Path
+
         from src.monkey_brain.api.bootstrap import load_dotenv
 
         load_dotenv(Path(__file__).parents[3] / ".env")
@@ -693,9 +695,9 @@ class Kernel:
         self.persistence = await init_persistence(app, self.lemon)
         self._health["persistence"] = ComponentHealth(name="persistence", state=HealthState.HEALTHY)
 
+        from src.monkey_brain.kernel.resources.mem0 import Mem0Resource
         from src.monkey_brain.kernel.resources.mongo import MongoResource
         from src.monkey_brain.kernel.resources.redis import RedisResource
-        from src.monkey_brain.kernel.resources.mem0 import Mem0Resource
 
         adapters = getattr(self.persistence, "_adapters", {})
         if "mongodb" in adapters:
@@ -1283,8 +1285,8 @@ class Kernel:
     # and resource management across the MonkeyBrain runtime.
 
     async def _phase_process_manager(self, app: Any) -> None:
-        from src.monkey_brain.kernel.process.manager import ProcessManager
         from src.monkey_brain.kernel.process.checkpoint import MongoCheckpointStore
+        from src.monkey_brain.kernel.process.manager import ProcessManager
 
         checkpoint_store = None
         mongo_client = self._find_mongo_client(app)
@@ -1339,8 +1341,8 @@ class Kernel:
     async def _phase_audit_identity(self, app: Any) -> None:
         """Wire audit log to durable storage and initialize runtime identity."""
         from src.monkey_brain.kernel.audit import get_audit_log
-        from src.monkey_brain.kernel.storage import AppendOnlyLog
         from src.monkey_brain.kernel.identity import create_identity
+        from src.monkey_brain.kernel.storage import AppendOnlyLog
 
         # Initialize runtime identity
         identity = create_identity()
@@ -1400,8 +1402,8 @@ class Kernel:
     async def _phase_cognitive(self, app: Any) -> None:
 
         from src.monkey_brain.kernel.cognitive_runtime import LegacyCognitiveRuntime
-        from src.monkey_brain.kernel.semantic_memory import SemanticMemory
         from src.monkey_brain.kernel.graph_manager import GraphManager
+        from src.monkey_brain.kernel.semantic_memory import SemanticMemory
 
         # load agents and actors from charts
         semantic_memory = SemanticMemory()
@@ -1535,8 +1537,8 @@ class Kernel:
     # intelligent reasoning over the Semantic Cognitive World Model.
 
     async def _phase_planetary(self, app: Any) -> None:
-        from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
         from src.monkey_brain.kernel.society.domain import Society
+        from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
         planetary = PlanetaryRuntime(Society(name="Default Society"))
 
@@ -1668,9 +1670,9 @@ class Kernel:
         """Initialize HybridRouter for unified query processing."""
         from src.hybrid import HybridRouter
         from src.llm.llm_provider import LLMProviderFactory
-        from src.monkey_brain.kernel.pipeline.orchestrator import PipelineOrchestrator
         from src.monkey_brain.kernel.pipeline.compiler import RequestCompiler
         from src.monkey_brain.kernel.pipeline.learning.integration import build_learning_integrated_runtime
+        from src.monkey_brain.kernel.pipeline.orchestrator import PipelineOrchestrator
 
         try:
             # create the cognitive pipeline — LearningIntegratedPolicy layers the

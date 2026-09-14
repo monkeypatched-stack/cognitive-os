@@ -115,7 +115,7 @@ class PromotedCapabilityCandidate:
         }
 
     @staticmethod
-    def from_dict(d: dict[str, Any]) -> "PromotedCapabilityCandidate":
+    def from_dict(d: dict[str, Any]) -> PromotedCapabilityCandidate:
         return PromotedCapabilityCandidate(
             goal_signature=d.get("goal_signature", ""),
             candidate_id=d.get("candidate_id", ""),
@@ -148,7 +148,7 @@ class FrozenPlanStep:
         }
 
     @staticmethod
-    def from_dict(d: dict[str, Any]) -> "FrozenPlanStep":
+    def from_dict(d: dict[str, Any]) -> FrozenPlanStep:
         raw_depends = d.get("depends_on") or ()
         return FrozenPlanStep(
             action=str(d.get("action", "")),
@@ -181,7 +181,7 @@ class VerifiedExecutionRecipe:
         }
 
     @staticmethod
-    def from_dict(d: dict[str, Any]) -> "VerifiedExecutionRecipe":
+    def from_dict(d: dict[str, Any]) -> VerifiedExecutionRecipe:
         return VerifiedExecutionRecipe(
             goal_signature=str(d.get("goal_signature", "")),
             steps=tuple(FrozenPlanStep.from_dict(s) for s in (d.get("steps") or [])),

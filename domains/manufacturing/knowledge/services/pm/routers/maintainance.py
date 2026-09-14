@@ -1,19 +1,19 @@
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Query, status
+import json
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.common.db import get_database
 from services.common.auth import require_permission
+from services.common.config import settings
+from services.common.db import get_database
+from services.pm.helpers import maintainance as crud
 from services.pm.models.maintainanceLog import (
     MaintenanceLogCreate,
-    MaintenanceLogUpdate,
     MaintenanceLogResponse,
+    MaintenanceLogUpdate,
     PaginatedMaintenanceLogResponse,
 )
-from services.pm.helpers import maintainance as crud
-from services.common.config import settings
-import json
-from urllib.request import Request, urlopen
-from urllib.parse import urlencode
 
 router = APIRouter()
 
@@ -59,15 +59,23 @@ def _influx_to_maintenance_log(row: dict) -> dict:
 
     # Compute next_due_date
     interval = payload.get("maintenance_interval_days")
-    actual_start = row.get("time", payload.get("actual_start", ""))[:10] if row.get("time", payload.get("actual_start", "")) else None
+    _raw_start = row.get("time", payload.get("actual_start", ""))
+    actual_start = _raw_start[:10] if _raw_start else None
     next_due = None
     if actual_start and interval:
-        from datetime import datetime as dt, timedelta
+        from datetime import datetime as dt
+        from datetime import timedelta
+
         try:
             p_date = dt.strptime(actual_start, "%Y-%m-%d")
             next_due = (p_date + timedelta(days=int(interval))).strftime("%Y-%m-%d")
         except (ValueError, TypeError):
             pass
+
+    _raw_end = row.get("actual_end", payload.get("actual_end", ""))
+    actual_end = _raw_end[:10] if _raw_end else None
+    _row_end = row.get("actual_end", "")
+    downtime_end = _row_end[:10] if _row_end else None
 
     return {
         "id": equipment_id,
@@ -83,13 +91,17 @@ def _influx_to_maintenance_log(row: dict) -> dict:
         "scheduled_start": row.get("scheduled_start", payload.get("scheduled_start")),
         "scheduled_end": row.get("scheduled_end", payload.get("scheduled_end")),
         "actual_start": actual_start,
-        "actual_end": row.get("actual_end", payload.get("actual_end", ""))[:10] if row.get("actual_end", payload.get("actual_end", "")) else None,
+        "actual_end": actual_end,
         "next_due_date": next_due,
         "maintenance_interval_days": interval,
         "performed_by": performed,
         "reviewed_by": payload.get("reviewed_by"),
         "approved_by": None,
-        "downtime": {"start_time": actual_start, "end_time": row.get("actual_end", "")[:10] if row.get("actual_end") else None} if actual_start and status_val in ("Completed", "In Progress") else None,
+        "downtime": (
+            {"start_time": actual_start, "end_time": downtime_end}
+            if actual_start and status_val in ("Completed", "In Progress")
+            else None
+        ),
         "parts_used": payload.get("parts_used", []),
         "work_order_id": payload.get("work_order_id"),
         "created_at": row.get("time", ""),
@@ -103,10 +115,10 @@ def _influx_to_maintenance_log(row: dict) -> dict:
 async def list_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    machine_id: Optional[str] = Query(None, description="Filter by machine ID"),
-    status: Optional[str] = Query(None, description="Scheduled | In Progress | Completed | Cancelled | Delayed"),
-    maintenance_type: Optional[str] = Query(None, description="Preventive | Corrective | Predictive | Inspection"),
-    severity: Optional[str] = Query(None, description="Low | Medium | High | Critical"),
+    machine_id: str | None = Query(None, description="Filter by machine ID"),
+    status: str | None = Query(None, description="Scheduled | In Progress | Completed | Cancelled | Delayed"),
+    maintenance_type: str | None = Query(None, description="Preventive | Corrective | Predictive | Inspection"),
+    severity: str | None = Query(None, description="Low | Medium | High | Critical"),
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-maintenance")),
 ):
@@ -114,24 +126,27 @@ async def list_logs(
     logs = [_influx_to_maintenance_log(row) for row in rows]
 
     # Enrich with expected_completion from linked work orders
-    wo_ids = list({l.get("work_order_id") for l in logs if l.get("work_order_id")})
+    wo_ids = list({log.get("work_order_id") for log in logs if log.get("work_order_id")})
     if wo_ids:
         wos = await db["work_orders"].find({"work_order_id": {"$in": wo_ids}}).to_list(100)
         wo_map = {wo["work_order_id"]: wo for wo in wos}
         for log in logs:
             wo = wo_map.get(log.get("work_order_id"))
             if wo and wo.get("expected_completion"):
-                log["next_due_date"] = wo["expected_completion"].strftime("%Y-%m-%d") if hasattr(wo["expected_completion"], "strftime") else str(wo["expected_completion"])[:10]
+                expected = wo["expected_completion"]
+                log["next_due_date"] = (
+                    expected.strftime("%Y-%m-%d") if hasattr(expected, "strftime") else str(expected)[:10]
+                )
 
     # Apply filters
     if machine_id:
-        logs = [l for l in logs if l.get("machine_id") == machine_id]
+        logs = [log for log in logs if log.get("machine_id") == machine_id]
     if status:
-        logs = [l for l in logs if l.get("status") == status]
+        logs = [log for log in logs if log.get("status") == status]
     if maintenance_type:
-        logs = [l for l in logs if l.get("maintenance_type") == maintenance_type]
+        logs = [log for log in logs if log.get("maintenance_type") == maintenance_type]
     if severity:
-        logs = [l for l in logs if l.get("severity") == severity]
+        logs = [log for log in logs if log.get("severity") == severity]
     total = len(logs)
     start = (page - 1) * page_size
     page_logs = logs[start:start + page_size]
@@ -164,7 +179,7 @@ async def list_logs_by_equipment(
 
 @router.get("/open", response_model=list[MaintenanceLogResponse])
 async def list_open_logs(
-    machine_id: Optional[str] = Query(None, description="Optionally scope to a specific machine"),
+    machine_id: str | None = Query(None, description="Optionally scope to a specific machine"),
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-maintenance")),
 ):

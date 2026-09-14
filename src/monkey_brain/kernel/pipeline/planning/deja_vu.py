@@ -84,16 +84,16 @@ def replay_affected_actors(pr: Any, touched_entity_ids: set[str]) -> list[str]:
     if not touched_entity_ids:
         return []
 
+    from src.monkey_brain.kernel.pipeline.belief_state import Goal
+    from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
     from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
         CurrentPlanRecord,
         load_current_plan,
-        save_current_plan,
         plan_to_dict,
+        save_current_plan,
     )
-    from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
-    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import score_plan, decide
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
-    from src.monkey_brain.kernel.pipeline.belief_state import Goal
+    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import decide, score_plan
 
     engine = getattr(pr, "context_engine", None)
     if engine is None:

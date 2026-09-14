@@ -26,6 +26,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -312,7 +313,8 @@ def start_service(svc: DBService) -> None:
             log = LOG_DIR / "influxdb.log"
             pid_file = PID_DIR / "influxdb.pid"
             cmd = ["influxd3", "serve", "--data-dir", str(influx_data), "--http-bind", f":{svc.default_port}"]
-            proc = subprocess.Popen(cmd, stdout=open(log, "w"), stderr=subprocess.STDOUT)
+            with open(log, "w") as log_f:
+                proc = subprocess.Popen(cmd, stdout=log_f, stderr=subprocess.STDOUT)
             pid_file.write_text(str(proc.pid))
             C.info(f"Started InfluxDB (PID {proc.pid})")
             return
@@ -449,7 +451,7 @@ def step_install_services(args: argparse.Namespace) -> None:
                 C.info(f"  Skipping optional service {svc.name}")
                 continue
             C.fail(f"  Required service {svc.name} is not running")
-            C.info(f"  Install it manually or re-run with --auto-install")
+            C.info("  Install it manually or re-run with --auto-install")
             continue
 
         try:
@@ -515,14 +517,14 @@ def step_create_config(args: argparse.Namespace) -> None:
         f"NEO4J_USER={args.neo4j_user}",
         f"NEO4J_PASSWORD={args.neo4j_password}",
         f"NATS_URL={nats_url}",
-        f"NATS_EVENTS_SUBJECT=indus.websocket.events",
-        f"NATS_EVENTS_QUEUE=indus-influx-consumers",
+        "NATS_EVENTS_SUBJECT=indus.websocket.events",
+        "NATS_EVENTS_QUEUE=indus-influx-consumers",
         f"INFLUXDB_URL={influx_url}",
         f"INFLUXDB_ORG={args.influxdb_org}",
         f"INFLUXDB_BUCKET={args.influxdb_bucket}",
         f"INFLUXDB_TOKEN={args.influxdb_token}",
         f"AUDIT_ELASTICSEARCH_URL={es_url}",
-        f"MQTT_ENABLED=false",
+        "MQTT_ENABLED=false",
     ]
     env_path = INSTALL_DIR / ".env"
     env_path.write_text("\n".join(env_lines) + "\n")
@@ -633,7 +635,7 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     print(f"\n{C.B}{C.G}  MonkeyBrain installed successfully!{C.R}\n")
     print(f"  Start:     {BIN_DIR}/monkeybrain")
-    print(f"  Status:    python install_agentos.py status")
+    print("  Status:    python install_agentos.py status")
     print(f"  Config:    {CONFIG_DIR / 'config.json'}")
     print(f"  Secrets:   {SECRET_FILE}")
     print(f"  Logs:      {LOG_DIR}")
@@ -757,7 +759,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"\n  {C.G}All required services running{C.R}")
     else:
         print(f"\n  {C.Y}Some required services are stopped{C.R}")
-        print(f"  Run: python install_agentos.py start --auto-install")
+        print("  Run: python install_agentos.py start --auto-install")
 
     return 0
 
@@ -800,17 +802,15 @@ def cmd_logs(args: argparse.Namespace) -> int:
         C.warn("No log files found")
         return 0
     C.info(f"Tailing {log_files[0]}")
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         subprocess.run(["tail", "-f", str(log_files[0])])
-    except KeyboardInterrupt:
-        pass
     return 0
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
     """Call /plan API and display the execution graph."""
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     url = f"http://localhost:{args.port}/api/v1/agentos/plan"
     payload = json.dumps(
@@ -892,8 +892,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
 def cmd_act(args: argparse.Namespace) -> int:
     """Plan and execute a question end-to-end via the API."""
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     base_url = f"http://localhost:{args.port}"
 
@@ -972,8 +972,8 @@ def cmd_discover(args: argparse.Namespace) -> int:
     --observe  Show Lemon observability traces after operation
     --log      Show server logs after operation
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     base_url = f"http://localhost:{args.port}"
 
@@ -1089,7 +1089,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
         order = graph.get("execution_order", [])
         print(f"  Nodes: {len(nodes)}")
         print(f"  Edges: {len(edges)}")
-        print(f"  Execution Order:")
+        print("  Execution Order:")
         id_to_name = {n.get("node_id", ""): n.get("agent", "") for n in nodes}
         for i, batch in enumerate(order):
             if isinstance(batch, list):
@@ -1107,7 +1107,7 @@ def cmd_discover(args: argparse.Namespace) -> int:
             ts_short = ts[11:19] if len(ts) > 19 else ts
             print(f"  {ts_short}  {m.get('runtime', ''):12}  {m.get('operation', '')}")
         if not mutations:
-            print(f"  (none)")
+            print("  (none)")
         print()
 
         # ── Health ──
@@ -1662,8 +1662,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def cmd_knowledge_export(args: argparse.Namespace) -> int:
     """Export knowledge from the runtime to a JSON file."""
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     url = f"http://localhost:{args.port}/api/v1/agentos/knowledge/export"
     payload = json.dumps({}).encode("utf-8")
@@ -1711,12 +1711,12 @@ def cmd_knowledge_export(args: argparse.Namespace) -> int:
 
 def cmd_knowledge_import(args: argparse.Namespace) -> int:
     """Import a knowledge bundle from a JSON file into the runtime."""
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     # Read bundle from file
     try:
-        with open(args.file, "r") as f:
+        with open(args.file) as f:
             bundle = json.load(f)
     except FileNotFoundError:
         C.fail(f"File not found: {args.file}")
@@ -1779,8 +1779,8 @@ def cmd_knowledge_import(args: argparse.Namespace) -> int:
 
 def cmd_knowledge_version(args: argparse.Namespace) -> int:
     """Check the knowledge schema version."""
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     url = f"http://localhost:{args.port}/api/v1/agentos/knowledge/version"
 

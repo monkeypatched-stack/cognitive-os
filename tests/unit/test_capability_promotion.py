@@ -6,9 +6,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-
 from src.monkey_brain.kernel.domains.commerce import CommerceCapabilityBus
-from src.monkey_brain.kernel.pipeline.belief_state import Plan, PlanStep
+from src.monkey_brain.kernel.pipeline.belief_state import PlanStep
 from src.monkey_brain.kernel.pipeline.learning.capability_promotion import (
     CapabilityPromotionTracker,
     FrozenPlanStep,
@@ -250,6 +249,7 @@ class TestOperatorActivation:
     def test_learning_path_does_not_activate(self):
         """integrated_compile_phi observes only — never activates."""
         import inspect
+
         from src.monkey_brain.kernel.pipeline.learning import integration as learning_integration
 
         source = inspect.getsource(learning_integration.LearningIntegratedPolicy.configure)

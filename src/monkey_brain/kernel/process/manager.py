@@ -30,32 +30,32 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Callable, Literal
+from collections.abc import Callable
+from typing import Any, Literal
 
 from src.monkey_brain.kernel.execute.context import ExecutionContext
 from src.monkey_brain.kernel.execute.graph import ExecutionGraph, NodeState
 from src.monkey_brain.kernel.fix.scheduler.graph_scheduler import GraphScheduler
 from src.monkey_brain.kernel.fix.self_healing.workload import SelfHealingPolicy
-
-from src.monkey_brain.kernel.process.models import (
-    RuntimeProcessControlBlock,
-    RuntimeProcessState,
-    VALID_TRANSITIONS,
-    ApprovalGateState,
-    ProcessError,
-    ProcessResourceLimits,
-    CheckpointRef,
-    InvalidTransitionError,
-    ProcessNotFoundError,
-)
 from src.monkey_brain.kernel.process.checkpoint import (
-    CheckpointStore,
     CheckpointOpsMixin,
+    CheckpointStore,
     build_checkpoint,
 )
-from src.monkey_brain.kernel.process.compensation import compensate as run_compensation
 from src.monkey_brain.kernel.process.compensation import CompensationRegistry, get_compensation_registry
+from src.monkey_brain.kernel.process.compensation import compensate as run_compensation
 from src.monkey_brain.kernel.process.expansion_policy import _TrackingExpansionPolicy
+from src.monkey_brain.kernel.process.models import (
+    VALID_TRANSITIONS,
+    ApprovalGateState,
+    CheckpointRef,
+    InvalidTransitionError,
+    ProcessError,
+    ProcessNotFoundError,
+    ProcessResourceLimits,
+    RuntimeProcessControlBlock,
+    RuntimeProcessState,
+)
 
 logger = logging.getLogger("agentos.process.manager")
 
@@ -314,7 +314,8 @@ class ProcessManager(CheckpointOpsMixin):
         target="simulate" explicitly is the dry-run path (substitutes the
         world-model simulator for real capabilities).
         """
-        from src.monkey_brain.kernel.plan.goals.run_store import get_run_store, replay as _replay
+        from src.monkey_brain.kernel.plan.goals.run_store import get_run_store
+        from src.monkey_brain.kernel.plan.goals.run_store import replay as _replay
 
         store = get_run_store()
         original_target = store.get_target(run_id)

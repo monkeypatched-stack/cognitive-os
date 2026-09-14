@@ -10,14 +10,14 @@ import typer
 
 from cortex.engineering_report import EngineeringReport
 from repl._helpers import (
+    _auth_headers,
     _brain_get,
     _brain_post,
     _brain_url,
-    _auth_headers,
-    _run_cingulate_review,
     _broca,
-    _payload,
     _observations,
+    _payload,
+    _run_cingulate_review,
 )
 
 logger = logging.getLogger("monkeypatched")
@@ -72,7 +72,7 @@ def soma_compile(
             compiler.load_path(src_path)
         except FileNotFoundError as e:
             typer.echo(f"Error: {e}", err=True)
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
     else:
         compiler.load_all()
 
@@ -105,7 +105,7 @@ def soma_compile(
         }
         typer.echo(json.dumps(data, indent=2))
     else:
-        typer.echo(f"\nSomatic compilation complete")
+        typer.echo("\nSomatic compilation complete")
         typer.echo(
             f"  Charts loaded  : {summary['total_charts']}  "
             f"(module={summary['by_type']['module']}  "
@@ -156,6 +156,7 @@ def soma_compile(
         typer.echo("Indexing to Elasticsearch...")
         try:
             import asyncio
+
             from src.monkey_brain.kernel.semantic_memory import SemanticMemory
 
             sm = SemanticMemory()
@@ -399,7 +400,8 @@ def soma_codegen(
     written = p.get("files", [])
 
     if fmt == "zip" and generated:
-        import io, zipfile
+        import io
+        import zipfile
 
         svc_dir = out_base / svc_slug
         buf = io.BytesIO()
@@ -438,6 +440,7 @@ def soma_codegen(
         else:
             try:
                 import anthropic as _anthropic
+
                 from sittingface.codegen_agent import CodeGenAgent as _CGA
 
                 # Collect written .py files (largest first — most likely to have issues)
@@ -821,7 +824,7 @@ def soma_comply(
         system_attributes = _load_json(attributes)
     except Exception as e:
         typer.echo(f"Failed to parse JSON: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     context = {
         "data_signals": data_signals,
@@ -1653,7 +1656,7 @@ def soma_test_service(
     else:
         sa = p.get("static_analysis", {})
         ut = p.get("unit_tests", {})
-        typer.echo(f"\n── Final results ────────────────────────────────────────────")
+        typer.echo("\n── Final results ────────────────────────────────────────────")
         typer.echo(f"Static analysis: {'clean' if sa.get('clean') else 'issues'}")
         if not sa.get("clean"):
             typer.echo(sa.get("output", "")[-400:])
@@ -1831,6 +1834,7 @@ def soma_run(
     import asyncio as _asyncio
     import datetime as _dt
     import json as _json
+
     import yaml as _yaml
 
     svc = service.lower().replace(" ", "-").replace("_", "-")
@@ -2169,8 +2173,8 @@ def soma_discover(
     def _cache_provider_agent(agent_name: str, provider_agent: dict, provider: str) -> None:
         """Cache a provider-discovered agent in the local Broca registry."""
         try:
-            from broca.registry import get_registry
             from broca.agents.provider_proxy import ProviderProxyAgent
+            from broca.registry import get_registry
 
             registry = get_registry()
             agent_info = {
@@ -2341,7 +2345,8 @@ def soma_discover(
         result = None
         converged = False
         outer_epochs_run = 0
-        for outer_epochs_run in range(1, max_epochs + 1):
+        while outer_epochs_run < max_epochs:
+            outer_epochs_run += 1
             result = _learn_fn()
             if not result:
                 break
@@ -2358,7 +2363,8 @@ def soma_discover(
             typer.echo(f"  Elapsed: {result.get('elapsed_ms', 0):.0f}ms")
             for entry in result.get("results", []):
                 typer.echo(
-                    f"    batch={entry['batch']} epoch={entry['epoch']} perplexity={entry['perplexity']:.4f} q={entry['q_value']:.4f}"
+                    f"    batch={entry['batch']} epoch={entry['epoch']} "
+                    f"perplexity={entry['perplexity']:.4f} q={entry['q_value']:.4f}"
                 )
             if converged:
                 typer.echo(f"  Converged after {outer_epochs_run}/{max_epochs} epoch(s) (perplexity <= {convergence})")
@@ -2419,8 +2425,8 @@ def soma_discover(
             run_sdlc_pipeline(intent)
         except Exception as e:
             typer.echo(f"  SDLC pipeline failed: {e}", err=True)
-            raise typer.Exit(1)
-        typer.echo(f"  ✓ Pipeline complete")
+            raise typer.Exit(1) from e
+        typer.echo("  ✓ Pipeline complete")
 
     # ── LOGS (--log) — always last, after every phase has rendered ────────
     if log:
@@ -2449,4 +2455,7 @@ def soma_discover(
 def _hash_intent(intent: str) -> str:
     import hashlib
 
-    return hashlib.md5(intent.encode()).hexdigest()[:12]
+    # Fingerprint only (short id for a log/cache key), not a security or
+    # integrity check -- usedforsecurity=False documents that and silences
+    # bandit's weak-hash warning (B324) without switching to a slower hash.
+    return hashlib.md5(intent.encode(), usedforsecurity=False).hexdigest()[:12]

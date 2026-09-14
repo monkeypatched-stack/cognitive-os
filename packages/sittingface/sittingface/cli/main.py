@@ -90,7 +90,7 @@ def publish(
         except Exception as e:
             console.print(f"[red]Failed to publish: {e}[/red]")
             console.print("Is the registry server running? Start with: sittingface serve")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
 
 @app.command()
@@ -180,7 +180,7 @@ def pull(
             console.print(f"[red]Not found: {chart} v{version}[/red]")
     except Exception as e:
         console.print(f"[red]Failed to pull: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command("list")
@@ -201,7 +201,7 @@ def list_charts(
         _print_chart_table(charts, f"Online Registry ({REGISTRY_URL})")
     except Exception as e:
         console.print(f"[red]Failed to connect: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def _print_chart_table(charts: list, title: str):
@@ -280,7 +280,7 @@ def info(
         _print_info(details)
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def _print_info(d: dict):
@@ -314,7 +314,7 @@ def remove(
         console.print(f"[green]Removed {name} from {REGISTRY_URL}[/green]")
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -355,7 +355,7 @@ def stats(
             console.print(f"  Tags: {', '.join(s['tags'])}")
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -526,7 +526,7 @@ def blame(
 
     chart_changes = {}
     for c in commits:
-        for name, checksum in c.get("charts", {}).items():
+        for name, _checksum in c.get("charts", {}).items():
             if name not in chart_changes:
                 chart_changes[name] = {"author": c["author"], "date": c["timestamp"][:10], "commit": c["commit_id"]}
 
@@ -744,6 +744,7 @@ def vault_lock(
 ) -> None:
     """Encrypt generated code with password protection."""
     import getpass
+
     from sittingface.vault import CodeVault
 
     if not password:
@@ -786,6 +787,7 @@ def vault_unlock(
 ) -> None:
     """Decrypt generated code."""
     import getpass
+
     from sittingface.vault import CodeVault
 
     if not password:
@@ -808,9 +810,9 @@ def vault_unlock(
     try:
         result = vault.decrypt_directory(vault_dir, password)
         console.print(f"[green]Code unlocked → {result}[/green]")
-    except Exception:
+    except Exception as e:
         console.print("[red]Decryption failed: wrong password?[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command()
@@ -819,6 +821,7 @@ def vault_check(
 ) -> None:
     """Verify a password against the vault."""
     import getpass
+
     from sittingface.vault import CodeVault
 
     if not password:

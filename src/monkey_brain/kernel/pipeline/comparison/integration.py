@@ -43,12 +43,12 @@ from typing import Any
 from src.monkey_brain.kernel.pipeline.cognitive_policy import StageFn
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.learning.domain import LearningPolicy
+from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption
 from src.monkey_brain.kernel.pipeline.prediction.integration import (
     PredictionIntegratedPolicy,
 )
-from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
-from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption
 from src.monkey_brain.kernel.pipeline.prediction.scenarios import DEFAULT_REJECTION_THRESHOLD
+from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
 
 logger = logging.getLogger("agentos.pipeline.comparison_integration")
 
@@ -202,8 +202,8 @@ class ComparisonIntegratedPolicy(PredictionIntegratedPolicy):
         # call site passes self._generate_plan/self._execute_plan), so
         # `.__self__` recovers that instance without changing configure()'s
         # signature (shared across all CognitivePolicy subclasses).
-        from src.monkey_brain.kernel.cognitive_os.reasoning_runtime import ReasoningRuntime
         from src.monkey_brain.kernel.cognitive_os.execution_runtime import ExecutionRuntime
+        from src.monkey_brain.kernel.cognitive_os.reasoning_runtime import ReasoningRuntime
 
         runtime_ref = getattr(plan, "__self__", None)
 
@@ -430,15 +430,15 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
     """
     import os
 
-    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import score_plan, decide
     from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
         CurrentPlanRecord,
-        plan_to_dict,
-        plan_from_dict,
-        save_current_plan,
         load_current_plan,
+        plan_from_dict,
+        plan_to_dict,
+        save_current_plan,
     )
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
+    from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import decide, score_plan
 
     # Real gap this closes: Plan.goal only ever carries resolved_goal.name
     # (llm_planner.py) -- the one-off triggering text (e.g. "buy 1 dozen
@@ -595,7 +595,9 @@ async def _run_decide(state: CognitiveState, policy: Any, repredict: Any = None)
         new_score, components = 0.0, {}
         verdict = HysteresisVerdict(
             action="keep",
-            reason="Empty plan generated — nothing to decide; the existing Current Plan for this goal (if any) is reused.",
+            reason=(
+                "Empty plan generated — nothing to decide; the existing Current Plan for this goal (if any) is reused."
+            ),
             new_score=0.0,
             current_score=(current.score if current else None),
             percent_improvement=None,
@@ -761,8 +763,8 @@ def _learn_transitions(
     for TransitionModel (a real, non-None per-node actual_success); never
     updated from raw execution/HTTP state.
     """
-    from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
+    from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
 
     # Start from the policy's accumulated model, not state (fresh each tick)
     current_model = policy_transition_model or TransitionModel()
