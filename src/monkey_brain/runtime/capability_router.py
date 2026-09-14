@@ -8,6 +8,7 @@ Examples:
 - blog.write → content_generation
 - document.summarize → document_processing
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ logger = logging.getLogger("agentos.capability_router")
 @dataclass
 class CapabilityRoute:
     """A route from capability to capability group."""
+
     capability: str
     group: str
     metadata: dict = None
@@ -36,29 +38,22 @@ CAPABILITY_GROUPS: dict[str, str] = {
     "task.update": "task_management",
     "task.delete": "task_management",
     "task.list": "task_management",
-
     # blog.* → content_generation
     "blog.write": "content_generation",
     "blog.edit": "content_generation",
-
     # document.* → document_processing
     "document.summarize": "document_processing",
     "document.translate": "document_processing",
-
     # email.* → communication
     "email.send": "communication",
-
     # calendar.* → scheduling
     "calendar.schedule": "scheduling",
-
     # travel.* → travel_booking
     "travel.hotel_book": "travel_booking",
     "travel.hotel_search": "travel_booking",
-
     # robot.* → robotics
     "robot.move": "robotics",
     "robot.inspect": "robotics",
-
     # knowledge.* → knowledge_management
     "knowledge.search": "knowledge_management",
 }

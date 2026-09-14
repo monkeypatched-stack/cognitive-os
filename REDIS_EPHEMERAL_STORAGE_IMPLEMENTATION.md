@@ -65,12 +65,14 @@ def rebuild_from_mongodb(self) -> RedisReconstructionResult:
     # 2. For each actor, rebuild Redis entry (skip if recent)
     # 3. Return statistics
 
+
 def verify_consistency(self) -> ConsistencyCheckResult:
     """Verify Redis ↔ MongoDB consistency"""
     # 1. Get all actors from MongoDB
     # 2. Get all actors from Redis
     # 3. Compare, identify gaps/stale entries
     # 4. Return findings
+
 
 def repair_from_consistency_check(consistency) -> RedisReconstructionResult:
     """Fix issues identified by consistency check"""
@@ -94,6 +96,7 @@ def repair_from_consistency_check(consistency) -> RedisReconstructionResult:
 from src.monkey_brain.kernel.society.redis_index_reconstruction import (
     RedisIndexReconstructor,
 )
+
 self._redis_reconstructor = RedisIndexReconstructor(self)
 
 # Verify and repair consistency at boot
@@ -110,6 +113,7 @@ if consistency.has_fixable_issues():
 def rebuild_redis_index_from_mongodb(self) -> RedisReconstructionResult:
     """Manually trigger rebuild from MongoDB"""
     return self._redis_reconstructor.rebuild_from_mongodb()
+
 
 def verify_redis_mongodb_consistency(self) -> ConsistencyCheckResult:
     """Check consistency between Redis and MongoDB"""
@@ -312,23 +316,30 @@ HSET monkeybrain:actors:hash alice {
 ```python
 # tests/test_redis_index_reconstruction.py
 
+
 def test_rebuild_from_mongodb_basic():
     """Populate Redis from MongoDB"""
+
 
 def test_rebuild_idempotent():
     """Running twice produces same result"""
 
+
 def test_consistency_check_detects_missing():
     """Identifies actors in MongoDB but missing Redis"""
+
 
 def test_repair_from_consistency_check():
     """Repairs issues found by consistency check"""
 
+
 def test_redis_unavailable():
     """Gracefully degrades when Redis down"""
 
+
 def test_mongodb_unavailable():
     """Gracefully degrades when MongoDB down"""
+
 
 def test_corrupted_redis_entries():
     """Rebuilds corrupted entries"""

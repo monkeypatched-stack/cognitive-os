@@ -18,7 +18,9 @@ class GxpRiskAssessment(BaseModel):
     initiated_by: str = Field(..., min_length=1)
     risk_category: Optional[str] = None
     severity: Literal["Low", "Medium", "High", "Critical"] = "Medium"
-    likelihood: Literal["Rare", "Unlikely", "Possible", "Likely", "Almost Certain"] = "Possible"
+    likelihood: Literal["Rare", "Unlikely", "Possible", "Likely", "Almost Certain"] = (
+        "Possible"
+    )
     risk_score: Optional[int] = None
     mitigation_actions: list[dict] = Field(default_factory=list)
     residual_risk: Optional[str] = None

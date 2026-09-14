@@ -11,17 +11,27 @@ must reflect every candidate's actual score, not just the winner's — an
 earlier version passed the pre-scoring candidate list into the trace,
 leaving every candidate looking "unscored" even though scoring had run.
 """
+
 from __future__ import annotations
 
 import json
 
-from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Goal as BeliefGoal, Plan
+from src.monkey_brain.kernel.pipeline.belief_state import (
+    BeliefState,
+    Goal as BeliefGoal,
+    Plan,
+)
 from src.monkey_brain.kernel.pipeline.planning.domain import Goal, PlanCandidate
 from src.monkey_brain.kernel.pipeline.planning.decomposition import GoalDecomposer
 from src.monkey_brain.kernel.pipeline.planning.candidates import CandidateGenerator
 from src.monkey_brain.kernel.pipeline.planning.scoring import PlanScorer
-from src.monkey_brain.kernel.pipeline.planning.trace import PlanningTrace, build_planning_trace
-from src.monkey_brain.kernel.pipeline.planning.integration import IntegratedPlanningEngine
+from src.monkey_brain.kernel.pipeline.planning.trace import (
+    PlanningTrace,
+    build_planning_trace,
+)
+from src.monkey_brain.kernel.pipeline.planning.integration import (
+    IntegratedPlanningEngine,
+)
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningConstraint
 
 
@@ -35,6 +45,7 @@ def _acquire_milk_scored_candidates() -> tuple[Goal, tuple[PlanCandidate, ...]]:
 # ═══════════════════════════════════════════════════════════════════════════
 # build_planning_trace — aggregation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBuildPlanningTrace:
     def test_all_candidates_recorded(self):
@@ -60,8 +71,11 @@ class TestBuildPlanningTrace:
     def test_rejected_plans_is_the_rejected_subset(self):
         goal, scored = _acquire_milk_scored_candidates()
         rejected_one = scored[0].__class__(
-            candidate_id=scored[0].candidate_id, plan=scored[0].plan,
-            score=scored[0].score, rejected=True, rejection_reason="too expensive",
+            candidate_id=scored[0].candidate_id,
+            plan=scored[0].plan,
+            score=scored[0].score,
+            rejected=True,
+            rejection_reason="too expensive",
         )
         candidates = (rejected_one,) + scored[1:]
 
@@ -79,7 +93,13 @@ class TestBuildPlanningTrace:
     def test_all_rejected_produces_none_selected_plan(self):
         goal, scored = _acquire_milk_scored_candidates()
         all_rejected = tuple(
-            c.__class__(candidate_id=c.candidate_id, plan=c.plan, score=c.score, rejected=True, rejection_reason="x")
+            c.__class__(
+                candidate_id=c.candidate_id,
+                plan=c.plan,
+                score=c.score,
+                rejected=True,
+                rejection_reason="x",
+            )
             for c in scored
         )
         trace = build_planning_trace(goal, None, all_rejected, None)
@@ -95,6 +115,7 @@ class TestBuildPlanningTrace:
 # ═══════════════════════════════════════════════════════════════════════════
 # .explain() — the Goal -> Decompose -> ... -> Select narrative
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExplain:
     def test_matches_acceptance_example_structure(self):
@@ -127,8 +148,11 @@ class TestExplain:
     def test_rejected_candidates_marked_with_x(self):
         goal, scored = _acquire_milk_scored_candidates()
         rejected_first = scored[0].__class__(
-            candidate_id=scored[0].candidate_id, plan=scored[0].plan,
-            score=scored[0].score, rejected=True, rejection_reason="over budget",
+            candidate_id=scored[0].candidate_id,
+            plan=scored[0].plan,
+            score=scored[0].score,
+            rejected=True,
+            rejection_reason="over budget",
         )
         candidates = (rejected_first,) + scored[1:]
         narrative = build_planning_trace(goal, None, candidates, scored[1]).explain()
@@ -146,6 +170,7 @@ class TestExplain:
 # ═══════════════════════════════════════════════════════════════════════════
 # .to_dict() — serializability
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestToDict:
     def test_json_serializable(self):
@@ -176,6 +201,7 @@ class TestToDict:
 # IntegratedPlanningEngine — trace attachment
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestIntegratedPlanningEngineTraceAttachment:
     def test_plan_with_trace_returns_both(self):
         engine = IntegratedPlanningEngine()
@@ -204,9 +230,9 @@ class TestIntegratedPlanningEngineTraceAttachment:
         assert "planning_trace" in plan.metadata
 
     def test_rejection_path_trace_shows_rejected_candidates(self):
-        engine = IntegratedPlanningEngine(default_constraints=(
-            PlanningConstraint(kind="budget", parameters={"max_cost": 0.3}, hard=True),
-        ))
+        engine = IntegratedPlanningEngine(
+            default_constraints=(PlanningConstraint(kind="budget", parameters={"max_cost": 0.3}, hard=True),)
+        )
         belief = BeliefState(actor_id="alice")
         plan, trace = engine.plan_with_trace(belief, BeliefGoal(name="acquire_milk"))
 

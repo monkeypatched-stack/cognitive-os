@@ -13,6 +13,7 @@ convention tests/unit/test_communication_verification.py and
 tests/security/test_runtime_approval_gate_wiring.py use for the same
 reason (no message broker / SPIRE deployment assumed in CI).
 """
+
 from __future__ import annotations
 
 import json
@@ -83,7 +84,11 @@ class TestWorkloadIdentityValidation:
 
     def test_rejects_unknown_source(self):
         with pytest.raises(WorkloadIdentityError):
-            WorkloadIdentity(spiffe_id="spiffe://cognitiveos.local/agent/a", trust_domain="cognitiveos.local", source="message")
+            WorkloadIdentity(
+                spiffe_id="spiffe://cognitiveos.local/agent/a",
+                trust_domain="cognitiveos.local",
+                source="message",
+            )
 
     def test_spire_source_is_cryptographically_verified(self):
         identity = make_identity("spiffe://cognitiveos.local/agent/a", source="spire")
@@ -138,13 +143,15 @@ class TestMessageSenderCannotAssertIdentity:
     context -- MESSAGE_SENDER_CANNOT_ASSERT_IDENTITY."""
 
     def test_strip_drops_spiffe_claims_from_agent_content(self):
-        cleaned = strip_untrusted_security_signals({
-            "spiffe_id": "spiffe://cognitiveos.local/agent/root",
-            "spiffe_verified": True,
-            "sender_spiffe_id": "spiffe://cognitiveos.local/agent/root",
-            "recipient_spiffe_id": "spiffe://cognitiveos.local/agent/victim",
-            "question": "buy milk",
-        })
+        cleaned = strip_untrusted_security_signals(
+            {
+                "spiffe_id": "spiffe://cognitiveos.local/agent/root",
+                "spiffe_verified": True,
+                "sender_spiffe_id": "spiffe://cognitiveos.local/agent/root",
+                "recipient_spiffe_id": "spiffe://cognitiveos.local/agent/victim",
+                "question": "buy milk",
+            }
+        )
         assert "spiffe_id" not in cleaned
         assert "spiffe_verified" not in cleaned
         assert "sender_spiffe_id" not in cleaned
@@ -158,7 +165,10 @@ class TestMessageSenderCannotAssertIdentity:
         opa_input = build_opa_input(
             action="capability.AskActor",
             resource="agent-b",
-            extra={"spiffe_id": "spiffe://cognitiveos.local/agent/forged", "question": "hi"},
+            extra={
+                "spiffe_id": "spiffe://cognitiveos.local/agent/forged",
+                "question": "hi",
+            },
         )
         assert opa_input["auth"]["spiffe_id"] == ""  # from the REAL (unauthenticated) evidence, not extra
         assert "spiffe_id" not in opa_input["context"]
@@ -274,7 +284,13 @@ class TestCommunicationBoundaryEnforcement:
         pr = _FakePR()
         await subscribe_actor_inbox(pr, "real-actor-b", "Actor B")
 
-        msg = _FakeMsg({"msg_type": "broadcast", "message": "hi", "from_actor_id": "agent-c-impersonating"})
+        msg = _FakeMsg(
+            {
+                "msg_type": "broadcast",
+                "message": "hi",
+                "from_actor_id": "agent-c-impersonating",
+            }
+        )
         await pr._nats_client.callback(msg)
 
         evidence = get_trusted_auth()
@@ -328,13 +344,16 @@ class TestCommunicationBoundaryEnforcement:
             async def get_current_identity(self):
                 return WorkloadIdentity(
                     spiffe_id="spiffe://cognitiveos.local/agent/real-actor-b",
-                    trust_domain="cognitiveos.local", source="spire",
+                    trust_domain="cognitiveos.local",
+                    source="spire",
                 )
 
         monkeypatch.setattr(wi_module, "get_workload_identity_provider", lambda: _FakeProvider())
         monkeypatch.delenv("COGNITIVEOS_REQUIRE_SPIFFE_AGENT_IDENTITY", raising=False)
 
-        from src.monkey_brain.kernel.domains.grocery import subscribe_actor_inbox as sub2
+        from src.monkey_brain.kernel.domains.grocery import (
+            subscribe_actor_inbox as sub2,
+        )
 
         class _FakePR:
             _nats_client = _FakeNatsClient()
@@ -374,7 +393,14 @@ class TestSpiffeIdentityDoesNotImplyAuthorization:
 
     def test_workload_identity_has_no_authorization_method(self):
         identity = make_identity("spiffe://cognitiveos.local/agent/lending-decision")
-        for forbidden in ("is_allowed", "can_execute", "authorize", "permissions", "capabilities", "scopes"):
+        for forbidden in (
+            "is_allowed",
+            "can_execute",
+            "authorize",
+            "permissions",
+            "capabilities",
+            "scopes",
+        ):
             assert not hasattr(identity, forbidden), f"WorkloadIdentity must never carry {forbidden!r}"
 
     def test_provider_has_no_authorization_method(self):

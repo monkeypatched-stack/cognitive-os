@@ -3,6 +3,7 @@
 This policy learns when to retrieve knowledge based on past outcomes.
 It's different from the fixed RetrievalPolicy in fix/policy/retrieval.py.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,6 +13,7 @@ from typing import Any
 @dataclass
 class RetrievalDecision:
     """Outcome of a retrieval decision."""
+
     should_retrieve: bool = False
     expected_information_gain: float = 0.0
     retrieval_cost: float = 0.0
@@ -62,15 +64,12 @@ class RLRetrievalPolicy:
         # Estimate expected information gain
         # Simple heuristic: gain is proportional to current loss and number of candidates
         expected_info_gain = min(1.0, current_simulation_loss * len(candidates) * 0.1)
-        
+
         # Net benefit calculation
         net_benefit = expected_info_gain - retrieval_cost
 
         # Decision
-        should_retrieve = (
-            net_benefit >= self.min_net_benefit and
-            expected_info_gain >= self.min_information_gain
-        )
+        should_retrieve = net_benefit >= self.min_net_benefit and expected_info_gain >= self.min_information_gain
 
         # Update statistics
         if should_retrieve:
@@ -88,12 +87,11 @@ class RLRetrievalPolicy:
                 reason = f"net benefit {net_benefit:.3f} < min {self.min_net_benefit}"
         else:
             reason = (
-                f"gain={expected_info_gain:.3f} cost={retrieval_cost:.3f} "
-                f"net={net_benefit:.3f} items={len(candidates)}"
+                f"gain={expected_info_gain:.3f} cost={retrieval_cost:.3f} net={net_benefit:.3f} items={len(candidates)}"
             )
 
         # Select top candidates (simple selection for RL policy)
-        items_to_retrieve = [str(i) for i in candidates[:self.max_items_per_retrieval]]
+        items_to_retrieve = [str(i) for i in candidates[: self.max_items_per_retrieval]]
 
         return RetrievalDecision(
             should_retrieve=should_retrieve,

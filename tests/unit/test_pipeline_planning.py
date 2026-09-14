@@ -2,6 +2,7 @@
 
 Validates planning engine, plan model, plan validation, and runtime integration.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -11,14 +12,24 @@ from unittest.mock import MagicMock
 import json
 
 from src.monkey_brain.kernel.pipeline.contracts import (
-    PipelineRequest, CompiledRequest, RuntimeContext,
+    PipelineRequest,
+    CompiledRequest,
+    RuntimeContext,
 )
 from src.monkey_brain.kernel.pipeline.belief_state import (
-    BeliefState, Goal, Plan, PlanStep, PlanEvaluation, Fact,
+    BeliefState,
+    Goal,
+    Plan,
+    PlanStep,
+    PlanEvaluation,
+    Fact,
 )
 from src.monkey_brain.kernel.pipeline.planner import PlanningEngine
 from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
-from src.monkey_brain.kernel.pipeline.plan_validator import PlanValidator, ValidationResult
+from src.monkey_brain.kernel.pipeline.plan_validator import (
+    PlanValidator,
+    ValidationResult,
+)
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.actor import Actor
 
@@ -34,20 +45,28 @@ class _FakeBackend:
 
 
 def _canned_plan(goal_name: str, n_steps: int = 1, confidence: float = 0.8) -> str:
-    return json.dumps({
-        "steps": [
-            {"action": f"{goal_name}_step_{i}", "description": f"Step {i} toward {goal_name}",
-             "expected_outcome": goal_name, "cost": 0.1, "confidence": confidence}
-            for i in range(n_steps)
-        ],
-        "summary": f"Plan to achieve {goal_name}",
-        "confidence": confidence,
-    })
+    return json.dumps(
+        {
+            "steps": [
+                {
+                    "action": f"{goal_name}_step_{i}",
+                    "description": f"Step {i} toward {goal_name}",
+                    "expected_outcome": goal_name,
+                    "cost": 0.1,
+                    "confidence": confidence,
+                }
+                for i in range(n_steps)
+            ],
+            "summary": f"Plan to achieve {goal_name}",
+            "confidence": confidence,
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _make_compiled(question: str = "get 2 l of milk") -> CompiledRequest:
     request = PipelineRequest(question=question, actor_id="user-1", tenant_id="acme")
@@ -62,6 +81,7 @@ def _make_compiled(question: str = "get 2 l of milk") -> CompiledRequest:
         execution_context=ctx,
     )
 
+
 def _make_context() -> RuntimeContext:
     world = MagicMock()
     world.states.return_value = ["start", "middle", "end"]
@@ -73,6 +93,7 @@ def _make_context() -> RuntimeContext:
 # ═══════════════════════════════════════════════════════════════════════════
 # Plan Model
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPlanModel:
     def test_plan_construction(self):
@@ -95,12 +116,14 @@ class TestPlanModel:
 
     def test_plan_frozen(self):
         from dataclasses import FrozenInstanceError
+
         plan = Plan(goal="test")
         with pytest.raises(FrozenInstanceError):
             plan.goal = "changed"
 
     def test_plan_step_frozen(self):
         from dataclasses import FrozenInstanceError
+
         step = PlanStep(action="x")
         with pytest.raises(FrozenInstanceError):
             step.action = "y"
@@ -118,6 +141,7 @@ class TestPlanModel:
 # injected fake backend, not any particular formula, since there is no
 # formula left in this code path to test.)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLLMPlanner:
     def test_plan_with_goal_and_facts(self):
@@ -216,6 +240,7 @@ class TestLLMPlanner:
 # PlanValidator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPlanValidator:
     def test_valid_plan(self):
         validator = PlanValidator()
@@ -285,6 +310,7 @@ class TestPlanValidator:
 # Runtime Integration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPlanningIntegration:
     @pytest.mark.asyncio
     async def test_plan_generated_from_belief_and_goal(self):
@@ -298,6 +324,7 @@ class TestPlanningIntegration:
     @pytest.mark.asyncio
     async def test_custom_planner_injected(self):
         """A custom PlanningEngine can be injected."""
+
         class MockPlanner:
             def plan(self, belief, goal, context=None):
                 return Plan(
@@ -315,12 +342,19 @@ class TestPlanningIntegration:
     @pytest.mark.asyncio
     async def test_plan_validates_before_storing(self):
         """Plan should be validated before being stored in belief."""
+
         class StrictValidator:
             def validate(self, plan, belief=None):
                 if not plan.steps:
-                    from src.monkey_brain.kernel.pipeline.plan_validator import ValidationResult
+                    from src.monkey_brain.kernel.pipeline.plan_validator import (
+                        ValidationResult,
+                    )
+
                     return ValidationResult(valid=False, violations=("no_steps",))
-                from src.monkey_brain.kernel.pipeline.plan_validator import ValidationResult
+                from src.monkey_brain.kernel.pipeline.plan_validator import (
+                    ValidationResult,
+                )
+
                 return ValidationResult(valid=True)
 
         rt = CognitiveRuntime(plan_validator=StrictValidator())

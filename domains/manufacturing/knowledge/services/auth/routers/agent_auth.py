@@ -59,6 +59,7 @@ _TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange"
 # Request/response models for management endpoints
 # ---------------------------------------------------------------------------
 
+
 class RevokeRequest(BaseModel):
     client_id: Optional[str] = Field(default=None)
     jti: Optional[str] = Field(default=None)
@@ -72,6 +73,7 @@ class ReactivateRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _resolve_scopes(
     db: AsyncIOMotorDatabase,
@@ -87,10 +89,13 @@ async def _resolve_scopes(
         return list(fallback_scopes)
     try:
         from services.auth.helpers.rbac import resolve_permissions
+
         scopes = await resolve_permissions(db, role_ids)
         return scopes if scopes else list(fallback_scopes)
     except Exception as exc:
-        logger.warning("Hierarchical RBAC resolution failed, falling back to flat lookup: %s", exc)
+        logger.warning(
+            "Hierarchical RBAC resolution failed, falling back to flat lookup: %s", exc
+        )
         scopes: set[str] = set()
         async for role in db[_ROLES_COLLECTION].find(
             {"role_id": {"$in": role_ids}}, {"_id": 0, "permissions": 1}
@@ -114,7 +119,9 @@ async def _consume_refresh_jti(db: AsyncIOMotorDatabase, jti: str) -> None:
 
 def _build_token_response(identity: dict, requested_scope: str) -> AgentTokenResponse:
     registered: list[str] = identity["scopes"]
-    requested = [s for s in requested_scope.split() if s] if requested_scope else registered
+    requested = (
+        [s for s in requested_scope.split() if s] if requested_scope else registered
+    )
     granted = [s for s in requested if s in registered] or registered
     access_token = create_agent_access_token(
         client_id=identity["client_id"],
@@ -138,6 +145,7 @@ def _build_token_response(identity: dict, requested_scope: str) -> AgentTokenRes
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.post("/register", response_model=AgentRegisterResponse)
 async def register_agent(
@@ -172,11 +180,14 @@ async def register_agent(
     }
     await db[_AGENT_COLLECTION].insert_one(doc)
     await audit_emit(
-        "agent.registered", "allow",
+        "agent.registered",
+        "allow",
         {"sub": spiffe_id, "principal_type": "agent", "agent_type": payload.agent_type},
         metadata={"client_id": client_id, "role_ids": payload.role_ids},
     )
-    logger.info("Agent registered: spiffe_id=%s agent_type=%s", spiffe_id, payload.agent_type)
+    logger.info(
+        "Agent registered: spiffe_id=%s agent_type=%s", spiffe_id, payload.agent_type
+    )
     return AgentRegisterResponse(
         agent_id=spiffe_id,
         client_id=client_id,
@@ -194,8 +205,8 @@ async def agent_token(
     client_id: str = Form(default=""),
     client_secret: str = Form(default=""),
     refresh_token: str = Form(default=""),
-    subject_token: str = Form(default=""),           # RFC 8693
-    audience: str = Form(default=""),                # RFC 8693 target domain
+    subject_token: str = Form(default=""),  # RFC 8693
+    audience: str = Form(default=""),  # RFC 8693 target domain
     scope: str = Form(default=""),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
@@ -221,7 +232,11 @@ async def _issue_from_credentials(
     db: AsyncIOMotorDatabase, client_id: str, client_secret: str, scope: str
 ) -> AgentTokenResponse:
     identity = await db[_AGENT_COLLECTION].find_one(
-        {"client_id": client_id, "client_secret_hash": hash_client_secret(client_secret), "is_active": True},
+        {
+            "client_id": client_id,
+            "client_secret_hash": hash_client_secret(client_secret),
+            "is_active": True,
+        },
         {"_id": 0},
     )
     if not identity:
@@ -232,8 +247,13 @@ async def _issue_from_credentials(
         )
     resp = _build_token_response(identity, scope)
     await audit_emit(
-        "token.issued", "allow",
-        {"sub": identity["spiffe_id"], "principal_type": "agent", "agent_type": identity["agent_type"]},
+        "token.issued",
+        "allow",
+        {
+            "sub": identity["spiffe_id"],
+            "principal_type": "agent",
+            "agent_type": identity["agent_type"],
+        },
     )
     return resp
 
@@ -242,6 +262,7 @@ async def _issue_from_refresh(
     db: AsyncIOMotorDatabase, refresh_token_str: str, scope: str
 ) -> AgentTokenResponse:
     from jose import JWTError
+
     try:
         claims = decode_agent_refresh_token(refresh_token_str)
     except JWTError:
@@ -262,8 +283,13 @@ async def _issue_from_refresh(
         )
     resp = _build_token_response(identity, scope)
     await audit_emit(
-        "token.refreshed", "allow",
-        {"sub": identity["spiffe_id"], "principal_type": "agent", "agent_type": identity["agent_type"]},
+        "token.refreshed",
+        "allow",
+        {
+            "sub": identity["spiffe_id"],
+            "principal_type": "agent",
+            "agent_type": identity["agent_type"],
+        },
     )
     return resp
 
@@ -277,8 +303,11 @@ async def _issue_from_token_exchange(
     token for a short-lived token trusted by this mesh.
     """
     from jose import JWTError
+
     if not subject_token:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="subject_token required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="subject_token required"
+        )
 
     try:
         claims = decode_agent_access_token(subject_token)
@@ -322,17 +351,26 @@ async def _issue_from_token_exchange(
         "spiffe_id": identity["spiffe_id"],
         "grant_type": "client_credentials",
         "aud": audience or "federated",
-        "act": {"sub": claims.get("sub")},   # RFC 8693 delegation chain
+        "act": {"sub": claims.get("sub")},  # RFC 8693 delegation chain
         "jti": _secrets.token_hex(16),
         "iat": now,
         "exp": now + timedelta(minutes=30),
     }
-    access_token = _jwt.encode(exchange_payload, settings.ACCESS_TOKEN_SECRET, algorithm=settings.ALGORITHM)
-    refresh_token = create_agent_refresh_token(identity["client_id"], identity["spiffe_id"])
+    access_token = _jwt.encode(
+        exchange_payload, settings.ACCESS_TOKEN_SECRET, algorithm=settings.ALGORITHM
+    )
+    refresh_token = create_agent_refresh_token(
+        identity["client_id"], identity["spiffe_id"]
+    )
 
     await audit_emit(
-        "token.exchanged", "allow",
-        {"sub": identity["spiffe_id"], "principal_type": "agent", "agent_type": identity["agent_type"]},
+        "token.exchanged",
+        "allow",
+        {
+            "sub": identity["spiffe_id"],
+            "principal_type": "agent",
+            "agent_type": identity["agent_type"],
+        },
         metadata={"audience": audience, "granted_scopes": granted},
     )
     return AgentTokenResponse(
@@ -360,17 +398,24 @@ async def revoke_agent_credentials(
     if payload.client_id:
         results["agent"] = await deactivate_agent(payload.client_id, db, payload.reason)
         await audit_emit(
-            "token.revoked", "allow",
+            "token.revoked",
+            "allow",
             {"sub": payload.client_id, "principal_type": "agent"},
             metadata={"actor": actor, "reason": payload.reason, "scope": "agent"},
         )
-        logger.info("Agent deactivated: client_id=%s by=%s reason=%s", payload.client_id, actor, payload.reason)
+        logger.info(
+            "Agent deactivated: client_id=%s by=%s reason=%s",
+            payload.client_id,
+            actor,
+            payload.reason,
+        )
 
     if payload.jti:
         await block_jti(payload.jti)
         results["jti"] = {"blocked": True, "jti": payload.jti}
         await audit_emit(
-            "token.revoked", "allow",
+            "token.revoked",
+            "allow",
             metadata={"actor": actor, "jti": payload.jti, "scope": "jti"},
         )
 
@@ -392,7 +437,8 @@ async def reactivate_agent_identity(
     result = await _reactivate_agent(payload.client_id, db)
     actor = current_user.get("sub") or current_user.get("user_id")
     await audit_emit(
-        "agent.reactivated", "allow",
+        "agent.reactivated",
+        "allow",
         {"sub": payload.client_id, "principal_type": "agent"},
         metadata={"actor": actor},
     )

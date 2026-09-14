@@ -8,7 +8,10 @@ from typing import Any
 
 from fastapi import Request
 
-from src.monkey_brain.kernel.execute.runtime.executor import UnifiedExecutor, get_executor
+from src.monkey_brain.kernel.execute.runtime.executor import (
+    UnifiedExecutor,
+    get_executor,
+)
 from src.monkey_brain.kernel.society.legacy_adapters import (
     ComparatorRuntimeAdapter,
     LegacyCognitiveRuntimeAdapter,
@@ -86,7 +89,7 @@ def _parse_plan_answer(answer: str) -> tuple[str, list]:
     """Extract workload_id and steps from the '[plan] id: steps' answer string."""
     if not answer.startswith("[plan] "):
         return "", []
-    body = answer[len("[plan] "):]
+    body = answer[len("[plan] ") :]
     if ": " not in body:
         return body, []
     workload_id, steps_raw = body.split(": ", 1)
@@ -106,6 +109,7 @@ def _get_grounding_confidence() -> float:
     """
     try:
         from src.monkey_brain.kernel.cognitive_kernel import get_cognitive_kernel
+
         kp = getattr(get_cognitive_kernel(), "knowledge_pack", None)
         if kp is None:
             return 1.0

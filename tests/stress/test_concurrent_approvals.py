@@ -12,8 +12,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pytest
 
 _root = os.path.join(os.path.dirname(__file__), "..", "..")
-for p in ("src", "packages/cerebellum", "packages/broca",
-          "domains/manufacturing/knowledge"):
+for p in (
+    "src",
+    "packages/cerebellum",
+    "packages/broca",
+    "domains/manufacturing/knowledge",
+):
     _full = os.path.join(_root, p)
     if _full not in sys.path:
         sys.path.insert(0, _full)
@@ -32,10 +36,12 @@ class TestConcurrentKeystoreOperations:
 
     def test_100_concurrent_adds(self, tmp_path):
         from cerebellum.keystore import SecureKeystore
+
         ks = SecureKeystore(
             master_key="stress-test-key-32-bytes-long!!",
             db_path=str(tmp_path / "stress.json"),
         )
+
         def add_key(i):
             ks.add_key(f"user-{i % 20}", "service", f"key-{i}", f"secret-{i}")
             return True
@@ -49,6 +55,7 @@ class TestConcurrentKeystoreOperations:
 
     def test_50_concurrent_adds_and_deletes(self, tmp_path):
         from cerebellum.keystore import SecureKeystore
+
         ks = SecureKeystore(
             master_key="stress-test-key-32-bytes-long!!",
             db_path=str(tmp_path / "stress.json"),
@@ -58,6 +65,7 @@ class TestConcurrentKeystoreOperations:
         pre_keys = ks.list_keys("user")
         key_ids = [k["key_id"] for k in pre_keys]
         errors = []
+
         def remove_key(kid):
             try:
                 return ks.remove_key(kid, "user")
@@ -74,11 +82,13 @@ class TestConcurrentKeystoreOperations:
 
     def test_concurrent_cross_user_operations(self, tmp_path):
         from cerebellum.keystore import SecureKeystore
+
         ks = SecureKeystore(
             master_key="stress-test-key-32-bytes-long!!",
             db_path=str(tmp_path / "stress.json"),
         )
         errors = []
+
         def user_ops(user_id, count):
             for i in range(count):
                 try:
@@ -101,7 +111,11 @@ class TestConcurrentTokenCreation:
     """Stress test JWT token creation and validation under load."""
 
     def test_concurrent_token_creation(self):
-        from services.auth.helpers.tokens import create_access_token, decode_access_token
+        from services.auth.helpers.tokens import (
+            create_access_token,
+            decode_access_token,
+        )
+
         def create_token(i):
             return create_access_token(f"user-{i}", f"u{i}@test.com", "admin", ["perm-a", "perm-b"])
 
@@ -112,9 +126,14 @@ class TestConcurrentTokenCreation:
         assert len(set(tokens)) == 100
 
     def test_concurrent_token_decode(self):
-        from services.auth.helpers.tokens import create_access_token, decode_access_token
+        from services.auth.helpers.tokens import (
+            create_access_token,
+            decode_access_token,
+        )
+
         token = create_access_token("user-1", "test@test.com", "admin", ["perm-a"])
         errors = []
+
         def decode_token():
             try:
                 return decode_access_token(token)
@@ -134,6 +153,7 @@ class TestConcurrentURLValidation:
 
     def test_concurrent_url_validation(self):
         from cerebellum.capabilities.api.webhook import _is_safe_url
+
         urls = [
             "http://example.com/hook",
             "https://api.service.io/v1",
@@ -143,6 +163,7 @@ class TestConcurrentURLValidation:
             "http://10.0.0.1:6379/",
             "ftp://internal/data",
         ]
+
         def validate_batch():
             return [_is_safe_url(url) for url in urls]
 
@@ -184,6 +205,7 @@ class TestConcurrentPathTraversal:
 
     def test_concurrent_traversal_attempts(self, tmp_path):
         from cerebellum.capabilities.storage.storage import LocalFileSystemCapability
+
         cap = LocalFileSystemCapability(base_path=str(tmp_path))
         (tmp_path / "secret.txt").write_text("SECRET")
 
@@ -214,8 +236,9 @@ class TestConcurrentPathTraversal:
 
         for path, result in results:
             if path in traversal_paths:
-                assert result.get("status") == "error" or result.get("content") != "SECRET", \
+                assert result.get("status") == "error" or result.get("content") != "SECRET", (
                     f"Traversal path {path!r} should not read SECRET"
+                )
 
 
 class TestLoadConcurrentAPI:
@@ -224,13 +247,16 @@ class TestLoadConcurrentAPI:
     def test_concurrent_health_requests(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
             async with AsyncClient(transport=transport, base_url="http://test") as client:
+
                 async def health_request():
                     resp = await client.get("/health")
                     return resp.status_code
+
                 tasks = [health_request() for _ in range(50)]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
             return results
@@ -243,13 +269,16 @@ class TestLoadConcurrentAPI:
     def test_concurrent_query_flood(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
             async with AsyncClient(transport=transport, base_url="http://test") as client:
+
                 async def query_request(i):
                     resp = await client.post("/api/v1/agentos/query", json={"question": f"test {i}"})
                     return resp.status_code
+
                 tasks = [query_request(i) for i in range(30)]
                 return await asyncio.gather(*tasks, return_exceptions=True)
 

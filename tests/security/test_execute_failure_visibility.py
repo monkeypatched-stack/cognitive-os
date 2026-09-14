@@ -12,6 +12,7 @@ compensated` — the run FAILED. But the workload's success flag is dropped by t
 failure visible only as "[failed]" buried in a prose string. And llm_answered was
 `bool(answer)` — true merely because that status string is non-empty.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.models.execute import ExecuteResponse
@@ -22,7 +23,7 @@ def test_execute_response_states_the_outcome_explicitly():
     fields = ExecuteResponse.model_fields
     assert "success" in fields, "a client must be able to detect a failed run"
     assert "failed_steps" in fields
-    assert fields["success"].default is True          # additive: old clients keep working
+    assert fields["success"].default is True  # additive: old clients keep working
 
 
 def test_run_store_records_and_returns_the_outcome():

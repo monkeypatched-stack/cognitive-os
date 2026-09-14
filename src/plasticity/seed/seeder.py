@@ -20,24 +20,24 @@ from src.plasticity.seed.benchmark_generator import BenchmarkGenerator
 
 class Seeder:
     """Deterministic data seeding framework.
-    
+
     All data generated from existing domain models.
     No direct database manipulation.
     """
-    
+
     def __init__(self, config: SeedConfig | None = None):
         self._config = config or SeedConfig()
         self._generator = SeedGenerator(self._config)
         self._scenarios = ScenarioBuilder()
         self._events = EventGenerator(self._config.seed)
         self._benchmarks = BenchmarkGenerator(self._config.seed)
-    
+
     def seed_small(self) -> dict[str, Any]:
         """Seed a small factory."""
         scenario = self._scenarios.small_factory()
         events = self._events.generate_all_events(scenario.data)
         benchmarks = self._benchmarks.generate_all()
-        
+
         return {
             "scenario": scenario.name,
             "data": scenario.data,
@@ -49,13 +49,13 @@ class Seeder:
                 "benchmarks": len(benchmarks),
             },
         }
-    
+
     def seed_medium(self) -> dict[str, Any]:
         """Seed a medium factory."""
         scenario = self._scenarios.medium_factory()
         events = self._events.generate_all_events(scenario.data)
         benchmarks = self._benchmarks.generate_all()
-        
+
         return {
             "scenario": scenario.name,
             "data": scenario.data,
@@ -67,13 +67,13 @@ class Seeder:
                 "benchmarks": len(benchmarks),
             },
         }
-    
+
     def seed_enterprise(self) -> dict[str, Any]:
         """Seed an enterprise factory."""
         scenario = self._scenarios.enterprise_factory()
         events = self._events.generate_all_events(scenario.data)
         benchmarks = self._benchmarks.generate_all()
-        
+
         return {
             "scenario": scenario.name,
             "data": scenario.data,
@@ -85,13 +85,23 @@ class Seeder:
                 "benchmarks": len(benchmarks),
             },
         }
-    
+
     def seed_failure(self) -> dict[str, Any]:
         """Seed a failure scenario."""
         scenario = self._scenarios.failure_scenario()
         events = self._events.generate_all_events(scenario.data)
-        events.extend([Event(event_type=e["type"], entity_type="event", entity_id=e.get("machine_id", ""), data=e) for e in scenario.events])
-        
+        events.extend(
+            [
+                Event(
+                    event_type=e["type"],
+                    entity_type="event",
+                    entity_id=e.get("machine_id", ""),
+                    data=e,
+                )
+                for e in scenario.events
+            ]
+        )
+
         return {
             "scenario": scenario.name,
             "data": scenario.data,
@@ -102,7 +112,7 @@ class Seeder:
                 "failure_events": len(scenario.events),
             },
         }
-    
+
     def seed_benchmarks(self) -> dict[str, Any]:
         """Seed benchmark datasets only."""
         benchmarks = self._benchmarks.generate_all()
@@ -110,7 +120,7 @@ class Seeder:
             "benchmarks": [b.__dict__ for b in benchmarks],
             "summary": self._benchmarks.summary(),
         }
-    
+
     def summary(self) -> dict:
         return {
             "config": {

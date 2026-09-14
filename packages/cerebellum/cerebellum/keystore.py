@@ -19,23 +19,26 @@ from uuid import uuid4
 
 def _generate_key() -> bytes:
     from cryptography.fernet import Fernet
+
     return Fernet.generate_key()
 
 
 def _encrypt(data: str, key: bytes) -> str:
     from cryptography.fernet import Fernet
+
     return Fernet(key).encrypt(data.encode()).decode()
 
 
 def _decrypt(encrypted: str, key: bytes) -> str:
     from cryptography.fernet import Fernet
+
     return Fernet(key).decrypt(encrypted.encode()).decode()
 
 
 @dataclass
 class SecureKey:
     """An encrypted API key record."""
-    
+
     key_id: str = field(default_factory=lambda: f"key-{uuid4().hex[:12]}")
     user_id: str = ""
     service: str = ""
@@ -45,7 +48,7 @@ class SecureKey:
     config: dict[str, Any] = field(default_factory=dict)
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     is_active: bool = True
-    
+
     def to_public(self) -> dict:
         return {
             "key_id": self.key_id,
@@ -60,7 +63,7 @@ class SecureKey:
 
 class SecureKeystore:
     """User-scoped encrypted API key storage."""
-    
+
     def __init__(self, master_key: str | None = None, db_path: str = ".monkeybrain/keystore"):
         self._db_path = db_path
         self._master_key = (master_key or os.getenv("AGENTOS_MASTER_KEY", "")).encode()
@@ -69,7 +72,12 @@ class SecureKeystore:
             # encrypted in that session became permanently undecryptable on the next restart
             # (a fresh random key) — silent, irreversible data loss. The live keystore route
             # constructs SecureKeystore() with no key, so that was the production path.
-            if os.getenv("AGENTOS_KEYSTORE_EPHEMERAL", "").strip().lower() in ("1", "true", "yes", "on"):
+            if os.getenv("AGENTOS_KEYSTORE_EPHEMERAL", "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            ):
                 self._master_key = _generate_key()
             else:
                 raise RuntimeError(
@@ -78,7 +86,7 @@ class SecureKeystore:
                     "would become undecryptable on restart. Set AGENTOS_KEYSTORE_EPHEMERAL=1 "
                     "only for throwaway/dev stores."
                 )
-        self._kdf_lock = threading.Lock()   # guards salt creation + key derivation
+        self._kdf_lock = threading.Lock()  # guards salt creation + key derivation
         self._salt_cache: bytes | None = None
         self._derived_key: bytes | None = None
         self._keys: dict[str, SecureKey] = {}
@@ -122,14 +130,14 @@ class SecureKeystore:
                 finally:
                     os.close(fd)
                 try:
-                    os.link(tmp, path)        # atomic create-if-absent; fails if it now exists
+                    os.link(tmp, path)  # atomic create-if-absent; fails if it now exists
                 except FileExistsError:
-                    pass                      # someone else published first — use theirs
+                    pass  # someone else published first — use theirs
                 finally:
                     if os.path.exists(tmp):
                         os.unlink(tmp)
 
-            with open(path, "rb") as fh:      # always read back the PUBLISHED salt
+            with open(path, "rb") as fh:  # always read back the PUBLISHED salt
                 salt = fh.read()
             if not salt:
                 raise RuntimeError(f"keystore salt at {path} is empty")
@@ -144,8 +152,7 @@ class SecureKeystore:
         salt = self._salt()
         with self._kdf_lock:
             if self._derived_key is None:
-                self._derived_key = hashlib.scrypt(
-                    self._master_key, salt=salt, n=2 ** 14, r=8, p=1, dklen=32)
+                self._derived_key = hashlib.scrypt(self._master_key, salt=salt, n=2**14, r=8, p=1, dklen=32)
             return self._derived_key
 
     def _legacy_derive_key(self) -> bytes:
@@ -167,36 +174,51 @@ class SecureKeystore:
     def _load(self) -> None:
         if os.path.exists(self._db_path):
             try:
-                with open(self._db_path, 'r') as f:
+                with open(self._db_path, "r") as f:
                     data = json.load(f)
-                for key_data in data.get('keys', []):
+                for key_data in data.get("keys", []):
                     key = SecureKey(**key_data)
                     self._keys[key.key_id] = key
             except Exception:
                 pass
-    
+
     def _save(self) -> None:
-        os.makedirs(os.path.dirname(self._db_path) if os.path.dirname(self._db_path) else '.', exist_ok=True)
-        with open(self._db_path, 'w') as f:
-            json.dump({
-                'keys': [
-                    {
-                        'key_id': k.key_id,
-                        'user_id': k.user_id,
-                        'service': k.service,
-                        'key_name': k.key_name,
-                        'encrypted_key': k.encrypted_key,
-                        'api_url': k.api_url,
-                        'config': k.config,
-                        'created_at': k.created_at,
-                        'is_active': k.is_active,
-                    }
-                    for k in self._keys.values()
-                ]
-            }, f, indent=2)
+        os.makedirs(
+            os.path.dirname(self._db_path) if os.path.dirname(self._db_path) else ".",
+            exist_ok=True,
+        )
+        with open(self._db_path, "w") as f:
+            json.dump(
+                {
+                    "keys": [
+                        {
+                            "key_id": k.key_id,
+                            "user_id": k.user_id,
+                            "service": k.service,
+                            "key_name": k.key_name,
+                            "encrypted_key": k.encrypted_key,
+                            "api_url": k.api_url,
+                            "config": k.config,
+                            "created_at": k.created_at,
+                            "is_active": k.is_active,
+                        }
+                        for k in self._keys.values()
+                    ]
+                },
+                f,
+                indent=2,
+            )
         os.chmod(self._db_path, 0o600)
-    
-    def add_key(self, user_id: str, service: str, key_name: str, api_key: str, api_url: str = "", config: dict[str, Any] | None = None) -> dict:
+
+    def add_key(
+        self,
+        user_id: str,
+        service: str,
+        key_name: str,
+        api_key: str,
+        api_url: str = "",
+        config: dict[str, Any] | None = None,
+    ) -> dict:
         """Add an encrypted API key for a specific user."""
         encrypted = self._encrypt_value(api_key)
         key = SecureKey(
@@ -210,37 +232,37 @@ class SecureKeystore:
         self._keys[key.key_id] = key
         self._save()
         return key.to_public()
-    
+
     def get_key(self, key_id: str, user_id: str) -> str | None:
         """Get decrypted API key (user-scoped)."""
         key = self._keys.get(key_id)
         if key and key.user_id == user_id and key.encrypted_key:
             return self._decrypt_value(key.encrypted_key)
         return None
-    
+
     def get_config(self, service: str, user_id: str) -> dict[str, Any]:
         """Get merged config for a service (user-scoped)."""
         keys = [k for k in self._keys.values() if k.service == service and k.user_id == user_id and k.is_active]
         if not keys:
             return {}
-        
+
         config = {}
         for key in keys:
             config.update(key.config)
             if key.api_url:
-                config['api_url'] = key.api_url
+                config["api_url"] = key.api_url
             api_key = self.get_key(key.key_id, user_id)
             if api_key:
-                config['api_key'] = api_key
+                config["api_key"] = api_key
         return config
-    
+
     def list_keys(self, user_id: str, service: str | None = None) -> list[dict]:
         """List keys for a user (without key material)."""
         keys = [k for k in self._keys.values() if k.user_id == user_id]
         if service:
             keys = [k for k in keys if k.service == service]
         return [k.to_public() for k in keys]
-    
+
     def remove_key(self, key_id: str, user_id: str) -> bool:
         """Remove a key (user-scoped)."""
         key = self._keys.get(key_id)
@@ -249,7 +271,7 @@ class SecureKeystore:
             self._save()
             return True
         return False
-    
+
     def summary(self, user_id: str | None = None) -> dict:
         keys = self._keys.values()
         if user_id:

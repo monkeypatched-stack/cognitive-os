@@ -5,6 +5,7 @@ embeds each via the registry, and produces a fused state vector with per-modalit
 confidence scores.  The fused vector feeds into the world tensor for improved
 next-action prediction.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,7 +15,10 @@ from typing import Any
 
 import numpy as np
 
-from src.monkey_brain.kernel.plan.embedding.registry import EmbeddingRegistry, build_default_registry
+from src.monkey_brain.kernel.plan.embedding.registry import (
+    EmbeddingRegistry,
+    build_default_registry,
+)
 from src.monkey_brain.kernel.plan.embedding.provider import Embedding
 
 logger = logging.getLogger("agentos.sensor_fusion")
@@ -23,6 +27,7 @@ logger = logging.getLogger("agentos.sensor_fusion")
 @dataclass
 class ModalityObservation:
     """A single observation from one modality."""
+
     modality: str
     content: Any
     confidence: float = 0.0
@@ -37,7 +42,8 @@ class ModalityObservation:
 @dataclass
 class FusedState:
     """Result of multi-modal fusion."""
-    vector: np.ndarray              # fused embedding vector
+
+    vector: np.ndarray  # fused embedding vector
     modality_scores: dict[str, float] = field(default_factory=dict)  # per-modality confidence
     modalities_used: list[str] = field(default_factory=list)
     fusion_confidence: float = 0.0  # overall confidence
@@ -76,14 +82,19 @@ class SensorFusion:
 
         for obs in observations:
             try:
-                item = type('Item', (), {
-                    'content': obs.content,
-                    'modality': obs.modality,
-                })()
+                item = type(
+                    "Item",
+                    (),
+                    {
+                        "content": obs.content,
+                        "modality": obs.modality,
+                    },
+                )()
                 embedding = self._registry.embed(item)
 
                 # Compute effective confidence from modality priors + observation confidence
                 from src.monkey_brain.kernel.plan.embedding._utils import EMBEDDING_DIM
+
                 if embedding.vector.shape != (EMBEDDING_DIM,):
                     continue
 
@@ -122,9 +133,5 @@ class SensorFusion:
 
     def fuse_from_dict(self, data: dict[str, Any]) -> FusedState:
         """Convenience: fuse from a dict of {modality: content} pairs."""
-        observations = [
-            ModalityObservation(modality=k, content=v)
-            for k, v in data.items()
-            if k and v is not None
-        ]
+        observations = [ModalityObservation(modality=k, content=v) for k, v in data.items() if k and v is not None]
         return self.fuse(observations)

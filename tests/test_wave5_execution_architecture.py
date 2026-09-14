@@ -25,7 +25,10 @@ def test_agent_runtime_reuses_existing_orchestration_middleware():
 
 def test_vertical_engine_uses_one_existing_capability_bus():
     import src.monkey_brain.kernel.domains.grocery  # registers the existing vertical
-    from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine, resolve_vertical
+    from src.monkey_brain.kernel.domains.vertical_router import (
+        build_execution_engine,
+        resolve_vertical,
+    )
 
     vertical = resolve_vertical("grocery")
     engine = build_execution_engine("grocery")

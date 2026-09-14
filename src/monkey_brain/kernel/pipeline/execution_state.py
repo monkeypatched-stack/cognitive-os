@@ -19,6 +19,7 @@ Lifecycle:
 
 Not persisted. Not shared between requests. Not global state.
 """
+
 from __future__ import annotations
 
 import time
@@ -42,6 +43,7 @@ class WorldSnapshot:
     Without this, a world mutation between Observe and Plan would cause
     the plan to be based on a different world than the observations.
     """
+
     states: tuple[str, ...] = ()
     """All world states at snapshot time."""
     state_count: int = 0
@@ -251,37 +253,45 @@ class CognitiveState:
 
     def record_error(self, stage: str, error: Exception) -> None:
         """Capture a fatal error from a cognitive stage."""
-        self.errors.append({
-            "stage": stage,
-            "type": type(error).__name__,
-            "message": str(error)[:500],
-        })
+        self.errors.append(
+            {
+                "stage": stage,
+                "type": type(error).__name__,
+                "message": str(error)[:500],
+            }
+        )
 
     def record_warning(self, stage: str, message: str) -> None:
         """Record a recoverable warning (non-fatal)."""
-        self.diagnostics.append(Diagnostic(
-            level="warning",
-            stage=stage,
-            message=message,
-        ))
+        self.diagnostics.append(
+            Diagnostic(
+                level="warning",
+                stage=stage,
+                message=message,
+            )
+        )
 
     def record_diagnostic(self, stage: str, key: str, value: Any) -> None:
         """Record reasoning metadata for observability."""
-        self.diagnostics.append(Diagnostic(
-            level="info",
-            stage=stage,
-            message=f"{key}={value}",
-            metadata={"key": key, "value": value},
-        ))
+        self.diagnostics.append(
+            Diagnostic(
+                level="info",
+                stage=stage,
+                message=f"{key}={value}",
+                metadata={"key": key, "value": value},
+            )
+        )
 
     def add_trace(self, stage: str, action: str, detail: str = "") -> None:
         """Add an entry to the execution trace."""
-        self.execution_trace.append(TraceEntry(
-            stage=stage,
-            action=action,
-            detail=detail,
-            timestamp=time.time(),
-        ))
+        self.execution_trace.append(
+            TraceEntry(
+                stage=stage,
+                action=action,
+                detail=detail,
+                timestamp=time.time(),
+            )
+        )
 
     # ══════════════════════════════════════════════════════════════════════
     # Query API
@@ -346,6 +356,7 @@ class CognitiveState:
 @dataclass
 class Diagnostic:
     """A diagnostic entry: warning, info, or recoverable error."""
+
     level: str = "info"
     """Severity: 'info', 'warning', 'error'."""
     stage: str = ""
@@ -360,6 +371,7 @@ class Diagnostic:
 @dataclass(frozen=True)
 class TraceEntry:
     """A single step in the execution trace."""
+
     stage: str = ""
     """Which cognitive stage."""
     action: str = ""

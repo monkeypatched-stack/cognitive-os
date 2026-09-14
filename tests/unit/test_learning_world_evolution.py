@@ -11,31 +11,42 @@ rather than an actor's own observation confidence (starting from that
 actor's existing confidence, moving faster) — see the module docstring in
 world_evolution.py for the architectural justification.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningObservation, LearningOutcome, LearningSignal,
+    LearningExperience,
+    LearningObservation,
+    LearningOutcome,
+    LearningSignal,
 )
 from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
 from src.monkey_brain.kernel.pipeline.learning.belief_learning import BeliefLearner
 from src.monkey_brain.kernel.pipeline.learning.world_evolution import (
-    NEUTRAL_STRENGTH, WorldEvolutionEngine, WorldRelationshipUpdate,
-    apply_world_evolution, derive_world_updates,
+    NEUTRAL_STRENGTH,
+    WorldEvolutionEngine,
+    WorldRelationshipUpdate,
+    apply_world_evolution,
+    derive_world_updates,
 )
 
 
 def _store_a_observation() -> LearningObservation:
     return LearningObservation(
-        entity="Store A", attribute="stocks_whole_milk", value=True,
-        confidence=0.9, source="execution_outcome",
+        entity="Store A",
+        attribute="stocks_whole_milk",
+        value=True,
+        confidence=0.9,
+        source="execution_outcome",
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Acceptance-criteria scenario
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAcceptanceScenario:
     def test_successful_purchase_reinforces_store_a_inventory_relationship(self):
@@ -69,6 +80,7 @@ class TestAcceptanceScenario:
 # Shared vs. per-actor — the reason 10.5 is a distinct step from 10.4
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestSharedVersusPerActor:
     def test_starts_from_a_neutral_prior_not_the_observation_confidence(self):
         """Unlike BeliefLearner (which starts from obs.confidence=0.9), the
@@ -101,6 +113,7 @@ class TestSharedVersusPerActor:
 # ═══════════════════════════════════════════════════════════════════════════
 # derive_world_updates — directionality
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDeriveWorldUpdatesDirectionality:
     def test_high_reward_reinforces_toward_one(self):
@@ -141,7 +154,8 @@ class TestDeriveWorldUpdatesDirectionality:
     def test_unrelated_relationship_keys_do_not_affect_each_other(self):
         obs = LearningObservation(entity="Store A", attribute="stocks_whole_milk")
         updates = derive_world_updates(
-            (obs,), reward=0.9,
+            (obs,),
+            reward=0.9,
             current_strengths={("Store B", "stocks_whole_milk"): 0.99},
         )
         assert updates[0].previous_strength == NEUTRAL_STRENGTH
@@ -150,6 +164,7 @@ class TestDeriveWorldUpdatesDirectionality:
 # ═══════════════════════════════════════════════════════════════════════════
 # WorldEvolutionEngine — operates on LearningExperience, preserves immutability
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestWorldEvolutionEngine:
     def test_original_experience_is_untouched(self):
@@ -209,9 +224,11 @@ class TestWorldEvolutionEngine:
 # WorldRelationshipUpdate — immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestWorldRelationshipUpdateImmutability:
     def test_frozen(self):
         from dataclasses import FrozenInstanceError
+
         update = WorldRelationshipUpdate()
         with pytest.raises(FrozenInstanceError):
             update.new_strength = 1.0
@@ -221,9 +238,11 @@ class TestWorldRelationshipUpdateImmutability:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -239,12 +258,20 @@ class TestOwnershipBoundary:
         """World Model Evolution computes what the update *would be*;
         applying it to a real, persistent world model is Step 10.7's job."""
         import src.monkey_brain.kernel.pipeline.learning.world_evolution as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "belief_state", "execution_state", "graph_manager", "world"):
+        for forbidden in (
+            "belief_runtime",
+            "belief_state",
+            "execution_state",
+            "graph_manager",
+            "world",
+        ):
             assert forbidden not in imports, f"world_evolution.py must not import: {forbidden}"
 
     def test_depends_only_on_learning_domain(self):
         import src.monkey_brain.kernel.pipeline.learning.world_evolution as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

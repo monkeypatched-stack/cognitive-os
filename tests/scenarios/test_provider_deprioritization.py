@@ -17,6 +17,7 @@ cancellations/confirmations changing a real store's trust score, changing
 what open_products() actually offers next time — not the read-side logic
 itself, which is already covered.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
@@ -38,21 +39,52 @@ def _seed_two_stores():
     that silently emptied the whole catalog."""
     kg = KnowledgeGraph()
     store_a = onboard_merchant(kg, "merchant_a", "Unreliable Mart", delivery_fee=1.99)["store_id"]
-    product_a = list_product(kg, store_a, "merchant_a", "Milk", price=3.99, quantity=50, store_name="Unreliable Mart")["product_id"]
+    product_a = list_product(
+        kg,
+        store_a,
+        "merchant_a",
+        "Milk",
+        price=3.99,
+        quantity=50,
+        store_name="Unreliable Mart",
+    )["product_id"]
     store_b = onboard_merchant(kg, "merchant_b", "Reliable Mart", delivery_fee=1.99)["store_id"]
-    product_b = list_product(kg, store_b, "merchant_b", "Milk", price=4.29, quantity=50, store_name="Reliable Mart")["product_id"]
-    kg.add_entity("wallet_shared", EntityType.ACCOUNT, "Shared Wallet", {
-        "account_type": "debit", "balance": 10_000.0, "owner": ACTOR_ID,
-    })
+    product_b = list_product(
+        kg,
+        store_b,
+        "merchant_b",
+        "Milk",
+        price=4.29,
+        quantity=50,
+        store_name="Reliable Mart",
+    )["product_id"]
+    kg.add_entity(
+        "wallet_shared",
+        EntityType.ACCOUNT,
+        "Shared Wallet",
+        {
+            "account_type": "debit",
+            "balance": 10_000.0,
+            "owner": ACTOR_ID,
+        },
+    )
     return kg, store_a, product_a, store_b, product_b
 
 
 def _place_and_cancel_order(kg, order_id: str, product_id: str):
-    kg.add_entity(order_id, EntityType.EVENT, "Grocery Order", {
-        "items": [{"product_id": product_id, "qty": 1}],
-        "total": 3.99, "status": "confirmed",
-        "paid_wallet_id": "wallet_shared", "paid_amount": 3.99, "payment_status": "paid",
-    })
+    kg.add_entity(
+        order_id,
+        EntityType.EVENT,
+        "Grocery Order",
+        {
+            "items": [{"product_id": product_id, "qty": 1}],
+            "total": 3.99,
+            "status": "confirmed",
+            "paid_wallet_id": "wallet_shared",
+            "paid_amount": 3.99,
+            "payment_status": "paid",
+        },
+    )
     result = cancel_order(kg, order_id, actor_id=ACTOR_ID)
     assert result["success"], result
 
@@ -91,10 +123,22 @@ def test_fewer_than_min_attempts_does_not_yet_deprioritize():
 def test_order_confirmation_records_a_real_positive_outcome():
     kg, store_a, product_a, _store_b, _product_b = _seed_two_stores()
     product = kg.get_entity(product_a)
-    cart = [{"id": product_a, "name": product.name, "price": product.attributes["price"],
-             "qty": 1, **product.attributes}]
-    context = {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": "buy milk",
-               "order": {"order_id": "ORD-1", "total": 3.99}, "selected_product": cart}
+    cart = [
+        {
+            "id": product_a,
+            "name": product.name,
+            "price": product.attributes["price"],
+            "qty": 1,
+            **product.attributes,
+        }
+    ]
+    context = {
+        "knowledge_graph": kg,
+        "actor_id": ACTOR_ID,
+        "question": "buy milk",
+        "order": {"order_id": "ORD-1", "total": 3.99},
+        "selected_product": cart,
+    }
 
     result = OrderConfirmationCapability().handle({"context": context})
 

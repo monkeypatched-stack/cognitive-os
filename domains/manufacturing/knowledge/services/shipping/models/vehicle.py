@@ -37,10 +37,14 @@ class Vehicle(BaseModel):
     """Transport vehicle belonging to a carrier or manufacturer fleet."""
 
     id: UUID = Field(default_factory=uuid4)
-    carrier_id: Optional[str] = Field(None, description="Owning carrier; None = own fleet")
+    carrier_id: Optional[str] = Field(
+        None, description="Owning carrier; None = own fleet"
+    )
     vehicle_type: VehicleType
     registration_plate: str = Field(..., min_length=1, max_length=20)
-    vin: Optional[str] = Field(None, min_length=17, max_length=17, description="Vehicle Identification Number")
+    vin: Optional[str] = Field(
+        None, min_length=17, max_length=17, description="Vehicle Identification Number"
+    )
     make: Optional[str] = Field(None, max_length=50)
     model: Optional[str] = Field(None, max_length=50)
     year: Optional[int] = Field(None, ge=1900, le=2100)
@@ -55,7 +59,9 @@ class Vehicle(BaseModel):
     driver_name: Optional[str] = Field(None, max_length=150)
     driver_license_number: Optional[str] = Field(None, max_length=50)
     driver_phone: Optional[str] = Field(None, max_length=30)
-    mot_expiry: Optional[date] = Field(None, description="MOT / roadworthiness certificate expiry")
+    mot_expiry: Optional[date] = Field(
+        None, description="MOT / roadworthiness certificate expiry"
+    )
     insurance_expiry: Optional[date] = None
     gps_tracker_id: Optional[str] = Field(None, max_length=100)
     active: bool = True
@@ -68,7 +74,9 @@ class Vehicle(BaseModel):
     @model_validator(mode="after")
     def validate_temperature_range(self) -> "Vehicle":
         if self.is_refrigerated and self.temperature_range_celsius is None:
-            raise ValueError("temperature_range_celsius is required for refrigerated vehicles")
+            raise ValueError(
+                "temperature_range_celsius is required for refrigerated vehicles"
+            )
         if self.temperature_range_celsius is not None:
             low, high = self.temperature_range_celsius
             if low >= high:
@@ -109,7 +117,9 @@ class VehicleUpdate(BaseModel):
     @model_validator(mode="after")
     def validate_temperature_range(self) -> "VehicleUpdate":
         if self.is_refrigerated is True and self.temperature_range_celsius is None:
-            raise ValueError("temperature_range_celsius is required for refrigerated vehicles")
+            raise ValueError(
+                "temperature_range_celsius is required for refrigerated vehicles"
+            )
         if self.temperature_range_celsius is not None:
             low, high = self.temperature_range_celsius
             if low >= high:

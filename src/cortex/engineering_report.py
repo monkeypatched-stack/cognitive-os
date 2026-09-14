@@ -50,10 +50,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # RepairTelemetry — tracks convergence, not just pass/fail
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RepairTelemetry:
@@ -80,6 +80,7 @@ class RepairTelemetry:
 # SimulationTelemetry — solver mesh + prediction loss trajectory
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SimulationTelemetry:
     rounds: int = 0
@@ -99,6 +100,7 @@ class SimulationTelemetry:
 # EngineeringReport — the top-level telemetry object
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EngineeringReport:
     """Aggregates telemetry from all pipeline stages into one structured report.
@@ -110,28 +112,29 @@ class EngineeringReport:
         ...
         print(report.render())
     """
+
     service: str = ""
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d"))
 
     # ── Architecture ─────────────────────────────────────────────────────────
-    ddd_score:          float | None = None   # 0–100
-    governance_score:   float | None = None   # 0–100
-    compliance_score:   float | None = None   # 0–100
+    ddd_score: float | None = None  # 0–100
+    governance_score: float | None = None  # 0–100
+    compliance_score: float | None = None  # 0–100
 
     # ── Quality ──────────────────────────────────────────────────────────────
-    tests_passed:   int = 0
-    tests_failed:   int = 0
-    tests_healed:   int = 0
+    tests_passed: int = 0
+    tests_failed: int = 0
+    tests_healed: int = 0
     files_generated: int = 0
 
     # ── Runtime ──────────────────────────────────────────────────────────────
-    latency_ms:  float | None = None
-    memory_mb:   float | None = None
+    latency_ms: float | None = None
+    memory_mb: float | None = None
 
     # ── Knowledge ────────────────────────────────────────────────────────────
-    knowledge_packs:      int = 0
-    knowledge_confidence: float | None = None    # C_knowledge scalar
-    knowledge_loss_vec:   dict[str, float] = field(default_factory=dict)  # ⟨P,F,S,V,E,M,R⟩
+    knowledge_packs: int = 0
+    knowledge_confidence: float | None = None  # C_knowledge scalar
+    knowledge_loss_vec: dict[str, float] = field(default_factory=dict)  # ⟨P,F,S,V,E,M,R⟩
 
     # ── Simulation ───────────────────────────────────────────────────────────
     simulation: SimulationTelemetry = field(default_factory=SimulationTelemetry)
@@ -140,7 +143,7 @@ class EngineeringReport:
     repair: RepairTelemetry = field(default_factory=RepairTelemetry)
 
     # ── Overall ──────────────────────────────────────────────────────────────
-    _overall_confidence: float | None = None   # set explicitly or auto-computed
+    _overall_confidence: float | None = None  # set explicitly or auto-computed
 
     # ── Incremental builders ─────────────────────────────────────────────────
 
@@ -203,7 +206,7 @@ class EngineeringReport:
                 scores.append(max(0.0, min(1.0, val / 100.0 if val > 1.0 else val)))
                 weights.append(w)
 
-        _add(self.ddd_score,        0.20)
+        _add(self.ddd_score, 0.20)
         _add(self.governance_score, 0.12)
         _add(self.compliance_score, 0.12)
 
@@ -271,9 +274,9 @@ class EngineeringReport:
         # Architecture
         if any(v is not None for v in (self.ddd_score, self.governance_score, self.compliance_score)):
             section("Architecture")
-            row_pct("DDD Score",        self.ddd_score)
-            row_pct("Governance",       self.governance_score)
-            row_pct("Compliance",       self.compliance_score)
+            row_pct("DDD Score", self.ddd_score)
+            row_pct("Governance", self.governance_score)
+            row_pct("Compliance", self.compliance_score)
 
         # Quality
         if self.tests_passed + self.tests_failed + self.files_generated > 0:
@@ -281,8 +284,7 @@ class EngineeringReport:
             if self.files_generated:
                 row("Files Generated", self.files_generated)
             if self.tests_passed or self.tests_failed:
-                row("Tests Passed", self.tests_passed,
-                    warn=(self.tests_failed > 0))
+                row("Tests Passed", self.tests_passed, warn=(self.tests_failed > 0))
                 if self.tests_failed:
                     row("Tests Failed", self.tests_failed, warn=True)
                 if self.tests_healed:
@@ -304,14 +306,24 @@ class EngineeringReport:
                 row("Files Patched", self.repair.files_patched)
             if self.repair.violations_found:
                 row("Violations Found", self.repair.violations_found)
-                row("Violations Fixed", self.repair.violations_fixed,
-                    warn=(self.repair.violations_fixed < self.repair.violations_found))
+                row(
+                    "Violations Fixed",
+                    self.repair.violations_fixed,
+                    warn=(self.repair.violations_fixed < self.repair.violations_found),
+                )
             if self.repair.success_rate < 1.0:
-                row("Repair Success", f"{self.repair.success_rate*100:.0f}", "%",
-                    warn=self.repair.success_rate < 1.0)
+                row(
+                    "Repair Success",
+                    f"{self.repair.success_rate * 100:.0f}",
+                    "%",
+                    warn=self.repair.success_rate < 1.0,
+                )
             if self.repair.loss_initial or self.repair.loss_final:
-                row("Loss", loss_arrow(self.repair.loss_initial, self.repair.loss_final),
-                    warn=(self.repair.loss_final > 0.15))
+                row(
+                    "Loss",
+                    loss_arrow(self.repair.loss_initial, self.repair.loss_final),
+                    warn=(self.repair.loss_final > 0.15),
+                )
 
         # Simulation
         sim = self.simulation
@@ -319,13 +331,18 @@ class EngineeringReport:
             section("Simulation")
             if sim.rounds:
                 row("Rounds", sim.rounds)
-            row("Solver Mesh", "PASS" if sim.solver_mesh_pass else "FAIL",
-                warn=(not sim.solver_mesh_pass))
-            row("Counterexamples", sim.counterexamples,
-                warn=(sim.counterexamples > 0))
+            row(
+                "Solver Mesh",
+                "PASS" if sim.solver_mesh_pass else "FAIL",
+                warn=(not sim.solver_mesh_pass),
+            )
+            row("Counterexamples", sim.counterexamples, warn=(sim.counterexamples > 0))
             if sim.prediction_loss_initial or sim.prediction_loss_final:
-                row("Loss", loss_arrow(sim.prediction_loss_initial, sim.prediction_loss_final),
-                    warn=(sim.prediction_loss_final > 0.15))
+                row(
+                    "Loss",
+                    loss_arrow(sim.prediction_loss_initial, sim.prediction_loss_final),
+                    warn=(sim.prediction_loss_final > 0.15),
+                )
             if sim.loss_by_component:
                 dominant = max(sim.loss_by_component, key=sim.loss_by_component.get)  # type: ignore[arg-type]
                 row(f"  Dominant ({dominant})", f"{sim.loss_by_component[dominant]:.3f}")
@@ -336,8 +353,11 @@ class EngineeringReport:
             if self.knowledge_packs:
                 row("Knowledge Packs", self.knowledge_packs)
             if self.knowledge_confidence is not None:
-                row("Confidence", f"{self.knowledge_confidence:.2f}",
-                    warn=(self.knowledge_confidence < 0.70))
+                row(
+                    "Confidence",
+                    f"{self.knowledge_confidence:.2f}",
+                    warn=(self.knowledge_confidence < 0.70),
+                )
             if self.knowledge_loss_vec:
                 weakest = min(self.knowledge_loss_vec, key=self.knowledge_loss_vec.get)  # type: ignore[arg-type]
                 row(f"  Weakest ({weakest})", f"{self.knowledge_loss_vec[weakest]:.3f}")

@@ -35,6 +35,7 @@ pipeline/comparison/integration.py's module docstring for why running it
 after Execute (an earlier version of this pipeline did) made the
 prediction-vs-outcome comparison meaningless.
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,6 +51,7 @@ logger = logging.getLogger("agentos.pipeline.belief_formation")
 @dataclass
 class FormationResult:
     """Result of one complete belief formation cycle."""
+
     success: bool = True
     goal_achieved: bool = False
     reward: float = 0.0
@@ -88,6 +90,7 @@ class BeliefFormation:
             from src.monkey_brain.kernel.pipeline.comparison.integration import (
                 build_comparison_integrated_runtime,
             )
+
             self._engine = build_comparison_integrated_runtime()
         return self._engine
 
@@ -117,9 +120,11 @@ class BeliefFormation:
 
         try:
             import asyncio
+
             engine = self._get_engine()
 
             from src.monkey_brain.kernel.pipeline.tuning import get_tuning
+
             tuning = get_tuning()
             if hasattr(engine, "_policy"):
                 tuning.apply_to_policy(engine._policy)
@@ -135,7 +140,12 @@ class BeliefFormation:
             return FormationResult(
                 success=False,
                 duration_ms=(time.time() - start) * 1000,
-                errors=[{"type": "TimeoutError", "message": f"Timed out after {timeout_seconds}s"}],
+                errors=[
+                    {
+                        "type": "TimeoutError",
+                        "message": f"Timed out after {timeout_seconds}s",
+                    }
+                ],
             )
         except Exception as e:
             logger.error("Belief formation failed: %s", e)
@@ -148,6 +158,7 @@ class BeliefFormation:
         duration_ms = (time.time() - start) * 1000
 
         from src.monkey_brain.kernel.pipeline.tuning import get_tuning
+
         state.pruning_result = get_tuning().decay_and_prune(state.belief)
 
         return self._build_result(state, duration_ms)

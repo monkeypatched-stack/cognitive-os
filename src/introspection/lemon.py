@@ -265,7 +265,8 @@ class Lemon:
 
             query = {"query": {"bool": {"must": must or [{"match_all": {}}]}}}
             result = await self._es_client.search(
-                index="agentos-logs", body={"size": size, "sort": [{"timestamp": "desc"}], **query}
+                index="agentos-logs",
+                body={"size": size, "sort": [{"timestamp": "desc"}], **query},
             )
             return [hit["_source"] for hit in result["hits"]["hits"]]
         except Exception as e:
@@ -343,7 +344,13 @@ class Lemon:
         return self.health.overall_status()
 
     # --- Alerts ---
-    def alert(self, name: str, message: str, severity: AlertSeverity = AlertSeverity.WARNING, **metadata: Any) -> Alert:
+    def alert(
+        self,
+        name: str,
+        message: str,
+        severity: AlertSeverity = AlertSeverity.WARNING,
+        **metadata: Any,
+    ) -> Alert:
         return self.alerts.fire(name, message, severity, **metadata)
 
     def add_alert_rule(self, rule: AlertRule) -> None:

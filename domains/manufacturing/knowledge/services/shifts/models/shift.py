@@ -1,8 +1,7 @@
-
 # ---------------------------------------------------------------------------
 # Shift Schedule  (a concrete dated shift occurrence)
 # ---------------------------------------------------------------------------
- 
+
 from datetime import date, datetime
 from typing import Optional
 from uuid import UUID, uuid4
@@ -14,18 +13,18 @@ from services.shifts.models.time_range import TimeRange
 
 class ShiftSchedule(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
-    id:               UUID       = Field(default_factory=uuid4)
-    plant_id:       str
-    template_id:      Optional[UUID] = Field(
+    id: UUID = Field(default_factory=uuid4)
+    plant_id: str
+    template_id: Optional[UUID] = Field(
         None, description="Source ShiftTemplate, if generated from one"
     )
-    shift_date:       date
-    shift_type:       ShiftType
-    time_range:       TimeRange
-    supervisor_id:    UUID       = Field(..., description="Responsible supervisor employee id")
-    employee_ids:     list[UUID] = Field(default_factory=list)
-    created_at:       datetime   = Field(default_factory=datetime.utcnow)
-    updated_at:       datetime   = Field(default_factory=datetime.utcnow)
+    shift_date: date
+    shift_type: ShiftType
+    time_range: TimeRange
+    supervisor_id: UUID = Field(..., description="Responsible supervisor employee id")
+    employee_ids: list[UUID] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     @computed_field  # type: ignore[misc]
     @property
@@ -58,5 +57,3 @@ class PaginatedShiftScheduleResponse(BaseModel):
     page: int
     page_size: int
     results: list[ShiftScheduleResponse]
- 
- 

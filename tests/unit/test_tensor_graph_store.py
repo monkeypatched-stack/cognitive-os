@@ -1,4 +1,5 @@
 """Tests for TensorGraphStore — tensor-backed replacement for Neo4j."""
+
 from __future__ import annotations
 
 import pytest
@@ -116,6 +117,7 @@ class TestCompatibility:
             "edges": [{"from": "agent1", "to": "agent2"}],
         }
         import asyncio
+
         asyncio.run(store.sync_graph(graph))
         assert store._tensor.nnz() >= 2
 
@@ -126,6 +128,7 @@ class TestCompatibility:
     def test_close_noop(self):
         store = TensorGraphStore()
         import asyncio
+
         asyncio.run(store.close())  # Should not raise
 
 

@@ -5,7 +5,13 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from services.products.models.product_common import PricingType, SupportedCurrency, PricingTier, utc_now, ensure_utc
+from services.products.models.product_common import (
+    PricingType,
+    SupportedCurrency,
+    PricingTier,
+    utc_now,
+    ensure_utc,
+)
 
 
 class ProductPricingBase(BaseModel):
@@ -25,7 +31,11 @@ class ProductPricingBase(BaseModel):
 
     @model_validator(mode="after")
     def effective_to_after_from(self) -> "ProductPricingBase":
-        if self.effective_from and self.effective_to and self.effective_to < self.effective_from:
+        if (
+            self.effective_from
+            and self.effective_to
+            and self.effective_to < self.effective_from
+        ):
             raise ValueError("effective_to must be on or after effective_from")
         return self
 

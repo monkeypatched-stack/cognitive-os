@@ -1,4 +1,5 @@
 """Data Engineering agents — Pipeline, ETL, DataQuality, Catalog, Lineage, Warehouse, Streaming."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class PipelineAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"pipeline_id": context.get("pipeline_id", ""), "operation": context.get("operation", "run"), "schedule": context.get("schedule", "")}
+        return {
+            "pipeline_id": context.get("pipeline_id", ""),
+            "operation": context.get("operation", "run"),
+            "schedule": context.get("schedule", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"pipeline.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"pipeline.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"pipeline.{decision['Operation']}", "success": True}
@@ -30,13 +38,25 @@ class ETLAGent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"source": context.get("source", ""), "destination": context.get("destination", ""), "transforms": context.get("transforms", [])}
+        return {
+            "source": context.get("source", ""),
+            "destination": context.get("destination", ""),
+            "transforms": context.get("transforms", []),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "etl.run", "source": perception.get("source", ""), "rows_processed": 0}
+        return {
+            "action": "etl.run",
+            "source": perception.get("source", ""),
+            "rows_processed": 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "etl.run", "success": True, "rows_processed": decision.get("rows_processed", 0)}
+        return {
+            "action": "etl.run",
+            "success": True,
+            "rows_processed": decision.get("rows_processed", 0),
+        }
 
 
 class DataQualityAgent(BaseDDDAgent):
@@ -47,13 +67,26 @@ class DataQualityAgent(BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"dataset": context.get("dataset", ""), "rules": context.get("rules", []), "operation": context.get("operation", "validate")}
+        return {
+            "dataset": context.get("dataset", ""),
+            "rules": context.get("rules", []),
+            "operation": context.get("operation", "validate"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"data_quality.{perception['operation']}", "passed": True, "violations": 0}
+        return {
+            "operation": perception["operation"],
+            "action": f"data_quality.{perception['operation']}",
+            "passed": True,
+            "violations": 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"data_quality.{decision['Operation']}", "passed": decision.get("passed", True), "violations": decision.get("violations", 0)}
+        return {
+            "action": f"data_quality.{decision['Operation']}",
+            "passed": decision.get("passed", True),
+            "violations": decision.get("violations", 0),
+        }
 
 
 class CatalogAgent(BaseDDDAgent):
@@ -64,13 +97,25 @@ class CatalogAgent(BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"query": context.get("query", ""), "domain": context.get("domain", ""), "operation": context.get("operation", "search")}
+        return {
+            "query": context.get("query", ""),
+            "domain": context.get("domain", ""),
+            "operation": context.get("operation", "search"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"catalog.{perception['operation']}", "results": []}
+        return {
+            "operation": perception["operation"],
+            "action": f"catalog.{perception['operation']}",
+            "results": [],
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"catalog.{decision['Operation']}", "success": True, "results": decision.get("results", [])}
+        return {
+            "action": f"catalog.{decision['Operation']}",
+            "success": True,
+            "results": decision.get("results", []),
+        }
 
 
 class LineageAgent(BaseDDDAgent):
@@ -81,13 +126,26 @@ class LineageAgent(BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"dataset": context.get("dataset", ""), "operation": context.get("operation", "trace")}
+        return {
+            "dataset": context.get("dataset", ""),
+            "operation": context.get("operation", "trace"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"lineage.{perception['operation']}", "upstream": [], "downstream": []}
+        return {
+            "operation": perception["operation"],
+            "action": f"lineage.{perception['operation']}",
+            "upstream": [],
+            "downstream": [],
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"lineage.{decision['Operation']}", "success": True, "upstream": decision.get("upstream", []), "downstream": decision.get("downstream", [])}
+        return {
+            "action": f"lineage.{decision['Operation']}",
+            "success": True,
+            "upstream": decision.get("upstream", []),
+            "downstream": decision.get("downstream", []),
+        }
 
 
 class DataWarehouseAgent(BaseDDDAgent):
@@ -97,10 +155,17 @@ class DataWarehouseAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "query"), "table": context.get("table", ""), "query": context.get("query", "")}
+        return {
+            "operation": context.get("operation", "query"),
+            "table": context.get("table", ""),
+            "query": context.get("query", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"data_warehouse.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"data_warehouse.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"data_warehouse.{decision['Operation']}", "success": True}
@@ -113,10 +178,17 @@ class StreamingAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"topic": context.get("topic", ""), "operation": context.get("operation", "consume"), "consumer_group": context.get("consumer_group", "")}
+        return {
+            "topic": context.get("topic", ""),
+            "operation": context.get("operation", "consume"),
+            "consumer_group": context.get("consumer_group", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"streaming.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"streaming.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"streaming.{decision['Operation']}", "success": True}

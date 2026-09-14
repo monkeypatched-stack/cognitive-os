@@ -10,6 +10,7 @@ existing POST /actors/{id}/relationships route) and `move_actor()`
 (real Presence change, the mechanism temporary Society membership is
 derived from).
 """
+
 from __future__ import annotations
 
 import os
@@ -89,9 +90,7 @@ def verify_world(c: httpx.Client, attempts: int = 4, delay_seconds: float = 2.0)
             return result
         last_result = result
         violations = result.get("violations", [])
-        only_presence = bool(violations) and all(
-            v.get("category") == "presence_consistency" for v in violations
-        )
+        only_presence = bool(violations) and all(v.get("category") == "presence_consistency" for v in violations)
         if not only_presence or attempt == attempts - 1:
             break
         time.sleep(delay_seconds)
@@ -99,9 +98,16 @@ def verify_world(c: httpx.Client, attempts: int = 4, delay_seconds: float = 2.0)
 
 
 def create_society(c: httpx.Client, name: str, description: str = "", society_type: str = "generic") -> str:
-    result = call(c, "POST", "/societies", json={
-        "name": name, "description": description, "society_type": society_type,
-    })
+    result = call(
+        c,
+        "POST",
+        "/societies",
+        json={
+            "name": name,
+            "description": description,
+            "society_type": society_type,
+        },
+    )
     return result["society_id"]
 
 
@@ -109,17 +115,37 @@ def host_society(c: httpx.Client, space_id: str, society_id: str) -> None:
     call(c, "POST", f"/planet/geo/{space_id}/host", json={"society_id": society_id})
 
 
-def create_actor(c: httpx.Client, name: str, society_id: str, goals: list[str], *,
-                  actor_type: str = "ai_agent") -> str:
-    result = call(c, "POST", "/actors", json={
-        "name": name, "actor_type": actor_type, "goals": goals,
-        "society_id": society_id, "capabilities": [{"name": "general"}],
-    })
+def create_actor(
+    c: httpx.Client,
+    name: str,
+    society_id: str,
+    goals: list[str],
+    *,
+    actor_type: str = "ai_agent",
+) -> str:
+    result = call(
+        c,
+        "POST",
+        "/actors",
+        json={
+            "name": name,
+            "actor_type": actor_type,
+            "goals": goals,
+            "society_id": society_id,
+            "capabilities": [{"name": "general"}],
+        },
+    )
     return result["actor_id"]
 
 
-def affiliate(c: httpx.Client, actor_id: str, group_target_id: str, *,
-              relationship_type: str = "team_membership", strength: float = 1.0) -> None:
+def affiliate(
+    c: httpx.Client,
+    actor_id: str,
+    group_target_id: str,
+    *,
+    relationship_type: str = "team_membership",
+    strength: float = 1.0,
+) -> None:
     """Give `actor_id` a real, persisted Affiliation whose target_id is
     `group_target_id` — a free-form symbolic string, not required to be
     a real actor (see kernel/affiliations/relationship_bridge.py). Two
@@ -129,18 +155,35 @@ def affiliate(c: httpx.Client, actor_id: str, group_target_id: str, *,
     per group is how a real "warehouse_team"-style group affiliation is
     built from the existing pairwise relationships primitive — no new
     "Team" entity type needed."""
-    call(c, "POST", f"/actors/{actor_id}/relationships", json={
-        "source_actor_id": actor_id, "target_actor_id": group_target_id,
-        "relationship_type": relationship_type, "strength": strength,
-    })
+    call(
+        c,
+        "POST",
+        f"/actors/{actor_id}/relationships",
+        json={
+            "source_actor_id": actor_id,
+            "target_actor_id": group_target_id,
+            "relationship_type": relationship_type,
+            "strength": strength,
+        },
+    )
 
 
 def move_actor(c: httpx.Client, actor_id: str, space_id: str, activity: str = "") -> dict:
-    return call(c, "POST", f"/actors/{actor_id}/move", json={"space_id": space_id, "activity": activity})
+    return call(
+        c,
+        "POST",
+        f"/actors/{actor_id}/move",
+        json={"space_id": space_id, "activity": activity},
+    )
 
 
-def ask_actor(c: httpx.Client, from_actor_id: str, from_actor_name: str,
-               to_actor_id: str, question: str) -> tuple[int, dict]:
+def ask_actor(
+    c: httpx.Client,
+    from_actor_id: str,
+    from_actor_name: str,
+    to_actor_id: str,
+    question: str,
+) -> tuple[int, dict]:
     """The real POST /actors/{id}/ask route — deterministic (no LLM
     planner in the loop deciding routing), used throughout this suite to
     isolate the affiliation/society ROUTING decision from LLM action-
@@ -148,14 +191,25 @@ def ask_actor(c: httpx.Client, from_actor_id: str, from_actor_name: str,
     real LLM call (AnswerQuestionCapability) — only which actor gets
     asked is fixed by this suite's own script, the same convention
     demo/conversation/run_conversation.py already established."""
-    return call_allow_error(c, "POST", f"/actors/{to_actor_id}/ask", json={
-        "question": question, "from_actor_id": from_actor_id, "from_actor_name": from_actor_name,
-    })
+    return call_allow_error(
+        c,
+        "POST",
+        f"/actors/{to_actor_id}/ask",
+        json={
+            "question": question,
+            "from_actor_id": from_actor_id,
+            "from_actor_name": from_actor_name,
+        },
+    )
 
 
 def force_round(
-    c: httpx.Client, actor_id: str, actor_name: str, action_name: str,
-    instruction: str, extra_context: str = "",
+    c: httpx.Client,
+    actor_id: str,
+    actor_name: str,
+    action_name: str,
+    instruction: str,
+    extra_context: str = "",
 ) -> tuple[list[dict], list[dict]]:
     """One /prompt call, explicitly instructed to use exactly one named
     action this turn — the forcing pattern demo/negotiation established.
@@ -164,16 +218,21 @@ def force_round(
     planner's own plan-step choice."""
     prompt_text = (
         (f"{extra_context}\n\n" if extra_context else "")
-        + f'Your plan for this turn MUST contain exactly one step, using '
+        + f"Your plan for this turn MUST contain exactly one step, using "
         f'action "{action_name}" and nothing else. {instruction}'
     )
-    response = call(c, "POST", "/prompt", json={"question": prompt_text}, headers={"X-User-ID": actor_id})
+    response = call(
+        c,
+        "POST",
+        "/prompt",
+        json={"question": prompt_text},
+        headers={"X-User-ID": actor_id},
+    )
     execution = (response.get("query_result") or {}).get("actor_execution") or {}
     plan = execution.get("plan") or {}
     steps = plan.get("steps") or []
     actions = execution.get("actions") or []
-    print(f"\n{actor_name}'s plan this round: "
-          + (" -> ".join(s.get("action", "?") for s in steps) or "(no steps)"))
+    print(f"\n{actor_name}'s plan this round: " + (" -> ".join(s.get("action", "?") for s in steps) or "(no steps)"))
     return steps, actions
 
 

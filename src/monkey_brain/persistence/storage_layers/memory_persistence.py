@@ -3,6 +3,7 @@
 Responsibility: Store and retrieve individual episodic memories.
 Depends on: MongoDB database, in-memory cache
 """
+
 from __future__ import annotations
 
 import logging
@@ -165,9 +166,7 @@ class MemoryPersistence(PersistenceInterface):
             db = self._db.get_db()
             collection = db[self._collection_name]
 
-            result = collection.delete_one(
-                {"_id": f"{self._tenant_id}:{self._actor_id}:{key}"}
-            )
+            result = collection.delete_one({"_id": f"{self._tenant_id}:{self._actor_id}:{key}"})
 
             return result.deleted_count > 0
         except Exception as e:

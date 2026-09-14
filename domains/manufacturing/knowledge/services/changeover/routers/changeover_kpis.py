@@ -22,10 +22,14 @@ async def list_kpis(
     _: dict = Depends(require_permission("perm-view-changeovers")),
 ):
     results, total = await crud.get_all_kpis(db, page=page, page_size=page_size)
-    return PaginatedChangeoverKPIResponse(total=total, page=page, page_size=page_size, results=results)
+    return PaginatedChangeoverKPIResponse(
+        total=total, page=page, page_size=page_size, results=results
+    )
 
 
-@router.get("/kpis/by-workstation/{workstation_id}", response_model=list[ChangeoverKPIResponse])
+@router.get(
+    "/kpis/by-workstation/{workstation_id}", response_model=list[ChangeoverKPIResponse]
+)
 async def list_kpis_by_workstation(
     workstation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -42,18 +46,25 @@ async def get_kpi(
 ):
     record = await crud.get_kpi_by_id(db, kpi_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover KPI '{kpi_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Changeover KPI '{kpi_id}' not found"
+        )
     return record
 
 
-@router.post("/kpis", response_model=ChangeoverKPIResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/kpis", response_model=ChangeoverKPIResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_kpi(
     data: ChangeoverKPICreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-create-changeovers")),
 ):
     if await crud.get_kpi_by_id(db, str(data.id)):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Changeover KPI '{data.id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Changeover KPI '{data.id}' already exists",
+        )
     return await crud.create_kpi(db, data)
 
 
@@ -66,7 +77,9 @@ async def update_kpi(
 ):
     updated = await crud.update_kpi(db, kpi_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover KPI '{kpi_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Changeover KPI '{kpi_id}' not found"
+        )
     return updated
 
 
@@ -77,4 +90,6 @@ async def delete_kpi(
     _: dict = Depends(require_permission("perm-delete-changeovers")),
 ):
     if not await crud.delete_kpi(db, kpi_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover KPI '{kpi_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Changeover KPI '{kpi_id}' not found"
+        )

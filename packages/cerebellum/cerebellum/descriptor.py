@@ -36,9 +36,10 @@ class ProviderBinding:
     Distinct from Peripheral (which manages a connection lifecycle).
     ProviderBinding is static config; Peripheral is a live connection.
     """
-    transport: str          # rest | nats | ros2 | grpc | local | kafka | mqtt
-    endpoint: str           # REST path, NATS subject, ROS2 topic, local fn name
-    priority: int = 0       # higher = preferred when multiple bindings exist
+
+    transport: str  # rest | nats | ros2 | grpc | local | kafka | mqtt
+    endpoint: str  # REST path, NATS subject, ROS2 topic, local fn name
+    priority: int = 0  # higher = preferred when multiple bindings exist
     timeout_ms: float = 5000.0
     retry: int = 0
 
@@ -81,24 +82,25 @@ class CapabilityDescriptor:
         enables  — capabilities unlocked after this succeeds
         disables — capabilities locked after this succeeds
     """
+
     name: str
     domain: str = ""
     description: str = ""
-    requires: list[str]      = field(default_factory=list)
-    produces: list[str]      = field(default_factory=list)
-    effects: list[str]       = field(default_factory=list)
-    side_effects: list[str]  = field(default_factory=list)
+    requires: list[str] = field(default_factory=list)
+    produces: list[str] = field(default_factory=list)
+    effects: list[str] = field(default_factory=list)
+    side_effects: list[str] = field(default_factory=list)
     preconditions: list[str] = field(default_factory=list)
-    postconditions: list[str]= field(default_factory=list)
-    enables: list[str]       = field(default_factory=list)
-    disables: list[str]      = field(default_factory=list)
-    cost_ms: float           = 10.0
-    confidence: float        = 0.9
+    postconditions: list[str] = field(default_factory=list)
+    enables: list[str] = field(default_factory=list)
+    disables: list[str] = field(default_factory=list)
+    cost_ms: float = 10.0
+    confidence: float = 0.9
     providers: list[ProviderBinding] = field(default_factory=list)
     # EPA epistemic operator fields — read by epa_transition() to update K without hardcoding
     knowledge_effects: list[str] = field(default_factory=list)  # "adds:X", "removes:Y"
-    confidence_delta: float      = 0.0   # expected confidence change per invocation
-    expected_utility: float      = 1.0   # prior utility estimate (updated by BellmanLearningLoop)
+    confidence_delta: float = 0.0  # expected confidence change per invocation
+    expected_utility: float = 1.0  # prior utility estimate (updated by BellmanLearningLoop)
 
     # ── Affordance helpers ───────────────────────────────────────────────────
 
@@ -114,12 +116,19 @@ class CapabilityDescriptor:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "name": self.name, "domain": self.domain, "description": self.description,
-            "requires": self.requires, "produces": self.produces,
-            "effects": self.effects, "side_effects": self.side_effects,
-            "preconditions": self.preconditions, "postconditions": self.postconditions,
-            "enables": self.enables, "disables": self.disables,
-            "cost_ms": self.cost_ms, "confidence": self.confidence,
+            "name": self.name,
+            "domain": self.domain,
+            "description": self.description,
+            "requires": self.requires,
+            "produces": self.produces,
+            "effects": self.effects,
+            "side_effects": self.side_effects,
+            "preconditions": self.preconditions,
+            "postconditions": self.postconditions,
+            "enables": self.enables,
+            "disables": self.disables,
+            "cost_ms": self.cost_ms,
+            "confidence": self.confidence,
             "providers": [p.to_dict() for p in self.providers],
             "knowledge_effects": self.knowledge_effects,
             "confidence_delta": self.confidence_delta,

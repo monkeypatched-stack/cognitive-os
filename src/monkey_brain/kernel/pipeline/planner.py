@@ -13,6 +13,7 @@ Different planners can be swapped in:
 
 The runtime never knows which planner is active.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, Any

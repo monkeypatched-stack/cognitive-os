@@ -18,16 +18,16 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 # ── Team Member ───────────────────────────────────────────────────────────────
 class TeamMember(BaseModel):
-    user_id:     str           = Field(..., min_length=1)
-    employee_id: str           = Field(..., min_length=1)
-    name:        str           = Field(..., min_length=1)
+    user_id: str = Field(..., min_length=1)
+    employee_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
 
-    department:  Optional[str] = None
-    email:       Optional[str] = None
-    role:        Optional[str] = None
+    department: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
 
-    is_active:   bool          = True
-    joined_at:   datetime      = Field(default_factory=utc_now)
+    is_active: bool = True
+    joined_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
     def normalize_datetimes(self) -> "TeamMember":
@@ -43,9 +43,9 @@ class TeamMemberCreate(TeamMember):
 # ── Update ────────────────────────────────────────────────────────────────────
 class TeamMemberUpdate(BaseModel):
     department: Optional[str] = None
-    email:      Optional[str] = None
-    role:       Optional[str] = None
-    is_active:  Optional[bool] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 # ── Response ──────────────────────────────────────────────────────────────────

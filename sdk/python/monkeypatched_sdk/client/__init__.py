@@ -37,6 +37,7 @@ logger = logging.getLogger("monkeybrain.client")
 @dataclass
 class ActorInfo:
     """Actor information from the API."""
+
     actor_id: str
     name: str
     actor_type: str
@@ -61,6 +62,7 @@ class ActorInfo:
 @dataclass
 class TickResult:
     """Result of an actor tick."""
+
     actor_id: str
     tick_count: int
     plan_steps: list[dict]
@@ -105,12 +107,14 @@ class MonkeyBrain:
         if self._client is None:
             try:
                 import httpx
+
                 headers = {}
                 if self.auth_token:
                     headers["Authorization"] = f"Bearer {self.auth_token}"
                 self._client = httpx.Client(headers=headers, timeout=30.0)
             except ImportError:
                 import subprocess
+
                 self._client = None
                 logger.warning("httpx not available, using curl fallback")
         return self._client
@@ -138,7 +142,16 @@ class MonkeyBrain:
                 return {"error": str(e)}
         else:
             import subprocess, json as _json
-            cmd = ["curl", "-s", "-X", method, url, "-H", "Content-Type: application/json"]
+
+            cmd = [
+                "curl",
+                "-s",
+                "-X",
+                method,
+                url,
+                "-H",
+                "Content-Type: application/json",
+            ]
             if body:
                 cmd.extend(["-d", _json.dumps(body)])
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -164,18 +177,27 @@ class MonkeyBrain:
                 return {"error": str(e)}
         else:
             import subprocess, json as _json
+
             r = subprocess.run(["curl", "-s", url], capture_output=True, text=True, timeout=10)
-            try: return _json.loads(r.stdout)
-            except: return {"error": r.stdout}
+            try:
+                return _json.loads(r.stdout)
+            except:
+                return {"error": r.stdout}
 
     # ═══════════════════════════════════════════════════════════════
     # Actor Management
     # ═══════════════════════════════════════════════════════════════
 
-    def create_actor(self, name: str, objective: str = "", goals: list[str] = None,
-                     actor_type: str = "ai_agent", **kwargs) -> ActorInfo:
+    def create_actor(
+        self,
+        name: str,
+        objective: str = "",
+        goals: list[str] = None,
+        actor_type: str = "ai_agent",
+        **kwargs,
+    ) -> ActorInfo:
         """Create an actor through the API.
-        
+
         If an actor with this name already exists, returns the existing actor.
         To create a new actor, use a unique name or update the existing one.
         """
@@ -185,11 +207,11 @@ class MonkeyBrain:
         body.update(kwargs)
         r = self._request("POST", "/actors", body)
         result = ActorInfo.from_dict(r)
-        
+
         # If objective was specified but not returned (existing actor), update it
         if objective and not result.objective:
             result = self.update_actor(result.actor_id, objective=objective, goals=goals or [])
-        
+
         return result
 
     def get_actor(self, actor_id: str) -> ActorInfo:
@@ -214,8 +236,11 @@ class MonkeyBrain:
 
     def tick(self, actor_id: str, goal: str = "", start: str = "") -> TickResult:
         """Tick an actor and return the result."""
-        r = self._request("POST", f"/actors/{actor_id}/tick",
-                         {"start": start, "goal": goal, "reward": 1.0})
+        r = self._request(
+            "POST",
+            f"/actors/{actor_id}/tick",
+            {"start": start, "goal": goal, "reward": 1.0},
+        )
         return TickResult.from_dict(r)
 
     # ═══════════════════════════════════════════════════════════════

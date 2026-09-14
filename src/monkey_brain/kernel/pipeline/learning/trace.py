@@ -18,6 +18,7 @@ LearningResult.metadata ("reward_breakdown", "belief_updates",
 module reads them back rather than re-deriving reward/belief/world
 updates a second time.
 """
+
 from __future__ import annotations
 
 import time
@@ -25,14 +26,23 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
-from src.monkey_brain.kernel.pipeline.learning.domain import LearningExperience, LearningPolicy, LearningResult
+from src.monkey_brain.kernel.pipeline.learning.domain import (
+    LearningExperience,
+    LearningPolicy,
+    LearningResult,
+)
 from src.monkey_brain.kernel.pipeline.learning.policies import resolve_policy
-from src.monkey_brain.kernel.pipeline.learning.phi import PhiArtifact, PhiCompiler, phi_to_dict
+from src.monkey_brain.kernel.pipeline.learning.phi import (
+    PhiArtifact,
+    PhiCompiler,
+    phi_to_dict,
+)
 
 
 @dataclass(frozen=True)
 class LearningTraceStage:
     """One narrated step of the pipeline."""
+
     name: str = ""
     summary: str = ""
     detail: dict[str, Any] = field(default_factory=dict)
@@ -41,6 +51,7 @@ class LearningTraceStage:
 @dataclass(frozen=True)
 class LearningTrace:
     """The full explainable record of one learning cycle."""
+
     trace_id: str = field(default_factory=lambda: uuid4().hex)
     experience_id: str = ""
     stages: tuple[LearningTraceStage, ...] = ()
@@ -54,6 +65,7 @@ class LearningTrace:
 
     def to_dict(self) -> dict[str, Any]:
         import dataclasses
+
         return {
             "trace_id": self.trace_id,
             "experience_id": self.experience_id,
@@ -98,7 +110,8 @@ def build_learning_trace(
 
     capture_summary = f"Goal '{phi.goal_signature}' captured, outcome {outcome_word}"
     capture_stage = LearningTraceStage(
-        name="Experience Capture", summary=capture_summary,
+        name="Experience Capture",
+        summary=capture_summary,
         detail={"experience_id": experience.experience_id, "outcome": outcome_word},
     )
 
@@ -120,7 +133,11 @@ def build_learning_trace(
         world_summary = "; ".join(_fmt_world_update(u) for u in world_updates)
     else:
         world_summary = f"No world update applied ({result.rationale})"
-    world_stage = LearningTraceStage(name="World Model Update", summary=world_summary, detail={"updates": world_updates})
+    world_stage = LearningTraceStage(
+        name="World Model Update",
+        summary=world_summary,
+        detail={"updates": world_updates},
+    )
 
     policy_stage = LearningTraceStage(
         name="Learning Policy",
@@ -133,7 +150,14 @@ def build_learning_trace(
         phi_summary += f"; {phi.top_signal_summary}"
     phi_stage = LearningTraceStage(name="Φ Compilation", summary=phi_summary, detail=phi_to_dict(phi))
 
-    stages = (capture_stage, reward_stage, belief_stage, world_stage, policy_stage, phi_stage)
+    stages = (
+        capture_stage,
+        reward_stage,
+        belief_stage,
+        world_stage,
+        policy_stage,
+        phi_stage,
+    )
 
     header = " -> ".join(s.name for s in stages) + " -> Learning Trace"
     body = "\n".join(f"{i + 1}. {s.name}: {s.summary}" for i, s in enumerate(stages))

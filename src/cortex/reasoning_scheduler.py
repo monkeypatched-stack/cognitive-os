@@ -64,37 +64,38 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Reasoning Topologies
 # ---------------------------------------------------------------------------
 
+
 class ReasoningTopology:
-    CHAIN_OF_THOUGHT  = "chain_of_thought"    # CoT — sequential, deterministic
-    GRAPH_OF_THOUGHT  = "graph_of_thought"    # GoT — parallel branches + merge
-    TREE_OF_THOUGHT   = "tree_of_thought"     # ToT — branching + pruning
-    DEBATE            = "debate"              # competing branches + judge
-    REPAIR_LOOP       = "repair_loop"         # propose → critique → repair
+    CHAIN_OF_THOUGHT = "chain_of_thought"  # CoT — sequential, deterministic
+    GRAPH_OF_THOUGHT = "graph_of_thought"  # GoT — parallel branches + merge
+    TREE_OF_THOUGHT = "tree_of_thought"  # ToT — branching + pruning
+    DEBATE = "debate"  # competing branches + judge
+    REPAIR_LOOP = "repair_loop"  # propose → critique → repair
 
 
 class MergeStrategy:
-    CONSTITUTION_VOTE  = "constitution_vote"  # each branch is a constitution; majority wins
-    CONFIDENCE_WEIGHT  = "confidence_weight"  # merge proportional to branch confidence
-    FIRST_VALID        = "first_valid"        # take the first branch that passes validation
-    UNION              = "union"              # collect all findings (adversarial style)
-    JUDGE              = "judge"              # LLM judge resolves between branches
+    CONSTITUTION_VOTE = "constitution_vote"  # each branch is a constitution; majority wins
+    CONFIDENCE_WEIGHT = "confidence_weight"  # merge proportional to branch confidence
+    FIRST_VALID = "first_valid"  # take the first branch that passes validation
+    UNION = "union"  # collect all findings (adversarial style)
+    JUDGE = "judge"  # LLM judge resolves between branches
 
 
 class ExecutionBackend:
-    LOCAL_OLLAMA  = "ollama"
+    LOCAL_OLLAMA = "ollama"
     CLAUDE_SONNET = "claude-sonnet-4-6"
-    CLAUDE_OPUS   = "claude-opus-4-8"
-    CLAUDE_HAIKU  = "claude-haiku-4-5-20251001"
+    CLAUDE_OPUS = "claude-opus-4-8"
+    CLAUDE_HAIKU = "claude-haiku-4-5-20251001"
 
 
 # ---------------------------------------------------------------------------
 # ReasoningProgram — a prompt is computation, not text
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ReasoningProgram:
@@ -116,16 +117,17 @@ class ReasoningProgram:
 
     The topology is selected before the backend.
     """
+
     task: str
     strategy: str = ReasoningTopology.CHAIN_OF_THOUGHT
-    parallelism: str = "sequential"          # sequential | parallel
+    parallelism: str = "sequential"  # sequential | parallel
     deterministic: bool = True
     max_branches: int = 1
     merge: str = MergeStrategy.FIRST_VALID
     solver: str = "llm"
     verifier: str = ""
     repair: bool = False
-    backend: str = ""                        # set by scheduler; empty = auto-select
+    backend: str = ""  # set by scheduler; empty = auto-select
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def is_parallel(self) -> bool:
@@ -159,51 +161,87 @@ class ReasoningProgram:
 _TOPOLOGY_DISPATCH: dict[str, dict[str, Any]] = {
     "requirement_extraction": {
         "strategy": ReasoningTopology.CHAIN_OF_THOUGHT,
-        "parallelism": "sequential", "max_branches": 1, "merge": MergeStrategy.FIRST_VALID, "repair": False,
+        "parallelism": "sequential",
+        "max_branches": 1,
+        "merge": MergeStrategy.FIRST_VALID,
+        "repair": False,
     },
     "ontology_mapping": {
         "strategy": ReasoningTopology.CHAIN_OF_THOUGHT,
-        "parallelism": "sequential", "max_branches": 1, "merge": MergeStrategy.FIRST_VALID, "repair": False,
+        "parallelism": "sequential",
+        "max_branches": 1,
+        "merge": MergeStrategy.FIRST_VALID,
+        "repair": False,
     },
     "ddd_modeling": {
         "strategy": ReasoningTopology.CHAIN_OF_THOUGHT,
-        "parallelism": "sequential", "max_branches": 1, "merge": MergeStrategy.FIRST_VALID, "repair": True,
+        "parallelism": "sequential",
+        "max_branches": 1,
+        "merge": MergeStrategy.FIRST_VALID,
+        "repair": True,
     },
     "architecture_synthesis": {
         "strategy": ReasoningTopology.GRAPH_OF_THOUGHT,
-        "parallelism": "parallel", "max_branches": 5, "merge": MergeStrategy.CONSTITUTION_VOTE, "repair": True,
+        "parallelism": "parallel",
+        "max_branches": 5,
+        "merge": MergeStrategy.CONSTITUTION_VOTE,
+        "repair": True,
     },
     "code_generation": {
         "strategy": ReasoningTopology.CHAIN_OF_THOUGHT,
-        "parallelism": "sequential", "max_branches": 1, "merge": MergeStrategy.FIRST_VALID, "repair": True,
+        "parallelism": "sequential",
+        "max_branches": 1,
+        "merge": MergeStrategy.FIRST_VALID,
+        "repair": True,
     },
     "adversarial_review": {
         "strategy": ReasoningTopology.GRAPH_OF_THOUGHT,
-        "parallelism": "parallel", "max_branches": 8, "merge": MergeStrategy.UNION, "repair": True,
+        "parallelism": "parallel",
+        "max_branches": 8,
+        "merge": MergeStrategy.UNION,
+        "repair": True,
     },
     "governance": {
         "strategy": ReasoningTopology.GRAPH_OF_THOUGHT,
-        "parallelism": "parallel", "max_branches": 5, "merge": MergeStrategy.CONSTITUTION_VOTE, "repair": False,
+        "parallelism": "parallel",
+        "max_branches": 5,
+        "merge": MergeStrategy.CONSTITUTION_VOTE,
+        "repair": False,
     },
     "compliance": {
         "strategy": ReasoningTopology.GRAPH_OF_THOUGHT,
-        "parallelism": "parallel", "max_branches": 4, "merge": MergeStrategy.CONSTITUTION_VOTE, "repair": False,
+        "parallelism": "parallel",
+        "max_branches": 4,
+        "merge": MergeStrategy.CONSTITUTION_VOTE,
+        "repair": False,
     },
     "simulation": {
         "strategy": ReasoningTopology.GRAPH_OF_THOUGHT,
-        "parallelism": "parallel", "max_branches": 4, "merge": MergeStrategy.CONFIDENCE_WEIGHT, "repair": True,
+        "parallelism": "parallel",
+        "max_branches": 4,
+        "merge": MergeStrategy.CONFIDENCE_WEIGHT,
+        "repair": True,
     },
     "repair": {
         "strategy": ReasoningTopology.REPAIR_LOOP,
-        "parallelism": "sequential", "max_branches": 1, "merge": MergeStrategy.FIRST_VALID, "repair": True,
+        "parallelism": "sequential",
+        "max_branches": 1,
+        "merge": MergeStrategy.FIRST_VALID,
+        "repair": True,
     },
     "trade_off_analysis": {
         "strategy": ReasoningTopology.DEBATE,
-        "parallelism": "parallel", "max_branches": 2, "merge": MergeStrategy.JUDGE, "repair": False,
+        "parallelism": "parallel",
+        "max_branches": 2,
+        "merge": MergeStrategy.JUDGE,
+        "repair": False,
     },
     "design_exploration": {
         "strategy": ReasoningTopology.TREE_OF_THOUGHT,
-        "parallelism": "parallel", "max_branches": 6, "merge": MergeStrategy.CONFIDENCE_WEIGHT, "repair": True,
+        "parallelism": "parallel",
+        "max_branches": 6,
+        "merge": MergeStrategy.CONFIDENCE_WEIGHT,
+        "repair": True,
     },
 }
 
@@ -212,16 +250,17 @@ _TOPOLOGY_DISPATCH: dict[str, dict[str, Any]] = {
 # CoT sequential tasks can run locally on Ollama
 _BACKEND_DISPATCH: dict[str, str] = {
     ReasoningTopology.CHAIN_OF_THOUGHT: ExecutionBackend.LOCAL_OLLAMA,
-    ReasoningTopology.TREE_OF_THOUGHT:  ExecutionBackend.CLAUDE_SONNET,
+    ReasoningTopology.TREE_OF_THOUGHT: ExecutionBackend.CLAUDE_SONNET,
     ReasoningTopology.GRAPH_OF_THOUGHT: ExecutionBackend.CLAUDE_SONNET,
-    ReasoningTopology.DEBATE:           ExecutionBackend.CLAUDE_SONNET,
-    ReasoningTopology.REPAIR_LOOP:      ExecutionBackend.CLAUDE_SONNET,
+    ReasoningTopology.DEBATE: ExecutionBackend.CLAUDE_SONNET,
+    ReasoningTopology.REPAIR_LOOP: ExecutionBackend.CLAUDE_SONNET,
 }
 
 
 # ---------------------------------------------------------------------------
 # ReasoningScheduler
 # ---------------------------------------------------------------------------
+
 
 class ReasoningScheduler:
     """Selects reasoning topology before execution backend.
@@ -256,7 +295,11 @@ class ReasoningScheduler:
 
         backend = force_backend
         if not backend:
-            backend = ExecutionBackend.LOCAL_OLLAMA if local_only else _BACKEND_DISPATCH.get(strategy, ExecutionBackend.CLAUDE_SONNET)
+            backend = (
+                ExecutionBackend.LOCAL_OLLAMA
+                if local_only
+                else _BACKEND_DISPATCH.get(strategy, ExecutionBackend.CLAUDE_SONNET)
+            )
 
         return ReasoningProgram(
             task=task,
@@ -300,7 +343,7 @@ class ReasoningScheduler:
             return "design_exploration"
         if any(k in p for k in ("extract", "requirement", "need", "must", "shall")):
             return "requirement_extraction"
-        return "code_generation"   # safe default
+        return "code_generation"  # safe default
 
     def schedule_from_prompt(
         self,
@@ -311,4 +354,9 @@ class ReasoningScheduler:
     ) -> ReasoningProgram:
         """Classify + schedule in one step."""
         problem_type = self.classify(prompt)
-        return self.schedule(problem_type, task=prompt, force_backend=force_backend, local_only=local_only)
+        return self.schedule(
+            problem_type,
+            task=prompt,
+            force_backend=force_backend,
+            local_only=local_only,
+        )

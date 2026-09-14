@@ -11,6 +11,7 @@ picker actually assigned to that store. estimate_pickup_minutes() already
 existed but only ever returned a generic time + label ("human picker"/
 "autonomous cart") — never a specific, identifiable picker.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.logistics import LogisticsCapability, assign_picker
@@ -22,19 +23,49 @@ HUMAN_STORE = "store_human"
 
 def _seed_world() -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity(ROBOT_STORE, EntityType.ORGANIZATION, "Robo Mart", {
-        "has_autonomous_cart": True, "robot_pick_minutes": 4.0,
-    })
+    kg.add_entity(
+        ROBOT_STORE,
+        EntityType.ORGANIZATION,
+        "Robo Mart",
+        {
+            "has_autonomous_cart": True,
+            "robot_pick_minutes": 4.0,
+        },
+    )
     kg.add_entity(HUMAN_STORE, EntityType.ORGANIZATION, "Human Mart", {})
-    kg.add_entity("picker_slow", EntityType.PERSON, "Sam", {
-        "role": "picker", "store_id": HUMAN_STORE, "status": "available", "pick_rate_minutes": 20.0,
-    })
-    kg.add_entity("picker_fast", EntityType.PERSON, "Rae", {
-        "role": "picker", "store_id": HUMAN_STORE, "status": "available", "pick_rate_minutes": 8.0,
-    })
-    kg.add_entity("picker_busy", EntityType.PERSON, "Jo", {
-        "role": "picker", "store_id": HUMAN_STORE, "status": "busy", "pick_rate_minutes": 5.0,
-    })
+    kg.add_entity(
+        "picker_slow",
+        EntityType.PERSON,
+        "Sam",
+        {
+            "role": "picker",
+            "store_id": HUMAN_STORE,
+            "status": "available",
+            "pick_rate_minutes": 20.0,
+        },
+    )
+    kg.add_entity(
+        "picker_fast",
+        EntityType.PERSON,
+        "Rae",
+        {
+            "role": "picker",
+            "store_id": HUMAN_STORE,
+            "status": "available",
+            "pick_rate_minutes": 8.0,
+        },
+    )
+    kg.add_entity(
+        "picker_busy",
+        EntityType.PERSON,
+        "Jo",
+        {
+            "role": "picker",
+            "store_id": HUMAN_STORE,
+            "status": "busy",
+            "pick_rate_minutes": 5.0,
+        },
+    )
     return kg
 
 
@@ -64,9 +95,17 @@ def test_mb3017_human_store_assigns_fastest_available_picker():
 
 def test_mb3017_picker_at_a_different_store_is_never_assigned():
     kg = _seed_world()
-    kg.add_entity("picker_elsewhere", EntityType.PERSON, "Kim", {
-        "role": "picker", "store_id": ROBOT_STORE, "status": "available", "pick_rate_minutes": 1.0,
-    })
+    kg.add_entity(
+        "picker_elsewhere",
+        EntityType.PERSON,
+        "Kim",
+        {
+            "role": "picker",
+            "store_id": ROBOT_STORE,
+            "status": "available",
+            "pick_rate_minutes": 1.0,
+        },
+    )
 
     result = assign_picker(kg, HUMAN_STORE)
 
@@ -75,9 +114,17 @@ def test_mb3017_picker_at_a_different_store_is_never_assigned():
 
 def test_mb3017_a_rider_is_never_assigned_as_a_picker():
     kg = _seed_world()
-    kg.add_entity("rider_1", EntityType.PERSON, "Ravi", {
-        "role": "rider", "store_id": HUMAN_STORE, "status": "available", "pick_rate_minutes": 0.5,
-    })
+    kg.add_entity(
+        "rider_1",
+        EntityType.PERSON,
+        "Ravi",
+        {
+            "role": "rider",
+            "store_id": HUMAN_STORE,
+            "status": "available",
+            "pick_rate_minutes": 0.5,
+        },
+    )
 
     result = assign_picker(kg, HUMAN_STORE)
 

@@ -4,6 +4,7 @@ resources, a missing token isn't a failure — GitHubCapability already works
 unauthenticated (read-only, rate-limited) — so this reports DEGRADED, not
 UNAVAILABLE, when the token is absent.
 """
+
 from __future__ import annotations
 
 import os
@@ -37,7 +38,8 @@ class GitHubResource:
         if os.environ.get("GITHUB_TOKEN", "").strip():
             return ResourceHealth(name=self.name, state=ResourceState.READY, required=False)
         return ResourceHealth(
-            name=self.name, state=ResourceState.DEGRADED,
+            name=self.name,
+            state=ResourceState.DEGRADED,
             reason="GITHUB_TOKEN not set — unauthenticated, read-only, rate-limited",
             required=False,
         )

@@ -15,10 +15,7 @@ NO_INTENT_MESSAGE = "No intent could be classified for this question."
 
 def normalize_question(question: str) -> str:
     """Strip control chars, remove internal markers, truncate to 10 000 chars."""
-    cleaned = "".join(
-        " " if ord(c) < 32 and c not in ("\t", "\n") else c
-        for c in question
-    )
+    cleaned = "".join(" " if ord(c) < 32 and c not in ("\t", "\n") else c for c in question)
     # "Graph Details" is an internal graph-serialization marker injected upstream;
     # strip everything from it onward so it never reaches intent resolution.
     return cleaned[:10_000].split("Graph Details", 1)[0].strip()
@@ -35,7 +32,11 @@ def fallback_to_predicates(question: str) -> Optional[dict]:
     for intent_name, route in INTENT_REGISTRY.items():
         if route.predicate and route.predicate(question):
             logger.info("Predicate match: %s", intent_name)
-            return {"intent": intent_name, "confidence": 1.0, "workload_id": intent_name}
+            return {
+                "intent": intent_name,
+                "confidence": 1.0,
+                "workload_id": intent_name,
+            }
     return None
 
 
@@ -51,15 +52,15 @@ def create_goal(
     lemon is optional; when provided, observe_intent is called after resolution.
     """
 
-     # 1. Normalize the question to remove control characters and internal markers, and truncate it to a maximum length.
-     # FL - STEP 7
+    # 1. Normalize the question to remove control characters and internal markers, and truncate it to a maximum length.
+    # FL - STEP 7
     normalized = normalize_question(question)
 
     if is_self_healing(normalized):
         return route_self_healing(normalized)
 
-     # 2. Resolve the intent using predicate matching. If no intent is found, return None for both intent and goal.
-     # FL - STEP 8
+    # 2. Resolve the intent using predicate matching. If no intent is found, return None for both intent and goal.
+    # FL - STEP 8
     intent = resolve_intent(normalized)
     if not intent:
         if lemon:
@@ -74,8 +75,8 @@ def create_goal(
             trace_id=trace_id,
         )
 
-     # 3. Resolve the goal by routing the question to the appropriate handler. If no goal is found, return None for the goal.
-     # FL - STEP  9
+    # 3. Resolve the goal by routing the question to the appropriate handler. If no goal is found, return None for the goal.
+    # FL - STEP  9
     return normalized, intent, resolve_goal_from_intent(normalized, intent)
 
 
@@ -83,11 +84,13 @@ def is_self_healing(question: str) -> bool:
     from src.monkey_brain.kernel.plan.intents.predicates.self_healing_workload import (
         is_self_healing_question,
     )
+
     return is_self_healing_question(question)
 
 
 def route_self_healing(question: str) -> tuple[str, dict, Any]:
     from src.monkey_brain.kernel.plan.intents.intent_registry import INTENT_REGISTRY
+
     intent: dict = {
         "intent": SELF_HEALING_INTENT,
         "confidence": 1.0,
@@ -96,6 +99,7 @@ def route_self_healing(question: str) -> tuple[str, dict, Any]:
     route = INTENT_REGISTRY.get(SELF_HEALING_INTENT)
     goal = route_question(question, intent) if route else None
     return question, intent, goal
+
 
 def resolve_intent(question: str) -> Optional[dict]:
     """Predicate match only — registry check. Returns intent dict or None.
@@ -106,7 +110,7 @@ def resolve_intent(question: str) -> Optional[dict]:
     """
     from src.monkey_brain.kernel.plan.intents.intent_registry import INTENT_REGISTRY
 
-    # all intents just go. to predicates 
+    # all intents just go. to predicates
     intent = fallback_to_predicates(question)
     if not intent:
         return None

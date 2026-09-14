@@ -19,7 +19,7 @@ async def send_file():
     payload = {
         "type": "file",
         "fileName": os.path.basename(FILE_PATH),
-        "data": base64.b64encode(file_bytes).decode("utf-8")
+        "data": base64.b64encode(file_bytes).decode("utf-8"),
     }
 
     async with websockets.connect(WS_URL) as ws:
@@ -33,10 +33,7 @@ async def send_file():
 
 
 async def send_text():
-    payload = {
-        "type": "text",
-        "message": "Hello from WebSocket client 👋"
-    }
+    payload = {"type": "text", "message": "Hello from WebSocket client 👋"}
 
     async with websockets.connect(WS_URL) as ws:
         print("📡 Connected (text mode)")

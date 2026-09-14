@@ -37,7 +37,9 @@ def _prepare(value):
     return value
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -57,7 +59,9 @@ async def get_by_condition(db: AsyncIOMotorDatabase, condition: str) -> list[dic
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_product_code(db: AsyncIOMotorDatabase, product_code: str) -> list[dict]:
+async def get_by_product_code(
+    db: AsyncIOMotorDatabase, product_code: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"contents.product_code": product_code})
     return [_serialize(doc) async for doc in cursor]
 
@@ -68,7 +72,9 @@ async def create(db: AsyncIOMotorDatabase, data: PalletCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, pallet_id: str, data: PalletUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, pallet_id: str, data: PalletUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, pallet_id)

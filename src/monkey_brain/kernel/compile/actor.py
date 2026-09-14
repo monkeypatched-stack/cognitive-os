@@ -21,6 +21,7 @@ Actor and world share the SAME state index (both intern into the tensor), so M
 aligns for the multiplication. Nothing is hardcoded: A is built by recording the
 actions a user actually takes; W is a slice of the observed world tensor.
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,6 +43,7 @@ logger = logging.getLogger("agentos.compile.actor")
 @dataclass
 class EffectMatrix:
     """A·W ∈ ℝ^{L×N} — per action, the induced distribution over destination states."""
+
     _rows: Mapping[str, Mapping[str, float]] = field(default_factory=dict)
 
     def actions(self) -> list[str]:
@@ -59,22 +61,25 @@ class EffectMatrix:
 
 
 class ActorModel:
-
     # this is the base model to be extended by person / enterprise / government / etc. actors. It is a sparse matrix of actions over world states.
 
     """A[l, m] — one user's actions over world states. Compose with a world operator
     W (M×N) to get A·W (L×N): the effect of each action in the world."""
 
-    def __init__(self, user_id: str, world: SparseTransitionTensor,
-                 runtime: ActorRuntime | None = None) -> None:
+    def __init__(
+        self,
+        user_id: str,
+        world: SparseTransitionTensor,
+        runtime: ActorRuntime | None = None,
+    ) -> None:
         self.user_id = user_id
-        self._world = world                       # shared state index → the M axis aligns
-        self._runtime = runtime                   # orchestrator; None when used standalone
-        self._actions: list[str] = []             # L
+        self._world = world  # shared state index → the M axis aligns
+        self._runtime = runtime  # orchestrator; None when used standalone
+        self._actions: list[str] = []  # L
         self._action_index: dict[str, int] = {}
-        self._states: list[str] = []              # M
+        self._states: list[str] = []  # M
         self._state_index: dict[str, int] = {}
-        self._A: lil_matrix | None = None         # L×M sparse, built incrementally
+        self._A: lil_matrix | None = None  # L×M sparse, built incrementally
 
     def _ensure_capacity(self) -> None:
         """Grow the lil_matrix when new rows/cols are added."""
@@ -84,7 +89,7 @@ class ActorModel:
             return
         if L > self._A.shape[0] or M > self._A.shape[1]:
             new = lil_matrix((max(L, self._A.shape[0]), max(M, self._A.shape[1])), dtype=np.float64)
-            new[:self._A.shape[0], :self._A.shape[1]] = self._A
+            new[: self._A.shape[0], : self._A.shape[1]] = self._A
             self._A = new
 
     def _intern_action(self, action: str) -> int:
@@ -108,7 +113,7 @@ class ActorModel:
         shared world index so M aligns) and accumulates A[action, state] += weight."""
         row = self._intern_action(action)
         col = self._intern_state(state)
-        self._world.intern(state, domain)         # keep A's columns on the world's state axis
+        self._world.intern(state, domain)  # keep A's columns on the world's state axis
         self._ensure_capacity()
         self._A[row, col] = self._A[row, col] + weight
         if self._runtime is not None:

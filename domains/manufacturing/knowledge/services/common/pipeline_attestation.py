@@ -57,6 +57,7 @@ def _redis_key(pipeline_id: str) -> str:
 async def _get_redis():
     try:
         import redis.asyncio as aioredis
+
         url = os.getenv("REDIS_URL", "redis://localhost:6379")
         return aioredis.from_url(url, decode_responses=True)
     except Exception as exc:
@@ -81,14 +82,14 @@ async def register(
     """
     sandbox = sandbox_id or secrets.token_hex(8)
     record = {
-        "pipeline_id":         pipeline_id,
-        "trust_domain":        TRUST_DOMAIN,
-        "status":              "EXECUTING",
-        "current_step":        steps[0] if steps else "",
-        "steps":               steps,
+        "pipeline_id": pipeline_id,
+        "trust_domain": TRUST_DOMAIN,
+        "status": "EXECUTING",
+        "current_step": steps[0] if steps else "",
+        "steps": steps,
         "allowed_capabilities": allowed_capabilities,
-        "parent_goal":         parent_goal,
-        "sandbox_id":          sandbox,
+        "parent_goal": parent_goal,
+        "sandbox_id": sandbox,
     }
     r = await _get_redis()
     if r is None:
@@ -96,7 +97,12 @@ async def register(
     try:
         key = _redis_key(pipeline_id)
         await r.set(key, json.dumps(record), ex=PIPELINE_TTL_SECONDS)
-        logger.debug("Attestation registered: pipeline=%s steps=%s ttl=%ds", pipeline_id, steps, PIPELINE_TTL_SECONDS)
+        logger.debug(
+            "Attestation registered: pipeline=%s steps=%s ttl=%ds",
+            pipeline_id,
+            steps,
+            PIPELINE_TTL_SECONDS,
+        )
         return True
     except Exception as exc:
         logger.warning("Attestation register failed: %s", exc)

@@ -18,6 +18,7 @@ _LLM_BONUS = 0.3
 _MAX_HIT_BONUS = 0.2
 _HIT_BONUS_PER_RESULT = 0.05
 
+
 def compute_reward(llm_answered: bool, semantic_hits: int, graph_paths: int) -> float:
     reward = _BASE_REWARD
     if llm_answered:

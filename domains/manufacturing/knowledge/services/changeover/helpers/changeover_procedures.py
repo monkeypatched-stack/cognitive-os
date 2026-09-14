@@ -4,8 +4,19 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.changeover.helpers.changeover_common import create, delete, dump, get_all, get_by_id, serialize, update
-from services.changeover.models.changeover_procedures import ChangeoverProcedureCreate, ChangeoverProcedureUpdate
+from services.changeover.helpers.changeover_common import (
+    create,
+    delete,
+    dump,
+    get_all,
+    get_by_id,
+    serialize,
+    update,
+)
+from services.changeover.models.changeover_procedures import (
+    ChangeoverProcedureCreate,
+    ChangeoverProcedureUpdate,
+)
 from services.changeover.models.changeover_tasks import ChangeoverTaskUpdate
 from services.common.models.enums import ChangeoverStatus, TaskStatus
 
@@ -46,15 +57,21 @@ def _apply_task_completion(task: dict, is_complete: bool) -> None:
         task["completed_at"] = None
 
 
-async def get_all_procedures(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all_procedures(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     return await get_all(db, COLLECTION, page, page_size)
 
 
-async def get_procedure_by_id(db: AsyncIOMotorDatabase, procedure_id: str) -> Optional[dict]:
+async def get_procedure_by_id(
+    db: AsyncIOMotorDatabase, procedure_id: str
+) -> Optional[dict]:
     return await get_by_id(db, COLLECTION, procedure_id)
 
 
-async def get_procedures_by_factory(db: AsyncIOMotorDatabase, factory_id: str) -> list[dict]:
+async def get_procedures_by_factory(
+    db: AsyncIOMotorDatabase, factory_id: str
+) -> list[dict]:
     records, _ = await get_all(
         db,
         COLLECTION,
@@ -64,12 +81,18 @@ async def get_procedures_by_factory(db: AsyncIOMotorDatabase, factory_id: str) -
     return records
 
 
-async def get_procedures_by_plant(db: AsyncIOMotorDatabase, plant_id: str) -> list[dict]:
-    records, _ = await get_all(db, COLLECTION, query={"plant_id": plant_id}, page_size=1000)
+async def get_procedures_by_plant(
+    db: AsyncIOMotorDatabase, plant_id: str
+) -> list[dict]:
+    records, _ = await get_all(
+        db, COLLECTION, query={"plant_id": plant_id}, page_size=1000
+    )
     return records
 
 
-async def create_procedure(db: AsyncIOMotorDatabase, data: ChangeoverProcedureCreate) -> dict:
+async def create_procedure(
+    db: AsyncIOMotorDatabase, data: ChangeoverProcedureCreate
+) -> dict:
     doc = await create(db, COLLECTION, data)
     completion_fields = _procedure_completion_fields(doc.get("tasks", []))
     if completion_fields["status"] == ChangeoverStatus.COMPLETED.value:
@@ -78,7 +101,9 @@ async def create_procedure(db: AsyncIOMotorDatabase, data: ChangeoverProcedureCr
     return doc
 
 
-async def update_procedure(db: AsyncIOMotorDatabase, procedure_id: str, data: ChangeoverProcedureUpdate) -> Optional[dict]:
+async def update_procedure(
+    db: AsyncIOMotorDatabase, procedure_id: str, data: ChangeoverProcedureUpdate
+) -> Optional[dict]:
     updated = await update(db, COLLECTION, procedure_id, data)
     if not updated or "tasks" not in data.model_dump(exclude_unset=True):
         return updated

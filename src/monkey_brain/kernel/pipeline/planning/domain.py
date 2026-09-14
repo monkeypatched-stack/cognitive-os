@@ -18,6 +18,7 @@ Relationship to existing types:
     planning phase's own working set (goal, subgoals, available operators,
     constraints) — not a general-purpose runtime handle bag.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -33,6 +34,7 @@ class ValidationStatus(Enum):
     constraint reasons) is Step 8.4's deliverable (a Constraint evaluator +
     Validation report), not this step's.
     """
+
     UNVALIDATED = "unvalidated"
     VALID = "valid"
     INVALID = "invalid"
@@ -41,6 +43,7 @@ class ValidationStatus(Enum):
 @dataclass(frozen=True)
 class Goal:
     """A top-level objective the planner is trying to achieve."""
+
     goal_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -59,6 +62,7 @@ class SubGoal:
     "buy flour"). Step 8.3's decomposition engine populates these; this module
     only defines the shape.
     """
+
     goal_id: str = field(default_factory=lambda: uuid4().hex)
     parent_goal_id: str = ""
     name: str = ""
@@ -78,6 +82,7 @@ class PlanningOperator:
     ReserveResource) as instances of this shape; execution itself remains
     ExecutionEngine's job, untouched by this model.
     """
+
     name: str = ""
     description: str = ""
     preconditions: tuple[str, ...] = ()
@@ -96,6 +101,7 @@ class PlanningConstraint:
     "inventory", "safety", "permissions" — Step 8.4's list); this module makes
     no assumption about which kinds exist or how they're evaluated.
     """
+
     constraint_id: str = field(default_factory=lambda: uuid4().hex)
     kind: str = ""
     description: str = ""
@@ -111,6 +117,7 @@ class PlanStep:
     planner) or reference the PlanningOperator that generated it, once Step 8.7
     wires the operator library into plan generation.
     """
+
     step_id: str = field(default_factory=lambda: uuid4().hex)
     sequence: int = 0
     operator: PlanningOperator | None = None
@@ -131,6 +138,7 @@ class Plan:
     rejections, rationale) is Step 8.8's explicit deliverable — not invented
     early here.
     """
+
     plan_id: str = field(default_factory=lambda: uuid4().hex)
     goal: Goal = field(default_factory=Goal)
     steps: tuple[PlanStep, ...] = ()
@@ -150,6 +158,7 @@ class PlanCandidate:
     score/rejected/rejection_reason are structural placeholders: Step 8.5
     enumerates candidates (score stays None), Step 8.6 scores them.
     """
+
     candidate_id: str = field(default_factory=lambda: uuid4().hex)
     plan: Plan = field(default_factory=Plan)
     score: float | None = None
@@ -167,6 +176,7 @@ class RetrievedItem:
     itself never collapses distinct items into a summary — every
     retrieved item is preserved so its specific content stays available
     to the planner."""
+
     content: str = ""
     item_type: str = ""
     """"experience" | "conversation" | "execution" | "knowledge" |
@@ -198,21 +208,22 @@ class PlanningContext:
     types) are kept for IntegratedPlanningEngine's benefit — untouched by
     this refactor.
     """
+
     actor_id: str = ""
-    goal: Any = field(default_factory=Goal)   # belief_state.py::Goal (BeliefGoal) or this
-                                               # module's own Goal (the bare-construction default)
+    goal: Any = field(default_factory=Goal)  # belief_state.py::Goal (BeliefGoal) or this
+    # module's own Goal (the bare-construction default)
     intent: str = ""
     subgoals: tuple[SubGoal, ...] = ()
     available_operators: tuple[PlanningOperator, ...] = ()
     constraints: tuple[PlanningConstraint, ...] = ()
-    current_beliefs: tuple[Any, ...] = ()          # kernel/timeline BeliefRecord entries
-    current_location: Any = None                    # kernel/timeline Presence entry, or None
-    current_society_context: Any = None             # SocietyActivationResult
-    current_team_context: Any = None                # Team, or None
-    active_policies: tuple[Any, ...] = ()           # GovernancePolicy tuple
+    current_beliefs: tuple[Any, ...] = ()  # kernel/timeline BeliefRecord entries
+    current_location: Any = None  # kernel/timeline Presence entry, or None
+    current_society_context: Any = None  # SocietyActivationResult
+    current_team_context: Any = None  # Team, or None
+    active_policies: tuple[Any, ...] = ()  # GovernancePolicy tuple
     available_capabilities: tuple[str, ...] = ()
-    available_resources: tuple[Any, ...] = ()        # WorldResource tuple
-    actor_profile: Any = None                        # ActorProfile
+    available_resources: tuple[Any, ...] = ()  # WorldResource tuple
+    actor_profile: Any = None  # ActorProfile
     relevant_experiences: tuple[RetrievedItem, ...] = ()
     relevant_conversations: tuple[RetrievedItem, ...] = ()
     relevant_executions: tuple[RetrievedItem, ...] = ()
@@ -226,7 +237,7 @@ class PlanningContext:
     relevant_objects: tuple[str, ...] = ()
     trust_scores: dict[str, float] = field(default_factory=dict)
     reputation: dict[str, float] = field(default_factory=dict)
-    relevant_goals: tuple[Any, ...] = ()             # kernel/timeline GoalRecord entries
+    relevant_goals: tuple[Any, ...] = ()  # kernel/timeline GoalRecord entries
     relevant_context_events: tuple[RetrievedItem, ...] = ()
     """Context Grounding: real, recent SocietyContextStream ContextEvents
     (kernel/society/context_stream.py) for this actor — closes the gap

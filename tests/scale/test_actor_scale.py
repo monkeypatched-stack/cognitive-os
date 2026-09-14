@@ -29,6 +29,7 @@ not eat minutes on every invocation) — same env-var-gated convention
 tests/conftest.py already uses for the integration tier (RUN_INTEGRATION):
 set RUN_SCALE_TESTS=1 to run them.
 """
+
 from __future__ import annotations
 
 import os
@@ -38,15 +39,23 @@ import pytest
 
 _RUN_SLOW_SCALE_TESTS = os.getenv("RUN_SCALE_TESTS") == "1"
 _skip_slow = pytest.mark.skipif(
-    not _RUN_SLOW_SCALE_TESTS, reason="slow scale tier; set RUN_SCALE_TESTS=1 to run",
+    not _RUN_SLOW_SCALE_TESTS,
+    reason="slow scale tier; set RUN_SCALE_TESTS=1 to run",
 )
 
 os.environ.setdefault("TIMELINE_STORE_BACKEND", "memory")
 os.environ.setdefault("REDIS_PORT", "1")
 
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType, Society  # noqa: E402
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+    Society,
+)  # noqa: E402
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime  # noqa: E402
-from src.monkey_brain.kernel.validation.world_validator import validate_world  # noqa: E402
+from src.monkey_brain.kernel.validation.world_validator import (
+    validate_world,
+)  # noqa: E402
 
 
 def _pr(name: str) -> PlanetaryRuntime:
@@ -75,9 +84,7 @@ def test_actor_registration_scale(n):
     pr = _pr(f"scale-{n}")
     # Absorb one-time PlanetaryRuntime setup before timing so n=10 isn't
     # dominated by fixed cold-start cost (which inflates per-actor ms).
-    pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name="__warmup__", actor_type=ActorType.HUMAN))
-    )
+    pr.register_actor(ActorProfile(identity=ActorIdentity(name="__warmup__", actor_type=ActorType.HUMAN)))
 
     elapsed = _register_n(pr, n)
     per_actor_ms = elapsed / n * 1000
@@ -89,9 +96,7 @@ def test_actor_registration_scale(n):
     # Wall-clock caps absorb CI variance and cold-start noise; per-actor
     # bound still catches O(n^2) (which would blow through any linear cap).
     max_elapsed_s = {10: 10.0, 100: 30.0, 1000: 120.0}[n]
-    assert elapsed < max_elapsed_s, (
-        f"{n} actors: {elapsed:.2f}s total — investigate for an O(n^2) regression"
-    )
+    assert elapsed < max_elapsed_s, f"{n} actors: {elapsed:.2f}s total — investigate for an O(n^2) regression"
     assert per_actor_ms < 50, f"{n} actors: {per_actor_ms:.2f}ms/actor — investigate for an O(n^2) regression"
 
     report = validate_world(pr)

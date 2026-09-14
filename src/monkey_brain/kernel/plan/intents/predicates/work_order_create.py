@@ -15,7 +15,11 @@ async def work_order_create_question_answer(client, question, force=False):
         wo_id = f"WO-{uuid.uuid4().hex[:5].upper()}"
 
         # Extract machine from question if mentioned
-        machine_match = re.search(r'for\s+(.+?)(?:\s+(?:maintenance|calibration|inspection|repair)|$)', question, re.IGNORECASE)
+        machine_match = re.search(
+            r"for\s+(.+?)(?:\s+(?:maintenance|calibration|inspection|repair)|$)",
+            question,
+            re.IGNORECASE,
+        )
         machine_name = machine_match.group(1).strip() if machine_match else "General"
 
         # Determine work order type
@@ -68,4 +72,6 @@ async def work_order_create_question_answer(client, question, force=False):
 
 def is_work_order_create_question(question):
     q = question.lower()
-    return any(kw in q for kw in ("create", "new", "open", "initiate", "raise", "submit")) and any(kw in q for kw in ("work order", "workorder", "work_order"))
+    return any(kw in q for kw in ("create", "new", "open", "initiate", "raise", "submit")) and any(
+        kw in q for kw in ("work order", "workorder", "work_order")
+    )

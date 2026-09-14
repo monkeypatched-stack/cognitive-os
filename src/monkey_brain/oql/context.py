@@ -5,12 +5,19 @@ Business agents write:
 
 The middleware handles everything else.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from src.monkey_brain.oql.query import Query, Operation, SortClause, SortDirection, QueryResult
+from src.monkey_brain.oql.query import (
+    Query,
+    Operation,
+    SortClause,
+    SortDirection,
+    QueryResult,
+)
 from src.monkey_brain.oql.engine import OQLEngine
 
 logger = logging.getLogger("agentos.oql.context")

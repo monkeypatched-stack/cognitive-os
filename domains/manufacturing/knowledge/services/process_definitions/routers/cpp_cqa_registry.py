@@ -11,7 +11,6 @@ from services.process_definitions.models.cpp_cqa_registry import (
     PaginatedCppCqaRegistryResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -37,7 +36,9 @@ async def list_cpp_cqa_registry(
         stage_id=stage_id,
         status=status_filter,
     )
-    return PaginatedCppCqaRegistryResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedCppCqaRegistryResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{registry_id}", response_model=CppCqaRegistryResponse)
@@ -48,18 +49,26 @@ async def get_cpp_cqa_registry_entry(
 ):
     record = await crud.get_by_id(db, registry_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"CPP/CQA registry entry '{registry_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"CPP/CQA registry entry '{registry_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=CppCqaRegistryResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=CppCqaRegistryResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_cpp_cqa_registry_entry(
     data: CppCqaRegistryCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-create-process-definitions")),
 ):
     if await crud.get_by_id(db, data.registry_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"CPP/CQA registry entry '{data.registry_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"CPP/CQA registry entry '{data.registry_id}' already exists",
+        )
     return await crud.create(db, data)
 
 
@@ -72,7 +81,10 @@ async def update_cpp_cqa_registry_entry(
 ):
     updated = await crud.update(db, registry_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"CPP/CQA registry entry '{registry_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"CPP/CQA registry entry '{registry_id}' not found",
+        )
     return updated
 
 
@@ -83,4 +95,7 @@ async def delete_cpp_cqa_registry_entry(
     _: dict = Depends(require_permission("perm-delete-process-definitions")),
 ):
     if not await crud.delete(db, registry_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"CPP/CQA registry entry '{registry_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"CPP/CQA registry entry '{registry_id}' not found",
+        )

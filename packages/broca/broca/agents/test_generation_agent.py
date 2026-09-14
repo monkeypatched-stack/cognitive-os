@@ -6,6 +6,7 @@ content — given requirements or a diff, it generates pytest test functions
 covering the stated acceptance criteria, and writes them to disk so
 UnitTestingAgent/TestServiceAgent have something new to run afterward.
 """
+
 from __future__ import annotations
 import logging
 import os
@@ -36,6 +37,7 @@ class TestGenerationAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
@@ -54,11 +56,17 @@ class TestGenerationAgent(BaseETASSAgent):
 
         if not requirements and not diff:
             self._reward(False, 0.0)
-            return self._result(payload={"test_code": ""}, observations=["no requirements/diff to generate tests from"])
+            return self._result(
+                payload={"test_code": ""},
+                observations=["no requirements/diff to generate tests from"],
+            )
 
         req_text = "\n".join(
-            f"- {r.get('statement', r)} (acceptance: {', '.join(r.get('acceptance_criteria', []))})"
-            if isinstance(r, dict) else f"- {r}"
+            (
+                f"- {r.get('statement', r)} (acceptance: {', '.join(r.get('acceptance_criteria', []))})"
+                if isinstance(r, dict)
+                else f"- {r}"
+            )
             for r in requirements
         )
         goal = (
@@ -82,7 +90,10 @@ class TestGenerationAgent(BaseETASSAgent):
 
         if not test_code or "def test_" not in test_code:
             self._reward(False, 0.2)
-            return self._result(payload={"test_code": test_code}, observations=["generated content has no test_* functions"])
+            return self._result(
+                payload={"test_code": test_code},
+                observations=["generated content has no test_* functions"],
+            )
 
         written_path = self._write_test_file(test_code, service_slug, context)
         self._reward(True, 0.7)
@@ -90,13 +101,17 @@ class TestGenerationAgent(BaseETASSAgent):
         artifacts = []
         try:
             from src.monkey_brain.kernel.execute.runtime.outcome import Artifact
+
             if written_path:
                 artifacts = [Artifact(kind="test_file", name=written_path.name, uri=str(written_path))]
         except ImportError:
             pass
 
         return self._result(
-            payload={"test_code": test_code, "written_path": str(written_path) if written_path else ""},
+            payload={
+                "test_code": test_code,
+                "written_path": str(written_path) if written_path else "",
+            },
             artifacts=artifacts,
             observations=[f"{test_code.count('def test_')} test functions generated"],
         )

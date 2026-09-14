@@ -21,6 +21,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/unit/test_correlation_causation.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,11 +36,16 @@ os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.communication import CommunicationDecision
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
 from src.monkey_brain.kernel.society.transaction import (
-    NegotiationTrace, TransactionCoordinator,
+    NegotiationTrace,
+    TransactionCoordinator,
 )
 from src.monkey_brain.kernel.timeline.entry import TimelineKind
 from src.monkey_brain.kernel.timeline.store import TimelineStore
@@ -53,7 +59,8 @@ def _register(pr, name, society_id=None, home_space_id=None):
     if home_space_id is not None:
         kwargs["home_space_id"] = home_space_id
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)),
+        **kwargs,
     )
 
 
@@ -76,8 +83,18 @@ def _same_society_pair(label):
     building = pr.create_geographic_entity(GeographicEntityType.BUILDING, f"{label} Building", street.entity_id)
     space = pr.create_geographic_entity(GeographicEntityType.SPACE, f"{label} Space", building.entity_id)
     pr.assign_society_to_city(club.society.society_id, city.entity_id)
-    alice = _register(pr, f"Alice {label}", society_id=club.society.society_id, home_space_id=space.entity_id)
-    bob = _register(pr, f"Bob {label}", society_id=club.society.society_id, home_space_id=space.entity_id)
+    alice = _register(
+        pr,
+        f"Alice {label}",
+        society_id=club.society.society_id,
+        home_space_id=space.entity_id,
+    )
+    bob = _register(
+        pr,
+        f"Bob {label}",
+        society_id=club.society.society_id,
+        home_space_id=space.entity_id,
+    )
     sr = pr.get_society_runtime(club.society.society_id)
     return pr, sr, alice, bob
 
@@ -115,11 +132,21 @@ class _ScriptedCoordinatorRealPlanetary(TransactionCoordinator):
         return None
 
     async def _decide_next_action(
-        self, originating_actor_id, objective, prior_steps, last_target,
-        last_trace, remaining_candidates, strategic_context,
+        self,
+        originating_actor_id,
+        objective,
+        prior_steps,
+        last_target,
+        last_trace,
+        remaining_candidates,
+        strategic_context,
     ):
-        return {"next_action": "contact_another_affiliate", "reason": "default",
-                "target_actor_id": None, "strategic_context": strategic_context}
+        return {
+            "next_action": "contact_another_affiliate",
+            "reason": "default",
+            "target_actor_id": None,
+            "strategic_context": strategic_context,
+        }
 
     def _update_trust_from_trace(self, *a, **k):
         pass
@@ -150,8 +177,13 @@ class TestChildMessageInheritsCorrelationId:
     def test_queued_message_carries_the_decisions_correlation_id(self):
         pr, sr, alice, bob = _same_society_pair("P2")
         correlation_id = "corr-p2-explicit"
-        sent = sr.send_message(alice.actor_id, bob.actor_id, "greeting", {"text": "hi"},
-                                correlation_id=correlation_id)
+        sent = sr.send_message(
+            alice.actor_id,
+            bob.actor_id,
+            "greeting",
+            {"text": "hi"},
+            correlation_id=correlation_id,
+        )
         assert sent is True
         queued = sr.get_messages_for(bob.actor_id)
         assert len(queued) == 1
@@ -184,13 +216,17 @@ class TestResponseRetainsCorrelationId:
 
         pr, sr, alice, bob = _same_society_pair("P4")
         correlation_id = "corr-p4-ask-actor"
-        result = await AskActorCapability().handle({
-            "context": {
-                "planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice",
-                "correlation_id": correlation_id,
-            },
-            "parameters": {"target_actor": "Bob P4", "question": "got milk?"},
-        })
+        result = await AskActorCapability().handle(
+            {
+                "context": {
+                    "planetary_runtime": pr,
+                    "actor_id": alice.actor_id,
+                    "actor_role": "Alice",
+                    "correlation_id": correlation_id,
+                },
+                "parameters": {"target_actor": "Bob P4", "question": "got milk?"},
+            }
+        )
         assert result["success"] is True
         assert result["correlation_id"] == correlation_id
 
@@ -204,10 +240,16 @@ class TestResponseCausationId:
         from src.monkey_brain.kernel.domains.grocery import AskActorCapability
 
         pr, sr, alice, bob = _same_society_pair("P5")
-        result = await AskActorCapability().handle({
-            "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-            "parameters": {"target_actor": "Bob P5", "question": "got milk?"},
-        })
+        result = await AskActorCapability().handle(
+            {
+                "context": {
+                    "planetary_runtime": pr,
+                    "actor_id": alice.actor_id,
+                    "actor_role": "Alice",
+                },
+                "parameters": {"target_actor": "Bob P5", "question": "got milk?"},
+            }
+        )
         assert result["success"] is True
         decision = sr.communication_audit()[-1]
         assert result["causation_id"] == decision.decision_id
@@ -220,14 +262,18 @@ class TestNegotiationPreservesCorrelationChain:
 
     def test_all_transaction_context_events_share_correlation_id(self):
         pr = PlanetaryRuntime()
-        trace = NegotiationTrace(actor_id="bob-p6", execution_outcome="goal_achieved",
-                                  explanation="bob achieved it")
+        trace = NegotiationTrace(
+            actor_id="bob-p6",
+            execution_outcome="goal_achieved",
+            explanation="bob achieved it",
+        )
         coord = _ScriptedCoordinatorRealPlanetary(pr, candidates=("bob-p6",), traces={"bob-p6": trace})
         result = asyncio.run(coord.execute("alice-p6", "buy milk"))
 
         events = pr.context_stream.events(limit=1000)
         tx_events = [
-            e for e in events
+            e
+            for e in events
             if e.event_type == ContextEventType.INTERACTION
             and (e.payload or {}).get("transaction_id") == result.transaction_id
         ]
@@ -260,8 +306,11 @@ class TestTimelineTracesToOriginatingExecution:
 
     def test_negotiation_lands_a_traceable_decision_entry(self):
         pr = PlanetaryRuntime()
-        trace = NegotiationTrace(actor_id="bob-p7", execution_outcome="goal_achieved",
-                                  explanation="bob achieved it")
+        trace = NegotiationTrace(
+            actor_id="bob-p7",
+            execution_outcome="goal_achieved",
+            explanation="bob achieved it",
+        )
         coord = _ScriptedCoordinatorRealPlanetary(pr, candidates=("bob-p7",), traces={"bob-p7": trace})
         result = asyncio.run(coord.execute("alice-p7", "buy milk"))
 
@@ -309,8 +358,20 @@ class TestDuplicateMessagesDoNotForkCorrelation:
         pr, sr, alice, bob = _same_society_pair("P10")
         correlation_id = "corr-p10-duplicate"
         payload = {"text": "hi"}
-        sr.send_message(alice.actor_id, bob.actor_id, "greeting", payload, correlation_id=correlation_id)
-        sr.send_message(alice.actor_id, bob.actor_id, "greeting", payload, correlation_id=correlation_id)
+        sr.send_message(
+            alice.actor_id,
+            bob.actor_id,
+            "greeting",
+            payload,
+            correlation_id=correlation_id,
+        )
+        sr.send_message(
+            alice.actor_id,
+            bob.actor_id,
+            "greeting",
+            payload,
+            correlation_id=correlation_id,
+        )
         queued = sr.get_messages_for(bob.actor_id)
         assert len(queued) == 2
         assert {m["correlation_id"] for m in queued} == {correlation_id}
@@ -355,11 +416,18 @@ class TestExistingRoutingBehaviorUnchanged:
         country_b = pr.create_country("Correlation Test P11Deny Country B")
         city_b = pr.create_city("Correlation Test P11Deny City B", country_b.entity_id)
         street_b = pr.create_geographic_entity(GeographicEntityType.STREET, "P11Deny Street B", city_b.entity_id)
-        building_b = pr.create_geographic_entity(GeographicEntityType.BUILDING, "P11Deny Building B", street_b.entity_id)
+        building_b = pr.create_geographic_entity(
+            GeographicEntityType.BUILDING, "P11Deny Building B", street_b.entity_id
+        )
         space_b = pr.create_geographic_entity(GeographicEntityType.SPACE, "P11Deny Space B", building_b.entity_id)
         pr.assign_society_to_city(club_b.society.society_id, city_b.entity_id)
         alice = _register(pr, "Alice P11Deny", society_id=club_a.society.society_id)
-        carol = _register(pr, "Carol P11Deny", society_id=club_b.society.society_id, home_space_id=space_b.entity_id)
+        carol = _register(
+            pr,
+            "Carol P11Deny",
+            society_id=club_b.society.society_id,
+            home_space_id=space_b.entity_id,
+        )
         sr_a = pr.get_society_runtime(club_a.society.society_id)
 
         sent = sr_a.send_message(alice.actor_id, carol.actor_id, "greeting", {"text": "hi"})

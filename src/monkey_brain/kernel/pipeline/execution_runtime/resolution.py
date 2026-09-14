@@ -22,18 +22,25 @@ same convention Step 8's AcquireItem/ReserveResource operators and Step
 8.4's InventoryConstraintEvaluator already established, rather than adding
 new fields to PlanningOperator.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from src.monkey_brain.kernel.pipeline.execution_runtime.domain import ExecutionPlan, ExecutionRequest
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry
+from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
+    ExecutionPlan,
+    ExecutionRequest,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+)
 
 
 @dataclass(frozen=True)
 class ExecutionEnvironment:
     """What's actually available to carry out an ExecutionRequest — the
     static facts a CapabilityResolver checks a plan's requirements against."""
+
     available_capabilities: tuple[str, ...] = ()
     available_actors: frozenset[str] = field(default_factory=frozenset)
     """Empty means 'no restriction' — any actor_id resolves. Non-empty means
@@ -48,6 +55,7 @@ class ExecutionEnvironment:
 @dataclass(frozen=True)
 class ResolutionIssue:
     """One requirement that failed to resolve."""
+
     kind: str = ""
     """'capability' | 'actor' | 'resource' | 'permission' | 'capacity'"""
     subject: str = ""
@@ -58,6 +66,7 @@ class ResolutionIssue:
 class ResolutionReport:
     """The result of resolving an ExecutionRequest's requirements against an
     ExecutionEnvironment, before any step executes."""
+
     request_id: str = ""
     resolved: bool = True
     issues: tuple[ResolutionIssue, ...] = ()
@@ -75,7 +84,9 @@ class CapabilityResolver:
     """
 
     def __init__(
-        self, environment: ExecutionEnvironment | None = None, registry: ExecutionRegistry | None = None,
+        self,
+        environment: ExecutionEnvironment | None = None,
+        registry: ExecutionRegistry | None = None,
     ) -> None:
         self._environment = environment or ExecutionEnvironment()
         self._registry = registry or ExecutionRegistry()
@@ -95,10 +106,13 @@ class CapabilityResolver:
         if not self._environment.available_actors:
             return []  # no restriction configured
         if request.actor_id not in self._environment.available_actors:
-            return [ResolutionIssue(
-                kind="actor", subject=request.actor_id,
-                message=f"actor '{request.actor_id}' is not available",
-            )]
+            return [
+                ResolutionIssue(
+                    kind="actor",
+                    subject=request.actor_id,
+                    message=f"actor '{request.actor_id}' is not available",
+                )
+            ]
         return []
 
     # ── Required capabilities ────────────────────────────────────────────
@@ -110,16 +124,22 @@ class CapabilityResolver:
             if step.operator is None:
                 continue
             if self._registry.get(step.operator.name) is None:
-                issues.append(ResolutionIssue(
-                    kind="capability", subject=step.operator.name,
-                    message=f"no execution handler registered for operator '{step.operator.name}'",
-                ))
+                issues.append(
+                    ResolutionIssue(
+                        kind="capability",
+                        subject=step.operator.name,
+                        message=f"no execution handler registered for operator '{step.operator.name}'",
+                    )
+                )
                 continue
             for capability in sorted(set(step.operator.required_capabilities) - available):
-                issues.append(ResolutionIssue(
-                    kind="capability", subject=capability,
-                    message=f"capability '{capability}' required by step '{step.step_id}' is not available",
-                ))
+                issues.append(
+                    ResolutionIssue(
+                        kind="capability",
+                        subject=capability,
+                        message=f"capability '{capability}' required by step '{step.step_id}' is not available",
+                    )
+                )
         return issues
 
     # ── Permissions ──────────────────────────────────────────────────────
@@ -132,10 +152,13 @@ class CapabilityResolver:
                 continue
             required = step.operator.metadata.get("required_permission")
             if required and required not in granted:
-                issues.append(ResolutionIssue(
-                    kind="permission", subject=required,
-                    message=f"permission '{required}' required by step '{step.step_id}' is not granted",
-                ))
+                issues.append(
+                    ResolutionIssue(
+                        kind="permission",
+                        subject=required,
+                        message=f"permission '{required}' required by step '{step.step_id}' is not granted",
+                    )
+                )
         return issues
 
     # ── Resource availability ────────────────────────────────────────────
@@ -154,10 +177,13 @@ class CapabilityResolver:
         for resource, quantity in needed.items():
             available = self._environment.resource_pool.get(resource, 0)
             if quantity > available:
-                issues.append(ResolutionIssue(
-                    kind="resource", subject=resource,
-                    message=f"insufficient '{resource}': need {quantity}, have {available}",
-                ))
+                issues.append(
+                    ResolutionIssue(
+                        kind="resource",
+                        subject=resource,
+                        message=f"insufficient '{resource}': need {quantity}, have {available}",
+                    )
+                )
         return issues
 
     # ── Capacity ─────────────────────────────────────────────────────────
@@ -168,8 +194,11 @@ class CapabilityResolver:
             return []
         step_count = len(plan.steps)
         if step_count > capacity:
-            return [ResolutionIssue(
-                kind="capacity", subject=request.actor_id,
-                message=f"actor '{request.actor_id}' capacity ({capacity}) exceeded by {step_count} steps",
-            )]
+            return [
+                ResolutionIssue(
+                    kind="capacity",
+                    subject=request.actor_id,
+                    message=f"actor '{request.actor_id}' capacity ({capacity}) exceeded by {step_count} steps",
+                )
+            ]
         return []

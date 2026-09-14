@@ -10,7 +10,6 @@ from services.common.logging import configure_service_logging, install_request_l
 from services.common.tracing import install_route_tracing
 from services.warehouse_execution.routers.execution import router as execution_router
 
-
 logger = configure_service_logging("warehouse_execution")
 
 
@@ -38,7 +37,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(execution_router, prefix="/api/v1/warehouse-execution", tags=["Warehouse Execution"])
+app.include_router(
+    execution_router, prefix="/api/v1/warehouse-execution", tags=["Warehouse Execution"]
+)
 
 
 @app.get("/health", tags=["Health"])

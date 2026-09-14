@@ -14,6 +14,7 @@ ANY of those inputs changes, without this module needing to know what
 independent bound — an entry is unusable once EITHER its version_key no
 longer matches OR its TTL has elapsed, whichever comes first.
 """
+
 from __future__ import annotations
 
 import threading
@@ -95,6 +96,8 @@ class BoundedTTLCache(Generic[V]):
     def stats(self) -> dict[str, Any]:
         total = self.hits + self.misses
         return {
-            "hits": self.hits, "misses": self.misses, "size": self.size,
+            "hits": self.hits,
+            "misses": self.misses,
+            "size": self.size,
             "hit_rate": (self.hits / total) if total else 0.0,
         }

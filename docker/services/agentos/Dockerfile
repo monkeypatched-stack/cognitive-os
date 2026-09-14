@@ -25,8 +25,9 @@ RUN apt-get update && \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY requirements.txt .
-RUN uv pip install --system -r requirements.txt
+COPY pyproject.toml uv.lock .
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.lock.txt && \
+    uv pip install --system -r requirements.lock.txt
 
 COPY src/ ./src/
 # monkeypatched_sdk is its own top-level package (repo root, sibling to

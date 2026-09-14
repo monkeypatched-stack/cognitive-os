@@ -17,6 +17,7 @@ repeated/deterministic calls; for calls that must stay diverse, disable the
 cache or vary the prompt. Reads never fail the request: any cache error falls
 through to the wrapped client.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -29,7 +30,12 @@ logger = logging.getLogger("broca.llm_cache")
 
 
 def response_cache_enabled() -> bool:
-    return os.getenv("LLM_RESPONSE_CACHE", "").strip().lower() in ("1", "true", "yes", "on")
+    return os.getenv("LLM_RESPONSE_CACHE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 def _cache_dir() -> Path:

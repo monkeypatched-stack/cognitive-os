@@ -25,6 +25,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/scenarios/test_cogctl_and_actor_specification.py -v
 """
+
 from __future__ import annotations
 
 import json
@@ -40,8 +41,15 @@ os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode
-from src.monkey_brain.kernel.society.actor_specification import ActorSpecification, ActorSpecificationError
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorStatus
+from src.monkey_brain.kernel.society.actor_specification import (
+    ActorSpecification,
+    ActorSpecificationError,
+)
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorStatus,
+)
 from src.monkey_brain.api.routes.actors import apply_actor_specification, restart_actor
 from fastapi import HTTPException
 
@@ -161,28 +169,40 @@ def _fake_request(pr: PlanetaryRuntime):
 
 # ── 1-8: ActorSpecification ────────────────────────────────────────────────
 
+
 def test_01_minimal_spec_parses():
-    spec = ActorSpecification.from_dict({
-        "apiVersion": "cognitiveos/v1", "kind": "Actor",
-        "metadata": {"name": "buyer-123"},
-    })
+    spec = ActorSpecification.from_dict(
+        {
+            "apiVersion": "cognitiveos/v1",
+            "kind": "Actor",
+            "metadata": {"name": "buyer-123"},
+        }
+    )
     assert spec.resolved_actor_id() == "buyer-123"
     assert spec.node_class == ""  # unconstrained by default
 
 
 def test_02_full_spec_parses():
     doc = {
-        "apiVersion": "cognitiveos/v1", "kind": "Actor",
+        "apiVersion": "cognitiveos/v1",
+        "kind": "Actor",
         "metadata": {"name": "buyer-123", "actor_id": "explicit-id"},
         "spec": {
-            "artifact": "cognitiveos-actor", "version": "1.4",
+            "artifact": "cognitiveos-actor",
+            "version": "1.4",
             "placement": {
-                "node_class": "edge", "required_capabilities": ["camera"],
-                "preferred_node_class": "cloud", "preferred_region": "us-east",
+                "node_class": "edge",
+                "required_capabilities": ["camera"],
+                "preferred_node_class": "cloud",
+                "preferred_region": "us-east",
                 "claim_node": "edge-node-4",
             },
             "resources": {"capacity": 3},
-            "configuration": {"goals": ["g1", "g2"], "objective": "cost", "tenant_id": "acme"},
+            "configuration": {
+                "goals": ["g1", "g2"],
+                "objective": "cost",
+                "tenant_id": "acme",
+            },
         },
     }
     spec = ActorSpecification.from_dict(doc)
@@ -205,9 +225,13 @@ def test_03_rejects_wrong_kind():
 
 def test_04_rejects_wrong_api_version():
     with pytest.raises(ActorSpecificationError, match="apiVersion"):
-        ActorSpecification.from_dict({
-            "apiVersion": "v1", "kind": "Actor", "metadata": {"name": "x"},
-        })
+        ActorSpecification.from_dict(
+            {
+                "apiVersion": "v1",
+                "kind": "Actor",
+                "metadata": {"name": "x"},
+            }
+        )
 
 
 def test_05_requires_name_or_actor_id():
@@ -217,32 +241,45 @@ def test_05_requires_name_or_actor_id():
 
 def test_06_rejects_invalid_capacity():
     with pytest.raises(ActorSpecificationError, match="capacity"):
-        ActorSpecification.from_dict({
-            "apiVersion": "cognitiveos/v1", "kind": "Actor", "metadata": {"name": "x"},
-            "spec": {"resources": {"capacity": 0}},
-        })
+        ActorSpecification.from_dict(
+            {
+                "apiVersion": "cognitiveos/v1",
+                "kind": "Actor",
+                "metadata": {"name": "x"},
+                "spec": {"resources": {"capacity": 0}},
+            }
+        )
 
 
 def test_07_node_class_unconstrained_by_default():
     """A spec with no placement section at all must never silently
     impose a hard cloud-only constraint."""
-    spec = ActorSpecification.from_dict({
-        "apiVersion": "cognitiveos/v1", "kind": "Actor", "metadata": {"name": "x"},
-    })
+    spec = ActorSpecification.from_dict(
+        {
+            "apiVersion": "cognitiveos/v1",
+            "kind": "Actor",
+            "metadata": {"name": "x"},
+        }
+    )
     assert spec.node_class == ""
     assert spec.preferred_node_class == ""
 
 
 def test_08_to_dict_round_trips():
-    original = ActorSpecification.from_dict({
-        "apiVersion": "cognitiveos/v1", "kind": "Actor",
-        "metadata": {"name": "x"}, "spec": {"placement": {"node_class": "device"}},
-    })
+    original = ActorSpecification.from_dict(
+        {
+            "apiVersion": "cognitiveos/v1",
+            "kind": "Actor",
+            "metadata": {"name": "x"},
+            "spec": {"placement": {"node_class": "device"}},
+        }
+    )
     round_tripped = ActorSpecification.from_dict(original.to_dict())
     assert round_tripped == original
 
 
 # ── 9-14: apply route ───────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_09_apply_creates_a_new_actor():
@@ -251,7 +288,8 @@ async def test_09_apply_creates_a_new_actor():
     pr.register_node(ExecutionNode(node_id="n1", capacity=5))
     request = _fake_request(pr)
     body = {
-        "apiVersion": "cognitiveos/v1", "kind": "Actor",
+        "apiVersion": "cognitiveos/v1",
+        "kind": "Actor",
         "metadata": {"name": "buyer-123"},
         "spec": {"configuration": {"goals": ["get_milk"]}},
     }
@@ -272,7 +310,11 @@ async def test_10_apply_never_registers_with_empty_actor_id():
     redis = _FakeRedis()
     pr = _pr(redis)
     request = _fake_request(pr)
-    body = {"apiVersion": "cognitiveos/v1", "kind": "Actor", "metadata": {"name": "no-explicit-id"}}
+    body = {
+        "apiVersion": "cognitiveos/v1",
+        "kind": "Actor",
+        "metadata": {"name": "no-explicit-id"},
+    }
     result = await apply_actor_specification(body, request, user_id="test", _agent={})
     assert result["actor_id"] != ""
     assert len(result["actor_id"]) > 0
@@ -284,14 +326,19 @@ async def test_11_apply_is_idempotent_update_for_an_existing_actor():
     pr = _pr(redis, "n1")
     pr.register_node(ExecutionNode(node_id="n1", capacity=5))
     request = _fake_request(pr)
-    body = {"apiVersion": "cognitiveos/v1", "kind": "Actor", "metadata": {"name": "buyer-123"}}
+    body = {
+        "apiVersion": "cognitiveos/v1",
+        "kind": "Actor",
+        "metadata": {"name": "buyer-123"},
+    }
 
     first = await apply_actor_specification(body, request, user_id="test", _agent={})
     actor_id = first["actor_id"]
     assert first["created"] is True
 
     body2 = {
-        "apiVersion": "cognitiveos/v1", "kind": "Actor",
+        "apiVersion": "cognitiveos/v1",
+        "kind": "Actor",
         "metadata": {"name": "buyer-123", "actor_id": actor_id},
         "spec": {"placement": {"required_capabilities": ["gpu"]}},
     }
@@ -310,7 +357,9 @@ async def test_12_apply_rejects_unrecognized_node_class():
     pr = _pr(redis)
     request = _fake_request(pr)
     body = {
-        "apiVersion": "cognitiveos/v1", "kind": "Actor", "metadata": {"name": "x"},
+        "apiVersion": "cognitiveos/v1",
+        "kind": "Actor",
+        "metadata": {"name": "x"},
         "spec": {"placement": {"node_class": "not-a-real-class"}},
     }
     with pytest.raises(HTTPException) as exc_info:
@@ -326,7 +375,9 @@ async def test_13_apply_claim_node_explicitly_places_the_actor():
     pr.register_node(ExecutionNode(node_id="specific-node", capacity=5))
     request = _fake_request(pr)
     body = {
-        "apiVersion": "cognitiveos/v1", "kind": "Actor", "metadata": {"name": "claimed"},
+        "apiVersion": "cognitiveos/v1",
+        "kind": "Actor",
+        "metadata": {"name": "claimed"},
         "spec": {"placement": {"claim_node": "specific-node"}},
     }
     result = await apply_actor_specification(body, request, user_id="test", _agent={})
@@ -344,7 +395,11 @@ async def test_14_apply_never_starts_the_actor_process_directly():
     pr = _pr(redis, "n1")
     pr.register_node(ExecutionNode(node_id="n1", capacity=5))
     request = _fake_request(pr)
-    body = {"apiVersion": "cognitiveos/v1", "kind": "Actor", "metadata": {"name": "not-yet-running"}}
+    body = {
+        "apiVersion": "cognitiveos/v1",
+        "kind": "Actor",
+        "metadata": {"name": "not-yet-running"},
+    }
     result = await apply_actor_specification(body, request, user_id="test", _agent={})
 
     sr = pr._home_society_runtime(result["actor_id"])
@@ -353,6 +408,7 @@ async def test_14_apply_never_starts_the_actor_process_directly():
 
 
 # ── 15-16: restart route ────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_15_restart_suspends_then_resumes_same_actor():
@@ -386,19 +442,29 @@ async def test_16_restart_unknown_actor_is_404():
 
 # ── 17-19: cogctl (pure logic, no network) ─────────────────────────────────
 
+
 def test_17_create_actor_builds_correct_spec(monkeypatch):
     import argparse
     from src.monkey_brain import cogctl
 
     captured = {}
+
     def _fake_request(method, path, json_body=None):
         captured["method"], captured["path"], captured["body"] = method, path, json_body
         return {"actor_id": "buyer-123", "created": True}
+
     monkeypatch.setattr(cogctl, "_request", _fake_request)
 
     args = argparse.Namespace(
-        name="buyer-123", node_class="edge", artifact_version="1.4", claim_node="edge-4",
-        region="us-east", capacity=2, tenant_id="acme", goal=["get_milk"], objective="cost",
+        name="buyer-123",
+        node_class="edge",
+        artifact_version="1.4",
+        claim_node="edge-4",
+        region="us-east",
+        capacity=2,
+        tenant_id="acme",
+        goal=["get_milk"],
+        objective="cost",
         required_capability=["camera"],
     )
     rc = cogctl.cmd_create_actor(args)
@@ -439,13 +505,13 @@ def test_19_apply_reads_yaml_file(tmp_path, monkeypatch):
     from src.monkey_brain import cogctl
 
     spec_file = tmp_path / "actor.yaml"
-    spec_file.write_text(
-        "apiVersion: cognitiveos/v1\nkind: Actor\nmetadata:\n  name: buyer-123\n"
-    )
+    spec_file.write_text("apiVersion: cognitiveos/v1\nkind: Actor\nmetadata:\n  name: buyer-123\n")
     captured = {}
+
     def _fake_request(method, path, json_body=None):
         captured["body"] = json_body
         return {"actor_id": "buyer-123", "created": True}
+
     monkeypatch.setattr(cogctl, "_request", _fake_request)
 
     rc = cogctl.cmd_apply(argparse.Namespace(file=str(spec_file)))

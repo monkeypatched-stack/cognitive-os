@@ -21,13 +21,13 @@ Pipeline:
            ▼
     Validated Execution Graph
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 from ._base import BaseETASSAgent
-from .goal_ir import GoalIR
 from .intent_compiler_agent import IntentCompilerAgent
 from .graph_generator_agent import GraphGeneratorAgent
 
@@ -107,5 +107,6 @@ class GraphPipeline(BaseETASSAgent):
             observations=[
                 f"Stage 1 (Intent Compiler): {goal_ir.intent_type}/{goal_ir.domain}",
                 f"Stage 2 (Graph Synthesizer): {len(graph_result.payload.get('candidates', []))} candidates",
-            ] + graph_result.observations,
+            ]
+            + graph_result.observations,
         )

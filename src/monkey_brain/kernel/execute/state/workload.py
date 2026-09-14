@@ -30,6 +30,7 @@ _DEFAULT_TTL = 300.0
 
 # ── Backup store interface ────────────────────────────────────────────────────
 
+
 class BackupStore(Protocol):
     """Pluggable durable tier for evicted StateNodes."""
 
@@ -59,17 +60,23 @@ class InMemoryBackupStore:
 
 # ── Eviction result ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class EvictionResult:
-    evicted:     int   = 0
-    backup_size: int   = 0
-    swept_at:    float = field(default_factory=time.time)
+    evicted: int = 0
+    backup_size: int = 0
+    swept_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"evicted": self.evicted, "backup_size": self.backup_size, "swept_at": self.swept_at}
+        return {
+            "evicted": self.evicted,
+            "backup_size": self.backup_size,
+            "swept_at": self.swept_at,
+        }
 
 
 # ── Workload ──────────────────────────────────────────────────────────────────
+
 
 class ImmutableStateWorkload:
     """Orchestrates the reducer chain and the active ↔ backup tier boundary.
@@ -87,15 +94,15 @@ class ImmutableStateWorkload:
 
     def __init__(
         self,
-        reducers:     ReducerRegistry,
+        reducers: ReducerRegistry,
         backup_store: BackupStore | None = None,
-        default_ttl:  float = _DEFAULT_TTL,
+        default_ttl: float = _DEFAULT_TTL,
     ) -> None:
-        self._reducers    = reducers
-        self._backup      = backup_store or InMemoryBackupStore()
+        self._reducers = reducers
+        self._backup = backup_store or InMemoryBackupStore()
         self._default_ttl = default_ttl
 
-        self._active:  dict[str, StateNode] = {}
+        self._active: dict[str, StateNode] = {}
         self._head_id: str | None = None
 
     # ── Write path ────────────────────────────────────────────────────────────
@@ -103,8 +110,8 @@ class ImmutableStateWorkload:
     def bootstrap(
         self,
         initial_state: dict[str, Any],
-        action_type:   str = "INIT",
-        ttl:           float | None = None,
+        action_type: str = "INIT",
+        ttl: float | None = None,
     ) -> StateNode:
         """Seed the workload with an initial state node (no parent)."""
         node = StateNode(
@@ -121,8 +128,8 @@ class ImmutableStateWorkload:
     def apply(
         self,
         action_type: str,
-        payload:     dict[str, Any],
-        ttl:         float | None = None,
+        payload: dict[str, Any],
+        ttl: float | None = None,
     ) -> StateNode:
         """Apply a reducer and append the resulting node to the active tier.
 
@@ -130,16 +137,20 @@ class ImmutableStateWorkload:
         the payload.  StateNode construction (parent wiring, checksum, TTL)
         is handled by the ReducerRegistry, not the reducer itself.
         """
-        current  = self.head()
+        current = self.head()
         new_node = self._reducers.dispatch(
-            current, action_type, payload,
+            current,
+            action_type,
+            payload,
             ttl=ttl if ttl is not None else self._default_ttl,
         )
         self._active[new_node.node_id] = new_node
         self._head_id = new_node.node_id
         logger.debug(
             "[state] applied %s → node %s (parent=%s)",
-            action_type, new_node.node_id, new_node.parent_id,
+            action_type,
+            new_node.node_id,
+            new_node.parent_id,
         )
         return new_node
 
@@ -161,11 +172,8 @@ class ImmutableStateWorkload:
         The head node is never evicted — it always remains reachable in the
         active tier as the authoritative current state.
         """
-        result  = EvictionResult()
-        expired = [
-            nid for nid, node in self._active.items()
-            if node.is_expired and nid != self._head_id
-        ]
+        result = EvictionResult()
+        expired = [nid for nid, node in self._active.items() if node.is_expired and nid != self._head_id]
         for nid in expired:
             node = self._active.pop(nid)
             self._backup.write(node)
@@ -187,7 +195,7 @@ class ImmutableStateWorkload:
         chain is missing from both tiers, reconstruction stops at that point
         and logs a warning rather than raising.
         """
-        chain:      list[StateNode] = []
+        chain: list[StateNode] = []
         current_id: str | None = node_id
 
         while current_id:
@@ -207,9 +215,9 @@ class ImmutableStateWorkload:
         head = self.head()
         return {
             "active_nodes": len(self._active),
-            "head_id":      self._head_id,
-            "head_action":  head.action_type if head else None,
-            "head_age":     round(head.age, 2) if head else None,
-            "backup_size":  getattr(self._backup, "size", lambda: -1)(),
-            "default_ttl":  self._default_ttl,
+            "head_id": self._head_id,
+            "head_action": head.action_type if head else None,
+            "head_age": round(head.age, 2) if head else None,
+            "backup_size": getattr(self._backup, "size", lambda: -1)(),
+            "default_ttl": self._default_ttl,
         }

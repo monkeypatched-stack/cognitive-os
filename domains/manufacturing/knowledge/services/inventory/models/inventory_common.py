@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-
 InventoryStatus = Literal[
     "In-Stock",
     "Low-Stock",
@@ -37,7 +36,9 @@ InventoryValuationMethod = Literal[
     "Specific-Identification",
 ]
 
-InventoryLocationType = Literal["Warehouse", "Store", "Transit", "Virtual", "Production"]
+InventoryLocationType = Literal[
+    "Warehouse", "Store", "Transit", "Virtual", "Production"
+]
 
 ReferenceType = Literal[
     "PO",
@@ -49,7 +50,7 @@ ReferenceType = Literal[
     "Work-Order",
 ]
 
-AdjustmentType   = Literal["Add", "Remove", "Correction"]
+AdjustmentType = Literal["Add", "Remove", "Correction"]
 AdjustmentStatus = Literal["Pending", "Approved", "Rejected", "Completed"]
 
 

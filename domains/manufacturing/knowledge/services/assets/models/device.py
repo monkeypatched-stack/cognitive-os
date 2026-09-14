@@ -18,7 +18,7 @@ def _normalize_device_status(value):
 class Device(BaseModel):
     id: str
     device_id: str
-    user_id:str
+    user_id: str
     device_name: str
     type: str
     make_model: str

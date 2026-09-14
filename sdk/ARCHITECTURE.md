@@ -93,8 +93,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 from datetime import datetime
 
+
 class AdapterStatus(Enum):
     """Adapter lifecycle status."""
+
     INITIALIZED = "initialized"
     READY = "ready"
     EXECUTING = "executing"
@@ -103,38 +105,43 @@ class AdapterStatus(Enum):
     FAILED = "failed"
     SHUTDOWN = "shutdown"
 
+
 class AdapterContext:
     """Context passed to adapter.execute()"""
-    capability_id: str          # Which capability is being executed
-    workflow_id: str            # Which workflow is running
-    execution_id: str           # Unique execution instance
-    world_state: Dict[str, Any] # Current world model state
-    request_id: str             # For tracing
+
+    capability_id: str  # Which capability is being executed
+    workflow_id: str  # Which workflow is running
+    execution_id: str  # Unique execution instance
+    world_state: Dict[str, Any]  # Current world model state
+    request_id: str  # For tracing
+
 
 class AdapterResponse:
     """Standard response from adapter"""
-    success: bool               # Did it work?
-    result: Optional[Dict]      # The actual result
-    error: Optional[str]        # Error message if failed
-    metadata: Dict[str, Any]    # Extra info
+
+    success: bool  # Did it work?
+    result: Optional[Dict]  # The actual result
+    error: Optional[str]  # Error message if failed
+    metadata: Dict[str, Any]  # Extra info
+
 
 class CapabilityAdapter(ABC):
     """Base class - all adapters implement this."""
-    
+
     @abstractmethod
     async def initialize(self) -> None:
         """Called once at SDK startup.
-        
+
         Use to:
         - Validate configuration
         - Establish connections
         - Verify external system availability
         - Initialize internal state
-        
+
         Raise AdapterInitializationError if it fails.
         """
         pass
-    
+
     @abstractmethod
     async def execute(
         self,
@@ -142,50 +149,50 @@ class CapabilityAdapter(ABC):
         inputs: Dict[str, Any],
     ) -> AdapterResponse:
         """Execute the external capability.
-        
+
         This is where the actual work happens.
         SDK handles logging, tracing, and telemetry wrapping.
-        
+
         Args:
             context: Workflow execution context
             inputs: Capability inputs
-        
+
         Returns:
             AdapterResponse with result or error
         """
         pass
-    
+
     @abstractmethod
     async def health_check(self) -> bool:
         """Check if adapter and external system are healthy.
-        
+
         Called periodically by SDK (every 30 seconds).
         Use to detect connection issues early.
-        
+
         Returns:
             True if healthy, False otherwise
         """
         pass
-    
+
     @abstractmethod
     async def shutdown(self) -> None:
         """Called at SDK shutdown.
-        
+
         Use to:
         - Close connections
         - Flush pending operations
         - Clean up resources
         """
         pass
-    
+
     # SDK-Provided Utilities (don't override these)
-    
+
     async def emit_event(self, event_type: str, data: Dict) -> None:
         """Publish event to platform event bus."""
-        
+
     async def emit_metric(self, metric_name: str, value: float, tags: Dict = None) -> None:
         """Emit telemetry metric."""
-        
+
     def log(self, level: str, message: str, **kwargs) -> None:
         """Log message."""
 ```
@@ -332,7 +339,7 @@ await self.emit_event(
     data={
         "work_order_id": "WO-123",
         "equipment_id": "EQ-456",
-    }
+    },
 )
 ```
 
@@ -350,11 +357,7 @@ The SDK publishes to the platform event bus. Adapters can also subscribe to plat
 
 ```python
 # Emit metric
-await self.emit_metric(
-    metric_name="work_orders_created",
-    value=1,
-    tags={"equipment": "eq-001"}
-)
+await self.emit_metric(metric_name="work_orders_created", value=1, tags={"equipment": "eq-001"})
 
 # Trace execution
 async with await self.telemetry.start_span("cmms_api_call") as span:
@@ -479,8 +482,7 @@ Adapters are discovered via the `@capability_adapter` decorator:
     version="1.0.0",
     tags=["cmms", "maintenance"],
 )
-class CMMSAdapter(CapabilityAdapter):
-    ...
+class CMMSAdapter(CapabilityAdapter): ...
 ```
 
 The decorator:
@@ -497,10 +499,10 @@ class MyAdapter(CapabilityAdapter):
     def __init__(self, adapter_id: str, capability_id: str):
         super().__init__(adapter_id, capability_id)
         # These are injected by SDK after creation:
-        self.logger = None              # Set by LifecycleManager
-        self.event_bus = None           # Set by LifecycleManager
-        self.telemetry = None           # Set by LifecycleManager
-        self.configuration = None       # Set by LifecycleManager
+        self.logger = None  # Set by LifecycleManager
+        self.event_bus = None  # Set by LifecycleManager
+        self.telemetry = None  # Set by LifecycleManager
+        self.configuration = None  # Set by LifecycleManager
 ```
 
 ### Error Handling
@@ -509,10 +511,10 @@ All SDK components raise standard exceptions:
 
 ```python
 from monkeypatched_sdk import (
-    AdapterInitializationError,    # Init failed
-    AdapterExecutionError,          # Execute failed
-    HealthCheckError,               # Health check failed
-    ConfigurationError,             # Config invalid
+    AdapterInitializationError,  # Init failed
+    AdapterExecutionError,  # Execute failed
+    HealthCheckError,  # Health check failed
+    ConfigurationError,  # Config invalid
 )
 ```
 
@@ -591,11 +593,7 @@ Adapters can emit custom metrics:
 
 ```python
 # In execute()
-await self.emit_metric(
-    metric_name="work_orders_created",
-    value=1,
-    tags={"equipment": "eq-001", "type": "maintenance"}
-)
+await self.emit_metric(metric_name="work_orders_created", value=1, tags={"equipment": "eq-001", "type": "maintenance"})
 ```
 
 ### Distributed Tracing
@@ -692,8 +690,7 @@ Each adapter implements one contract (`CapabilityAdapter`). This:
 
 ```python
 @capability_adapter(capability_id="create_work_order")
-class CMMSAdapter(CapabilityAdapter):
-    ...
+class CMMSAdapter(CapabilityAdapter): ...
 ```
 
 This:

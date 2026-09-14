@@ -8,6 +8,7 @@ Demonstrates cross-agent collaboration:
 
 This is the canonical enterprise workflow benchmark.
 """
+
 import asyncio
 import sys
 import os
@@ -18,12 +19,13 @@ from enum import StrEnum
 from typing import Any
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 
 # ── Domain Models ────────────────────────────────────────────────────────────
+
 
 class WorkOrderStatus(StrEnum):
     CREATED = "created"
@@ -78,6 +80,7 @@ class Notification:
 
 # ── Agents ───────────────────────────────────────────────────────────────────
 
+
 class WorkOrderAgent:
     """Creates work orders and manages their lifecycle."""
 
@@ -106,12 +109,23 @@ class TodoAgent:
 
     def generate_todos(self, work_order: WorkOrder) -> list[Todo]:
         todos = []
-        for step in ["Inspect equipment", "Gather tools", "Perform maintenance", "Document results"]:
+        for step in [
+            "Inspect equipment",
+            "Gather tools",
+            "Perform maintenance",
+            "Document results",
+        ]:
             todo = Todo(work_order_id=work_order.id, title=step, assigned_to="worker-001")
             self.store[todo.id] = todo
             work_order.todos.append(todo.id)
             todos.append(todo)
-            self._events.append({"type": "TodoCreated", "todo_id": todo.id, "work_order_id": work_order.id})
+            self._events.append(
+                {
+                    "type": "TodoCreated",
+                    "todo_id": todo.id,
+                    "work_order_id": work_order.id,
+                }
+            )
         return todos
 
     def accept_todo(self, todo_id: str) -> Todo:
@@ -153,6 +167,7 @@ class NotificationCapability:
 
 # ── Workflow Engine ──────────────────────────────────────────────────────────
 
+
 class EnterpriseWorkflow:
     """Orchestrates cross-agent enterprise workflows."""
 
@@ -164,9 +179,7 @@ class EnterpriseWorkflow:
         self.notifier = NotificationCapability()
         self._trace: list[str] = []
 
-    def run_work_order_workflow(
-        self, title: str, equipment: str, priority: str = "medium"
-    ) -> dict[str, Any]:
+    def run_work_order_workflow(self, title: str, equipment: str, priority: str = "medium") -> dict[str, Any]:
         """Execute the full WorkOrder → Todo → Notification workflow."""
         trace = []
 
@@ -209,6 +222,7 @@ class EnterpriseWorkflow:
 
 
 # ── Tests ────────────────────────────────────────────────────────────────────
+
 
 def test_work_order_creation():
     wf = EnterpriseWorkflow()
@@ -294,16 +308,21 @@ def test_notification_message_format():
 
 
 if __name__ == "__main__":
-    ok = 0; f = []
-    for name, fn in sorted((k, v) for k, v in globals().items() if k.startswith('test_') and callable(v)):
-        try: fn(); ok += 1
-        except Exception as e: f.append(f"{name}: {e}")
-    print(f"\n{'='*60}")
+    ok = 0
+    f = []
+    for name, fn in sorted((k, v) for k, v in globals().items() if k.startswith("test_") and callable(v)):
+        try:
+            fn()
+            ok += 1
+        except Exception as e:
+            f.append(f"{name}: {e}")
+    print(f"\n{'=' * 60}")
     print(f"ENTERPRISE WORKFLOW BENCHMARK")
-    print(f"{'='*60}")
-    print(f"  Total: {ok}/{ok+len(f)}")
+    print(f"{'=' * 60}")
+    print(f"  Total: {ok}/{ok + len(f)}")
     if f:
-        for e in f: print(f"  FAIL: {e}")
+        for e in f:
+            print(f"  FAIL: {e}")
     else:
         print("  ALL CHECKS PASS")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")

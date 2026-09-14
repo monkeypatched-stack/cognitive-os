@@ -1,4 +1,5 @@
 """Minimal CapabilityScheduler stub for cognitive kernel wiring."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -16,7 +17,7 @@ class CapabilityScheduler:
         return {
             "capability": capability_name,
             "status": "scheduled",
-            "bus": str(self._bus)
+            "bus": str(self._bus),
         }
 
     def summary(self) -> dict[str, Any]:

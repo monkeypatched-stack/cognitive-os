@@ -5,6 +5,7 @@ Pure formatting — no execution, no side effects.
 
 Implementation: Step 4 will extend this for richer artifact extraction.
 """
+
 from __future__ import annotations
 
 import time

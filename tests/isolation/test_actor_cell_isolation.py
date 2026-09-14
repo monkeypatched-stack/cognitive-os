@@ -11,6 +11,7 @@ get_rejected_keywords), and ROS Adapter actor-specific binding
 
 Run with: pytest tests/isolation/ -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,7 +28,10 @@ from src.monkey_brain.kernel.actor_identity import (
 from src.monkey_brain.kernel.approval import reset_approval_store
 from src.monkey_brain.kernel.compile.cognitive_actor import CognitiveActor
 from src.monkey_brain.kernel.delegation import reset_delegation_store_for_tests
-from src.monkey_brain.kernel.domains.grocery import get_rejected_keywords, record_rejection
+from src.monkey_brain.kernel.domains.grocery import (
+    get_rejected_keywords,
+    record_rejection,
+)
 from src.monkey_brain.kernel.edge.ros_integration import (
     FakeRosExecutionAdapter,
     RosUnavailableError,
@@ -37,7 +41,11 @@ from src.monkey_brain.kernel.learn.memory.manager import MemoryManager
 from src.monkey_brain.kernel.learn.memory.primitives import ProvenanceToken
 from src.monkey_brain.kernel.security_boundary import reset_governed_pipeline_for_tests
 from src.monkey_brain.kernel.society.actor_cell import ActorCell
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.runtime import ActorRuntimeState, SocietyRuntime
 from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trusted_auth
 
@@ -49,10 +57,15 @@ def _reset(monkeypatch):
     # calls into the real ensure_governed/run_governed_mutation pipeline
     # resolve without needing a live OPA/Redis/Mongo deployment.
     monkeypatch.setenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "true")
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id="test-process",
-        principal_type="service", mfa_status="satisfied",
-    ))
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id="test-process",
+            principal_type="service",
+            mfa_status="satisfied",
+        )
+    )
     reset_approval_store()
     reset_governed_pipeline_for_tests()
     reset_delegation_store_for_tests()
@@ -67,7 +80,10 @@ def _make_cell(actor_id: str, *, issuer: str = "test-issuer") -> ActorCell:
     state = ActorRuntimeState(actor_id=actor_id, actor=actor)
     credential = mint_actor_cell_identity(actor_id, issuer=issuer)
     return ActorCell(
-        actor_id=actor_id, identity=credential, actor=actor, runtime_state=state,
+        actor_id=actor_id,
+        identity=credential,
+        actor=actor,
+        runtime_state=state,
         ros_adapter=FakeRosExecutionAdapter(actor_id=actor_id),
     )
 
@@ -84,7 +100,9 @@ class TestIdentityIsolation:
         """The core requirement: Actor A cannot authenticate as Actor B."""
         a = _make_cell("actor-A", issuer="same-process")
         result = verify_actor_cell_identity(
-            a.identity, actor_id="actor-B", authenticated_issuer="same-process",
+            a.identity,
+            actor_id="actor-B",
+            authenticated_issuer="same-process",
         )
         assert result.authorized is False
         assert "delegate" in result.failure_reason.lower()
@@ -92,7 +110,9 @@ class TestIdentityIsolation:
     def test_actor_a_credential_verifies_for_actor_a(self):
         a = _make_cell("actor-A", issuer="same-process")
         result = verify_actor_cell_identity(
-            a.identity, actor_id="actor-A", authenticated_issuer="same-process",
+            a.identity,
+            actor_id="actor-A",
+            authenticated_issuer="same-process",
         )
         assert result.authorized is True
 
@@ -106,7 +126,10 @@ class TestIdentityIsolation:
         # actor-B must fail (it's the same underlying enforcement
         # bind_actor_cell_trusted_auth uses, exercised from the cache path).
         with pytest.raises(ActorIdentityError):
-            from src.monkey_brain.kernel.actor_identity import bind_actor_cell_trusted_auth
+            from src.monkey_brain.kernel.actor_identity import (
+                bind_actor_cell_trusted_auth,
+            )
+
             bind_actor_cell_trusted_auth("actor-B", cache_a.credential, authenticated_issuer="proc-1")
 
     def test_actor_cell_rejects_construction_with_mismatched_identity(self):
@@ -116,7 +139,12 @@ class TestIdentityIsolation:
         actor = CognitiveActor(entity_id="actor-A")
         state = ActorRuntimeState(actor_id="actor-A", actor=actor)
         with pytest.raises(ValueError):
-            ActorCell(actor_id="actor-A", identity=credential_for_b, actor=actor, runtime_state=state)
+            ActorCell(
+                actor_id="actor-A",
+                identity=credential_for_b,
+                actor=actor,
+                runtime_state=state,
+            )
 
 
 class TestKnowledgeGraphIsolation:
@@ -182,29 +210,53 @@ class TestRosIsolation:
     def test_bound_adapter_refuses_to_execute_for_a_different_actor(self):
         a = _make_cell("actor-A")
         with pytest.raises(RosUnavailableError):
-            asyncio.run(run_ros_action_if_governed(
-                capability="noop", resource="robot", parameters={},
-                adapter=a.ros_adapter, actor_id="actor-B",
-                local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-            ))
+            asyncio.run(
+                run_ros_action_if_governed(
+                    capability="noop",
+                    resource="robot",
+                    parameters={},
+                    adapter=a.ros_adapter,
+                    actor_id="actor-B",
+                    local_policy_decision={
+                        "allowed": True,
+                        "approval_mode": "AUTO_APPROVE",
+                    },
+                )
+            )
 
     def test_bound_adapter_executes_for_its_own_actor(self):
         a = _make_cell("actor-A")
-        result = asyncio.run(run_ros_action_if_governed(
-            capability="noop", resource="robot", parameters={},
-            adapter=a.ros_adapter, actor_id="actor-A",
-            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-        ))
+        result = asyncio.run(
+            run_ros_action_if_governed(
+                capability="noop",
+                resource="robot",
+                parameters={},
+                adapter=a.ros_adapter,
+                actor_id="actor-A",
+                local_policy_decision={
+                    "allowed": True,
+                    "approval_mode": "AUTO_APPROVE",
+                },
+            )
+        )
         assert result["success"] is True
 
     def test_unbound_adapter_and_call_preserve_prior_behavior(self):
         """actor_id="" (the default, matching every pre-existing caller)
         must never trigger the new binding check."""
         adapter = FakeRosExecutionAdapter()
-        result = asyncio.run(run_ros_action_if_governed(
-            capability="noop", resource="robot", parameters={}, adapter=adapter,
-            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
-        ))
+        result = asyncio.run(
+            run_ros_action_if_governed(
+                capability="noop",
+                resource="robot",
+                parameters={},
+                adapter=adapter,
+                local_policy_decision={
+                    "allowed": True,
+                    "approval_mode": "AUTO_APPROVE",
+                },
+            )
+        )
         assert result["success"] is True
 
 
@@ -216,9 +268,13 @@ class TestHeartbeatCapability:
     def test_no_adapter_degrades_honestly(self):
         from src.monkey_brain.kernel.domains.robot import HeartbeatCapability
 
-        result = asyncio.run(HeartbeatCapability().handle({
-            "context": {"actor_id": "actor-A", "ros_adapter": None},
-        }))
+        result = asyncio.run(
+            HeartbeatCapability().handle(
+                {
+                    "context": {"actor_id": "actor-A", "ros_adapter": None},
+                }
+            )
+        )
         assert result["success"] is False
         assert "ros" in result["error"].lower()
 
@@ -226,9 +282,13 @@ class TestHeartbeatCapability:
         from src.monkey_brain.kernel.domains.robot import HeartbeatCapability
 
         a = _make_cell("actor-A")
-        result = asyncio.run(HeartbeatCapability().handle({
-            "context": {"actor_id": "actor-A", "ros_adapter": a.ros_adapter},
-        }))
+        result = asyncio.run(
+            HeartbeatCapability().handle(
+                {
+                    "context": {"actor_id": "actor-A", "ros_adapter": a.ros_adapter},
+                }
+            )
+        )
         assert result["success"] is True
         assert a.ros_adapter.calls[0]["capability"] == "Heartbeat"
 
@@ -240,20 +300,39 @@ class TestHeartbeatCapability:
 
         b = _make_cell("actor-B")
         with pytest.raises(RosUnavailableError):
-            asyncio.run(HeartbeatCapability().handle({
-                "context": {"actor_id": "actor-A", "ros_adapter": b.ros_adapter},
-            }))
+            asyncio.run(
+                HeartbeatCapability().handle(
+                    {
+                        "context": {
+                            "actor_id": "actor-A",
+                            "ros_adapter": b.ros_adapter,
+                        },
+                    }
+                )
+            )
 
 
 class TestCrashIsolation:
     def test_actor_a_tick_failure_does_not_affect_actor_b(self):
         society = SocietyRuntime()
-        society.register_actor(ActorProfile(identity=ActorIdentity(
-            actor_id="actor-A", name="A", actor_type=ActorType.AI_AGENT,
-        )))
-        society.register_actor(ActorProfile(identity=ActorIdentity(
-            actor_id="actor-B", name="B", actor_type=ActorType.AI_AGENT,
-        )))
+        society.register_actor(
+            ActorProfile(
+                identity=ActorIdentity(
+                    actor_id="actor-A",
+                    name="A",
+                    actor_type=ActorType.AI_AGENT,
+                )
+            )
+        )
+        society.register_actor(
+            ActorProfile(
+                identity=ActorIdentity(
+                    actor_id="actor-B",
+                    name="B",
+                    actor_type=ActorType.AI_AGENT,
+                )
+            )
+        )
 
         async def _boom(actor_state, observation, prompt_request):
             if actor_state.actor_id == "actor-A":
@@ -287,9 +366,15 @@ class TestTickConcurrency:
     def _three_actor_society(self) -> SocietyRuntime:
         society = SocietyRuntime()
         for actor_id in ("drone-A", "drone-B", "drone-C"):
-            society.register_actor(ActorProfile(identity=ActorIdentity(
-                actor_id=actor_id, name=actor_id, actor_type=ActorType.AI_AGENT,
-            )))
+            society.register_actor(
+                ActorProfile(
+                    identity=ActorIdentity(
+                        actor_id=actor_id,
+                        name=actor_id,
+                        actor_type=ActorType.AI_AGENT,
+                    )
+                )
+            )
 
         async def _slow_coordinate(actor_state, observation, prompt_request):
             await asyncio.sleep(self._DELAY)

@@ -11,6 +11,7 @@ The executor:
 
 If no CapabilityBus is available, actions are simulated (pass-through).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,9 +21,14 @@ import time
 from typing import Any, Callable
 
 from src.monkey_brain.kernel.pipeline.execution import (
-    Action, ActionOutcome, ExecutionResult,
+    Action,
+    ActionOutcome,
+    ExecutionResult,
 )
-from src.monkey_brain.kernel.society.transition_gate import ProposedTransition, TransitionGate
+from src.monkey_brain.kernel.society.transition_gate import (
+    ProposedTransition,
+    TransitionGate,
+)
 
 logger = logging.getLogger("agentos.pipeline.action_executor")
 
@@ -44,7 +50,7 @@ class ActionExecutor:
         context_stream: Any = None,
         domain_event_resolver: Callable[[str, bool, Any], str | None] | None = None,
         pre_execute_hook: Callable[[dict], None] | None = None,
-        propose_transition: Callable[[Action, dict], ProposedTransition | None] | None = None,
+        propose_transition: (Callable[[Action, dict], ProposedTransition | None] | None) = None,
         transition_gate: TransitionGate | None = None,
         connectivity_check: Callable[[str], tuple[bool, str, str]] | None = None,
         edge_governance: Any = None,
@@ -177,7 +183,10 @@ class ActionExecutor:
             try:
                 self._pre_execute_hook(context)
             except Exception:
-                logger.warning("[executor] pre_execute_hook raised, continuing without it", exc_info=True)
+                logger.warning(
+                    "[executor] pre_execute_hook raised, continuing without it",
+                    exc_info=True,
+                )
 
         from src.monkey_brain.kernel.compile import _obs
 
@@ -205,6 +214,7 @@ class ActionExecutor:
             runnable_actions,
             apply_runtime_projections,
         )
+
         if execution_graph is not None:
             actions = order_actions_by_graph(actions, execution_graph)
             if isinstance(context, dict):
@@ -224,7 +234,10 @@ class ActionExecutor:
         execution_id = actions[0].correlation_id
         completed_steps: dict[int, dict[str, Any]] = {}
         if execution_id:
-            from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import load_execution_checkpoint
+            from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import (
+                load_execution_checkpoint,
+            )
+
             checkpoint = load_execution_checkpoint(execution_id)
             if checkpoint is not None:
                 completed_steps = {int(k): v for k, v in checkpoint.completed_steps.items()}
@@ -232,7 +245,8 @@ class ActionExecutor:
             context["_execution_id"] = execution_id
         source_plan = context.get("_source_plan") if isinstance(context, dict) else None
         plan_dict = self._plan_dict_from_actions(
-            actions, goal=context.get("question", "") if isinstance(context, dict) else "",
+            actions,
+            goal=context.get("question", "") if isinstance(context, dict) else "",
             source_plan=source_plan,
         )
 
@@ -247,7 +261,10 @@ class ActionExecutor:
         # or one with no pending approval) beyond one Redis GET.
         resolved_approval = None
         if execution_id:
-            from src.monkey_brain.kernel.pipeline.approval_store import load_pending_approval
+            from src.monkey_brain.kernel.pipeline.approval_store import (
+                load_pending_approval,
+            )
+
             pending = load_pending_approval(execution_id)
             if pending is not None and pending.decided is not None:
                 resolved_approval = pending
@@ -262,7 +279,10 @@ class ActionExecutor:
         # rejection without ever invoking it at all.
         resolved_negotiation = None
         if execution_id:
-            from src.monkey_brain.kernel.pipeline.negotiation_store import load_pending_negotiation
+            from src.monkey_brain.kernel.pipeline.negotiation_store import (
+                load_pending_negotiation,
+            )
+
             pending_negotiation = load_pending_negotiation(execution_id)
             if pending_negotiation is not None and pending_negotiation.decided is not None:
                 resolved_negotiation = pending_negotiation
@@ -282,7 +302,10 @@ class ActionExecutor:
         # it never decides what "approval" or "negotiation" mean.
         resolved_payment = None
         if execution_id:
-            from src.monkey_brain.kernel.pipeline.payment_store import load_pending_payment
+            from src.monkey_brain.kernel.pipeline.payment_store import (
+                load_pending_payment,
+            )
+
             pending_payment = load_pending_payment(execution_id)
             if pending_payment is not None and pending_payment.decided is not None:
                 resolved_payment = pending_payment
@@ -295,7 +318,9 @@ class ActionExecutor:
                 if not pending:
                     break
                 batch = runnable_actions(
-                    tuple(pending), execution_graph, succeeded_step_indices,
+                    tuple(pending),
+                    execution_graph,
+                    succeeded_step_indices,
                     completed_or_terminal=scheduled_indices,
                 )
                 next_actions = batch if batch else pending[:1]
@@ -311,7 +336,9 @@ class ActionExecutor:
                 if node_id:
                     execution_graph.mark_running(node_id)
                 checkpointed = completed_steps.get(action.step_index) if action.step_index >= 0 else None
-                missing = [dep for dep in action.depends_on if dep not in succeeded_step_indices] if action.depends_on else []
+                missing = (
+                    [dep for dep in action.depends_on if dep not in succeeded_step_indices] if action.depends_on else []
+                )
                 if checkpointed is not None:
                     # Already completed in an earlier attempt at this same
                     # execution_id -- replay its real, stored outcome (never
@@ -340,7 +367,12 @@ class ActionExecutor:
                     # the success/failed/rejected classification inside
                     # _execute_action below.
                     from src.monkey_brain.kernel.compile import _obs
-                    _obs.counter("capability.calls.total", capability=action.capability, status="blocked")
+
+                    _obs.counter(
+                        "capability.calls.total",
+                        capability=action.capability,
+                        status="blocked",
+                    )
                 else:
                     if (
                         resolved_approval is not None
@@ -390,6 +422,7 @@ class ActionExecutor:
                         allowed, waiting_state, reason = self._connectivity_check(action.capability)
                         if not allowed:
                             from src.monkey_brain.kernel.compile import _obs
+
                             # Edge Local Governance: the blunt connectivity
                             # gate above only knows "can this node reach
                             # central authority" -- it has no notion of
@@ -403,7 +436,10 @@ class ActionExecutor:
                             # centrally and is still safe to use.
                             edge_outcome = None
                             if self._edge_governance is not None:
-                                from src.monkey_brain.kernel.trusted_auth import get_trusted_auth
+                                from src.monkey_brain.kernel.trusted_auth import (
+                                    get_trusted_auth,
+                                )
+
                                 principal = get_trusted_auth().principal_id
                                 # Edge gap-closure (Section 4): a raw,
                                 # already-parsed delegation chain from the
@@ -428,21 +464,29 @@ class ActionExecutor:
                                     delegation_chain=delegation_chain,
                                 )
                             if edge_outcome is not None and not edge_outcome.escalate:
-                                from src.monkey_brain.kernel.edge.local_governance import to_policy_decision
+                                from src.monkey_brain.kernel.edge.local_governance import (
+                                    to_policy_decision,
+                                )
+
                                 _obs.counter(
-                                    "edge.governance.decision", origin=edge_outcome.origin.value,
-                                    allowed=str(edge_outcome.allowed), capability=action.capability,
+                                    "edge.governance.decision",
+                                    origin=edge_outcome.origin.value,
+                                    allowed=str(edge_outcome.allowed),
+                                    capability=action.capability,
                                 )
                                 if edge_outcome.allowed:
                                     local_policy_decision = to_policy_decision(edge_outcome)
                                 else:
                                     gated_outcome = ActionOutcome(
-                                        action_id=action.action_id, success=False,
+                                        action_id=action.action_id,
+                                        success=False,
                                         result={
-                                            "waiting_state": "", "capability": action.capability,
+                                            "waiting_state": "",
+                                            "capability": action.capability,
                                             "governance_origin": edge_outcome.origin.value,
                                         },
-                                        error=edge_outcome.reason, latency_ms=0.0,
+                                        error=edge_outcome.reason,
+                                        latency_ms=0.0,
                                     )
                             else:
                                 # No edge governance wired in, or it could
@@ -451,8 +495,10 @@ class ActionExecutor:
                                 # refusal behavior, unchanged.
                                 if edge_outcome is not None:
                                     _obs.counter(
-                                        "edge.governance.decision", origin=edge_outcome.origin.value,
-                                        allowed="false", capability=action.capability,
+                                        "edge.governance.decision",
+                                        origin=edge_outcome.origin.value,
+                                        allowed="false",
+                                        capability=action.capability,
                                     )
                                 # Refused before the capability is ever invoked --
                                 # same "never call handle() for a gated action"
@@ -460,11 +506,20 @@ class ActionExecutor:
                                 # Never reached for TRANSITION_GATE gating below
                                 # since gated_outcome is already set.
                                 gated_outcome = ActionOutcome(
-                                    action_id=action.action_id, success=False,
-                                    result={"waiting_state": waiting_state, "capability": action.capability},
-                                    error=reason, latency_ms=0.0,
+                                    action_id=action.action_id,
+                                    success=False,
+                                    result={
+                                        "waiting_state": waiting_state,
+                                        "capability": action.capability,
+                                    },
+                                    error=reason,
+                                    latency_ms=0.0,
                                 )
-                                _obs.counter("offline_safety.blocked.total", waiting_state=waiting_state, capability=action.capability)
+                                _obs.counter(
+                                    "offline_safety.blocked.total",
+                                    waiting_state=waiting_state,
+                                    capability=action.capability,
+                                )
                     if (
                         gated_outcome is None
                         and self._propose_transition is not None
@@ -482,9 +537,11 @@ class ActionExecutor:
                             # the real, just-computed GateDecision, never
                             # inferred after the fact).
                             from src.monkey_brain.kernel.compile import _obs
+
                             _obs.counter(
                                 "transition_gate.evaluations.total",
-                                allow=str(gate_decision.allow), requires_negotiation=str(gate_decision.requires_negotiation),
+                                allow=str(gate_decision.allow),
+                                requires_negotiation=str(gate_decision.requires_negotiation),
                             )
                             negotiation_decision = context.get("negotiation_decision")
                             if gate_decision.requires_negotiation and negotiation_decision is None:
@@ -493,7 +550,8 @@ class ActionExecutor:
                                 # what actually prevents "mutate first,
                                 # negotiate after".
                                 gated_outcome = ActionOutcome(
-                                    action_id=action.action_id, success=False,
+                                    action_id=action.action_id,
+                                    success=False,
                                     result={
                                         "requires_negotiation": True,
                                         "proposed_transition": transition.to_dict(),
@@ -509,7 +567,8 @@ class ActionExecutor:
                                 # agreement -- abort, never invoke the
                                 # capability, no state mutation.
                                 gated_outcome = ActionOutcome(
-                                    action_id=action.action_id, success=False,
+                                    action_id=action.action_id,
+                                    success=False,
                                     result={
                                         "negotiation_rejected": True,
                                         "proposed_transition": transition.to_dict(),
@@ -535,8 +594,13 @@ class ActionExecutor:
                         # "was consent required, was it granted, did it
                         # commit" without needing to re-derive it from raw
                         # application logs.
-                        from src.monkey_brain.kernel.pipeline.audit_trail import record_decision_event
-                        negotiation_decision = context.get("negotiation_decision") if isinstance(context, dict) else None
+                        from src.monkey_brain.kernel.pipeline.audit_trail import (
+                            record_decision_event,
+                        )
+
+                        negotiation_decision = (
+                            context.get("negotiation_decision") if isinstance(context, dict) else None
+                        )
                         if gated_outcome is None:
                             security_outcome = "allowed"
                         elif negotiation_decision is False:
@@ -545,11 +609,12 @@ class ActionExecutor:
                             security_outcome = "paused_for_negotiation"
                         record_decision_event(
                             "transition_gate_decision",
-                            actor_id=context.get("actor_id", "") if isinstance(context, dict) else "",
+                            actor_id=(context.get("actor_id", "") if isinstance(context, dict) else ""),
                             execution_id=action.correlation_id,
                             reason=gate_decision.reason,
                             metadata={
-                                "capability": action.capability, "action_id": action.action_id,
+                                "capability": action.capability,
+                                "action_id": action.action_id,
                                 "requires_negotiation": gate_decision.requires_negotiation,
                                 "contention": gate_decision.contention,
                                 "counterparties": list(gate_decision.counterparties),
@@ -575,25 +640,35 @@ class ActionExecutor:
                         # transition gate ever ran) -- that path never needs
                         # negotiation-store bookkeeping, only the transition
                         # gate's own requires_negotiation path does.
-                        if gate_decision is not None and gate_decision.requires_negotiation and context.get("negotiation_decision") is None:
+                        if (
+                            gate_decision is not None
+                            and gate_decision.requires_negotiation
+                            and context.get("negotiation_decision") is None
+                        ):
                             if not waiting_for_negotiation:
                                 from src.monkey_brain.kernel.pipeline.negotiation_store import (
-                                    PendingNegotiation, save_pending_negotiation,
+                                    PendingNegotiation,
+                                    save_pending_negotiation,
                                 )
+
                                 proposing_actor = context.get("actor_id", "")
                                 counterparties = list(outcome.result.get("counterparties", []) or [])
                                 negotiation_execution_id = execution_id or action.action_id
-                                save_pending_negotiation(PendingNegotiation(
-                                    execution_id=negotiation_execution_id,
-                                    actor_id=proposing_actor,
-                                    step_index=action.step_index, capability=action.capability,
-                                    action_id=action.action_id,
-                                    proposed_transition=outcome.result.get("proposed_transition", {}) or {},
-                                    counterparties=counterparties,
-                                    reason=outcome.result.get("reason", ""),
-                                    correlation_id=action.correlation_id, causation_id=action.causation_id,
-                                    original_question=context.get("question", ""),
-                                ))
+                                save_pending_negotiation(
+                                    PendingNegotiation(
+                                        execution_id=negotiation_execution_id,
+                                        actor_id=proposing_actor,
+                                        step_index=action.step_index,
+                                        capability=action.capability,
+                                        action_id=action.action_id,
+                                        proposed_transition=outcome.result.get("proposed_transition", {}) or {},
+                                        counterparties=counterparties,
+                                        reason=outcome.result.get("reason", ""),
+                                        correlation_id=action.correlation_id,
+                                        causation_id=action.causation_id,
+                                        original_question=context.get("question", ""),
+                                    )
+                                )
                                 # Surface the proposal itself as a real conversation
                                 # message — previously the negotiation gate only ever
                                 # wrote to negotiation_store.py's own Redis record,
@@ -603,29 +678,44 @@ class ActionExecutor:
                                 # blocked the execution. Same publish shape
                                 # route_interaction already uses (runtime.py:638).
                                 if self._context_stream is not None:
-                                    from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+                                    from src.monkey_brain.kernel.society.context_stream import (
+                                        ContextEvent,
+                                        ContextEventType,
+                                    )
+
                                     try:
-                                        self._context_stream.publish(ContextEvent(
-                                            event_type=ContextEventType.INTERACTION,
-                                            actor_id=proposing_actor,
-                                            description=(
-                                                f"{proposing_actor} proposes {action.capability} "
-                                                f"to {', '.join(counterparties) or 'a counterparty'}"
-                                            ),
-                                            payload={
-                                                "from_actor_id": proposing_actor,
-                                                "to_actor_id": counterparties[0] if len(counterparties) == 1 else "",
-                                                "participants": [proposing_actor, *counterparties],
-                                                "thread_id": negotiation_execution_id,
-                                                "interaction_id": negotiation_execution_id,
-                                                "message": outcome.result.get("reason", "") or f"Proposing {action.capability}",
-                                            },
-                                            provenance="negotiation:proposal",
-                                            correlation_id=negotiation_execution_id,
-                                            causation_id=action.causation_id,
-                                        ))
+                                        self._context_stream.publish(
+                                            ContextEvent(
+                                                event_type=ContextEventType.INTERACTION,
+                                                actor_id=proposing_actor,
+                                                description=(
+                                                    f"{proposing_actor} proposes {action.capability} "
+                                                    f"to {', '.join(counterparties) or 'a counterparty'}"
+                                                ),
+                                                payload={
+                                                    "from_actor_id": proposing_actor,
+                                                    "to_actor_id": (
+                                                        counterparties[0] if len(counterparties) == 1 else ""
+                                                    ),
+                                                    "participants": [
+                                                        proposing_actor,
+                                                        *counterparties,
+                                                    ],
+                                                    "thread_id": negotiation_execution_id,
+                                                    "interaction_id": negotiation_execution_id,
+                                                    "message": outcome.result.get("reason", "")
+                                                    or f"Proposing {action.capability}",
+                                                },
+                                                provenance="negotiation:proposal",
+                                                correlation_id=negotiation_execution_id,
+                                                causation_id=action.causation_id,
+                                            )
+                                        )
                                     except Exception:
-                                        logger.warning("[executor] failed to publish negotiation proposal event for %s", action.capability)
+                                        logger.warning(
+                                            "[executor] failed to publish negotiation proposal event for %s",
+                                            action.capability,
+                                        )
                             waiting_for_negotiation = True
                         outcomes.append(outcome)
                         publish_started = time.perf_counter()
@@ -662,7 +752,9 @@ class ActionExecutor:
                         retry_action = self._build_recovery_action(action)
                         outcome = await self._execute_action(retry_action, context)
 
-                    this_step_requires_approval = isinstance(outcome.result, dict) and bool(outcome.result.get("requires_approval"))
+                    this_step_requires_approval = isinstance(outcome.result, dict) and bool(
+                        outcome.result.get("requires_approval")
+                    )
                     if this_step_requires_approval:
                         # A real, live-only gap found by testing a multi-item
                         # approval prompt end to end (not by any executor-level
@@ -675,21 +767,31 @@ class ActionExecutor:
                         # including a second requires_approval, still appears
                         # in outcomes/actions below regardless).
                         if not waiting_for_human:
-                            from src.monkey_brain.kernel.pipeline.approval_store import PendingApproval, save_pending_approval
-                            save_pending_approval(PendingApproval(
-                                execution_id=execution_id or action.action_id,
-                                actor_id=context.get("actor_id", "") if isinstance(context, dict) else "",
-                                step_index=action.step_index, capability=action.capability,
-                                action_id=action.action_id,
-                                proposed_action=outcome.result.get("proposed_action", {}) or {},
-                                reason=outcome.result.get("reason", ""),
-                                correlation_id=action.correlation_id, causation_id=action.causation_id,
-                                original_question=context.get("question", "") if isinstance(context, dict) else "",
-                            ))
+                            from src.monkey_brain.kernel.pipeline.approval_store import (
+                                PendingApproval,
+                                save_pending_approval,
+                            )
+
+                            save_pending_approval(
+                                PendingApproval(
+                                    execution_id=execution_id or action.action_id,
+                                    actor_id=(context.get("actor_id", "") if isinstance(context, dict) else ""),
+                                    step_index=action.step_index,
+                                    capability=action.capability,
+                                    action_id=action.action_id,
+                                    proposed_action=outcome.result.get("proposed_action", {}) or {},
+                                    reason=outcome.result.get("reason", ""),
+                                    correlation_id=action.correlation_id,
+                                    causation_id=action.causation_id,
+                                    original_question=(
+                                        context.get("question", "") if isinstance(context, dict) else ""
+                                    ),
+                                )
+                            )
                         waiting_for_human = True
 
-                    this_step_requires_payment_confirmation = (
-                        isinstance(outcome.result, dict) and bool(outcome.result.get("requires_payment_confirmation"))
+                    this_step_requires_payment_confirmation = isinstance(outcome.result, dict) and bool(
+                        outcome.result.get("requires_payment_confirmation")
                     )
                     if this_step_requires_payment_confirmation:
                         # Same "only the FIRST pause in a given tick is
@@ -699,23 +801,33 @@ class ActionExecutor:
                         # PendingNegotiation) -- every step's own real outcome
                         # still appears in outcomes/actions below regardless.
                         if not waiting_for_payment:
-                            from src.monkey_brain.kernel.pipeline.payment_store import PendingPayment, save_pending_payment
+                            from src.monkey_brain.kernel.pipeline.payment_store import (
+                                PendingPayment,
+                                save_pending_payment,
+                            )
+
                             result = outcome.result
-                            save_pending_payment(PendingPayment(
-                                execution_id=execution_id or action.action_id,
-                                actor_id=context.get("actor_id", "") if isinstance(context, dict) else "",
-                                step_index=action.step_index, capability=action.capability,
-                                action_id=action.action_id,
-                                provider_name=result.get("provider_name", ""),
-                                reservation_id=result.get("reservation_id", ""),
-                                payer_ref=result.get("payer_ref", ""),
-                                amount=float(result.get("amount", 0.0) or 0.0),
-                                reserve_idempotency_key=result.get("reserve_idempotency_key", ""),
-                                status=result.get("status", "pending_authorization"),
-                                reason=result.get("reason", ""),
-                                correlation_id=action.correlation_id, causation_id=action.causation_id,
-                                original_question=context.get("question", "") if isinstance(context, dict) else "",
-                            ))
+                            save_pending_payment(
+                                PendingPayment(
+                                    execution_id=execution_id or action.action_id,
+                                    actor_id=(context.get("actor_id", "") if isinstance(context, dict) else ""),
+                                    step_index=action.step_index,
+                                    capability=action.capability,
+                                    action_id=action.action_id,
+                                    provider_name=result.get("provider_name", ""),
+                                    reservation_id=result.get("reservation_id", ""),
+                                    payer_ref=result.get("payer_ref", ""),
+                                    amount=float(result.get("amount", 0.0) or 0.0),
+                                    reserve_idempotency_key=result.get("reserve_idempotency_key", ""),
+                                    status=result.get("status", "pending_authorization"),
+                                    reason=result.get("reason", ""),
+                                    correlation_id=action.correlation_id,
+                                    causation_id=action.causation_id,
+                                    original_question=(
+                                        context.get("question", "") if isinstance(context, dict) else ""
+                                    ),
+                                )
+                            )
                         waiting_for_payment = True
 
                     if (
@@ -727,11 +839,16 @@ class ActionExecutor:
                         succeeded_step_indices.add(action.step_index)
                         if execution_id:
                             completed_steps[action.step_index] = {
-                                "action_id": outcome.action_id, "success": outcome.success,
-                                "result": outcome.result, "error": outcome.error,
+                                "action_id": outcome.action_id,
+                                "success": outcome.success,
+                                "result": outcome.result,
+                                "error": outcome.error,
                                 "latency_ms": outcome.latency_ms,
                             }
-                            from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import save_execution_checkpoint
+                            from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import (
+                                save_execution_checkpoint,
+                            )
+
                             save_execution_checkpoint(execution_id, plan_dict, completed_steps)
                     self._apply_test_mutation(action, context)
                 outcomes.append(outcome)
@@ -790,13 +907,16 @@ class ActionExecutor:
         failure_count = sum(1 for o in outcomes if not o.success)
 
         goal_achieved = (
-            failure_count == 0 and not waiting_for_human
-            and not waiting_for_negotiation and not waiting_for_payment
+            failure_count == 0 and not waiting_for_human and not waiting_for_negotiation and not waiting_for_payment
         )
 
-        paused_status = "waiting_for_human" if waiting_for_human else (
-            "waiting_for_negotiation" if waiting_for_negotiation else (
-                "waiting_for_payment_confirmation" if waiting_for_payment else None
+        paused_status = (
+            "waiting_for_human"
+            if waiting_for_human
+            else (
+                "waiting_for_negotiation"
+                if waiting_for_negotiation
+                else ("waiting_for_payment_confirmation" if waiting_for_payment else None)
             )
         )
         _obs.gauge("pipeline.execution_latency_ms", total_ms)
@@ -813,8 +933,7 @@ class ActionExecutor:
         )
 
     @staticmethod
-    def _plan_dict_from_actions(actions: tuple[Action, ...], goal: str = "",
-                                source_plan: Any = None) -> dict[str, Any]:
+    def _plan_dict_from_actions(actions: tuple[Action, ...], goal: str = "", source_plan: Any = None) -> dict[str, Any]:
         """A checkpoint's stored "plan" only needs to round-trip through
         kernel/pipeline/planning/current_plan_store.py::plan_from_dict
         well enough to re-drive execution on resume -- action name,
@@ -840,16 +959,27 @@ class ActionExecutor:
             # Checkpoints must retain the original plan index space.  In
             # particular, permission-denied steps are absent from `actions`;
             # rebuilding from actions would shift later dependency indices.
-            from src.monkey_brain.kernel.pipeline.planning.current_plan_store import plan_to_dict
+            from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+                plan_to_dict,
+            )
+
             return plan_to_dict(source_plan)
         return {
-            "goal": goal, "confidence": 0.0, "risk": 0.0, "planner": "resumed",
+            "goal": goal,
+            "confidence": 0.0,
+            "risk": 0.0,
+            "planner": "resumed",
             "steps": [
                 {
-                    "action": a.capability, "description": a.expected_outcome,
-                    "preconditions": list(a.preconditions), "expected_outcome": a.expected_outcome,
-                    "cost": 0.0, "confidence": a.confidence, "required_permission": "",
-                    "parameters": dict(a.parameters), "depends_on": list(a.depends_on),
+                    "action": a.capability,
+                    "description": a.expected_outcome,
+                    "preconditions": list(a.preconditions),
+                    "expected_outcome": a.expected_outcome,
+                    "cost": 0.0,
+                    "confidence": a.confidence,
+                    "required_permission": "",
+                    "parameters": dict(a.parameters),
+                    "depends_on": list(a.depends_on),
                 }
                 for a in actions
             ],
@@ -900,6 +1030,7 @@ class ActionExecutor:
         if not actor_id or kg is None:
             return
         from src.monkey_brain.kernel.testing.mutation_hooks import consume_mutation
+
         mutate = consume_mutation(actor_id, action)
         if mutate is not None:
             mutate(kg)
@@ -941,7 +1072,10 @@ class ActionExecutor:
         return self._casefold_resolve(capability)
 
     async def _execute_action(
-        self, action: Action, context: Any = None, *,
+        self,
+        action: Action,
+        context: Any = None,
+        *,
         local_policy_decision: dict[str, Any] | None = None,
     ) -> ActionOutcome:
         """Execute a single action through the capability bus.
@@ -956,13 +1090,17 @@ class ActionExecutor:
         silently apply to the wrong action)."""
         import inspect
         import random
+
         start_time = time.time()
 
         dispatch_reserved = False
         execution_id = context.get("_execution_id") if isinstance(context, dict) else None
         # Optional Redis claim on (execution_id, action_id) before handle().
         if execution_id and action.action_id:
-            from src.monkey_brain.kernel.production_gates import capability_dispatch_dedup_enabled
+            from src.monkey_brain.kernel.production_gates import (
+                capability_dispatch_dedup_enabled,
+            )
+
             if capability_dispatch_dedup_enabled():
                 from src.monkey_brain.kernel.pipeline.capability_dispatch_store import (
                     complete_dispatch,
@@ -970,6 +1108,7 @@ class ActionExecutor:
                     release_dispatch,
                     reserve_dispatch,
                 )
+
                 cached = load_cached_outcome(execution_id, action.action_id)
                 if cached is not None:
                     latency = (time.time() - start_time) * 1000
@@ -1001,7 +1140,10 @@ class ActionExecutor:
                         success=False,
                         error="duplicate capability dispatch in progress",
                         latency_ms=round(latency, 2),
-                        result={"duplicate_dispatch": True, "capability": action.capability},
+                        result={
+                            "duplicate_dispatch": True,
+                            "capability": action.capability,
+                        },
                     )
                 elif reserve_status == "fresh":
                     dispatch_reserved = True
@@ -1013,6 +1155,7 @@ class ActionExecutor:
                     complete_dispatch,
                     release_dispatch,
                 )
+
                 payload = {
                     "action_id": outcome.action_id,
                     "success": outcome.success,
@@ -1036,21 +1179,27 @@ class ActionExecutor:
             # "did not run" outcome, not a capability lying about its result.
             actor_id = context.get("actor_id") if isinstance(context, dict) else None
             if actor_id:
-                from src.monkey_brain.kernel.testing.fault_injection import consume_forced_failure
+                from src.monkey_brain.kernel.testing.fault_injection import (
+                    consume_forced_failure,
+                )
+
                 forced = consume_forced_failure(actor_id, action)
                 if forced is not None:
                     forced_error, forced_recoverable = forced
                     latency = (time.time() - start_time) * 1000
-                    return _done(ActionOutcome(
-                        action_id=action.action_id,
-                        success=False,
-                        result={
-                            "forced_failure": True, "capability": action.capability,
-                            "recoverable": forced_recoverable,
-                        },
-                        error=forced_error,
-                        latency_ms=round(latency, 2),
-                    ))
+                    return _done(
+                        ActionOutcome(
+                            action_id=action.action_id,
+                            success=False,
+                            result={
+                                "forced_failure": True,
+                                "capability": action.capability,
+                                "recoverable": forced_recoverable,
+                            },
+                            error=forced_error,
+                            latency_ms=round(latency, 2),
+                        )
+                    )
 
             # Stochastic failure — simulates real-world unreliability
             if self._failure_rate > 0 and random.random() < self._failure_rate:
@@ -1062,41 +1211,68 @@ class ActionExecutor:
                     f"Dependency unavailable: {action.capability} — upstream delayed",
                     f"State conflict: {action.capability} — concurrent modification",
                 ]
-                return _done(ActionOutcome(
-                    action_id=action.action_id,
-                    success=False,
-                    result={"simulated": True, "stochastic_failure": True, "capability": action.capability},
-                    error=random.choice(error_msgs),
-                    latency_ms=round(latency, 2),
-                ))
+                return _done(
+                    ActionOutcome(
+                        action_id=action.action_id,
+                        success=False,
+                        result={
+                            "simulated": True,
+                            "stochastic_failure": True,
+                            "capability": action.capability,
+                        },
+                        error=random.choice(error_msgs),
+                        latency_ms=round(latency, 2),
+                    )
+                )
 
             if self._capability_bus is None:
-                from src.monkey_brain.kernel.operation_classification import is_security_critical
+                from src.monkey_brain.kernel.operation_classification import (
+                    is_security_critical,
+                )
                 from src.monkey_brain.kernel.production_gates import insecure_dev_mode
+
                 if is_security_critical(action.capability) and not insecure_dev_mode():
                     logger.error(
                         "[executor] No capability bus — refusing ungoverned simulation of %s",
                         action.capability,
                     )
-                    return _done(ActionOutcome(
-                        action_id=action.action_id,
-                        success=False,
-                        error="ungoverned capability simulation forbidden",
-                        result={"simulated": True, "governed": False, "capability": action.capability},
-                        latency_ms=0.0,
-                    ))
+                    return _done(
+                        ActionOutcome(
+                            action_id=action.action_id,
+                            success=False,
+                            error="ungoverned capability simulation forbidden",
+                            result={
+                                "simulated": True,
+                                "governed": False,
+                                "capability": action.capability,
+                            },
+                            latency_ms=0.0,
+                        )
+                    )
                 logger.warning(
                     "[executor] No capability bus wired — simulating %s with NO governance "
-                    "(no TransitionGate check, no real state mutation)", action.capability,
+                    "(no TransitionGate check, no real state mutation)",
+                    action.capability,
                 )
                 from src.monkey_brain.kernel.compile import _obs
-                _obs.counter("capability.calls.total", capability=action.capability, status="ungoverned")
-                return _done(ActionOutcome(
-                    action_id=action.action_id,
-                    success=True,
-                    result={"simulated": True, "governed": False, "capability": action.capability},
-                    latency_ms=0.0,
-                ))
+
+                _obs.counter(
+                    "capability.calls.total",
+                    capability=action.capability,
+                    status="ungoverned",
+                )
+                return _done(
+                    ActionOutcome(
+                        action_id=action.action_id,
+                        success=True,
+                        result={
+                            "simulated": True,
+                            "governed": False,
+                            "capability": action.capability,
+                        },
+                        latency_ms=0.0,
+                    )
+                )
 
             # Discover the capability
             capability = self._capability_bus.discover(action.capability)
@@ -1110,12 +1286,14 @@ class ActionExecutor:
                     capability = self._capability_bus.discover(name)
             if capability is None:
                 logger.warning("[executor] Capability not found: %s", action.capability)
-                return _done(ActionOutcome(
-                    action_id=action.action_id,
-                    success=False,
-                    error=f"Capability not found: {action.capability}",
-                    latency_ms=(time.time() - start_time) * 1000,
-                ))
+                return _done(
+                    ActionOutcome(
+                        action_id=action.action_id,
+                        success=False,
+                        error=f"Capability not found: {action.capability}",
+                        latency_ms=(time.time() - start_time) * 1000,
+                    )
+                )
 
             # Invoke the capability. Conditional await: every existing
             # capability's handle() is a plain sync function (unaffected);
@@ -1164,12 +1342,15 @@ class ActionExecutor:
             # commitment collides with SecurityOperation.create()'s
             # duplicate-operation check).
             from src.monkey_brain.kernel.security_boundary import (
-                HumanApprovalRequired, SecurityBoundaryDenied, ensure_governed,
+                HumanApprovalRequired,
+                SecurityBoundaryDenied,
+                ensure_governed,
             )
 
             async def _governed_invoke() -> Any:
                 return await asyncio.wait_for(
-                    _invoke_handle(), timeout=_CAPABILITY_TIMEOUT_SECONDS,
+                    _invoke_handle(),
+                    timeout=_CAPABILITY_TIMEOUT_SECONDS,
                 )
 
             # Portable Delegation integration point: a caller that has
@@ -1184,16 +1365,17 @@ class ActionExecutor:
             # action.parameters -- that would be exactly the self-asserted-
             # authority path Section 21 forbids; this dict must already be
             # the output of a verified chain, not agent-claimed content.
-            verified_delegation = (
-                context.get("verified_delegation") if isinstance(context, dict) else None
-            )
+            verified_delegation = context.get("verified_delegation") if isinstance(context, dict) else None
 
             try:
                 result = await ensure_governed(
                     f"capability.{action.capability}",
                     action.capability,
                     _governed_invoke,
-                    extra={"capability": action.capability, "parameters": action.parameters},
+                    extra={
+                        "capability": action.capability,
+                        "parameters": action.parameters,
+                    },
                     # execute()'s own outer ensure_governed("action_executor.
                     # execute", "actions", ...) call above already has
                     # commitment active by the time every _execute_action
@@ -1208,13 +1390,15 @@ class ActionExecutor:
                 )
             except asyncio.TimeoutError:
                 latency = (time.time() - start_time) * 1000
-                return _done(ActionOutcome(
-                    action_id=action.action_id,
-                    success=False,
-                    error=f"Timeout: {action.capability} — exceeded {_CAPABILITY_TIMEOUT_SECONDS:.0f}s deadline",
-                    latency_ms=round(latency, 2),
-                    result={"timeout": True, "capability": action.capability},
-                ))
+                return _done(
+                    ActionOutcome(
+                        action_id=action.action_id,
+                        success=False,
+                        error=f"Timeout: {action.capability} — exceeded {_CAPABILITY_TIMEOUT_SECONDS:.0f}s deadline",
+                        latency_ms=round(latency, 2),
+                        result={"timeout": True, "capability": action.capability},
+                    )
+                )
             except HumanApprovalRequired as exc:
                 # Governance decided this specific capability call requires
                 # a human decision -- capability.handle() above never ran.
@@ -1229,20 +1413,23 @@ class ActionExecutor:
                 latency = (time.time() - start_time) * 1000
                 logger.warning(
                     "[executor] capability %s requires human approval (approval_id=%s)",
-                    action.capability, exc.approval_id,
+                    action.capability,
+                    exc.approval_id,
                 )
-                return _done(ActionOutcome(
-                    action_id=action.action_id,
-                    success=False,
-                    error=f"human approval required for {action.capability}",
-                    latency_ms=round(latency, 2),
-                    result={
-                        "requires_approval": True,
-                        "capability": action.capability,
-                        "approval_id": exc.approval_id,
-                        "operation_id": exc.operation_id,
-                    },
-                ))
+                return _done(
+                    ActionOutcome(
+                        action_id=action.action_id,
+                        success=False,
+                        error=f"human approval required for {action.capability}",
+                        latency_ms=round(latency, 2),
+                        result={
+                            "requires_approval": True,
+                            "capability": action.capability,
+                            "approval_id": exc.approval_id,
+                            "operation_id": exc.operation_id,
+                        },
+                    )
+                )
             except SecurityBoundaryDenied as exc:
                 # DENY, or a fail-closed AUTH/IDEMPOTENCY/AUDIT failure --
                 # capability.handle() above never ran either way. Same
@@ -1250,15 +1437,22 @@ class ActionExecutor:
                 latency = (time.time() - start_time) * 1000
                 logger.warning(
                     "[executor] capability %s denied by governance: %s",
-                    action.capability, exc,
+                    action.capability,
+                    exc,
                 )
-                return _done(ActionOutcome(
-                    action_id=action.action_id,
-                    success=False,
-                    error=f"governance denied {action.capability}: {exc}",
-                    latency_ms=round(latency, 2),
-                    result={"denied": True, "capability": action.capability, "stage": getattr(exc, "stage", "")},
-                ))
+                return _done(
+                    ActionOutcome(
+                        action_id=action.action_id,
+                        success=False,
+                        error=f"governance denied {action.capability}: {exc}",
+                        latency_ms=round(latency, 2),
+                        result={
+                            "denied": True,
+                            "capability": action.capability,
+                            "stage": getattr(exc, "stage", ""),
+                        },
+                    )
+                )
 
             latency = (time.time() - start_time) * 1000
 
@@ -1277,6 +1471,7 @@ class ActionExecutor:
             # string prefixes this session's own live testing confirmed
             # action_executor.py produces ("blocked: dependency...").
             from src.monkey_brain.kernel.compile import _obs
+
             if success:
                 cap_status = "success"
             elif (error or "").startswith("blocked: dependency"):
@@ -1295,31 +1490,38 @@ class ActionExecutor:
             # from an invisible constructor default into a queryable metric.
             gate_wired = self._propose_transition is not None and self._transition_gate is not None
             _obs.counter(
-                "capability.calls.total", capability=action.capability,
-                status=cap_status, gate_wired=str(gate_wired),
+                "capability.calls.total",
+                capability=action.capability,
+                status=cap_status,
+                gate_wired=str(gate_wired),
             )
             _obs.histogram("capability.duration_ms", latency, capability=action.capability)
 
-            return _done(ActionOutcome(
-                action_id=action.action_id,
-                success=success,
-                result=result,
-                error=error,
-                latency_ms=round(latency, 2),
-            ))
+            return _done(
+                ActionOutcome(
+                    action_id=action.action_id,
+                    success=success,
+                    result=result,
+                    error=error,
+                    latency_ms=round(latency, 2),
+                )
+            )
 
         except Exception as e:
             latency = (time.time() - start_time) * 1000
             logger.error("[executor] Action %s failed: %s", action.action_id, e)
             from src.monkey_brain.kernel.compile import _obs
+
             _obs.counter("capability.calls.total", capability=action.capability, status="failed")
             _obs.histogram("capability.duration_ms", latency, capability=action.capability)
-            return _done(ActionOutcome(
-                action_id=action.action_id,
-                success=False,
-                error=str(e),
-                latency_ms=round(latency, 2),
-            ))
+            return _done(
+                ActionOutcome(
+                    action_id=action.action_id,
+                    success=False,
+                    error=str(e),
+                    latency_ms=round(latency, 2),
+                )
+            )
 
     def _publish_action_event(self, action: Action, outcome: ActionOutcome, context: Any) -> None:
         """MB-3051 Context Propagation: publish one real ContextEvent for
@@ -1341,7 +1543,10 @@ class ActionExecutor:
         """
         if self._context_stream is None:
             return
-        from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+        from src.monkey_brain.kernel.society.context_stream import (
+            ContextEvent,
+            ContextEventType,
+        )
 
         if isinstance(outcome.result, dict) and outcome.result.get("simulated"):
             # A genuinely ungoverned "no capability bus" outcome (see
@@ -1356,18 +1561,23 @@ class ActionExecutor:
             # gap, and was never dishonest to omit.
             if isinstance(outcome.result, dict) and outcome.result.get("governed") is False:
                 actor_id = context.get("actor_id", "") if isinstance(context, dict) else ""
-                self._context_stream.publish(ContextEvent(
-                    event_type=ContextEventType.ACTION, actor_id=actor_id,
-                    description=(
-                        f"UNGOVERNED: {action.capability} reported success with no capability "
-                        f"bus wired — no real state mutation occurred, no TransitionGate ran"
-                    ),
-                    payload={
-                        "capability": action.capability, "action_id": outcome.action_id,
-                        "governed": False, "simulated": True,
-                    },
-                    provenance="executor:ungoverned",
-                ))
+                self._context_stream.publish(
+                    ContextEvent(
+                        event_type=ContextEventType.ACTION,
+                        actor_id=actor_id,
+                        description=(
+                            f"UNGOVERNED: {action.capability} reported success with no capability "
+                            f"bus wired — no real state mutation occurred, no TransitionGate ran"
+                        ),
+                        payload={
+                            "capability": action.capability,
+                            "action_id": outcome.action_id,
+                            "governed": False,
+                            "simulated": True,
+                        },
+                        provenance="executor:ungoverned",
+                    )
+                )
             return
 
         actor_id = context.get("actor_id", "") if isinstance(context, dict) else ""
@@ -1377,11 +1587,13 @@ class ActionExecutor:
             # (this class) from this module, so importing it back at
             # module load time would be circular — safe at call time,
             # once both modules are already fully loaded.
-            from src.monkey_brain.kernel.pipeline.belief_runtime import _describe_single_change
-            description = (
-                (isinstance(outcome.result, dict) and _describe_single_change(action.capability, outcome.result))
-                or f"{action.capability} succeeded"
+            from src.monkey_brain.kernel.pipeline.belief_runtime import (
+                _describe_single_change,
             )
+
+            description = (
+                isinstance(outcome.result, dict) and _describe_single_change(action.capability, outcome.result)
+            ) or f"{action.capability} succeeded"
         payload = {
             "capability": action.capability,
             "action_id": outcome.action_id,
@@ -1402,13 +1614,15 @@ class ActionExecutor:
             if domain_event:
                 payload["domain_event"] = domain_event
         try:
-            self._context_stream.publish(ContextEvent(
-                event_type=ContextEventType.ACTION,
-                actor_id=actor_id,
-                description=description,
-                payload=payload,
-                provenance="ActionExecutor",
-            ))
+            self._context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.ACTION,
+                    actor_id=actor_id,
+                    description=description,
+                    payload=payload,
+                    provenance="ActionExecutor",
+                )
+            )
         except Exception:
             logger.warning("[executor] failed to publish context event for %s", action.capability)
 

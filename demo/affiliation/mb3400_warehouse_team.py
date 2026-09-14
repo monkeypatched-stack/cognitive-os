@@ -6,6 +6,7 @@ BroadcastToAffiliationCapability end to end against the real
 SocietyRuntime.broadcast_message()/AffiliationCommunicationRouter, not
 a scripted recipient list.
 """
+
 from __future__ import annotations
 
 import sys
@@ -21,11 +22,18 @@ def main() -> int:
         world = bootstrap_world(c)
         actors = world["actors"]
         worker_id = actors["Warehouse Worker"]
-        packer1_id, packer2_id, cashier_id = actors["Packer One"], actors["Packer Two"], actors["Cashier"]
+        packer1_id, packer2_id, cashier_id = (
+            actors["Packer One"],
+            actors["Packer Two"],
+            actors["Cashier"],
+        )
 
         section("Warehouse Worker broadcasts to the warehouse_team affiliation")
         steps, actions = force_round(
-            c, worker_id, "Warehouse Worker", "BroadcastToAffiliation",
+            c,
+            worker_id,
+            "Warehouse Worker",
+            "BroadcastToAffiliation",
             'Say: "Can someone help pack Order 123?"',
         )
         result = first_result("BroadcastToAffiliation", steps, actions)
@@ -43,7 +51,10 @@ def main() -> int:
         checks = [
             ("Packer One received it", packer1_id in recipients),
             ("Packer Two received it", packer2_id in recipients),
-            ("Cashier did NOT receive it (different affiliation)", cashier_id not in recipients),
+            (
+                "Cashier did NOT receive it (different affiliation)",
+                cashier_id not in recipients,
+            ),
         ]
         ok = True
         section("Verification")

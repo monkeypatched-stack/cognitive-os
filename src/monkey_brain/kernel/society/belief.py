@@ -10,6 +10,7 @@ Support:
 
 No actor should directly modify another actor's beliefs.
 """
+
 from __future__ import annotations
 
 import time
@@ -23,6 +24,7 @@ from src.monkey_brain.kernel.society.observation import ActorObservation
 @dataclass(frozen=True)
 class BeliefHypothesis:
     """One hypothesis about the world state, with confidence."""
+
     hypothesis_id: str = field(default_factory=lambda: uuid4().hex)
     subject: str = ""
     predicate: str = ""
@@ -72,6 +74,7 @@ class BeliefHypothesis:
 @dataclass(frozen=True)
 class BeliefEntry:
     """A single belief: subject → multiple competing hypotheses."""
+
     subject: str = ""
     hypotheses: tuple[BeliefHypothesis, ...] = ()
     last_observation_time: float = 0.0
@@ -110,6 +113,7 @@ class BeliefEntry:
 @dataclass(frozen=True)
 class BeliefState:
     """An actor's complete belief state about the world."""
+
     actor_id: str = ""
     beliefs: tuple[BeliefEntry, ...] = ()
     uncertainty_level: float = 0.0
@@ -167,8 +171,12 @@ class BeliefFusion:
         self._confidence_decay = confidence_decay
         self._stale_threshold = stale_threshold
 
-    def fuse(self, actor_id: str, observation: ActorObservation,
-             existing: BeliefState | None = None) -> BeliefState:
+    def fuse(
+        self,
+        actor_id: str,
+        observation: ActorObservation,
+        existing: BeliefState | None = None,
+    ) -> BeliefState:
         existing_beliefs = {b.subject: b for b in (existing.beliefs if existing else ())}
         new_beliefs: dict[str, BeliefEntry] = {}
 
@@ -216,9 +224,12 @@ class BeliefFusion:
             version=(existing.version if existing else 0) + 1,
         )
 
-    def merge_observations(self, actor_id: str,
-                           observations: tuple[ActorObservation, ...],
-                           existing: BeliefState | None = None) -> BeliefState:
+    def merge_observations(
+        self,
+        actor_id: str,
+        observations: tuple[ActorObservation, ...],
+        existing: BeliefState | None = None,
+    ) -> BeliefState:
         current = existing
         for obs in observations:
             current = self.fuse(actor_id, obs, current)
@@ -227,7 +238,10 @@ class BeliefFusion:
     # ── Internals ────────────────────────────────────────────────────────
 
     def _record_belief_history(
-        self, actor_id: str, subject: str, hypothesis: BeliefHypothesis,
+        self,
+        actor_id: str,
+        subject: str,
+        hypothesis: BeliefHypothesis,
         previous: BeliefEntry | None = None,
     ) -> None:
         """Cognitive State refactor: metadata now carries evidence/
@@ -240,16 +254,21 @@ class BeliefFusion:
         from src.monkey_brain.kernel.timeline.entry import TimelineKind
         from src.monkey_brain.kernel.timeline.store import TimelineStore
         from src.monkey_brain.kernel.compile import _obs
+
         previous_best = previous.best_hypothesis if previous else None
         TimelineStore().record(
-            TimelineKind.BELIEF, actor_id=actor_id, subject=subject, predicate=hypothesis.predicate,
-            value=hypothesis.object_value, confidence=hypothesis.confidence,
+            TimelineKind.BELIEF,
+            actor_id=actor_id,
+            subject=subject,
+            predicate=hypothesis.predicate,
+            value=hypothesis.object_value,
+            confidence=hypothesis.confidence,
             source=",".join(hypothesis.sources),
             metadata={
                 "evidence": list(hypothesis.sources),
                 "evidence_count": hypothesis.evidence_count,
                 "previous_value": previous_best.object_value if previous_best else None,
-                "reason": "merged with existing hypothesis" if previous else "new observation",
+                "reason": ("merged with existing hypothesis" if previous else "new observation"),
             },
         )
         _obs.counter("cognitive.beliefs_updated" if previous else "cognitive.beliefs_created")
@@ -260,8 +279,10 @@ class BeliefFusion:
             if hyp.predicate == new.predicate and hyp.object_value == new.object_value:
                 merged_conf = min(1.0, hyp.confidence + new.confidence * 0.3)
                 existing_hyps[i] = BeliefHypothesis(
-                    subject=hyp.subject, predicate=hyp.predicate,
-                    object_value=hyp.object_value, confidence=merged_conf,
+                    subject=hyp.subject,
+                    predicate=hyp.predicate,
+                    object_value=hyp.object_value,
+                    confidence=merged_conf,
                     evidence_count=hyp.evidence_count + 1,
                     sources=tuple(dict.fromkeys(hyp.sources + new.sources)),
                 )
@@ -283,11 +304,13 @@ class BeliefFusion:
             return entry
         decayed_hyps = tuple(
             BeliefHypothesis(
-                subject=h.subject, predicate=h.predicate,
+                subject=h.subject,
+                predicate=h.predicate,
                 object_value=h.object_value,
                 confidence=max(0.0, h.confidence - self._confidence_decay),
                 evidence_count=h.evidence_count,
-                sources=h.sources, last_updated=h.last_updated,
+                sources=h.sources,
+                last_updated=h.last_updated,
             )
             for h in entry.hypotheses
         )

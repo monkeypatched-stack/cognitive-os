@@ -52,14 +52,18 @@ def _prepare(value):
     return value
 
 
-async def _get_all(db: AsyncIOMotorDatabase, collection: str, page: int, page_size: int):
+async def _get_all(
+    db: AsyncIOMotorDatabase, collection: str, page: int, page_size: int
+):
     query: dict = {}
     total = await db[collection].count_documents(query)
     cursor = db[collection].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def _get_by_id(db: AsyncIOMotorDatabase, collection: str, id_field: str, value: str):
+async def _get_by_id(
+    db: AsyncIOMotorDatabase, collection: str, id_field: str, value: str
+):
     return _serialize(await db[collection].find_one({id_field: value}))
 
 
@@ -74,7 +78,9 @@ async def _create(db: AsyncIOMotorDatabase, collection: str, data) -> dict:
     return _serialize(doc)
 
 
-async def _update(db: AsyncIOMotorDatabase, collection: str, id_field: str, value: str, data):
+async def _update(
+    db: AsyncIOMotorDatabase, collection: str, id_field: str, value: str, data
+):
     fields = _prepare(data.model_dump(exclude_unset=True))
     if not fields:
         return await _get_by_id(db, collection, id_field, value)
@@ -86,7 +92,9 @@ async def _update(db: AsyncIOMotorDatabase, collection: str, id_field: str, valu
     return _serialize(result)
 
 
-async def _delete(db: AsyncIOMotorDatabase, collection: str, id_field: str, value: str) -> bool:
+async def _delete(
+    db: AsyncIOMotorDatabase, collection: str, id_field: str, value: str
+) -> bool:
     result = await db[collection].delete_one({id_field: value})
     return result.deleted_count == 1
 
@@ -104,7 +112,9 @@ async def get_material_spec_by_code(db, spec_code: str):
 
 
 async def get_material_specs_by_material(db, material_code: str):
-    return await _get_many(db, MATERIAL_SPECS_COLLECTION, {"material_code": material_code})
+    return await _get_many(
+        db, MATERIAL_SPECS_COLLECTION, {"material_code": material_code}
+    )
 
 
 async def create_material_spec(db, data: MaterialSpecificationCreate):
@@ -124,27 +134,39 @@ async def get_all_inspection_checklists(db, page=1, page_size=20):
 
 
 async def get_inspection_checklist_by_id(db, checklist_id: str):
-    return await _get_by_id(db, INSPECTION_CHECKLISTS_COLLECTION, "checklist_id", checklist_id)
+    return await _get_by_id(
+        db, INSPECTION_CHECKLISTS_COLLECTION, "checklist_id", checklist_id
+    )
 
 
 async def get_inspection_checklists_by_material(db, material_code: str):
-    return await _get_many(db, INSPECTION_CHECKLISTS_COLLECTION, {"material_code": material_code})
+    return await _get_many(
+        db, INSPECTION_CHECKLISTS_COLLECTION, {"material_code": material_code}
+    )
 
 
 async def get_inspection_checklists_by_type(db, inspection_type: str):
-    return await _get_many(db, INSPECTION_CHECKLISTS_COLLECTION, {"inspection_type": inspection_type})
+    return await _get_many(
+        db, INSPECTION_CHECKLISTS_COLLECTION, {"inspection_type": inspection_type}
+    )
 
 
 async def create_inspection_checklist(db, data: InspectionChecklistCreate):
     return await _create(db, INSPECTION_CHECKLISTS_COLLECTION, data)
 
 
-async def update_inspection_checklist(db, checklist_id: str, data: InspectionChecklistUpdate):
-    return await _update(db, INSPECTION_CHECKLISTS_COLLECTION, "checklist_id", checklist_id, data)
+async def update_inspection_checklist(
+    db, checklist_id: str, data: InspectionChecklistUpdate
+):
+    return await _update(
+        db, INSPECTION_CHECKLISTS_COLLECTION, "checklist_id", checklist_id, data
+    )
 
 
 async def delete_inspection_checklist(db, checklist_id: str):
-    return await _delete(db, INSPECTION_CHECKLISTS_COLLECTION, "checklist_id", checklist_id)
+    return await _delete(
+        db, INSPECTION_CHECKLISTS_COLLECTION, "checklist_id", checklist_id
+    )
 
 
 async def get_all_qc_inspections(db, page=1, page_size=20):
@@ -152,11 +174,15 @@ async def get_all_qc_inspections(db, page=1, page_size=20):
 
 
 async def get_qc_inspection_by_id(db, inspection_id: str):
-    return await _get_by_id(db, QC_INSPECTIONS_COLLECTION, "inspection_id", inspection_id)
+    return await _get_by_id(
+        db, QC_INSPECTIONS_COLLECTION, "inspection_id", inspection_id
+    )
 
 
 async def get_qc_inspection_by_code(db, inspection_code: str):
-    return await _get_by_id(db, QC_INSPECTIONS_COLLECTION, "inspection_code", inspection_code)
+    return await _get_by_id(
+        db, QC_INSPECTIONS_COLLECTION, "inspection_code", inspection_code
+    )
 
 
 async def get_qc_inspections_by_gr(db, gr_id: str):
@@ -172,7 +198,9 @@ async def create_qc_inspection(db, data: QCInspectionCreate):
 
 
 async def update_qc_inspection(db, inspection_id: str, data: QCInspectionUpdate):
-    return await _update(db, QC_INSPECTIONS_COLLECTION, "inspection_id", inspection_id, data)
+    return await _update(
+        db, QC_INSPECTIONS_COLLECTION, "inspection_id", inspection_id, data
+    )
 
 
 async def delete_qc_inspection(db, inspection_id: str):
@@ -184,11 +212,15 @@ async def get_all_reinspections(db, page=1, page_size=20):
 
 
 async def get_reinspection_by_id(db, reinspection_id: str):
-    return await _get_by_id(db, REINSPECTIONS_COLLECTION, "reinspection_id", reinspection_id)
+    return await _get_by_id(
+        db, REINSPECTIONS_COLLECTION, "reinspection_id", reinspection_id
+    )
 
 
 async def get_reinspections_by_original(db, original_inspection_id: str):
-    return await _get_many(db, REINSPECTIONS_COLLECTION, {"original_inspection_id": original_inspection_id})
+    return await _get_many(
+        db, REINSPECTIONS_COLLECTION, {"original_inspection_id": original_inspection_id}
+    )
 
 
 async def create_reinspection(db, data: ReInspectionRecordCreate):
@@ -196,11 +228,15 @@ async def create_reinspection(db, data: ReInspectionRecordCreate):
 
 
 async def update_reinspection(db, reinspection_id: str, data: ReInspectionRecordUpdate):
-    return await _update(db, REINSPECTIONS_COLLECTION, "reinspection_id", reinspection_id, data)
+    return await _update(
+        db, REINSPECTIONS_COLLECTION, "reinspection_id", reinspection_id, data
+    )
 
 
 async def delete_reinspection(db, reinspection_id: str):
-    return await _delete(db, REINSPECTIONS_COLLECTION, "reinspection_id", reinspection_id)
+    return await _delete(
+        db, REINSPECTIONS_COLLECTION, "reinspection_id", reinspection_id
+    )
 
 
 async def get_all_ncrs(db, page=1, page_size=20):

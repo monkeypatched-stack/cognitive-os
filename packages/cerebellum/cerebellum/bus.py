@@ -35,26 +35,36 @@ from cerebellum.descriptor import CapabilityDescriptor, ProviderBinding
 logger = logging.getLogger("cerebellum.bus")
 
 _TRANSPORT_PRIORITY = {
-    "local": 100, "rest": 80, "grpc": 75, "nats": 70,
-    "kafka": 65, "ros2": 60, "mqtt": 50, "serverless": 40,
+    "local": 100,
+    "rest": 80,
+    "grpc": 75,
+    "nats": 70,
+    "kafka": 65,
+    "ros2": 60,
+    "mqtt": 50,
+    "serverless": 40,
 }
 
 
 @dataclass
 class CapabilityResult:
     """Standardised result envelope from any transport."""
+
     name: str
     success: bool
-    produced: dict[str, Any]  = field(default_factory=dict)
+    produced: dict[str, Any] = field(default_factory=dict)
     events_emitted: list[str] = field(default_factory=list)
-    latency_ms: float         = 0.0
-    error: str | None         = None
+    latency_ms: float = 0.0
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "name": self.name, "success": self.success,
-            "produced": self.produced, "events_emitted": self.events_emitted,
-            "latency_ms": round(self.latency_ms, 2), "error": self.error,
+            "name": self.name,
+            "success": self.success,
+            "produced": self.produced,
+            "events_emitted": self.events_emitted,
+            "latency_ms": round(self.latency_ms, 2),
+            "error": self.error,
         }
 
 
@@ -109,30 +119,30 @@ class CapabilityBus:
         context: dict[str, Any] | None = None,
         skip_preconditions: bool = False,
     ) -> CapabilityResult:
-        inputs  = inputs  or {}
+        inputs = inputs or {}
         context = context or {}
-        ws      = context.get("world_state", {})
+        ws = context.get("world_state", {})
 
         desc = self._descriptors.get(name)
         if desc is None:
-            return CapabilityResult(name=name, success=False,
-                                    error=f"capability '{name}' not loaded in bus")
+            return CapabilityResult(name=name, success=False, error=f"capability '{name}' not loaded in bus")
 
         if not skip_preconditions:
             failed = self._failed_precondition(desc, ws)
             if failed:
-                return CapabilityResult(name=name, success=False,
-                                        error=f"precondition failed: {failed}")
+                return CapabilityResult(name=name, success=False, error=f"precondition failed: {failed}")
 
         binding = self._resolve_binding(desc)
         if binding is None:
-            return CapabilityResult(name=name, success=False,
-                                    error=f"no transport handler for '{name}'")
+            return CapabilityResult(name=name, success=False, error=f"no transport handler for '{name}'")
 
         handler = self._transports.get(binding.transport)
         if handler is None:
-            return CapabilityResult(name=name, success=False,
-                                    error=f"transport '{binding.transport}' not registered")
+            return CapabilityResult(
+                name=name,
+                success=False,
+                error=f"transport '{binding.transport}' not registered",
+            )
 
         start = time.monotonic()
         try:
@@ -141,13 +151,17 @@ class CapabilityBus:
                 raw = await raw
             produced = raw if isinstance(raw, dict) else {}
             result = CapabilityResult(
-                name=name, success=True, produced=produced,
+                name=name,
+                success=True,
+                produced=produced,
                 events_emitted=list(desc.effects),
                 latency_ms=(time.monotonic() - start) * 1000,
             )
         except Exception as exc:
             result = CapabilityResult(
-                name=name, success=False, error=str(exc),
+                name=name,
+                success=False,
+                error=str(exc),
                 latency_ms=(time.monotonic() - start) * 1000,
             )
 
@@ -187,7 +201,10 @@ class CapabilityBus:
         candidates = [b for b in desc.providers if b.transport in self._transports]
         if not candidates:
             return None
-        return max(candidates, key=lambda b: (b.priority, _TRANSPORT_PRIORITY.get(b.transport, 0)))
+        return max(
+            candidates,
+            key=lambda b: (b.priority, _TRANSPORT_PRIORITY.get(b.transport, 0)),
+        )
 
     def _eval(self, predicate: str, ws: dict) -> bool:
         for op in ("==", "!=", ">=", "<=", ">", "<"):
@@ -196,12 +213,18 @@ class CapabilityBus:
                 lv = self._resolve(lhs.strip(), ws)
                 rv = self._coerce(rhs.strip())
                 try:
-                    if op == "==":  return lv == rv
-                    if op == "!=":  return lv != rv
-                    if op == ">":   return lv > rv   # type: ignore[operator]
-                    if op == ">=":  return lv >= rv  # type: ignore[operator]
-                    if op == "<":   return lv < rv   # type: ignore[operator]
-                    if op == "<=":  return lv <= rv  # type: ignore[operator]
+                    if op == "==":
+                        return lv == rv
+                    if op == "!=":
+                        return lv != rv
+                    if op == ">":
+                        return lv > rv  # type: ignore[operator]
+                    if op == ">=":
+                        return lv >= rv  # type: ignore[operator]
+                    if op == "<":
+                        return lv < rv  # type: ignore[operator]
+                    if op == "<=":
+                        return lv <= rv  # type: ignore[operator]
                 except Exception:
                     return True
         return True
@@ -215,10 +238,16 @@ class CapabilityBus:
 
     @staticmethod
     def _coerce(v: str) -> Any:
-        if v.lower() in ("true", "yes"): return True
-        if v.lower() in ("false", "no"): return False
-        try: return int(v)
-        except ValueError: pass
-        try: return float(v)
-        except ValueError: pass
+        if v.lower() in ("true", "yes"):
+            return True
+        if v.lower() in ("false", "no"):
+            return False
+        try:
+            return int(v)
+        except ValueError:
+            pass
+        try:
+            return float(v)
+        except ValueError:
+            pass
         return v.strip("'\"")

@@ -1,5 +1,3 @@
-
-
 # ─────────────────────────────────────────────
 # CALIBRATION POINT
 # ─────────────────────────────────────────────
@@ -10,9 +8,9 @@ from pydantic import BaseModel, model_validator
 
 class CalibrationPoint(BaseModel):
     reference_value: float
-    measured_value:  float
-    unit:            Optional[str]   = None
-    deviation:       Optional[float] = None        # auto-computed if not provided
+    measured_value: float
+    unit: Optional[str] = None
+    deviation: Optional[float] = None  # auto-computed if not provided
 
     @model_validator(mode="after")
     def compute_deviation(self):
@@ -27,9 +25,9 @@ class CalibrationPointCreate(CalibrationPoint):
 
 class CalibrationPointUpdate(BaseModel):
     reference_value: Optional[float] = None
-    measured_value:  Optional[float] = None
-    unit:            Optional[str]   = None
-    deviation:       Optional[float] = None
+    measured_value: Optional[float] = None
+    unit: Optional[str] = None
+    deviation: Optional[float] = None
 
     @model_validator(mode="after")
     def recompute_deviation(self):

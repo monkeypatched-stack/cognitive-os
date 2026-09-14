@@ -14,6 +14,7 @@ objective — until the transaction reaches a terminal state.
     Negotiation Trace -> Aggregate -> LLM Decides Next Step -> Stream
     Progress -> Repeat Until Terminal
 """
+
 from __future__ import annotations
 
 import json
@@ -25,7 +26,10 @@ from typing import TYPE_CHECKING, Any, Callable
 from uuid import uuid4
 
 from src.monkey_brain.kernel.society.negotiation_planning import (
-    NegotiationPlanner, TerminalState, TerminalStateEvaluator, TransactionState,
+    NegotiationPlanner,
+    TerminalState,
+    TerminalStateEvaluator,
+    TransactionState,
 )
 
 if TYPE_CHECKING:
@@ -40,9 +44,13 @@ _MAX_STEPS_DEFAULT = 8
 # _decide_next_action is only ever asked *how* to keep negotiating, and
 # only when the runtime has already proven the round is not terminal --
 # so it structurally cannot override a terminal condition.
-_STRATEGIC_ACTIONS = frozenset({
-    "contact_another_affiliate", "request_additional_information", "continue_negotiation",
-})
+_STRATEGIC_ACTIONS = frozenset(
+    {
+        "contact_another_affiliate",
+        "request_additional_information",
+        "continue_negotiation",
+    }
+)
 
 
 class TransactionStatus(str, Enum):
@@ -60,6 +68,7 @@ class NegotiationTrace:
     (same attributes _publish_tick_events/_build_negotiation_trace in
     integration.py already read), never by asking the affiliate to
     self-report in a fixed schema."""
+
     trace_id: str = field(default_factory=lambda: uuid4().hex)
     actor_id: str = ""
     reasoning_summary: str = ""
@@ -75,6 +84,7 @@ class NegotiationTrace:
 class TransactionStep:
     """One round: the message sent to one affiliate, its negotiation
     trace, and the LLM-decided next action for the originating actor."""
+
     step_number: int
     target_actor_id: str
     message: str
@@ -130,8 +140,10 @@ class TransactionCoordinator:
     """
 
     def __init__(
-        self, planetary: "PlanetaryRuntime",
-        *, policy_gate: "Callable[[TransactionState], str | None] | None" = None,
+        self,
+        planetary: "PlanetaryRuntime",
+        *,
+        policy_gate: "Callable[[TransactionState], str | None] | None" = None,
     ) -> None:
         self._planetary = planetary
         self._policy_gate = policy_gate
@@ -139,8 +151,11 @@ class TransactionCoordinator:
     # ── Public entry point ──────────────────────────────────────────────
 
     async def execute(
-        self, originating_actor_id: str, objective: str,
-        *, max_steps: int = _MAX_STEPS_DEFAULT,
+        self,
+        originating_actor_id: str,
+        objective: str,
+        *,
+        max_steps: int = _MAX_STEPS_DEFAULT,
         candidates: tuple[str, ...] | None = None,
     ) -> TransactionResult:
         """Adaptive planning loop, not an exhaustive search: on every
@@ -170,18 +185,24 @@ class TransactionCoordinator:
             relevant_society_ids = self._relevant_societies(originating_actor_id, objective)
             candidates = self._eligible_affiliates(originating_actor_id, relevant_society_ids)
 
-        await self._stream_event(transaction_id, {
-            "type": "transaction_started",
-            "transaction_id": transaction_id,
-            "originating_actor_id": originating_actor_id,
-            "objective": objective,
-            "societies_involved": sorted(relevant_society_ids),
-            "eligible_affiliates": list(candidates),
-        })
+        await self._stream_event(
+            transaction_id,
+            {
+                "type": "transaction_started",
+                "transaction_id": transaction_id,
+                "originating_actor_id": originating_actor_id,
+                "objective": objective,
+                "societies_involved": sorted(relevant_society_ids),
+                "eligible_affiliates": list(candidates),
+            },
+        )
 
         state = TransactionState(
-            originating_actor_id=originating_actor_id, objective=objective,
-            candidates=candidates, max_steps=max_steps, started_at=started,
+            originating_actor_id=originating_actor_id,
+            objective=objective,
+            candidates=candidates,
+            max_steps=max_steps,
+            started_at=started,
         )
         evaluator = TerminalStateEvaluator(policy_gate=self._policy_gate)
         planner = NegotiationPlanner(trust_lookup=self._current_trust)
@@ -202,7 +223,9 @@ class TransactionCoordinator:
             except Exception as exc:
                 logger.error(
                     "execute: unrecoverable error negotiating with %r: %s",
-                    target, exc, exc_info=True,
+                    target,
+                    exc,
+                    exc_info=True,
                 )
                 state.error = str(exc)
                 terminal = evaluator.evaluate(state)
@@ -211,12 +234,17 @@ class TransactionCoordinator:
             self._update_trust_from_trace(originating_actor_id, target, trace)
             self._publish_belief_perturbation(target, trace)
 
-            await self._stream_event(transaction_id, {
-                "type": "negotiation_trace", "transaction_id": transaction_id,
-                "step_number": step_number, "target_actor_id": target,
-                "message": message,
-                "trace": _asdict_shallow(trace) if trace is not None else None,
-            })
+            await self._stream_event(
+                transaction_id,
+                {
+                    "type": "negotiation_trace",
+                    "transaction_id": transaction_id,
+                    "step_number": step_number,
+                    "target_actor_id": target,
+                    "message": message,
+                    "trace": _asdict_shallow(trace) if trace is not None else None,
+                },
+            )
 
             pending_remaining = [c for c in state.remaining_candidates() if c != target]
             strategic_context = self._strategic_context(originating_actor_id, target, trace, pending_remaining)
@@ -225,20 +253,31 @@ class TransactionCoordinator:
             terminal = evaluator.evaluate(state)
             if terminal.is_terminal:
                 next_action = (
-                    "complete_objective" if terminal.status is TransactionStatus.COMPLETED
-                    else "terminate_transaction"
+                    "complete_objective" if terminal.status is TransactionStatus.COMPLETED else "terminate_transaction"
                 )
-                steps.append(TransactionStep(
-                    step_number=step_number, target_actor_id=target, message=message,
-                    trace=trace, next_action=next_action, next_action_reason=terminal.reason,
-                    strategic_context=strategic_context,
-                ))
-                await self._stream_event(transaction_id, {
-                    "type": "step_completed", "transaction_id": transaction_id,
-                    "step_number": step_number, "target_actor_id": target,
-                    "next_action": next_action, "reason": terminal.reason,
-                    "strategic_context": strategic_context,
-                })
+                steps.append(
+                    TransactionStep(
+                        step_number=step_number,
+                        target_actor_id=target,
+                        message=message,
+                        trace=trace,
+                        next_action=next_action,
+                        next_action_reason=terminal.reason,
+                        strategic_context=strategic_context,
+                    )
+                )
+                await self._stream_event(
+                    transaction_id,
+                    {
+                        "type": "step_completed",
+                        "transaction_id": transaction_id,
+                        "step_number": step_number,
+                        "target_actor_id": target,
+                        "next_action": next_action,
+                        "reason": terminal.reason,
+                        "strategic_context": strategic_context,
+                    },
+                )
                 break
 
             # The runtime has NOT proven a terminal condition for this
@@ -246,20 +285,37 @@ class TransactionCoordinator:
             # HOW to keep negotiating (its vocabulary excludes ending the
             # transaction; see _STRATEGIC_ACTIONS).
             decision = await self._decide_next_action(
-                originating_actor_id, objective, steps, target, trace,
-                state.remaining_candidates(), strategic_context,
+                originating_actor_id,
+                objective,
+                steps,
+                target,
+                trace,
+                state.remaining_candidates(),
+                strategic_context,
             )
-            steps.append(TransactionStep(
-                step_number=step_number, target_actor_id=target, message=message,
-                trace=trace, next_action=decision["next_action"],
-                next_action_reason=decision["reason"], strategic_context=strategic_context,
-            ))
-            await self._stream_event(transaction_id, {
-                "type": "step_completed", "transaction_id": transaction_id,
-                "step_number": step_number, "target_actor_id": target,
-                "next_action": decision["next_action"], "reason": decision["reason"],
-                "strategic_context": strategic_context,
-            })
+            steps.append(
+                TransactionStep(
+                    step_number=step_number,
+                    target_actor_id=target,
+                    message=message,
+                    trace=trace,
+                    next_action=decision["next_action"],
+                    next_action_reason=decision["reason"],
+                    strategic_context=strategic_context,
+                )
+            )
+            await self._stream_event(
+                transaction_id,
+                {
+                    "type": "step_completed",
+                    "transaction_id": transaction_id,
+                    "step_number": step_number,
+                    "target_actor_id": target,
+                    "next_action": decision["next_action"],
+                    "reason": decision["reason"],
+                    "strategic_context": strategic_context,
+                },
+            )
 
             if decision["next_action"] == "contact_another_affiliate":
                 suggested = decision.get("target_actor_id")
@@ -284,23 +340,34 @@ class TransactionCoordinator:
         # negotiations; failed negotiations" trust factors.
         for target_actor_id in dict.fromkeys(state.contacted):
             self._apply_trust_outcome(
-                originating_actor_id, target_actor_id,
+                originating_actor_id,
+                target_actor_id,
                 goal_achieved=status is TransactionStatus.COMPLETED,
             )
 
         result = TransactionResult(
-            transaction_id=transaction_id, originating_actor_id=originating_actor_id,
-            objective=objective, status=status, steps=tuple(steps),
+            transaction_id=transaction_id,
+            originating_actor_id=originating_actor_id,
+            objective=objective,
+            status=status,
+            steps=tuple(steps),
             societies_involved=tuple(sorted(relevant_society_ids)),
             affiliates_contacted=tuple(dict.fromkeys(state.contacted)),
-            duration_ms=(time.time() - started) * 1000, final_outcome=final_outcome,
+            duration_ms=(time.time() - started) * 1000,
+            final_outcome=final_outcome,
         )
-        await self._stream_event(transaction_id, {
-            "type": "transaction_completed", "transaction_id": transaction_id,
-            "status": status.value, "final_outcome": final_outcome,
-            "steps_taken": len(steps), "affiliates_contacted": list(result.affiliates_contacted),
-            "duration_ms": round(result.duration_ms, 2),
-        })
+        await self._stream_event(
+            transaction_id,
+            {
+                "type": "transaction_completed",
+                "transaction_id": transaction_id,
+                "status": status.value,
+                "final_outcome": final_outcome,
+                "steps_taken": len(steps),
+                "affiliates_contacted": list(result.affiliates_contacted),
+                "duration_ms": round(result.duration_ms, 2),
+            },
+        )
 
         # Closes a real gap: before this, TransactionCoordinator negotiated
         # entirely through sr.tick() (see _send_message below), bypassing
@@ -338,8 +405,12 @@ class TransactionCoordinator:
         return result
 
     async def execute_for_gate(
-        self, actor_id: str, counterparties: tuple[str, ...], transition_summary: str,
-        *, max_steps: int = _MAX_STEPS_DEFAULT,
+        self,
+        actor_id: str,
+        counterparties: tuple[str, ...],
+        transition_summary: str,
+        *,
+        max_steps: int = _MAX_STEPS_DEFAULT,
     ) -> TransactionResult:
         """Named entry point for TransitionGate-triggered negotiation
         (kernel/society/transition_gate.py): the gate already identified
@@ -350,7 +421,10 @@ class TransactionCoordinator:
         negotiate/decide/terminal loop unchanged via its candidates
         override; invents no second negotiation implementation."""
         return await self.execute(
-            actor_id, transition_summary, max_steps=max_steps, candidates=counterparties,
+            actor_id,
+            transition_summary,
+            max_steps=max_steps,
+            candidates=counterparties,
         )
 
     # ── Step 1: Identify Relevant Societies ─────────────────────────────
@@ -363,7 +437,8 @@ class TransactionCoordinator:
 
         keywords = {w.lower() for w in objective.split() if len(w) > 2}
         matched = {
-            sr.society.society_id for sr in home_societies
+            sr.society.society_id
+            for sr in home_societies
             if keywords & {e.lower() for e in sr.society.subscribed_events}
         }
         # A keyword filter that eliminates every home society the actor
@@ -430,13 +505,13 @@ class TransactionCoordinator:
     # ── Steps 4-7: Send Grounded Message, Affiliate Ticks, Trace ────────
 
     def _build_message(
-        self, originating_actor_id: str, objective: str,
-        target_actor_id: str, prior_steps: list[TransactionStep],
+        self,
+        originating_actor_id: str,
+        objective: str,
+        target_actor_id: str,
+        prior_steps: list[TransactionStep],
     ) -> str:
-        context_snippets = (
-            self._grounding_context(originating_actor_id, objective)
-            + self._somatic_context(objective)
-        )
+        context_snippets = self._grounding_context(originating_actor_id, objective) + self._somatic_context(objective)
         history = "; ".join(
             f"round {s.step_number} with {s.target_actor_id}: {s.trace.execution_outcome if s.trace else 'no response'}"
             for s in prior_steps[-3:]
@@ -476,9 +551,14 @@ class TransactionCoordinator:
     def _somatic_context(self, objective: str, limit: int = 3) -> list[str]:
         """Chart snippets via the shared SittingFace retriever (cycle-cached)."""
         try:
-            from src.monkey_brain.kernel.knowledge.sittingface_retrieval import get_external_knowledge_retriever
+            from src.monkey_brain.kernel.knowledge.sittingface_retrieval import (
+                get_external_knowledge_retriever,
+            )
+
             report = get_external_knowledge_retriever().retrieve_sync(
-                objective, cycle_id=f"negotiation:{objective[:48]}", force=True,
+                objective,
+                cycle_id=f"negotiation:{objective[:48]}",
+                force=True,
             )
             return [item.content for item in report.items[:limit] if item.content]
         except Exception:
@@ -486,7 +566,10 @@ class TransactionCoordinator:
             return []
 
     async def _send_message(
-        self, originating_actor_id: str, target_actor_id: str, message: str,
+        self,
+        originating_actor_id: str,
+        target_actor_id: str,
+        message: str,
     ) -> NegotiationTrace | None:
         pr = self._planetary
         target_societies = pr._societies_for(target_actor_id)
@@ -504,11 +587,15 @@ class TransactionCoordinator:
             # rather than the runtime hardcoding that choice here.
             logger.warning(
                 "_send_message: tick failed for affiliate %r (non-fatal to the transaction): %s",
-                target_actor_id, exc, exc_info=True,
+                target_actor_id,
+                exc,
+                exc_info=True,
             )
             return NegotiationTrace(
-                actor_id=target_actor_id, reasoning_summary="tick raised an exception",
-                execution_outcome="failed", confidence=0.0,
+                actor_id=target_actor_id,
+                reasoning_summary="tick raised an exception",
+                execution_outcome="failed",
+                confidence=0.0,
                 explanation=f"{target_actor_id}'s cognitive tick failed: {exc}",
             )
 
@@ -568,23 +655,30 @@ class TransactionCoordinator:
             return
         try:
             from src.monkey_brain.kernel.society.world import WorldEvent, EventType
-            world_model.record_event(WorldEvent(
-                event_type=EventType.OBSERVATION,
-                source_actor_id=target_actor_id,
-                description=trace.explanation or f"{target_actor_id} updated its local belief",
-                attributes=dict(trace.belief_updates),
-                confidence=trace.confidence,
-            ))
+
+            world_model.record_event(
+                WorldEvent(
+                    event_type=EventType.OBSERVATION,
+                    source_actor_id=target_actor_id,
+                    description=trace.explanation or f"{target_actor_id} updated its local belief",
+                    attributes=dict(trace.belief_updates),
+                    confidence=trace.confidence,
+                )
+            )
         except Exception:
             logger.debug(
                 "_publish_belief_perturbation: failed to record world event for %r (non-fatal)",
-                target_actor_id, exc_info=True,
+                target_actor_id,
+                exc_info=True,
             )
 
     # ── Trust: close the outcome -> ranking learning loop ────────────────
 
     def _update_trust_from_trace(
-        self, originating_actor_id: str, target_actor_id: str, trace: NegotiationTrace | None,
+        self,
+        originating_actor_id: str,
+        target_actor_id: str,
+        trace: NegotiationTrace | None,
     ) -> None:
         """Closes the loop the spec calls "trust evolves through learning":
         _eligible_affiliates ranks by Affiliation.trust_level, so that value
@@ -596,12 +690,17 @@ class TransactionCoordinator:
         if trace is None or trace.execution_outcome not in ("goal_achieved", "failed"):
             return
         self._apply_trust_outcome(
-            originating_actor_id, target_actor_id,
+            originating_actor_id,
+            target_actor_id,
             goal_achieved=trace.execution_outcome == "goal_achieved",
         )
 
     def _apply_trust_outcome(
-        self, originating_actor_id: str, target_actor_id: str, *, goal_achieved: bool,
+        self,
+        originating_actor_id: str,
+        target_actor_id: str,
+        *,
+        goal_achieved: bool,
     ) -> None:
         affiliations = self._affiliation_manager_for(originating_actor_id)
         if affiliations is None:
@@ -611,7 +710,9 @@ class TransactionCoordinator:
         except Exception:
             logger.debug(
                 "_apply_trust_outcome: trust update failed for %r -> %r (non-fatal)",
-                originating_actor_id, target_actor_id, exc_info=True,
+                originating_actor_id,
+                target_actor_id,
+                exc_info=True,
             )
 
     def _current_trust(self, originating_actor_id: str, target_actor_id: str) -> float:
@@ -630,15 +731,20 @@ class TransactionCoordinator:
         except Exception:
             logger.debug(
                 "_current_trust: lookup failed for %r -> %r (non-fatal)",
-                originating_actor_id, target_actor_id, exc_info=True,
+                originating_actor_id,
+                target_actor_id,
+                exc_info=True,
             )
             return 0.0
 
     # ── Step 8: LLM decides the next action ─────────────────────────────
 
     def _strategic_context(
-        self, originating_actor_id: str, target_actor_id: str,
-        trace: NegotiationTrace | None, remaining_candidates: list[str],
+        self,
+        originating_actor_id: str,
+        target_actor_id: str,
+        trace: NegotiationTrace | None,
+        remaining_candidates: list[str],
     ) -> dict[str, Any] | None:
         """Lightweight game-theoretic grounding for the next-action decision:
         evaluates the five valid next actions as strategies for both the
@@ -654,7 +760,11 @@ class TransactionCoordinator:
         if trace is None:
             return None
         try:
-            from src.monkey_brain.kernel.society.game_theory import GameTheoryRuntime, Strategy, StrategyProfile
+            from src.monkey_brain.kernel.society.game_theory import (
+                GameTheoryRuntime,
+                Strategy,
+                StrategyProfile,
+            )
 
             achieved = trace.execution_outcome == "goal_achieved"
             failed = trace.execution_outcome == "failed"
@@ -662,46 +772,73 @@ class TransactionCoordinator:
 
             def strategies() -> tuple[Strategy, ...]:
                 return (
-                    Strategy("complete_objective", expected_outcome={"progress": 1.0 if achieved else 0.2}),
-                    Strategy("terminate_transaction", expected_outcome={"progress": 0.0, "cost": 0.1}),
-                    Strategy("contact_another_affiliate", expected_outcome={
-                        "progress": 0.6 if has_remaining else 0.0, "cost": 0.3,
-                    }),
-                    Strategy("request_additional_information", expected_outcome={
-                        "progress": 0.3, "cost": 0.4 if failed else 0.2,
-                    }),
-                    Strategy("continue_negotiation", expected_outcome={"progress": 0.4, "cost": 0.3}),
+                    Strategy(
+                        "complete_objective",
+                        expected_outcome={"progress": 1.0 if achieved else 0.2},
+                    ),
+                    Strategy(
+                        "terminate_transaction",
+                        expected_outcome={"progress": 0.0, "cost": 0.1},
+                    ),
+                    Strategy(
+                        "contact_another_affiliate",
+                        expected_outcome={
+                            "progress": 0.6 if has_remaining else 0.0,
+                            "cost": 0.3,
+                        },
+                    ),
+                    Strategy(
+                        "request_additional_information",
+                        expected_outcome={
+                            "progress": 0.3,
+                            "cost": 0.4 if failed else 0.2,
+                        },
+                    ),
+                    Strategy(
+                        "continue_negotiation",
+                        expected_outcome={"progress": 0.4, "cost": 0.3},
+                    ),
                 )
 
             originating_profile = StrategyProfile(
-                actor_id=originating_actor_id, strategies=strategies(),
+                actor_id=originating_actor_id,
+                strategies=strategies(),
                 preferences={"progress": 1.0, "cost": -0.3},
             )
             # The just-contacted affiliate already spent effort producing
             # `trace` — it "prefers" actions that don't waste that, so it
             # weighs cost more heavily than the originator does.
             affiliate_profile = StrategyProfile(
-                actor_id=target_actor_id, strategies=strategies(),
+                actor_id=target_actor_id,
+                strategies=strategies(),
                 preferences={"progress": 0.4, "cost": -0.8},
             )
 
             agreement = GameTheoryRuntime().negotiate(
-                "next_action", (originating_profile, affiliate_profile),
+                "next_action",
+                (originating_profile, affiliate_profile),
             )
             return {
-                "suggested_action": agreement.chosen_strategy.name if agreement.chosen_strategy else None,
+                "suggested_action": (agreement.chosen_strategy.name if agreement.chosen_strategy else None),
                 "equilibrium": agreement.equilibrium,
                 "utilities": dict(agreement.utilities),
                 "rationale": agreement.rationale,
             }
         except Exception:
-            logger.debug("_strategic_context: game-theory evaluation failed (non-fatal)", exc_info=True)
+            logger.debug(
+                "_strategic_context: game-theory evaluation failed (non-fatal)",
+                exc_info=True,
+            )
             return None
 
     async def _decide_next_action(
-        self, originating_actor_id: str, objective: str,
-        prior_steps: list[TransactionStep], last_target: str,
-        last_trace: NegotiationTrace | None, remaining_candidates: list[str],
+        self,
+        originating_actor_id: str,
+        objective: str,
+        prior_steps: list[TransactionStep],
+        last_target: str,
+        last_trace: NegotiationTrace | None,
+        remaining_candidates: list[str],
         strategic_context: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Only ever called once TerminalStateEvaluator has already
@@ -714,11 +851,19 @@ class TransactionCoordinator:
         TerminalStateEvaluator (remaining-candidates / max_steps / timeout
         checks) is what guarantees the transaction still ends."""
         prompt = self._decision_prompt(
-            originating_actor_id, objective, prior_steps, last_target, last_trace,
-            remaining_candidates, strategic_context,
+            originating_actor_id,
+            objective,
+            prior_steps,
+            last_target,
+            last_trace,
+            remaining_candidates,
+            strategic_context,
         )
         try:
-            from src.monkey_brain.kernel.execute.provider.model_backend import get_backend
+            from src.monkey_brain.kernel.execute.provider.model_backend import (
+                get_backend,
+            )
+
             backend = get_backend()
             # ModelBackend.complete() is a real awaited async call now (see
             # model_backend.py's module docstring) -- genuinely cancellable
@@ -729,22 +874,27 @@ class TransactionCoordinator:
         except Exception:
             logger.warning(
                 "_decide_next_action: LLM decision failed for actor %r — defaulting to planner selection",
-                originating_actor_id, exc_info=True,
+                originating_actor_id,
+                exc_info=True,
             )
             return {
-                "next_action": "contact_another_affiliate", "reason": "LLM decision unavailable",
-                "target_actor_id": None, "strategic_context": strategic_context,
+                "next_action": "contact_another_affiliate",
+                "reason": "LLM decision unavailable",
+                "target_actor_id": None,
+                "strategic_context": strategic_context,
             }
 
         next_action = decision.get("next_action")
         if next_action not in _STRATEGIC_ACTIONS:
             logger.warning(
-                "_decide_next_action: invalid next_action %r — defaulting to planner selection", next_action,
+                "_decide_next_action: invalid next_action %r — defaulting to planner selection",
+                next_action,
             )
             return {
                 "next_action": "contact_another_affiliate",
                 "reason": f"invalid LLM decision {next_action!r} — defaulted to planner selection",
-                "target_actor_id": None, "strategic_context": strategic_context,
+                "target_actor_id": None,
+                "strategic_context": strategic_context,
             }
 
         return {
@@ -756,8 +906,12 @@ class TransactionCoordinator:
 
     @staticmethod
     def _decision_prompt(
-        originating_actor_id: str, objective: str, prior_steps: list[TransactionStep],
-        last_target: str, last_trace: NegotiationTrace | None, remaining_candidates: list[str],
+        originating_actor_id: str,
+        objective: str,
+        prior_steps: list[TransactionStep],
+        last_target: str,
+        last_trace: NegotiationTrace | None,
+        remaining_candidates: list[str],
         strategic_context: dict[str, Any] | None = None,
     ) -> str:
         history_lines = [
@@ -784,7 +938,7 @@ class TransactionCoordinator:
             f"{strategic_note}\n"
             "The runtime has already determined this transaction is not yet resolved, so decide only "
             "HOW to keep negotiating -- you cannot end the transaction yourself. Respond with ONLY a "
-            'JSON object (no prose, no markdown fences) of the shape: '
+            "JSON object (no prose, no markdown fences) of the shape: "
             '{"next_action": "<one of: contact_another_affiliate, request_additional_information, '
             'continue_negotiation>", '
             '"target_actor_id": "<optional -- required only for contact_another_affiliate if you have '
@@ -797,7 +951,10 @@ class TransactionCoordinator:
     async def _stream_event(self, transaction_id: str, event: dict[str, Any]) -> None:
         event = {**event, "timestamp": event.get("timestamp", time.time())}
 
-        from src.monkey_brain.kernel.society.transaction_event_hub import get_transaction_event_hub
+        from src.monkey_brain.kernel.society.transaction_event_hub import (
+            get_transaction_event_hub,
+        )
+
         try:
             await get_transaction_event_hub().publish(transaction_id, event)
         except Exception:
@@ -807,7 +964,8 @@ class TransactionCoordinator:
         if nats_client is not None:
             try:
                 await nats_client.publish(
-                    f"monkeybrain.transaction.{transaction_id}", json.dumps(event).encode(),
+                    f"monkeybrain.transaction.{transaction_id}",
+                    json.dumps(event).encode(),
                 )
             except Exception:
                 logger.debug("_stream_event: NATS publish failed (non-fatal)", exc_info=True)
@@ -829,13 +987,15 @@ class TransactionCoordinator:
         context_stream = getattr(self._planetary, "context_stream", None)
         if context_stream is None:
             return
-        actor_ids = {
-            a for a in (event.get("originating_actor_id"), event.get("target_actor_id")) if a
-        }
+        actor_ids = {a for a in (event.get("originating_actor_id"), event.get("target_actor_id")) if a}
         if not actor_ids:
             return
         try:
-            from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+            from src.monkey_brain.kernel.society.context_stream import (
+                ContextEvent,
+                ContextEventType,
+            )
+
             description = f"Transaction {transaction_id}: {event.get('type', 'update')}"
             # transaction_id already spans the whole negotiation — reuse it
             # as correlation_id rather than minting a new one. causation_id
@@ -847,17 +1007,21 @@ class TransactionCoordinator:
             trace = event.get("trace")
             causation_id = trace.get("trace_id", "") if isinstance(trace, dict) else ""
             for actor_id in actor_ids:
-                context_stream.publish(ContextEvent(
-                    event_type=ContextEventType.INTERACTION, actor_id=actor_id,
-                    description=description,
-                    payload={"transaction_id": transaction_id, **event},
-                    provenance="society:transaction",
-                    correlation_id=transaction_id,
-                    causation_id=causation_id,
-                ))
+                context_stream.publish(
+                    ContextEvent(
+                        event_type=ContextEventType.INTERACTION,
+                        actor_id=actor_id,
+                        description=description,
+                        payload={"transaction_id": transaction_id, **event},
+                        provenance="society:transaction",
+                        correlation_id=transaction_id,
+                        causation_id=causation_id,
+                    )
+                )
         except Exception:
             logger.debug(
-                "_publish_negotiation_context_event: publish failed (non-fatal)", exc_info=True,
+                "_publish_negotiation_context_event: publish failed (non-fatal)",
+                exc_info=True,
             )
 
 
@@ -875,4 +1039,5 @@ def _asdict_shallow(obj: Any) -> dict[str, Any]:
     """Shallow dataclass->dict, avoiding a dataclasses import dependency
     cycle concern for this module's few call sites."""
     import dataclasses
+
     return dataclasses.asdict(obj) if dataclasses.is_dataclass(obj) else dict(obj)

@@ -18,6 +18,7 @@ Usage:
         timezone="America/New_York",
     )
 """
+
 from __future__ import annotations
 
 import logging
@@ -50,6 +51,7 @@ class Profile:
         updated_at: Last profile update timestamp
         metadata: Additional custom fields
     """
+
     name: str = ""
     username: str = ""
     email: str = ""
@@ -129,11 +131,10 @@ class Profile:
             return None
         try:
             from datetime import datetime, date
+
             birth = datetime.strptime(self.date_of_birth, "%Y-%m-%d").date()
             today = date.today()
-            return today.year - birth.year - (
-                (today.month, today.day) < (birth.month, birth.day)
-            )
+            return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
         except (ValueError, TypeError):
             return None
 

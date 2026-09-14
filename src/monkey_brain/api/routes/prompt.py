@@ -18,13 +18,27 @@ from fastapi import APIRouter, Depends, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.idempotency import idempotent
-from src.monkey_brain.api.helpers.healing_helpers import reset_cooldown, run_post_workload
-from src.monkey_brain.api.helpers.prompt_helpers import resolve_run_type, validate_propagation_scope
+from src.monkey_brain.api.helpers.healing_helpers import (
+    reset_cooldown,
+    run_post_workload,
+)
+from src.monkey_brain.api.helpers.prompt_helpers import (
+    resolve_run_type,
+    validate_propagation_scope,
+)
 from src.monkey_brain.api.helpers.stability_helpers import check_stability
-from src.monkey_brain.kernel.plan.intents.predicates.self_healing_workload import is_self_healing_question
-from src.monkey_brain.kernel.plan.intents.predicates.sittingface_workload import is_sittingface_workload_question
+from src.monkey_brain.kernel.plan.intents.predicates.self_healing_workload import (
+    is_self_healing_question,
+)
+from src.monkey_brain.kernel.plan.intents.predicates.sittingface_workload import (
+    is_sittingface_workload_question,
+)
 from src.monkey_brain.runtime.routers import get_mongo_client
-from src.monkey_brain.kernel.models import PromptRequest, PromptResponse, _RequestErrorCapture
+from src.monkey_brain.kernel.models import (
+    PromptRequest,
+    PromptResponse,
+    _RequestErrorCapture,
+)
 
 logger = logging.getLogger("agentos.prompt")
 router = APIRouter()
@@ -117,18 +131,33 @@ async def _try_forward_to_actor_pod(planetary_runtime: Any, actor_id: str, quest
         async with httpx.AsyncClient(timeout=_ACTOR_POD_FORWARD_TIMEOUT_SEC) as client:
             resp = await client.post(
                 url,
-                headers={"X-Internal-Service-Token": token, "Content-Type": "application/json"},
+                headers={
+                    "X-Internal-Service-Token": token,
+                    "Content-Type": "application/json",
+                },
                 json={"question": question},
             )
         resp.raise_for_status()
-        logger.info("[prompt] forwarded to dedicated actor Pod for %r (registry node_id=%r, %s)", actor_id, node_id, url)
+        logger.info(
+            "[prompt] forwarded to dedicated actor Pod for %r (registry node_id=%r, %s)",
+            actor_id,
+            node_id,
+            url,
+        )
         return resp.json()
     except Exception as exc:
-        logger.debug("[prompt] dedicated actor Pod unreachable for %r (%s): %s", actor_id, url, exc)
+        logger.debug(
+            "[prompt] dedicated actor Pod unreachable for %r (%s): %s",
+            actor_id,
+            url,
+            exc,
+        )
         return None
 
 
-def _response_from_forwarded(question: str, actor_id: str, forwarded: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def _response_from_forwarded(
+    question: str, actor_id: str, forwarded: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Adapt a dedicated actor Pod's own /prompt response into the same
     query_result/business_flow shape _actor_query_result() builds for a
     locally-executed request — shared by unified_prompt's proactive
@@ -140,7 +169,8 @@ def _response_from_forwarded(question: str, actor_id: str, forwarded: dict[str, 
         "question": question,
         "answer": (
             f"{question} executed through the planetary cycle successfully"
-            if goal_achieved else f"{question} executed (goal not fully achieved)"
+            if goal_achieved
+            else f"{question} executed (goal not fully achieved)"
         ),
         "semantic_hits": [],
         "graph_paths": [],
@@ -157,8 +187,7 @@ def _response_from_forwarded(question: str, actor_id: str, forwarded: dict[str, 
         "question": question,
         "actor": actor_id,
         "flow": [
-            {"index": i, "action_id": a.get("action_id"), "success": a.get("success")}
-            for i, a in enumerate(actions)
+            {"index": i, "action_id": a.get("action_id"), "success": a.get("success")} for i, a in enumerate(actions)
         ],
         "result": {"actions_taken": len(actions), "goal_achieved": goal_achieved},
     }
@@ -229,7 +258,7 @@ def _actor_query_result(question: str, actor_id: str, result: Any) -> tuple[dict
         "flow": [
             {
                 "step": index + 1,
-                "action": action.get("action_id", f"action-{index + 1}") if isinstance(action, dict) else str(action),
+                "action": (action.get("action_id", f"action-{index + 1}") if isinstance(action, dict) else str(action)),
                 "result": action.get("result") if isinstance(action, dict) else None,
                 "success": action.get("success") if isinstance(action, dict) else None,
             }
@@ -269,13 +298,13 @@ async def unified_prompt(
     business_flow: dict[str, Any] | None = None
 
     try:
-        # get the planetary runtime to run the cycle this is inti on app boot and is used to run the planetary cycle 
+        # get the planetary runtime to run the cycle this is inti on app boot and is used to run the planetary cycle
         # for the actor. this is the world level runtime
         # the planetary runtime takes care of
-            # 1. actor/society/geography resolution,
-            # 2. recursive traversal,
-            # 3. context/world updates,
-            # 4. and actor coordination
+        # 1. actor/society/geography resolution,
+        # 2. recursive traversal,
+        # 3. context/world updates,
+        # 4. and actor coordination
         # the planetary runtime acts as a controller for actor scheduling and execution
         planetary_runtime = getattr(request.app.state, "planetary_runtime", None)
         if planetary_runtime is None:
@@ -283,8 +312,11 @@ async def unified_prompt(
 
         # validate the world state before executing the promptok fix the
         import os
+
         if os.getenv("WORLD_VALIDATION_GATE_EXECUTE", "true").strip().lower() != "false":
-            from src.monkey_brain.kernel.validation.world_validator import validate_world
+            from src.monkey_brain.kernel.validation.world_validator import (
+                validate_world,
+            )
 
             # validate the world before execution
             _report = validate_world(planetary_runtime, actor_id=user_id)
@@ -367,16 +399,20 @@ async def unified_prompt(
 
     # SittingFace workload questions get their post-execution healing/answer pass
     # kicked off in the background, after the actor request has actually run.
-    if (is_sittingface_workload_question(payload.question)
-            and not is_self_healing_question(payload.question)
-            and run_type not in {"healing", "stability"}):
-        task = asyncio.create_task(run_post_workload(
-            question=payload.question,
-            error_lines=list(capture.lines),
-            mongo_client=mongo_client,
-            run_type=run_type,
-            max_healing=max_healing,
-        ))
+    if (
+        is_sittingface_workload_question(payload.question)
+        and not is_self_healing_question(payload.question)
+        and run_type not in {"healing", "stability"}
+    ):
+        task = asyncio.create_task(
+            run_post_workload(
+                question=payload.question,
+                error_lines=list(capture.lines),
+                mongo_client=mongo_client,
+                run_type=run_type,
+                max_healing=max_healing,
+            )
+        )
         _background_tasks.add(task)
         task.add_done_callback(_on_task_done)
 
@@ -400,13 +436,17 @@ async def prompt_health() -> dict[str, Any]:
 
 
 @router.get("/prompt/stability")
-async def get_stability_status(user_id: str = Depends(require_permission("perm-view-stability"))) -> dict[str, Any]:
+async def get_stability_status(
+    user_id: str = Depends(require_permission("perm-view-stability")),
+) -> dict[str, Any]:
     return check_stability()
 
 
 @router.post("/prompt/reset")
 @idempotent("prompt.reset_workload")
-async def reset_workload(user_id: str = Depends(require_permission("perm-reset-workload"))) -> dict[str, Any]:
+async def reset_workload(
+    user_id: str = Depends(require_permission("perm-reset-workload")),
+) -> dict[str, Any]:
     reset_cooldown()
     return {"status": "reset"}
 

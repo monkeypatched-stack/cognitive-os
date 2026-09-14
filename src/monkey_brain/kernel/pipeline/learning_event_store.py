@@ -17,6 +17,7 @@ trade for best-effort observability data, same trade already accepted by
 every sibling store here; a rare lost race under concurrent ticks for the
 same actor is not a correctness issue for inspection/debugging.
 """
+
 from __future__ import annotations
 
 import json
@@ -50,8 +51,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -81,18 +84,25 @@ class LearningEvent:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "execution_id": self.execution_id, "actor_id": self.actor_id,
-            "goal_key": self.goal_key, "action_key": self.action_key,
-            "success": self.success, "previous": self.previous,
-            "updated": self.updated, "recorded_at": self.recorded_at,
+            "execution_id": self.execution_id,
+            "actor_id": self.actor_id,
+            "goal_key": self.goal_key,
+            "action_key": self.action_key,
+            "success": self.success,
+            "previous": self.previous,
+            "updated": self.updated,
+            "recorded_at": self.recorded_at,
         }
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "LearningEvent":
         return LearningEvent(
-            execution_id=d.get("execution_id", ""), actor_id=d.get("actor_id", ""),
-            goal_key=d.get("goal_key", ""), action_key=d.get("action_key", ""),
-            success=bool(d.get("success", False)), previous=d.get("previous"),
+            execution_id=d.get("execution_id", ""),
+            actor_id=d.get("actor_id", ""),
+            goal_key=d.get("goal_key", ""),
+            action_key=d.get("action_key", ""),
+            success=bool(d.get("success", False)),
+            previous=d.get("previous"),
             updated=dict(d.get("updated") or {}),
             recorded_at=float(d.get("recorded_at", time.time())),
         )
@@ -127,7 +137,12 @@ def record_learning_event(event: LearningEvent) -> bool:
         client.set(actor_key, json.dumps(history))
         return True
     except Exception as exc:
-        logger.debug("record_learning_event(%s, %s) failed: %s", event.execution_id, event.actor_id, exc)
+        logger.debug(
+            "record_learning_event(%s, %s) failed: %s",
+            event.execution_id,
+            event.actor_id,
+            exc,
+        )
         return False
 
 

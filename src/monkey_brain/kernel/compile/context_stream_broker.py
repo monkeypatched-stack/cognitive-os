@@ -38,12 +38,7 @@ class ContextStreamManager(ServiceInterface):
         """Set the context stream broker (dependency injection)."""
         self._broker = broker
 
-    async def publish_entity_creation(
-        self,
-        entity_id: str,
-        source_actor_id: str,
-        entity_data: dict
-    ) -> None:
+    async def publish_entity_creation(self, entity_id: str, source_actor_id: str, entity_data: dict) -> None:
         """Publish entity creation event
 
         World mutation flows through the broker, not direct calls.
@@ -53,19 +48,14 @@ class ContextStreamManager(ServiceInterface):
             source_actor_id=source_actor_id,
             affected_entity_id=entity_id,
             data=entity_data,
-            version=self._event_version
+            version=self._event_version,
         )
         self._event_version += 1
 
         # Publish to actors — world update handled by subscriber handlers
         await self._broker.publish(event)
 
-    async def publish_entity_update(
-        self,
-        entity_id: str,
-        source_actor_id: str,
-        updates: dict
-    ) -> None:
+    async def publish_entity_update(self, entity_id: str, source_actor_id: str, updates: dict) -> None:
         """Publish entity update event
 
         World mutation flows through the broker, not direct calls.
@@ -74,38 +64,29 @@ class ContextStreamManager(ServiceInterface):
             event_type=EventType.ENTITY_UPDATED,
             source_actor_id=source_actor_id,
             affected_entity_id=entity_id,
-            data={'updates': updates, 'new_state': updates},
-            version=self._event_version
+            data={"updates": updates, "new_state": updates},
+            version=self._event_version,
         )
         self._event_version += 1
 
         # Publish to actors — world update handled by subscriber handlers
         await self._broker.publish(event)
 
-    async def publish_action_execution(
-        self,
-        actor_id: str,
-        action: dict,
-        result: dict
-    ) -> None:
+    async def publish_action_execution(self, actor_id: str, action: dict, result: dict) -> None:
         """Publish action execution event"""
         event = ContextEvent(
             event_type=EventType.ACTION_EXECUTED,
             source_actor_id=actor_id,
             affected_entity_id=actor_id,
-            data={'action': action, 'result': result},
-            version=self._event_version
+            data={"action": action, "result": result},
+            version=self._event_version,
         )
         self._event_version += 1
 
         # Publish to actors (world updates via transitions)
         await self._broker.publish(event)
 
-    async def publish_world_state_change(
-        self,
-        source_actor_id: str,
-        state_delta: dict
-    ) -> None:
+    async def publish_world_state_change(self, source_actor_id: str, state_delta: dict) -> None:
         """Publish world state change event
 
         World mutation flows through the broker, not direct calls.
@@ -113,29 +94,23 @@ class ContextStreamManager(ServiceInterface):
         event = ContextEvent(
             event_type=EventType.WORLD_STATE_CHANGED,
             source_actor_id=source_actor_id,
-            affected_entity_id='world',
+            affected_entity_id="world",
             data=state_delta,
-            version=self._event_version
+            version=self._event_version,
         )
         self._event_version += 1
 
         # Publish to actors — world update handled by subscriber handlers
         await self._broker.publish(event)
 
-    async def publish_resource_event(
-        self,
-        event_type: EventType,
-        actor_id: str,
-        resource_id: str,
-        data: dict
-    ) -> None:
+    async def publish_resource_event(self, event_type: EventType, actor_id: str, resource_id: str, data: dict) -> None:
         """Publish resource acquisition/release event"""
         event = ContextEvent(
             event_type=event_type,
             source_actor_id=actor_id,
             affected_entity_id=resource_id,
             data=data,
-            version=self._event_version
+            version=self._event_version,
         )
         self._event_version += 1
 

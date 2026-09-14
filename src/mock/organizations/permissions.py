@@ -5,6 +5,7 @@ actually enforced by `require_permission(...)` across src/monkey_brain/api/route
 confirmed via a repo-wide grep so this stays a real, current mirror of what
 the API checks rather than a guessed/aspirational list.
 """
+
 from __future__ import annotations
 
 _PERMISSION_IDS = [
@@ -64,11 +65,13 @@ def _describe(permission_id: str) -> tuple[str, str, str]:
 INIT_PERMISSIONS: list[dict] = []
 for _pid in _PERMISSION_IDS:
     _name, _resource, _action = _describe(_pid)
-    INIT_PERMISSIONS.append({
-        "permission_id": _pid,
-        "name": _name,
-        "resource": _resource,
-        "action": _action,
-        "description": f"Grants {_pid}",
-        "is_active": True,
-    })
+    INIT_PERMISSIONS.append(
+        {
+            "permission_id": _pid,
+            "name": _name,
+            "resource": _resource,
+            "action": _action,
+            "description": f"Grants {_pid}",
+            "is_active": True,
+        }
+    )

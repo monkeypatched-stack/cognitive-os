@@ -38,6 +38,7 @@ POST /orders/{id}/return           — customer requests a return
 POST /orders/{id}/return/approve   — merchant approves a return
 POST /orders/{id}/refund           — standalone partial/goodwill refund
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,8 +48,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import authorize_acting_for, require_permission
 from src.monkey_brain.api.gateway_models import (
-    OrderCancelRequest, OrderConfirmReceiptRequest, OrderCreateRequest, OrderPaymentRequest,
-    OrderRefundRequest, OrderResponse, OrderReturnApproveRequest, OrderReturnRequest,
+    OrderCancelRequest,
+    OrderConfirmReceiptRequest,
+    OrderCreateRequest,
+    OrderPaymentRequest,
+    OrderRefundRequest,
+    OrderResponse,
+    OrderReturnApproveRequest,
+    OrderReturnRequest,
 )
 from src.monkey_brain.api.audit_decorator import audited
 from src.monkey_brain.api.idempotency import idempotent
@@ -78,6 +85,7 @@ def _result(d: dict[str, Any]) -> dict[str, Any]:
 
 async def _commit_order(action: str, resource: str, effect):
     from src.monkey_brain.kernel.security_boundary import ensure_governed
+
     return await ensure_governed(action, resource, effect, skip_authz=True)
 
 
@@ -93,11 +101,17 @@ async def create_order(
     await authorize_acting_for(request, user_id, body.actor_id)
 
     def _mutate():
-        return OrderCreationCapability().handle({"context": {
-            "knowledge_graph": _kg(request), "actor_id": body.actor_id, "selected_product": body.items,
-            "question": body.question,
-            "resume_order_id": body.resume_order_id,
-        }})
+        return OrderCreationCapability().handle(
+            {
+                "context": {
+                    "knowledge_graph": _kg(request),
+                    "actor_id": body.actor_id,
+                    "selected_product": body.items,
+                    "question": body.question,
+                    "resume_order_id": body.resume_order_id,
+                }
+            }
+        )
 
     result = await _commit_order("orders.create", body.actor_id, _mutate)
     return _result(result)
@@ -124,7 +138,10 @@ async def pay_for_order(
     request: Request,
     user_id: str = Depends(require_permission("perm-manage-actors")),
 ) -> dict[str, Any]:
-    from src.monkey_brain.kernel.domains.grocery import PaymentCapability, PaymentConfirmationCapability
+    from src.monkey_brain.kernel.domains.grocery import (
+        PaymentCapability,
+        PaymentConfirmationCapability,
+    )
 
     await authorize_acting_for(request, user_id, body.actor_id)
     kg = _kg(request)
@@ -134,8 +151,9 @@ async def pay_for_order(
 
     order_view = {"order_id": order_id, **order_entity.attributes}
     context = {
-        "knowledge_graph": kg, "actor_id": body.actor_id,
-        "total": body.total if body.total is not None else order_entity.attributes.get("total", 0),
+        "knowledge_graph": kg,
+        "actor_id": body.actor_id,
+        "total": (body.total if body.total is not None else order_entity.attributes.get("total", 0)),
         "order": order_view,
         "selected_product": [
             {"id": item.get("product_id"), "qty": item.get("qty", 1)}
@@ -165,10 +183,13 @@ async def cancel_order_route(
     from src.monkey_brain.kernel.domains.grocery import cancel_order
 
     await authorize_acting_for(request, user_id, body.actor_id)
-    return _result(await _commit_order(
-        "orders.cancel", order_id,
-        lambda: cancel_order(_kg(request), order_id, actor_id=body.actor_id),
-    ))
+    return _result(
+        await _commit_order(
+            "orders.cancel",
+            order_id,
+            lambda: cancel_order(_kg(request), order_id, actor_id=body.actor_id),
+        )
+    )
 
 
 @router.post("/orders/{order_id}/confirm-receipt", tags=["Orders"])
@@ -180,13 +201,19 @@ async def confirm_receipt_route(
     user_id: str = Depends(require_permission("perm-manage-actors")),
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.domains.logistics import confirm_receipt
-    from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+    from src.monkey_brain.kernel.society.context_stream import (
+        ContextEvent,
+        ContextEventType,
+    )
 
     await authorize_acting_for(request, user_id, body.actor_id)
-    result = _result(await _commit_order(
-        "orders.confirm_receipt", order_id,
-        lambda: confirm_receipt(_kg(request), order_id, actor_id=body.actor_id),
-    ))
+    result = _result(
+        await _commit_order(
+            "orders.confirm_receipt",
+            order_id,
+            lambda: confirm_receipt(_kg(request), order_id, actor_id=body.actor_id),
+        )
+    )
 
     # True Multi-Actor Coordination: this is the real point an order's
     # items become eligible for a loyalty award or a review
@@ -200,15 +227,19 @@ async def confirm_receipt_route(
     pr = _get_planetary_runtime(request)
     if pr is not None:
         context_events_before = pr.context_stream.event_count
-        pr.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.WORLD_UPDATE,
-            description=f"Order {order_id} receipt confirmed",
-            payload={"order_id": order_id, "domain_event": "ShipmentDelivered"},
-        ))
+        pr.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.WORLD_UPDATE,
+                description=f"Order {order_id} receipt confirmed",
+                payload={"order_id": order_id, "domain_event": "ShipmentDelivered"},
+            )
+        )
         coordination_trace: list[dict[str, Any]] = []
         async with pr._tick_lock:
             (
-                propagated_actors, propagated_societies, termination_reason,
+                propagated_actors,
+                propagated_societies,
+                termination_reason,
                 domain_events_seen,
             ) = await pr._propagate_coordination(
                 from_version=context_events_before,
@@ -238,10 +269,13 @@ async def request_return(
     from src.monkey_brain.kernel.domains.grocery import return_order
 
     await authorize_acting_for(request, user_id, body.actor_id)
-    return _result(await _commit_order(
-        "orders.return_request", order_id,
-        lambda: return_order(_kg(request), order_id, actor_id=body.actor_id, reason=body.reason),
-    ))
+    return _result(
+        await _commit_order(
+            "orders.return_request",
+            order_id,
+            lambda: return_order(_kg(request), order_id, actor_id=body.actor_id, reason=body.reason),
+        )
+    )
 
 
 @router.post("/orders/{order_id}/return/approve", tags=["Orders"])
@@ -255,10 +289,13 @@ async def approve_return_route(
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.domains.grocery import approve_return
 
-    return _result(await _commit_order(
-        "orders.return_approve", order_id,
-        lambda: approve_return(_kg(request), order_id, approved_by=body.approved_by),
-    ))
+    return _result(
+        await _commit_order(
+            "orders.return_approve",
+            order_id,
+            lambda: approve_return(_kg(request), order_id, approved_by=body.approved_by),
+        )
+    )
 
 
 @router.post("/orders/{order_id}/refund", tags=["Orders"])
@@ -272,10 +309,16 @@ async def refund_order_route(
 ) -> dict[str, Any]:
     from src.monkey_brain.kernel.domains.grocery import refund_order
 
-    return _result(await _commit_order(
-        "orders.refund", order_id,
-        lambda: refund_order(
-            _kg(request), order_id, amount=body.amount,
-            reason=body.reason, refunded_by=body.refunded_by,
-        ),
-    ))
+    return _result(
+        await _commit_order(
+            "orders.refund",
+            order_id,
+            lambda: refund_order(
+                _kg(request),
+                order_id,
+                amount=body.amount,
+                reason=body.reason,
+                refunded_by=body.refunded_by,
+            ),
+        )
+    )

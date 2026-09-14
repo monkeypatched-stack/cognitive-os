@@ -1,4 +1,5 @@
 """Unit tests for cortex.epa — EpistemicPredictiveState, epa_transition, epa_loss."""
+
 import pytest
 from cortex.epa import EpistemicPredictiveState, epa_transition, epa_loss
 from cortex.epistemic import BeliefState, GoalState
@@ -20,6 +21,7 @@ def _make_goal(predicates=None):
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
+
 
 def test_from_world_state_constructs_valid_state():
     state = EpistemicPredictiveState.from_world_state({"x": 1})
@@ -48,6 +50,7 @@ def test_epa_state_to_dict_roundtrip():
 # ---------------------------------------------------------------------------
 # Transition
 # ---------------------------------------------------------------------------
+
 
 def test_epa_transition_updates_all_four_components():
     E_t = _make_state(affordances=["cap_a"])
@@ -96,6 +99,7 @@ def test_epa_transition_last_action_in_mesh():
 # Loss
 # ---------------------------------------------------------------------------
 
+
 def test_epa_loss_returns_all_four_terms():
     state = _make_state()
     loss = epa_loss(state, state)
@@ -119,8 +123,10 @@ def test_epa_loss_l_e_equals_sum():
     s1 = _make_state(world={"a": 1}, affordances=["x"])
     s2 = _make_state(world={"a": 2}, affordances=["y"])
     loss = epa_loss(s1, s2)
-    expected = round(loss["L_S"] + loss["L_B"] + loss["L_A"] + loss["L_M"]
-                     + loss["L_K"] + loss["L_C"] + loss["L_G"], 4)
+    expected = round(
+        loss["L_S"] + loss["L_B"] + loss["L_A"] + loss["L_M"] + loss["L_K"] + loss["L_C"] + loss["L_G"],
+        4,
+    )
     assert loss["L_E"] == expected
 
 
@@ -135,6 +141,7 @@ def test_epa_loss_values_in_range():
 # ---------------------------------------------------------------------------
 # BeliefState.loss()
 # ---------------------------------------------------------------------------
+
 
 def test_belief_state_loss_in_range():
     b = BeliefState(knowledge=[], confidence=0.7)
@@ -157,6 +164,7 @@ def test_belief_state_zero_confidence_high_loss():
 # ---------------------------------------------------------------------------
 # GoalState.progress()
 # ---------------------------------------------------------------------------
+
 
 def test_goal_progress_all_satisfied():
     g = GoalState(objective="test", target_predicates=["x == 1"])

@@ -10,6 +10,7 @@ from typing import Optional
 @dataclass
 class PullRequest:
     """Pull request entity — a code change request."""
+
     id: str
     title: str
     status: str  # open, merged, closed
@@ -29,6 +30,7 @@ class PullRequest:
 @dataclass
 class TestSuite:
     """Test suite entity — a collection of tests."""
+
     id: str
     name: str
     status: str  # passed, failed, running
@@ -43,6 +45,7 @@ class TestSuite:
 @dataclass
 class Deployment:
     """Deployment entity — a deployment to an environment."""
+
     id: str
     environment: str  # staging, production, canary
     status: str  # pending, in_progress, completed, failed
@@ -54,6 +57,7 @@ class Deployment:
 @dataclass
 class Pipeline:
     """Pipeline entity — a CI/CD pipeline."""
+
     id: str
     name: str
     status: str  # running, passed, failed
@@ -68,6 +72,7 @@ class Pipeline:
 @dataclass
 class CodeReview:
     """Code review entity — a review of code changes."""
+
     id: str
     pr_id: str
     reviewer: str
@@ -83,6 +88,7 @@ class CodeReview:
 @dataclass
 class Commit:
     """Commit entity — a code commit."""
+
     sha: str
     message: str
     author: str = ""
@@ -97,6 +103,7 @@ class Commit:
 @dataclass
 class Branch:
     """Branch entity — a git branch."""
+
     name: str
     head_sha: str = ""
     base_branch: str = "main"

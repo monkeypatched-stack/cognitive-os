@@ -15,6 +15,7 @@ that makes it up actually is. Silently leaves the order alone if it
 isn't persisted in this KG, same as create_shipment() never requiring
 one to be.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.logistics import (

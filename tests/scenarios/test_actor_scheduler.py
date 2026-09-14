@@ -40,6 +40,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/scenarios/test_actor_scheduler.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -55,15 +56,23 @@ os.environ["RATE_LIMIT_RPS"] = "100000"
 os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType, ActorStatus
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+    ActorStatus,
+)
 from src.monkey_brain.kernel.society.actor_lifecycle import ActorDesiredState
 from src.monkey_brain.kernel.society.actor_scheduler import (
-    ExecutionNode, NodeClass, NodeHealth, ActorPlacementRequirements,
+    ExecutionNode,
+    NodeClass,
+    NodeHealth,
+    ActorPlacementRequirements,
 )
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
 
-
 # ── Test doubles ─────────────────────────────────────────────────────────
+
 
 class _FakeRedis:
     """Minimal in-memory stand-in for the subset of redis-py's API this
@@ -165,23 +174,32 @@ class _FakeRedis:
 
 def _register(pr: PlanetaryRuntime, name: str, **kwargs):
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)),
+        **kwargs,
     )
 
 
 def _lifecycle_events(pr: PlanetaryRuntime, actor_id: str) -> list[dict]:
     return [
-        e.payload for e in pr.context_stream._events
+        e.payload
+        for e in pr.context_stream._events
         if e.event_type == ContextEventType.ACTOR_LIFECYCLE and e.actor_id == actor_id
     ]
 
 
 # ── 1-2: Node registration and discovery ─────────────────────────────────
 
+
 def test_01_register_and_get_node_round_trips():
     pr = PlanetaryRuntime()
     pr._redis = _FakeRedis()
-    node = ExecutionNode(node_id="n1", node_class=NodeClass.EDGE, capacity=5, capabilities=("gpu",), region="us-east")
+    node = ExecutionNode(
+        node_id="n1",
+        node_class=NodeClass.EDGE,
+        capacity=5,
+        capabilities=("gpu",),
+        region="us-east",
+    )
     pr.register_node(node)
     fetched = pr.get_node("n1")
     assert fetched is not None
@@ -205,6 +223,7 @@ def test_02_list_nodes_returns_every_registered_node():
 
 # ── 3: Unmanaged mode ─────────────────────────────────────────────────────
 
+
 def test_03_no_nodes_registered_leaves_placement_unconstrained():
     pr = PlanetaryRuntime()
     state = _register(pr, "solo")
@@ -222,6 +241,7 @@ def test_03_no_nodes_registered_leaves_placement_unconstrained():
 
 # ── 4: Basic placement ────────────────────────────────────────────────────
 
+
 def test_04_schedules_onto_the_sole_healthy_node():
     pr = PlanetaryRuntime()
     pr._redis = _FakeRedis()
@@ -234,6 +254,7 @@ def test_04_schedules_onto_the_sole_healthy_node():
 
 
 # ── 5-7: Hard constraints ──────────────────────────────────────────────────
+
 
 def test_05_required_capability_eliminates_nonmatching_node():
     pr = PlanetaryRuntime()
@@ -272,6 +293,7 @@ def test_07_insufficient_capacity_eliminates_full_node():
 
 # ── 8-9: Soft preferences ──────────────────────────────────────────────────
 
+
 def test_08_preferred_node_class_wins_ranking_among_valid_candidates():
     pr = PlanetaryRuntime()
     pr._redis = _FakeRedis()
@@ -294,6 +316,7 @@ def test_09_preferred_region_wins_ranking_among_valid_candidates():
 
 # ── 10: Deterministic tiebreak ────────────────────────────────────────────
 
+
 def test_10_equal_candidates_break_tie_on_node_id_deterministically():
     pr = PlanetaryRuntime()
     pr._redis = _FakeRedis()
@@ -304,6 +327,7 @@ def test_10_equal_candidates_break_tie_on_node_id_deterministically():
 
 
 # ── 11: UNSCHEDULABLE is explicit, never fabricated ──────────────────────
+
 
 def test_11_no_qualifying_node_reports_unschedulable_not_a_fake_placement():
     pr = PlanetaryRuntime()
@@ -320,6 +344,7 @@ def test_11_no_qualifying_node_reports_unschedulable_not_a_fake_placement():
 
 # ── 12: Idempotency ────────────────────────────────────────────────────────
 
+
 def test_12_repeated_scheduling_of_a_settled_actor_keeps_the_same_node():
     pr = PlanetaryRuntime()
     pr._redis = _FakeRedis()
@@ -333,6 +358,7 @@ def test_12_repeated_scheduling_of_a_settled_actor_keeps_the_same_node():
 
 
 # ── 13-14: Node health ─────────────────────────────────────────────────────
+
 
 def test_13_stale_heartbeat_treated_as_unknown_and_excluded():
     pr = PlanetaryRuntime()
@@ -360,6 +386,7 @@ def test_14_explicitly_unhealthy_node_excluded():
 
 # ── 15: Multi-actor capacity enforcement ──────────────────────────────────
 
+
 def test_15_capacity_enforced_across_multiple_actors_no_overallocation():
     pr = PlanetaryRuntime()
     pr._redis = _FakeRedis()
@@ -375,6 +402,7 @@ def test_15_capacity_enforced_across_multiple_actors_no_overallocation():
 
 
 # ── 16: Concurrency safety ────────────────────────────────────────────────
+
 
 def test_16_concurrent_scheduling_decisions_never_overallocate():
     """Two real OS threads race to schedule two different actors onto a
@@ -394,8 +422,10 @@ def test_16_concurrent_scheduling_decisions_never_overallocate():
 
     t1 = threading.Thread(target=_schedule, args=(a1, "r1"))
     t2 = threading.Thread(target=_schedule, args=(a2, "r2"))
-    t1.start(); t2.start()
-    t1.join(); t2.join()
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 
     scheduled = [r for r in results.values() if r.scheduled]
     assert len(scheduled) == 1
@@ -405,14 +435,19 @@ def test_16_concurrent_scheduling_decisions_never_overallocate():
 
 # ── 17-18: Lifecycle Controller integration ───────────────────────────────
 
+
 def test_17_start_is_deferred_to_the_scheduled_node_not_started_locally():
     """Actor identity != actor location: pr_a and pr_b share one registry
     (same fake Redis) and represent two different nodes. The actor is
     explicitly placed on node-b. Reconciling from node-a must NOT start
     it locally; reconciling from node-b must."""
     shared = _FakeRedis()
-    pr_a = PlanetaryRuntime(); pr_a._redis = shared; pr_a._node_id = "node-a"
-    pr_b = PlanetaryRuntime(); pr_b._redis = shared; pr_b._node_id = "node-b"
+    pr_a = PlanetaryRuntime()
+    pr_a._redis = shared
+    pr_a._node_id = "node-a"
+    pr_b = PlanetaryRuntime()
+    pr_b._redis = shared
+    pr_b._node_id = "node-b"
     pr_a.register_node(ExecutionNode(node_id="node-a", capacity=10))
     pr_a.register_node(ExecutionNode(node_id="node-b", capacity=10))
 
@@ -450,6 +485,7 @@ def test_18_unschedulable_actor_is_never_started():
 
 # ── 19-20: Migration ───────────────────────────────────────────────────────
 
+
 def test_19_migrate_checkpoints_and_suspends_locally_desired_state_unchanged():
     pr = PlanetaryRuntime()
     pr._redis = _FakeRedis()
@@ -478,8 +514,12 @@ def test_19_migrate_checkpoints_and_suspends_locally_desired_state_unchanged():
 
 def test_20_migration_end_to_end_target_node_resumes_the_actor():
     shared = _FakeRedis()
-    pr_a = PlanetaryRuntime(); pr_a._redis = shared; pr_a._node_id = "node-a"
-    pr_b = PlanetaryRuntime(); pr_b._redis = shared; pr_b._node_id = "node-b"
+    pr_a = PlanetaryRuntime()
+    pr_a._redis = shared
+    pr_a._node_id = "node-a"
+    pr_b = PlanetaryRuntime()
+    pr_b._redis = shared
+    pr_b._node_id = "node-b"
     pr_a.register_node(ExecutionNode(node_id="node-a", capacity=10))
     pr_a.register_node(ExecutionNode(node_id="node-b", capacity=10))
 
@@ -505,14 +545,19 @@ def test_20_migration_end_to_end_target_node_resumes_the_actor():
 
 # ── 21: Destructive — node failure -> reschedule, identity preserved ─────
 
+
 def test_21_node_failure_reschedules_without_new_identity_or_duplication():
     """The critical invariant: a dead node must never spawn a second
     actor identity. node-a hosts the actor, then goes dark (registry
     record ages past staleness, node deregistered). node-b picks up
     recovery -- same actor_id, exactly one registry entry, no ghost."""
     shared = _FakeRedis()
-    pr_a = PlanetaryRuntime(); pr_a._redis = shared; pr_a._node_id = "node-a"
-    pr_b = PlanetaryRuntime(); pr_b._redis = shared; pr_b._node_id = "node-b"
+    pr_a = PlanetaryRuntime()
+    pr_a._redis = shared
+    pr_a._node_id = "node-a"
+    pr_b = PlanetaryRuntime()
+    pr_b._redis = shared
+    pr_b._node_id = "node-b"
     pr_a.register_node(ExecutionNode(node_id="node-a", capacity=10))
 
     state = _register(pr_a, "survivor")
@@ -553,6 +598,7 @@ def test_21_node_failure_reschedules_without_new_identity_or_duplication():
 
 # ── 22: Scheduler never mutates actor cognition ───────────────────────────
 
+
 def test_22_scheduling_alone_never_touches_actor_runtime_state():
     pr = PlanetaryRuntime()
     pr._redis = _FakeRedis()
@@ -570,6 +616,7 @@ def test_22_scheduling_alone_never_touches_actor_runtime_state():
 
 
 # ── 23: Capacity released on termination ──────────────────────────────────
+
 
 def test_23_terminating_an_actor_releases_its_capacity_reservation():
     pr = PlanetaryRuntime()

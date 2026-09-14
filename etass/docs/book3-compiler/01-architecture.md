@@ -52,28 +52,28 @@ class Lexer:
         self.position = 0
         self.line = 1
         self.column = 1
-        
+
     def tokenize(self) -> List[Token]:
         """Convert source into tokens."""
         tokens = []
         while self.position < len(self.source):
             char = self.source[self.position]
-            
+
             if char.isspace():
                 self.skip_whitespace()
-            elif char == '#':
+            elif char == "#":
                 self.skip_comment()
             elif char == '"' or char == "'":
                 tokens.append(self.read_string())
             elif char.isdigit():
                 tokens.append(self.read_number())
-            elif char.isalpha() or char == '_':
+            elif char.isalpha() or char == "_":
                 tokens.append(self.read_identifier())
-            elif char in '{}[](),:=':
+            elif char in "{}[](),:=":
                 tokens.append(self.read_operator())
             else:
                 raise LexicalError(f"Unexpected character: {char}")
-        
+
         return tokens
 ```
 
@@ -474,17 +474,13 @@ from etass.compiler import Compiler
 compiler = Compiler(config="compiler-config.yaml")
 
 # Compile chart
-result = compiler.compile(
-    chart_path="charts/my-app",
-    profile="production",
-    values={"replicas": 3}
-)
+result = compiler.compile(chart_path="charts/my-app", profile="production", values={"replicas": 3})
 
 # Access prompts
 for prompt in result.prompts:
     print(f"Agent: {prompt.agent}")
     print(f"Size: {prompt.size} bytes")
-    
+
 # Handle errors
 if result.errors:
     for error in result.errors:

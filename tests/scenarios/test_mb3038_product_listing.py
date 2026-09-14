@@ -11,9 +11,14 @@ marker open_products() requires for an ASSET to be a real, purchasable
 catalog item — a listed product is immediately browsable, not a second,
 disconnected catalog.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.domains.commerce import CommerceCapability, list_product, onboard_merchant
+from src.monkey_brain.kernel.domains.commerce import (
+    CommerceCapability,
+    list_product,
+    onboard_merchant,
+)
 from src.monkey_brain.kernel.domains.grocery import open_products
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 

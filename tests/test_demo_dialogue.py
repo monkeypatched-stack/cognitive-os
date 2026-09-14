@@ -22,24 +22,42 @@ class _Client:
     def request(self, method: str, path: str, **kwargs: dict) -> _Response:
         self.calls.append((method, path, kwargs))
         if len(self.calls) == 1:
-            return _Response({
-                "query_result": {"actor_execution": {
-                    "plan": {"steps": [{"action": "AskActor"}]},
-                    "actions": [{"success": True, "result": {
-                        "target_actor": "Warehouse Worker",
-                        "question": "Has the order been dispatched?",
-                        "answer": "It is packed but not dispatched.",
-                    }}],
-                }},
-            })
-        return _Response({
-            "query_result": {"actor_execution": {
-                "plan": {"steps": [{"action": "RespondToInquiry"}]},
-                "actions": [{"success": True, "result": {
-                    "answer": "The order is packed but has not been dispatched.",
-                }}],
-            }},
-        })
+            return _Response(
+                {
+                    "query_result": {
+                        "actor_execution": {
+                            "plan": {"steps": [{"action": "AskActor"}]},
+                            "actions": [
+                                {
+                                    "success": True,
+                                    "result": {
+                                        "target_actor": "Warehouse Worker",
+                                        "question": "Has the order been dispatched?",
+                                        "answer": "It is packed but not dispatched.",
+                                    },
+                                }
+                            ],
+                        }
+                    },
+                }
+            )
+        return _Response(
+            {
+                "query_result": {
+                    "actor_execution": {
+                        "plan": {"steps": [{"action": "RespondToInquiry"}]},
+                        "actions": [
+                            {
+                                "success": True,
+                                "result": {
+                                    "answer": "The order is packed but has not been dispatched.",
+                                },
+                            }
+                        ],
+                    }
+                },
+            }
+        )
 
 
 def test_autonomous_dialogue_carries_real_reply_into_next_turn(capsys) -> None:
@@ -49,11 +67,21 @@ def test_autonomous_dialogue_carries_real_reply_into_next_turn(capsys) -> None:
     }
 
     answer, learned, rounds = run_dialogue(
-        client, world, "Support Agent", "Where is my order?", max_rounds=3,
+        client,
+        world,
+        "Support Agent",
+        "Where is my order?",
+        max_rounds=3,
     )
 
     assert answer == "The order is packed but has not been dispatched."
-    assert learned == [("Warehouse Worker", "Has the order been dispatched?", "It is packed but not dispatched.")]
+    assert learned == [
+        (
+            "Warehouse Worker",
+            "Has the order been dispatched?",
+            "It is packed but not dispatched.",
+        )
+    ]
     assert rounds == 2
     assert len(client.calls) == 2
     assert client.calls[0][0:2] == ("POST", "/prompt")
@@ -64,8 +92,7 @@ def test_autonomous_dialogue_carries_real_reply_into_next_turn(capsys) -> None:
 
 def test_planner_accepts_common_model_json_formatting_drift() -> None:
     parsed = LLMPlanner()._parse(
-        'Here is the plan: {"steps": [{"action": "AskActor",}], "confidence": 0.8,}'
-        "\nI hope this helps."
+        'Here is the plan: {"steps": [{"action": "AskActor",}], "confidence": 0.8,}\nI hope this helps.'
     )
 
     assert parsed["steps"][0]["action"] == "AskActor"

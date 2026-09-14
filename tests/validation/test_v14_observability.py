@@ -26,6 +26,7 @@ within, say, 100ms of an operation completing is flagged as a
 follow-up worth its own dedicated investigation, not asserted either
 way here.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -52,18 +53,32 @@ class TestAuditLogAPIProducesACorrelatableTrace:
         rid = f"trace-test-{uuid.uuid4().hex}"
         log = AuditLog()
         log.record(
-            runtime_id=rid, event_type="governance", action="capability.grocery.purchase",
-            actor=rid, target="order-trace-1", outcome="success",
-            details={"goal": "buy milk", "policy_rule": "default_grocery_purchase", "approval_mode": "AUTO_APPROVE"},
+            runtime_id=rid,
+            event_type="governance",
+            action="capability.grocery.purchase",
+            actor=rid,
+            target="order-trace-1",
+            outcome="success",
+            details={
+                "goal": "buy milk",
+                "policy_rule": "default_grocery_purchase",
+                "approval_mode": "AUTO_APPROVE",
+            },
         )
         log.record(
-            runtime_id=rid, event_type="security", action="capability.grocery.purchase",
-            actor=rid, target="order-trace-1", outcome="success",
+            runtime_id=rid,
+            event_type="security",
+            action="capability.grocery.purchase",
+            actor=rid,
+            target="order-trace-1",
+            outcome="success",
             details={"stage": "AUDIT_RESULT", "execution_state": "succeeded"},
         )
 
         entries = [e for e in log.query(runtime_id=rid, limit=1000) if e.runtime_id == rid]
-        assert len(entries) == 2, f"expected exactly this test's own 2 entries for a uuid-unique runtime_id, got {len(entries)}"
+        assert len(entries) == 2, (
+            f"expected exactly this test's own 2 entries for a uuid-unique runtime_id, got {len(entries)}"
+        )
         # The reconstructable causal chain: WHO (actor), WHAT (action/
         # target), WHY (details.goal/policy_rule), and the OUTCOME.
         assert entries[0].actor == rid
@@ -81,9 +96,16 @@ class TestAuditLogAPIProducesACorrelatableTrace:
         rid = f"trace-test-{uuid.uuid4().hex}"
         log = AuditLog()
         log.record(
-            runtime_id=rid, event_type="governance", action="capability.bank.transfer",
-            actor=rid, target="acct-denied-1", outcome="denied",
-            details={"reason": "region_not_permitted", "policy_rule": "region_restriction"},
+            runtime_id=rid,
+            event_type="governance",
+            action="capability.bank.transfer",
+            actor=rid,
+            target="acct-denied-1",
+            outcome="denied",
+            details={
+                "reason": "region_not_permitted",
+                "policy_rule": "region_restriction",
+            },
         )
         entries = [e for e in log.query(runtime_id=rid, limit=1000) if e.runtime_id == rid]
         assert len(entries) == 1
@@ -112,18 +134,22 @@ class TestRealGovernedExecutionActuallyCallsTheAuditAPIAtEachRealStage:
 
     def test_security_boundary_records_audit_intent_and_audit_result(self):
         from src.monkey_brain.kernel import security_boundary
+
         source = inspect.getsource(security_boundary)
         assert "AUDIT_INTENT" in source
         assert "AUDIT_RESULT" in source
         assert "correlation_id" in source
         assert "operation_id" in source
 
-    def test_the_operation_id_is_the_correlating_identifier_threaded_through_every_stage(self):
+    def test_the_operation_id_is_the_correlating_identifier_threaded_through_every_stage(
+        self,
+    ):
         """op_id (new_operation_id()) is what a human/operator would
         actually search by to reconstruct one operation's story --
         confirm it appears in the intent, attempt, and result recording
         call sites, not just at the start."""
         from src.monkey_brain.kernel import security_boundary
+
         source = inspect.getsource(security_boundary.run_governed_mutation)
         assert source.count("op_id") >= 3, (
             "expected op_id to be threaded through multiple stages of run_governed_mutation, "

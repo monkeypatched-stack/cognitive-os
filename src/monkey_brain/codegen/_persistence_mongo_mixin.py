@@ -1,4 +1,5 @@
 """PersistenceMongoMixin — templates for database.py, models.py, crud.py (Mongo flavor)."""
+
 from __future__ import annotations
 
 from ._types import _MONGO_TYPES
@@ -104,7 +105,7 @@ class {self.cls}(Document):
 '''
 
     def _crud_mongo(self) -> str:
-        sd_filter = '{"deleted_at": None}' if self.s.soft_delete else '{}'
+        sd_filter = '{"deleted_at": None}' if self.s.soft_delete else "{}"
         sd_delete = (
             '    await obj.set({"deleted_at": datetime.utcnow(), "updated_at": datetime.utcnow()})\n'
             if self.s.soft_delete

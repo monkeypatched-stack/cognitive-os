@@ -10,6 +10,7 @@ Class C (irreversible) never claims rollback.
 
 FAILED ≠ UNKNOWN. Agents cannot set these states.
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,7 +64,18 @@ def classify_effect_kind(action: str) -> EffectKind:
     key = (action or "").lower()
     if "audit" in key:
         return EffectKind.AUDIT_OPERATION
-    if any(m in key for m in ("grant", "revoke", "role", "permission", "mfa", "credential", "session")):
+    if any(
+        m in key
+        for m in (
+            "grant",
+            "revoke",
+            "role",
+            "permission",
+            "mfa",
+            "credential",
+            "session",
+        )
+    ):
         return EffectKind.AUTHORITY_CHANGE
     if any(m in key for m in _EXTERNAL_MARKERS):
         return EffectKind.EXTERNAL_SIDE_EFFECT
@@ -90,8 +102,18 @@ class AuditResultUnavailable(Exception):
 
 
 _EXTERNAL_MARKERS = (
-    "payment", "webhook", "razorpay", "http", "send_", "sms", "email",
-    "device", "robot", "actor.tick", "capture", "refund",
+    "payment",
+    "webhook",
+    "razorpay",
+    "http",
+    "send_",
+    "sms",
+    "email",
+    "device",
+    "robot",
+    "actor.tick",
+    "capture",
+    "refund",
 )
 
 
@@ -228,7 +250,10 @@ def reconcile_operation(
     Agents cannot call this with a fabricated confirmation; callers must
     already be inside a governed commitment.
     """
-    from src.monkey_brain.kernel.security_boundary import commitment_active, privileged_infra_active
+    from src.monkey_brain.kernel.security_boundary import (
+        commitment_active,
+        privileged_infra_active,
+    )
     from src.monkey_brain.kernel.production_gates import insecure_dev_mode
 
     if not (commitment_active() or privileged_infra_active() or insecure_dev_mode()):
@@ -244,11 +269,15 @@ def reconcile_operation(
     if confirmed == "failed":
         return ledger.transition(operation_id, SecurityOperationState.FAILED, reconciled=True)
     return ledger.transition(
-        operation_id, SecurityOperationState.RECONCILIATION_REQUIRED, reconciled=False,
+        operation_id,
+        SecurityOperationState.RECONCILIATION_REQUIRED,
+        reconciled=False,
     )
 
 
-def reconstruct_operations_from_audit(entries: list[dict[str, Any]]) -> dict[str, SecurityOperationState]:
+def reconstruct_operations_from_audit(
+    entries: list[dict[str, Any]],
+) -> dict[str, SecurityOperationState]:
     """Recover operation outcomes from durable audit evidence (any store).
 
     Intent without a result → EXECUTING (crash before or during effect).
@@ -286,7 +315,13 @@ def classify_external_exception(exc: BaseException) -> str:
     """Map an exception to failed vs unknown. Timeouts/connection resets are unknown."""
     name = type(exc).__name__.lower()
     text = str(exc).lower()
-    unknown_markers = ("timeout", "timed out", "connection reset", "connectionreset", "temporarily unavailable")
+    unknown_markers = (
+        "timeout",
+        "timed out",
+        "connection reset",
+        "connectionreset",
+        "temporarily unavailable",
+    )
     if isinstance(exc, UnknownOutcomeError) or any(m in name or m in text for m in unknown_markers):
         return "unknown"
     return "failed"

@@ -7,6 +7,7 @@ and execution_checkpoint_store persistence.
 Enabled when COGNITIVEOS_PRODUCTION_MODE or CAPABILITY_DISPATCH_DEDUP is set.
 Never raises; if Redis is unavailable, checkpoint-based resume still applies.
 """
+
 from __future__ import annotations
 
 import json
@@ -109,11 +110,13 @@ def complete_dispatch(execution_id: str, action_id: str, outcome: dict[str, Any]
     if client is None or not execution_id or not action_id:
         return False
     try:
-        payload = json.dumps({
-            "state": _COMPLETED,
-            "outcome": outcome,
-            "completed_at": time.time(),
-        })
+        payload = json.dumps(
+            {
+                "state": _COMPLETED,
+                "outcome": outcome,
+                "completed_at": time.time(),
+            }
+        )
         client.set(_key(execution_id, action_id), payload, ex=_DEFAULT_TTL_SECONDS)
         return True
     except Exception as exc:

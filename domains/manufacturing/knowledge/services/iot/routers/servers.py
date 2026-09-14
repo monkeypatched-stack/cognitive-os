@@ -17,6 +17,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedEdgeServerResponse)
 async def list_edge_servers(
     page: int = Query(1, ge=1),
@@ -24,10 +25,13 @@ async def list_edge_servers(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     servers, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedEdgeServerResponse(total=total, page=page, page_size=page_size, results=servers)
+    return PaginatedEdgeServerResponse(
+        total=total, page=page, page_size=page_size, results=servers
+    )
 
 
 # ── Get by facility ───────────────────────────────────────────────────────────
+
 
 @router.get("/by-facility/{facility}", response_model=list[EdgeServerResponse])
 async def list_edge_servers_by_facility(
@@ -39,6 +43,7 @@ async def list_edge_servers_by_facility(
 
 # ── Get by parent server ──────────────────────────────────────────────────────
 
+
 @router.get("/by-parent/{parent_server_id}", response_model=list[EdgeServerResponse])
 async def list_edge_servers_by_parent(
     parent_server_id: str,
@@ -48,6 +53,7 @@ async def list_edge_servers_by_parent(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{server_id}", response_model=EdgeServerResponse)
 async def get_edge_server(
@@ -65,7 +71,10 @@ async def get_edge_server(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=EdgeServerResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=EdgeServerResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_edge_server(
     data: EdgeServerCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -79,6 +88,7 @@ async def create_edge_server(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{server_id}", response_model=EdgeServerResponse)
 async def update_edge_server(
@@ -97,6 +107,7 @@ async def update_edge_server(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 @router.delete("/{server_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_edge_server(
     server_id: str,
@@ -110,6 +121,7 @@ async def delete_edge_server(
 
 
 # ── List sensors by server ────────────────────────────────────────────────────
+
 
 @router.get("/{server_id}/sensors", response_model=list[SensorResponse])
 async def list_sensors_by_edge_server(
@@ -126,6 +138,7 @@ async def list_sensors_by_edge_server(
 
 
 # ── Server health ─────────────────────────────────────────────────────────────
+
 
 @router.get("/{server_id}/health", response_model=EdgeServerResponse)
 async def get_edge_server_health(

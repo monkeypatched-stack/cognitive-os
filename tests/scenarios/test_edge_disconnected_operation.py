@@ -17,6 +17,7 @@ _init_persistence()'s own connect+ping raises, self._redis stays None) so
 every _load_*/_save_* method in kernel/society/integration.py takes its
 real edge-local fallback path, not a mocked one.
 """
+
 from __future__ import annotations
 
 import os
@@ -37,7 +38,10 @@ def disconnected_edge_env(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTOS_AUTH_REQUIRED", "false")
     monkeypatch.delenv("OFFLINE_SAFETY_GATE_ENABLED", raising=False)  # let the new edge-default apply
 
-    from src.monkey_brain.kernel.edge.local_store import reset_edge_local_store_for_tests
+    from src.monkey_brain.kernel.edge.local_store import (
+        reset_edge_local_store_for_tests,
+    )
+
     db_path = str(tmp_path / "edge_local_store.db")
     reset_edge_local_store_for_tests(db_path)
     yield db_path
@@ -45,7 +49,12 @@ def disconnected_edge_env(tmp_path, monkeypatch):
 
 
 def _profile(name: str):
-    from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+    from src.monkey_brain.kernel.society.domain import (
+        ActorIdentity,
+        ActorProfile,
+        ActorType,
+    )
+
     return ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN))
 
 
@@ -54,6 +63,7 @@ class TestEdgeDisconnectedOperation:
         """Sanity check the test's own premise before trusting anything
         downstream of it: this is not a mocked disconnection."""
         from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
+
         pr = PlanetaryRuntime()
         assert pr._redis is None, "test setup did not actually make Redis unreachable"
         assert pr._edge_local_store is not None, "offline-safety gate did not construct EdgeLocalStore for an edge node"
@@ -100,14 +110,21 @@ class TestEdgeDisconnectedOperation:
     def test_catalog_survives_disconnected_restart(self, disconnected_edge_env):
         """The operational catalog (products/stores — KG entities) is part
         of the same edge-local persistence, not a separate mechanism."""
-        from src.monkey_brain.kernel.domains.commerce import onboard_merchant, list_product
+        from src.monkey_brain.kernel.domains.commerce import (
+            onboard_merchant,
+            list_product,
+        )
         from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
         pr_a = PlanetaryRuntime()
         store = onboard_merchant(pr_a.knowledge_graph, "merchant-edge-test", "Edge Test Store")
         created = list_product(
-            pr_a.knowledge_graph, store["store_id"], "merchant-edge-test",
-            "Edge-Local Widget", price=4.20, quantity=7,
+            pr_a.knowledge_graph,
+            store["store_id"],
+            "merchant-edge-test",
+            "Edge-Local Widget",
+            price=4.20,
+            quantity=7,
         )
         assert created["success"], created
 
@@ -127,7 +144,10 @@ class TestEdgeDisconnectedOperation:
         from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
         from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
         from src.monkey_brain.kernel.pipeline.execution import Action
-        from src.monkey_brain.kernel.trusted_auth import bind_trusted_auth, evidence_for_service
+        from src.monkey_brain.kernel.trusted_auth import (
+            bind_trusted_auth,
+            evidence_for_service,
+        )
 
         pr = PlanetaryRuntime()
         assert pr._local_governance is not None, "edge_governance was not constructed for a disconnected edge node"
@@ -151,8 +171,15 @@ class TestEdgeDisconnectedOperation:
         # earlier while connected) — store it in the SAME EdgePolicyCache
         # pr._local_governance consults.
         snapshot = issue_policy_snapshot(
-            principal=principal, action="capability.PaymentCapability", resource="PaymentCapability",
-            policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE", "policy_rule": "test-allow", "risk_level": "LOW"},
+            principal=principal,
+            action="capability.PaymentCapability",
+            resource="PaymentCapability",
+            policy_decision={
+                "allowed": True,
+                "approval_mode": "AUTO_APPROVE",
+                "policy_rule": "test-allow",
+                "risk_level": "LOW",
+            },
         )
         pr._edge_policy_cache.store_snapshot(snapshot)
 
@@ -168,16 +195,26 @@ class TestEdgeDisconnectedOperation:
         the point is the governance boundary (ensure_governed) runs
         identically regardless of connectivity."""
         import asyncio
-        from src.monkey_brain.kernel.edge.ros_integration import FakeRosExecutionAdapter, run_ros_action_if_governed
+        from src.monkey_brain.kernel.edge.ros_integration import (
+            FakeRosExecutionAdapter,
+            run_ros_action_if_governed,
+        )
 
         adapter = FakeRosExecutionAdapter()
-        result = asyncio.run(run_ros_action_if_governed(
-            capability="MoveArm", resource="MoveArm", parameters={"x": 1, "y": 2},
-            adapter=adapter,
-            local_policy_decision={
-                "allowed": True, "approval_mode": "AUTO_APPROVE",
-                "reason": "test", "policy_rule": "test-allow", "risk_level": "LOW",
-            },
-        ))
+        result = asyncio.run(
+            run_ros_action_if_governed(
+                capability="MoveArm",
+                resource="MoveArm",
+                parameters={"x": 1, "y": 2},
+                adapter=adapter,
+                local_policy_decision={
+                    "allowed": True,
+                    "approval_mode": "AUTO_APPROVE",
+                    "reason": "test",
+                    "policy_rule": "test-allow",
+                    "risk_level": "LOW",
+                },
+            )
+        )
         assert result.get("success") is True
         assert adapter.calls and adapter.calls[0]["capability"] == "MoveArm"

@@ -10,6 +10,7 @@ from typing import Optional
 @dataclass
 class WorkOrder:
     """Work order entity — represents a unit of work in the manufacturing process."""
+
     id: str
     title: str
     status: str
@@ -23,6 +24,7 @@ class WorkOrder:
 @dataclass
 class Batch:
     """Batch entity — represents a production batch."""
+
     id: str
     batch_number: str
     product_name: str
@@ -38,6 +40,7 @@ class Batch:
 @dataclass
 class SOP:
     """SOP entity — Standard Operating Procedure."""
+
     id: str
     title: str
     version: str = ""
@@ -50,6 +53,7 @@ class SOP:
 @dataclass
 class ChangeControl:
     """Change control entity — manages changes to validated systems."""
+
     id: str
     title: str
     status: str
@@ -60,6 +64,7 @@ class ChangeControl:
 @dataclass
 class CalibrationRecord:
     """Calibration record entity — tracks equipment calibration."""
+
     id: str
     equipment_id: str
     equipment_name: str
@@ -71,6 +76,7 @@ class CalibrationRecord:
 @dataclass
 class MaintenanceEvent:
     """Maintenance event entity — tracks maintenance activities."""
+
     id: str
     equipment_id: str
     equipment_name: str
@@ -88,6 +94,7 @@ class MaintenanceEvent:
 @dataclass
 class Equipment:
     """Equipment entity — physical equipment in the plant."""
+
     id: str
     name: str
     category: str
@@ -101,6 +108,7 @@ class Equipment:
 @dataclass
 class Machine:
     """Machine entity — machines within workstations."""
+
     id: str
     name: str
     type_category: str
@@ -116,6 +124,7 @@ class Machine:
 @dataclass
 class Worker:
     """Worker entity — personnel in the plant."""
+
     id: str
     name: str
     title: str

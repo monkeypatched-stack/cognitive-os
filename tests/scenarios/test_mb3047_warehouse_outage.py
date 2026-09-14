@@ -12,10 +12,14 @@ offering products it can't actually fulfill. trace_supply_chain()
 reports exactly which link is broken. Once the warehouse recovers, the
 store's products are browsable again automatically.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import open_products
-from src.monkey_brain.kernel.domains.supply_chain import supply_chain_ok, trace_supply_chain
+from src.monkey_brain.kernel.domains.supply_chain import (
+    supply_chain_ok,
+    trace_supply_chain,
+)
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
 PRODUCT_ID = "p1"
@@ -25,14 +29,39 @@ WAREHOUSE_ID = "warehouse_1"
 
 def _seed(warehouse_status: str = "down") -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity(WAREHOUSE_ID, EntityType.ORGANIZATION, "Main Warehouse", {"status": warehouse_status})
-    kg.add_entity("truck_1", EntityType.ORGANIZATION, "Truck 1", {
-        "type": "truck", "assigned_warehouse_id": WAREHOUSE_ID, "status": "operational",
-    })
-    kg.add_entity(STORE_ID, EntityType.ORGANIZATION, "Corner Store", {"warehouse_id": WAREHOUSE_ID})
-    kg.add_entity(PRODUCT_ID, EntityType.ASSET, "Milk", {
-        "price": 3.0, "quantity": 10, "store_id": STORE_ID, "product": True,
-    })
+    kg.add_entity(
+        WAREHOUSE_ID,
+        EntityType.ORGANIZATION,
+        "Main Warehouse",
+        {"status": warehouse_status},
+    )
+    kg.add_entity(
+        "truck_1",
+        EntityType.ORGANIZATION,
+        "Truck 1",
+        {
+            "type": "truck",
+            "assigned_warehouse_id": WAREHOUSE_ID,
+            "status": "operational",
+        },
+    )
+    kg.add_entity(
+        STORE_ID,
+        EntityType.ORGANIZATION,
+        "Corner Store",
+        {"warehouse_id": WAREHOUSE_ID},
+    )
+    kg.add_entity(
+        PRODUCT_ID,
+        EntityType.ASSET,
+        "Milk",
+        {
+            "price": 3.0,
+            "quantity": 10,
+            "store_id": STORE_ID,
+            "product": True,
+        },
+    )
     return kg
 
 

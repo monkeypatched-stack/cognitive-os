@@ -1,10 +1,15 @@
 from __future__ import annotations
 
-from src.monkey_brain.kernel.predict.constraint.base import ISolver, SolverClass, SolverResult
+from src.monkey_brain.kernel.predict.constraint.base import (
+    ISolver,
+    SolverClass,
+    SolverResult,
+)
 
 
 class RuleEngineSolver(ISolver):
     """Deterministic rule-based solver."""
+
     name = "rule_engine"
     solver_class = SolverClass.RULE_ENGINE
 
@@ -18,7 +23,9 @@ class RuleEngineSolver(ISolver):
             if not rule.get("satisfied", True):
                 violations.append(rule.get("description", "rule violated"))
         return SolverResult(
-            solver_name=self.name, solver_class=self.solver_class,
+            solver_name=self.name,
+            solver_class=self.solver_class,
             solution={"violations": violations, "satisfied": len(violations) == 0},
-            confidence=0.95, proof=f"{len(violations)} violations found",
+            confidence=0.95,
+            proof=f"{len(violations)} violations found",
         )

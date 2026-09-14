@@ -23,7 +23,9 @@ async def list_cycle_counts(
     _: dict = Depends(require_permission("perm-view-inventory")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedCycleCountResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedCycleCountResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-warehouse/{warehouse_id}", response_model=list[CycleCountResponse])
@@ -68,7 +70,9 @@ async def get_cycle_count(
     return record
 
 
-@router.post("/", response_model=CycleCountResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=CycleCountResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_cycle_count(
     data: CycleCountCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

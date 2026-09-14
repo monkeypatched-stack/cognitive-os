@@ -22,6 +22,7 @@ def generate_architecture_review(charts_dir: Path, output_dir: Path) -> Path:
             continue
 
         import yaml
+
         values = yaml.safe_load(values_file.read_text()) or {}
         module = values.get("module", {})
         if not module:
@@ -142,7 +143,9 @@ def generate_governance_review(charts_dir: Path, output_dir: Path) -> Path:
     lines.append("| Module | Rule | Statement | Rejection |")
     lines.append("|--------|------|-----------|-----------|")
     for inv in critical:
-        lines.append(f"| {inv['module']} | {inv.get('rule', '?')} | {inv.get('statement', '?')[:60]} | {inv.get('rejection', '?')[:40]} |")
+        lines.append(
+            f"| {inv['module']} | {inv.get('rule', '?')} | {inv.get('statement', '?')[:60]} | {inv.get('rejection', '?')[:40]} |"
+        )
 
     # All principles
     lines.append("\n## Principles by Module\n")
@@ -200,7 +203,9 @@ def generate_coding_standards_review(charts_dir: Path, output_dir: Path) -> Path
     lines.append("| Capability | Operation | Method | Description |")
     lines.append("|------------|-----------|--------|-------------|")
     for cap_name, op in all_ops[:30]:
-        lines.append(f"| {cap_name} | {op.get('name', '?')} | {op.get('method', '?')} | {op.get('description', '?')[:50]} |")
+        lines.append(
+            f"| {cap_name} | {op.get('name', '?')} | {op.get('method', '?')} | {op.get('description', '?')[:50]} |"
+        )
 
     lines.append("\n## Standards Checklist\n")
     lines.append("- [ ] All public APIs have type hints")

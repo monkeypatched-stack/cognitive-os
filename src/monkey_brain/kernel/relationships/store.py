@@ -6,12 +6,15 @@ Provides:
 - Relationship aggregation and analytics
 - Import/Export for external systems
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 from . import (
-    RelationshipGraph, Relationship, RelationshipKind,
+    RelationshipGraph,
+    Relationship,
+    RelationshipKind,
 )
 
 logger = logging.getLogger("agentos.relationships.store")
@@ -34,9 +37,14 @@ class RelationshipStore:
 
     # ── Indexed Add ─────────────────────────────────────────────
 
-    def add(self, source_id: str, target_id: str,
-            kind: RelationshipKind | str = RelationshipKind.RELATED_TO,
-            strength: float = 0.5, **kwargs) -> Relationship:
+    def add(
+        self,
+        source_id: str,
+        target_id: str,
+        kind: RelationshipKind | str = RelationshipKind.RELATED_TO,
+        strength: float = 0.5,
+        **kwargs,
+    ) -> Relationship:
         """Add relationship with indexing."""
         rel = self.graph.add(source_id, target_id, kind, strength, **kwargs)
 
@@ -63,12 +71,15 @@ class RelationshipStore:
 
     # ── Advanced Queries ────────────────────────────────────────
 
-    def find(self, source_id: str | None = None,
-             target_id: str | None = None,
-             kind: RelationshipKind | None = None,
-             min_strength: float = 0.0,
-             max_strength: float = 1.0,
-             bidirectional_only: bool = False) -> list[Relationship]:
+    def find(
+        self,
+        source_id: str | None = None,
+        target_id: str | None = None,
+        kind: RelationshipKind | None = None,
+        min_strength: float = 0.0,
+        max_strength: float = 1.0,
+        bidirectional_only: bool = False,
+    ) -> list[Relationship]:
         """Advanced query with multiple filters."""
         results = self.graph.all_relationships()  # DIP: Use public API
 
@@ -94,9 +105,12 @@ class RelationshipStore:
         b_to_a = self.graph.relationships_between(entity_b, entity_a)
         return a_to_b + b_to_a
 
-    def find_strongest(self, entity_id: str,
-                       kind: RelationshipKind | None = None,
-                       min_strength: float = 0.0) -> Relationship | None:
+    def find_strongest(
+        self,
+        entity_id: str,
+        kind: RelationshipKind | None = None,
+        min_strength: float = 0.0,
+    ) -> Relationship | None:
         """Find the strongest relationship for an entity."""
         rels = self.graph.relationships_for(entity_id, kind=kind, min_strength=min_strength)
         return rels[0] if rels else None
@@ -154,8 +168,7 @@ class RelationshipStore:
                 target_id=rel_data["target_id"],
                 kind=rel_data.get("kind", RelationshipKind.RELATED_TO),
                 strength=rel_data.get("strength", 0.5),
-                **{k: v for k, v in rel_data.items()
-                   if k not in ("source_id", "target_id", "kind", "strength")}
+                **{k: v for k, v in rel_data.items() if k not in ("source_id", "target_id", "kind", "strength")},
             )
             results.append(rel)
         return results

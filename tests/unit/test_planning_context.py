@@ -3,19 +3,31 @@ PlanningContext assembly (ContextConstructionEngine), ranking/dedup/
 compression, provenance, LLMPlanner's dual-accepting plan()
 signature, and actor-specific personalization.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.learn.memory.manager import MemoryManager
 from src.monkey_brain.kernel.learn.memory.vector_backend import InMemoryVectorBackend
-from src.monkey_brain.kernel.learn.memory.graph_adapter import KnowledgeGraphMemoryAdapter
+from src.monkey_brain.kernel.learn.memory.graph_adapter import (
+    KnowledgeGraphMemoryAdapter,
+)
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
-from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
-from src.monkey_brain.kernel.pipeline.planning.domain import PlanningContext, RetrievedItem
+from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+    ContextConstructionEngine,
+)
+from src.monkey_brain.kernel.pipeline.planning.domain import (
+    PlanningContext,
+    RetrievedItem,
+)
 from src.monkey_brain.kernel.pipeline.belief_state import Goal, BeliefState
 from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
 
@@ -36,6 +48,7 @@ class _PersonalizingFakeBackend:
     actor's preferred store appears in the prompt text — proving
     personalization flows through the pipeline (what the backend is given
     to reason about), not a hardcoded multiplier in kernel code."""
+
     async def complete(self, prompt, system="", max_tokens=None, **kwargs):
         # Distinguish on the *experience* signal ("shops at wholefoods"),
         # not the shared fact data (both actors' belief.facts mention
@@ -43,14 +56,21 @@ class _PersonalizingFakeBackend:
         # between Alice's and Bob's retrieved context.
         preferred = "wholefoods" if "shops at wholefoods" in prompt.lower() else None
         store = preferred or "costco"
-        return json.dumps({
-            "steps": [{
-                "action": f"buy_at_{store}", "description": f"Buy milk at {store}"
-                + (" [PREFERRED]" if preferred else ""),
-                "expected_outcome": "milk acquired", "cost": 0.1, "confidence": 0.85,
-            }],
-            "summary": f"Buy at {store}", "confidence": 0.85,
-        })
+        return json.dumps(
+            {
+                "steps": [
+                    {
+                        "action": f"buy_at_{store}",
+                        "description": f"Buy milk at {store}" + (" [PREFERRED]" if preferred else ""),
+                        "expected_outcome": "milk acquired",
+                        "cost": 0.1,
+                        "confidence": 0.85,
+                    }
+                ],
+                "summary": f"Buy at {store}",
+                "confidence": 0.85,
+            }
+        )
 
 
 def _make_engine():
@@ -66,6 +86,7 @@ def _register(pr, name):
 
 
 # ── PlanningContext assembly is actor-specific ───────────────────────────
+
 
 def test_two_actors_same_goal_different_planning_contexts():
     pr, mm, kg, engine = _make_engine()
@@ -125,11 +146,24 @@ def test_different_contexts_produce_different_plans():
 
 # ── Ranking / Deduplication ────────────────────────────────────────────────
 
+
 def test_deduplication_keeps_highest_scored():
     _, _, _, engine = _make_engine()
     items = (
-        RetrievedItem(content="same fact", item_type="knowledge", source="a", confidence=0.5, retrieval_score=0.3),
-        RetrievedItem(content="same fact", item_type="knowledge", source="a", confidence=0.9, retrieval_score=0.9),
+        RetrievedItem(
+            content="same fact",
+            item_type="knowledge",
+            source="a",
+            confidence=0.5,
+            retrieval_score=0.3,
+        ),
+        RetrievedItem(
+            content="same fact",
+            item_type="knowledge",
+            source="a",
+            confidence=0.9,
+            retrieval_score=0.9,
+        ),
     )
     result = engine._rank_and_dedupe(items, set())
     assert len(result) == 1
@@ -139,7 +173,13 @@ def test_deduplication_keeps_highest_scored():
 def test_no_compression_frequent_same_source_items_all_preserved():
     _, _, _, engine = _make_engine()
     items = tuple(
-        RetrievedItem(content=f"visited costco trip {i}", item_type="experience", source="costco", confidence=0.9, retrieval_score=0.5)
+        RetrievedItem(
+            content=f"visited costco trip {i}",
+            item_type="experience",
+            source="costco",
+            confidence=0.9,
+            retrieval_score=0.5,
+        )
         for i in range(4)
     )
     result = engine._rank_and_dedupe(items, set())
@@ -150,8 +190,20 @@ def test_no_compression_frequent_same_source_items_all_preserved():
 def test_distinct_small_groups_all_preserved():
     _, _, _, engine = _make_engine()
     items = (
-        RetrievedItem(content="visited costco", item_type="experience", source="costco", confidence=0.9, retrieval_score=0.5),
-        RetrievedItem(content="visited wholefoods", item_type="experience", source="wholefoods", confidence=0.9, retrieval_score=0.5),
+        RetrievedItem(
+            content="visited costco",
+            item_type="experience",
+            source="costco",
+            confidence=0.9,
+            retrieval_score=0.5,
+        ),
+        RetrievedItem(
+            content="visited wholefoods",
+            item_type="experience",
+            source="wholefoods",
+            confidence=0.9,
+            retrieval_score=0.5,
+        ),
     )
     result = engine._rank_and_dedupe(items, set())
     assert len(result) == 2
@@ -171,10 +223,10 @@ def test_provenance_present_on_every_retrieved_item():
 
 # ── LLMPlanner dual-accepting signature ──────────────────────────────────
 
+
 def test_planner_accepts_planning_context_directly():
     ctx = PlanningContext(actor_id="a1", goal=Goal(name="test_goal"))
-    planner = LLMPlanner(backend=_FakeBackend(json.dumps(
-        {"steps": [], "summary": "", "confidence": 0.5})))
+    planner = LLMPlanner(backend=_FakeBackend(json.dumps({"steps": [], "summary": "", "confidence": 0.5})))
     plan = asyncio.run(planner.plan(ctx))
     assert plan.goal == "test_goal"
 
@@ -183,11 +235,23 @@ def test_planner_legacy_call_shape_unchanged():
     belief = BeliefState(actor_id="a1")
     belief.add_fact(entity="milk", attribute="stock", value=5, confidence=0.9)
     goal = Goal(name="acquire_milk")
-    backend = _FakeBackend(json.dumps({
-        "steps": [{"action": "buy_milk", "description": "Buy milk", "expected_outcome": "milk",
-                   "cost": 0.1, "confidence": 0.9}],
-        "summary": "Buy milk", "confidence": 0.9,
-    }))
+    backend = _FakeBackend(
+        json.dumps(
+            {
+                "steps": [
+                    {
+                        "action": "buy_milk",
+                        "description": "Buy milk",
+                        "expected_outcome": "milk",
+                        "cost": 0.1,
+                        "confidence": 0.9,
+                    }
+                ],
+                "summary": "Buy milk",
+                "confidence": 0.9,
+            }
+        )
+    )
     planner = LLMPlanner(backend=backend)
 
     plan_two_arg = asyncio.run(planner.plan(belief, goal))
@@ -204,6 +268,7 @@ def test_planner_empty_goal_returns_empty_plan():
 
 
 # ── MemoryManager semantic search ────────────────────────────────────────
+
 
 def test_memory_manager_search_ranks_by_similarity():
     mm = MemoryManager(InMemoryVectorBackend(), KnowledgeGraphMemoryAdapter(KnowledgeGraph()))

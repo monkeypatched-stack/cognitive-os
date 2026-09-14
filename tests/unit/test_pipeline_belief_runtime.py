@@ -3,6 +3,7 @@
 Validates lifecycle order, state propagation, error handling,
 BeliefState semantic API, and ownership boundaries.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -15,19 +16,34 @@ from src.monkey_brain.kernel.pipeline.contracts import (
     CompiledRequest,
     RuntimeContext,
 )
-from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState, WorldSnapshot
+from src.monkey_brain.kernel.pipeline.execution_state import (
+    CognitiveState,
+    WorldSnapshot,
+)
 from src.monkey_brain.kernel.pipeline.belief_state import (
-    BeliefState, BeliefSnapshot, Fact, Hypothesis, Assumption,
-    Observation, Intent, Goal, Plan, PlanStep, Prediction, LearnedUpdate,
-    Uncertainty, WorkingMemoryEntry, LongTermMemoryEntry,
+    BeliefState,
+    BeliefSnapshot,
+    Fact,
+    Hypothesis,
+    Assumption,
+    Observation,
+    Intent,
+    Goal,
+    Plan,
+    PlanStep,
+    Prediction,
+    LearnedUpdate,
+    Uncertainty,
+    WorkingMemoryEntry,
+    LongTermMemoryEntry,
 )
 from src.monkey_brain.kernel.pipeline.actor import Actor, ActorSnapshot
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _make_compiled(question: str = "get 2 l of milk") -> CompiledRequest:
     request = PipelineRequest(question=question, actor_id="user-1", tenant_id="acme")
@@ -52,6 +68,7 @@ def _make_context() -> RuntimeContext:
 # ═══════════════════════════════════════════════════════════════════════════
 # BeliefState Construction & API
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBeliefState:
     def test_construction_defaults(self):
@@ -103,7 +120,11 @@ class TestBeliefState:
 
     def test_update_goal(self):
         bs = BeliefState()
-        bs.update_goal(name="acquire_item", description="Get milk", success_criteria=["milk acquired"])
+        bs.update_goal(
+            name="acquire_item",
+            description="Get milk",
+            success_criteria=["milk acquired"],
+        )
         assert bs.goal.name == "acquire_item"
         assert bs.goal.success_criteria == ("milk acquired",)
 
@@ -205,6 +226,7 @@ class TestBeliefState:
 # via PlanetaryRuntime.restore_actor_belief()/checkpoint_actor_belief())
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBeliefStateRoundTrip:
     def _populated(self, actor_id: str = "a1", tenant_id: str = "t1") -> BeliefState:
         bs = BeliefState(actor_id=actor_id, tenant_id=tenant_id)
@@ -217,9 +239,7 @@ class TestBeliefStateRoundTrip:
         bs.record_prediction(description="milk in aisle 3", confidence=0.6, based_on=["fact:milk.aisle"])
         bs.record_learning(what="milk is in aisle 3", evidence=["fact:milk.aisle=3"], confidence=0.5)
         bs.add_to_working_memory("current_step", "planning", ttl_seconds=600)
-        bs.long_term_memory.append(
-            LongTermMemoryEntry(key="preferred_brand", value="acme-milk", confidence=0.85)
-        )
+        bs.long_term_memory.append(LongTermMemoryEntry(key="preferred_brand", value="acme-milk", confidence=0.85))
         bs.uncertainty.confidence = 0.77
         bs.uncertainty.confidence_by_source = {"sensor": 0.9}
         return bs
@@ -269,6 +289,7 @@ class TestBeliefStateRoundTrip:
         json.dumps/json.loads, not just Python dict identity — tuples
         become lists, which the dataclass constructors must tolerate."""
         import json
+
         original = self._populated()
         data = json.loads(json.dumps(original.to_dict()))
         restored = BeliefState.from_dict(data)
@@ -303,6 +324,7 @@ class TestBeliefStateRoundTrip:
         and generically in _json_safe (any set/frozenset anywhere in
         metadata), so this must hold for BOTH representations."""
         import json
+
         bs = self._populated()
         bs.metadata["_resolved_permissions"] = frozenset({"perm-a", "perm-b"})
         bs.metadata["_also_a_plain_set"] = {"x", "y", "z"}
@@ -328,6 +350,7 @@ class TestBeliefStateRoundTrip:
         breaking the frozen/immutable contract these dataclasses declare
         and any equality/hashing that assumes a real tuple."""
         import json
+
         bs = self._populated()
         bs.plan = replace(
             bs.plan,
@@ -337,7 +360,10 @@ class TestBeliefStateRoundTrip:
         restored = BeliefState.from_dict(data)
 
         step = restored.plan.steps[0]
-        assert isinstance(step.preconditions, tuple) and step.preconditions == ("p1", "p2")
+        assert isinstance(step.preconditions, tuple) and step.preconditions == (
+            "p1",
+            "p2",
+        )
         assert isinstance(step.depends_on, tuple) and step.depends_on == (0,)
 
         assert isinstance(restored.hypotheses[0].evidence, tuple)
@@ -362,6 +388,7 @@ class TestBeliefStateRoundTrip:
             assert isinstance(step, PlanStep)
         # And the resulting plan must itself survive a real round trip.
         import json
+
         restored = BeliefState.from_dict(json.loads(json.dumps(bs.to_dict())))
         assert [s.action for s in restored.plan.steps] == ["find_milk", "add_to_cart"]
 
@@ -369,6 +396,7 @@ class TestBeliefStateRoundTrip:
         """Multiple updates to the same field (not just a single write)
         must leave the LATEST state durable, not some earlier one."""
         import json
+
         bs = BeliefState(actor_id="a1")
         bs.update_goal(name="g1", description="first")
         bs.update_goal(name="g1", description="second")
@@ -391,27 +419,32 @@ class TestBeliefStateRoundTrip:
 # Value Object Immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestImmutability:
     def test_fact_frozen(self):
         from dataclasses import FrozenInstanceError
+
         f = Fact(entity="x", attribute="y", value=1)
         with pytest.raises(FrozenInstanceError):
             f.entity = "z"
 
     def test_hypothesis_frozen(self):
         from dataclasses import FrozenInstanceError
+
         h = Hypothesis(claim="test")
         with pytest.raises(FrozenInstanceError):
             h.claim = "changed"
 
     def test_observation_frozen(self):
         from dataclasses import FrozenInstanceError
+
         o = Observation(entity="x", description="saw x")
         with pytest.raises(FrozenInstanceError):
             o.entity = "y"
 
     def test_plan_frozen(self):
         from dataclasses import FrozenInstanceError
+
         p = Plan(steps=("a", "b"))
         with pytest.raises(FrozenInstanceError):
             p.steps = ()
@@ -421,6 +454,7 @@ class TestImmutability:
 # BeliefState in CognitiveState
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCognitiveStateIntegration:
     def test_belief_state_in_cognitive_state(self):
         cs = CognitiveState()
@@ -429,8 +463,8 @@ class TestCognitiveStateIntegration:
     def test_cognitive_state_has_no_observation_field(self):
         """Observations live in BeliefState, not CognitiveState."""
         cs = CognitiveState()
-        assert not hasattr(cs, 'observations')
-        assert hasattr(cs, 'plan')
+        assert not hasattr(cs, "observations")
+        assert hasattr(cs, "plan")
 
     def test_identity_fields(self):
         actor = Actor(actor_id="a1", tenant_id="t1")
@@ -450,6 +484,7 @@ class TestCognitiveStateIntegration:
 
     def test_goal_setter_updates_belief(self):
         from src.monkey_brain.kernel.pipeline.belief_state import Goal
+
         cs = CognitiveState()
         cs.goal = Goal(name="new_goal")
         assert cs.belief.goal.name == "new_goal"
@@ -505,6 +540,7 @@ class TestCognitiveStateIntegration:
 
     def test_world_snapshot_frozen(self):
         from dataclasses import FrozenInstanceError
+
         snap = WorldSnapshot(states=("a",), state_count=1)
         with pytest.raises(FrozenInstanceError):
             snap.state_count = 5
@@ -514,10 +550,12 @@ class TestCognitiveStateIntegration:
 # CognitiveRuntime Lifecycle
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLifecycleOrder:
     @pytest.mark.asyncio
     async def test_nine_stages_in_order(self):
         from src.monkey_brain.kernel.pipeline.cognitive_policy import CognitivePolicy
+
         call_order = []
 
         async def tracking_observe(s):
@@ -573,23 +611,41 @@ class TestLifecycleOrder:
         await rt.run(_make_compiled(), _make_context())
 
         assert call_order == [
-            "observe", "believe", "plan", "execute",
-            "observe_outcome", "learn", "compile_phi", "predict", "commit",
+            "observe",
+            "believe",
+            "plan",
+            "execute",
+            "observe_outcome",
+            "learn",
+            "compile_phi",
+            "predict",
+            "commit",
         ]
 
     @pytest.mark.asyncio
     async def test_each_stage_called_exactly_once(self):
         from src.monkey_brain.kernel.pipeline.cognitive_policy import CognitivePolicy
+
         counts = {}
 
         def make_counter(name):
             async def counted(s):
                 counts[name] = counts.get(name, 0) + 1
                 return s
+
             return counted
 
-        stages = ["observe", "believe", "plan", "execute",
-                  "observe_outcome", "learn", "compile_phi", "predict", "commit"]
+        stages = [
+            "observe",
+            "believe",
+            "plan",
+            "execute",
+            "observe_outcome",
+            "learn",
+            "compile_phi",
+            "predict",
+            "commit",
+        ]
 
         policy = CognitivePolicy()
         policy.configure(
@@ -614,6 +670,7 @@ class TestLifecycleOrder:
 # ═══════════════════════════════════════════════════════════════════════════
 # BeliefState in Runtime
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBeliefInRuntime:
     @pytest.mark.asyncio
@@ -682,6 +739,7 @@ class TestBeliefInRuntime:
     async def test_same_belief_throughout_lifecycle(self):
         """All stages receive the same BeliefState instance."""
         from src.monkey_brain.kernel.pipeline.cognitive_policy import CognitivePolicy
+
         captured = {}
 
         async def capture_observe(s):
@@ -721,6 +779,7 @@ class TestBeliefInRuntime:
 # Error Handling
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_stage_failure_continues_lifecycle(self):
@@ -759,9 +818,15 @@ class TestErrorHandling:
 
         policy = CognitivePolicy()
         policy.configure(
-            observe=fail, believe=fail, plan=fail, execute=fail,
-            observe_outcome=fail, learn=fail, compile_phi=fail,
-            predict=fail, commit=fail,
+            observe=fail,
+            believe=fail,
+            plan=fail,
+            execute=fail,
+            observe_outcome=fail,
+            learn=fail,
+            compile_phi=fail,
+            predict=fail,
+            commit=fail,
         )
 
         rt = CognitiveRuntime(policy=policy)
@@ -774,9 +839,11 @@ class TestErrorHandling:
 # Ownership Boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_compiler_imports(self):
         import ast, src.monkey_brain.kernel.pipeline.belief_runtime as mod
+
         tree = ast.parse(open(mod.__file__).read())
         imports = []
         for node in ast.walk(tree):
@@ -789,6 +856,7 @@ class TestOwnershipBoundary:
 
     def test_no_orchestrator_imports(self):
         import ast, src.monkey_brain.kernel.pipeline.belief_runtime as mod
+
         tree = ast.parse(open(mod.__file__).read())
         imports = []
         for node in ast.walk(tree):
@@ -804,6 +872,7 @@ class TestOwnershipBoundary:
 # ═══════════════════════════════════════════════════════════════════════════
 # Event Bus (CognitiveDelta publication)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestEventBusPublication:
     @pytest.mark.asyncio

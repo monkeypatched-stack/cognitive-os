@@ -36,6 +36,7 @@ domain modules finds ZERO production call sites that actually do this
 for a governed capability, i.e. the boundary is enforced by disciplined
 convention at every real call site, not by a structural barrier.
 """
+
 from __future__ import annotations
 
 import ast
@@ -48,7 +49,9 @@ DOMAIN_FILES = list((REPO_ROOT / "src" / "monkey_brain" / "kernel" / "domains").
 
 
 class TestDirectCapabilityInvocationIsPossibleInPrincipleButUnused:
-    def test_a_capability_object_has_no_self_defense_against_being_called_directly(self):
+    def test_a_capability_object_has_no_self_defense_against_being_called_directly(
+        self,
+    ):
         """Honest structural finding: governance is NOT enforced by the
         capability object itself (no metaclass/decorator on the base
         Capability class refuses a bare .handle() call) -- it is
@@ -81,7 +84,9 @@ class TestDirectCapabilityInvocationIsPossibleInPrincipleButUnused:
         ("grocery.py", "AnswerQuestionCapability"),
     }
 
-    def test_no_new_direct_capability_handle_calls_exist_beyond_the_known_read_only_ones(self):
+    def test_no_new_direct_capability_handle_calls_exist_beyond_the_known_read_only_ones(
+        self,
+    ):
         """AST-based (not regex) scan of every direct `X().handle(...)`
         or `x.handle(...)` call inside kernel/domains/*.py, excluding a
         capability class's own `def handle(self, ...)` definition. Any
@@ -92,7 +97,9 @@ class TestDirectCapabilityInvocationIsPossibleInPrincipleButUnused:
         for path in DOMAIN_FILES:
             tree = ast.parse(path.read_text(), filename=str(path))
             for node in ast.walk(tree):
-                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "handle"):
+                if not (
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "handle"
+                ):
                     continue
                 target = node.func.value
                 # Capability classes end in "Capability" by this
@@ -130,10 +137,14 @@ class TestRecoveryAndMigrationHandlersNeverInvokeCapabilitiesDirectly:
     scenario that could miss a call the real code doesn't actually
     make."""
 
-    def test_do_resume_and_do_start_never_call_ensure_governed_or_a_capability_handle(self):
+    def test_do_resume_and_do_start_never_call_ensure_governed_or_a_capability_handle(
+        self,
+    ):
         import inspect
 
-        from src.monkey_brain.kernel.society.actor_lifecycle_controller import ActorLifecycleController
+        from src.monkey_brain.kernel.society.actor_lifecycle_controller import (
+            ActorLifecycleController,
+        )
 
         for method_name in ("_do_resume", "_do_start", "_do_recover"):
             source = inspect.getsource(getattr(ActorLifecycleController, method_name))
@@ -151,7 +162,9 @@ class TestRecoveryAndMigrationHandlersNeverInvokeCapabilitiesDirectly:
 
 
 class TestScheduledJobsAndBackgroundTasksRouteThroughTheSameBoundary:
-    def test_auto_tick_loop_reaches_cognition_only_through_the_same_governed_tick_path(self):
+    def test_auto_tick_loop_reaches_cognition_only_through_the_same_governed_tick_path(
+        self,
+    ):
         """PlanetaryRuntime._auto_tick_loop (the literal 'scheduled job'
         Section 8 asks about) must not have its own separate execution
         path -- it must call into the same tick_one_actor/ActorRuntime.

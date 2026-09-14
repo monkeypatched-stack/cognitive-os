@@ -25,6 +25,7 @@ Two ways to feed it, because of one real integration wrinkle:
         live view, then observe_all() on the final result) gives one
         complete picture with no gaps and no double-counting.
 """
+
 from __future__ import annotations
 
 import time
@@ -33,9 +34,15 @@ from enum import Enum
 from typing import Any
 
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionContext, ExecutionMetrics, ExecutionOutcome, ExecutionStatus, ExecutionStep,
+    ExecutionContext,
+    ExecutionMetrics,
+    ExecutionOutcome,
+    ExecutionStatus,
+    ExecutionStep,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+)
 
 
 class TimelineEventType(Enum):
@@ -56,6 +63,7 @@ class TimelineEntry:
 @dataclass(frozen=True)
 class ExecutionTimeline:
     """The chronological record of everything an ExecutionMonitor observed."""
+
     entries: tuple[TimelineEntry, ...] = ()
 
     def events_for_step(self, step_id: str) -> tuple[TimelineEntry, ...]:
@@ -71,6 +79,7 @@ class ExecutionTimeline:
 @dataclass(frozen=True)
 class ExecutionProgress:
     """A point-in-time snapshot of how far an execution has gotten."""
+
     total_steps: int = 0
     completed_steps: int = 0
     """succeeded + failed + skipped — i.e. "done," regardless of outcome."""
@@ -116,7 +125,11 @@ class ExecutionMonitor:
 
     def dispatch(self, step: ExecutionStep, context: ExecutionContext | None = None) -> ExecutionOutcome:
         operator_name = step.operator.name if step.operator is not None else "?"
-        self._record(step.step_id, TimelineEventType.STEP_STARTED, f"dispatching '{operator_name}'")
+        self._record(
+            step.step_id,
+            TimelineEventType.STEP_STARTED,
+            f"dispatching '{operator_name}'",
+        )
         self._in_progress.add(step.step_id)
 
         outcome = self._registry.dispatch(step, context)
@@ -159,9 +172,13 @@ class ExecutionMonitor:
         total = self._total_steps if self._total_steps is not None else completed + in_progress
 
         return ExecutionProgress(
-            total_steps=total, completed_steps=completed,
-            succeeded_steps=succeeded, failed_steps=failed, skipped_steps=skipped,
-            in_progress_steps=in_progress, pending_steps=max(0, total - completed - in_progress),
+            total_steps=total,
+            completed_steps=completed,
+            succeeded_steps=succeeded,
+            failed_steps=failed,
+            skipped_steps=skipped,
+            in_progress_steps=in_progress,
+            pending_steps=max(0, total - completed - in_progress),
         )
 
     def metrics(self) -> ExecutionMetrics:
@@ -173,6 +190,10 @@ class ExecutionMonitor:
         total_duration = sum(o.duration_seconds for o in outcomes)
 
         return ExecutionMetrics(
-            total_steps=len(outcomes), succeeded=succeeded, failed=failed,
-            retried=retried, skipped=skipped, total_duration_seconds=round(total_duration, 4),
+            total_steps=len(outcomes),
+            succeeded=succeeded,
+            failed=failed,
+            retried=retried,
+            skipped=skipped,
+            total_duration_seconds=round(total_duration, 4),
         )

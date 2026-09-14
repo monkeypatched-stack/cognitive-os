@@ -16,6 +16,7 @@ This is intentionally a static map, not a learned/dynamic classifier — it
 mirrors capability_router.py's CAPABILITY_GROUPS in scope and maturity.
 Extend both together when a new capability group is added.
 """
+
 from __future__ import annotations
 
 from enum import Enum

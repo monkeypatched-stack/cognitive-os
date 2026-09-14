@@ -3,6 +3,7 @@
 Responsibility: Compile intent and goal into IntentIR.
 Depends on: intent IR builder, run store, routing
 """
+
 from __future__ import annotations
 
 import logging
@@ -57,12 +58,18 @@ class IntentCompiler(CompilerInterface, _EventPublishMixin):
 
         Returns None when the question doesn't resolve to any intent.
         """
-        from src.monkey_brain.kernel.plan.goals.compile import compile_intent as _compile
+        from src.monkey_brain.kernel.plan.goals.compile import (
+            compile_intent as _compile,
+        )
 
         ir = await _compile(question, target="execute", run_id=run_id, lemon=lemon, store=store)
         await self._publish(
             "intent.compiled" if ir is not None else "intent.compile_failed",
-            {"run_id": run_id, "target": "execute", "intent_type": ir.intent_type if ir else None},
+            {
+                "run_id": run_id,
+                "target": "execute",
+                "intent_type": ir.intent_type if ir else None,
+            },
         )
         return ir
 

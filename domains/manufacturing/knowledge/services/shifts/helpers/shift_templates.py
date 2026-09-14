@@ -4,7 +4,11 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.shifts.models.shift_template import ShiftTemplateCreate, ShiftTemplateResponse, ShiftTemplateUpdate
+from services.shifts.models.shift_template import (
+    ShiftTemplateCreate,
+    ShiftTemplateResponse,
+    ShiftTemplateUpdate,
+)
 
 COLLECTION = "shift_templates"
 
@@ -59,11 +63,20 @@ def _normalize_shift_template_record(doc: Optional[dict]) -> Optional[dict]:
     record = _serialize(doc)
     template_id = str(record.get("id") or record.get("template_id") or "SHIFT-TEMPLATE")
     record["id"] = template_id
-    record["plant_id"] = str(record.get("plant_id") or record.get("factory_id") or record.get("site_id") or "UNKNOWN-PLANT")
+    record["plant_id"] = str(
+        record.get("plant_id")
+        or record.get("factory_id")
+        or record.get("site_id")
+        or "UNKNOWN-PLANT"
+    )
     record.setdefault("name", template_id)
-    record["shift_type"] = _normalize_shift_type(record.get("shift_type"), record.get("name"))
+    record["shift_type"] = _normalize_shift_type(
+        record.get("shift_type"), record.get("name")
+    )
 
-    time_range = record.get("time_range") if isinstance(record.get("time_range"), dict) else {}
+    time_range = (
+        record.get("time_range") if isinstance(record.get("time_range"), dict) else {}
+    )
     start = _parse_time(time_range.get("start") or record.get("start_time"), time(6, 0))
     end = _parse_time(time_range.get("end") or record.get("end_time"), time(14, 0))
     if end <= start:

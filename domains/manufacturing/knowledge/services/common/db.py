@@ -43,7 +43,9 @@ class MirroredCollection:
         mem0_id = doc.get("mem0_state_id")
         if mem0_id:
             try:
-                from src.monkey_brain.memory.persistence_integration import load_mem0_state
+                from src.monkey_brain.memory.persistence_integration import (
+                    load_mem0_state,
+                )
 
                 state = await load_mem0_state(mem0_id)
                 if state and isinstance(state, dict) and state.get("raw_state"):
@@ -60,7 +62,9 @@ class MirroredCollection:
     def _compliance_enabled(self) -> bool:
         return self.name not in COMPLIANCE_EXCLUDED_COLLECTIONS
 
-    async def _emit_event(self, operation: str, document: dict | None, extra: dict | None = None) -> None:
+    async def _emit_event(
+        self, operation: str, document: dict | None, extra: dict | None = None
+    ) -> None:
         """Emit an event into the event store and attempt best-effort propagation tracking.
 
         This will record a document in `event_store` containing transaction id, timestamp,
@@ -150,7 +154,10 @@ class MirroredCollection:
                                     doc_filter = {"_id": document.get("_id")}
                                 if doc_filter:
                                     try:
-                                        await self._raw_db[self.name].update_one(doc_filter, {"$set": {"mem0_state_id": state_id}})
+                                        await self._raw_db[self.name].update_one(
+                                            doc_filter,
+                                            {"$set": {"mem0_state_id": state_id}},
+                                        )
                                     except Exception:
                                         # best-effort: ignore failures
                                         pass
@@ -178,14 +185,20 @@ class MirroredCollection:
 
     async def _record_version(self, document, action: str) -> None:
         if self._compliance_enabled() and isinstance(document, dict):
-            await append_record_version(self._raw_db, collection=self.name, record=document, action=action)
+            await append_record_version(
+                self._raw_db, collection=self.name, record=document, action=action
+            )
 
     async def _enforce_retention(self, document) -> None:
         if self._compliance_enabled() and isinstance(document, dict):
             try:
-                await enforce_retention(self._raw_db, collection=self.name, record=document)
+                await enforce_retention(
+                    self._raw_db, collection=self.name, record=document
+                )
             except PermissionError as exc:
-                raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(exc)) from exc
+                raise HTTPException(
+                    status_code=status.HTTP_423_LOCKED, detail=str(exc)
+                ) from exc
 
     async def _cleanup_bloat(self) -> None:
         await safe_mirror(cleanup_neo4j_bloat())
@@ -204,7 +217,9 @@ class MirroredCollection:
         return enriched
 
     async def insert_one(self, document, *args, **kwargs):
-        document = attach_entity_compliance_metadata(self.name, document, action="insert_one")
+        document = attach_entity_compliance_metadata(
+            self.name, document, action="insert_one"
+        )
         document = enrich_document_embedding(self.name, document)
         result = await self._collection.insert_one(document, *args, **kwargs)
         await self._record_version(document, "insert_one")
@@ -215,18 +230,31 @@ class MirroredCollection:
             result={"inserted_id": result.inserted_id},
         )
         await safe_mirror(mirror_document(self.name, document, "insert_one"))
-        await publish_cdc_event(collection=self.name, operation="insert_one", record=document, after=document, result={"inserted_id": result.inserted_id})
+        await publish_cdc_event(
+            collection=self.name,
+            operation="insert_one",
+            record=document,
+            after=document,
+            result={"inserted_id": result.inserted_id},
+        )
         await self._cleanup_bloat()
         # Event sourcing: record the mutation and propagate metadata
         try:
-            await self._emit_event("insert", document, extra={"result_id": str(result.inserted_id)})
+            await self._emit_event(
+                "insert", document, extra={"result_id": str(result.inserted_id)}
+            )
         except Exception:
             pass
         return result
 
     async def insert_many(self, documents, *args, **kwargs):
-        documents = [attach_entity_compliance_metadata(self.name, document, action="insert_many") for document in documents]
-        documents = [enrich_document_embedding(self.name, document) for document in documents]
+        documents = [
+            attach_entity_compliance_metadata(self.name, document, action="insert_many")
+            for document in documents
+        ]
+        documents = [
+            enrich_document_embedding(self.name, document) for document in documents
+        ]
         result = await self._collection.insert_many(documents, *args, **kwargs)
         for document, inserted_id in zip(documents, result.inserted_ids):
             await self._record_version(document, "insert_many")
@@ -238,7 +266,12 @@ class MirroredCollection:
             )
         for document in documents[: settings.NEO4J_MIRROR_MAX_DOCUMENTS]:
             await safe_mirror(mirror_document(self.name, document, "insert_many"))
-            await publish_cdc_event(collection=self.name, operation="insert_many", record=document, after=document)
+            await publish_cdc_event(
+                collection=self.name,
+                operation="insert_many",
+                record=document,
+                after=document,
+            )
         if len(documents) > settings.NEO4J_MIRROR_MAX_DOCUMENTS:
             await safe_mirror(
                 mirror_write_operation(
@@ -257,10 +290,22 @@ class MirroredCollection:
         return result
 
     async def find_one_and_update(self, filter, update, *args, **kwargs):
-        before = await self._collection.find_one(filter) if self._compliance_enabled() else None
-        update = attach_entity_compliance_update(self.name, update, action="find_one_and_update")
-        result = await self._collection.find_one_and_update(filter, update, *args, **kwargs)
-        await safe_mirror(mirror_write_operation(self.name, "find_one_and_update", filter, update, result))
+        before = (
+            await self._collection.find_one(filter)
+            if self._compliance_enabled()
+            else None
+        )
+        update = attach_entity_compliance_update(
+            self.name, update, action="find_one_and_update"
+        )
+        result = await self._collection.find_one_and_update(
+            filter, update, *args, **kwargs
+        )
+        await safe_mirror(
+            mirror_write_operation(
+                self.name, "find_one_and_update", filter, update, result
+            )
+        )
         if result:
             document = await self._find_after_document(filter, result)
             if document:
@@ -277,8 +322,18 @@ class MirroredCollection:
                     update=update,
                 )
                 await self._record_version(document, "find_one_and_update")
-                await safe_mirror(mirror_document(self.name, document, "find_one_and_update"))
-                await publish_cdc_event(collection=self.name, operation="find_one_and_update", record=document, before=before, after=document, filter=filter, update=update)
+                await safe_mirror(
+                    mirror_document(self.name, document, "find_one_and_update")
+                )
+                await publish_cdc_event(
+                    collection=self.name,
+                    operation="find_one_and_update",
+                    record=document,
+                    before=before,
+                    after=document,
+                    filter=filter,
+                    update=update,
+                )
         await self._cleanup_bloat()
         try:
             await self._emit_event("update", document, extra={"filter": filter})
@@ -287,11 +342,23 @@ class MirroredCollection:
         return result
 
     async def find_one_and_replace(self, filter, replacement, *args, **kwargs):
-        before = await self._collection.find_one(filter) if self._compliance_enabled() else None
-        replacement = attach_entity_compliance_metadata(self.name, replacement, action="find_one_and_replace")
+        before = (
+            await self._collection.find_one(filter)
+            if self._compliance_enabled()
+            else None
+        )
+        replacement = attach_entity_compliance_metadata(
+            self.name, replacement, action="find_one_and_replace"
+        )
         replacement = enrich_document_embedding(self.name, replacement)
-        result = await self._collection.find_one_and_replace(filter, replacement, *args, **kwargs)
-        await safe_mirror(mirror_write_operation(self.name, "find_one_and_replace", filter, replacement, result))
+        result = await self._collection.find_one_and_replace(
+            filter, replacement, *args, **kwargs
+        )
+        await safe_mirror(
+            mirror_write_operation(
+                self.name, "find_one_and_replace", filter, replacement, result
+            )
+        )
         if result:
             document = await self._find_after_document(filter, result)
             if document:
@@ -303,8 +370,17 @@ class MirroredCollection:
                     filter=filter,
                 )
                 await self._record_version(document, "find_one_and_replace")
-                await safe_mirror(mirror_document(self.name, document, "find_one_and_replace"))
-                await publish_cdc_event(collection=self.name, operation="find_one_and_replace", record=document, before=before, after=document, filter=filter)
+                await safe_mirror(
+                    mirror_document(self.name, document, "find_one_and_replace")
+                )
+                await publish_cdc_event(
+                    collection=self.name,
+                    operation="find_one_and_replace",
+                    record=document,
+                    before=before,
+                    after=document,
+                    filter=filter,
+                )
         await self._cleanup_bloat()
         try:
             await self._emit_event("replace", document, extra={"filter": filter})
@@ -323,10 +399,22 @@ class MirroredCollection:
                 before=result,
                 filter=filter,
             )
-        await safe_mirror(mirror_write_operation(self.name, "find_one_and_delete", filter, result=result))
+        await safe_mirror(
+            mirror_write_operation(
+                self.name, "find_one_and_delete", filter, result=result
+            )
+        )
         if result:
-            await safe_mirror(mirror_deleted_document(self.name, result, "find_one_and_delete"))
-            await publish_cdc_event(collection=self.name, operation="find_one_and_delete", record=result, before=result, filter=filter)
+            await safe_mirror(
+                mirror_deleted_document(self.name, result, "find_one_and_delete")
+            )
+            await publish_cdc_event(
+                collection=self.name,
+                operation="find_one_and_delete",
+                record=result,
+                before=result,
+                filter=filter,
+            )
         await self._cleanup_bloat()
         try:
             await self._emit_event("delete", result, extra={"filter": filter})
@@ -335,10 +423,16 @@ class MirroredCollection:
         return result
 
     async def update_one(self, filter, update, *args, **kwargs):
-        before = await self._collection.find_one(filter) if self._compliance_enabled() else None
+        before = (
+            await self._collection.find_one(filter)
+            if self._compliance_enabled()
+            else None
+        )
         update = attach_entity_compliance_update(self.name, update, action="update_one")
         result = await self._collection.update_one(filter, update, *args, **kwargs)
-        await safe_mirror(mirror_write_operation(self.name, "update_one", filter, update, result))
+        await safe_mirror(
+            mirror_write_operation(self.name, "update_one", filter, update, result)
+        )
         if result.matched_count or result.upserted_id:
             document = await self._find_after_write(filter, result)
             if document:
@@ -352,7 +446,10 @@ class MirroredCollection:
                     after=document,
                     filter=filter,
                     update=update,
-                    result={"matched_count": result.matched_count, "modified_count": result.modified_count},
+                    result={
+                        "matched_count": result.matched_count,
+                        "modified_count": result.modified_count,
+                    },
                 )
                 await self._record_version(document, "update_one")
                 await safe_mirror(mirror_document(self.name, document, "update_one"))
@@ -364,33 +461,54 @@ class MirroredCollection:
                     after=document,
                     filter=filter,
                     update=update,
-                    result={"matched_count": result.matched_count, "modified_count": result.modified_count},
+                    result={
+                        "matched_count": result.matched_count,
+                        "modified_count": result.modified_count,
+                    },
                 )
         await self._cleanup_bloat()
         try:
             # Emit update event with filter/update info
-            await self._emit_event("update", document, extra={"filter": filter, "update": update})
+            await self._emit_event(
+                "update", document, extra={"filter": filter, "update": update}
+            )
         except Exception:
             pass
         return result
 
     async def update_many(self, filter, update, *args, **kwargs):
-        update = attach_entity_compliance_update(self.name, update, action="update_many")
+        update = attach_entity_compliance_update(
+            self.name, update, action="update_many"
+        )
         before_documents = []
         if self._compliance_enabled():
-            cursor = self._collection.find(filter).limit(settings.NEO4J_MIRROR_MAX_DOCUMENTS)
+            cursor = self._collection.find(filter).limit(
+                settings.NEO4J_MIRROR_MAX_DOCUMENTS
+            )
             async for document in cursor:
                 before_documents.append(document)
         result = await self._collection.update_many(filter, update, *args, **kwargs)
-        await safe_mirror(mirror_write_operation(self.name, "update_many", filter, update, result))
+        await safe_mirror(
+            mirror_write_operation(self.name, "update_many", filter, update, result)
+        )
         if result.modified_count:
-            cursor = self._collection.find(filter).limit(settings.NEO4J_MIRROR_MAX_DOCUMENTS)
-            before_by_id = {str(document.get("_id")): document for document in before_documents if isinstance(document, dict)}
+            cursor = self._collection.find(filter).limit(
+                settings.NEO4J_MIRROR_MAX_DOCUMENTS
+            )
+            before_by_id = {
+                str(document.get("_id")): document
+                for document in before_documents
+                if isinstance(document, dict)
+            }
             async for document in cursor:
                 enriched = await self._persist_embedding(document)
                 if enriched:
                     document = enriched
-                before = before_by_id.get(str(document.get("_id"))) if isinstance(document, dict) else None
+                before = (
+                    before_by_id.get(str(document.get("_id")))
+                    if isinstance(document, dict)
+                    else None
+                )
                 await self._record_audit(
                     action="update_many",
                     record_id=document_record_id(document),
@@ -398,7 +516,10 @@ class MirroredCollection:
                     after=document,
                     filter=filter,
                     update=update,
-                    result={"matched_count": result.matched_count, "modified_count": result.modified_count},
+                    result={
+                        "matched_count": result.matched_count,
+                        "modified_count": result.modified_count,
+                    },
                 )
                 await self._record_version(document, "update_many")
                 await safe_mirror(mirror_document(self.name, document, "update_many"))
@@ -410,17 +531,32 @@ class MirroredCollection:
                     after=document,
                     filter=filter,
                     update=update,
-                    result={"matched_count": result.matched_count, "modified_count": result.modified_count},
+                    result={
+                        "matched_count": result.matched_count,
+                        "modified_count": result.modified_count,
+                    },
                 )
         await self._cleanup_bloat()
         return result
 
     async def replace_one(self, filter, replacement, *args, **kwargs):
-        before = await self._collection.find_one(filter) if self._compliance_enabled() else None
-        replacement = attach_entity_compliance_metadata(self.name, replacement, action="replace_one")
+        before = (
+            await self._collection.find_one(filter)
+            if self._compliance_enabled()
+            else None
+        )
+        replacement = attach_entity_compliance_metadata(
+            self.name, replacement, action="replace_one"
+        )
         replacement = enrich_document_embedding(self.name, replacement)
-        result = await self._collection.replace_one(filter, replacement, *args, **kwargs)
-        await safe_mirror(mirror_write_operation(self.name, "replace_one", filter, replacement, result))
+        result = await self._collection.replace_one(
+            filter, replacement, *args, **kwargs
+        )
+        await safe_mirror(
+            mirror_write_operation(
+                self.name, "replace_one", filter, replacement, result
+            )
+        )
         if result.matched_count or result.upserted_id:
             document = await self._find_after_write(filter, result)
             if document:
@@ -430,7 +566,10 @@ class MirroredCollection:
                     before=before,
                     after=document,
                     filter=filter,
-                    result={"matched_count": result.matched_count, "modified_count": result.modified_count},
+                    result={
+                        "matched_count": result.matched_count,
+                        "modified_count": result.modified_count,
+                    },
                 )
                 await self._record_version(document, "replace_one")
                 await safe_mirror(mirror_document(self.name, document, "replace_one"))
@@ -441,7 +580,10 @@ class MirroredCollection:
                     before=before,
                     after=document,
                     filter=filter,
-                    result={"matched_count": result.matched_count, "modified_count": result.modified_count},
+                    result={
+                        "matched_count": result.matched_count,
+                        "modified_count": result.modified_count,
+                    },
                 )
         await self._cleanup_bloat()
         return result
@@ -457,10 +599,22 @@ class MirroredCollection:
             "deleted_count": getattr(result, "deleted_count", 0),
             "upserted_count": getattr(result, "upserted_count", 0),
         }
-        if any(result_summary[key] for key in ("inserted_count", "matched_count", "modified_count", "deleted_count", "upserted_count")):
+        if any(
+            result_summary[key]
+            for key in (
+                "inserted_count",
+                "matched_count",
+                "modified_count",
+                "deleted_count",
+                "upserted_count",
+            )
+        ):
             await self._record_audit(
                 action="bulk_write",
-                update={"request_count": len(requests), "operation_types": [type(request).__name__ for request in requests]},
+                update={
+                    "request_count": len(requests),
+                    "operation_types": [type(request).__name__ for request in requests],
+                },
                 result=result_summary,
             )
         await safe_mirror(
@@ -486,16 +640,29 @@ class MirroredCollection:
                 filter=filter,
                 result={"deleted_count": result.deleted_count},
             )
-        await safe_mirror(mirror_write_operation(self.name, "delete_one", filter, result=result))
+        await safe_mirror(
+            mirror_write_operation(self.name, "delete_one", filter, result=result)
+        )
         if document and result.deleted_count:
-            await safe_mirror(mirror_deleted_document(self.name, document, "delete_one"))
-            await publish_cdc_event(collection=self.name, operation="delete_one", record=document, before=document, filter=filter, result={"deleted_count": result.deleted_count})
+            await safe_mirror(
+                mirror_deleted_document(self.name, document, "delete_one")
+            )
+            await publish_cdc_event(
+                collection=self.name,
+                operation="delete_one",
+                record=document,
+                before=document,
+                filter=filter,
+                result={"deleted_count": result.deleted_count},
+            )
         await self._cleanup_bloat()
         return result
 
     async def delete_many(self, filter, *args, **kwargs):
         documents = []
-        cursor = self._collection.find(filter).limit(settings.NEO4J_MIRROR_MAX_DOCUMENTS)
+        cursor = self._collection.find(filter).limit(
+            settings.NEO4J_MIRROR_MAX_DOCUMENTS
+        )
         async for document in cursor:
             documents.append(document)
         for document in documents:
@@ -510,11 +677,22 @@ class MirroredCollection:
                     filter=filter,
                     result={"deleted_count": result.deleted_count},
                 )
-        await safe_mirror(mirror_write_operation(self.name, "delete_many", filter, result=result))
+        await safe_mirror(
+            mirror_write_operation(self.name, "delete_many", filter, result=result)
+        )
         if result.deleted_count:
             for document in documents:
-                await safe_mirror(mirror_deleted_document(self.name, document, "delete_many"))
-                await publish_cdc_event(collection=self.name, operation="delete_many", record=document, before=document, filter=filter, result={"deleted_count": result.deleted_count})
+                await safe_mirror(
+                    mirror_deleted_document(self.name, document, "delete_many")
+                )
+                await publish_cdc_event(
+                    collection=self.name,
+                    operation="delete_many",
+                    record=document,
+                    before=document,
+                    filter=filter,
+                    result={"deleted_count": result.deleted_count},
+                )
         await self._cleanup_bloat()
         return result
 
@@ -536,6 +714,7 @@ def _tenant_wrap(collection):
     otherwise (system tasks). Single chokepoint — scopes every .find() site at once."""
     try:
         from services.common.tenant_scope import wrap
+
         return wrap(collection)
     except Exception:
         return collection
@@ -559,7 +738,9 @@ class MirroredDatabase:
         return value
 
     def get_collection(self, name, *args, **kwargs):
-        return _tenant_wrap(MirroredCollection(self._db.get_collection(name, *args, **kwargs)))
+        return _tenant_wrap(
+            MirroredCollection(self._db.get_collection(name, *args, **kwargs))
+        )
 
 
 def _redact_url(url: str) -> str:
@@ -568,6 +749,7 @@ def _redact_url(url: str) -> str:
         return ""
     try:
         from urllib.parse import urlsplit, urlunsplit
+
         p = urlsplit(url)
         if not (p.username or p.password):
             return url
@@ -583,8 +765,11 @@ def _mongo_options() -> dict:
     """Explicit timeouts: the driver default (serverSelectionTimeoutMS=30s) stalls EVERY
     operation for 30s when Mongo is unreachable, saturating the worker pool."""
     import os as _os
+
     return {
-        "serverSelectionTimeoutMS": int(_os.getenv("MONGO_SERVER_SELECTION_TIMEOUT_MS", "5000")),
+        "serverSelectionTimeoutMS": int(
+            _os.getenv("MONGO_SERVER_SELECTION_TIMEOUT_MS", "5000")
+        ),
         "connectTimeoutMS": int(_os.getenv("MONGO_CONNECT_TIMEOUT_MS", "5000")),
         "socketTimeoutMS": int(_os.getenv("MONGO_SOCKET_TIMEOUT_MS", "30000")),
         "maxPoolSize": int(_os.getenv("MONGO_MAX_POOL_SIZE", "100")),

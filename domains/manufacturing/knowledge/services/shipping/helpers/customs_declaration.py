@@ -41,7 +41,9 @@ def _prepare(value):
     return value
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -52,8 +54,12 @@ async def get_by_id(db: AsyncIOMotorDatabase, declaration_id: str) -> Optional[d
     return _serialize(await db[COLLECTION].find_one({"id": declaration_id}))
 
 
-async def get_by_reference(db: AsyncIOMotorDatabase, declaration_reference: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"declaration_reference": declaration_reference}))
+async def get_by_reference(
+    db: AsyncIOMotorDatabase, declaration_reference: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"declaration_reference": declaration_reference})
+    )
 
 
 async def get_by_type(db: AsyncIOMotorDatabase, declaration_type: str) -> list[dict]:
@@ -66,12 +72,16 @@ async def get_by_shipment(db: AsyncIOMotorDatabase, shipment_id: str) -> list[di
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_delivery_note(db: AsyncIOMotorDatabase, delivery_note_id: str) -> list[dict]:
+async def get_by_delivery_note(
+    db: AsyncIOMotorDatabase, delivery_note_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"delivery_note_id": delivery_note_id})
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_clearance(db: AsyncIOMotorDatabase, customs_cleared: bool) -> list[dict]:
+async def get_by_clearance(
+    db: AsyncIOMotorDatabase, customs_cleared: bool
+) -> list[dict]:
     cursor = db[COLLECTION].find({"customs_cleared": customs_cleared})
     return [_serialize(doc) async for doc in cursor]
 

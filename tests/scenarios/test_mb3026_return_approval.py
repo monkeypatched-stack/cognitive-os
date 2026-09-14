@@ -13,9 +13,14 @@ approved twice. Wired to a new ApproveReturnCapability wrapper,
 mirroring ReturnOrderCapability/CancelOrderCapability's own on-demand
 convention.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.domains.grocery import ApproveReturnCapability, approve_return, return_order
+from src.monkey_brain.kernel.domains.grocery import (
+    ApproveReturnCapability,
+    approve_return,
+    return_order,
+)
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
 ORDER_ID = "ORD-1"
@@ -23,13 +28,26 @@ ORDER_ID = "ORD-1"
 
 def _seed_delivered_order() -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity("wallet_1", EntityType.ACCOUNT, "Alice Wallet", {"account_type": "debit", "balance": 20.0})
+    kg.add_entity(
+        "wallet_1",
+        EntityType.ACCOUNT,
+        "Alice Wallet",
+        {"account_type": "debit", "balance": 20.0},
+    )
     kg.add_entity("prod_1", EntityType.ASSET, "Oat Milk", {"price": 4.5, "quantity": 5})
-    kg.add_entity(ORDER_ID, EntityType.EVENT, "Grocery Order", {
-        "items": [{"product_id": "prod_1", "qty": 2}],
-        "total": 9.0, "status": "delivered",
-        "paid_wallet_id": "wallet_1", "paid_amount": 9.0, "payment_status": "paid",
-    })
+    kg.add_entity(
+        ORDER_ID,
+        EntityType.EVENT,
+        "Grocery Order",
+        {
+            "items": [{"product_id": "prod_1", "qty": 2}],
+            "total": 9.0,
+            "status": "delivered",
+            "paid_wallet_id": "wallet_1",
+            "paid_amount": 9.0,
+            "payment_status": "paid",
+        },
+    )
     return kg
 
 
@@ -96,9 +114,15 @@ def test_mb3026_approve_return_via_capability_wrapper():
     _requested_return(kg)
     cap = ApproveReturnCapability()
 
-    result = cap.handle({"context": {
-        "knowledge_graph": kg, "order_id": ORDER_ID, "actor_id": "merchant",
-    }})
+    result = cap.handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "order_id": ORDER_ID,
+                "actor_id": "merchant",
+            }
+        }
+    )
 
     assert result["success"] is True
     assert kg.get_entity(ORDER_ID).attributes["status"] == "returned"

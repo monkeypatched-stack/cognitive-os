@@ -2,10 +2,10 @@
 
 import re
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _get_plant_names(db):
     locs = db["plant_locations"]
@@ -55,18 +55,19 @@ async def _find_worker_by_name(db, name_pattern):
 # Plant-level queries
 # ---------------------------------------------------------------------------
 
+
 async def _answer_plant_query(db, question):
     q = question.lower()
     plants = await _get_plant_names(db)
 
     # "how many plants"
-    if re.search(r'how many plant|plant count|number of plant', q):
+    if re.search(r"how many plant|plant count|number of plant", q):
         count = len(plants)
         names = ", ".join(plants.values())
         return f"There {'is' if count == 1 else 'are'} {count} plant{'s' if count != 1 else ''}: {names}."
 
     # "name of the plant" / "what is the plant"
-    if re.search(r'name of the plant|what is the plant|which plant', q):
+    if re.search(r"name of the plant|what is the plant|which plant", q):
         names = ", ".join(plants.values())
         return f"The plant{'s' if len(plants) > 1 else ''} in the system: {names}."
 
@@ -91,7 +92,7 @@ async def _answer_plant_query(db, question):
         return "No plant found in the system."
 
     # Lines in plant
-    if re.search(r'line[s]?\b', q):
+    if re.search(r"line[s]?\b", q):
         machines = db["pharmaceutical_machines"]
         line_ids = await machines.distinct("line_id")
         if not line_ids:
@@ -103,7 +104,7 @@ async def _answer_plant_query(db, question):
         return f"Lines in {plant_name}:\n" + "\n".join(lines)
 
     # Location
-    if re.search(r'\blocation\b|\bwhere\b|\baddress\b|\bcity\b|\bcountry\b', q):
+    if re.search(r"\blocation\b|\bwhere\b|\baddress\b|\bcity\b|\bcountry\b", q):
         locs = db["plant_locations"]
         doc = await locs.find_one({"type": "plant", "level": 1, "name": plant_name})
         if doc:
@@ -116,7 +117,7 @@ async def _answer_plant_query(db, question):
         return f"Location details for {plant_name} not available in structured data."
 
     # Manager
-    if re.search(r'manager|who.*manage|plant manager', q):
+    if re.search(r"manager|who.*manage|plant manager", q):
         workers = db["workers"]
         cursor = workers.find({"role": "manager"}).limit(5)
         docs = await cursor.to_list(5)
@@ -128,7 +129,7 @@ async def _answer_plant_query(db, question):
         return f"No manager found for {plant_name}."
 
     # Emergency contact
-    if re.search(r'emergency|contact|safety', q):
+    if re.search(r"emergency|contact|safety", q):
         workers = db["workers"]
         doc = await workers.find_one({"role": "safety"})
         if doc:
@@ -136,7 +137,7 @@ async def _answer_plant_query(db, question):
         return f"No emergency contact found for {plant_name}."
 
     # Utilities
-    if re.search(r'utilit|power|water|gas|steam|hvac', q):
+    if re.search(r"utilit|power|water|gas|steam|hvac", q):
         machines = db["pharmaceutical_machines"]
         utility_machines = await _find_entity(machines, "AHU")
         utility_machines += await _find_entity(machines, "Hot Water Generator")
@@ -155,14 +156,14 @@ async def _answer_plant_query(db, question):
         return f"No utility information found for {plant_name}."
 
     # Capacity
-    if re.search(r'capacity|throughput|output', q):
+    if re.search(r"capacity|throughput|output", q):
         machines = db["pharmaceutical_machines"]
         count = await machines.count_documents({})
         lines_ids = await machines.distinct("line_id")
         return f"Capacity overview for {plant_name}:\n  - {len(lines_ids)} production lines\n  - {count} machines total"
 
     # Shift schedule
-    if re.search(r'shift|schedule|roster', q):
+    if re.search(r"shift|schedule|roster", q):
         workers = db["workers"]
         count = await workers.count_documents({})
         roles = {}
@@ -173,13 +174,13 @@ async def _answer_plant_query(db, question):
         return f"Workforce at {plant_name}: {count} workers — {role_str}.\nShift schedule details not available in current data."
 
     # Certifications
-    if re.search(r'certif|accredit|qualif|compliance', q):
+    if re.search(r"certif|accredit|qualif|compliance", q):
         sops = db["sops"]
         count = await sops.count_documents({})
         return f"{plant_name} has {count} SOPs/documents covering compliance and quality procedures. Specific certification records not available in current data."
 
     # Utilization
-    if re.search(r'utili[sz]ation|efficiency|oee|performance', q):
+    if re.search(r"utili[sz]ation|efficiency|oee|performance", q):
         batches = db["production_batches"]
         total = await batches.count_documents({})
         completed = await batches.count_documents({"status": {"$in": ["Approved", "Released", "Completed"]}})
@@ -198,6 +199,7 @@ async def _answer_plant_query(db, question):
 # ---------------------------------------------------------------------------
 # Line-level queries
 # ---------------------------------------------------------------------------
+
 
 async def _answer_line_query(db, question):
     q = question.lower()
@@ -230,7 +232,7 @@ async def _answer_line_query(db, question):
         return "No production lines found."
 
     # "list all lines"
-    if re.search(r'list all line|all line|what line', q) and not re.search(r'tablet line|capsule line', q):
+    if re.search(r"list all line|all line|what line", q) and not re.search(r"tablet line|capsule line", q):
         lines = []
         for lid in sorted(line_ids):
             count = await machines.count_documents({"line_id": lid})
@@ -240,12 +242,14 @@ async def _answer_line_query(db, question):
         return f"Production lines:\n" + "\n".join(lines)
 
     # Stages in line
-    if re.search(r'stage[s]?\b', q):
-        cursor = machines.aggregate([
-            {"$match": {"line_id": line_id}},
-            {"$group": {"_id": "$stage_id"}},
-            {"$sort": {"_id": 1}}
-        ])
+    if re.search(r"stage[s]?\b", q):
+        cursor = machines.aggregate(
+            [
+                {"$match": {"line_id": line_id}},
+                {"$group": {"_id": "$stage_id"}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
         stages = []
         async for doc in cursor:
             sid = doc["_id"]
@@ -259,17 +263,22 @@ async def _answer_line_query(db, question):
         return f"No stages found for {line_id}."
 
     # Type
-    if re.search(r'\btype\b|kind|category', q):
+    if re.search(r"\btype\b|kind|category", q):
         categories = await machines.distinct("type_category", {"line_id": line_id})
         if categories:
             return f"Machine types in {line_id}: {', '.join(categories)}"
         return f"No type information for {line_id}."
 
     # Manager/supervisor
-    if re.search(r'manager|supervisor|who.*manage|lead', q):
+    if re.search(r"manager|supervisor|who.*manage|lead", q):
         workers = db["workers"]
         ws_ids = await db["workstations"].distinct("workstation_id", {"line_id": line_id})
-        cursor = workers.find({"workstation_id": {"$in": ws_ids}, "role": {"$in": ["supervisor", "manager"]}}).limit(5)
+        cursor = workers.find(
+            {
+                "workstation_id": {"$in": ws_ids},
+                "role": {"$in": ["supervisor", "manager"]},
+            }
+        ).limit(5)
         docs = await cursor.to_list(5)
         if docs:
             lines = [f"Management for {line_id}:"]
@@ -279,11 +288,15 @@ async def _answer_line_query(db, question):
         return f"No supervisor/manager found for {line_id}."
 
     # Takt time
-    if re.search(r'takt|cycle time|beat', q):
+    if re.search(r"takt|cycle time|beat", q):
         wss = db["workstations"]
         cursor = wss.find({"line_id": line_id}).limit(10)
         docs = await cursor.to_list(10)
-        times = [(d.get("name", "?"), d.get("cycle_time_target"), d.get("cycle_time_actual")) for d in docs if d.get("cycle_time_target")]
+        times = [
+            (d.get("name", "?"), d.get("cycle_time_target"), d.get("cycle_time_actual"))
+            for d in docs
+            if d.get("cycle_time_target")
+        ]
         if times:
             lines = [f"Takt/cycle times for {line_id}:"]
             for name, target, actual in times:
@@ -292,16 +305,23 @@ async def _answer_line_query(db, question):
         return f"No takt time data for {line_id}."
 
     # Capacity
-    if re.search(r'capacity|throughput|output', q):
+    if re.search(r"capacity|throughput|output", q):
         m_count = await machines.count_documents({"line_id": line_id})
         wss = db["workstations"]
         ws_count = await wss.count_documents({"line_id": line_id})
         return f"Capacity for {line_id}: {m_count} machines, {ws_count} workstations"
 
     # Certifications
-    if re.search(r'certif|accredit|qualif', q):
+    if re.search(r"certif|accredit|qualif", q):
         sops = db["sops"]
-        cursor = sops.find({"$or": [{"line_id": line_id}, {"title": {"$regex": line_id, "$options": "i"}}]}).limit(10)
+        cursor = sops.find(
+            {
+                "$or": [
+                    {"line_id": line_id},
+                    {"title": {"$regex": line_id, "$options": "i"}},
+                ]
+            }
+        ).limit(10)
         docs = await cursor.to_list(10)
         if docs:
             lines = [f"SOPs/certifications for {line_id}:"]
@@ -322,6 +342,7 @@ async def _answer_line_query(db, question):
 # ---------------------------------------------------------------------------
 # Stage-level queries
 # ---------------------------------------------------------------------------
+
 
 async def _answer_stage_query(db, question):
     q = question.lower()
@@ -356,19 +377,24 @@ async def _answer_stage_query(db, question):
             line_id = lid
             break
     if not line_id:
-        for pattern, lid in {"tablet line": "LINE-TAB-001", "capsule line": "LINE-CAP-001"}.items():
+        for pattern, lid in {
+            "tablet line": "LINE-TAB-001",
+            "capsule line": "LINE-CAP-001",
+        }.items():
             if pattern in q:
                 line_id = lid
                 break
 
     # "list all stages"
-    if re.search(r'list all stage|all stage|what stage', q):
+    if re.search(r"list all stage|all stage|what stage", q):
         filter_q = {"line_id": line_id} if line_id else {}
-        cursor = machines.aggregate([
-            {"$match": filter_q},
-            {"$group": {"_id": "$stage_id", "line": {"$first": "$line_id"}}},
-            {"$sort": {"_id": 1}}
-        ])
+        cursor = machines.aggregate(
+            [
+                {"$match": filter_q},
+                {"$group": {"_id": "$stage_id", "line": {"$first": "$line_id"}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
         stages = []
         async for doc in cursor:
             sid = doc["_id"]
@@ -386,13 +412,17 @@ async def _answer_stage_query(db, question):
         return "Could not identify the stage from the question."
 
     # Takt time
-    if re.search(r'takt|cycle time|beat', q):
+    if re.search(r"takt|cycle time|beat", q):
         filter_q = {"stage_id": stage_id}
         if line_id:
             filter_q["line_id"] = line_id
         cursor = wss.find(filter_q).limit(10)
         docs = await cursor.to_list(10)
-        times = [(d.get("name", "?"), d.get("cycle_time_target"), d.get("cycle_time_actual")) for d in docs if d.get("cycle_time_target")]
+        times = [
+            (d.get("name", "?"), d.get("cycle_time_target"), d.get("cycle_time_actual"))
+            for d in docs
+            if d.get("cycle_time_target")
+        ]
         if times:
             lines = [f"Takt times for stage {stage_id}:"]
             for name, target, actual in times:
@@ -401,7 +431,7 @@ async def _answer_stage_query(db, question):
         return f"No takt time data for stage {stage_id}."
 
     # Efficiency
-    if re.search(r'efficien|performance|output|yield', q):
+    if re.search(r"efficien|performance|output|yield", q):
         filter_q = {"stage_id": stage_id}
         if line_id:
             filter_q["line_id"] = line_id
@@ -410,7 +440,7 @@ async def _answer_stage_query(db, question):
         return f"Stage {stage_id}: {m_count} machines, {ws_count} workstations.\nEfficiency metrics not available in current data."
 
     # Workstations
-    if re.search(r'workstation[s]?|station[s]?|who.*work|operator', q):
+    if re.search(r"workstation[s]?|station[s]?|who.*work|operator", q):
         filter_q = {"stage_id": stage_id}
         if line_id:
             filter_q["line_id"] = line_id
@@ -419,7 +449,9 @@ async def _answer_stage_query(db, question):
         if docs:
             lines = [f"Workstations in stage {stage_id}:"]
             for d in docs:
-                lines.append(f"  - {d.get('name', '?')} ({d.get('workstation_id', '?')}): operator={d.get('operator', 'N/A')}, status={d.get('status', '?')}")
+                lines.append(
+                    f"  - {d.get('name', '?')} ({d.get('workstation_id', '?')}): operator={d.get('operator', 'N/A')}, status={d.get('status', '?')}"
+                )
             return "\n".join(lines)
         return f"No workstations found for stage {stage_id}."
 
@@ -435,6 +467,7 @@ async def _answer_stage_query(db, question):
 # ---------------------------------------------------------------------------
 # Workstation-level queries
 # ---------------------------------------------------------------------------
+
 
 async def _answer_workstation_query(db, question):
     q = question.lower()
@@ -457,7 +490,10 @@ async def _answer_workstation_query(db, question):
             line_id = lid
             break
     if not line_id:
-        for pattern, lid in {"tablet line": "LINE-TAB-001", "capsule line": "LINE-CAP-001"}.items():
+        for pattern, lid in {
+            "tablet line": "LINE-TAB-001",
+            "capsule line": "LINE-CAP-001",
+        }.items():
             if pattern in q:
                 line_id = lid
                 break
@@ -478,11 +514,13 @@ async def _answer_workstation_query(db, question):
         return f"Workstation {ws_id} not found."
 
     # Worker/operator
-    if re.search(r'worker|operator|who.*work|staff|person', q):
-        return f"Worker at {doc.get('name', ws_id)}:\n  - {doc.get('operator', 'N/A')} (station: {doc.get('name', '?')})"
+    if re.search(r"worker|operator|who.*work|staff|person", q):
+        return (
+            f"Worker at {doc.get('name', ws_id)}:\n  - {doc.get('operator', 'N/A')} (station: {doc.get('name', '?')})"
+        )
 
     # Machines
-    if re.search(r'machine[s]?|equipment|device', q):
+    if re.search(r"machine[s]?|equipment|device", q):
         cursor = machines.find({"workstation_id": ws_id})
         docs = await cursor.to_list(20)
         if docs:
@@ -493,7 +531,7 @@ async def _answer_workstation_query(db, question):
         return f"No machines found at {doc.get('name', ws_id)}."
 
     # Equipment (from pharmaceutical_equipment)
-    if re.search(r'equipment|instrument|tool', q):
+    if re.search(r"equipment|instrument|tool", q):
         equip = db["pharmaceutical_equipment"]
         cursor = equip.find({"workstation_id": ws_id})
         docs = await cursor.to_list(20)
@@ -505,7 +543,7 @@ async def _answer_workstation_query(db, question):
         return f"No equipment found at {doc.get('name', ws_id)}."
 
     # Constraints
-    if re.search(r'constraint|limit|bottleneck|capacity', q):
+    if re.search(r"constraint|limit|bottleneck|capacity", q):
         lines = [
             f"Workstation {doc.get('name', ws_id)}:",
             f"  - Status: {doc.get('status', '?')}",
@@ -532,6 +570,7 @@ async def _answer_workstation_query(db, question):
 # ---------------------------------------------------------------------------
 # Machine-level queries
 # ---------------------------------------------------------------------------
+
 
 async def _answer_machine_query(db, question):
     q = question.lower()
@@ -566,7 +605,10 @@ async def _answer_machine_query(db, question):
             line_id = lid
             break
     if not line_id:
-        for pattern, lid in {"tablet line": "LINE-TAB-001", "capsule line": "LINE-CAP-001"}.items():
+        for pattern, lid in {
+            "tablet line": "LINE-TAB-001",
+            "capsule line": "LINE-CAP-001",
+        }.items():
             if pattern in q:
                 line_id = lid
                 break
@@ -583,33 +625,37 @@ async def _answer_machine_query(db, question):
         return f"Machine '{machine_name}' not found" + (f" on {line_id}" if line_id else "") + "."
 
     # Manufacturer
-    if re.search(r'manufacturer|maker|brand|vendor|supplier', q):
+    if re.search(r"manufacturer|maker|brand|vendor|supplier", q):
         return f"Manufacturer for {doc.get('name', '?')}:\n  - {doc.get('manufacturer', 'N/A')}\n  - Model: {doc.get('model_no', 'N/A')}\n  - Serial: {doc.get('serial_no', 'N/A')}"
 
     # Location
-    if re.search(r'location|where|plant|line|stage|station', q):
+    if re.search(r"location|where|plant|line|stage|station", q):
         return f"Location for {doc.get('name', '?')}:\n  - Plant: {doc.get('plant_id', '?')}\n  - Line: {doc.get('line_id', '?')}\n  - Stage: {doc.get('stage_id', '?')}\n  - Workstation: {doc.get('workstation_id', '?')}"
 
     # Taxonomy
-    if re.search(r'taxonom|type|category|class', q):
+    if re.search(r"taxonom|type|category|class", q):
         return f"Taxonomy for {doc.get('name', '?')}:\n  - Type: {doc.get('type_category', 'N/A')}\n  - Area classification: {doc.get('area_classification', 'N/A')}"
 
     # Maintenance frequency
-    if re.search(r'mainten|service|frequency|schedule|preventive', q):
+    if re.search(r"mainten|service|frequency|schedule|preventive", q):
         return f"Maintenance for {doc.get('name', '?')}:\n  - Specific maintenance schedule not available in current data.\n  - Check work orders for maintenance history."
 
     # Lifecycle
-    if re.search(r'lifecycle|install|commission|decommission|age|date', q):
+    if re.search(r"lifecycle|install|commission|decommission|age|date", q):
         return f"Lifecycle for {doc.get('name', '?')}:\n  - Created: {doc.get('created_at', 'N/A')}\n  - Updated: {doc.get('updated_at', 'N/A')}"
 
     # Work orders
-    if re.search(r'work.?order|WO|calibration|maintenance event', q):
+    if re.search(r"work.?order|WO|calibration|maintenance event", q):
         wo = db["work_orders"]
-        cursor = wo.find({"$or": [
-            {"title": {"$regex": machine_name, "$options": "i"}},
-            {"description": {"$regex": machine_name, "$options": "i"}},
-            {"equipment_name": {"$regex": machine_name, "$options": "i"}},
-        ]}).limit(10)
+        cursor = wo.find(
+            {
+                "$or": [
+                    {"title": {"$regex": machine_name, "$options": "i"}},
+                    {"description": {"$regex": machine_name, "$options": "i"}},
+                    {"equipment_name": {"$regex": machine_name, "$options": "i"}},
+                ]
+            }
+        ).limit(10)
         docs = await cursor.to_list(10)
         if docs:
             lines = [f"Work orders for {machine_name}:"]
@@ -619,7 +665,7 @@ async def _answer_machine_query(db, question):
         return f"No work orders found for {machine_name}."
 
     # Status
-    if re.search(r'status|state|condition|operational|running|down', q):
+    if re.search(r"status|state|condition|operational|running|down", q):
         return f"Status for {doc.get('name', '?')} ({doc.get('machine_id', '?')}):\n  - Status: {doc.get('status', 'N/A')}\n  - Description: {doc.get('description', 'N/A')}"
 
     # Default: machine summary
@@ -637,6 +683,7 @@ async def _answer_machine_query(db, question):
 # ---------------------------------------------------------------------------
 # Equipment-level queries
 # ---------------------------------------------------------------------------
+
 
 async def _answer_equipment_query(db, question):
     q = question.lower()
@@ -672,7 +719,7 @@ async def _answer_equipment_query(db, question):
         return f"Equipment '{equip_name}' not found."
 
     # Specification
-    if re.search(r'spec|detail|info|what is|describe', q):
+    if re.search(r"spec|detail|info|what is|describe", q):
         lines = [f"Specification for {doc.get('name', '?')}:"]
         for k, v in doc.items():
             if k not in ("_id", "created_at", "updated_at") and v:
@@ -680,20 +727,29 @@ async def _answer_equipment_query(db, question):
         return "\n".join(lines)
 
     # Location
-    if re.search(r'location|where|plant|line|stage|station', q):
+    if re.search(r"location|where|plant|line|stage|station", q):
         return f"Location for {doc.get('name', '?')}:\n  - Plant: {doc.get('plant_id', '?')}\n  - Line: {doc.get('line_id', '?')}\n  - Stage: {doc.get('stage_id', '?')}\n  - Workstation: {doc.get('workstation_id', '?')}"
 
     # Supplier
-    if re.search(r'supplier|vendor|manufacturer|maker|brand', q):
+    if re.search(r"supplier|vendor|manufacturer|maker|brand", q):
         return f"Supplier for {doc.get('name', '?')}:\n  - Manufacturer: {doc.get('manufacturer', 'N/A')}"
 
     # Calibration
-    if re.search(r'calibrat|calib', q):
+    if re.search(r"calibrat|calib", q):
         wo = db["work_orders"]
-        cursor = wo.find({"$or": [
-            {"title": {"$regex": equip_name, "$options": "i"}},
-            {"title": {"$regex": "calibration", "$options": "i"}},
-        ], "status": {"$ne": "Cancelled"}}).sort("created_at", -1).limit(5)
+        cursor = (
+            wo.find(
+                {
+                    "$or": [
+                        {"title": {"$regex": equip_name, "$options": "i"}},
+                        {"title": {"$regex": "calibration", "$options": "i"}},
+                    ],
+                    "status": {"$ne": "Cancelled"},
+                }
+            )
+            .sort("created_at", -1)
+            .limit(5)
+        )
         docs = await cursor.to_list(5)
         if docs:
             lines = [f"Recent calibration events for {equip_name}:"]
@@ -703,16 +759,24 @@ async def _answer_equipment_query(db, question):
         return f"No calibration records found for {equip_name}."
 
     # Cleaning
-    if re.search(r'clean|wash|sanit', q):
+    if re.search(r"clean|wash|sanit", q):
         return f"Cleaning records for {equip_name}: Not available in current data."
 
     # Maintenance
-    if re.search(r'mainten|service|repair', q):
+    if re.search(r"mainten|service|repair", q):
         wo = db["work_orders"]
-        cursor = wo.find({"$or": [
-            {"title": {"$regex": equip_name, "$options": "i"}},
-            {"description": {"$regex": equip_name, "$options": "i"}},
-        ]}).sort("created_at", -1).limit(5)
+        cursor = (
+            wo.find(
+                {
+                    "$or": [
+                        {"title": {"$regex": equip_name, "$options": "i"}},
+                        {"description": {"$regex": equip_name, "$options": "i"}},
+                    ]
+                }
+            )
+            .sort("created_at", -1)
+            .limit(5)
+        )
         docs = await cursor.to_list(5)
         if docs:
             lines = [f"Maintenance records for {equip_name}:"]
@@ -722,11 +786,11 @@ async def _answer_equipment_query(db, question):
         return f"No maintenance records found for {equip_name}."
 
     # Type
-    if re.search(r'\btype\b|kind|category|class', q):
+    if re.search(r"\btype\b|kind|category|class", q):
         return f"Equipment type for {doc.get('name', '?')}:\n  - Category: {doc.get('category', 'N/A')}"
 
     # Status
-    if re.search(r'status|state|condition|active|inactive', q):
+    if re.search(r"status|state|condition|active|inactive", q):
         return f"Status for {doc.get('name', '?')}:\n  - Status: {doc.get('status', 'N/A')}"
 
     # Default: equipment summary
@@ -743,6 +807,7 @@ async def _answer_equipment_query(db, question):
 # Main handler
 # ---------------------------------------------------------------------------
 
+
 async def plant_hierarchy_question_answer(client, question, force=False):
     """Answer plant/line/stage/workstation/machine/equipment questions."""
     try:
@@ -750,45 +815,69 @@ async def plant_hierarchy_question_answer(client, question, force=False):
         q = question.lower()
 
         # Work order queries FIRST (calibration keyword overlaps with equipment)
-        if re.search(r'work.?order|WO-|calibration.*weight|assigned to.*work', q):
-            from src.monkey_brain.kernel.plan.intents.predicates.work_order_query import work_order_query_question_answer
+        if re.search(r"work.?order|WO-|calibration.*weight|assigned to.*work", q):
+            from src.monkey_brain.kernel.plan.intents.predicates.work_order_query import (
+                work_order_query_question_answer,
+            )
+
             return await work_order_query_question_answer(client, question, force)
 
-        if re.search(r'\bsop\b|procedure|protocol|work instruction', q):
-            from src.monkey_brain.kernel.plan.intents.predicates.sop_query import sop_query_question_answer
+        if re.search(r"\bsop\b|procedure|protocol|work instruction", q):
+            from src.monkey_brain.kernel.plan.intents.predicates.sop_query import (
+                sop_query_question_answer,
+            )
+
             return await sop_query_question_answer(client, question, force)
 
         # Determine query level — check equipment BEFORE machines for equipment-specific items
         # Equipment items: Vibro Sifter, Analytical Balance, sensors, instruments
-        if re.search(r'\bequipment\b.*\b(Vibro Sifter|Force Feeder|Analytical Balance|Level Sensor|Force Feeder|Disintegration|Hardness|Friability|Moisture|Viscometer|Thermometer|Vernier|Timer|RPM Counter|Load Cell|Pressure|Temperature|RH|LOD|Spray|Seal|Pan RPM|Fill Weight|Compression|Inlet|Exhaust|Checkweigher|Coating|Capsule|Tablet|Vision)', q) and not re.search(r'workstation|station', q):
+        if re.search(
+            r"\bequipment\b.*\b(Vibro Sifter|Force Feeder|Analytical Balance|Level Sensor|Force Feeder|Disintegration|Hardness|Friability|Moisture|Viscometer|Thermometer|Vernier|Timer|RPM Counter|Load Cell|Pressure|Temperature|RH|LOD|Spray|Seal|Pan RPM|Fill Weight|Compression|Inlet|Exhaust|Checkweigher|Coating|Capsule|Tablet|Vision)",
+            q,
+        ) and not re.search(r"workstation|station", q):
             return (await _answer_equipment_query(db, question), [], [], True)
 
-        if re.search(r'\bequipment[s]?\b|instrument|sensor|balance|calibrat|analytical|disintegrat|hardness|friab|moisture|viscometer|thermometer|verni', q) and not re.search(r'workstation|station', q):
+        if re.search(
+            r"\bequipment[s]?\b|instrument|sensor|balance|calibrat|analytical|disintegrat|hardness|friab|moisture|viscometer|thermometer|verni",
+            q,
+        ) and not re.search(r"workstation|station", q):
             return (await _answer_equipment_query(db, question), [], [], True)
 
-        if re.search(r'\bmachine[s]?\b|force feeder|bin blender|rotary tablet|coating pan|granulator|press|deduster|polisher|packaging machine|bottle filler|capsule|blister|cartoning|metal detector', q) and not re.search(r'workstation|station', q):
+        if re.search(
+            r"\bmachine[s]?\b|force feeder|bin blender|rotary tablet|coating pan|granulator|press|deduster|polisher|packaging machine|bottle filler|capsule|blister|cartoning|metal detector",
+            q,
+        ) and not re.search(r"workstation|station", q):
             return (await _answer_machine_query(db, question), [], [], True)
 
-        if re.search(r'worker|operator|who does|report to|shift|scheduled task|technician', q):
+        if re.search(r"worker|operator|who does|report to|shift|scheduled task|technician", q):
             # Check if it's about a specific worker
             workers = db["workers"]
             for w in await workers.find({}).to_list(100):
                 if w.get("name", "").lower() in q:
                     # Delegate to worker handler
-                    from src.monkey_brain.kernel.plan.intents.predicates.worker import worker_question_answer
+                    from src.monkey_brain.kernel.plan.intents.predicates.worker import (
+                        worker_question_answer,
+                    )
+
                     return await worker_question_answer(client, question, force)
 
         # Check stage BEFORE workstation (stage queries often ask about workstations within a stage)
-        if re.search(r'\bstage[s]?\b|blending|granulation|drying|compression|coating|packaging|dispensing|lubrication', q):
+        if re.search(
+            r"\bstage[s]?\b|blending|granulation|drying|compression|coating|packaging|dispensing|lubrication",
+            q,
+        ):
             return (await _answer_stage_query(db, question), [], [], True)
 
-        if re.search(r'workstation|station|blender station|sifter station|press station', q):
+        if re.search(r"workstation|station|blender station|sifter station|press station", q):
             return (await _answer_workstation_query(db, question), [], [], True)
 
-        if re.search(r'\bline[s]?\b|tablet line|capsule line|production line', q):
+        if re.search(r"\bline[s]?\b|tablet line|capsule line|production line", q):
             return (await _answer_line_query(db, question), [], [], True)
 
-        if re.search(r'plant|facilit|site|how many plant|plant manager|plant location|plant certif|plant utili', q):
+        if re.search(
+            r"plant|facilit|site|how many plant|plant manager|plant location|plant certif|plant utili",
+            q,
+        ):
             return (await _answer_plant_query(db, question), [], [], True)
 
         # Fallback: try plant query
@@ -802,23 +891,57 @@ async def plant_hierarchy_question_answer(client, question, force=False):
 # Predicate
 # ---------------------------------------------------------------------------
 
+
 def is_plant_hierarchy(question):
     """Match plant/line/stage/workstation/machine/equipment questions."""
     q = question.lower()
     keywords = [
-        "plant", "line", "stage", "workstation", "station",
-        "machine", "equipment", "blending", "granulation", "drying",
-        "compression", "coating", "packaging", "dispensing",
-        "tablet line", "capsule line", "takt", "cycle time",
-        "manufacturer", "serial", "model", "calibration",
-        "vibro sifter", "force feeder", "bin blender", "analytical balance",
-        "rotary tablet press", "coating pan", "fluid bed dryer",
-        "rapid mixer granulator", "conical mill",
-        "how many plant", "plant manager", "plant location",
-        "line manager", "line type", "line capacity",
-        "stage efficiency", "stage takt",
-        "workstation operator", "workstation machine",
-        "machine status", "machine location", "machine manufacturer",
-        "equipment status", "equipment location", "equipment type",
+        "plant",
+        "line",
+        "stage",
+        "workstation",
+        "station",
+        "machine",
+        "equipment",
+        "blending",
+        "granulation",
+        "drying",
+        "compression",
+        "coating",
+        "packaging",
+        "dispensing",
+        "tablet line",
+        "capsule line",
+        "takt",
+        "cycle time",
+        "manufacturer",
+        "serial",
+        "model",
+        "calibration",
+        "vibro sifter",
+        "force feeder",
+        "bin blender",
+        "analytical balance",
+        "rotary tablet press",
+        "coating pan",
+        "fluid bed dryer",
+        "rapid mixer granulator",
+        "conical mill",
+        "how many plant",
+        "plant manager",
+        "plant location",
+        "line manager",
+        "line type",
+        "line capacity",
+        "stage efficiency",
+        "stage takt",
+        "workstation operator",
+        "workstation machine",
+        "machine status",
+        "machine location",
+        "machine manufacturer",
+        "equipment status",
+        "equipment location",
+        "equipment type",
     ]
     return any(kw in q for kw in keywords)

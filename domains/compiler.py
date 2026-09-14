@@ -57,6 +57,7 @@ logger = logging.getLogger("domains.compiler")
 # Compiled Prompt
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class CompiledPrompt:
     """A compiled prompt ready for MonkeyBrain execution.
@@ -288,6 +289,7 @@ compliance_flags: [<flags>]
 # Prompt Compiler
 # ---------------------------------------------------------------------------
 
+
 class PromptCompiler:
     """A cognitive agent that reasons about compilation strategy.
 
@@ -402,10 +404,18 @@ class PromptCompiler:
         retry_strategy = self._select_retry_strategy(spec, pkg)
 
         # Build constraints text
-        constraints_text = "\n".join(f"- {c}" for c in constraints) if constraints else "- None specified"
+        constraints_text = (
+            "\n".join(f"- {c}" for c in constraints)
+            if constraints
+            else "- None specified"
+        )
 
         # Build inputs text
-        inputs_text = "\n".join(f"- {k}: {v}" for k, v in inputs.items()) if inputs else "- None specified"
+        inputs_text = (
+            "\n".join(f"- {k}: {v}" for k, v in inputs.items())
+            if inputs
+            else "- None specified"
+        )
 
         # Get available options from domain package
         available_contexts = self._get_available_contexts(pkg)
@@ -510,10 +520,10 @@ class PromptCompiler:
 
         # Map runtime to model
         model_map = {
-            "stabilize": "gemma3:latest",      # fast, local
-            "generate": "qwen2.5-coder:7b",   # code generation
-            "analyze": "gemma3:latest",         # analysis
-            "investigate": "gemma3:latest",     # investigation
+            "stabilize": "gemma3:latest",  # fast, local
+            "generate": "qwen2.5-coder:7b",  # code generation
+            "analyze": "gemma3:latest",  # analysis
+            "investigate": "gemma3:latest",  # investigation
         }
 
         return model_map.get(runtime, "gemma3:latest")
@@ -579,11 +589,11 @@ class PromptCompiler:
         runtime = meta.get("runtime", "")
 
         if runtime == "stabilize":
-            return "low_cost"      # prioritize cost
+            return "low_cost"  # prioritize cost
         if runtime == "generate":
             return "balanced"
         if runtime == "analyze":
-            return "low_latency"   # prioritize speed
+            return "low_latency"  # prioritize speed
 
         return "balanced"
 
@@ -601,7 +611,10 @@ class PromptCompiler:
     def _get_available_contexts(self, pkg) -> str:
         """Get available bounded contexts from domain package."""
         if pkg and hasattr(pkg, "bounded_context") and pkg.bounded_context:
-            return "\n".join(f"- {c}" for c in pkg.bounded_context.aggregates) or "- Default context"
+            return (
+                "\n".join(f"- {c}" for c in pkg.bounded_context.aggregates)
+                or "- Default context"
+            )
         return "- Default context"
 
     def _get_available_aggregates(self, pkg, context: str) -> str:
@@ -629,7 +642,11 @@ class PromptCompiler:
             for policy in pkg.policies:
                 if "invariants" in policy:
                     invariants.extend(policy["invariants"])
-            return "\n".join(f"- {i}" for i in invariants) if invariants else "- No invariants specified"
+            return (
+                "\n".join(f"- {i}" for i in invariants)
+                if invariants
+                else "- No invariants specified"
+            )
         return "- No invariants specified"
 
     def _get_validation_rules(self, pkg) -> str:
@@ -639,7 +656,11 @@ class PromptCompiler:
             for policy in pkg.policies:
                 if "validation_rules" in policy:
                     rules.extend(policy["validation_rules"])
-            return "\n".join(f"- {r}" for r in rules) if rules else "- No validation rules specified"
+            return (
+                "\n".join(f"- {r}" for r in rules)
+                if rules
+                else "- No validation rules specified"
+            )
         return "- No validation rules specified"
 
     def get_cached_prompt(self, domain: str, context: str, goal: str) -> str | None:

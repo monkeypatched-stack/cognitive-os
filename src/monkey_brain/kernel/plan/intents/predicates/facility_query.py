@@ -9,7 +9,7 @@ async def facility_query_question_answer(client, question, force=False):
         db = client["demo"]
         q = question.lower()
 
-        if re.search(r'\bplant[s]?\b', q):
+        if re.search(r"\bplant[s]?\b", q):
             locs = db["plant_locations"]
             # Deduplicate by location_id to count unique plants
             unique_ids = await locs.distinct("location_id", {"type": "plant", "level": 1})
@@ -28,7 +28,7 @@ async def facility_query_question_answer(client, question, force=False):
             answer = f"There {'is' if count == 1 else 'are'} {count} plant{'s' if count != 1 else ''}: {name_list}."
             return (answer, [], [], True)
 
-        if re.search(r'facilit|site|location', q):
+        if re.search(r"facilit|site|location", q):
             locs = db["plant_locations"]
             total = await locs.count_documents({})
             by_type = {}
@@ -51,8 +51,16 @@ async def facility_query_question_answer(client, question, force=False):
 
 def is_facility_query(question):
     q = question.lower()
-    return any(kw in q for kw in (
-        "how many plant", "plant count", "number of plant",
-        "how many facilit", "facilit", "how many site",
-        "how many location", "plant location",
-    ))
+    return any(
+        kw in q
+        for kw in (
+            "how many plant",
+            "plant count",
+            "number of plant",
+            "how many facilit",
+            "facilit",
+            "how many site",
+            "how many location",
+            "plant location",
+        )
+    )

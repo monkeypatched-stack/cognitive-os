@@ -6,8 +6,18 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from services.common.db import get_database
 from services.common.auth import require_permission
-from services.facilities.helpers.locations import get_all_locations, get_location_by_id, create_location, update_location, delete_location
-from services.facilities.models.locations import LocationCreate, LocationUpdate, LocationResponse
+from services.facilities.helpers.locations import (
+    get_all_locations,
+    get_location_by_id,
+    create_location,
+    update_location,
+    delete_location,
+)
+from services.facilities.models.locations import (
+    LocationCreate,
+    LocationUpdate,
+    LocationResponse,
+)
 
 router = APIRouter()
 
@@ -16,7 +26,9 @@ _plant_loc_to_id_cache: dict[str, str] = {}
 
 def _to_building(doc: dict, plant_loc_to_id: dict[str, str] | None = None) -> dict:
     parent_id = doc.get("parent_id")
-    plant_id = plant_loc_to_id.get(parent_id, parent_id) if plant_loc_to_id else parent_id
+    plant_id = (
+        plant_loc_to_id.get(parent_id, parent_id) if plant_loc_to_id else parent_id
+    )
     return {
         "building_id": doc.get("location_id") or doc.get("id"),
         "plant_id": plant_id,
@@ -31,7 +43,9 @@ async def list_buildings(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-buildings")),
 ):
-    locs, total = await get_all_locations(db, page=page, page_size=page_size, location_type="building")
+    locs, total = await get_all_locations(
+        db, page=page, page_size=page_size, location_type="building"
+    )
 
     plant_loc_ids = {loc.get("parent_id") for loc in locs if loc.get("parent_id")}
     plant_loc_to_id: dict[str, str] = {}
@@ -57,7 +71,8 @@ async def create_building(
 ):
     loc_data = LocationCreate(
         name=data["name"],
-        location_id=data.get("building_id") or data.get("name", "").upper().replace(" ", "-"),
+        location_id=data.get("building_id")
+        or data.get("name", "").upper().replace(" ", "-"),
         type="building",
         level=2,
         path=data.get("path", data["name"]),
@@ -79,6 +94,7 @@ async def update_building(
     updated = await update_location(db, building_id, update)
     if not updated:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Building not found")
     return _to_building(updated)
 

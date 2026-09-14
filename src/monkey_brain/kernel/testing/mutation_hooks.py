@@ -20,6 +20,7 @@ triggers unless a test explicitly registers something. In-memory only,
 never persisted, never shared across processes — this is test scaffolding,
 not a production feature.
 """
+
 from __future__ import annotations
 
 import threading

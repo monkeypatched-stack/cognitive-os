@@ -44,6 +44,7 @@ Per this session's standing convention, this file is written but not
 executed by the assistant. Run with:
     python -m pytest tests/unit/test_learning_hardening.py -v
 """
+
 from __future__ import annotations
 
 import uuid
@@ -53,7 +54,9 @@ import pytest
 import src.monkey_brain.kernel.comparator_runtime as comparator_module
 from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
 from src.monkey_brain.kernel.pipeline.comparison.integration import (
-    _run_comparison, _apply_transition_learning, ComparisonIntegratedPolicy,
+    _run_comparison,
+    _apply_transition_learning,
+    ComparisonIntegratedPolicy,
 )
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
@@ -62,7 +65,8 @@ from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.execution import ExecutionResult, ActionOutcome
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.pipeline.prediction.transitions import (
-    TransitionModel, TransitionPredictionEngine,
+    TransitionModel,
+    TransitionPredictionEngine,
 )
 
 
@@ -78,17 +82,32 @@ class _FakePolicy:
 def _prediction_result(step_names: tuple[str, ...], predicted_success: bool = True) -> dict:
     outcomes = [{"description": name, "success": predicted_success, "probability": 0.9} for name in step_names]
     candidate = {
-        "prediction": {"world_snapshot": {}, "predicted_outcomes": outcomes, "expected_utility": 0.8},
-        "scenario_label": "Baseline", "probability": 0.9,
+        "prediction": {
+            "world_snapshot": {},
+            "predicted_outcomes": outcomes,
+            "expected_utility": 0.8,
+        },
+        "scenario_label": "Baseline",
+        "probability": 0.9,
     }
     return {"candidates": [candidate], "selected": candidate}
 
 
-def _state(actor_id: str, goal: str, step_names: tuple[str, ...], execution_id: str,
-           predicted_success: bool = True, depends_on: dict[str, tuple[int, ...]] | None = None) -> CognitiveState:
+def _state(
+    actor_id: str,
+    goal: str,
+    step_names: tuple[str, ...],
+    execution_id: str,
+    predicted_success: bool = True,
+    depends_on: dict[str, tuple[int, ...]] | None = None,
+) -> CognitiveState:
     depends_on = depends_on or {}
     plan = Plan(
-        goal=goal, cost=0.0, confidence=0.9, risk=0.0, planner="llm",
+        goal=goal,
+        cost=0.0,
+        confidence=0.9,
+        risk=0.0,
+        planner="llm",
         steps=tuple(PlanStep(action=n, description=n, depends_on=depends_on.get(n, ())) for n in step_names),
     )
     actor = Actor(actor_id=actor_id, tenant_id="acme")
@@ -113,12 +132,20 @@ def _state(actor_id: str, goal: str, step_names: tuple[str, ...], execution_id: 
 
 def _with_execution(state: CognitiveState, outcomes: tuple[bool, ...]) -> CognitiveState:
     actions = tuple(
-        ActionOutcome(action_id=f"a{i}", success=ok, result={}, error="" if ok else "failed", latency_ms=1.0)
+        ActionOutcome(
+            action_id=f"a{i}",
+            success=ok,
+            result={},
+            error="" if ok else "failed",
+            latency_ms=1.0,
+        )
         for i, ok in enumerate(outcomes)
     )
     success_count = sum(1 for o in outcomes if o)
     state.execution_result = ExecutionResult(
-        actions=actions, success_count=success_count, failure_count=len(outcomes) - success_count,
+        actions=actions,
+        success_count=success_count,
+        failure_count=len(outcomes) - success_count,
         goal_achieved=all(outcomes),
     )
     return state
@@ -135,9 +162,15 @@ def _fresh_comparator(monkeypatch):
 _learn_tick_counter = 0
 
 
-async def _learn_tick(actor_id: str, goal: str, step_names: tuple[str, ...], outcomes: tuple[bool, ...],
-                       policy: _FakePolicy, predicted_success: bool = True,
-                       depends_on: dict[str, tuple[int, ...]] | None = None) -> CognitiveState:
+async def _learn_tick(
+    actor_id: str,
+    goal: str,
+    step_names: tuple[str, ...],
+    outcomes: tuple[bool, ...],
+    policy: _FakePolicy,
+    predicted_success: bool = True,
+    depends_on: dict[str, tuple[int, ...]] | None = None,
+) -> CognitiveState:
     # execution_id must be unique PER CALL, not per actor: _learn_transitions
     # (comparison/integration.py) gates on already_learned = learning
     # events already recorded for THIS execution_id, specifically to make
@@ -150,7 +183,14 @@ async def _learn_tick(actor_id: str, goal: str, step_names: tuple[str, ...], out
     # apparent duplicate of the first.
     global _learn_tick_counter
     _learn_tick_counter += 1
-    state = _state(actor_id, goal, step_names, f"exec-{actor_id}-{_learn_tick_counter}", predicted_success=predicted_success, depends_on=depends_on)
+    state = _state(
+        actor_id,
+        goal,
+        step_names,
+        f"exec-{actor_id}-{_learn_tick_counter}",
+        predicted_success=predicted_success,
+        depends_on=depends_on,
+    )
     state = _with_execution(state, outcomes)
     state = await _run_comparison(state, policy)
     state = _apply_transition_learning(state, policy)
@@ -160,6 +200,7 @@ async def _learn_tick(actor_id: str, goal: str, step_names: tuple[str, ...], out
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 1 / 11: Successful transition learning + Comparator is the source.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSuccessfulTransitionLearning:
     @pytest.mark.asyncio
@@ -176,7 +217,9 @@ class TestSuccessfulTransitionLearning:
         assert state.comparison_result["outcome"] in ("success", "unexpected_success")
 
     @pytest.mark.asyncio
-    async def test_comparator_is_the_authoritative_evidence_source_not_raw_execution(self):
+    async def test_comparator_is_the_authoritative_evidence_source_not_raw_execution(
+        self,
+    ):
         """Capability succeeds, but the Comparator's own outcome says
         nothing verified happened (inconclusive) -- Learning must not
         learn anything from the raw ActionOutcome.success=True alone."""
@@ -197,6 +240,7 @@ class TestSuccessfulTransitionLearning:
 # Test 2: Failed transition learning.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestFailedTransitionLearning:
     @pytest.mark.asyncio
     async def test_negative_evidence_recorded_for_a_verified_failure(self):
@@ -213,6 +257,7 @@ class TestFailedTransitionLearning:
 # Test 3 / 4: Partial execution learning; unexecuted node is not a failure.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPartialExecutionLearning:
     @pytest.mark.asyncio
     async def test_b_fails_c_not_executed_b_is_negative_c_is_untouched(self):
@@ -221,8 +266,13 @@ class TestPartialExecutionLearning:
         # attempted at all -- only 2 ActionOutcomes exist, matching what a
         # dependency-blocked/never-reached step produces at the Comparator
         # boundary (no node_diffs entry, not a False entry).
-        state = _state("arjun", "buy groceries", ("A", "B", "C"), "exec-partial",
-                        depends_on={"C": (1,)})
+        state = _state(
+            "arjun",
+            "buy groceries",
+            ("A", "B", "C"),
+            "exec-partial",
+            depends_on={"C": (1,)},
+        )
         state = _with_execution(state, (True, False))  # only A, B ran
         state = await _run_comparison(state, policy)
         state = _apply_transition_learning(state, policy)
@@ -230,7 +280,11 @@ class TestPartialExecutionLearning:
         assert state.comparison_result["outcome"] == "partial_success"
         assert state.comparison_result["node_diffs"]["C"]["actual_success"] is None
 
-        key_a, key_b, key_c = ("buy groceries", "A"), ("buy groceries", "B"), ("buy groceries", "C")
+        key_a, key_b, key_c = (
+            ("buy groceries", "A"),
+            ("buy groceries", "B"),
+            ("buy groceries", "C"),
+        )
         assert policy._transition_model.known_transitions[key_a][-1].probability > 0.5
         assert policy._transition_model.known_transitions[key_b][-1].probability < 0.5
         assert key_c not in policy._transition_model.known_transitions, (
@@ -241,6 +295,7 @@ class TestPartialExecutionLearning:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 5 / 9: No-history / cold-start behavior + recovery.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestColdStartAndRecovery:
     def test_unknown_action_defaults_to_honest_half_probability_zero_confidence(self):
@@ -282,8 +337,14 @@ class TestColdStartAndRecovery:
             def names(self):
                 return list(self._capabilities.keys())
 
-        plan = Plan(goal="buy groceries", steps=(PlanStep(action="ProductSelection", description="find milk"),),
-                    cost=0.0, confidence=0.8, risk=0.0, planner="llm")
+        plan = Plan(
+            goal="buy groceries",
+            steps=(PlanStep(action="ProductSelection", description="find milk"),),
+            cost=0.0,
+            confidence=0.8,
+            risk=0.0,
+            planner="llm",
+        )
         actor = Actor(actor_id="arjun", tenant_id="acme")
         belief = BeliefState(actor_id="arjun", tenant_id="acme")
         belief.plan = plan
@@ -301,9 +362,9 @@ class TestColdStartAndRecovery:
         # matching the configured 5% almost exactly.
         state.metrics = {"execution_id": f"exec-{uuid.uuid4().hex}"}
         state.prediction_result = {
-            "candidates": [{"prediction": {"predicted_outcomes": [
-                {"metadata": {"kind": "known"}, "success_probability": 0.1}
-            ]}}],
+            "candidates": [
+                {"prediction": {"predicted_outcomes": [{"metadata": {"kind": "known"}, "success_probability": 0.1}]}}
+            ],
             "selected": None,
             "rationale": "predicted failure",
         }
@@ -356,12 +417,13 @@ class TestColdStartAndRecovery:
 # Test 6: Repeated evidence update -- verify the MATH, not just "changed".
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRepeatedEvidenceUpdate:
     @pytest.mark.asyncio
     async def test_sequence_matches_the_documented_ema_formula_exactly(self):
         policy = _FakePolicy()
         learning_rate = 0.15  # hardcoded in _learn_transitions
-        confidence = 0.85     # hardcoded in _learn_transitions (this pass's fix)
+        confidence = 0.85  # hardcoded in _learn_transitions (this pass's fix)
 
         sequence = (True, True, False, True)
         expected: list[float] = []
@@ -383,6 +445,7 @@ class TestRepeatedEvidenceUpdate:
 # Test 7: Transition identity isolation -- unrelated transitions don't
 # contaminate each other (the exact regression class the task names).
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestTransitionIdentityIsolation:
     @pytest.mark.asyncio
@@ -411,12 +474,15 @@ class TestTransitionIdentityIsolation:
         # B ("ScheduleDelivery" under the SAME goal) was never touched.
         b_transitions = prediction_engine.predict_transitions(None, None, _Action(), goal_key="buy milk")
         assert b_transitions[0].kind.value == "unknown"
-        assert b_transitions[0].probability == 0.5, "B must remain at the honest cold-start default, not be dragged down by A"
+        assert b_transitions[0].probability == 0.5, (
+            "B must remain at the honest cold-start default, not be dragged down by A"
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 8: Actor isolation.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestActorIsolation:
     @pytest.mark.asyncio
@@ -437,10 +503,18 @@ class TestActorIsolation:
 # Test 10: Persistence (TransitionModel -- the durable learned state).
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPersistence:
-    def test_transition_model_round_trips_through_the_declared_serialization_contract(self):
+    def test_transition_model_round_trips_through_the_declared_serialization_contract(
+        self,
+    ):
         model = TransitionModel().learn_from_execution(
-            action_key="BuyMilk", success=True, confidence=0.85, world_delta={}, learning_rate=0.15, goal_key="buy milk",
+            action_key="BuyMilk",
+            success=True,
+            confidence=0.85,
+            world_delta={},
+            learning_rate=0.15,
+            goal_key="buy milk",
         )
         restored = TransitionModel.from_dict(model.to_dict())
         assert restored.known_transitions.keys() == model.known_transitions.keys()
@@ -460,6 +534,7 @@ class TestPersistence:
 # Test 12: Deterministic update.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDeterministicUpdate:
     @pytest.mark.asyncio
     async def test_identical_inputs_produce_identical_learned_model(self):
@@ -473,6 +548,7 @@ class TestDeterministicUpdate:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 13 / 14: Learning does not mutate the plan or execution history.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestNoUnrelatedMutation:
     @pytest.mark.asyncio
@@ -498,6 +574,7 @@ class TestNoUnrelatedMutation:
 # Test 15: Learned state can subsequently affect prediction correctly.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPredictionIntegration:
     @pytest.mark.asyncio
     async def test_a_learned_transition_is_reflected_in_the_next_ticks_prediction(self):
@@ -512,8 +589,14 @@ class TestPredictionIntegration:
         learn_transitions_stage = stage_map["learn_transitions"]
 
         def make(execution_id):
-            plan = Plan(goal="buy milk", steps=(PlanStep(action="BuyMilk", description="buy milk"),),
-                        cost=0.0, confidence=0.9, risk=0.0, planner="llm")
+            plan = Plan(
+                goal="buy milk",
+                steps=(PlanStep(action="BuyMilk", description="buy milk"),),
+                cost=0.0,
+                confidence=0.9,
+                risk=0.0,
+                planner="llm",
+            )
             actor = Actor(actor_id="arjun", tenant_id="acme")
             belief = BeliefState(actor_id="arjun", tenant_id="acme")
             belief.plan = plan
@@ -527,7 +610,9 @@ class TestPredictionIntegration:
 
         s1.execution_result = ExecutionResult(
             actions=(ActionOutcome(action_id="a0", success=True, result={}, latency_ms=1.0),),
-            success_count=1, failure_count=0, goal_achieved=True,
+            success_count=1,
+            failure_count=0,
+            goal_achieved=True,
         )
         s1 = await compare_stage(s1)
         s1 = await learn_transitions_stage(s1)
@@ -541,6 +626,7 @@ class TestPredictionIntegration:
 # ═══════════════════════════════════════════════════════════════════════════
 # Gap D ("fix the gaps" follow-up): minimal PolicyStore integration.
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPolicyStoreIntegration:
     """A full GraphManager/BellmanPolicy merge was investigated and found
@@ -583,7 +669,11 @@ class TestPolicyStoreIntegration:
         # Only A, B genuinely execute (matches TestPartialExecutionLearning's
         # fixture pattern) -- C is never attempted, no ActionOutcome exists.
         state = await _learn_tick(
-            "arjun", "buy groceries", ("A", "B", "C"), (True, False), policy,
+            "arjun",
+            "buy groceries",
+            ("A", "B", "C"),
+            (True, False),
+            policy,
             depends_on={"C": (1,)},
         )
         assert state.comparison_result["node_diffs"]["C"]["actual_success"] is None

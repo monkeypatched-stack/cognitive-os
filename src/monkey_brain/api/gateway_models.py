@@ -3,6 +3,7 @@
 Every endpoint's contract lives here. The gateway layer owns validation and
 serialization; cognitive logic stays in the runtimes.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,6 +24,7 @@ def serialize_beliefs(belief_state: Any) -> dict[str, Any]:
 
 
 # ── Planet ─────────────────────────────────────────────────────────────────
+
 
 class PlanetResponse(BaseModel):
     society_id: str = ""
@@ -59,6 +61,7 @@ class PlanetStatisticsResponse(BaseModel):
 
 
 # ── Societies ──────────────────────────────────────────────────────────────
+
 
 class SocietyCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=256)
@@ -160,6 +163,7 @@ class GovernancePolicyCreateRequest(BaseModel):
     above, which only appends a plain string to Society.policies. This is
     the representation PlanningContext.active_policies (and therefore the
     planner's prompt) actually reads via SocietyActivationEngine."""
+
     name: str = Field(..., min_length=1)
     description: str = ""
     policy_type: str = "guideline"
@@ -192,6 +196,7 @@ class ActorPermissionGrantRequest(BaseModel):
     Membership.resolve_permissions() actually reads (combined with the
     membership's own permissions tuple), and therefore what the planner's
     prompt sees. expires_at=0 (default) means never expires."""
+
     actor_id: str = Field(..., min_length=1)
     resource: str = Field(..., min_length=1)
     action: str = Field(..., min_length=1)
@@ -293,6 +298,7 @@ class ActorAddressResponse(BaseModel):
 
 # ── Memberships (Membership as a First-Class Runtime Resource refactor) ────
 
+
 class MembershipCreateRequest(BaseModel):
     actor_id: str = Field(..., min_length=1)
     society_id: str = Field(..., min_length=1)
@@ -383,6 +389,7 @@ class SocietyActivationResponse(BaseModel):
 
 
 # ── Actors ─────────────────────────────────────────────────────────────────
+
 
 class ActorCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=256)
@@ -504,6 +511,7 @@ class ActorAffiliationUpdateRequest(BaseModel):
 # ActorGoalsResponse/ActorMemoryResponse above, which predate this and
 # stay as-is for backward compatibility.
 
+
 class ActorIntentResponse(BaseModel):
     actor_id: str = ""
     intent: dict[str, Any] | None = None
@@ -539,6 +547,7 @@ class ActorCognitiveStateResponse(BaseModel):
     """The sprint's own 'New Actor State Model' document structure, in
     one response — composes the same helpers the granular routes above
     use, not a separate computation."""
+
     actor_id: str = ""
     identity: dict[str, Any] = Field(default_factory=dict)
     presence: dict[str, Any] | None = None
@@ -607,6 +616,7 @@ class ActorTickResponse(BaseModel):
 
 # ── Runtime ────────────────────────────────────────────────────────────────
 
+
 class RuntimeResponse(BaseModel):
     name: str = "cognitive"
     status: str = "healthy"
@@ -641,6 +651,7 @@ class RuntimeMetricsResponse(BaseModel):
 
 # ── Simulation ─────────────────────────────────────────────────────────────
 
+
 class SimulateRequest(BaseModel):
     question: str = Field(..., min_length=1)
     run_id: str | None = None
@@ -673,6 +684,7 @@ class SimulateStatusResponse(BaseModel):
 
 # ── Comparator ─────────────────────────────────────────────────────────────
 
+
 class CompareRequest(BaseModel):
     question: str = Field(..., min_length=1)
     predicted: dict[str, Any] = Field(default_factory=dict)
@@ -696,6 +708,7 @@ class CompareHistoryResponse(BaseModel):
 
 
 # ── Learning ───────────────────────────────────────────────────────────────
+
 
 class LearnRequest(BaseModel):
     experience: dict[str, Any] = Field(default_factory=dict)
@@ -750,6 +763,7 @@ class ActorTransitionsResponse(BaseModel):
 
 
 # ── World ──────────────────────────────────────────────────────────────────
+
 
 class WorldResponse(BaseModel):
     version: int = 0
@@ -858,6 +872,7 @@ class WorldLocationUpdateRequest(BaseModel):
 
 # ── Discovery ──────────────────────────────────────────────────────────────
 
+
 class ProviderResponse(BaseModel):
     providers: list[dict[str, Any]] = Field(default_factory=list)
     count: int = 0
@@ -879,6 +894,7 @@ class ModelResponse(BaseModel):
 
 
 # ── Admin ──────────────────────────────────────────────────────────────────
+
 
 class BootRequest(BaseModel):
     force: bool = False
@@ -915,6 +931,7 @@ class VersionResponse(BaseModel):
 
 # ── Backup / Restore (Gate 6 — Persistence) ─────────────────────────────
 
+
 class BackupResponse(BaseModel):
     schema_version: int = 0
     created_at: float = 0.0
@@ -929,7 +946,7 @@ class RestoreRequest(BaseModel):
     overwrite: bool = Field(
         False,
         description="Refuse to touch a key that already exists unless explicitly true — "
-                    "restore is for repopulating an empty environment, not silently clobbering a live one.",
+        "restore is for repopulating an empty environment, not silently clobbering a live one.",
     )
 
 
@@ -949,6 +966,7 @@ class RestoreResponse(BaseModel):
 # kernel/domains/commerce.py, not this file — declaring the known fields
 # here documents the contract for OpenAPI without risking silently dropping
 # a real field the dataclass adds later.
+
 
 class MerchantCreateRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -1103,6 +1121,7 @@ class InventoryActionResponse(BaseModel):
 
 # ── Orders ───────────────────────────────────────────────────────────────
 
+
 class OrderCreateRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
     actor_id: str = Field(..., min_length=1)
@@ -1147,6 +1166,7 @@ class OrderRefundRequest(BaseModel):
 
 # ── Fulfillment ──────────────────────────────────────────────────────────
 
+
 class PickRequest(BaseModel):
     store_id: str = Field(..., min_length=1)
 
@@ -1179,6 +1199,7 @@ class ShipmentDelayRequest(BaseModel):
 
 
 # ── Events ───────────────────────────────────────────────────────────────
+
 
 class EventCreateRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -1244,6 +1265,7 @@ class GoalDraft(BaseModel):
     """A structured goal being conversationally refined in Goal mode —
     never persisted on its own; only Create/Update Goal (which reuse
     POST /actors/{id}/goals) turn a draft into a real, queued goal."""
+
     objective: str = ""
     actor: str = ""
     constraints: list[str] = Field(default_factory=list)
@@ -1293,6 +1315,7 @@ class ExecutionChatRequest(BaseModel):
     server-side, so the chat can never disagree with what's on screen,
     and so it works identically for the client-side demo execution
     (which has no real backend record to look up by ID)."""
+
     model_config = ConfigDict(extra="allow")
     execution_id: str
     actor_id: str = ""
@@ -1351,6 +1374,7 @@ class TransactionResponse(BaseModel):
 
 # ── Presence ─────────────────────────────────────────────────────────────
 
+
 class OccupancyResponse(BaseModel):
     occupancy: list[dict[str, Any]] = Field(default_factory=list)
 
@@ -1378,6 +1402,7 @@ class SpacePresenceHistoryResponse(BaseModel):
 
 
 # ── Verify ───────────────────────────────────────────────────────────────
+
 
 class VerifyReportResponse(BaseModel):
     ok: bool = True

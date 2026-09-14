@@ -3,7 +3,10 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.suppliers.models.supplier_financials import SupplierFinancialsCreate, SupplierFinancialsUpdate
+from services.suppliers.models.supplier_financials import (
+    SupplierFinancialsCreate,
+    SupplierFinancialsUpdate,
+)
 
 COLLECTION = "supplier_financials"
 
@@ -27,7 +30,9 @@ async def get_all(
     return [_serialize(d) async for d in cursor], total
 
 
-async def get_by_supplier_id(db: AsyncIOMotorDatabase, supplier_id: str) -> Optional[dict]:
+async def get_by_supplier_id(
+    db: AsyncIOMotorDatabase, supplier_id: str
+) -> Optional[dict]:
     return _serialize(await db[COLLECTION].find_one({"supplier_id": supplier_id}))
 
 

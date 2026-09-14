@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Seed InfluxDB — fixed escaping for batch writes."""
+
 import json
 import os
 import random
@@ -76,11 +77,20 @@ def seed_maintenance():
             st = random.choice(["Completed", "Completed", "In Progress"])
             tech = random.choice(TECHNICIANS)
             eid = f"MAIN-{random.randint(10000000, 99999999):08X}"
-            payload = safe_json({"id": eid, "type": evt, "machine_id": m["id"],
-                "machine_name": m["name"], "stage": m["stage"], "status": st,
-                "technician": tech, "date": ts.strftime("%Y-%m-%d")})
+            payload = safe_json(
+                {
+                    "id": eid,
+                    "type": evt,
+                    "machine_id": m["id"],
+                    "machine_name": m["name"],
+                    "stage": m["stage"],
+                    "status": st,
+                    "technician": tech,
+                    "date": ts.strftime("%Y-%m-%d"),
+                }
+            )
             tags = f"machine_id={m['id']},machine_name={m['name']},stage={m['stage']},event_type={evt},status={st},technician={tech}"
-            lines.append(f"maintenance_log,{tags} payload_json=\"{payload}\",payload_type=\"json\" {ts_ns}")
+            lines.append(f'maintenance_log,{tags} payload_json="{payload}",payload_type="json" {ts_ns}')
     n = batch_write(lines)
     print(f"{n} records")
     return n
@@ -99,11 +109,21 @@ def seed_downtime():
             reason = random.choice(["Mechanical-Failure", "Electrical-Fault", "Operator-Error"])
             impact = random.choice(["Production-Halt", "Reduced-Output", "Quality-Hold"])
             eid = f"DT-{random.randint(10000000, 99999999):08X}"
-            payload = safe_json({"id": eid, "type": "downtime", "machine_id": m["id"],
-                "machine_name": m["name"], "stage": m["stage"], "duration_min": dur,
-                "reason": reason, "impact": impact, "date": ts.strftime("%Y-%m-%d")})
+            payload = safe_json(
+                {
+                    "id": eid,
+                    "type": "downtime",
+                    "machine_id": m["id"],
+                    "machine_name": m["name"],
+                    "stage": m["stage"],
+                    "duration_min": dur,
+                    "reason": reason,
+                    "impact": impact,
+                    "date": ts.strftime("%Y-%m-%d"),
+                }
+            )
             tags = f"machine_id={m['id']},machine_name={m['name']},stage={m['stage']},reason={reason},impact={impact}"
-            lines.append(f"downtime_log,{tags} payload_json=\"{payload}\",payload_type=\"json\" {ts_ns}")
+            lines.append(f'downtime_log,{tags} payload_json="{payload}",payload_type="json" {ts_ns}')
     n = batch_write(lines)
     print(f"{n} records")
     return n
@@ -129,11 +149,21 @@ def seed_calibration():
             res = random.choice(["Within-Tolerance", "Within-Tolerance", "Out-of-Tolerance"])
             tech = random.choice(TECHNICIANS)
             eid = f"CAL-{random.randint(10000000, 99999999):08X}"
-            payload = safe_json({"id": eid, "type": "calibration", "equipment_id": eq["id"],
-                "equipment_name": eq["name"], "machine_id": eq["mid"], "status": st,
-                "result": res, "technician": tech, "date": ts.strftime("%Y-%m-%d")})
+            payload = safe_json(
+                {
+                    "id": eid,
+                    "type": "calibration",
+                    "equipment_id": eq["id"],
+                    "equipment_name": eq["name"],
+                    "machine_id": eq["mid"],
+                    "status": st,
+                    "result": res,
+                    "technician": tech,
+                    "date": ts.strftime("%Y-%m-%d"),
+                }
+            )
             tags = f"equipment_id={eq['id']},equipment_name={eq['name']},machine_id={eq['mid']},status={st},result={res},technician={tech}"
-            lines.append(f"calibration_log,{tags} payload_json=\"{payload}\",payload_type=\"json\" {ts_ns}")
+            lines.append(f'calibration_log,{tags} payload_json="{payload}",payload_type="json" {ts_ns}')
     n = batch_write(lines)
     print(f"{n} records")
     return n
@@ -152,11 +182,21 @@ def seed_cleaning():
             st = random.choice(["Completed", "Completed", "Pending"])
             tech = random.choice(TECHNICIANS)
             eid = f"CLN-{random.randint(10000000, 99999999):08X}"
-            payload = safe_json({"id": eid, "type": "cleaning", "machine_id": m["id"],
-                "machine_name": m["name"], "stage": m["stage"], "clean_type": ct,
-                "status": st, "technician": tech, "date": ts.strftime("%Y-%m-%d")})
+            payload = safe_json(
+                {
+                    "id": eid,
+                    "type": "cleaning",
+                    "machine_id": m["id"],
+                    "machine_name": m["name"],
+                    "stage": m["stage"],
+                    "clean_type": ct,
+                    "status": st,
+                    "technician": tech,
+                    "date": ts.strftime("%Y-%m-%d"),
+                }
+            )
             tags = f"machine_id={m['id']},machine_name={m['name']},stage={m['stage']},clean_type={ct},status={st},technician={tech}"
-            lines.append(f"cleaning_log,{tags} payload_json=\"{payload}\",payload_type=\"json\" {ts_ns}")
+            lines.append(f'cleaning_log,{tags} payload_json="{payload}",payload_type="json" {ts_ns}')
     n = batch_write(lines)
     print(f"{n} records")
     return n
@@ -178,7 +218,9 @@ def seed_telemetry():
             s = round(random.uniform(100, 500), 1)
             pw = round(random.uniform(5, 50), 2)
             tags = f"machine_id={m['id']},machine_name={m['name']},stage={m['stage']}"
-            lines.append(f"telemetry,{tags} temperature={t},vibration={v},pressure={p},utilization={u},speed={s},power={pw} {ts_ns}")
+            lines.append(
+                f"telemetry,{tags} temperature={t},vibration={v},pressure={p},utilization={u},speed={s},power={pw} {ts_ns}"
+            )
     n = batch_write(lines)
     print(f"{n} records")
     return n

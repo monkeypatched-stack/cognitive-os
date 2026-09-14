@@ -465,47 +465,44 @@ class MotorCortexAgentV1:
         # Basic code generation
         code = self.simple_template_filling(specification)
         return code
-    
+
     def simple_template_filling(self, spec):
         # Limited template capabilities
         return f"// Generated from {spec.name}\n{spec.template}"
+
 
 # After improvement (evolved through learning)
 class MotorCortexAgentV2:
     def __init__(self, quality_model, performance_model):
         self.quality_model = quality_model
         self.performance_model = performance_model
-        self.code_optimizers = [
-            LambdaOptimizer(),
-            CachingOptimizer(),
-            ErrorHandlingOptimizer()
-        ]
-    
+        self.code_optimizers = [LambdaOptimizer(), CachingOptimizer(), ErrorHandlingOptimizer()]
+
     def generate_code(self, specification):
         # Context-aware code generation
         context = self.analyze_context(specification)
-        
+
         # Multi-stage generation
         code = self.advanced_generation(specification, context)
-        
+
         # Quality optimization
         for optimizer in self.code_optimizers:
             code = optimizer.improve(code, context)
-        
+
         # Validation
         quality_score = self.quality_model.predict(code)
         if quality_score < 0.9:
             code = self.refine_code(code, quality_score)
-        
+
         return code
-    
+
     def analyze_context(self, specification):
         # Comprehensive context analysis
         return {
-            'dependencies': self.analyze_dependencies(specification),
-            'performance_requirements': specification.performance,
-            'security_requirements': specification.security,
-            'historical_patterns': self.get_historical_data(specification)
+            "dependencies": self.analyze_dependencies(specification),
+            "performance_requirements": specification.performance,
+            "security_requirements": specification.security,
+            "historical_patterns": self.get_historical_data(specification),
         }
 ```
 

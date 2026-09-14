@@ -29,6 +29,7 @@ rather than re-implementing any of them:
     authority the responding actor already has; this module only acts
     when the field is actually present.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -53,7 +54,10 @@ class DelegationExtractionResult:
 
 
 def extract_and_verify_delegation(
-    payload: dict[str, Any], *, authenticated_delegate: str, now: float | None = None,
+    payload: dict[str, Any],
+    *,
+    authenticated_delegate: str,
+    now: float | None = None,
 ) -> DelegationExtractionResult:
     """`payload` is the already-JSON-decoded inbound message body.
     Expects, when present, `payload["delegation_chain"]` to be a list of
@@ -73,7 +77,9 @@ def extract_and_verify_delegation(
 
     if not isinstance(raw_chain, list):
         return DelegationExtractionResult(
-            present=True, verified=False, verified_delegation=None,
+            present=True,
+            verified=False,
+            verified_delegation=None,
             denial_reason="delegation_chain must be a list",
         )
 
@@ -81,21 +87,29 @@ def extract_and_verify_delegation(
         chain = tuple(DelegationCredential.from_dict(hop) for hop in raw_chain)
     except (DelegationError, TypeError, ValueError, AttributeError) as exc:
         return DelegationExtractionResult(
-            present=True, verified=False, verified_delegation=None,
+            present=True,
+            verified=False,
+            verified_delegation=None,
             denial_reason=f"malformed delegation_chain: {exc}",
         )
 
     result = verify_delegation_chain(
-        chain=chain, authenticated_delegate=authenticated_delegate,
-        is_revoked=get_delegation_store().is_revoked, now=now,
+        chain=chain,
+        authenticated_delegate=authenticated_delegate,
+        is_revoked=get_delegation_store().is_revoked,
+        now=now,
     )
     if not result.authorized:
         return DelegationExtractionResult(
-            present=True, verified=False, verified_delegation=None,
+            present=True,
+            verified=False,
+            verified_delegation=None,
             denial_reason=result.failure_reason or "delegation chain verification failed",
         )
 
     return DelegationExtractionResult(
-        present=True, verified=True,
-        verified_delegation=to_opa_delegation_context(chain), chain=chain,
+        present=True,
+        verified=True,
+        verified_delegation=to_opa_delegation_context(chain),
+        chain=chain,
     )

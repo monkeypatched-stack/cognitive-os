@@ -333,32 +333,29 @@ def schedule_agents(execution_plan: ExecutionPlan) -> Schedule:
     """Generate optimal agent execution schedule."""
     schedule = Schedule()
     available_agents = get_available_agents()
-    
+
     # Sort by priority and dependencies
     sorted_tasks = topological_sort(execution_plan.tasks)
-    
+
     for task in sorted_tasks:
         # Find best matching agent
         agent = find_best_agent(task.requirements, available_agents)
-        
+
         if agent:
             # Calculate optimal start time
             start_time = calculate_start_time(task, schedule)
-            
+
             # Assign agent to task
             assignment = AgentAssignment(
-                task_id=task.id,
-                agent_id=agent.id,
-                start_time=start_time,
-                priority=task.priority
+                task_id=task.id, agent_id=agent.id, start_time=start_time, priority=task.priority
             )
-            
+
             schedule.add_assignment(assignment)
             available_agents.remove(agent)
         else:
             # Queue for later or fail
             task.status = "queued"
-    
+
     return schedule
 ```
 
@@ -368,26 +365,22 @@ def schedule_agents(execution_plan: ExecutionPlan) -> Schedule:
 def calculate_priority(task: ExecutionTask) -> int:
     """Calculate task priority score."""
     base_priority = 100
-    
+
     # Critical path bonus
     if task.on_critical_path:
         base_priority += 50
-    
+
     # Dependency count penalty
     dependency_penalty = len(task.dependencies) * 10
-    
+
     # Resource requirements penalty
-    resource_penalty = (
-        task.resources.cpu / 1000 +
-        task.resources.memory / 1024
-    ) * 5
-    
+    resource_penalty = (task.resources.cpu / 1000 + task.resources.memory / 1024) * 5
+
     # Time sensitivity bonus
     if task.deadline:
-        time_sensitivity = max(0, 100 - 
-            (task.deadline - current_time()).total_seconds() / 60)
+        time_sensitivity = max(0, 100 - (task.deadline - current_time()).total_seconds() / 60)
         base_priority += time_sensitivity
-    
+
     return max(0, base_priority - dependency_penalty - resource_penalty)
 ```
 

@@ -11,6 +11,7 @@ test_checkpoint_restart.py already established: a CurrentPlanRecord
 round-tripped through to_dict()/from_dict() (its real serialization
 boundary) rather than actually killing the interpreter.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,11 +20,19 @@ from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merch
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 from src.monkey_brain.kernel.pipeline.actor import Actor
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
-from src.monkey_brain.kernel.pipeline.comparison.integration import ComparisonIntegratedPolicy, _run_decide
+from src.monkey_brain.kernel.pipeline.comparison.integration import (
+    ComparisonIntegratedPolicy,
+    _run_decide,
+)
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
-from src.monkey_brain.kernel.pipeline.planning.current_plan_store import CurrentPlanRecord, plan_to_dict
+from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+    CurrentPlanRecord,
+    plan_to_dict,
+)
 from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
-from src.monkey_brain.kernel.pipeline.planning.plan_staleness import capture_entity_versions
+from src.monkey_brain.kernel.pipeline.planning.plan_staleness import (
+    capture_entity_versions,
+)
 from src.monkey_brain.kernel.pipeline.audit_trail import query_audit_timeline
 from src.monkey_brain.kernel.timeline.store import TimelineStore
 
@@ -42,10 +51,20 @@ def _seeded_kg(quantity: int = 5, price: float = 3.49):
 
 
 def _plan(goal: str, milk_id: str) -> Plan:
-    return Plan(goal=goal, steps=(
-        PlanStep(action="ProductSelection", parameters={"selection": [{"id": milk_id, "qty": 1}]}),
-        PlanStep(action="OrderCreation", parameters={}),
-    ), cost=0.0, confidence=0.8, risk=0.0, planner="llm")
+    return Plan(
+        goal=goal,
+        steps=(
+            PlanStep(
+                action="ProductSelection",
+                parameters={"selection": [{"id": milk_id, "qty": 1}]},
+            ),
+            PlanStep(action="OrderCreation", parameters={}),
+        ),
+        cost=0.0,
+        confidence=0.8,
+        risk=0.0,
+        planner="llm",
+    )
 
 
 def _state(*, plan, prediction_result, kg, belief_goal: str, execution_id: str = "exec_1") -> CognitiveState:
@@ -62,16 +81,24 @@ def _state(*, plan, prediction_result, kg, belief_goal: str, execution_id: str =
 
 def _standing_record(kg, plan: Plan, *, plan_id: str = "standing", score: float = 0.8) -> CurrentPlanRecord:
     return CurrentPlanRecord(
-        plan_id=plan_id, actor_id=ACTOR_ID, goal=plan.goal,
+        plan_id=plan_id,
+        actor_id=ACTOR_ID,
+        goal=plan.goal,
         steps=tuple(s.action for s in plan.steps),
         step_descriptions=tuple(s.description for s in plan.steps),
-        score=score, plan=plan_to_dict(plan),
+        score=score,
+        plan=plan_to_dict(plan),
         entity_versions=capture_entity_versions(kg, plan),
     )
 
 
 def _prediction_result(probability: float = 0.6, expected_utility: float = 0.5) -> dict:
-    return {"selected": {"probability": probability, "prediction": {"expected_utility": expected_utility}}}
+    return {
+        "selected": {
+            "probability": probability,
+            "prediction": {"expected_utility": expected_utility},
+        }
+    }
 
 
 class TestUnchangedWorldExecutesNormally:
@@ -81,7 +108,12 @@ class TestUnchangedWorldExecutesNormally:
         kg, milk_id = _seeded_kg(quantity=5)
         policy = ComparisonIntegratedPolicy()
         plan = _plan("buy milk", milk_id)
-        state = _state(plan=plan, prediction_result=_prediction_result(), kg=kg, belief_goal="buy milk")
+        state = _state(
+            plan=plan,
+            prediction_result=_prediction_result(),
+            kg=kg,
+            belief_goal="buy milk",
+        )
 
         result = asyncio.run(_run_decide(state, policy))
 
@@ -137,7 +169,13 @@ class TestDepletedStockBlocksExecution:
         policy._current_plans[canonicalize_goal("buy milk")] = current
 
         new_plan = _plan("buy milk", milk_id)  # freshly (re)planned this tick
-        state = _state(plan=new_plan, prediction_result=_prediction_result(0.3, 0.1), kg=kg, belief_goal="buy milk", execution_id="exec_2")
+        state = _state(
+            plan=new_plan,
+            prediction_result=_prediction_result(0.3, 0.1),
+            kg=kg,
+            belief_goal="buy milk",
+            execution_id="exec_2",
+        )
 
         result = asyncio.run(_run_decide(state, policy))
 
@@ -189,6 +227,7 @@ class TestProviderAvailabilityChangeBlocksExecution:
         current = _standing_record(kg, plan, score=0.9)
 
         from src.monkey_brain.kernel.domains.commerce import remove_product
+
         remove_product(kg, milk_id, "m1")
 
         policy = ComparisonIntegratedPolicy()
@@ -228,7 +267,9 @@ class TestRestartThenWorldChangeDetectsStaleness:
     serialization boundary, the same honest convention
     test_checkpoint_restart.py already established."""
 
-    def test_reloaded_record_from_before_restart_is_still_correctly_detected_stale(self):
+    def test_reloaded_record_from_before_restart_is_still_correctly_detected_stale(
+        self,
+    ):
         kg, milk_id = _seeded_kg(quantity=5)
         plan = _plan("buy milk", milk_id)
         original_record = _standing_record(kg, plan, plan_id="pre-restart", score=0.9)

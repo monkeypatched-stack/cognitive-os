@@ -1,4 +1,5 @@
 """DroneCIAgent — triggers Drone CI builds via REST API."""
+
 from __future__ import annotations
 
 import logging
@@ -31,11 +32,18 @@ class DroneCIAgent(BaseETASSAgent):
 
         if not base_url or not token or not repo_slug:
             self._reward(False, 0.0)
-            return self._result(payload={"triggered": False}, observations=["missing drone_url, drone_token, or repo_slug"])
+            return self._result(
+                payload={"triggered": False},
+                observations=["missing drone_url, drone_token, or repo_slug"],
+            )
 
         import httpx
+
         api = f"{base_url.rstrip('/')}/api/repos/{repo_slug}/builds"
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
         body = {"branch": branch, "commit": commit}
 
         try:
@@ -45,15 +53,31 @@ class DroneCIAgent(BaseETASSAgent):
             success = resp.status_code in (200, 201)
         except Exception as e:
             self._reward(False, 0.1)
-            return self._result(payload={"triggered": False, "error": str(e)}, observations=[f"Drone API error: {e}"])
+            return self._result(
+                payload={"triggered": False, "error": str(e)},
+                observations=[f"Drone API error: {e}"],
+            )
 
         build_id = data.get("id", "")
         build_url = data.get("link", f"{base_url.rstrip('/')}/{repo_slug}/{build_id}")
         self._reward(success, 0.6)
-        artifacts = [Artifact(kind="ci_pipeline", name=f"Drone:{build_id}", uri=build_url)] if Artifact and success else []
+        artifacts = (
+            [Artifact(kind="ci_pipeline", name=f"Drone:{build_id}", uri=build_url)] if Artifact and success else []
+        )
 
         return self._result(
-            payload={"triggered": success, "build_id": build_id, "build_url": build_url, "branch": branch},
+            payload={
+                "triggered": success,
+                "build_id": build_id,
+                "build_url": build_url,
+                "branch": branch,
+            },
             artifacts=artifacts,
-            observations=[f"Drone build #{build_id} triggered" if success else f"Drone trigger failed: {data.get('message', '')}"],
+            observations=[
+                (
+                    f"Drone build #{build_id} triggered"
+                    if success
+                    else f"Drone trigger failed: {data.get('message', '')}"
+                )
+            ],
         )

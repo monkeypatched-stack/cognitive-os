@@ -9,7 +9,10 @@ from urllib.parse import urlencode
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.common.config import settings
-from services.pm.models.maintainanceLog import MaintenanceLogCreate, MaintenanceLogUpdate
+from services.pm.models.maintainanceLog import (
+    MaintenanceLogCreate,
+    MaintenanceLogUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +87,7 @@ def _record_to_line(data: dict, ts_ns: int) -> str:
 
 # ── Read ──────────────────────────────────────────────────────────────────────
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -123,13 +127,17 @@ async def get_by_machine(db: AsyncIOMotorDatabase, machine_id: str) -> list[dict
     return [_row_to_dict(r) for r in rows]
 
 
-async def get_by_equipment_id(db: AsyncIOMotorDatabase, equipment_id: str) -> list[dict]:
+async def get_by_equipment_id(
+    db: AsyncIOMotorDatabase, equipment_id: str
+) -> list[dict]:
     sql = f"SELECT * FROM {COLLECTION} WHERE equipment_id = '{equipment_id}' ORDER BY time DESC LIMIT 100"
     rows = _influx_query(sql)
     return [_row_to_dict(r) for r in rows]
 
 
-async def get_open(db: AsyncIOMotorDatabase, *, machine_id: str | None = None) -> list[dict]:
+async def get_open(
+    db: AsyncIOMotorDatabase, *, machine_id: str | None = None
+) -> list[dict]:
     where = "status != 'Completed' AND status != 'Cancelled'"
     if machine_id:
         where += f" AND machine_id = '{machine_id}'"
@@ -140,6 +148,7 @@ async def get_open(db: AsyncIOMotorDatabase, *, machine_id: str | None = None) -
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 async def create(db: AsyncIOMotorDatabase, data: MaintenanceLogCreate) -> dict:
     record = data.model_dump()
     ts_ns = int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
@@ -149,6 +158,7 @@ async def create(db: AsyncIOMotorDatabase, data: MaintenanceLogCreate) -> dict:
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 async def update(
     db: AsyncIOMotorDatabase, log_id: str, data: MaintenanceLogUpdate
@@ -165,6 +175,7 @@ async def update(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 async def delete(db: AsyncIOMotorDatabase, log_id: str) -> bool:
     existing = await get_by_id(db, log_id)

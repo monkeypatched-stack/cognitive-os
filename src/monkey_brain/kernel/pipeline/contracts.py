@@ -13,6 +13,7 @@ Dependency direction:
 
 The contracts layer must never import runtime implementations.
 """
+
 from __future__ import annotations
 
 import time
@@ -35,11 +36,12 @@ from src.monkey_brain.kernel.pipeline.protocols import (
     EventBusProtocol,
 )
 
-
 # ── Status Enum ──────────────────────────────────────────────────────────
+
 
 class PipelineStatus:
     """Pipeline execution status constants."""
+
     SUCCESS = "success"
     PARTIAL = "partial"
     FAILED = "failed"
@@ -47,6 +49,7 @@ class PipelineStatus:
 
 
 # ── 1. PipelineRequest ──────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class PipelineRequest:
@@ -113,6 +116,7 @@ class PipelineAttachment:
 
 # ── 2. CompiledRequest ──────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class CompiledRequest:
     """Fully compiled request — the boundary between compilation and execution.
@@ -158,6 +162,7 @@ class CompiledRequest:
 
 
 # ── 3. RuntimeContext ───────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class RuntimeContext:
@@ -210,6 +215,7 @@ class RuntimeContext:
 
 # ── 4. PipelineResponse ────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class PipelineResponse:
     """Response returned to the caller.
@@ -253,8 +259,7 @@ class PipelineResponse:
             PipelineStatus.PENDING,
         ):
             raise ValueError(
-                f"PipelineResponse.status must be one of "
-                f"success/partial/failed/pending, got {self.status!r}"
+                f"PipelineResponse.status must be one of success/partial/failed/pending, got {self.status!r}"
             )
 
 

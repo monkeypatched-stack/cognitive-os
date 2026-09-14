@@ -4,7 +4,9 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.common.db import get_database
 from services.inventory.helpers import inventory_transactions as crud
 from services.common.auth import require_permission
-from services.inventory.models.inventory_responses import PaginatedInventoryTransactionResponse
+from services.inventory.models.inventory_responses import (
+    PaginatedInventoryTransactionResponse,
+)
 from services.inventory.models.inventory_transactions import (
     InventoryTransactionCreate,
     InventoryTransactionRecord,
@@ -25,7 +27,9 @@ async def list_inventory_transactions(
     return {"total": total, "page": page, "page_size": page_size, "results": records}
 
 
-@router.get("/by-inventory/{inventory_id}", response_model=list[InventoryTransactionRecord])
+@router.get(
+    "/by-inventory/{inventory_id}", response_model=list[InventoryTransactionRecord]
+)
 async def list_inventory_transactions_by_inventory(
     inventory_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -58,7 +62,9 @@ async def get_inventory_transaction(
     return record
 
 
-@router.post("/", response_model=InventoryTransactionRecord, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=InventoryTransactionRecord, status_code=status.HTTP_201_CREATED
+)
 async def create_inventory_transaction(
     data: InventoryTransactionCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

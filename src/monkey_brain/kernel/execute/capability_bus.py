@@ -19,6 +19,7 @@ name, it tries the Wolverine capability registry, then the agent bus
 and reports which tier actually answered rather than fabricating a single
 merged namespace where two of these were never in fact the same thing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,13 +57,20 @@ class CapabilityBus:
         any) owns it, plus a short real description from that tier."""
         capability = self._runtime.get_capability(name) if self._runtime else None
         if capability is not None:
-            return {"name": name, "found": True, "source": "capability", "type": type(capability).__name__}
+            return {
+                "name": name,
+                "found": True,
+                "source": "capability",
+                "type": type(capability).__name__,
+            }
 
         agent = self._agent_bus.resolve_agent(name) if self._agent_bus else None
         if agent is not None:
             provider = self._agent_bus.get_provider_for(name) if self._agent_bus else None
             return {
-                "name": name, "found": True, "source": "agent",
+                "name": name,
+                "found": True,
+                "source": "agent",
                 "agent_type": getattr(agent, "agent_type", type(agent).__name__),
                 "provider": provider.name if provider else None,
             }
@@ -70,7 +78,12 @@ class CapabilityBus:
         if self._provider_registry is not None:
             found = self._provider_registry.find_agent(name)
             if found is not None:
-                return {"name": name, "found": True, "source": "provider", "provider_agent": found}
+                return {
+                    "name": name,
+                    "found": True,
+                    "source": "provider",
+                    "provider_agent": found,
+                }
 
         return {"name": name, "found": False, "source": ""}
 
@@ -106,29 +119,41 @@ class CapabilityBus:
             except Exception as exc:
                 output, success = {"error": str(exc)}, False
             return CapabilityBusResult(
-                name=name, found=True, source="capability", success=success,
-                payload=output, latency_ms=(time.monotonic() - t0) * 1000,
+                name=name,
+                found=True,
+                source="capability",
+                success=success,
+                payload=output,
+                latency_ms=(time.monotonic() - t0) * 1000,
             )
 
         if self._agent_bus is not None and self._agent_bus.resolve_agent(name) is not None:
             result = await self._agent_bus.execute(name, **state)
             return CapabilityBusResult(
-                name=name, found=True, source="agent", success=result.success,
-                payload=result.produced, latency_ms=result.latency_ms,
+                name=name,
+                found=True,
+                source="agent",
+                success=result.success,
+                payload=result.produced,
+                latency_ms=result.latency_ms,
             )
 
         if self._provider_registry is not None and self._provider_registry.find_agent(name) is not None:
             result = await self._provider_registry.execute_agent(name, state)
             return CapabilityBusResult(
-                name=name, found=True, source="provider", success=bool(result.get("success", False)),
-                payload=result, latency_ms=(time.monotonic() - t0) * 1000,
+                name=name,
+                found=True,
+                source="provider",
+                success=bool(result.get("success", False)),
+                payload=result,
+                latency_ms=(time.monotonic() - t0) * 1000,
             )
 
         return CapabilityBusResult(name=name, found=False, source="", latency_ms=(time.monotonic() - t0) * 1000)
 
     def summary(self) -> dict[str, Any]:
         return {
-            "capabilities": len(self._runtime.list_capabilities()) if self._runtime else 0,
+            "capabilities": (len(self._runtime.list_capabilities()) if self._runtime else 0),
             "provider_registry_attached": self._provider_registry is not None,
         }
 

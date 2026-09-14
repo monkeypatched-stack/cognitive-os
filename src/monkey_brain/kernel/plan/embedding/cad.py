@@ -1,4 +1,5 @@
 """CAD / geometry embedding provider."""
+
 from __future__ import annotations
 
 import re as _re
@@ -7,7 +8,9 @@ from typing import Any
 import numpy as np
 
 from src.monkey_brain.kernel.plan.embedding._utils import (
-    EMBEDDING_DIM, _bow_project, _parse_numbers,
+    EMBEDDING_DIM,
+    _bow_project,
+    _parse_numbers,
 )
 from src.monkey_brain.kernel.plan.embedding.provider import Embedding, EmbeddingEmbedder
 
@@ -35,11 +38,47 @@ class CADEmbedder(EmbeddingEmbedder):
             feat[2] = float(np.std(arr)) / scale
             feat[3] = float(np.min(arr)) / scale
             feat[4] = float(np.max(arr)) / scale
-        feat[5]  = min(len(_re.findall(r"\b(?:part|assembly|component|body|solid|surface)\b", content, _re.I)), 20) / 20.0
-        feat[6]  = min(len(_re.findall(r"\b(?:tolerance|clearance|fit|thread|weld|joint)\b", content, _re.I)), 20) / 20.0
-        feat[7]  = min(len(_re.findall(r"\b(?:mm|cm|m|in|ft|°|deg|rad)\b", content, _re.I)), 30) / 30.0
-        feat[8]  = min(len(_re.findall(r"\b(?:bore|hole|slot|fillet|chamfer|extrude|revolve)\b", content, _re.I)), 20) / 20.0
-        feat[9]  = float((getattr(item, "provenance", 0.8) + 1.0 - getattr(item, "uncertainty", 0.2)) / 2)
+        feat[5] = (
+            min(
+                len(
+                    _re.findall(
+                        r"\b(?:part|assembly|component|body|solid|surface)\b",
+                        content,
+                        _re.I,
+                    )
+                ),
+                20,
+            )
+            / 20.0
+        )
+        feat[6] = (
+            min(
+                len(
+                    _re.findall(
+                        r"\b(?:tolerance|clearance|fit|thread|weld|joint)\b",
+                        content,
+                        _re.I,
+                    )
+                ),
+                20,
+            )
+            / 20.0
+        )
+        feat[7] = min(len(_re.findall(r"\b(?:mm|cm|m|in|ft|°|deg|rad)\b", content, _re.I)), 30) / 30.0
+        feat[8] = (
+            min(
+                len(
+                    _re.findall(
+                        r"\b(?:bore|hole|slot|fillet|chamfer|extrude|revolve)\b",
+                        content,
+                        _re.I,
+                    )
+                ),
+                20,
+            )
+            / 20.0
+        )
+        feat[9] = float((getattr(item, "provenance", 0.8) + 1.0 - getattr(item, "uncertainty", 0.2)) / 2)
         feat[10] = float(getattr(item, "provenance", 0.5))
         text_feat = _bow_project(content)
         return Embedding(

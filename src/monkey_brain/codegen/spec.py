@@ -2,11 +2,11 @@
 
 User defines model fields + DB type. Generator produces complete production microservice.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
-
 
 FieldType = Literal["str", "text", "int", "float", "bool", "datetime", "uuid", "list", "dict", "decimal"]
 DBType = Literal["postgresql", "mongodb", "sqlite"]
@@ -63,7 +63,11 @@ class PaginationSpec(BaseModel):
 
 
 class MicroserviceSpec(BaseModel):
-    name: str = Field(..., pattern=r"^[a-z][a-z0-9_]*$", description="Resource name, snake_case (e.g. 'products')")
+    name: str = Field(
+        ...,
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="Resource name, snake_case (e.g. 'products')",
+    )
     domain: str = Field(default="default", description="Domain context for OpenAPI tags")
     description: str = ""
     version: str = "1.0.0"

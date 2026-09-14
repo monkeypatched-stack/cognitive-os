@@ -8,13 +8,14 @@ from uuid import uuid4
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from services.process_definitions.helpers import process_definition as crud
-from services.process_definitions.models.process_definition import ProcessDefinitionCanvasBackendCall
+from services.process_definitions.models.process_definition import (
+    ProcessDefinitionCanvasBackendCall,
+)
 from services.process_definitions.node_services.executor import (
     COMPLIANCE_NODES,
     MATERIAL_FLOW_NODES,
     execute_canvas_node_service,
 )
-
 
 FLOW_RUN_COLLECTION = "process_definition_canvas_flow_runs"
 TEMP_SOP_LAYOUT_PREFIX = "sop-simulation"
@@ -25,11 +26,18 @@ def _now() -> datetime:
 
 
 def _node_id(node: dict[str, Any]) -> str:
-    return str(node.get("node_id") or node.get("id") or node.get("canvas_node_id") or "")
+    return str(
+        node.get("node_id") or node.get("id") or node.get("canvas_node_id") or ""
+    )
 
 
 def _node_label(node: dict[str, Any]) -> str:
-    return str(node.get("name") or node.get("title") or (node.get("data") or {}).get("label") or _node_id(node)).strip()
+    return str(
+        node.get("name")
+        or node.get("title")
+        or (node.get("data") or {}).get("label")
+        or _node_id(node)
+    ).strip()
 
 
 def _node_type_from_record(node: dict[str, Any]) -> str | None:
@@ -37,10 +45,16 @@ def _node_type_from_record(node: dict[str, Any]) -> str | None:
     return node.get("node_type") or metadata.get("nodeType") or metadata.get("type")
 
 
-def _backend_call_from_node(node: dict[str, Any]) -> ProcessDefinitionCanvasBackendCall | None:
+def _backend_call_from_node(
+    node: dict[str, Any],
+) -> ProcessDefinitionCanvasBackendCall | None:
     metadata = node.get("metadata") if isinstance(node.get("metadata"), dict) else {}
     config = node.get("config") if isinstance(node.get("config"), dict) else {}
-    backend = node.get("backend") if isinstance(node.get("backend"), dict) else metadata.get("backend")
+    backend = (
+        node.get("backend")
+        if isinstance(node.get("backend"), dict)
+        else metadata.get("backend")
+    )
     backend = dict(backend) if isinstance(backend, dict) else {}
     if config.get("url") and not backend.get("url"):
         backend["url"] = config["url"]
@@ -54,15 +68,31 @@ def _backend_call_from_node(node: dict[str, Any]) -> ProcessDefinitionCanvasBack
 
 
 def _edge_source(edge: dict[str, Any]) -> str:
-    return str(edge.get("source_node_id") or edge.get("source") or edge.get("sourceNodeId") or "")
+    return str(
+        edge.get("source_node_id")
+        or edge.get("source")
+        or edge.get("sourceNodeId")
+        or ""
+    )
 
 
 def _edge_target(edge: dict[str, Any]) -> str:
-    return str(edge.get("target_node_id") or edge.get("target") or edge.get("targetNodeId") or "")
+    return str(
+        edge.get("target_node_id")
+        or edge.get("target")
+        or edge.get("targetNodeId")
+        or ""
+    )
 
 
 def _edge_label(edge: dict[str, Any]) -> str:
-    return str(edge.get("label") or edge.get("sourceHandle") or edge.get("routeMode") or "").strip().lower()
+    return (
+        str(
+            edge.get("label") or edge.get("sourceHandle") or edge.get("routeMode") or ""
+        )
+        .strip()
+        .lower()
+    )
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -70,7 +100,9 @@ def _as_list(value: Any) -> list[Any]:
 
 
 def _safe_token(value: Any, fallback: str) -> str:
-    token = "".join(ch.lower() if ch.isalnum() else "-" for ch in str(value or fallback))
+    token = "".join(
+        ch.lower() if ch.isalnum() else "-" for ch in str(value or fallback)
+    )
     token = "-".join(part for part in token.split("-") if part)
     return token or fallback
 
@@ -123,7 +155,14 @@ def _node(
     }
 
 
-def _edge(edge_id: str, source: str, target: str, *, source_port: int = 0, label: str | None = None) -> dict[str, Any]:
+def _edge(
+    edge_id: str,
+    source: str,
+    target: str,
+    *,
+    source_port: int = 0,
+    label: str | None = None,
+) -> dict[str, Any]:
     edge = {
         "edge_id": edge_id,
         "source_node_id": source,
@@ -136,25 +175,57 @@ def _edge(edge_id: str, source: str, target: str, *, source_port: int = 0, label
 
 
 def _section_conditions(section: Any) -> list[dict[str, Any]]:
-    return [item for item in _as_list((section or {}).get("conditions") if isinstance(section, dict) else []) if isinstance(item, dict)]
+    return [
+        item
+        for item in _as_list(
+            (section or {}).get("conditions") if isinstance(section, dict) else []
+        )
+        if isinstance(item, dict)
+    ]
 
 
 def _section_constraints(section: Any) -> list[dict[str, Any]]:
-    return [item for item in _as_list((section or {}).get("constraints") if isinstance(section, dict) else []) if isinstance(item, dict)]
+    return [
+        item
+        for item in _as_list(
+            (section or {}).get("constraints") if isinstance(section, dict) else []
+        )
+        if isinstance(item, dict)
+    ]
 
 
 def _section_actions(section: Any) -> list[dict[str, Any]]:
-    return [item for item in _as_list((section or {}).get("actions") if isinstance(section, dict) else []) if isinstance(item, dict)]
+    return [
+        item
+        for item in _as_list(
+            (section or {}).get("actions") if isinstance(section, dict) else []
+        )
+        if isinstance(item, dict)
+    ]
 
 
 def _step_records(sop: dict[str, Any]) -> list[dict[str, Any]]:
-    process_definition = sop.get("process_definition") if isinstance(sop.get("process_definition"), dict) else {}
-    steps_section = process_definition.get("steps") if isinstance(process_definition.get("steps"), dict) else {}
-    steps = [item for item in _as_list(steps_section.get("steps")) if isinstance(item, dict)]
+    process_definition = (
+        sop.get("process_definition")
+        if isinstance(sop.get("process_definition"), dict)
+        else {}
+    )
+    steps_section = (
+        process_definition.get("steps")
+        if isinstance(process_definition.get("steps"), dict)
+        else {}
+    )
+    steps = [
+        item for item in _as_list(steps_section.get("steps")) if isinstance(item, dict)
+    ]
     if steps:
         return sorted(steps, key=lambda item: int(item.get("sequence") or 999999))
 
-    templates = [item for item in _as_list(process_definition.get("instruction_templates")) if isinstance(item, dict)]
+    templates = [
+        item
+        for item in _as_list(process_definition.get("instruction_templates"))
+        if isinstance(item, dict)
+    ]
     instruction_steps: list[dict[str, Any]] = []
     for template in templates:
         for item in _as_list(template.get("steps")):
@@ -162,16 +233,26 @@ def _step_records(sop: dict[str, Any]) -> list[dict[str, Any]]:
                 continue
             instruction_steps.append(
                 {
-                    "id": item.get("process_step_id") or f"{template.get('instruction_template_id', 'template')}-step-{item.get('sequence')}",
+                    "id": item.get("process_step_id")
+                    or f"{template.get('instruction_template_id', 'template')}-step-{item.get('sequence')}",
                     "sequence": item.get("sequence") or len(instruction_steps) + 1,
-                    "name": item.get("title") or item.get("instruction") or "Instruction Step",
-                    "description": item.get("instruction") or item.get("acceptance_criteria") or "",
+                    "name": item.get("title")
+                    or item.get("instruction")
+                    or "Instruction Step",
+                    "description": item.get("instruction")
+                    or item.get("acceptance_criteria")
+                    or "",
                     "action_type": "manual",
-                    "metadata": {"source": "instruction_template", "template_id": template.get("instruction_template_id")},
+                    "metadata": {
+                        "source": "instruction_template",
+                        "template_id": template.get("instruction_template_id"),
+                    },
                 }
             )
     if instruction_steps:
-        return sorted(instruction_steps, key=lambda item: int(item.get("sequence") or 999999))
+        return sorted(
+            instruction_steps, key=lambda item: int(item.get("sequence") or 999999)
+        )
 
     return [
         {
@@ -184,11 +265,25 @@ def _step_records(sop: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None = None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+def compile_sop_to_canvas_layout(
+    sop: dict[str, Any],
+    *,
+    layout_id: str | None = None,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     sop_id = str(sop.get("id") or sop.get("sop_id") or "sop")
-    process_definition = sop.get("process_definition") if isinstance(sop.get("process_definition"), dict) else {}
-    process_definition_id = str(process_definition.get("process_definition_id") or f"PROC-{sop_id}")
-    resolved_layout_id = layout_id or f"{TEMP_SOP_LAYOUT_PREFIX}-{_safe_token(sop_id, 'sop')}-{uuid4().hex[:8]}"
+    process_definition = (
+        sop.get("process_definition")
+        if isinstance(sop.get("process_definition"), dict)
+        else {}
+    )
+    process_definition_id = str(
+        process_definition.get("process_definition_id") or f"PROC-{sop_id}"
+    )
+    resolved_layout_id = (
+        layout_id
+        or f"{TEMP_SOP_LAYOUT_PREFIX}-{_safe_token(sop_id, 'sop')}-{uuid4().hex[:8]}"
+    )
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
     previous = "sop-start"
@@ -200,18 +295,35 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
             "inject",
             f"Start {sop.get('title') or sop_id}",
             config={"payload": payload or {}, "payload_type": "json"},
-            metadata={"compiled_from": "sop", "sop_id": sop_id, "process_definition_id": process_definition_id},
+            metadata={
+                "compiled_from": "sop",
+                "sop_id": sop_id,
+                "process_definition_id": process_definition_id,
+            },
         )
     )
 
     def append_linear(node: dict[str, Any], *, edge_label: str | None = None) -> str:
         nonlocal previous
         nodes.append(node)
-        edges.append(_edge(f"{previous}-{node['node_id']}", previous, node["node_id"], label=edge_label))
+        edges.append(
+            _edge(
+                f"{previous}-{node['node_id']}",
+                previous,
+                node["node_id"],
+                label=edge_label,
+            )
+        )
         previous = node["node_id"]
         return previous
 
-    def append_check(condition: dict[str, Any], section: str, index: int, *, step_id: str | None = None) -> str:
+    def append_check(
+        condition: dict[str, Any],
+        section: str,
+        index: int,
+        *,
+        step_id: str | None = None,
+    ) -> str:
         nonlocal previous
         condition_id = str(condition.get("id") or f"{section}-{index}")
         node_id = f"{section}-{_safe_token(step_id, 'process')}-{_safe_token(condition_id, str(index))}"
@@ -227,7 +339,10 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
                     "check_all": False,
                     "rules": [
                         _condition_rule(condition),
-                        {"operation": "not_equals", "value": "__SOP_SIMULATION_NEVER_MATCH__"},
+                        {
+                            "operation": "not_equals",
+                            "value": "__SOP_SIMULATION_NEVER_MATCH__",
+                        },
                     ],
                 },
                 metadata={
@@ -246,7 +361,10 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
                 fail_id,
                 "audit queue",
                 f"{condition.get('name') or condition_id} Failed",
-                config={"audit_required": True, "signature_required": bool(condition.get("is_mandatory", True))},
+                config={
+                    "audit_required": True,
+                    "signature_required": bool(condition.get("is_mandatory", True)),
+                },
                 metadata={
                     "compiled_from": "sop_condition_failure",
                     "section": section,
@@ -257,8 +375,12 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
             )
         )
         edges.append(_edge(f"{previous}-{node_id}", previous, node_id))
-        edges.append(_edge(f"{node_id}-pass", node_id, "__NEXT__", source_port=0, label="pass"))
-        edges.append(_edge(f"{node_id}-fail", node_id, fail_id, source_port=1, label="fail"))
+        edges.append(
+            _edge(f"{node_id}-pass", node_id, "__NEXT__", source_port=0, label="pass")
+        )
+        edges.append(
+            _edge(f"{node_id}-fail", node_id, fail_id, source_port=1, label="fail")
+        )
         fail_targets.append(fail_id)
         previous = node_id
         return node_id
@@ -271,11 +393,17 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
                 edge["target_node_id"] = target_id
         pending_next_edges.clear()
 
-    for index, condition in enumerate(_section_conditions(sop.get("prechecks")), start=1):
+    for index, condition in enumerate(
+        _section_conditions(sop.get("prechecks")), start=1
+    ):
         append_check(condition, "precheck", index)
-        pending_next_edges.extend([edge for edge in edges if edge["target_node_id"] == "__NEXT__"])
+        pending_next_edges.extend(
+            [edge for edge in edges if edge["target_node_id"] == "__NEXT__"]
+        )
 
-    for constraint_index, constraint in enumerate(_section_constraints(sop.get("constraints")), start=1):
+    for constraint_index, constraint in enumerate(
+        _section_constraints(sop.get("constraints")), start=1
+    ):
         constraint_node_id = f"constraint-{_safe_token(constraint.get('id') or constraint.get('name'), str(constraint_index))}"
         close_pending_next(constraint_node_id)
         append_linear(
@@ -283,7 +411,11 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
                 constraint_node_id,
                 "comment",
                 constraint.get("name") or f"Constraint {constraint_index}",
-                config={"text": constraint.get("violation_message") or constraint.get("description") or ""},
+                config={
+                    "text": constraint.get("violation_message")
+                    or constraint.get("description")
+                    or ""
+                },
                 metadata={
                     "compiled_from": "sop_constraint",
                     "constraint": constraint,
@@ -326,16 +458,28 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
                 },
             )
         )
-        for check_index, condition in enumerate(_section_conditions(step.get("prechecks")), start=1):
+        for check_index, condition in enumerate(
+            _section_conditions(step.get("prechecks")), start=1
+        ):
             append_check(condition, "step-precheck", check_index, step_id=step_id)
-            pending_next_edges.extend([edge for edge in edges if edge["target_node_id"] == "__NEXT__"])
-        for check_index, condition in enumerate(_section_conditions(step.get("postchecks")), start=1):
+            pending_next_edges.extend(
+                [edge for edge in edges if edge["target_node_id"] == "__NEXT__"]
+            )
+        for check_index, condition in enumerate(
+            _section_conditions(step.get("postchecks")), start=1
+        ):
             append_check(condition, "step-postcheck", check_index, step_id=step_id)
-            pending_next_edges.extend([edge for edge in edges if edge["target_node_id"] == "__NEXT__"])
+            pending_next_edges.extend(
+                [edge for edge in edges if edge["target_node_id"] == "__NEXT__"]
+            )
 
-    for index, condition in enumerate(_section_conditions(sop.get("postchecks")), start=1):
+    for index, condition in enumerate(
+        _section_conditions(sop.get("postchecks")), start=1
+    ):
         append_check(condition, "postcheck", index)
-        pending_next_edges.extend([edge for edge in edges if edge["target_node_id"] == "__NEXT__"])
+        pending_next_edges.extend(
+            [edge for edge in edges if edge["target_node_id"] == "__NEXT__"]
+        )
 
     corrective_actions = _section_actions(sop.get("corrective_actions"))
     if corrective_actions:
@@ -355,7 +499,9 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
                 )
             )
             for fail_id in fail_targets:
-                edges.append(_edge(f"{fail_id}-{action_node_id}", fail_id, action_node_id))
+                edges.append(
+                    _edge(f"{fail_id}-{action_node_id}", fail_id, action_node_id)
+                )
 
     end_id = "sop-complete"
     close_pending_next(end_id)
@@ -365,7 +511,11 @@ def compile_sop_to_canvas_layout(sop: dict[str, Any], *, layout_id: str | None =
             "debug",
             "SOP Simulation Complete",
             config={"output": "full"},
-            metadata={"compiled_from": "sop_complete", "sop_id": sop_id, "process_definition_id": process_definition_id},
+            metadata={
+                "compiled_from": "sop_complete",
+                "sop_id": sop_id,
+                "process_definition_id": process_definition_id,
+            },
         )
     )
 
@@ -395,7 +545,10 @@ def _body_message(body: Any, fallback: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _route_value(body: Any, message: dict[str, Any] | None) -> str | None:
-    sources = [body if isinstance(body, dict) else {}, message if isinstance(message, dict) else {}]
+    sources = [
+        body if isinstance(body, dict) else {},
+        message if isinstance(message, dict) else {},
+    ]
     for source in sources:
         value = source.get("route") or source.get("decision") or source.get("status")
         if isinstance(value, str) and value.strip():
@@ -404,7 +557,10 @@ def _route_value(body: Any, message: dict[str, Any] | None) -> str | None:
 
 
 def _target_node_label(body: Any, message: dict[str, Any] | None) -> str | None:
-    sources = [body if isinstance(body, dict) else {}, message if isinstance(message, dict) else {}]
+    sources = [
+        body if isinstance(body, dict) else {},
+        message if isinstance(message, dict) else {},
+    ]
     for source in sources:
         value = source.get("target_node") or source.get("targetNode")
         if isinstance(value, str) and value.strip():
@@ -451,7 +607,8 @@ def _targeted_edges(
         targeted = [
             edge
             for edge in outgoing
-            if _node_label(nodes_by_id.get(_edge_target(edge), {})).lower() == target_label
+            if _node_label(nodes_by_id.get(_edge_target(edge), {})).lower()
+            == target_label
         ]
         if targeted:
             return targeted
@@ -466,7 +623,12 @@ def _targeted_edges(
     return unlabeled or outgoing
 
 
-def _side_effect_node_response(node_type: str | None, node: dict[str, Any], config: dict[str, Any], message: dict[str, Any]) -> dict[str, Any]:
+def _side_effect_node_response(
+    node_type: str | None,
+    node: dict[str, Any],
+    config: dict[str, Any],
+    message: dict[str, Any],
+) -> dict[str, Any]:
     if node_type in MATERIAL_FLOW_NODES:
         return {
             "status": "material_flow_simulated",
@@ -487,7 +649,8 @@ def _side_effect_node_response(node_type: str | None, node: dict[str, Any], conf
             "next_message": {**message, "compliance_action": node_type},
             "audit_required": bool(config.get("audit_required", True)),
             "signature_required": bool(config.get("signature_required", False)),
-            "would_publish": node_type in {"approval request", "audit queue", "electronic signature"},
+            "would_publish": node_type
+            in {"approval request", "audit queue", "electronic signature"},
         }
     return {
         "status": "side_effect_simulated",
@@ -498,7 +661,9 @@ def _side_effect_node_response(node_type: str | None, node: dict[str, Any], conf
     }
 
 
-def _is_side_effect_node(node_type: str | None, backend: ProcessDefinitionCanvasBackendCall | None) -> bool:
+def _is_side_effect_node(
+    node_type: str | None, backend: ProcessDefinitionCanvasBackendCall | None
+) -> bool:
     if node_type in COMPLIANCE_NODES or node_type in MATERIAL_FLOW_NODES:
         return True
     if node_type in {
@@ -528,7 +693,9 @@ async def _execute_node_for_simulation(
     payload: dict[str, Any],
 ) -> tuple[bool, Any, str | None]:
     node_type = _node_type_from_record(node)
-    config = dict(node.get("config") or {}) if isinstance(node.get("config"), dict) else {}
+    config = (
+        dict(node.get("config") or {}) if isinstance(node.get("config"), dict) else {}
+    )
     backend = _backend_call_from_node(node)
     if node_type in {"delay", "trigger"}:
         config["delay_ms"] = 0
@@ -560,18 +727,30 @@ async def simulate_canvas_flow(
     if not layout:
         raise ValueError(f"ProcessDefinition canvas layout '{layout_id}' not found")
 
-    nodes_by_id = {_node_id(node): node for node in layout.get("nodes") or [] if _node_id(node)}
-    edges = [edge for edge in layout.get("edges") or [] if _edge_source(edge) and _edge_target(edge)]
+    nodes_by_id = {
+        _node_id(node): node for node in layout.get("nodes") or [] if _node_id(node)
+    }
+    edges = [
+        edge
+        for edge in layout.get("edges") or []
+        if _edge_source(edge) and _edge_target(edge)
+    ]
     incoming_targets = {_edge_target(edge) for edge in edges}
     outgoing_by_source: dict[str, list[dict[str, Any]]] = {}
     for edge in edges:
         outgoing_by_source.setdefault(_edge_source(edge), []).append(edge)
 
-    starts = [start_node_id] if start_node_id else [
-        node_id
-        for node_id, node in nodes_by_id.items()
-        if node_id not in incoming_targets or _node_type_from_record(node) in {"inject", "trigger", "http in", "incoming webhook"}
-    ]
+    starts = (
+        [start_node_id]
+        if start_node_id
+        else [
+            node_id
+            for node_id, node in nodes_by_id.items()
+            if node_id not in incoming_targets
+            or _node_type_from_record(node)
+            in {"inject", "trigger", "http in", "incoming webhook"}
+        ]
+    )
     starts = [node_id for node_id in starts if node_id in nodes_by_id]
     if not starts and nodes_by_id:
         starts = [next(iter(nodes_by_id))]
@@ -604,7 +783,9 @@ async def simulate_canvas_flow(
             "node_type": _node_type_from_record(node),
             "input": message,
             "ok": ok,
-            "status": response_body.get("status") if isinstance(response_body, dict) else None,
+            "status": (
+                response_body.get("status") if isinstance(response_body, dict) else None
+            ),
             "response_body": response_body,
             "error": error,
             "output": output_message,
@@ -612,7 +793,9 @@ async def simulate_canvas_flow(
         }
         node_trace.append(trace_item)
         if not ok:
-            blocked_constraints.append({"node_id": node_id, "reason": error or "node simulation failed"})
+            blocked_constraints.append(
+                {"node_id": node_id, "reason": error or "node simulation failed"}
+            )
             continue
 
         outgoing = outgoing_by_source.get(node_id, [])
@@ -658,14 +841,22 @@ async def simulate_canvas_flow(
             item["response_body"]
             for item in node_trace
             if isinstance(item.get("response_body"), dict)
-            and (item["response_body"].get("would_publish") or item["response_body"].get("would_write"))
+            and (
+                item["response_body"].get("would_publish")
+                or item["response_body"].get("would_write")
+            )
         ],
         "records_would_create": [
             item["response_body"]
             for item in node_trace
-            if isinstance(item.get("response_body"), dict) and item["response_body"].get("would_write")
+            if isinstance(item.get("response_body"), dict)
+            and item["response_body"].get("would_write")
         ],
-        "final_message": final_messages[-1] if final_messages else (node_trace[-1]["output"] if node_trace else payload or {}),
+        "final_message": (
+            final_messages[-1]
+            if final_messages
+            else (node_trace[-1]["output"] if node_trace else payload or {})
+        ),
         "final_messages": final_messages,
         "blocked_constraints": blocked_constraints,
         "risk_summary": {
@@ -712,7 +903,11 @@ async def simulate_sop_flow(
     finally:
         await db[crud.CANVAS_COLLECTION].delete_one({"layout_id": layout["layout_id"]})
 
-    process_definition = sop.get("process_definition") if isinstance(sop.get("process_definition"), dict) else {}
+    process_definition = (
+        sop.get("process_definition")
+        if isinstance(sop.get("process_definition"), dict)
+        else {}
+    )
     source_metadata = {
         "compiled_from": "sop",
         "source_sop_id": sop.get("id") or sop.get("sop_id"),

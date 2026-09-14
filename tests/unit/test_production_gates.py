@@ -1,4 +1,5 @@
 """Production gate and hardened execution path tests."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -6,7 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.monkey_brain.kernel.pipeline.execution import Action
-from src.monkey_brain.kernel.pipeline.execution_runtime.integration import IntegratedExecutionEngine
+from src.monkey_brain.kernel.pipeline.execution_runtime.integration import (
+    IntegratedExecutionEngine,
+)
 from src.monkey_brain.kernel.production_gates import (
     block_direct_world_api_mutations,
     capability_dispatch_dedup_enabled,

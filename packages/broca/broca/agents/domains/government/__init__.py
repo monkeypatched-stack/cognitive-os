@@ -1,4 +1,5 @@
 """Government agents — Citizen, Permit, CaseManagement."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class CitizenAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "query"), "citizen_id": context.get("citizen_id", ""), "request": context.get("request", {})}
+        return {
+            "operation": context.get("operation", "query"),
+            "citizen_id": context.get("citizen_id", ""),
+            "request": context.get("request", {}),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"citizen.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"citizen.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"citizen.{decision['operation']}", "success": True}
@@ -30,13 +38,25 @@ class PermitAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "apply"), "permit_type": context.get("permit_type", ""), "applicant_id": context.get("applicant_id", "")}
+        return {
+            "operation": context.get("operation", "apply"),
+            "permit_type": context.get("permit_type", ""),
+            "applicant_id": context.get("applicant_id", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"permit.{perception['operation']}", "permit_id": f"prm-{perception.get('applicant_id', '')[:8]}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"permit.{perception['operation']}",
+            "permit_id": f"prm-{perception.get('applicant_id', '')[:8]}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"permit.{decision['operation']}", "success": True, "permit_id": decision.get("permit_id", "")}
+        return {
+            "action": f"permit.{decision['operation']}",
+            "success": True,
+            "permit_id": decision.get("permit_id", ""),
+        }
 
 
 class CaseManagementAgent(BaseDDDAgent):
@@ -46,10 +66,22 @@ class CaseManagementAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "create"), "case_type": context.get("case_type", ""), "citizen_id": context.get("citizen_id", "")}
+        return {
+            "operation": context.get("operation", "create"),
+            "case_type": context.get("case_type", ""),
+            "citizen_id": context.get("citizen_id", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"case.{perception['operation']}", "case_id": f"case-{perception.get('citizen_id', '')[:8]}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"case.{perception['operation']}",
+            "case_id": f"case-{perception.get('citizen_id', '')[:8]}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"case.{decision['operation']}", "success": True, "case_id": decision.get("case_id", "")}
+        return {
+            "action": f"case.{decision['operation']}",
+            "success": True,
+            "case_id": decision.get("case_id", ""),
+        }

@@ -8,6 +8,7 @@ the same way each demo/coordination/bootstrap_mb31XX.py already
 duplicates its own `_call`/`ApiError` boilerplate — just consolidated
 here given the larger count this time.
 """
+
 from __future__ import annotations
 
 import os
@@ -74,9 +75,7 @@ def verify_world(c: httpx.Client, attempts: int = 4, delay_seconds: float = 2.0)
             return result
         last_result = result
         violations = result.get("violations", [])
-        only_presence = bool(violations) and all(
-            v.get("category") == "presence_consistency" for v in violations
-        )
+        only_presence = bool(violations) and all(v.get("category") == "presence_consistency" for v in violations)
         if not only_presence or attempt == attempts - 1:
             break
         time.sleep(delay_seconds)
@@ -84,8 +83,12 @@ def verify_world(c: httpx.Client, attempts: int = 4, delay_seconds: float = 2.0)
 
 
 def force_round(
-    c: httpx.Client, actor_id: str, actor_name: str, action_name: str,
-    instruction: str, extra_context: str = "",
+    c: httpx.Client,
+    actor_id: str,
+    actor_name: str,
+    action_name: str,
+    instruction: str,
+    extra_context: str = "",
 ) -> tuple[list[dict], list[dict]]:
     """One /prompt call, explicitly instructed to use exactly one named
     action this turn — the same forcing pattern demo/dialogue's Round 1
@@ -97,16 +100,21 @@ def force_round(
     benchmark in this suite uses."""
     prompt_text = (
         (f"{extra_context}\n\n" if extra_context else "")
-        + f'Your plan for this turn MUST contain exactly one step, using '
+        + f"Your plan for this turn MUST contain exactly one step, using "
         f'action "{action_name}" and nothing else. {instruction}'
     )
-    response = call(c, "POST", "/prompt", json={"question": prompt_text}, headers={"X-User-ID": actor_id})
+    response = call(
+        c,
+        "POST",
+        "/prompt",
+        json={"question": prompt_text},
+        headers={"X-User-ID": actor_id},
+    )
     execution = (response.get("query_result") or {}).get("actor_execution") or {}
     plan = execution.get("plan") or {}
     steps = plan.get("steps") or []
     actions = execution.get("actions") or []
-    print(f"\n{actor_name}'s plan this round: "
-          + (" -> ".join(s.get("action", "?") for s in steps) or "(no steps)"))
+    print(f"\n{actor_name}'s plan this round: " + (" -> ".join(s.get("action", "?") for s in steps) or "(no steps)"))
     return steps, actions
 
 

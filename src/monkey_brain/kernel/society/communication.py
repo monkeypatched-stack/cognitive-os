@@ -11,6 +11,7 @@ lookup, active-recipient filtering, decision auditing/metrics). See
 AffiliationGraph's module docstring for the full precedence of eligibility
 patterns it evaluates.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -46,9 +47,15 @@ class CommunicationDecision:
 class AffiliationCommunicationRouter:
     """Resolve recipients through affiliations and a society boundary."""
 
-    def __init__(self, actor_lookup: Callable[[str], Any],
-                 active_lookup: Callable[[], Iterable[Any]], society_id: str,
-                 *, metric_sink: Any = None, affiliation_graph: Any = None) -> None:
+    def __init__(
+        self,
+        actor_lookup: Callable[[str], Any],
+        active_lookup: Callable[[], Iterable[Any]],
+        society_id: str,
+        *,
+        metric_sink: Any = None,
+        affiliation_graph: Any = None,
+    ) -> None:
         self._actor_lookup = actor_lookup
         self._active_lookup = active_lookup
         self.society_id = society_id
@@ -69,8 +76,12 @@ class AffiliationCommunicationRouter:
         return self._affiliation_ids(self._actor_lookup(actor_id))
 
     def eligible_recipients(
-        self, sender_id: str, *, affiliation_id: str = "",
-        correlation_id: str = "", causation_id: str = "",
+        self,
+        sender_id: str,
+        *,
+        affiliation_id: str = "",
+        correlation_id: str = "",
+        causation_id: str = "",
     ) -> tuple[str, ...]:
         recipients: list[str] = []
         for state in self._active_lookup():
@@ -78,28 +89,42 @@ class AffiliationCommunicationRouter:
             if not recipient_id or recipient_id == sender_id:
                 continue
             decision = self.resolve(
-                sender_id, recipient_id, affiliation_id=affiliation_id,
-                correlation_id=correlation_id, causation_id=causation_id,
+                sender_id,
+                recipient_id,
+                affiliation_id=affiliation_id,
+                correlation_id=correlation_id,
+                causation_id=causation_id,
             )
             if decision.allowed:
                 recipients.append(recipient_id)
         return tuple(recipients)
 
     def resolve(
-        self, sender_id: str, recipient_id: str, *, affiliation_id: str = "",
-        correlation_id: str = "", causation_id: str = "",
+        self,
+        sender_id: str,
+        recipient_id: str,
+        *,
+        affiliation_id: str = "",
+        correlation_id: str = "",
+        causation_id: str = "",
     ) -> CommunicationDecision:
         sender = self._actor_lookup(sender_id)
         recipient = self._actor_lookup(recipient_id)
         if sender is None or recipient is None:
             decision = CommunicationDecision(
-                allowed=False, sender_id=sender_id, recipient_id=recipient_id,
-                society_id=self.society_id, reason="sender or recipient is not registered",
+                allowed=False,
+                sender_id=sender_id,
+                recipient_id=recipient_id,
+                society_id=self.society_id,
+                reason="sender or recipient is not registered",
             )
         elif not getattr(recipient, "is_active", True):
             decision = CommunicationDecision(
-                allowed=False, sender_id=sender_id, recipient_id=recipient_id,
-                society_id=self.society_id, reason="recipient is not active",
+                allowed=False,
+                sender_id=sender_id,
+                recipient_id=recipient_id,
+                society_id=self.society_id,
+                reason="recipient is not active",
             )
         elif self.affiliation_graph is not None:
             decision = self.affiliation_graph.can_communicate(sender_id, recipient_id)
@@ -107,7 +132,8 @@ class AffiliationCommunicationRouter:
                 decision = dataclasses.replace(decision, society_id=self.society_id)
             if affiliation_id and decision.affiliation_id != affiliation_id:
                 decision = dataclasses.replace(
-                    decision, allowed=False,
+                    decision,
+                    allowed=False,
                     reason=f"eligible via {decision.reason!r} but not via the requested affiliation_id",
                 )
         else:
@@ -130,7 +156,12 @@ class AffiliationCommunicationRouter:
         return decision
 
     def _legacy_resolve(
-        self, sender: Any, sender_id: str, recipient: Any, recipient_id: str, affiliation_id: str,
+        self,
+        sender: Any,
+        sender_id: str,
+        recipient: Any,
+        recipient_id: str,
+        affiliation_id: str,
     ) -> CommunicationDecision:
         """Pre-AffiliationGraph behavior: only reachable when this router
         has no affiliation_graph attached (a standalone SocietyRuntime with
@@ -144,8 +175,10 @@ class AffiliationCommunicationRouter:
             shared.intersection_update({affiliation_id})
         if shared:
             allowed, reason = True, "shared affiliation permits communication"
-        elif self.society_id and self._same_society(sender, recipient) and (
-            not sender_affiliations or not recipient_affiliations
+        elif (
+            self.society_id
+            and self._same_society(sender, recipient)
+            and (not sender_affiliations or not recipient_affiliations)
         ):
             # Society membership is itself the canonical organizational
             # affiliation; temporary participants are included because they
@@ -155,10 +188,13 @@ class AffiliationCommunicationRouter:
         else:
             allowed, reason = False, "no shared affiliation or permitted society route"
         return CommunicationDecision(
-            allowed=allowed, sender_id=sender_id, recipient_id=recipient_id,
+            allowed=allowed,
+            sender_id=sender_id,
+            recipient_id=recipient_id,
             sender_affiliations=sender_affiliations,
             recipient_affiliations=recipient_affiliations,
-            society_id=self.society_id, reason=reason,
+            society_id=self.society_id,
+            reason=reason,
             affiliation_id=next(iter(sorted(shared)), ""),
         )
 

@@ -29,15 +29,17 @@ DEFAULT_URL = "mongodb://localhost:27017"
 
 # Collections these agents are allowed to read. An allow-list, not a convenience: these
 # agents run LLM-planned steps, and the set of things they may read should not be open-ended.
-READABLE = frozenset({
-    "instruments",
-    "pharmaceutical_equipment",
-    "workstations",
-    "plant_locations",
-    "calibration_records",
-    "machine_parts",
-    "pharmaceutical_machines",
-})
+READABLE = frozenset(
+    {
+        "instruments",
+        "pharmaceutical_equipment",
+        "workstations",
+        "plant_locations",
+        "calibration_records",
+        "machine_parts",
+        "pharmaceutical_machines",
+    }
+)
 
 _client: Any = None
 
@@ -55,6 +57,7 @@ def _get_client() -> Any:
     global _client
     if _client is None:
         from pymongo import MongoClient
+
         _client = MongoClient(
             os.getenv(URL_ENV, DEFAULT_URL),
             serverSelectionTimeoutMS=4000,
@@ -71,9 +74,13 @@ class CollectionAbsent(RuntimeError):
     """
 
 
-def _find_sync(collection: str, query: dict, projection: dict | None, limit: int) -> list[dict]:
+def _find_sync(
+    collection: str, query: dict, projection: dict | None, limit: int
+) -> list[dict]:
     if collection not in READABLE:
-        raise ValueError(f"collection {collection!r} is not in the manufacturing read allow-list")
+        raise ValueError(
+            f"collection {collection!r} is not in the manufacturing read allow-list"
+        )
     database = _get_client()[db_name()]
     if collection not in database.list_collection_names():
         raise CollectionAbsent(f"{source_uri(collection)} does not exist")
@@ -88,12 +95,16 @@ async def find(
     limit: int = 200,
 ) -> list[dict]:
     """Read rows from an allow-listed collection. Blocking driver, so off the event loop."""
-    return await asyncio.to_thread(_find_sync, collection, query or {}, projection, limit)
+    return await asyncio.to_thread(
+        _find_sync, collection, query or {}, projection, limit
+    )
 
 
 def _distinct_sync(collection: str, field: str) -> list[Any]:
     if collection not in READABLE:
-        raise ValueError(f"collection {collection!r} is not in the manufacturing read allow-list")
+        raise ValueError(
+            f"collection {collection!r} is not in the manufacturing read allow-list"
+        )
     database = _get_client()[db_name()]
     if collection not in database.list_collection_names():
         raise CollectionAbsent(f"{source_uri(collection)} does not exist")

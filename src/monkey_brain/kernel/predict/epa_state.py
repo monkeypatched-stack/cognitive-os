@@ -9,6 +9,7 @@ These are lightweight kernel-internal types.  They mirror the shape of
 EpistemicPredictiveState (cortex/epa.py) but do not import it, keeping the
 kernel free of cortex dependencies.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -27,6 +28,7 @@ class PredictedEPAState:
     goal_progress     — predicted fraction of goal predicates satisfied
     knowledge_expectation — predicted knowledge quality signal
     """
+
     S_hat: dict[str, float] = field(default_factory=dict)
     B_hat: dict[str, float] = field(default_factory=dict)
     A_hat: set[str] = field(default_factory=set)
@@ -49,6 +51,7 @@ class ObservedEPAState:
     goal_progress — fraction of nodes that completed successfully
     knowledge     — knowledge quality signal from node results
     """
+
     S: dict[str, float] = field(default_factory=dict)
     B: dict[str, float] = field(default_factory=dict)
     A: set[str] = field(default_factory=set)
@@ -73,6 +76,7 @@ class EPALossVector:
     L_G — goal progress error  — |predicted_goal_progress - actual_goal_progress|
     composite — weighted sum (canonical adaptation signal for Fix phase)
     """
+
     L_S: float = 0.0
     L_B: float = 0.0
     L_A: float = 0.0
@@ -84,9 +88,14 @@ class EPALossVector:
 
     def to_dict(self) -> dict[str, float]:
         return {
-            "L_S": self.L_S, "L_B": self.L_B, "L_A": self.L_A,
-            "L_M": self.L_M, "L_K": self.L_K, "L_C": self.L_C,
-            "L_G": self.L_G, "composite": self.composite,
+            "L_S": self.L_S,
+            "L_B": self.L_B,
+            "L_A": self.L_A,
+            "L_M": self.L_M,
+            "L_K": self.L_K,
+            "L_C": self.L_C,
+            "L_G": self.L_G,
+            "composite": self.composite,
         }
 
 
@@ -131,7 +140,8 @@ def compute_epa_loss(
 
     # L_M — mesh state: mean absolute error over shared numeric keys
     shared_m = {
-        k for k in set(predicted.M_hat) & set(observed.M)
+        k
+        for k in set(predicted.M_hat) & set(observed.M)
         if isinstance(predicted.M_hat[k], (int, float)) and isinstance(observed.M[k], (int, float))
     }
     if shared_m:
@@ -157,6 +167,7 @@ def compute_epa_loss(
 
 
 # ── Derivation helpers ────────────────────────────────────────────────────────
+
 
 def observed_from_graph(graph: Any) -> ObservedEPAState:
     """Build ObservedEPAState directly from ExecutionGraph post-execution states."""
@@ -188,7 +199,7 @@ def observed_from_graph(graph: Any) -> ObservedEPAState:
         S=S,
         B={"confidence": confidence, "uncertainty": 1.0 - confidence},
         A=A,
-        M=graph.get_execution_summary() if hasattr(graph, "get_execution_summary") else {},
+        M=(graph.get_execution_summary() if hasattr(graph, "get_execution_summary") else {}),
         constraints=[],
         goal_progress=goal_progress,
         knowledge=confidence,

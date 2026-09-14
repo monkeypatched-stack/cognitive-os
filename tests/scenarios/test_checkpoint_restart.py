@@ -20,13 +20,16 @@ only piece of state that survives a restart -- Redis, not the Python
 process). The first call represents everything that completed before a
 hypothetical crash; the second, everything a resumed request executes.
 """
+
 from __future__ import annotations
 
 import uuid
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
@@ -46,7 +49,10 @@ def _seed_grocery(kg):
 
 def _sel(action_id, step_index, product_id, execution_id, depends_on=()):
     return Action(
-        action_id=action_id, capability="ProductSelection", step_index=step_index, depends_on=depends_on,
+        action_id=action_id,
+        capability="ProductSelection",
+        step_index=step_index,
+        depends_on=depends_on,
         correlation_id=execution_id,
         parameters={"selection": [{"id": product_id, "qty": 1}]},
     )
@@ -70,7 +76,10 @@ async def test_recovery001_completed_step_is_not_re_executed_on_resume():
     result1 = await executor.execute((milk,), context_attempt1)
     assert result1.actions[0].success is True
 
-    from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import load_execution_checkpoint
+    from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import (
+        load_execution_checkpoint,
+    )
+
     checkpoint = load_execution_checkpoint(execution_id)
     assert checkpoint is not None
     assert "0" in checkpoint.completed_steps
@@ -110,7 +119,10 @@ async def test_recovery002_partial_resume_respects_dependency_order():
     result1 = await executor.execute((milk, eggs), {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": ""})
     assert result1.success_count == 2
 
-    result2 = await executor.execute((milk, eggs, pizza, bread), {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": ""})
+    result2 = await executor.execute(
+        (milk, eggs, pizza, bread),
+        {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": ""},
+    )
 
     assert [a.metadata.get("resumed_from_checkpoint", False) for a in result2.actions] == [True, True, False, False]
     assert all(a.success for a in result2.actions)
@@ -137,7 +149,10 @@ async def test_recovery003_resumed_result_counts_every_step_once():
     pizza = _sel("a2", 2, pizza_id, execution_id, depends_on=(1,))
 
     await executor.execute((milk,), {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": ""})
-    result2 = await executor.execute((milk, eggs, pizza), {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": ""})
+    result2 = await executor.execute(
+        (milk, eggs, pizza),
+        {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": ""},
+    )
 
     assert len(result2.actions) == 3
     assert result2.success_count == 3
@@ -166,8 +181,12 @@ async def test_recovery004_checkpointed_plan_carries_a_real_goal_and_passes_vali
     site (context["question"]) -- threading it through is what makes the
     reconstructed plan honest AND validator-passing, not a new
     fabrication."""
-    from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import load_execution_checkpoint
-    from src.monkey_brain.kernel.pipeline.planning.current_plan_store import plan_from_dict
+    from src.monkey_brain.kernel.pipeline.execution_checkpoint_store import (
+        load_execution_checkpoint,
+    )
+    from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+        plan_from_dict,
+    )
     from src.monkey_brain.kernel.pipeline.plan_validator import PlanValidator
 
     kg = KnowledgeGraph()
@@ -177,7 +196,10 @@ async def test_recovery004_checkpointed_plan_carries_a_real_goal_and_passes_vali
     real_question = "Buy milk; if unavailable, ask me before buying a substitute."
 
     milk = _sel("a0", 0, milk_id, execution_id)
-    await executor.execute((milk,), {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": real_question})
+    await executor.execute(
+        (milk,),
+        {"knowledge_graph": kg, "actor_id": ACTOR_ID, "question": real_question},
+    )
 
     checkpoint = load_execution_checkpoint(execution_id)
     assert checkpoint is not None

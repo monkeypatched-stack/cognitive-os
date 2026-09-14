@@ -30,7 +30,6 @@ import os
 from pathlib import Path
 from fnmatch import fnmatch
 
-
 # Forbidden file patterns. Keep synchronized with:
 #   - .dockerignore
 #   - .gitignore
@@ -96,12 +95,12 @@ def matches_pattern(filename: str, pattern: str) -> bool:
 
 def extract_image_filesystem(image: str) -> Path:
     """
-    Extract Docker image filesystem to a temporary directory.
-    Returns the path to the extracted root filesystem.
+      Extract Docker image filesystem to a temporary directory.
+      Returns the path to the extracted root filesystem.
 
-    Uses ``docker create`` + ``docker export`` so we never need the image
-  CMD/ENTRYPOINT to understand ``sleep`` — ``docker run image sleep infinity``
-  passes those words as *arguments* to uvicorn/python and fails on CI images.
+      Uses ``docker create`` + ``docker export`` so we never need the image
+    CMD/ENTRYPOINT to understand ``sleep`` — ``docker run image sleep infinity``
+    passes those words as *arguments* to uvicorn/python and fails on CI images.
     """
     tmpdir = Path(tempfile.mkdtemp(prefix="docker_inspect_"))
     root = tmpdir / "root"
@@ -115,10 +114,7 @@ def extract_image_filesystem(image: str) -> Path:
         timeout=60,
     )
     if create.returncode != 0:
-        raise RuntimeError(
-            "docker create failed: "
-            f"{create.stderr.strip() or create.stdout.strip() or 'unknown error'}"
-        )
+        raise RuntimeError(f"docker create failed: {create.stderr.strip() or create.stdout.strip() or 'unknown error'}")
 
     container_id = create.stdout.strip()
     try:
@@ -130,8 +126,7 @@ def extract_image_filesystem(image: str) -> Path:
         )
         if export.returncode != 0:
             raise RuntimeError(
-                "docker export failed: "
-                f"{export.stderr.strip() or export.stdout.strip() or 'unknown error'}"
+                f"docker export failed: {export.stderr.strip() or export.stdout.strip() or 'unknown error'}"
             )
 
         subprocess.run(
@@ -248,6 +243,7 @@ def main() -> int:
     except Exception as e:
         print(f"❌ UNEXPECTED ERROR: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc(file=sys.stderr)
         return 2
 

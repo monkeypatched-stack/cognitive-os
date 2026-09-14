@@ -11,6 +11,7 @@ TenantWorld replaces the old process-global _WORLD singleton:
 
 Optionally persisted to MB_WORLD_TENSOR_PATH across restarts.
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,7 +31,12 @@ _LOCK = threading.Lock()
 def enabled() -> bool:
     # Opt-in (default OFF): the world tensor stays inert on the hot execution path unless
     # MB_WORLD_TENSOR is explicitly enabled — backward-compatible and matches flag-gating.
-    return os.getenv("MB_WORLD_TENSOR", "false").strip().lower() in ("1", "true", "yes", "on")
+    return os.getenv("MB_WORLD_TENSOR", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 def get_tenant_world() -> TenantWorld:
@@ -51,10 +57,13 @@ def _build_tenant_world() -> TenantWorld:
     shard_dir = os.getenv("AGENTOS_WORLD_SHARD_DIR", "")
     if shard_dir:
         from src.monkey_brain.kernel.compile.sharded_world import ShardedWorldStore
-        store = ShardedWorldStore(shard_dir,
-                                  max_resident=int(os.getenv("AGENTOS_WORLD_MAX_RESIDENT", "128")))
-        logger.info("[world] out-of-core sharded world at %s (max_resident=%d)",
-                    shard_dir, store._max)
+
+        store = ShardedWorldStore(shard_dir, max_resident=int(os.getenv("AGENTOS_WORLD_MAX_RESIDENT", "128")))
+        logger.info(
+            "[world] out-of-core sharded world at %s (max_resident=%d)",
+            shard_dir,
+            store._max,
+        )
         return TenantWorld(store=store)
 
     # Deployment Architecture (Section 7/10/12): the previous unconditional
@@ -72,6 +81,7 @@ def _build_tenant_world() -> TenantWorld:
     backend_choice = os.getenv("AGENTOS_WORLD_BACKEND", "auto").strip().lower()
     if backend_choice in ("auto", "redis"):
         from src.monkey_brain.kernel.compile.redis_world_store import RedisWorldStore
+
         store = RedisWorldStore.connect(
             max_resident=int(os.getenv("AGENTOS_WORLD_MAX_RESIDENT", "128")),
         )
@@ -119,8 +129,14 @@ def get_world(tenant_id: str = "default") -> "TenantView":
     return tw.view(tenant_id)
 
 
-def observe_execution(agents, agent_edges, *, domain: str = "default", reward: float = 1.0,
-                      tenant_id: str = "default") -> int:
+def observe_execution(
+    agents,
+    agent_edges,
+    *,
+    domain: str = "default",
+    reward: float = 1.0,
+    tenant_id: str = "default",
+) -> int:
     """Fold a completed execution's transitions into the tenant's world tensor.
 
     No-op unless MB_WORLD_TENSOR is enabled. Returns the number of transitions observed
@@ -137,7 +153,11 @@ def observe_execution(agents, agent_edges, *, domain: str = "default", reward: f
                 tw.observe(tenant_id, str(src), str(dst), domain=domain, reward=reward)
                 n += 1
         if n:
-            logger.info("[world] observed %d execution transition(s) for tenant %s", n, tenant_id)
+            logger.info(
+                "[world] observed %d execution transition(s) for tenant %s",
+                n,
+                tenant_id,
+            )
             _maybe_save(tw)
         return n
     except Exception as exc:

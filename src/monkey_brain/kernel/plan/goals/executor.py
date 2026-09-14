@@ -43,17 +43,28 @@ class GoalExecutor:
         log_extra = context.log_extra()
         ir = context.intent_ir
         if ir is None:
-            logger.error("run=%r execute_context called with no IntentIR", context.run_id, extra=log_extra)
+            logger.error(
+                "run=%r execute_context called with no IntentIR",
+                context.run_id,
+                extra=log_extra,
+            )
             return ("Error executing goal: no IntentIR provided", [], [], False)
 
         # Validation must stop execution immediately on failure — never fall
         # back to reclassifying the question from execution_metadata.
         errors = validate_intent_ir(ir)
         if errors:
-            logger.warning("run=%r IntentIR validation failed: %s", context.run_id, "; ".join(errors), extra=log_extra)
+            logger.warning(
+                "run=%r IntentIR validation failed: %s",
+                context.run_id,
+                "; ".join(errors),
+                extra=log_extra,
+            )
             return (
                 f"Error executing goal: IntentIR validation failed — {'; '.join(errors)}",
-                [], [], False,
+                [],
+                [],
+                False,
             )
 
         goal = Goal.from_dict(dict(ir.goal))
@@ -64,13 +75,16 @@ class GoalExecutor:
         if precondition_errors:
             logger.warning(
                 "run=%r precondition check failed for goal %r: %s",
-                context.run_id, goal.name, "; ".join(precondition_errors),
+                context.run_id,
+                goal.name,
+                "; ".join(precondition_errors),
                 extra=log_extra,
             )
             return (
-                f"Error executing goal {goal.name}: precondition check failed — "
-                f"{'; '.join(precondition_errors)}",
-                [], [], False,
+                f"Error executing goal {goal.name}: precondition check failed — {'; '.join(precondition_errors)}",
+                [],
+                [],
+                False,
             )
 
         # Defense-in-depth authorization at the execution layer (see
@@ -80,13 +94,20 @@ class GoalExecutor:
         if authz_error:
             logger.warning(
                 "run=%r authorization denied for goal %r: %s",
-                context.run_id, goal.name, authz_error, extra=log_extra,
+                context.run_id,
+                goal.name,
+                authz_error,
+                extra=log_extra,
             )
             return (f"Error executing goal {goal.name}: {authz_error}", [], [], False)
 
         return await self._run_goal(
-            goal, mongo_client, question,
-            mode=context.execution_mode, run_id=context.run_id, plan_steps=plan_steps,
+            goal,
+            mongo_client,
+            question,
+            mode=context.execution_mode,
+            run_id=context.run_id,
+            plan_steps=plan_steps,
             log_extra=context.log_extra(),
         )
 
@@ -124,6 +145,7 @@ class GoalExecutor:
         """
         from src.monkey_brain.kernel.production_gates import opa_enforce_execution
         from src.monkey_brain.kernel.security_boundary import build_opa_input
+
         if not opa_enforce_execution():
             return None
         try:
@@ -131,7 +153,8 @@ class GoalExecutor:
         except Exception as exc:
             logger.error(
                 "run=%r AGENTOS_OPA_ENFORCE is on but the OPA client is unavailable: %s",
-                context.run_id, exc,
+                context.run_id,
+                exc,
             )
             return "authorization unavailable and enforcement is enabled"
 
@@ -172,12 +195,21 @@ class GoalExecutor:
         mode = kwargs.get("mode")
         plan_steps = kwargs.get("plan_steps") or []
         from types import SimpleNamespace
+
         authz_error = await self._authorize(
-            goal, SimpleNamespace(user_id=kwargs.get("user_id", ""), run_id=run_id),
+            goal,
+            SimpleNamespace(user_id=kwargs.get("user_id", ""), run_id=run_id),
         )
         if authz_error:
             return (f"Error executing goal {goal.name}: {authz_error}", [], [], False)
-        return await self._run_goal(goal, mongo_client, question, mode=mode, run_id=run_id, plan_steps=plan_steps)
+        return await self._run_goal(
+            goal,
+            mongo_client,
+            question,
+            mode=mode,
+            run_id=run_id,
+            plan_steps=plan_steps,
+        )
 
     async def _run_goal(
         self,
@@ -204,18 +236,26 @@ class GoalExecutor:
             if mode in _READ_ONLY_MODES and goal.goal_type in _MUTATING_GOAL_TYPES:
                 logger.warning(
                     "run=%r refusing goal %r (goal_type=%s) — mutating actions are not permitted in %s mode",
-                    run_id, goal.name, goal.goal_type.value, getattr(mode, "value", mode),
+                    run_id,
+                    goal.name,
+                    goal.goal_type.value,
+                    getattr(mode, "value", mode),
                     extra=log_extra,
                 )
                 return (
                     f"Error executing goal {goal.name}: "
                     f"{goal.goal_type.value} actions are not permitted in {getattr(mode, 'value', mode)} mode (read-only)",
-                    [], [], False,
+                    [],
+                    [],
+                    False,
                 )
 
             # Strategy 1: Build a Workload from plan_steps provided by /plan → /execute flow
             if plan_steps:
-                from src.monkey_brain.kernel.plan.workload.workload import Workload, WorkloadStep
+                from src.monkey_brain.kernel.plan.workload.workload import (
+                    Workload,
+                    WorkloadStep,
+                )
                 from src.monkey_brain.kernel.execute.runtime.state import ExecutionState
 
                 def _to_step(s) -> WorkloadStep:
@@ -252,6 +292,7 @@ class GoalExecutor:
                     run_governed_mutation,
                 )
                 from src.monkey_brain.kernel.audit import AuditPersistenceError
+
                 runtime = Runtime()
                 mutating = goal.goal_type in _MUTATING_GOAL_TYPES
 
@@ -270,11 +311,26 @@ class GoalExecutor:
                     else:
                         exec_result = await _mutate()
                 except SecurityBoundaryDenied as exc:
-                    logger.error("run=%r governed mutation denied: %s", run_id, exc, extra=log_extra)
+                    logger.error(
+                        "run=%r governed mutation denied: %s",
+                        run_id,
+                        exc,
+                        extra=log_extra,
+                    )
                     return (f"Error executing goal {goal.name}: {exc}", [], [], False)
                 except AuditPersistenceError as exc:
-                    logger.error("run=%r audit persistence error: %s", run_id, exc, extra=log_extra)
-                    return (f"Error executing goal {goal.name}: audit failure", [], [], False)
+                    logger.error(
+                        "run=%r audit persistence error: %s",
+                        run_id,
+                        exc,
+                        extra=log_extra,
+                    )
+                    return (
+                        f"Error executing goal {goal.name}: audit failure",
+                        [],
+                        [],
+                        False,
+                    )
                 except Exception as hitl_exc:
                     # Check if this is a HumanApprovalRequired exception (HITL flow)
                     if hitl_exc.__class__.__name__ == "HumanApprovalRequired":
@@ -290,7 +346,9 @@ class GoalExecutor:
                         return (
                             f"Operation {operation_id} is awaiting human approval. "
                             f"Use approval_id={approval_id} to track status.",
-                            [], [], False,
+                            [],
+                            [],
+                            False,
                         )
                     # Not a HITL exception, re-raise
                     raise
@@ -305,11 +363,19 @@ class GoalExecutor:
 
             return (
                 f"Error executing goal {goal.name}: no planner-produced workload supplied",
-                [], [], False,
+                [],
+                [],
+                False,
             )
 
         except Exception as e:
-            logger.error("run=%r goal resolution failed for %s: %s", run_id, goal.name, e, extra=log_extra)
+            logger.error(
+                "run=%r goal resolution failed for %s: %s",
+                run_id,
+                goal.name,
+                e,
+                extra=log_extra,
+            )
             return (
                 f"Error executing goal {goal.name}: {str(e)}",
                 [],

@@ -13,7 +13,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest
+        run: |
+          pip install uv
+          uv export --frozen --group dev --no-hashes --no-emit-project -o requirements.lock.txt
+          uv pip install --system -r requirements.lock.txt
       - name: Validate hard architecture invariants
         run: python scripts/check_architecture_conformance.py --strict
       - name: Run architecture regression tests

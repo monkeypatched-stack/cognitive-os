@@ -22,19 +22,32 @@ from src.monkey_brain.kernel.plan.goals.intent_ir import (
     IntentIRRejected,
     decode_and_validate_ir,
 )
-from src.monkey_brain.kernel.learn.telemetry.telemetry import profile_start, profile_end, profile_add
+from src.monkey_brain.kernel.learn.telemetry.telemetry import (
+    profile_start,
+    profile_end,
+    profile_add,
+)
 from src.monkey_brain.runtime.routers import get_mongo_client
 from src.monkey_brain.api.dependencies import (
-    require_permission, sanitize_and_check_governance, record_request_audit, RequestRejected,
+    require_permission,
+    sanitize_and_check_governance,
+    record_request_audit,
+    RequestRejected,
 )
 from src.monkey_brain.api.idempotency import idempotent
-from src.monkey_brain.api.helpers.run_helpers import build_citations, get_cognitive_runtime
+from src.monkey_brain.api.helpers.run_helpers import (
+    build_citations,
+    get_cognitive_runtime,
+)
 from src.monkey_brain.kernel.execute.grounding import assess as assess_grounding
 from src.monkey_brain.kernel.execute.grounding import enforce as enforce_grounding
-from src.monkey_brain.kernel.models.execute import  ExecuteResponse
+from src.monkey_brain.kernel.models.execute import ExecuteResponse
 from src.monkey_brain.kernel.models.graph import canonical_graph_envelope
 from src.monkey_brain.kernel.plan.goals.run_store import get_run_store
-from src.monkey_brain.kernel.temporal_graph import assert_same_topology, clone_graph_snapshot
+from src.monkey_brain.kernel.temporal_graph import (
+    assert_same_topology,
+    clone_graph_snapshot,
+)
 from src.introspection.lemon import get_lemon
 
 logger = logging.getLogger("agentos.execute")
@@ -155,7 +168,8 @@ def _order_nodes(
         logger.error(
             "[execute] execution graph has a dependency cycle (%d of %d nodes ordered) — "
             "falling back to declaration order; steps may run before their dependencies",
-            len(out), len(by_id),
+            len(out),
+            len(by_id),
         )
         return nodes
     return [by_id[nid] for nid in out]
@@ -179,6 +193,7 @@ async def _recover_planner_graph(run_id: str, graph_store: Any) -> tuple[dict | 
         return graph, "run_store"
 
     from src.monkey_brain.persistence.plan_store import get_plan_store
+
     graph = get_plan_store().load_local(run_id)
     if graph is not None:
         return graph, "plan_store"
@@ -222,18 +237,36 @@ async def execute_action(
     # /compare, /execute/stream — see dependencies.py::sanitize_and_check_governance)
     try:
         payload.question = await sanitize_and_check_governance(
-            payload.question, user_id, "execute", extra_context={"run_id": run_id},
+            payload.question,
+            user_id,
+            "execute",
+            extra_context={"run_id": run_id},
         )
     except RequestRejected as e:
-        return JSONResponse(status_code=e.status_code, content={"error": e.error_code, "detail": e.detail})
+        return JSONResponse(
+            status_code=e.status_code,
+            content={"error": e.error_code, "detail": e.detail},
+        )
 
     # 3. Audit: record execution request
-    record_request_audit(user_id, "execute", "execute_requested", {"run_id": run_id, "question": payload.question[:200]})
+    record_request_audit(
+        user_id,
+        "execute",
+        "execute_requested",
+        {"run_id": run_id, "question": payload.question[:200]},
+    )
 
     lemon = get_lemon()
 
     if lemon:
-        lemon.start_trace(name="api.execute", trace_id=run_id, mode=ExecutionMode.EXECUTE.value, user=user_id, run_id=run_id, question_preview=payload.question[:80])
+        lemon.start_trace(
+            name="api.execute",
+            trace_id=run_id,
+            mode=ExecutionMode.EXECUTE.value,
+            user=user_id,
+            run_id=run_id,
+            question_preview=payload.question[:80],
+        )
         lemon.counter("api.execute.request")
 
     if not payload.intent_ir:
@@ -250,9 +283,8 @@ async def execute_action(
             },
         )
 
-
-    # 4. IR validation: /execute is the only route that runs a plan, so it is the only route that must validate the IR. 
-    # /plan does not validate the IR because it is not executing it, and /replay does not validate the IR because it is 
+    # 4. IR validation: /execute is the only route that runs a plan, so it is the only route that must validate the IR.
+    # /plan does not validate the IR because it is not executing it, and /replay does not validate the IR because it is
     # re-running a previously validated plan.
     # 5. Decode + validate the IntentIR (schema, shape, signature). Same decode+validate
     # sequence as /execute/stream, /simulate and /compare — shared in decode_and_validate_ir
@@ -264,12 +296,26 @@ async def execute_action(
             logger.warning("run=%r [execute] malformed intent_ir: %s", run_id, e.detail)
             error_body = f"Malformed intent_ir: {e.detail}"
             counter = "api.execute.malformed_intent_ir"
-            content = {"error": error_body, "question": payload.question, "user_id": user_id, "run_id": run_id}
+            content = {
+                "error": error_body,
+                "question": payload.question,
+                "user_id": user_id,
+                "run_id": run_id,
+            }
         else:
-            logger.warning("run=%r [execute] intent_ir validation failed: %s", run_id, "; ".join(e.detail))
+            logger.warning(
+                "run=%r [execute] intent_ir validation failed: %s",
+                run_id,
+                "; ".join(e.detail),
+            )
             counter = "api.execute.invalid_intent_ir"
-            content = {"error": "intent_ir validation failed", "detail": e.detail,
-                       "question": payload.question, "user_id": user_id, "run_id": run_id}
+            content = {
+                "error": "intent_ir validation failed",
+                "detail": e.detail,
+                "question": payload.question,
+                "user_id": user_id,
+                "run_id": run_id,
+            }
         if lemon:
             lemon.counter(counter)
             lemon.finish_trace()
@@ -286,7 +332,9 @@ async def execute_action(
             status_code=400,
             content={
                 "error": f"Plan was compiled with target={stored_target!r} — /execute requires target=execute",
-                "question": payload.question, "user_id": user_id, "run_id": run_id,
+                "question": payload.question,
+                "user_id": user_id,
+                "run_id": run_id,
             },
         )
 
@@ -300,7 +348,11 @@ async def execute_action(
     if source in ("plan_store", "neo4j"):
         # RunStore is the primary (no counter). A recovery from a durable source means the
         # process restarted or RunStore evicted the run — worth logging + counting.
-        logger.info("run=%r [execute] recovered execution graph from %s (RunStore miss)", run_id, source)
+        logger.info(
+            "run=%r [execute] recovered execution graph from %s (RunStore miss)",
+            run_id,
+            source,
+        )
         if lemon:
             lemon.counter(f"api.execute.execution_graph_recovered_{'planstore' if source == 'plan_store' else 'neo4j'}")
 
@@ -328,7 +380,8 @@ async def execute_action(
     # 8.1 Compile the Broca graph through the canonical plan compiler, then
     # derive executable steps from the compiled ExecutionGraph.
     from src.monkey_brain.kernel.pipeline.plan_compiler import (
-        compile_broca_graph, execution_graph_to_plan_steps,
+        compile_broca_graph,
+        execution_graph_to_plan_steps,
     )
 
     compile_outcome = compile_broca_graph(
@@ -375,14 +428,16 @@ async def execute_action(
     # 8.3 Execute the validated IntentIR via the CognitiveRuntime, passing context.
     try:
         answer, semantic_hits, graph_paths, llm_answered = await runtime.execute_cognitive_workload(
-            context, mongo_client, plan_steps=execute_steps,
+            context,
+            mongo_client,
+            plan_steps=execute_steps,
         )
         elapsed_ms = (time.monotonic() - t0) * 1000
         profile_add("execute", ms=int(elapsed_ms))
 
         profile_entries = profile_end()
 
-    # 8.4 persist discovered graph paths so entities accumulate across executions
+        # 8.4 persist discovered graph paths so entities accumulate across executions
         if graph_store and graph_paths:
             try:
                 # GraphStore.add_query_paths is implemented — it merges discovered
@@ -390,8 +445,8 @@ async def execute_action(
                 await graph_store.add_query_paths(graph_paths)
             except Exception as gse:
                 logger.warning("[execute] graph_store.add_query_paths failed: %s", gse)
-    
-    # 8.5 Record telemetry metrics for the execution, including latency, semantic hits, graph paths, and node states. This helps monitor the performance and success of executions over time.
+
+        # 8.5 Record telemetry metrics for the execution, including latency, semantic hits, graph paths, and node states. This helps monitor the performance and success of executions over time.
         if lemon:
             lemon.counter("api.execute.success")
             lemon.histogram("api.execute.latency_ms", elapsed_ms, user=user_id)
@@ -425,27 +480,43 @@ async def execute_action(
                 hits=len(semantic_hits),
             )
 
-    # 8.6. Sign the execution graph and record audit
+        # 8.6. Sign the execution graph and record audit
         try:
             from src.monkey_brain.kernel.execute.graph import sign_graph_dict
+
             sign_graph_dict(execution_graph)
         except Exception as exc:
-            logger.error("run=%r [execute] failed to sign execution graph — proceeding unsigned: %s", run_id, exc)
+            logger.error(
+                "run=%r [execute] failed to sign execution graph — proceeding unsigned: %s",
+                run_id,
+                exc,
+            )
             if lemon:
                 lemon.counter("api.execute.graph_signing_failed")
 
         try:
             from src.monkey_brain.kernel.audit import get_audit_log
+
             get_audit_log().record(
-                runtime_id=user_id, event_type="execute", action="execute_completed",
-                actor=user_id, details={"run_id": run_id, "llm_answered": llm_answered,
-                                         "elapsed_ms": round(elapsed_ms, 2),
-                                         "semantic_hits": len(semantic_hits)},
+                runtime_id=user_id,
+                event_type="execute",
+                action="execute_completed",
+                actor=user_id,
+                details={
+                    "run_id": run_id,
+                    "llm_answered": llm_answered,
+                    "elapsed_ms": round(elapsed_ms, 2),
+                    "semantic_hits": len(semantic_hits),
+                },
             )
         except Exception as exc:
-            logger.warning("run=%r [execute] audit record (execute_completed) failed: %s", run_id, exc)
+            logger.warning(
+                "run=%r [execute] audit record (execute_completed) failed: %s",
+                run_id,
+                exc,
+            )
 
-    # 8.7. Return the execution response
+        # 8.7. Return the execution response
         assert_same_topology(planner_graph, execution_graph, context="/execute")
         graph_envelope = _envelope(execution_graph)
 
@@ -465,18 +536,20 @@ async def execute_action(
         # declared its source. With none of the three, a fluent answer is the model's prior
         # dressed up as fact — say so, and in strict mode withhold it rather than assert it.
 
-    # 8.8  Build citations from semantic hits and any step citations recorded in the outcome. Assess grounding of the answer based on the semantic hits, graph paths, citations, and whether the LLM answered. Enforce grounding on the answer if necessary.
+        # 8.8  Build citations from semantic hits and any step citations recorded in the outcome. Assess grounding of the answer based on the semantic hits, graph paths, citations, and whether the LLM answered. Enforce grounding on the answer if necessary.
         citations = build_citations(semantic_hits) + list(outcome.get("step_citations") or [])
         grounding = assess_grounding(
-            answer=answer, semantic_hits=semantic_hits, graph_paths=graph_paths,
-            citations=citations, llm_answered=llm_answered,
+            answer=answer,
+            semantic_hits=semantic_hits,
+            graph_paths=graph_paths,
+            citations=citations,
+            llm_answered=llm_answered,
         )
-    
-    # 8.9 Enforce grounding on the answer if necessary. This may modify the answer to ensure it is grounded in the available evidence.
+
+        # 8.9 Enforce grounding on the answer if necessary. This may modify the answer to ensure it is grounded in the available evidence.
         answer = enforce_grounding(answer, grounding, run_id)
 
-
-    # 8.10 Return the ExecuteResponse with all relevant information, including the run_id, question, answer, semantic hits, graph paths, citations, grounding information, success status, failed steps, user_id, elapsed time, metadata, and the execution graph envelope.
+        # 8.10 Return the ExecuteResponse with all relevant information, including the run_id, question, answer, semantic hits, graph paths, citations, grounding information, success status, failed steps, user_id, elapsed time, metadata, and the execution graph envelope.
         return ExecuteResponse(
             run_id=run_id,
             question=payload.question,
@@ -491,8 +564,11 @@ async def execute_action(
             failed_steps=failed_steps,
             user_id=user_id,
             elapsed_ms=round(elapsed_ms, 2),
-            metadata={"profile": [entry.to_dict() for entry in profile_entries],
-                      "success": succeeded, "failed_steps": failed_steps},
+            metadata={
+                "profile": [entry.to_dict() for entry in profile_entries],
+                "success": succeeded,
+                "failed_steps": failed_steps,
+            },
             graph=graph_envelope,
             graph_id=graph_envelope["graph_id"],
             graph_type=graph_envelope["graph_type"],
@@ -525,9 +601,7 @@ async def execute_action(
             lemon.finish_trace()
 
 
-
-
-#TODO: doesnt really belong here, but this is the only route that needs to replay a run_id and it needs to be shared across all three runtimes (Cognitive/Simulation/Comparator) so it is here for now.
+# TODO: doesnt really belong here, but this is the only route that needs to replay a run_id and it needs to be shared across all three runtimes (Cognitive/Simulation/Comparator) so it is here for now.
 @router.post("/replay/{run_id}")
 @idempotent("execute.replay_action")
 async def replay_action(
@@ -550,14 +624,21 @@ async def replay_action(
     own result dict (SimulationRuntime/ComparatorRuntime.run()'s return value)
     wrapped with run_id/target/elapsed_ms.
     """
-    from src.monkey_brain.kernel.plan.goals.run_store import get_run_store, replay as replay_run
+    from src.monkey_brain.kernel.plan.goals.run_store import (
+        get_run_store,
+        replay as replay_run,
+    )
 
     logger.info("run=%r [replay] user=%r requested", run_id, user_id)
     store = get_run_store()
     if not store.has(run_id):
         return JSONResponse(
             status_code=404,
-            content={"error": f"No stored plan for run_id {run_id!r}", "user_id": user_id, "run_id": run_id},
+            content={
+                "error": f"No stored plan for run_id {run_id!r}",
+                "user_id": user_id,
+                "run_id": run_id,
+            },
         )
 
     # Replay re-executes real work, so it takes the same governance/audit gates
@@ -568,29 +649,59 @@ async def replay_action(
 
     try:
         from src.monkey_brain.kernel.governance import get_governance_engine
+
         gov_result = await get_governance_engine().evaluate(
-            user_id, "execute", {"question": question[:200], "run_id": run_id, "replay": True},
+            user_id,
+            "execute",
+            {"question": question[:200], "run_id": run_id, "replay": True},
         )
         if not gov_result.get("allowed"):
-            return JSONResponse(status_code=403, content={
-                "error": "governance_denied", "detail": gov_result.get("reason"), "run_id": run_id})
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "governance_denied",
+                    "detail": gov_result.get("reason"),
+                    "run_id": run_id,
+                },
+            )
     except ImportError:
-        logger.warning("run=%r [execute/replay] governance module not available — skipping check", run_id)
+        logger.warning(
+            "run=%r [execute/replay] governance module not available — skipping check",
+            run_id,
+        )
     except Exception as exc:
         # Was `except: pass` — a governance ENGINE error let the replay through unchecked.
         # Fail closed and surface it, matching the main /execute governance handling.
-        logger.error("run=%r [execute/replay] governance check failed — denying replay: %s", run_id, exc)
-        return JSONResponse(status_code=500, content={
-            "error": "governance_error", "detail": "Governance check failed", "run_id": run_id})
+        logger.error(
+            "run=%r [execute/replay] governance check failed — denying replay: %s",
+            run_id,
+            exc,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "governance_error",
+                "detail": "Governance check failed",
+                "run_id": run_id,
+            },
+        )
 
     try:
         from src.monkey_brain.kernel.audit import get_audit_log
+
         get_audit_log().record(
-            runtime_id=user_id, event_type="execute", action="replay_requested",
-            actor=user_id, details={"run_id": run_id, "question": question[:200]},
+            runtime_id=user_id,
+            event_type="execute",
+            action="replay_requested",
+            actor=user_id,
+            details={"run_id": run_id, "question": question[:200]},
         )
     except Exception as exc:
-        logger.warning("run=%r [execute/replay] audit record (replay_requested) failed: %s", run_id, exc)
+        logger.warning(
+            "run=%r [execute/replay] audit record (replay_requested) failed: %s",
+            run_id,
+            exc,
+        )
 
     target = store.get_target(run_id)
     t0 = time.monotonic()
@@ -602,7 +713,9 @@ async def replay_action(
         # provided" as its ANSWER — at HTTP 200, with success implied.
         # Same recovery cascade as /execute (now also tries Neo4j, which the old inline
         # version here did not — strictly more robust and consistent).
-        graph_store = getattr(request.app.state, "_graph_store", None) or getattr(request.app.state, "graph_store", None)
+        graph_store = getattr(request.app.state, "_graph_store", None) or getattr(
+            request.app.state, "graph_store", None
+        )
         planner_graph, _ = await _recover_planner_graph(run_id, graph_store)
         replay_steps = _graph_to_plan_steps(planner_graph)
         if not replay_steps:
@@ -611,7 +724,8 @@ async def replay_action(
                 content={
                     "error": "Missing planner execution graph",
                     "detail": f"No execution graph stored for run_id {run_id!r} — nothing to replay",
-                    "user_id": user_id, "run_id": run_id,
+                    "user_id": user_id,
+                    "run_id": run_id,
                 },
             )
 
@@ -630,15 +744,19 @@ async def replay_action(
 
         citations = build_citations(semantic_hits) + list(outcome.get("step_citations") or [])
         grounding = assess_grounding(
-            answer=answer, semantic_hits=semantic_hits, graph_paths=graph_paths,
-            citations=citations, llm_answered=llm_answered,
+            answer=answer,
+            semantic_hits=semantic_hits,
+            graph_paths=graph_paths,
+            citations=citations,
+            llm_answered=llm_answered,
         )
         answer = enforce_grounding(answer, grounding, run_id)
 
         # The replayed graph, not _envelope(None) — the response used to carry an
         # empty graph even though the run's graph was right there in the store.
-        graph_envelope = _envelope(runtime.execution_graph if isinstance(
-            getattr(runtime, "execution_graph", None), dict) else planner_graph)
+        graph_envelope = _envelope(
+            runtime.execution_graph if isinstance(getattr(runtime, "execution_graph", None), dict) else planner_graph
+        )
 
         return ExecuteResponse(
             run_id=run_id,
@@ -654,7 +772,11 @@ async def replay_action(
             failed_steps=failed_steps,
             user_id=user_id,
             elapsed_ms=round(elapsed_ms, 2),
-            metadata={"replay": True, "success": succeeded, "failed_steps": failed_steps},
+            metadata={
+                "replay": True,
+                "success": succeeded,
+                "failed_steps": failed_steps,
+            },
             graph=graph_envelope,
             graph_id=graph_envelope["graph_id"],
             graph_type=graph_envelope["graph_type"],
@@ -675,7 +797,8 @@ async def replay_action(
     # run_store.replay falls back to constructing its own if these are None.
     replay_steps = _graph_to_plan_steps(store.get_graph(run_id))
     result = await replay_run(
-        run_id, mongo_client,
+        run_id,
+        mongo_client,
         runtime=runtime,
         sim_runtime=getattr(request.app.state, "simulation_runtime", None),
         comparator=getattr(request.app.state, "comparator_runtime", None),
@@ -707,9 +830,7 @@ def _sse_fatal(error: str) -> str:
     Clients block waiting for `done`; without it they hang and then fall back
     to re-POSTing /execute, running the whole workload a second time.
     """
-    return _sse_event("error", {"error": error}) + _sse_event(
-        "done", {"error": error, "failed": True, "answer": ""}
-    )
+    return _sse_event("error", {"error": error}) + _sse_event("done", {"error": error, "failed": True, "answer": ""})
 
 
 @router.post("/execute/stream")
@@ -735,6 +856,7 @@ async def execute_stream(
     def _fatal_stream(error: str) -> StreamingResponse:
         async def error_gen():
             yield _sse_fatal(error)
+
         return StreamingResponse(error_gen(), media_type="text/event-stream")
 
     # Same gates as execute_action — this endpoint commits the same work, so it
@@ -746,13 +868,20 @@ async def execute_stream(
     # dependencies.py::sanitize_and_check_governance.
     try:
         payload.question = await sanitize_and_check_governance(
-            payload.question, user_id, "execute", extra_context={"run_id": run_id},
+            payload.question,
+            user_id,
+            "execute",
+            extra_context={"run_id": run_id},
         )
     except RequestRejected as e:
         return _fatal_stream(f"{e.error_code}: {e.detail}")
 
-    record_request_audit(user_id, "execute", "execute_requested",
-                          {"run_id": run_id, "question": payload.question[:200], "stream": True})
+    record_request_audit(
+        user_id,
+        "execute",
+        "execute_requested",
+        {"run_id": run_id, "question": payload.question[:200], "stream": True},
+    )
 
     # Same decode+validate as /execute (shared in decode_and_validate_ir), rendered as an
     # SSE fatal frame. Previously this twin caught a broader exception set on from_dict than
@@ -761,7 +890,11 @@ async def execute_stream(
         ir = decode_and_validate_ir(payload.intent_ir)
     except IntentIRRejected as e:
         if e.kind == "invalid":
-            logger.warning("run=%r [execute/stream] intent_ir validation failed: %s", run_id, "; ".join(e.detail))
+            logger.warning(
+                "run=%r [execute/stream] intent_ir validation failed: %s",
+                run_id,
+                "; ".join(e.detail),
+            )
             return _fatal_stream("intent_ir validation failed: " + "; ".join(e.detail))
         return _fatal_stream(str(e.detail) or "malformed intent_ir")
 
@@ -781,7 +914,11 @@ async def execute_stream(
 
     planner_graph, source = await _recover_planner_graph(run_id, graph_store)
     if source in ("plan_store", "neo4j"):
-        logger.info("run=%r [execute/stream] recovered execution graph from %s (RunStore miss)", run_id, source)
+        logger.info(
+            "run=%r [execute/stream] recovered execution graph from %s (RunStore miss)",
+            run_id,
+            source,
+        )
     if planner_graph is None:
         return _fatal_stream("Missing planner execution graph")
 
@@ -805,16 +942,21 @@ async def execute_stream(
     async def event_stream():
         t0 = time.monotonic()
 
-        yield _sse_event("init", {
-            "graph_id": graph_envelope.get("graph_id", ""),
-            "nodes": [{"id": n.get("id"), "name": n.get("name") or n.get("agent", "")} for n in nodes],
-            "edges": edges,
-            "execution_order": execution_order,
-        })
+        yield _sse_event(
+            "init",
+            {
+                "graph_id": graph_envelope.get("graph_id", ""),
+                "nodes": [{"id": n.get("id"), "name": n.get("name") or n.get("agent", "")} for n in nodes],
+                "edges": edges,
+                "execution_order": execution_order,
+            },
+        )
 
         try:
             answer, semantic_hits, graph_paths, llm_answered = await runtime.execute_cognitive_workload(
-                context, mongo_client, plan_steps=execute_steps,
+                context,
+                mongo_client,
+                plan_steps=execute_steps,
             )
         except Exception as e:
             logger.error("run=%r [execute/stream] failed: %s", run_id, e)
@@ -851,11 +993,14 @@ async def execute_stream(
                 ns = node_map.get(nid, {})
                 name = ns.get("name") or ns.get("agent", nid)
 
-                yield _sse_event("step_start", {
-                    "node_id": nid,
-                    "layer": li,
-                    "output": f"Executing {name}...",
-                })
+                yield _sse_event(
+                    "step_start",
+                    {
+                        "node_id": nid,
+                        "layer": li,
+                        "output": f"Executing {name}...",
+                    },
+                )
 
                 # Find the step result for this node
                 node_state = {}
@@ -872,13 +1017,16 @@ async def execute_stream(
                 # Collapsing it to [failed] hides why the run was partial.
                 label = {"complete": "ok"}.get(state, state)
 
-                yield _sse_event("step_complete", {
-                    "node_id": nid,
-                    "success": is_complete,
-                    "state": state,
-                    "latency_ms": round(step_latency, 1),
-                    "output": f"{name}: [{label}]",
-                })
+                yield _sse_event(
+                    "step_complete",
+                    {
+                        "node_id": nid,
+                        "success": is_complete,
+                        "state": state,
+                        "latency_ms": round(step_latency, 1),
+                        "output": f"{name}: [{label}]",
+                    },
+                )
 
             yield _sse_event("layer_complete", {"layer": li})
 
@@ -887,26 +1035,32 @@ async def execute_stream(
         _sse_outcome = get_run_store().get_outcome(run_id) or {}
         _sse_citations = build_citations(semantic_hits) + list(_sse_outcome.get("step_citations") or [])
         _sse_grounding = assess_grounding(
-            answer=answer, semantic_hits=semantic_hits, graph_paths=graph_paths,
-            citations=_sse_citations, llm_answered=llm_answered,
+            answer=answer,
+            semantic_hits=semantic_hits,
+            graph_paths=graph_paths,
+            citations=_sse_citations,
+            llm_answered=llm_answered,
         )
         answer = enforce_grounding(answer, _sse_grounding, run_id)
 
-        yield _sse_event("done", {
-            "answer": answer,
-            "elapsed_ms": round(elapsed_ms, 2),
-            "llm_answered": llm_answered,
-            "grounded": _sse_grounding["grounded"],
-            "grounding": _sse_grounding,
-            "success": bool(_sse_outcome.get("success", True)),
-            "failed_steps": list(_sse_outcome.get("failed_steps") or []),
-            "graph_id": final_envelope.get("graph_id", "") or graph_envelope.get("graph_id", ""),
-            "nodes": final_nodes,
-            "edges": edges,
-            "execution_order": execution_order,
-            "state": final_envelope.get("state", {}),
-            "semantic_hits": semantic_hits,
-            "graph_paths": graph_paths,
-        })
+        yield _sse_event(
+            "done",
+            {
+                "answer": answer,
+                "elapsed_ms": round(elapsed_ms, 2),
+                "llm_answered": llm_answered,
+                "grounded": _sse_grounding["grounded"],
+                "grounding": _sse_grounding,
+                "success": bool(_sse_outcome.get("success", True)),
+                "failed_steps": list(_sse_outcome.get("failed_steps") or []),
+                "graph_id": final_envelope.get("graph_id", "") or graph_envelope.get("graph_id", ""),
+                "nodes": final_nodes,
+                "edges": edges,
+                "execution_order": execution_order,
+                "state": final_envelope.get("state", {}),
+                "semantic_hits": semantic_hits,
+                "graph_paths": graph_paths,
+            },
+        )
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

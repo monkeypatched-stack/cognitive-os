@@ -8,6 +8,7 @@ today: it is Society-scoped (SocietyRuntime.broadcast_message only
 consults its own active_actors()), not a global affiliation-wide fan-
 out — documented here as a real, verified fact, not an assumption.
 """
+
 from __future__ import annotations
 
 import sys
@@ -28,7 +29,10 @@ def main() -> int:
 
         section("Warehouse Manager broadcasts a stop-operations order")
         steps, actions = force_round(
-            c, manager_id, "Warehouse Manager", "BroadcastToAffiliation",
+            c,
+            manager_id,
+            "Warehouse Manager",
+            "BroadcastToAffiliation",
             'Say: "Everyone in Warehouse A stop operations immediately."',
         )
         result = first_result("BroadcastToAffiliation", steps, actions)
@@ -46,8 +50,10 @@ def main() -> int:
         checks = [
             ("Floor Worker One received it", worker1_id in recipients),
             ("Floor Worker Two received it", worker2_id in recipients),
-            ("Distribution Worker did NOT receive it (different Society)",
-             distribution_id not in recipients),
+            (
+                "Distribution Worker did NOT receive it (different Society)",
+                distribution_id not in recipients,
+            ),
         ]
         ok = True
         section("Verification")

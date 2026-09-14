@@ -41,6 +41,7 @@ throughout kernel/society/ (Society, Federation, Team): this file holds pure,
 frozen data; kernel/geography/registry.py::GeographicRegistry is the sole
 mutating counterpart.
 """
+
 from __future__ import annotations
 
 import time
@@ -97,6 +98,7 @@ class GeographicEntity:
     GeographicRegistry, which replaces it via dataclasses.replace(), the
     same pattern Society/Federation/Team already use in this codebase.
     """
+
     entity_id: str = field(default_factory=lambda: uuid4().hex)
     entity_type: GeographicEntityType = GeographicEntityType.CITY
     name: str = ""
@@ -152,6 +154,7 @@ class GeographicEntity:
 
 # ── Concrete tiers — each pins entity_type, mirroring kernel/compile/
 # entity.py's existing (dead, unrelated) Location/Country/City pattern. ──
+
 
 @dataclass(frozen=True)
 class Universe(GeographicEntity):
@@ -218,6 +221,7 @@ class Coordinate(GeographicEntity):
 # ── Typed Building subtypes — structural only (no added fields/behavior
 # this pass); the runtime depends only on the abstract Building/Space. ──
 
+
 @dataclass(frozen=True)
 class ResidentialBuilding(Building):
     building_type: BuildingType = BuildingType.RESIDENTIAL
@@ -249,6 +253,7 @@ class MixedUseBuilding(Building):
 
 
 # ── Typed Space subtypes — structural only. ──────────────────────────────
+
 
 @dataclass(frozen=True)
 class Apartment(Space):
@@ -324,18 +329,24 @@ class ParkingSpace(Space):
 PARENT_TIER: dict[GeographicEntityType, frozenset[GeographicEntityType]] = {
     GeographicEntityType.PLANET: frozenset({GeographicEntityType.UNIVERSE}),
     GeographicEntityType.REGION: frozenset({GeographicEntityType.PLANET}),
-    GeographicEntityType.COUNTRY: frozenset({
-        GeographicEntityType.PLANET, GeographicEntityType.REGION,
-    }),
+    GeographicEntityType.COUNTRY: frozenset(
+        {
+            GeographicEntityType.PLANET,
+            GeographicEntityType.REGION,
+        }
+    ),
     GeographicEntityType.STATE: frozenset({GeographicEntityType.COUNTRY}),
     GeographicEntityType.COUNTY: frozenset({GeographicEntityType.STATE}),
     GeographicEntityType.CITY: frozenset({GeographicEntityType.COUNTY}),
     GeographicEntityType.STREET: frozenset({GeographicEntityType.CITY}),
     GeographicEntityType.BUILDING: frozenset({GeographicEntityType.STREET}),
     GeographicEntityType.FLOOR: frozenset({GeographicEntityType.BUILDING}),
-    GeographicEntityType.SPACE: frozenset({
-        GeographicEntityType.BUILDING, GeographicEntityType.FLOOR,
-    }),
+    GeographicEntityType.SPACE: frozenset(
+        {
+            GeographicEntityType.BUILDING,
+            GeographicEntityType.FLOOR,
+        }
+    ),
     GeographicEntityType.COORDINATE: frozenset({GeographicEntityType.SPACE}),
 }
 
@@ -344,6 +355,9 @@ PARENT_TIER: dict[GeographicEntityType, frozenset[GeographicEntityType]] = {
 # though it now also has a PARENT_TIER entry (UNIVERSE) — a Planet may
 # optionally be attached under a Universe via add_child(), but is not
 # required to be.
-ROOT_ELIGIBLE: frozenset[GeographicEntityType] = frozenset({
-    GeographicEntityType.UNIVERSE, GeographicEntityType.PLANET,
-})
+ROOT_ELIGIBLE: frozenset[GeographicEntityType] = frozenset(
+    {
+        GeographicEntityType.UNIVERSE,
+        GeographicEntityType.PLANET,
+    }
+)

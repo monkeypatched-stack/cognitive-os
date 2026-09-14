@@ -4,10 +4,12 @@ from services.products.models.products import ProductCreate, ProductUpdate
 
 COLLECTION = "products"
 
+
 def _serialize(doc: dict) -> dict:
     doc = dict(doc)
     doc.pop("_id", None)
     return doc
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,

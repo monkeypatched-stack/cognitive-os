@@ -1,6 +1,10 @@
 """LLMGovernanceCapability — constitutional review via Claude (Cingulate gate)."""
+
 from __future__ import annotations
-import json, logging, os, re
+import json
+import logging
+import os
+import re
 from typing import Any
 
 logger = logging.getLogger("cerebellum.etass.governance")
@@ -55,18 +59,20 @@ class LLMGovernanceCapability(ICapability):
 
         try:
             import anthropic
+
             client = anthropic.Anthropic(api_key=api_key)
             msg = client.messages.create(
-                model="claude-sonnet-4-6", max_tokens=512,
+                model="claude-sonnet-4-6",
+                max_tokens=512,
                 system=(
                     "You are the Cingulate governance gate for a cognitive OS. "
                     "Review the artifact for ETASS compliance. "
-                    "Reply JSON only: {\"compliant\": bool, \"issues\": [], \"recommendation\": \"\"}"
+                    'Reply JSON only: {"compliant": bool, "issues": [], "recommendation": ""}'
                 ),
                 messages=[{"role": "user", "content": f"Artifact:\n{artifact}"}],
             )
             raw = msg.content[0].text
-            m = re.search(r'\{.*\}', raw, re.DOTALL)
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
             data = json.loads(m.group(0)) if m else {"compliant": True}
             return self._result(data)
         except Exception as e:
@@ -76,7 +82,11 @@ class LLMGovernanceCapability(ICapability):
     def _result(self, output: dict):
         if CapabilityResult is not None and CapabilityResult is not None:
             try:
-                return CapabilityResult(success=True, output=output, metadata={"capability": self.capability_name})
+                return CapabilityResult(
+                    success=True,
+                    output=output,
+                    metadata={"capability": self.capability_name},
+                )
             except Exception:
                 pass
         return output

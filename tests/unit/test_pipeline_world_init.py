@@ -2,6 +2,7 @@
 for the pipeline's world layer: no _engine.world fallback, no _gpu_world branch,
 one cached WorldView/World pair, no actor worlds created during init.
 """
+
 from __future__ import annotations
 
 import threading
@@ -38,7 +39,7 @@ def test_singleton_world_initialization():
     assert layer.domains == tensor.domains()
     assert layer.states == tensor.states()
     assert layer.built is True
-    assert runtime._world._world is tensor          # WorldView wraps the singleton, no copy
+    assert runtime._world._world is tensor  # WorldView wraps the singleton, no copy
 
 
 def test_repeated_initialization_returns_cached_layer():
@@ -68,7 +69,7 @@ def test_build_if_needed_invoked_once(monkeypatch):
     runtime._pipeline_world_init()
     runtime._pipeline_world_init()
 
-    assert len(calls) == 1                          # cached after the first real call
+    assert len(calls) == 1  # cached after the first real call
 
 
 def test_world_tensor_build_if_needed_is_idempotent():
@@ -78,7 +79,7 @@ def test_world_tensor_build_if_needed_is_idempotent():
     tensor._build_if_needed()
     assert tensor.is_built() is True
 
-    tensor._build_if_needed()                        # second call is a no-op, not an error
+    tensor._build_if_needed()  # second call is a no-op, not an error
     assert tensor.is_built() is True
 
 

@@ -6,6 +6,7 @@ PCP already opens and owns the one NATS connection this process needs
 state rather than opening a second, redundant connection just to health-check.
 If PCP isn't present at all, NATS is simply unavailable here.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.resource_manager import (
@@ -41,9 +42,11 @@ class NatsResource:
     async def _check(self) -> ResourceHealth:
         if self._pcp is None:
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name,
+                state=ResourceState.UNAVAILABLE,
                 reason="Policy Control Plane not initialized",
-                category=ErrorCategory.DEPENDENCY_MISSING, required=False,
+                category=ErrorCategory.DEPENDENCY_MISSING,
+                required=False,
             )
 
         nats_client = getattr(self._pcp, "_nats", None)
@@ -53,15 +56,20 @@ class NatsResource:
                 await self._pcp._connect_nats()
             except Exception as exc:
                 return ResourceHealth(
-                    name=self.name, state=ResourceState.FAILED,
-                    reason=str(exc)[:200], category=ErrorCategory.INTERNAL, required=False,
+                    name=self.name,
+                    state=ResourceState.FAILED,
+                    reason=str(exc)[:200],
+                    category=ErrorCategory.INTERNAL,
+                    required=False,
                 )
             nats_client = getattr(self._pcp, "_nats", None)
 
         if nats_client is None:
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name,
+                state=ResourceState.UNAVAILABLE,
                 reason="NATS not reachable or nats-py not installed",
-                category=ErrorCategory.NETWORK, required=False,
+                category=ErrorCategory.NETWORK,
+                required=False,
             )
         return ResourceHealth(name=self.name, state=ResourceState.READY, required=False)

@@ -8,7 +8,9 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-ChangeControlStatus = Literal["Draft", "Under Review", "Approved", "Implemented", "Rejected", "Closed"]
+ChangeControlStatus = Literal[
+    "Draft", "Under Review", "Approved", "Implemented", "Rejected", "Closed"
+]
 ChangeControlPriority = Literal["Low", "Medium", "High", "Critical"]
 ChangeControlImpact = Literal["None", "Minor", "Major", "Critical"]
 

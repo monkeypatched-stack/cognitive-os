@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+
 class Reference:
     def __init__(self, reference_id: str):
         if not reference_id:
@@ -12,7 +13,7 @@ class Status:
     PUBLISHED = "published"
 
     @classmethod
-    def from_string(cls, status_str: str) -> 'Status':
+    def from_string(cls, status_str: str) -> "Status":
         if status_str not in [cls.DRAFT, cls.PUBLISHED]:
             raise ValueError(f"Invalid status: {status_str}")
         return cls(status_str)

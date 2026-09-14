@@ -31,6 +31,7 @@ confirmed via test_mb3015_inventory_reservation.py's own real-threads
 precedent for testing a CAS/lock fix under genuine concurrency, not just
 asyncio's cooperative single-thread model).
 """
+
 from __future__ import annotations
 
 import threading
@@ -39,7 +40,11 @@ import uuid
 
 import pytest
 
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 from src.monkey_brain.kernel.society.membership import SocietyMembershipRegistry
 from src.monkey_brain.kernel.validation.world_validator import validate_world
@@ -50,8 +55,10 @@ def _run_concurrent(fn, count: int) -> list:
     already established for genuinely stressing a CAS/lock fix -- real
     threads race, not asyncio's cooperative scheduling."""
     results = [None] * count
+
     def worker(i):
         results[i] = fn(i)
+
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(count)]
     for t in threads:
         t.start()
@@ -115,7 +122,12 @@ def test_stability003_actor_registered_by_another_process_is_reconciled_not_flag
     pr_a = PlanetaryRuntime()  # shares the same real Redis
     club = pr_a.create_society("Stability Test Society", society_type="community")
     registered = pr_a.register_actor(
-        ActorProfile(identity=ActorIdentity(name=f"Stability Actor {uuid.uuid4().hex[:8]}", actor_type=ActorType.HUMAN)),
+        ActorProfile(
+            identity=ActorIdentity(
+                name=f"Stability Actor {uuid.uuid4().hex[:8]}",
+                actor_type=ActorType.HUMAN,
+            )
+        ),
         society_id=club.society.society_id,
     )
 
@@ -124,11 +136,13 @@ def test_stability003_actor_registered_by_another_process_is_reconciled_not_flag
 
     report = validate_world(pr_b)
     presence_violations = [
-        v for v in report.get("violations", [])
+        v
+        for v in report.get("violations", [])
         if v.get("category") == "presence_consistency" and v.get("actor_id") == registered.actor_id
     ]
     membership_violations = [
-        v for v in report.get("violations", [])
+        v
+        for v in report.get("violations", [])
         if v.get("category") == "membership_consistency" and v.get("actor_id") == registered.actor_id
     ]
     assert presence_violations == [], f"actor should have been reconciled, not flagged: {presence_violations}"
@@ -142,7 +156,8 @@ def test_stability003_actor_registered_by_another_process_is_reconciled_not_flag
     pr_b.membership_registry.add(orphan_actor_id, club.society.society_id, role="member")
     report_after_orphan = validate_world(pr_b)
     orphan_violations = [
-        v for v in report_after_orphan.get("violations", [])
+        v
+        for v in report_after_orphan.get("violations", [])
         if v.get("category") == "membership_consistency" and v.get("actor_id") == orphan_actor_id
     ]
     assert orphan_violations, "a genuinely orphaned membership record must still be flagged"

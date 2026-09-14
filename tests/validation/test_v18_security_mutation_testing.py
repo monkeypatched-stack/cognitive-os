@@ -10,6 +10,7 @@ monkeypatch, and assert it DOES fail (a "mutation survives" result --
 the test passing despite a broken boundary -- would mean that test is
 not actually testing the boundary, exactly the risk this section warns
 about)."""
+
 from __future__ import annotations
 
 import pytest
@@ -17,7 +18,9 @@ import pytest
 
 class TestMutationSkipDelegationVerificationIsCaught:
     @pytest.mark.asyncio
-    async def test_skipping_delegation_verification_is_caught_by_the_existing_capability_mismatch_test(self, monkeypatch):
+    async def test_skipping_delegation_verification_is_caught_by_the_existing_capability_mismatch_test(
+        self, monkeypatch
+    ):
         """Mutates verify_delegation_chain to always report authorized --
         confirms tests/security/test_portable_delegation.py's own
         TestChainPrivilegeEscalation would have failed to catch a real
@@ -28,20 +31,31 @@ class TestMutationSkipDelegationVerificationIsCaught:
         import time
 
         from src.monkey_brain.kernel.delegation import (
-            DelegationCredential, DelegationScope, DelegationValidationResult,
-            issue_delegation, verify_delegation_chain,
+            DelegationCredential,
+            DelegationScope,
+            DelegationValidationResult,
+            issue_delegation,
+            verify_delegation_chain,
         )
         from src.monkey_brain.kernel.identity import get_key_manager, sign_bytes
 
         d1 = issue_delegation(
-            issuer="A", delegate="B", capabilities=("grocery.purchase",),
+            issuer="A",
+            delegate="B",
+            capabilities=("grocery.purchase",),
             scope=DelegationScope(resources=("order-1",), actions=("create",)),
-            constraints={"max_amount": 1000}, ttl_seconds=3600,
+            constraints={"max_amount": 1000},
+            ttl_seconds=3600,
         )
         forged_d2 = DelegationCredential(
-            issuer="B", delegate="C", parent_delegation_id=d1.delegation_id,
-            issued_at=time.time(), expires_at=d1.expires_at, scope=d1.scope,
-            capabilities=d1.capabilities, constraints={"max_amount": 999999, "region": "IN"},
+            issuer="B",
+            delegate="C",
+            parent_delegation_id=d1.delegation_id,
+            issued_at=time.time(),
+            expires_at=d1.expires_at,
+            scope=d1.scope,
+            capabilities=d1.capabilities,
+            constraints={"max_amount": 999999, "region": "IN"},
             delegation_depth=1,
         )
         km = get_key_manager()
@@ -58,9 +72,16 @@ class TestMutationSkipDelegationVerificationIsCaught:
 
         def _always_allow(*, chain, authenticated_delegate, is_revoked=None, max_depth=None, now=None):
             return DelegationValidationResult(
-                issuer_valid=True, delegate_valid=True, proof_valid=True, parent_valid=True,
-                scope_valid=True, expiration_valid=True, audience_valid=True, depth_valid=True,
-                revocation_valid=True, authorized=True,
+                issuer_valid=True,
+                delegate_valid=True,
+                proof_valid=True,
+                parent_valid=True,
+                scope_valid=True,
+                expiration_valid=True,
+                audience_valid=True,
+                depth_valid=True,
+                revocation_valid=True,
+                authorized=True,
             )
 
         monkeypatch.setattr(delegation_module, "verify_delegation_chain", _always_allow)
@@ -90,13 +111,20 @@ class TestMutationFakeActorIdIsCaughtByAutoTickIdentityTest:
         test_governed_capability_succeeds_from_an_autonomous_tick_with_dev_mode_off
         was written to catch -- proving that test is a real mutation-
         catcher for this specific fix, not a vacuous pass."""
-        from src.monkey_brain.kernel.security_boundary import SecurityBoundaryDenied, ensure_governed
-        from src.monkey_brain.kernel.trusted_auth import get_trusted_auth, unauthenticated_evidence
+        from src.monkey_brain.kernel.security_boundary import (
+            SecurityBoundaryDenied,
+            ensure_governed,
+        )
+        from src.monkey_brain.kernel.trusted_auth import (
+            get_trusted_auth,
+            unauthenticated_evidence,
+        )
 
         monkeypatch.delenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", raising=False)
         monkeypatch.setenv("OPA_REQUIRED", "true")
 
         from src.monkey_brain.kernel import trusted_auth as trusted_auth_module
+
         trusted_auth_module._current.set(unauthenticated_evidence())
 
         async def effect():
@@ -126,6 +154,7 @@ class TestMutationFakeSenderInMessageIsCaughtByMessagingTest:
         import inspect
 
         from src.monkey_brain.kernel.domains.grocery import subscribe_actor_inbox
+
         source = inspect.getsource(subscribe_actor_inbox)
         # If this exact string were mutated to e.g.
         # `authenticated_delegate=payload.get("sender", actor_id)`, the

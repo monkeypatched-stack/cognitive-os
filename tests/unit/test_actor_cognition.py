@@ -3,18 +3,28 @@
 Each actor plans / simulates / executes / learns over its OWN local graph, which adapts
 to it. Two actors against the same world diverge because each learns from its own runs.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.compile import ActorNetwork, Context, ContextChange, Feature, SparseTransitionTensor
+from src.monkey_brain.kernel.compile import (
+    ActorNetwork,
+    Context,
+    ContextChange,
+    Feature,
+    SparseTransitionTensor,
+)
 
 
 def _world() -> SparseTransitionTensor:
     W = SparseTransitionTensor()
-    W.batch_update([
-        {"src": "Hive", "dst": "Inspect", "domain": "beekeeping", "reward": 1.0},
-        {"src": "Inspect", "dst": "Detect", "domain": "beekeeping", "reward": 1.0},
-        {"src": "Detect", "dst": "Treat", "domain": "beekeeping", "reward": 1.0},
-    ], source="seed")
+    W.batch_update(
+        [
+            {"src": "Hive", "dst": "Inspect", "domain": "beekeeping", "reward": 1.0},
+            {"src": "Inspect", "dst": "Detect", "domain": "beekeeping", "reward": 1.0},
+            {"src": "Detect", "dst": "Treat", "domain": "beekeeping", "reward": 1.0},
+        ],
+        source="seed",
+    )
     return W
 
 
@@ -22,7 +32,7 @@ def test_actor_cycle_reaches_goal_and_adapts_local_graph():
     world = _world()
     net = ActorNetwork(world)
     alice = net.add("alice")
-    assert alice.world.nnz() == 0                       # starts knowing nothing
+    assert alice.world.nnz() == 0  # starts knowing nothing
 
     result = alice.cognitive_cycle("Hive", "Treat", world)
     # execution discovered the true path and folded it into alice's OWN graph
@@ -38,7 +48,7 @@ def test_two_actors_diverge():
     # a works the beekeeping task; b never does
     a.cognitive_cycle("Hive", "Treat", world)
     assert a.world.nnz() > 0
-    assert b.world.nnz() == 0                           # b's local graph is different (empty)
+    assert b.world.nnz() == 0  # b's local graph is different (empty)
 
 
 def test_learning_lowers_epistemic_loss_over_repeats():

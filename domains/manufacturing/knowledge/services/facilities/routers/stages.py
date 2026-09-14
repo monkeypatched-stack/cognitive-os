@@ -20,12 +20,15 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedStageResponse)
 async def list_stages(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1),
     db: AsyncIOMotorDatabase = Depends(get_database),
-    _: dict = Depends(require_permission("perm-view-stages")),  # ⚠️ stages tied to stages
+    _: dict = Depends(
+        require_permission("perm-view-stages")
+    ),  # ⚠️ stages tied to stages
 ):
     stages, total = await crud.get_all(
         db,
@@ -41,6 +44,7 @@ async def list_stages(
 
 
 # ── Get by circuit ────────────────────────────────────────────────────────────
+
 
 @router.get("/by-circuit/{circuit_id}", response_model=list[IndustrialStageResponse])
 async def list_stages_by_circuit(
@@ -77,7 +81,9 @@ async def list_stage_workstations(
 ):
     record = await crud.get_by_id(db, stage_id)
     if not record:
-        record = await db["industrial_stages"].find_one({"name": {"$regex": f"^{re.escape(stage_id)}$", "$options": "i"}})
+        record = await db["industrial_stages"].find_one(
+            {"name": {"$regex": f"^{re.escape(stage_id)}$", "$options": "i"}}
+        )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -87,6 +93,7 @@ async def list_stage_workstations(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{stage_id}", response_model=IndustrialStageResponse)
 async def get_stage(
@@ -105,7 +112,10 @@ async def get_stage(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=IndustrialStageResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=IndustrialStageResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_stage(
     data: IndustrialStageCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -120,6 +130,7 @@ async def create_stage(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{stage_id}", response_model=IndustrialStageResponse)
 async def update_stage(
@@ -138,6 +149,7 @@ async def update_stage(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{stage_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_stage(

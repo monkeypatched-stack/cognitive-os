@@ -3,15 +3,25 @@ a PlanStep.required_permission the actor's resolved permissions don't
 have is rejected before it ever reaches the execution engine — a real
 kernel-level check, not just information available to the planner.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
-from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Goal, Plan, PlanStep
+from src.monkey_brain.kernel.pipeline.belief_state import (
+    BeliefState,
+    Goal,
+    Plan,
+    PlanStep,
+)
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.actor import Actor
-from src.monkey_brain.kernel.pipeline.contracts import CompiledRequest, PipelineRequest, RuntimeContext
+from src.monkey_brain.kernel.pipeline.contracts import (
+    CompiledRequest,
+    PipelineRequest,
+    RuntimeContext,
+)
 from unittest.mock import MagicMock
 
 
@@ -20,7 +30,11 @@ def _state_with_plan(plan: Plan, resolved_permissions: frozenset = frozenset()) 
     belief.metadata["_resolved_permissions"] = resolved_permissions
     compiled = CompiledRequest(
         request=PipelineRequest(question="q", actor_id="alice", tenant_id="acme"),
-        intent={}, goal={}, intent_ir=MagicMock(), goal_ir=MagicMock(), execution_context=MagicMock(),
+        intent={},
+        goal={},
+        intent_ir=MagicMock(),
+        goal_ir=MagicMock(),
+        execution_context=MagicMock(),
     )
     context = RuntimeContext(world=MagicMock(), actor=MagicMock())
     return CognitiveState(compiled=compiled, context=context, actor=Actor(actor_id="alice"), belief=belief)
@@ -28,10 +42,17 @@ def _state_with_plan(plan: Plan, resolved_permissions: frozenset = frozenset()) 
 
 @pytest.mark.asyncio
 async def test_step_missing_required_permission_is_rejected_before_executor():
-    plan = Plan(goal="spend", steps=(
-        PlanStep(action="spend_wallet", description="spend household funds",
-                 required_permission="household_wallet:spend", confidence=0.9),
-    ))
+    plan = Plan(
+        goal="spend",
+        steps=(
+            PlanStep(
+                action="spend_wallet",
+                description="spend household funds",
+                required_permission="household_wallet:spend",
+                confidence=0.9,
+            ),
+        ),
+    )
     state = _state_with_plan(plan, resolved_permissions=frozenset())
 
     rt = CognitiveRuntime()
@@ -48,10 +69,17 @@ async def test_step_missing_required_permission_is_rejected_before_executor():
 
 @pytest.mark.asyncio
 async def test_step_with_granted_permission_executes_normally():
-    plan = Plan(goal="spend", steps=(
-        PlanStep(action="spend_wallet", description="spend household funds",
-                 required_permission="household_wallet:spend", confidence=0.9),
-    ))
+    plan = Plan(
+        goal="spend",
+        steps=(
+            PlanStep(
+                action="spend_wallet",
+                description="spend household funds",
+                required_permission="household_wallet:spend",
+                confidence=0.9,
+            ),
+        ),
+    )
     state = _state_with_plan(plan, resolved_permissions=frozenset({"household_wallet:spend"}))
 
     rt = CognitiveRuntime()
@@ -65,9 +93,10 @@ async def test_step_with_granted_permission_executes_normally():
 
 @pytest.mark.asyncio
 async def test_step_with_no_required_permission_is_unaffected():
-    plan = Plan(goal="look", steps=(
-        PlanStep(action="check_pantry", description="just looking", confidence=0.9),
-    ))
+    plan = Plan(
+        goal="look",
+        steps=(PlanStep(action="check_pantry", description="just looking", confidence=0.9),),
+    )
     state = _state_with_plan(plan, resolved_permissions=frozenset())
 
     rt = CognitiveRuntime()
@@ -79,12 +108,19 @@ async def test_step_with_no_required_permission_is_unaffected():
 
 @pytest.mark.asyncio
 async def test_mixed_plan_denies_only_the_unpermitted_step_preserving_order():
-    plan = Plan(goal="mixed", steps=(
-        PlanStep(action="check_pantry", description="look", confidence=0.9),
-        PlanStep(action="spend_wallet", description="spend household funds",
-                 required_permission="household_wallet:spend", confidence=0.9),
-        PlanStep(action="report_back", description="report", confidence=0.9),
-    ))
+    plan = Plan(
+        goal="mixed",
+        steps=(
+            PlanStep(action="check_pantry", description="look", confidence=0.9),
+            PlanStep(
+                action="spend_wallet",
+                description="spend household funds",
+                required_permission="household_wallet:spend",
+                confidence=0.9,
+            ),
+            PlanStep(action="report_back", description="report", confidence=0.9),
+        ),
+    )
     state = _state_with_plan(plan, resolved_permissions=frozenset())
 
     rt = CognitiveRuntime()

@@ -5,6 +5,7 @@ Provides:
 - Subscribe to ContextEventStore for updates
 - Sync KnowledgeGraph state with durable storage
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,41 +36,68 @@ class KnowledgeGraphEventEmitter:
 
     async def emit_entity_created(self, person_id: str, entity: Any) -> None:
         """Emit event when entity is created."""
-        await self._emit(person_id, "entity_created", {
-            "entity_id": entity.entity_id,
-            "entity_type": entity.entity_type.value if hasattr(entity.entity_type, 'value') else str(entity.entity_type),
-            "name": entity.name,
-        })
+        await self._emit(
+            person_id,
+            "entity_created",
+            {
+                "entity_id": entity.entity_id,
+                "entity_type": (
+                    entity.entity_type.value if hasattr(entity.entity_type, "value") else str(entity.entity_type)
+                ),
+                "name": entity.name,
+            },
+        )
 
-    async def emit_entity_updated(self, person_id: str, entity: Any,
-                                   changes: dict[str, Any] | None = None) -> None:
+    async def emit_entity_updated(self, person_id: str, entity: Any, changes: dict[str, Any] | None = None) -> None:
         """Emit event when entity is updated."""
-        await self._emit(person_id, "entity_updated", {
-            "entity_id": entity.entity_id,
-            "entity_type": entity.entity_type.value if hasattr(entity.entity_type, 'value') else str(entity.entity_type),
-            "changes": changes or {},
-        })
+        await self._emit(
+            person_id,
+            "entity_updated",
+            {
+                "entity_id": entity.entity_id,
+                "entity_type": (
+                    entity.entity_type.value if hasattr(entity.entity_type, "value") else str(entity.entity_type)
+                ),
+                "changes": changes or {},
+            },
+        )
 
     async def emit_entity_removed(self, person_id: str, entity_id: str) -> None:
         """Emit event when entity is removed."""
-        await self._emit(person_id, "entity_removed", {
-            "entity_id": entity_id,
-        })
+        await self._emit(
+            person_id,
+            "entity_removed",
+            {
+                "entity_id": entity_id,
+            },
+        )
 
     async def emit_relationship_created(self, person_id: str, relationship: Any) -> None:
         """Emit event when relationship is created."""
-        await self._emit(person_id, "relationship_created", {
-            "relationship_id": relationship.relationship_id,
-            "source_id": relationship.source_id,
-            "target_id": relationship.target_id,
-            "relationship_type": relationship.relationship_type.value if hasattr(relationship.relationship_type, 'value') else str(relationship.relationship_type),
-        })
+        await self._emit(
+            person_id,
+            "relationship_created",
+            {
+                "relationship_id": relationship.relationship_id,
+                "source_id": relationship.source_id,
+                "target_id": relationship.target_id,
+                "relationship_type": (
+                    relationship.relationship_type.value
+                    if hasattr(relationship.relationship_type, "value")
+                    else str(relationship.relationship_type)
+                ),
+            },
+        )
 
     async def emit_relationship_removed(self, person_id: str, relationship_id: str) -> None:
         """Emit event when relationship is removed."""
-        await self._emit(person_id, "relationship_removed", {
-            "relationship_id": relationship_id,
-        })
+        await self._emit(
+            person_id,
+            "relationship_removed",
+            {
+                "relationship_id": relationship_id,
+            },
+        )
 
     async def _emit(self, person_id: str, event_type: str, data: dict[str, Any]) -> None:
         """Emit an event to the ContextEventStore."""

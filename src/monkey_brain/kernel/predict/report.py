@@ -27,6 +27,7 @@ Separation matters:
     Learn knows nothing about graph expansion.
     Fix consumes both.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -47,16 +48,18 @@ class GraphAnalysis:
 
 # ── PREDICT artifact ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class PredictionReport:
     """Produced by PREDICT.  Contains only forward-looking information.
     No execution results.  No loss.  No observed state.
     """
-    predicted_state: Any = None                        # PredictedEPAState
+
+    predicted_state: Any = None  # PredictedEPAState
     graph_analysis: GraphAnalysis | None = None
-    solver_results: dict[str, Any] = field(default_factory=dict)   # solver_name → SolverResult
+    solver_results: dict[str, Any] = field(default_factory=dict)  # solver_name → SolverResult
     predicted_constraints: dict[str, Any] = field(default_factory=dict)
-    issues: list[Any] = field(default_factory=list)                # list[Issue] — backward compat
+    issues: list[Any] = field(default_factory=list)  # list[Issue] — backward compat
     recommended_repairs: list[str] = field(default_factory=list)
 
     @property
@@ -66,17 +69,19 @@ class PredictionReport:
 
 # ── LEARN artifact ────────────────────────────────────────────────────────────
 
+
 @dataclass
 class LearningReport:
     """Produced by LEARN.  Contains only observation and error information.
     No graph topology.  No repair candidates.
     """
-    observed_state: Any = None                         # ObservedEPAState
-    loss_vector: Any = None                            # EPALossVector
+
+    observed_state: Any = None  # ObservedEPAState
+    loss_vector: Any = None  # EPALossVector
     composite_loss: float = 0.0
     knowledge_updates: dict[str, float] = field(default_factory=dict)  # cap_name → reward
-    q_updates: dict[str, float] = field(default_factory=dict)          # node_id → reward
-    experience: list[Any] = field(default_factory=list)                # JEPATransition list
+    q_updates: dict[str, float] = field(default_factory=dict)  # node_id → reward
+    experience: list[Any] = field(default_factory=list)  # JEPATransition list
 
     @property
     def has_loss(self) -> bool:
@@ -85,11 +90,13 @@ class LearningReport:
 
 # ── FIX input — combines both ─────────────────────────────────────────────────
 
+
 @dataclass
 class RepairRequest:
     """Consumed by FIX.  Joins PredictionReport + LearningReport so Fix has
     everything it needs without either upstream phase knowing about the other.
     """
+
     prediction: PredictionReport
     learning: LearningReport
 

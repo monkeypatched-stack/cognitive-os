@@ -63,7 +63,9 @@ async def get_calendar_booking(
     return record
 
 
-@router.post("/book", response_model=CalendarBookingResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/book", response_model=CalendarBookingResponse, status_code=status.HTTP_201_CREATED
+)
 async def book_calendar_time(
     data: CalendarBookingCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -74,7 +76,9 @@ async def book_calendar_time(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Calendar booking '{data.id}' already exists",
         )
-    if data.status == "booked" and await crud.has_conflict(db, data.calendar_id, data.start_at, data.end_at):
+    if data.status == "booked" and await crud.has_conflict(
+        db, data.calendar_id, data.start_at, data.end_at
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Calendar time is already booked",
@@ -82,7 +86,9 @@ async def book_calendar_time(
     return await crud.create(db, data)
 
 
-@router.post("/", response_model=CalendarBookingResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=CalendarBookingResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_calendar_booking(
     data: CalendarBookingCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

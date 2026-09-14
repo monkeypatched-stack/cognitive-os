@@ -29,7 +29,9 @@ dotenv.load_dotenv("services/auth/.env", override=True)
 class Settings(BaseSettings):
     MONGODB_URL: str = "mongodb://localhost:27017"
     DB_NAME: str = "demo"
-    CORS_ALLOW_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+    CORS_ALLOW_ORIGINS: str = (
+        "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+    )
 
     # ====================================================================
     # Security-Critical Secrets (REQUIRED, fail-closed)
@@ -54,6 +56,7 @@ class Settings(BaseSettings):
                 f"  3. For local dev only: .env or services/auth/.env file"
             )
         from services.common.secrets import reject_insecure_hmac_secret
+
         return reject_insecure_hmac_secret(value, name=info.field_name)
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
@@ -106,7 +109,9 @@ class Settings(BaseSettings):
     INFLUXDB_BUCKET: str = "events"
     INFLUXDB_EVENTS_MEASUREMENT: str = "indus.websocket.events"
     INFLUXDB_EVENT_TYPE_MEASUREMENT_PREFIX: str = "events"
-    INFLUXDB_EVENT_TYPE_MEASUREMENTS: str = "event-log,count-event,maintenance-log,downtime-log,cleaning-log,calibration-log,rfid-scan,nfc-scan,canvas-webhook-incoming,canvas-webhook-outgoing,generic"
+    INFLUXDB_EVENT_TYPE_MEASUREMENTS: str = (
+        "event-log,count-event,maintenance-log,downtime-log,cleaning-log,calibration-log,rfid-scan,nfc-scan,canvas-webhook-incoming,canvas-webhook-outgoing,generic"
+    )
     EMAIL_NOTIFICATIONS_ENABLED: bool = True
     NOTIFICATION_EMAIL_TO: str = "prashunjaveri@gmail.com"
     N8N_EMAIL_WEBHOOK_URL: str = ""
@@ -120,7 +125,9 @@ class Settings(BaseSettings):
     GRAPH_RAG_API_KEY_OTP_TTL_SECONDS: int = 300
     GRAPH_RAG_API_KEY_OTP_MAX_ATTEMPTS: int = 5
     GRAPH_RAG_API_KEY_OTP_ECHO: bool = False
-    APPROVAL_FORM_BASE_URL: str = "http://localhost:8010/api/v1/auth/compliance/approvals"
+    APPROVAL_FORM_BASE_URL: str = (
+        "http://localhost:8010/api/v1/auth/compliance/approvals"
+    )
     PART11_FAILED_LOGIN_LIMIT: int = 5
     PART11_LOCKOUT_MINUTES: int = 15
     AUDIT_ELASTICSEARCH_ENABLED: bool = True
@@ -192,7 +199,11 @@ def cors_allow_origins() -> list[str]:
     cross-origin requests. A literal "*" in the env is dropped, falling back to
     the configured dev origins so the door is never left fully open.
     """
-    raw = [o.strip() for o in (settings.CORS_ALLOW_ORIGINS or "").split(",") if o.strip() and o.strip() != "*"]
+    raw = [
+        o.strip()
+        for o in (settings.CORS_ALLOW_ORIGINS or "").split(",")
+        if o.strip() and o.strip() != "*"
+    ]
     return raw or ["http://localhost:3000"]
 
 

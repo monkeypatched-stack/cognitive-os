@@ -22,10 +22,13 @@ MAX_ITERATIONS = 5
 
 
 def get_token():
-    r = httpx.post(f"{AUTH_URL}/api/v1/auth/login", json={
-        "email": "prashun@monkeypatched.com",
-        "password": "Admin@12345678",
-    })
+    r = httpx.post(
+        f"{AUTH_URL}/api/v1/auth/login",
+        json={
+            "email": "prashun@monkeypatched.com",
+            "password": "Admin@12345678",
+        },
+    )
     return r.json()["access_token"]
 
 
@@ -41,6 +44,7 @@ def ask_question(token, question):
 
 def compute_diff():
     import difflib
+
     src_files = {}
     gen_files = {}
     if SRC_DIR.exists():
@@ -81,9 +85,9 @@ def run_pipeline():
 
     while iteration < MAX_ITERATIONS:
         iteration += 1
-        print(f"\n{'─'*70}")
+        print(f"\n{'─' * 70}")
         print(f"  ITERATION {iteration}")
-        print(f"{'─'*70}")
+        print(f"{'─' * 70}")
 
         # Step 1: Soma Charts → Prompt Compiler
         print("\n[1] Loading somatic charts...")
@@ -121,7 +125,10 @@ def run_pipeline():
         # Step 5: Generate code
         print("\n[5] Generating code from charts...")
         subprocess.run(
-            [str(REPO / ".venv" / "bin" / "python"), "-c", """
+            [
+                str(REPO / ".venv" / "bin" / "python"),
+                "-c",
+                """
 import sys; sys.path.insert(0, str(Path('/Users/prashunjaveri/Code/monkeypatched/src')))
 from sittingface.somatic_compiler import SomaticCompiler
 from sittingface.codegen_agent import CodeGenAgent
@@ -135,9 +142,11 @@ for p in prompts:
     d = {'chart': p.chart_name, 'preamble': p.preamble, 'steps': p.cot_steps, 'constraints': p.constraints, 'review_gate': p.review_gate}
     agent.run_prompt(d)
 print(f'Generated {agent.summary()["files_written"]} files')
-"""],
+""",
+            ],
             cwd=str(REPO),
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
 
         # Step 6: Diff
@@ -151,10 +160,10 @@ print(f'Generated {agent.summary()["files_written"]} files')
         # Step 7: Check if done
         total_diff = diff["diff"] + diff["only_in_src"] + diff["only_in_gen"]
         if total_diff == 0:
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print(f"  SUCCESS — src/ matches generated/ exactly!")
             print(f"  Completed in {iteration} iteration(s)")
-            print(f"{'='*70}")
+            print(f"{'=' * 70}")
             return {"status": "success", "iterations": iteration, "diff": diff}
 
         # Step 8: Evidence collection
@@ -169,10 +178,10 @@ print(f'Generated {agent.summary()["files_written"]} files')
         print(f"\n    Iteration {iteration} complete. {total_diff} files still differ.")
         print(f"    Next iteration will regenerate and re-diff.")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  Max iterations ({MAX_ITERATIONS}) reached.")
     print(f"  Final diff: {diff}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     return {"status": "max_iterations", "iterations": iteration, "diff": diff}
 
 

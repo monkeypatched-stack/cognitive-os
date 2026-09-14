@@ -1,4 +1,5 @@
 """TickTrace / TickTraceRecorder (kernel/edge/tick_trace.py)."""
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.edge.tick_trace import TickTrace, TickTraceRecorder
@@ -8,10 +9,24 @@ def test_tick_trace_has_all_required_fields():
     t = TickTrace(tick_id="t1", actor_id="a1")
     d = t.to_dict()
     for key in [
-        "tick_id", "actor_id", "context_cache_hit", "retrieval_method", "semantic_cache_hit",
-        "world_state_cache_hit", "governance_origin", "policy_version", "delegation_cache_hit",
-        "authorization_cache_hit", "negotiation_origin", "execution_origin", "ros_latency_ms",
-        "network_round_trips", "network_bytes_in", "network_bytes_out", "stage_latency_ms", "total_latency_ms",
+        "tick_id",
+        "actor_id",
+        "context_cache_hit",
+        "retrieval_method",
+        "semantic_cache_hit",
+        "world_state_cache_hit",
+        "governance_origin",
+        "policy_version",
+        "delegation_cache_hit",
+        "authorization_cache_hit",
+        "negotiation_origin",
+        "execution_origin",
+        "ros_latency_ms",
+        "network_round_trips",
+        "network_bytes_in",
+        "network_bytes_out",
+        "stage_latency_ms",
+        "total_latency_ms",
     ]:
         assert key in d
 

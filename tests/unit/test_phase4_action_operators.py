@@ -7,12 +7,16 @@ Verifies that:
 4. Legal actions are computed from capabilities, constraints, and world state
 5. A · W composition still works with action operators
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor, Feature
-from src.monkey_brain.kernel.compile.action_operator import ActionOperator, ActionLegality
+from src.monkey_brain.kernel.compile.action_operator import (
+    ActionOperator,
+    ActionLegality,
+)
 
 
 def _world_with_transitions() -> SparseTransitionTensor:
@@ -124,6 +128,7 @@ class TestActionOperator:
 
         # The world tensor should be unchanged
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         world_freq = world.feature("s1", "s2", Feature.FREQUENCY)
         assert world_freq == 2.0  # Original frequency preserved
 
@@ -241,7 +246,7 @@ class TestActionOperatorComposition:
 
         # Build ActorModel from action operator
         model = ActorModel("test", world)
-        for (src, dst, weight) in op.transitions():
+        for src, dst, weight in op.transitions():
             model.record("query", src, weight=weight)
 
         # Compose with world operator

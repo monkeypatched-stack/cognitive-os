@@ -8,6 +8,7 @@ Logistics subscribes to "InventoryReserved" — same proven chain as
 MB-3100, just triggered by a standalone fire event via POST /events
 instead of an OrderCreated propagation.
 """
+
 from __future__ import annotations
 
 import os
@@ -68,8 +69,15 @@ def build_geography(client: httpx.Client) -> dict[str, str]:
         space = _create_geo(client, "space", f"{label} Floor", building)
         spaces[key] = space
 
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, **spaces}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        **spaces,
+    }
 
 
 SOCIETY_DEFS = (
@@ -77,7 +85,12 @@ SOCIETY_DEFS = (
     # to coordinate once it's evacuated.
     ("warehouse_a", "Warehouse A Society", "Primary warehouse", ()),
     ("warehouse_b", "Warehouse B Society", "Alternate warehouse", ("WarehouseClosed",)),
-    ("logistics", "Logistics Society", "Delivery routing and driver coordination", ("InventoryReserved",)),
+    (
+        "logistics",
+        "Logistics Society",
+        "Delivery routing and driver coordination",
+        ("InventoryReserved",),
+    ),
     ("customer", "Customer Society", "Customers browsing and purchasing", ()),
 )
 
@@ -85,13 +98,24 @@ SOCIETY_DEFS = (
 def build_societies(client: httpx.Client, spaces: dict[str, str]) -> dict[str, str]:
     societies: dict[str, str] = {}
     for key, name, description, subscribed_events in SOCIETY_DEFS:
-        result = _call(client, "POST", "/societies", json={
-            "name": name, "description": description,
-            "subscribed_events": list(subscribed_events),
-        })
+        result = _call(
+            client,
+            "POST",
+            "/societies",
+            json={
+                "name": name,
+                "description": description,
+                "subscribed_events": list(subscribed_events),
+            },
+        )
         society_id = result["society_id"]
         societies[key] = society_id
-        _call(client, "POST", f"/planet/geo/{spaces[key]}/host", json={"society_id": society_id})
+        _call(
+            client,
+            "POST",
+            f"/planet/geo/{spaces[key]}/host",
+            json={"society_id": society_id},
+        )
     return societies
 
 
@@ -106,17 +130,31 @@ ACTOR_DEFS = (
 def build_actors(client: httpx.Client, societies: dict[str, str]) -> dict[str, str]:
     actors: dict[str, str] = {}
     for society_key, name, actor_type, goals in ACTOR_DEFS:
-        result = _call(client, "POST", "/actors", json={
-            "name": name, "actor_type": actor_type, "goals": goals,
-            "society_id": societies[society_key],
-            "capabilities": [{"name": "general"}],
-        })
+        result = _call(
+            client,
+            "POST",
+            "/actors",
+            json={
+                "name": name,
+                "actor_type": actor_type,
+                "goals": goals,
+                "society_id": societies[society_key],
+                "capabilities": [{"name": "general"}],
+            },
+        )
         actors[name] = result["actor_id"]
 
-    _call(client, "POST", f"/actors/{actors['Alice']}/addresses", json={
-        "actor_id": actors["Alice"], "address_type": "physical",
-        "value": "500 Customer Ave, San Francisco, CA 94103", "is_primary": True,
-    })
+    _call(
+        client,
+        "POST",
+        f"/actors/{actors['Alice']}/addresses",
+        json={
+            "actor_id": actors["Alice"],
+            "address_type": "physical",
+            "value": "500 Customer Ave, San Francisco, CA 94103",
+            "is_primary": True,
+        },
+    )
 
     return actors
 
@@ -125,20 +163,38 @@ TRACKED_PRODUCT_NAME = "Wireless Gaming Mouse"
 
 
 def build_commerce(client: httpx.Client) -> dict[str, Any]:
-    merchant = _call(client, "POST", "/merchants", json={
-        "merchant_id": "merchant_bob", "store_name": "Bob's Electronics", "delivery_fee": 4.99,
-        "address": "742 Market Street, San Francisco, CA 94102",
-    })
+    merchant = _call(
+        client,
+        "POST",
+        "/merchants",
+        json={
+            "merchant_id": "merchant_bob",
+            "store_name": "Bob's Electronics",
+            "delivery_fee": 4.99,
+            "address": "742 Market Street, San Francisco, CA 94102",
+        },
+    )
     store_id = merchant["store_id"]
 
-    result = _call(client, "POST", "/products", json={
-        "store_id": store_id, "merchant_id": "merchant_bob",
-        "name": TRACKED_PRODUCT_NAME, "price": 59.99, "quantity": 40,
-    })
+    result = _call(
+        client,
+        "POST",
+        "/products",
+        json={
+            "store_id": store_id,
+            "merchant_id": "merchant_bob",
+            "name": TRACKED_PRODUCT_NAME,
+            "price": 59.99,
+            "quantity": 40,
+        },
+    )
     product_id = result.get("product_id", result.get("id", ""))
 
-    return {"store_id": store_id, "merchant_id": "merchant_bob",
-            "products": {TRACKED_PRODUCT_NAME: product_id}}
+    return {
+        "store_id": store_id,
+        "merchant_id": "merchant_bob",
+        "products": {TRACKED_PRODUCT_NAME: product_id},
+    }
 
 
 def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float = 2.0) -> dict:
@@ -149,9 +205,7 @@ def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float =
             return result
         last_result = result
         violations = result.get("violations", [])
-        only_presence = bool(violations) and all(
-            v.get("category") == "presence_consistency" for v in violations
-        )
+        only_presence = bool(violations) and all(v.get("category") == "presence_consistency" for v in violations)
         if not only_presence or attempt == attempts - 1:
             break
         time.sleep(delay_seconds)
@@ -168,8 +222,11 @@ def bootstrap_world(client: httpx.Client | None = None) -> dict[str, Any]:
         commerce = build_commerce(client)
         verification = verify_world(client)
         return {
-            "spaces": spaces, "societies": societies, "actors": actors,
-            "commerce": commerce, "verification": verification,
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "commerce": commerce,
+            "verification": verification,
         }
     finally:
         if owns_client:

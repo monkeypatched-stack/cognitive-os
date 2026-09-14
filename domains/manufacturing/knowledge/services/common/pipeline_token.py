@@ -41,6 +41,7 @@ async def issue(
     """
     try:
         from services.auth.helpers.agent_tokens import create_pipeline_token
+
         identity = agent_identity or {}
         spiffe_id = identity.get("spiffe_id") or os.getenv(
             "SPIFFE_ID", f"spiffe://monkeybrain/runtime/pipeline/{pipeline_id}"
@@ -72,6 +73,7 @@ async def issue_step_token(
     """
     try:
         from services.auth.helpers.agent_tokens import create_pipeline_token
+
         identity = agent_identity or {}
         spiffe_id = identity.get("spiffe_id") or os.getenv(
             "SPIFFE_ID", f"spiffe://monkeybrain/runtime/pipeline/{pipeline_id}"
@@ -102,6 +104,7 @@ def verify(
     Raises jose.JWTError on invalid/expired token.
     """
     from services.auth.helpers.agent_tokens import decode_pipeline_token
+
     claims = decode_pipeline_token(token)
     if expected_pipeline_id and claims.get("pipeline_id") != expected_pipeline_id:
         raise ValueError(
@@ -115,6 +118,7 @@ def extract_pipeline_id(token: str) -> str | None:
     """Return pipeline_id from a pipeline token without full validation."""
     try:
         from services.auth.helpers.agent_tokens import decode_pipeline_token
+
         return decode_pipeline_token(token).get("pipeline_id")
     except Exception:
         return None

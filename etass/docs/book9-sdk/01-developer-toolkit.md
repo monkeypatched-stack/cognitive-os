@@ -47,11 +47,7 @@ from etass.sdk.runtime import RuntimeClient
 from etass.sdk.observability import ObservabilityClient
 
 # Initialize client
-client = ETASSClient(
-    api_key="your-api-key",
-    endpoint="https://etass.api.example.com",
-    environment="production"
-)
+client = ETASSClient(api_key="your-api-key", endpoint="https://etass.api.example.com", environment="production")
 
 # Create and compile specification
 chart = Chart.load("path/to/chart")
@@ -249,20 +245,12 @@ cli:
 from etass.sdk.api import ETASSAPIClient
 
 # Initialize client
-api = ETASSAPIClient(
-    base_url="https://api.etass.example.com",
-    api_key="your-api-key",
-    timeout=30
-)
+api = ETASSAPIClient(base_url="https://api.etass.example.com", api_key="your-api-key", timeout=30)
 
 # Compile specification
 response = api.compiler.compile(
-    chart_data={
-        "apiVersion": "etass.io/v1",
-        "kind": "Chart",
-        "metadata": {"name": "my-app"}
-    },
-    values={"replicaCount": 3}
+    chart_data={"apiVersion": "etass.io/v1", "kind": "Chart", "metadata": {"name": "my-app"}},
+    values={"replicaCount": 3},
 )
 
 # Check execution status
@@ -272,7 +260,7 @@ execution_status = api.runtime.get_execution("exec-123")
 metrics = api.observability.get_metrics(
     execution_id="exec-123",
     metric_types=["agent_performance", "quality_scores"],
-    time_range={"start": "2026-01-01", "end": "2026-01-31"}
+    time_range={"start": "2026-01-01", "end": "2026-01-31"},
 )
 ```
 
@@ -361,46 +349,43 @@ plugins:
 # Custom compiler plugin example
 from etass.sdk.plugins import CompilerPlugin, PluginMetadata
 
+
 @PluginMetadata(
     name="custom-compiler",
     version="1.0.0",
     description="Custom compilation plugin for specialized prompts",
     author="Your Organization",
-    compatibility=["etass>=1.0.0"]
+    compatibility=["etass>=1.0.0"],
 )
 class CustomCompilerPlugin(CompilerPlugin):
     def __init__(self, config):
         super().__init__(config)
-        self.custom_rules = config.get('custom_rules', {})
-    
+        self.custom_rules = config.get("custom_rules", {})
+
     def pre_compile(self, chart, context):
         """Pre-compilation processing"""
         # Apply custom transformations
         chart = self.apply_custom_transformations(chart)
         return chart, context
-    
+
     def post_compile(self, compiled, context):
         """Post-compilation processing"""
         # Add custom metadata
-        compiled.metadata['custom_plugin'] = {
-            'version': self.metadata.version,
-            'applied_rules': list(self.custom_rules.keys())
+        compiled.metadata["custom_plugin"] = {
+            "version": self.metadata.version,
+            "applied_rules": list(self.custom_rules.keys()),
         }
         return compiled
-    
+
     def apply_custom_transformations(self, chart):
         """Apply custom transformation rules"""
         # Implement custom logic here
         return chart
 
+
 # Plugin registration
 if __name__ == "__main__":
-    plugin = CustomCompilerPlugin({
-        'custom_rules': {
-            'optimize_prompts': True,
-            'add_debugging': False
-        }
-    })
+    plugin = CustomCompilerPlugin({"custom_rules": {"optimize_prompts": True, "add_debugging": False}})
     plugin.register()
 ```
 
@@ -552,7 +537,7 @@ security_config = SecurityConfig(
     timeout=30,
     retry_attempts=3,
     retry_delay=2,
-    max_retry_delay=10
+    max_retry_delay=10,
 )
 
 # Initialize secure client
@@ -560,7 +545,7 @@ client = ETASSClient(
     api_key="your-api-key",
     endpoint="https://etass.api.example.com",
     security_config=security_config,
-    environment="production"
+    environment="production",
 )
 
 # Use with context manager for automatic cleanup

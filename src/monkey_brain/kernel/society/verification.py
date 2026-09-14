@@ -17,6 +17,7 @@ superset of the original (same four keys, plus "categories").
 Purely observational: never raises, never mutates anything, always
 returns a structured report.
 """
+
 from __future__ import annotations
 
 from typing import Any

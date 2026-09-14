@@ -52,7 +52,9 @@ class Pallet(BaseModel):
     """Individual pallet / loading unit."""
 
     id: UUID = Field(default_factory=uuid4)
-    pallet_label: str = Field(..., min_length=1, max_length=50, description="Barcode / SSCC label")
+    pallet_label: str = Field(
+        ..., min_length=1, max_length=50, description="Barcode / SSCC label"
+    )
     pallet_type: PalletType = PalletType.EURO
     condition: PalletCondition = PalletCondition.GOOD
     dimensions: Optional[PalletDimensions] = None
@@ -60,7 +62,9 @@ class Pallet(BaseModel):
     max_load_kg: Optional[Annotated[float, Field(gt=0)]] = None
     contents: list[PalletContent] = Field(default_factory=list)
     is_stackable: bool = True
-    stack_limit: Optional[int] = Field(None, ge=1, description="Max units that can be stacked on top")
+    stack_limit: Optional[int] = Field(
+        None, ge=1, description="Max units that can be stacked on top"
+    )
     stretch_wrapped: bool = False
     temperature_controlled: bool = False
     temperature_min_celsius: Optional[float] = None
@@ -79,13 +83,18 @@ class Pallet(BaseModel):
     @model_validator(mode="after")
     def validate_temperature_fields(self) -> "Pallet":
         if self.temperature_controlled:
-            if self.temperature_min_celsius is None or self.temperature_max_celsius is None:
+            if (
+                self.temperature_min_celsius is None
+                or self.temperature_max_celsius is None
+            ):
                 raise ValueError(
                     "temperature_min_celsius and temperature_max_celsius are required "
                     "when temperature_controlled is True"
                 )
             if self.temperature_min_celsius >= self.temperature_max_celsius:
-                raise ValueError("temperature_min_celsius must be less than temperature_max_celsius")
+                raise ValueError(
+                    "temperature_min_celsius must be less than temperature_max_celsius"
+                )
         return self
 
 
@@ -114,14 +123,22 @@ class PalletUpdate(BaseModel):
     @model_validator(mode="after")
     def validate_temperature_fields(self) -> "PalletUpdate":
         if self.temperature_controlled is True:
-            if self.temperature_min_celsius is None or self.temperature_max_celsius is None:
+            if (
+                self.temperature_min_celsius is None
+                or self.temperature_max_celsius is None
+            ):
                 raise ValueError(
                     "temperature_min_celsius and temperature_max_celsius are required "
                     "when temperature_controlled is True"
                 )
-        if self.temperature_min_celsius is not None and self.temperature_max_celsius is not None:
+        if (
+            self.temperature_min_celsius is not None
+            and self.temperature_max_celsius is not None
+        ):
             if self.temperature_min_celsius >= self.temperature_max_celsius:
-                raise ValueError("temperature_min_celsius must be less than temperature_max_celsius")
+                raise ValueError(
+                    "temperature_min_celsius must be less than temperature_max_celsius"
+                )
         return self
 
 

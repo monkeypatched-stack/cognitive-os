@@ -2,6 +2,7 @@
 
 Verifies system is ready for production deployment.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +15,7 @@ logger = logging.getLogger("agentos.deployment_readiness")
 
 class CheckState(Enum):
     """State of a readiness check."""
+
     PASSED = "passed"
     WARNING = "warning"
     FAILED = "failed"
@@ -23,6 +25,7 @@ class CheckState(Enum):
 @dataclass
 class ReadinessCheck:
     """Single readiness check."""
+
     name: str
     category: str
     state: CheckState
@@ -37,8 +40,7 @@ class DeploymentReadiness:
         self.checks: list[ReadinessCheck] = []
         self.check_functions: dict[str, Callable] = {}
 
-    def register_check(self, name: str, category: str, func: Callable,
-                      critical: bool = False) -> None:
+    def register_check(self, name: str, category: str, func: Callable, critical: bool = False) -> None:
         """Register a readiness check.
 
         Args:
@@ -48,8 +50,12 @@ class DeploymentReadiness:
             critical: Whether check must pass for deployment
         """
         self.check_functions[name] = (category, func, critical)
-        logger.info("[deployment_readiness] Registered check: %s (category=%s, critical=%s)",
-                   name, category, critical)
+        logger.info(
+            "[deployment_readiness] Registered check: %s (category=%s, critical=%s)",
+            name,
+            category,
+            critical,
+        )
 
     def run_checks(self) -> list[ReadinessCheck]:
         """Run all registered checks."""
@@ -59,21 +65,25 @@ class DeploymentReadiness:
             try:
                 passed, message = func()
                 state = CheckState.PASSED if passed else CheckState.FAILED
-                self.checks.append(ReadinessCheck(
-                    name=name,
-                    category=category,
-                    state=state,
-                    message=message,
-                    critical=critical,
-                ))
+                self.checks.append(
+                    ReadinessCheck(
+                        name=name,
+                        category=category,
+                        state=state,
+                        message=message,
+                        critical=critical,
+                    )
+                )
             except Exception as exc:
-                self.checks.append(ReadinessCheck(
-                    name=name,
-                    category=category,
-                    state=CheckState.FAILED,
-                    message=f"Check execution failed: {exc}",
-                    critical=critical,
-                ))
+                self.checks.append(
+                    ReadinessCheck(
+                        name=name,
+                        category=category,
+                        state=CheckState.FAILED,
+                        message=f"Check execution failed: {exc}",
+                        critical=critical,
+                    )
+                )
                 logger.error("[deployment_readiness] Check %s failed: %s", name, exc)
 
         return self.checks
@@ -112,10 +122,7 @@ class DeploymentReadiness:
             "failed": len(failed_checks),
             "critical_failures": len(critical_failures),
             "by_category": by_category,
-            "failed_checks": [
-                {"name": c.name, "message": c.message, "critical": c.critical}
-                for c in failed_checks
-            ],
+            "failed_checks": [{"name": c.name, "message": c.message, "critical": c.critical} for c in failed_checks],
         }
 
 
@@ -128,6 +135,7 @@ def setup_standard_checks(readiness: DeploymentReadiness) -> None:
         """Verify database connection."""
         try:
             from src.monkey_brain.persistence.db_pool import get_db_pool
+
             db = get_db_pool()
             if db and db._pool:
                 return True, "Database pool connected"
@@ -141,7 +149,10 @@ def setup_standard_checks(readiness: DeploymentReadiness) -> None:
     def check_scheduler() -> tuple[bool, str]:
         """Verify scheduler initialized."""
         try:
-            from src.monkey_brain.kernel.compile.scheduler_registry import get_scheduler_registry
+            from src.monkey_brain.kernel.compile.scheduler_registry import (
+                get_scheduler_registry,
+            )
+
             registry = get_scheduler_registry()
             if registry.get_active():
                 return True, "Scheduler active"
@@ -155,7 +166,10 @@ def setup_standard_checks(readiness: DeploymentReadiness) -> None:
     def check_error_recovery() -> tuple[bool, str]:
         """Verify error recovery registered."""
         try:
-            from src.monkey_brain.kernel.compile.error_recovery import get_error_recovery_registry
+            from src.monkey_brain.kernel.compile.error_recovery import (
+                get_error_recovery_registry,
+            )
+
             registry = get_error_recovery_registry()
             if registry:
                 return True, "Error recovery initialized"
@@ -170,6 +184,7 @@ def setup_standard_checks(readiness: DeploymentReadiness) -> None:
         """Verify metrics collection active."""
         try:
             from src.monkey_brain.kernel.compile.metrics import get_health_checker
+
             checker = get_health_checker()
             if checker:
                 return True, "Metrics collection active"
@@ -183,7 +198,10 @@ def setup_standard_checks(readiness: DeploymentReadiness) -> None:
     def check_degradation() -> tuple[bool, str]:
         """Verify graceful degradation configured."""
         try:
-            from src.monkey_brain.kernel.compile.degradation import get_degradation_manager
+            from src.monkey_brain.kernel.compile.degradation import (
+                get_degradation_manager,
+            )
+
             manager = get_degradation_manager()
             if manager:
                 return True, "Degradation manager active"
@@ -198,6 +216,7 @@ def setup_standard_checks(readiness: DeploymentReadiness) -> None:
         """Verify multi-tenancy support."""
         try:
             from src.actor.tenant_middleware import TenantContext
+
             if TenantContext:
                 return True, "Multi-tenancy middleware available"
             return False, "Multi-tenancy not configured"
@@ -212,6 +231,7 @@ def setup_standard_checks(readiness: DeploymentReadiness) -> None:
         try:
             from src.monkey_brain.persistence.actor_state_store import ActorStateStore
             from src.monkey_brain.persistence.db_pool import get_db_pool
+
             db = get_db_pool()
             store = ActorStateStore(db)
             if store:

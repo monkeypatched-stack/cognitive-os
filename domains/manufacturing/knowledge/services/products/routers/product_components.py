@@ -16,6 +16,7 @@ router = APIRouter()
 
 # ── List by Product ───────────────────────────────────────────────────────────
 
+
 @router.get("/by-product/{product_id}", response_model=list[ProductComponentRecord])
 async def list_components_by_product(
     product_id: str,
@@ -26,6 +27,7 @@ async def list_components_by_product(
 
 
 # ── Filtered Queries ──────────────────────────────────────────────────────────
+
 
 @router.get("/by-type/{component_type}", response_model=list[ProductComponentRecord])
 async def list_components_by_type(
@@ -55,6 +57,7 @@ async def list_substitutable_components(
 
 # ── Get One ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/{component_id}", response_model=ProductComponentRecord)
 async def get_component(
     component_id: str,
@@ -72,7 +75,10 @@ async def get_component(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=ProductComponentRecord, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=ProductComponentRecord, status_code=status.HTTP_201_CREATED
+)
 async def create_component(
     data: ProductComponentCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -82,6 +88,7 @@ async def create_component(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{component_id}", response_model=ProductComponentRecord)
 async def update_component(
@@ -100,6 +107,7 @@ async def update_component(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{component_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_component(

@@ -15,6 +15,7 @@ Inputs to JEPAPredictor.predict():
 Output:
   JEPAPrediction — typed prediction with per-component signals
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,6 +65,7 @@ def _graph_to_world_state(graph: Any) -> dict[str, float]:
     completion probability: COMPLETE=1.0, FAILED=0.0, RUNNING=0.7, PENDING=0.5.
     """
     from src.monkey_brain.kernel.execute.graph import NodeState
+
     S = {}
     for node in graph.get_step_nodes():
         state = graph.get_state(node.id)
@@ -134,9 +136,7 @@ def _build_prediction(
         else:
             # Modulate with world signal (bounded to [0.05, 0.95])
             delta = sig_W * 0.3  # 30% max influence per step
-            predicted_world_state[node.id] = round(
-                max(0.05, min(0.95, base + delta)), 4
-            )
+            predicted_world_state[node.id] = round(max(0.05, min(0.95, base + delta)), 4)
 
     # Predicted goal progress
     total = len(nodes)
@@ -186,8 +186,10 @@ def _build_prediction(
 
 # ── Lightweight belief/goal adapters ─────────────────────────────────────────
 
+
 class _NullBelief:
     """Default belief when no EPA state is available."""
+
     confidence = 0.5
     knowledge: list = []
     uncertainty = None

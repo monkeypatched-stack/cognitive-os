@@ -1,5 +1,6 @@
 from typing import Optional
 
+
 class Reference:
     def __init__(self, id: str):
         self.id = id
@@ -32,9 +33,7 @@ class SimpleTodoListService:
     def add_item(self, item: SimpleTodoListServiceItem) -> None:
         self.items.append(item)
 
-    def update_item_status(
-        self, item_reference: Reference, new_status: Status
-    ) -> None:
+    def update_item_status(self, item_reference: Reference, new_status: Status) -> None:
         for item in self.items:
             if item.reference == item_reference:
                 item.status = new_status

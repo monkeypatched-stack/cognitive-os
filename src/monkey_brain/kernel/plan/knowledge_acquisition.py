@@ -18,6 +18,7 @@ which is the current default — see world_model_simulation._web_search), it acq
 says so, with the list of sources it actually queried. It never fabricates knowledge to
 make grounding look better.
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,9 +50,14 @@ async def _default_web_search(question: str, limit: int) -> list[dict[str, Any]]
     """
     try:
         from src.cortex.world_model_simulation import _web_search
+
         result = await _web_search(question)
         return [
-            {"title": d.get("title", ""), "text": d.get("text", ""), "url": d.get("url", "")}
+            {
+                "title": d.get("title", ""),
+                "text": d.get("text", ""),
+                "url": d.get("url", ""),
+            }
             for d in (result.get("details") or [])
         ]
     except Exception as exc:
@@ -81,6 +87,7 @@ async def acquire_knowledge(
 
     if kernel is None:
         from src.monkey_brain.kernel.cognitive_kernel import get_cognitive_kernel
+
         kernel = get_cognitive_kernel()
     if semantic_memory is None:
         semantic_memory = getattr(kernel, "semantic_memory", None)
@@ -90,9 +97,14 @@ async def acquire_knowledge(
     kp = getattr(kernel, "knowledge_pack", None)
     if kp is None:
         return {
-            "question": question, "acquired": 0, "raised": False,
-            "grounding_before": grounding_before, "grounding_after": grounding_before,
-            "sources_queried": {}, "sources_unavailable": ["knowledge_pack"], "items": [],
+            "question": question,
+            "acquired": 0,
+            "raised": False,
+            "grounding_before": grounding_before,
+            "grounding_after": grounding_before,
+            "sources_queried": {},
+            "sources_unavailable": ["knowledge_pack"],
+            "items": [],
         }
 
     sources_queried: dict[str, int] = {}
@@ -108,11 +120,19 @@ async def acquire_knowledge(
         seq += 1
         item_id = f"acq:{abs(hash((question, source, content))) & 0xFFFFFFFF:x}:{seq}"
         # KnowledgeItem carries `tags`, not `metadata` — record the provenance question there.
-        kp.add(KnowledgeItem(
-            id=item_id, content=content, modality=modality, source=source,
-            provenance=provenance, freshness=1.0, completeness=0.6, uncertainty=0.4,
-            tags=["acquired", f"for:{question[:60]}"],
-        ))
+        kp.add(
+            KnowledgeItem(
+                id=item_id,
+                content=content,
+                modality=modality,
+                source=source,
+                provenance=provenance,
+                freshness=1.0,
+                completeness=0.6,
+                uncertainty=0.4,
+                tags=["acquired", f"for:{question[:60]}"],
+            )
+        )
         items.append({"id": item_id, "source": source, "modality": modality.value})
 
     # ── Source 1: existing semantic memory (already-indexed knowledge) ──────────
@@ -138,8 +158,12 @@ async def acquire_knowledge(
         n = 0
         for r in (web_results or [])[:limit]:
             text = r.get("text") or r.get("snippet") or "" if isinstance(r, dict) else str(r)
-            _add(text, r.get("url", "web") if isinstance(r, dict) else "web",
-                 Modality.DOCUMENT, provenance=0.6)
+            _add(
+                text,
+                r.get("url", "web") if isinstance(r, dict) else "web",
+                Modality.DOCUMENT,
+                provenance=0.6,
+            )
             n += 1
         sources_queried["web_search"] = n
         if n == 0:
@@ -156,8 +180,7 @@ async def acquire_knowledge(
             content = getattr(node, "content", "") if node else ""
             if content:
                 try:
-                    await semantic_memory.store(it["id"], content,
-                                                {"type": "acquired", "question": question})
+                    await semantic_memory.store(it["id"], content, {"type": "acquired", "question": question})
                 except Exception as exc:
                     logger.debug("[acquire] semantic_memory.store failed: %s", exc)
 
@@ -167,8 +190,12 @@ async def acquire_knowledge(
 
     (logger.info if acquired else logger.warning)(
         "[acquire] question=%r acquired=%d grounding %.3f -> %.3f (sources=%s, unavailable=%s)",
-        question[:80], acquired, grounding_before, grounding_after,
-        sources_queried, sources_unavailable,
+        question[:80],
+        acquired,
+        grounding_before,
+        grounding_after,
+        sources_queried,
+        sources_unavailable,
     )
 
     return {

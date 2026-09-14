@@ -35,6 +35,7 @@ def _serialize(doc: dict) -> dict:
 # Read
 # ---------------------------------------------------------------------------
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -43,12 +44,7 @@ async def get_all(
     """Return a paginated list of all CorrectiveActions containers."""
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
-    cursor = (
-        db[COLLECTION]
-        .find(query)
-        .skip((page - 1) * page_size)
-        .limit(page_size)
-    )
+    cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(d) async for d in cursor], total
 
 
@@ -86,6 +82,7 @@ async def get_by_step_id(
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create(
     db: AsyncIOMotorDatabase,
@@ -131,7 +128,9 @@ async def delete_by_process_definition_id(
     process_definition_id: str,
 ) -> bool:
     """Delete all CorrectiveActions containers belonging to a process_definition (cascade delete)."""
-    result = await db[COLLECTION].delete_many({"process_definition_id": process_definition_id})
+    result = await db[COLLECTION].delete_many(
+        {"process_definition_id": process_definition_id}
+    )
     return result.deleted_count > 0
 
 
@@ -151,6 +150,7 @@ async def delete_by_step_id(
 # ---------------------------------------------------------------------------
 # Read
 # ---------------------------------------------------------------------------
+
 
 async def get_action_by_id(
     db: AsyncIOMotorDatabase,
@@ -176,10 +176,7 @@ async def get_actions_by_type(
     doc = await db[COLLECTION].find_one({"id": corrective_actions_id})
     if not doc:
         return []
-    return [
-        a for a in doc.get("actions", [])
-        if a.get("action_type") == action_type
-    ]
+    return [a for a in doc.get("actions", []) if a.get("action_type") == action_type]
 
 
 async def get_actions_by_postcheck(
@@ -192,7 +189,8 @@ async def get_actions_by_postcheck(
     if not doc:
         return []
     return [
-        a for a in doc.get("actions", [])
+        a
+        for a in doc.get("actions", [])
         if postcheck_id in a.get("applies_to_postchecks", [])
     ]
 
@@ -200,6 +198,7 @@ async def get_actions_by_postcheck(
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def add_action(
     db: AsyncIOMotorDatabase,

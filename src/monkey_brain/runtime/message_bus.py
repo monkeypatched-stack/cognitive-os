@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 
 class MessageBus:
     """Inter-process message bus.
-    
+
     Supports:
     - Request/Response
     - Event broadcasting
     - Notification
     - Message history
     """
-    
+
     def __init__(self):
         self._subscribers: dict[str, list[Callable]] = defaultdict(list)
         self._history: list[Message] = []
@@ -58,11 +58,13 @@ class MessageBus:
             # which was swallowed at DEBUG — the coroutine was never scheduled and the message
             # was silently lost. Close the coroutine (avoids "never awaited") and say so.
             coro.close()
-            logger.error("MessageBus.publish() called with no running event loop; async "
-                         "subscriber %r was DROPPED", getattr(callback, "__name__", callback))
+            logger.error(
+                "MessageBus.publish() called with no running event loop; async subscriber %r was DROPPED",
+                getattr(callback, "__name__", callback),
+            )
             return
         task = loop.create_task(coro)
-        self._tasks.add(task)                      # strong ref → cannot be GC'd mid-flight
+        self._tasks.add(task)  # strong ref → cannot be GC'd mid-flight
         task.add_done_callback(self._on_task_done)
 
     def publish(self, message: Message) -> None:
@@ -77,19 +79,21 @@ class MessageBus:
             try:
                 result = callback(message)
             except Exception:
-                logger.exception("Subscriber callback failed: %r",
-                                 getattr(callback, "__name__", callback))
+                logger.exception(
+                    "Subscriber callback failed: %r",
+                    getattr(callback, "__name__", callback),
+                )
                 continue
             if asyncio.iscoroutine(result):
                 self._schedule(result, callback)
 
         if self._lemon:
             self._lemon.counter("wolverine.messages_published", type=message.message_type)
-    
+
     def subscribe(self, message_type: str, callback: Callable) -> None:
         """Subscribe to a message type."""
         self._subscribers[message_type].append(callback)
-    
+
     def unsubscribe(self, message_type: str, callback: Callable) -> bool:
         """Unsubscribe from a message type."""
         if message_type in self._subscribers:
@@ -99,13 +103,13 @@ class MessageBus:
             except ValueError:
                 logger.debug("unsubscribe: suppressed exception", exc_info=True)
         return False
-    
+
     def get_history(self, message_type: str | None = None, limit: int = 100) -> list[Message]:
         """Get message history."""
         if message_type:
             return [m for m in self._history if m.message_type == message_type][-limit:]
         return self._history[-limit:]
-    
+
     def summary(self) -> dict:
         return {
             "total_messages": len(self._history),

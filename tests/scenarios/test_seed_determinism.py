@@ -21,10 +21,15 @@ verification notes) -- this file locks in the underlying logic at the
 unit level so it can run in normal CI without needing 10 real server
 restarts.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -72,8 +77,10 @@ def test_seed001_ensure_default_bootstrap_space_survives_a_missing_synthetic_cha
     # The actual failing scenario: an Arjun-Mehta-style registration with
     # no explicit home_space_id, relying entirely on the fallback.
     state = pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name="Arjun Mehta", actor_type=ActorType.HUMAN),
-                     goals=("find the best grocery deals",)),
+        ActorProfile(
+            identity=ActorIdentity(name="Arjun Mehta", actor_type=ActorType.HUMAN),
+            goals=("find the best grocery deals",),
+        ),
     )
     assert state.actor_id
 

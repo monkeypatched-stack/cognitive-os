@@ -3,6 +3,7 @@
 This is a simplified version focused on the cognitive cycle's needs,
 different from the cortex.loss_driven_repair.py which operates on prompts.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -14,6 +15,7 @@ from src.monkey_brain.kernel.config import REPAIR_LOSS_THRESHOLD
 @dataclass
 class RepairReport:
     """Result of a repair operation."""
+
     initial_loss: float = 0.0
     final_loss: float = 0.0
     total_iterations: int = 0
@@ -58,7 +60,7 @@ class LossDrivenRepair:
 
         # Simulate repair effect (in a real system, this would actually modify the graph)
         final_loss = max(0.0, initial_loss * 0.7)  # 30% improvement
-        
+
         return RepairReport(
             initial_loss=initial_loss,
             final_loss=final_loss,
@@ -85,7 +87,7 @@ class LossDrivenRepair:
             "L_C": ["fix_constraint_violations"],
             "L_G": ["improve_goal_progress"],
         }
-        
+
         return repair_mapping.get(dominant_term, ["general_repair"])
 
     def summary(self) -> dict[str, Any]:

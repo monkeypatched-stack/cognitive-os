@@ -3,7 +3,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
 ProductionBatchStatus = Literal[
     "Planned",
     "Created",
@@ -113,16 +112,38 @@ class ProductionBatch(BaseModel):
         self.created_at = ensure_utc(self.created_at) or utc_now()
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
 
-        if self.planned_start_at and self.planned_end_at and self.planned_end_at < self.planned_start_at:
+        if (
+            self.planned_start_at
+            and self.planned_end_at
+            and self.planned_end_at < self.planned_start_at
+        ):
             raise ValueError("planned_end_at cannot be before planned_start_at.")
-        if self.completed_at and self.started_at and self.completed_at < self.started_at:
+        if (
+            self.completed_at
+            and self.started_at
+            and self.completed_at < self.started_at
+        ):
             raise ValueError("completed_at cannot be before started_at.")
         if self.closed_at and self.completed_at and self.closed_at < self.completed_at:
             raise ValueError("closed_at cannot be before completed_at.")
-        if self.status in {"Released", "Dispensing", "In Production", "Completed", "Under QA Review", "Approved", "Closed"} and not self.released_at:
+        if (
+            self.status
+            in {
+                "Released",
+                "Dispensing",
+                "In Production",
+                "Completed",
+                "Under QA Review",
+                "Approved",
+                "Closed",
+            }
+            and not self.released_at
+        ):
             raise ValueError("released production batches must include released_at.")
         if self.status in {"Approved", "Closed"} and not self.qa_reviewer_id:
-            raise ValueError("approved or closed production batches must include qa_reviewer_id.")
+            raise ValueError(
+                "approved or closed production batches must include qa_reviewer_id."
+            )
         return self
 
 

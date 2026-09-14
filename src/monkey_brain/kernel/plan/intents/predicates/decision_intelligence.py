@@ -1,7 +1,6 @@
 """decision_intelligence predicates — real MongoDB aggregation."""
 
 
-
 async def decision_intelligence_question_answer(client, question, force=False):
     """Generate decision support data from MongoDB."""
     try:
@@ -43,5 +42,18 @@ async def decision_intelligence_question_answer(client, question, force=False):
 
 def is_decision_intelligence_question(question):
     q = question.lower()
-    return any(kw in q for kw in ("decide", "decision", "prioritize", "focus", "what should",
-                                    "critical", "urgent", "attention", "recommend", "action"))
+    return any(
+        kw in q
+        for kw in (
+            "decide",
+            "decision",
+            "prioritize",
+            "focus",
+            "what should",
+            "critical",
+            "urgent",
+            "attention",
+            "recommend",
+            "action",
+        )
+    )

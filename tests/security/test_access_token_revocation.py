@@ -10,6 +10,7 @@ the real jti-blocklist round trip (services.auth.helpers.revocation)
 against a real local Redis, the same mechanism agent tokens already
 used before this fix extended it to human tokens.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -135,7 +136,12 @@ async def test_logout_without_a_bearer_token_still_revokes_only_the_refresh_cook
     from services.auth.routers.auth import logout
 
     fake_request = _FakeRequest(None)
-    result = await logout(response=Response(), request=fake_request, refresh_token="some-refresh-token", db=None)
+    result = await logout(
+        response=Response(),
+        request=fake_request,
+        refresh_token="some-refresh-token",
+        db=None,
+    )
     assert result == {"message": "Logged out"}
     assert revoke_calls == ["some-refresh-token"]
 

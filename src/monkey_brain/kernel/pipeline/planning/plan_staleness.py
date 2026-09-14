@@ -19,6 +19,7 @@ grocery's {"selection": [{"id": ..., "qty": ...}]}), so entity references
 are found by a generic recursive scan for "id" keys rather than importing
 any domain module — this stays a kernel/pipeline-layer concern.
 """
+
 from __future__ import annotations
 
 import time
@@ -96,8 +97,10 @@ class PlanStalenessResult:
             "invalidated_at": self.invalidated_at,
             "affected_assumptions": [
                 {
-                    "entity_id": r.entity_id, "entity_name": r.entity_name,
-                    "reason": r.reason, "recorded_version": r.recorded_version,
+                    "entity_id": r.entity_id,
+                    "entity_name": r.entity_name,
+                    "reason": r.reason,
+                    "recorded_version": r.recorded_version,
                     "current_version": r.current_version,
                 }
                 for r in self.reasons
@@ -130,17 +133,26 @@ def check_plan_staleness(kg: Any, record: Any) -> PlanStalenessResult:
     for entity_id, recorded_version in entity_versions.items():
         entity = kg.get_entity(entity_id)
         if entity is None:
-            reasons.append(StalenessReason(
-                entity_id=entity_id, entity_name=entity_id,
-                reason="no longer exists", recorded_version=recorded_version, current_version=None,
-            ))
+            reasons.append(
+                StalenessReason(
+                    entity_id=entity_id,
+                    entity_name=entity_id,
+                    reason="no longer exists",
+                    recorded_version=recorded_version,
+                    current_version=None,
+                )
+            )
             continue
         current_version = kg.version_of(entity_id)
         if current_version != recorded_version:
-            reasons.append(StalenessReason(
-                entity_id=entity_id, entity_name=getattr(entity, "name", entity_id),
-                reason=_describe_change(entity, recorded_version, current_version),
-                recorded_version=recorded_version, current_version=current_version,
-            ))
+            reasons.append(
+                StalenessReason(
+                    entity_id=entity_id,
+                    entity_name=getattr(entity, "name", entity_id),
+                    reason=_describe_change(entity, recorded_version, current_version),
+                    recorded_version=recorded_version,
+                    current_version=current_version,
+                )
+            )
 
     return PlanStalenessResult(is_stale=bool(reasons), reasons=tuple(reasons))

@@ -12,6 +12,7 @@ Lemon (observability) and PersistenceManager (memory management) are
 Kernel-level dependencies injected via boot(), not built by this runtime
 itself.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,7 +21,10 @@ from typing import Any
 from src.monkey_brain.kernel.plan.goals.intent_ir import IntentIR, validate_intent_ir
 from src.monkey_brain.persistence.events import EventType, PersistenceEvent
 from src.monkey_brain.kernel.plan.goals.run_store import get_run_store
-from src.monkey_brain.kernel.temporal_graph import assert_same_topology, clone_graph_snapshot
+from src.monkey_brain.kernel.temporal_graph import (
+    assert_same_topology,
+    clone_graph_snapshot,
+)
 
 logger = logging.getLogger("agentos.simulation_runtime")
 
@@ -84,12 +88,24 @@ class SimulationRuntime:
         lemon: Any = None,
         store: bool = True,
     ) -> IntentIR | None:
-        from src.monkey_brain.kernel.plan.goals.compile import compile_intent as _compile
+        from src.monkey_brain.kernel.plan.goals.compile import (
+            compile_intent as _compile,
+        )
 
-        ir = await _compile(question, target="simulate", run_id=run_id, lemon=lemon or self.lemon, store=store)
+        ir = await _compile(
+            question,
+            target="simulate",
+            run_id=run_id,
+            lemon=lemon or self.lemon,
+            store=store,
+        )
         await self._publish(
             "intent.compiled" if ir is not None else "intent.compile_failed",
-            {"run_id": run_id, "target": "simulate", "intent_type": ir.intent_type if ir else None},
+            {
+                "run_id": run_id,
+                "target": "simulate",
+                "intent_type": ir.intent_type if ir else None,
+            },
         )
         return ir
 
@@ -101,7 +117,8 @@ class SimulationRuntime:
         if errors:
             logger.warning(
                 "run=%r SimulationRuntime.run: IntentIR validation failed: %s",
-                intent_ir.run_id, "; ".join(errors),
+                intent_ir.run_id,
+                "; ".join(errors),
             )
             await self._publish("simulation.failed", {"run_id": intent_ir.run_id, "errors": errors})
             return {"error": "intent_ir validation failed", "detail": errors}
@@ -111,7 +128,10 @@ class SimulationRuntime:
 
         graph_source = get_run_store().get_graph(intent_ir.run_id)
         if graph_source is None:
-            await self._publish("simulation.failed", {"run_id": intent_ir.run_id, "error": "missing execution graph"})
+            await self._publish(
+                "simulation.failed",
+                {"run_id": intent_ir.run_id, "error": "missing execution graph"},
+            )
             return {
                 "error": "missing execution graph",
                 "detail": "Simulation requires the planner's ExecutionGraph stored by run_id",
@@ -123,7 +143,11 @@ class SimulationRuntime:
         # 2. Build a SimulationPipeline with the normalized execution graph and run the simulation.
         pipeline = SimulationPipeline(execution_graph=execution_graph)
         sim_result = await pipeline.simulate(intent_ir)
-        logger.info("[simulation] Pipeline returned: capability=%s, predictions=%d", sim_result.capability, len(sim_result.predictions))
+        logger.info(
+            "[simulation] Pipeline returned: capability=%s, predictions=%d",
+            sim_result.capability,
+            len(sim_result.predictions),
+        )
 
         # 3. Convert to dict for API response.
         result = sim_result.to_dict()
@@ -144,7 +168,9 @@ class SimulationRuntime:
 
         simulation_graph = sim_result.simulation_graph
         simulation_graph["state"] = {
-            "predicted_state": sim_result.simulation_graph.get("metadata", {}).get("summary", {}).get("predicted_state", {}),
+            "predicted_state": sim_result.simulation_graph.get("metadata", {})
+            .get("summary", {})
+            .get("predicted_state", {}),
             "predicted_outcome": {
                 "capability": sim_result.capability,
                 "implementation": sim_result.implementation,
@@ -169,7 +195,9 @@ class SimulationRuntime:
         await self._publish("simulation.run", {"run_id": intent_ir.run_id})
         return result
 
-    async def _persist_snapshot(self, mongo_client: Any, snapshot: dict[str, Any], *, run_id: str, question: str) -> None:
+    async def _persist_snapshot(
+        self, mongo_client: Any, snapshot: dict[str, Any], *, run_id: str, question: str
+    ) -> None:
         if self.persistence is None:
             return
         event = PersistenceEvent(
@@ -223,15 +251,19 @@ class SimulationRuntime:
                     "to": getattr(edge, "to", getattr(edge, "dst", "")),
                     "type": getattr(edge, "type", getattr(edge, "rel", "depends_on")),
                 }
-            edges.append({
-                "from": normalized.get("from") or normalized.get("src", ""),
-                "to": normalized.get("to") or normalized.get("dst", ""),
-                "type": normalized.get("type") or normalized.get("rel", "depends_on"),
-            })
+            edges.append(
+                {
+                    "from": normalized.get("from") or normalized.get("src", ""),
+                    "to": normalized.get("to") or normalized.get("dst", ""),
+                    "type": normalized.get("type") or normalized.get("rel", "depends_on"),
+                }
+            )
 
         metadata = dict(graph_source.get("metadata", {}))
         metadata.setdefault("graph_id", graph_source.get("graph_id", metadata.get("graph_id", "")))
-        execution_order = self._normalize_execution_order(graph_source.get("execution_order", metadata.get("execution_order", [])))
+        execution_order = self._normalize_execution_order(
+            graph_source.get("execution_order", metadata.get("execution_order", []))
+        )
         metadata.setdefault("execution_order", execution_order)
         return {
             "graph_id": graph_source.get("graph_id", metadata.get("graph_id", "")),
@@ -275,6 +307,7 @@ class SimulationRuntime:
 
 def get_simulation_runtime() -> SimulationRuntime:
     from src.monkey_brain.kernel.kernel import Kernel
+
     kernel = Kernel._instance
     try:
         runtime = kernel.runtime_selector.select("simulation") if kernel is not None else None

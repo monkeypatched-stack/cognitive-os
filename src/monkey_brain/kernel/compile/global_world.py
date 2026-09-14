@@ -9,6 +9,7 @@ The Global World contains:
 The world is authoritative and shared by all actors.
 Only the Context Stream may modify it.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,7 +20,9 @@ from typing import Any
 import numpy as np
 
 from src.monkey_brain.kernel.compile.entity import (
-    EntityType, EntityRegistry, RelationType,
+    EntityType,
+    EntityRegistry,
+    RelationType,
 )
 from src.monkey_brain.kernel.compile.ontology import Ontology
 
@@ -29,6 +32,7 @@ logger = logging.getLogger("agentos.global_world")
 @dataclass
 class EntityMeta:
     """Metadata for a state index i in the tensor."""
+
     index: int
     state_name: str
     entity_type: EntityType
@@ -44,6 +48,7 @@ class EntityMeta:
 @dataclass
 class RelMeta:
     """Metadata for a transition (i, j) in the tensor."""
+
     source_index: int
     target_index: int
     source_name: str
@@ -98,8 +103,13 @@ class GlobalWorld:
 
     # ── Entity Metadata (mutation blocked when frozen) ────────────────────────
 
-    def set_entity(self, state: str, entity_type: EntityType = EntityType.ENTITY,
-                   domain: str = "default", **attrs: Any) -> EntityMeta:
+    def set_entity(
+        self,
+        state: str,
+        entity_type: EntityType = EntityType.ENTITY,
+        domain: str = "default",
+        **attrs: Any,
+    ) -> EntityMeta:
         self._check_frozen()
         return self._add_entity(state, entity_type, domain, **attrs)
 
@@ -107,7 +117,7 @@ class GlobalWorld:
         """Update entity metadata — only ContextStream calls this."""
         if self._tensor is None:
             return None
-        i = self._tensor._state_index.get(state) if hasattr(self._tensor, '_state_index') else None
+        i = self._tensor._state_index.get(state) if hasattr(self._tensor, "_state_index") else None
         if i is None:
             return None
         meta = self._entity_meta.get(i)
@@ -117,14 +127,27 @@ class GlobalWorld:
             self._dirty = True
         return meta
 
-    def _add_entity(self, state: str, entity_type: EntityType = EntityType.ENTITY,
-                    domain: str = "default", **attrs: Any) -> EntityMeta:
+    def _add_entity(
+        self,
+        state: str,
+        entity_type: EntityType = EntityType.ENTITY,
+        domain: str = "default",
+        **attrs: Any,
+    ) -> EntityMeta:
         i = self._tensor.intern(state) if self._tensor else 0
         meta = EntityMeta(
-            index=i, state_name=state, entity_type=entity_type,
-            domain=domain, attributes=attrs,
-            is_actor=entity_type in {EntityType.PERSON, EntityType.ROBOT,
-                                      EntityType.AI_AGENT, EntityType.VEHICLE},
+            index=i,
+            state_name=state,
+            entity_type=entity_type,
+            domain=domain,
+            attributes=attrs,
+            is_actor=entity_type
+            in {
+                EntityType.PERSON,
+                EntityType.ROBOT,
+                EntityType.AI_AGENT,
+                EntityType.VEHICLE,
+            },
         )
         self._entity_meta[i] = meta
         self._dirty = True
@@ -133,7 +156,7 @@ class GlobalWorld:
     def get_entity(self, state: str) -> EntityMeta | None:
         if self._tensor is None:
             return None
-        i = self._tensor._state_index.get(state) if hasattr(self._tensor, '_state_index') else None
+        i = self._tensor._state_index.get(state) if hasattr(self._tensor, "_state_index") else None
         if i is None:
             return None
         return self._entity_meta.get(i)
@@ -149,8 +172,14 @@ class GlobalWorld:
 
     # ── Relationship Metadata (mutation blocked when frozen) ───────────────────
 
-    def set_relationship(self, src: str, dst: str, relation_type: RelationType,
-                         domain: str = "default", **attrs: Any) -> RelMeta:
+    def set_relationship(
+        self,
+        src: str,
+        dst: str,
+        relation_type: RelationType,
+        domain: str = "default",
+        **attrs: Any,
+    ) -> RelMeta:
         self._check_frozen()
         return self._add_relationship(src, dst, relation_type, domain, **attrs)
 
@@ -158,8 +187,8 @@ class GlobalWorld:
         """Update relationship metadata — only ContextStream calls this."""
         if self._tensor is None:
             return None
-        i = self._tensor._state_index.get(src) if hasattr(self._tensor, '_state_index') else None
-        j = self._tensor._state_index.get(dst) if hasattr(self._tensor, '_state_index') else None
+        i = self._tensor._state_index.get(src) if hasattr(self._tensor, "_state_index") else None
+        j = self._tensor._state_index.get(dst) if hasattr(self._tensor, "_state_index") else None
         if i is None or j is None:
             return None
         meta = self._rel_meta.get((i, j))
@@ -169,14 +198,24 @@ class GlobalWorld:
             self._dirty = True
         return meta
 
-    def _add_relationship(self, src: str, dst: str, relation_type: RelationType,
-                          domain: str = "default", **attrs: Any) -> RelMeta:
+    def _add_relationship(
+        self,
+        src: str,
+        dst: str,
+        relation_type: RelationType,
+        domain: str = "default",
+        **attrs: Any,
+    ) -> RelMeta:
         i = self._tensor.intern(src) if self._tensor else 0
         j = self._tensor.intern(dst) if self._tensor else 0
         meta = RelMeta(
-            source_index=i, target_index=j,
-            source_name=src, target_name=dst,
-            relation_type=relation_type, domain=domain, attributes=attrs,
+            source_index=i,
+            target_index=j,
+            source_name=src,
+            target_name=dst,
+            relation_type=relation_type,
+            domain=domain,
+            attributes=attrs,
         )
         self._rel_meta[(i, j)] = meta
         self._dirty = True
@@ -185,8 +224,8 @@ class GlobalWorld:
     def get_relationship(self, src: str, dst: str) -> RelMeta | None:
         if self._tensor is None:
             return None
-        i = self._tensor._state_index.get(src) if hasattr(self._tensor, '_state_index') else None
-        j = self._tensor._state_index.get(dst) if hasattr(self._tensor, '_state_index') else None
+        i = self._tensor._state_index.get(src) if hasattr(self._tensor, "_state_index") else None
+        j = self._tensor._state_index.get(dst) if hasattr(self._tensor, "_state_index") else None
         if i is None or j is None:
             return None
         return self._rel_meta.get((i, j))
@@ -194,7 +233,7 @@ class GlobalWorld:
     def relationships_from(self, state: str) -> list[RelMeta]:
         if self._tensor is None:
             return []
-        i = self._tensor._state_index.get(state) if hasattr(self._tensor, '_state_index') else None
+        i = self._tensor._state_index.get(state) if hasattr(self._tensor, "_state_index") else None
         if i is None:
             return []
         return [m for (si, _), m in self._rel_meta.items() if si == i]
@@ -202,7 +241,7 @@ class GlobalWorld:
     def relationships_to(self, state: str) -> list[RelMeta]:
         if self._tensor is None:
             return []
-        j = self._tensor._state_index.get(state) if hasattr(self._tensor, '_state_index') else None
+        j = self._tensor._state_index.get(state) if hasattr(self._tensor, "_state_index") else None
         if j is None:
             return []
         return [m for (_, tj), m in self._rel_meta.items() if tj == j]
@@ -276,8 +315,9 @@ class GlobalWorld:
         state_idx = {s: i for i, s in enumerate(states)}
         mat = np.zeros((n, n), dtype=np.float32)
 
-        if self._tensor and hasattr(self._tensor, '__iter__'):
+        if self._tensor and hasattr(self._tensor, "__iter__"):
             from src.monkey_brain.kernel.compile.tensor import Feature
+
             for src, dst in self._tensor:
                 if src in state_idx and dst in state_idx:
                     i, j = state_idx[src], state_idx[dst]
@@ -308,8 +348,9 @@ class GlobalWorld:
 
     def clone(self) -> GlobalWorld:
         from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor
+
         cloned_tensor = SparseTransitionTensor()
-        if self._tensor and hasattr(self._tensor, 'to_dict'):
+        if self._tensor and hasattr(self._tensor, "to_dict"):
             cloned_tensor.load_dict(self._tensor.to_dict())
 
         clone = GlobalWorld(cloned_tensor)
@@ -325,11 +366,16 @@ class GlobalWorld:
     def export_entities(self) -> dict:
         return {
             str(i): {
-                "index": m.index, "state_name": m.state_name,
-                "entity_type": m.entity_type.value, "domain": m.domain,
-                "attributes": m.attributes, "state": m.state,
-                "is_actor": m.is_actor, "tenant_id": m.tenant_id,
-                "created_at": m.created_at, "updated_at": m.updated_at,
+                "index": m.index,
+                "state_name": m.state_name,
+                "entity_type": m.entity_type.value,
+                "domain": m.domain,
+                "attributes": m.attributes,
+                "state": m.state,
+                "is_actor": m.is_actor,
+                "tenant_id": m.tenant_id,
+                "created_at": m.created_at,
+                "updated_at": m.updated_at,
             }
             for i, m in self._entity_meta.items()
         }
@@ -337,11 +383,16 @@ class GlobalWorld:
     def export_relationships(self) -> dict:
         return {
             f"({i},{j})": {
-                "source_name": m.source_name, "target_name": m.target_name,
-                "relation_type": m.relation_type.value, "direction": m.direction,
-                "domain": m.domain, "attributes": m.attributes,
-                "is_active": m.is_active, "tenant_id": m.tenant_id,
-                "created_at": m.created_at, "updated_at": m.updated_at,
+                "source_name": m.source_name,
+                "target_name": m.target_name,
+                "relation_type": m.relation_type.value,
+                "direction": m.direction,
+                "domain": m.domain,
+                "attributes": m.attributes,
+                "is_active": m.is_active,
+                "tenant_id": m.tenant_id,
+                "created_at": m.created_at,
+                "updated_at": m.updated_at,
             }
             for (i, j), m in self._rel_meta.items()
         }
@@ -361,6 +412,7 @@ class GlobalWorld:
         """Save world state (tensor + metadata) atomically."""
         import json
         import os
+
         os.makedirs(path, exist_ok=True)
 
         if self._tensor:
@@ -396,10 +448,13 @@ class GlobalWorld:
             for idx_str, data in entities.items():
                 i = int(idx_str)
                 self._entity_meta[i] = EntityMeta(
-                    index=data["index"], state_name=data["state_name"],
+                    index=data["index"],
+                    state_name=data["state_name"],
                     entity_type=EntityType(data["entity_type"]),
-                    domain=data["domain"], attributes=data.get("attributes", {}),
-                    state=data.get("state", {}), is_actor=data.get("is_actor", False),
+                    domain=data["domain"],
+                    attributes=data.get("attributes", {}),
+                    state=data.get("state", {}),
+                    is_actor=data.get("is_actor", False),
                     tenant_id=data.get("tenant_id"),
                     created_at=data.get("created_at", 0),
                     updated_at=data.get("updated_at", 0),
@@ -412,8 +467,10 @@ class GlobalWorld:
             for key_str, data in rels.items():
                 key = tuple(int(x) for x in key_str.strip("()").split(","))
                 self._rel_meta[key] = RelMeta(
-                    source_index=key[0], target_index=key[1],
-                    source_name=data["source_name"], target_name=data["target_name"],
+                    source_index=key[0],
+                    target_index=key[1],
+                    source_name=data["source_name"],
+                    target_name=data["target_name"],
                     relation_type=RelationType(data["relation_type"]),
                     direction=data.get("direction", "forward"),
                     domain=data.get("domain", "default"),

@@ -1,4 +1,5 @@
 """Healthcare agents — Patient, Appointment, Pharmacy, Laboratory, ClinicalWorkflow."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class PatientAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "find"), "patient_id": context.get("patient_id", ""), "query": context.get("query", "")}
+        return {
+            "operation": context.get("operation", "find"),
+            "patient_id": context.get("patient_id", ""),
+            "query": context.get("query", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"patient.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"patient.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"patient.{decision['operation']}", "success": True}
@@ -30,13 +38,26 @@ class AppointmentAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "book"), "patient_id": context.get("patient_id", ""), "doctor_id": context.get("doctor_id", ""), "slot": context.get("slot", "")}
+        return {
+            "operation": context.get("operation", "book"),
+            "patient_id": context.get("patient_id", ""),
+            "doctor_id": context.get("doctor_id", ""),
+            "slot": context.get("slot", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"appointment.{perception['operation']}", "available": True}
+        return {
+            "operation": perception["operation"],
+            "action": f"appointment.{perception['operation']}",
+            "available": True,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"appointment.{decision['operation']}", "success": decision.get("available", False), "appointment_id": f"appt-{decision.get('patient_id', '')[:8]}"}
+        return {
+            "action": f"appointment.{decision['operation']}",
+            "success": decision.get("available", False),
+            "appointment_id": f"appt-{decision.get('patient_id', '')[:8]}",
+        }
 
 
 class PharmacyAgent(BaseDDDAgent):
@@ -46,13 +67,24 @@ class PharmacyAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "dispense"), "medication": context.get("medication", ""), "patient_id": context.get("patient_id", "")}
+        return {
+            "operation": context.get("operation", "dispense"),
+            "medication": context.get("medication", ""),
+            "patient_id": context.get("patient_id", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"pharmacy.{perception['operation']}", "safe": True}
+        return {
+            "operation": perception["operation"],
+            "action": f"pharmacy.{perception['operation']}",
+            "safe": True,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"pharmacy.{decision['operation']}", "success": decision.get("safe", True)}
+        return {
+            "action": f"pharmacy.{decision['operation']}",
+            "success": decision.get("safe", True),
+        }
 
 
 class LaboratoryAgent(BaseDDDAgent):
@@ -62,13 +94,24 @@ class LaboratoryAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "order"), "test_type": context.get("test_type", ""), "patient_id": context.get("patient_id", "")}
+        return {
+            "operation": context.get("operation", "order"),
+            "test_type": context.get("test_type", ""),
+            "patient_id": context.get("patient_id", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"laboratory.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"laboratory.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"laboratory.{decision['operation']}", "success": True, "order_id": f"lab-{decision.get('test_type', 'test')[:8]}"}
+        return {
+            "action": f"laboratory.{decision['operation']}",
+            "success": True,
+            "order_id": f"lab-{decision.get('test_type', 'test')[:8]}",
+        }
 
 
 class ClinicalWorkflowAgent(BaseDDDAgent):
@@ -78,10 +121,22 @@ class ClinicalWorkflowAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"patient_id": context.get("patient_id", ""), "workflow": context.get("workflow", ""), "step": context.get("step", 0)}
+        return {
+            "patient_id": context.get("patient_id", ""),
+            "workflow": context.get("workflow", ""),
+            "step": context.get("step", 0),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "clinical.advance", "next_step": perception.get("step", 0) + 1, "complete": False}
+        return {
+            "action": "clinical.advance",
+            "next_step": perception.get("step", 0) + 1,
+            "complete": False,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "clinical.advance", "success": True, "next_step": decision.get("next_step", 0)}
+        return {
+            "action": "clinical.advance",
+            "success": True,
+            "next_step": decision.get("next_step", 0),
+        }

@@ -13,6 +13,7 @@ transport plugs into later without touching EdgeSyncClient's own logic
 (reconciliation, epoch comparison, revocation application) at all. See
 the module docstring's "Known limitation" callout at the bottom.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,7 +23,10 @@ from typing import Any, Callable, Protocol
 
 from src.monkey_brain.kernel.edge.freshness import CacheProvenance
 from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
-from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache, SignedPolicySnapshot
+from src.monkey_brain.kernel.edge.policy_cache import (
+    EdgePolicyCache,
+    SignedPolicySnapshot,
+)
 
 logger = logging.getLogger("agentos.edge.sync")
 
@@ -60,7 +64,12 @@ class ControlPlaneSyncSource(Protocol):
 
 
 class EdgeSyncClient:
-    def __init__(self, store: EdgeLocalStore, policy_cache: EdgePolicyCache, source: ControlPlaneSyncSource) -> None:
+    def __init__(
+        self,
+        store: EdgeLocalStore,
+        policy_cache: EdgePolicyCache,
+        source: ControlPlaneSyncSource,
+    ) -> None:
         self._store = store
         self._policy_cache = policy_cache
         self._source = source
@@ -91,11 +100,17 @@ class EdgeSyncClient:
         self._store.set_sync_state(POLICY_STREAM, last_epoch=current_epoch)
         logger.info(
             "edge sync: policy stream applied=%d skipped_stale=%d new_epoch=%d initial=%s",
-            applied, skipped, current_epoch, is_initial,
+            applied,
+            skipped,
+            current_epoch,
+            is_initial,
         )
         return SyncResult(
-            stream=POLICY_STREAM, applied=applied, skipped_stale=skipped,
-            new_epoch=current_epoch, full_snapshot=is_initial,
+            stream=POLICY_STREAM,
+            applied=applied,
+            skipped_stale=skipped,
+            new_epoch=current_epoch,
+            full_snapshot=is_initial,
         )
 
     def _should_apply(self, snapshot: SignedPolicySnapshot) -> bool:
@@ -103,13 +118,19 @@ class EdgeSyncClient:
         overwrite one that's already cached for the same key, even if
         the transport delivered them out of order."""
         existing = self._store.get(
-            "policy_snapshot", f"{snapshot.principal}:{snapshot.action}:{snapshot.resource}",
+            "policy_snapshot",
+            f"{snapshot.principal}:{snapshot.action}:{snapshot.resource}",
         )
         if existing is None:
             return True
         return snapshot.authority_epoch >= existing.provenance.authority_epoch
 
-    def sync_world_projection(self, keys: tuple[str, ...], *, freshness_requirement: str = "requires_world_state") -> SyncResult:
+    def sync_world_projection(
+        self,
+        keys: tuple[str, ...],
+        *,
+        freshness_requirement: str = "requires_world_state",
+    ) -> SyncResult:
         values = self._source.fetch_world_projection(keys=keys)
         applied = 0
         now = time.time()
@@ -125,8 +146,11 @@ class EdgeSyncClient:
             applied += 1
         self._store.set_sync_state(WORLD_PROJECTION_STREAM, last_epoch=self.current_local_epoch())
         return SyncResult(
-            stream=WORLD_PROJECTION_STREAM, applied=applied, skipped_stale=0,
-            new_epoch=self.current_local_epoch(), full_snapshot=False,
+            stream=WORLD_PROJECTION_STREAM,
+            applied=applied,
+            skipped_stale=0,
+            new_epoch=self.current_local_epoch(),
+            full_snapshot=False,
         )
 
     def reconcile_after_partition(self) -> SyncResult:
@@ -146,7 +170,11 @@ def acknowledge_sync(source: ControlPlaneSyncSource, result: SyncResult) -> None
     edge nodes have confirmed a given epoch (useful for revocation
     propagation monitoring); no-op today since ControlPlaneSyncSource has
     no ack method yet (Known limitation, see module docstring)."""
-    logger.debug("edge sync ack (no-op transport): stream=%s epoch=%d", result.stream, result.new_epoch)
+    logger.debug(
+        "edge sync ack (no-op transport): stream=%s epoch=%d",
+        result.stream,
+        result.new_epoch,
+    )
 
 
 # Known limitation: ControlPlaneSyncSource is consulted via direct Python

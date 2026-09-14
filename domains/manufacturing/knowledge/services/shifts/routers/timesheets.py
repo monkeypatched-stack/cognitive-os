@@ -22,7 +22,9 @@ async def list_timesheets(
     _: dict = Depends(get_current_user),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedTimeSheetResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedTimeSheetResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-worker/{worker_id}", response_model=list[TimeSheetResponse])
@@ -34,7 +36,9 @@ async def list_timesheets_by_worker(
     return await crud.get_by_worker(db, worker_id)
 
 
-@router.get("/by-payroll-reference/{payroll_reference}", response_model=TimeSheetResponse)
+@router.get(
+    "/by-payroll-reference/{payroll_reference}", response_model=TimeSheetResponse
+)
 async def get_timesheet_by_payroll_reference(
     payroll_reference: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -66,7 +70,9 @@ async def get_timesheet(
 ):
     record = await crud.get_by_id(db, timesheet_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Timesheet '{timesheet_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Timesheet '{timesheet_id}' not found"
+        )
     return record
 
 
@@ -78,8 +84,13 @@ async def create_timesheet(
 ):
     timesheet_id = str(data.id)
     if await crud.get_by_id(db, timesheet_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Timesheet '{timesheet_id}' already exists")
-    if data.payroll_reference and await crud.get_by_payroll_reference(db, data.payroll_reference):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Timesheet '{timesheet_id}' already exists",
+        )
+    if data.payroll_reference and await crud.get_by_payroll_reference(
+        db, data.payroll_reference
+    ):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail=f"Timesheet with payroll reference '{data.payroll_reference}' already exists",
@@ -103,7 +114,9 @@ async def update_timesheet(
             )
     updated = await crud.update(db, timesheet_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Timesheet '{timesheet_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Timesheet '{timesheet_id}' not found"
+        )
     return updated
 
 
@@ -114,4 +127,6 @@ async def delete_timesheet(
     _: dict = Depends(require_permission("perm-delete-shifts")),
 ):
     if not await crud.delete(db, timesheet_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Timesheet '{timesheet_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Timesheet '{timesheet_id}' not found"
+        )

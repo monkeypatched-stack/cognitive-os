@@ -4,6 +4,7 @@ Responsibility: Boot, shutdown, dependency injection, subsystem initialization,
 lifecycle management, health checks.
 Depends on: bootstrap module, all subsystem components
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -63,6 +64,7 @@ class RuntimeBootstrap:
         # Initialize SemanticGraph
         try:
             from src.monkey_brain.kernel.compile.semantic_graph import SemanticGraph
+
             self._semantic_graph = SemanticGraph()
             try:
                 loop = asyncio.get_running_loop()
@@ -100,9 +102,13 @@ class RuntimeBootstrap:
             try:
                 await asyncio.wait_for(asyncio.shield(self._semantic_graph_connect_task), timeout=5.0)
             except Exception as exc:
-                logger.warning("[bootstrap] SemanticGraph connect did not finish before shutdown: %s", exc)
+                logger.warning(
+                    "[bootstrap] SemanticGraph connect did not finish before shutdown: %s",
+                    exc,
+                )
 
         from src.monkey_brain.api import bootstrap as boot_mod
+
         await boot_mod.shutdown(app, rt.persistence, rt.lemon, rt.pcp, rt.graph_store, self._semantic_graph)
 
     @property

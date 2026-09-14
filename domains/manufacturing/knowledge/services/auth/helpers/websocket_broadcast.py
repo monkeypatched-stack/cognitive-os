@@ -4,7 +4,6 @@ import logging
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 
-
 log = logging.getLogger(__name__)
 _connections: set[WebSocket] = set()
 _lock = asyncio.Lock()

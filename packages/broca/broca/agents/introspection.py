@@ -1,13 +1,21 @@
 """IntrospectionAgent and OperationalEvidenceAgent — typed AgentResult with evidence."""
+
 from __future__ import annotations
-import json, logging
+import json
+import logging
+import os
 from pathlib import Path
 from typing import Any
 from ._base import BaseETASSAgent
 
 logger = logging.getLogger("broca.agents.introspection")
-import os
-_EVIDENCE_DIR = Path(os.environ.get("MONKEYBRAIN_EVIDENCE_DIR", str(Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4]))) / ".operational_evidence")))
+
+_EVIDENCE_DIR = Path(
+    os.environ.get(
+        "MONKEYBRAIN_EVIDENCE_DIR",
+        str(Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4]))) / ".operational_evidence"),
+    )
+)
 
 
 class IntrospectionAgent(BaseETASSAgent):
@@ -22,6 +30,7 @@ class IntrospectionAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
@@ -58,7 +67,11 @@ class OperationalEvidenceAgent(BaseETASSAgent):
             )
 
         try:
-            files = sorted(_EVIDENCE_DIR.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)[:10]
+            files = sorted(
+                _EVIDENCE_DIR.glob("*.json"),
+                key=lambda f: f.stat().st_mtime,
+                reverse=True,
+            )[:10]
             evidence = []
             for f in files:
                 try:

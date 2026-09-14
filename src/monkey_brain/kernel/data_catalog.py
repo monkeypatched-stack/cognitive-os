@@ -40,30 +40,40 @@ MAX_SAMPLES = 3
 # Fields worth showing real values for — an LLM that has seen "LINE-TAB-001" will not invent
 # "line 3". Values of everything else are withheld: a catalog is a description of shape, and
 # should not become an exfiltration channel for row contents.
-_ID_FIELDS = ("line_id", "plant_id", "stage_id", "workstation_id", "category", "type", "status")
+_ID_FIELDS = (
+    "line_id",
+    "plant_id",
+    "stage_id",
+    "workstation_id",
+    "category",
+    "type",
+    "status",
+)
 
 # The catalog goes into an LLM prompt, so it is an ALLOW-LIST, never "every collection in the
 # database". The demo database also holds agentos_api_keys, agentos_api_key_email_otps
 # (otp_hash), part11_login_events and users — describing those to a model, field by field,
 # would be handing out a map of the credential store for no benefit to any agent. Domain data
 # only: these are the collections an agent has a legitimate reason to reason about.
-DOMAIN_COLLECTIONS = frozenset({
-    "instruments",
-    "pharmaceutical_equipment",
-    "pharmaceutical_machines",
-    "machine_parts",
-    "workstations",
-    "plant_locations",
-    "calibration_records",
-    "work_orders",
-    "production_batches",
-    "sops",
-    "checklists",
-    "downtime",
-    "devices",
-    "scada_tags",
-    "plc_controllers",
-})
+DOMAIN_COLLECTIONS = frozenset(
+    {
+        "instruments",
+        "pharmaceutical_equipment",
+        "pharmaceutical_machines",
+        "machine_parts",
+        "workstations",
+        "plant_locations",
+        "calibration_records",
+        "work_orders",
+        "production_batches",
+        "sops",
+        "checklists",
+        "downtime",
+        "devices",
+        "scada_tags",
+        "plc_controllers",
+    }
+)
 
 _cache: tuple[float, str] | None = None
 

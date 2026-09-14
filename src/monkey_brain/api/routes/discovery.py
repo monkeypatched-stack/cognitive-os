@@ -5,6 +5,7 @@ GET /capabilities — available capabilities
 GET /agents       — available agents
 GET /models       — available models
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,7 +15,10 @@ from fastapi import APIRouter, Depends, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    ProviderResponse, CapabilityResponse, AgentResponse, ModelResponse,
+    ProviderResponse,
+    CapabilityResponse,
+    AgentResponse,
+    ModelResponse,
 )
 from src.monkey_brain.api.idempotency import idempotent
 
@@ -75,11 +79,15 @@ async def get_capabilities(
     else:
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
             for agent_type in registry.list_agents():
                 capabilities.append({"name": agent_type})
         except Exception:
-            logger.debug("broca registry unavailable, no fallback capabilities listed", exc_info=True)
+            logger.debug(
+                "broca registry unavailable, no fallback capabilities listed",
+                exc_info=True,
+            )
     return CapabilityResponse(capabilities=capabilities, count=len(capabilities))
 
 
@@ -98,17 +106,24 @@ async def get_models(
 ) -> ModelResponse:
     models = []
 
-    from src.monkey_brain.kernel.execute.provider.model_backend import _DEFAULT_MODEL_MAP, _DEFAULT_PROVIDER
+    from src.monkey_brain.kernel.execute.provider.model_backend import (
+        _DEFAULT_MODEL_MAP,
+        _DEFAULT_PROVIDER,
+    )
+
     for provider, default_model in _DEFAULT_MODEL_MAP.items():
-        models.append({
-            "name": default_model,
-            "provider": provider,
-            "default": provider == _DEFAULT_PROVIDER,
-        })
+        models.append(
+            {
+                "name": default_model,
+                "provider": provider,
+                "default": provider == _DEFAULT_PROVIDER,
+            }
+        )
 
     ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=3) as client:
             resp = await client.get(f"{ollama_url}/api/tags")
             if resp.status_code == 200:

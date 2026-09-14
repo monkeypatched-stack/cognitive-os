@@ -3,6 +3,7 @@
 Responsibility: Create and maintain MongoDB schema for episodic memory.
 Depends on: MongoDB database connection
 """
+
 from __future__ import annotations
 
 import logging

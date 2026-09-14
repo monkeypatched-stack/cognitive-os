@@ -12,6 +12,7 @@ conversation happened.
 Usage:
     python3 demo/negotiation/mb3302_warehouse_cooperation.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -38,8 +39,11 @@ def main() -> int:
 
             section("Round 1 — Robot B asks Robot A for a transfer")
             steps, actions = force_round(
-                c, robot_b_id, "Inventory Robot B", "AskActor",
-                f'You have a real order for {TRANSFER_QTY} units of {TRACKED_PRODUCT_NAME} but zero local '
+                c,
+                robot_b_id,
+                "Inventory Robot B",
+                "AskActor",
+                f"You have a real order for {TRANSFER_QTY} units of {TRACKED_PRODUCT_NAME} but zero local "
                 f'stock. Ask Warehouse A if they can transfer some. Use parameters {{"target_actor": '
                 f'"Inventory Robot A", "question": "Can you transfer {TRANSFER_QTY} units of '
                 f'{TRACKED_PRODUCT_NAME} to help fulfill an order I cannot fill locally?"}}.',
@@ -51,9 +55,12 @@ def main() -> int:
 
             section("Round 2 — Robot A evaluates cooperating vs. keeping stock")
             steps, actions = force_round(
-                c, robot_a_id, "Inventory Robot A", "EvaluateStrategy",
-                f'You have {WAREHOUSE_A_STOCK} real units in stock and Warehouse B has a real order it '
-                f'cannot fill. Evaluate whether transferring {TRANSFER_QTY} units to them is worth it. Use '
+                c,
+                robot_a_id,
+                "Inventory Robot A",
+                "EvaluateStrategy",
+                f"You have {WAREHOUSE_A_STOCK} real units in stock and Warehouse B has a real order it "
+                f"cannot fill. Evaluate whether transferring {TRANSFER_QTY} units to them is worth it. Use "
                 f'parameters {{"candidates": [{{"name": "transfer", "attributes": {{"network_fulfillment": '
                 f'1.0, "local_stock": -1.0}}}}, {{"name": "keep", "attributes": {{"network_fulfillment": '
                 f'0.0, "local_stock": 0.0}}}}]}}.',
@@ -69,9 +76,12 @@ def main() -> int:
             section("Round 3 — Robot A records the agreement")
             record_result = None
             if cooperated:
-                fact = f'You decided to transfer {TRANSFER_QTY} units to Warehouse B (that was the better strategy).'
+                fact = f"You decided to transfer {TRANSFER_QTY} units to Warehouse B (that was the better strategy)."
                 steps, actions = force_round(
-                    c, robot_a_id, "Inventory Robot A", "RecordAgreement",
+                    c,
+                    robot_a_id,
+                    "Inventory Robot A",
+                    "RecordAgreement",
                     f'{fact} Persist this agreement. Use parameters {{"entity_id": "{product_id}", '
                     f'"agreement": {{"with": "Inventory Robot B", "terms": "transfer {TRANSFER_QTY} units"}}}}.',
                     extra_context=fact,
@@ -92,25 +102,40 @@ def main() -> int:
             # the real cooperative reservation Robot A already decided on.
             if cooperated:
                 steps, actions = force_round(
-                    c, robot_b_id, "Inventory Robot B", "CompeteForResource",
-                    f'Warehouse A agreed to transfer {TRANSFER_QTY} units to you. Reserve them now. Use '
+                    c,
+                    robot_b_id,
+                    "Inventory Robot B",
+                    "CompeteForResource",
+                    f"Warehouse A agreed to transfer {TRANSFER_QTY} units to you. Reserve them now. Use "
                     f'parameters {{"resource_id": "{product_id}", "qty": {TRANSFER_QTY}}}.',
                 )
                 compete_result = first_result("CompeteForResource", steps, actions)
                 if compete_result:
-                    kv("  Reservation outcome", "WON" if compete_result.get("won") else "LOST")
+                    kv(
+                        "  Reservation outcome",
+                        "WON" if compete_result.get("won") else "LOST",
+                    )
             else:
                 print("  (skipped — no agreement to act on)")
 
             section("Verification")
             checks = [
-                ("Robot B asked for cooperation in natural language (real AskActor exchange)",
-                 bool(ask_result)),
-                ("Robot A evaluated real strategies with real utility numbers",
-                 bool(eval_result and eval_result.get("evaluations"))),
-                ("Cooperative strategy chosen (transfer beat keep on real utility)", cooperated),
-                ("Fulfillment genuinely improved (Robot B reserved real units it didn't have before)",
-                 bool(compete_result and compete_result.get("won"))),
+                (
+                    "Robot B asked for cooperation in natural language (real AskActor exchange)",
+                    bool(ask_result),
+                ),
+                (
+                    "Robot A evaluated real strategies with real utility numbers",
+                    bool(eval_result and eval_result.get("evaluations")),
+                ),
+                (
+                    "Cooperative strategy chosen (transfer beat keep on real utility)",
+                    cooperated,
+                ),
+                (
+                    "Fulfillment genuinely improved (Robot B reserved real units it didn't have before)",
+                    bool(compete_result and compete_result.get("won")),
+                ),
             ]
             all_pass = True
             for label, ok in checks:

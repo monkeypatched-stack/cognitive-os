@@ -14,6 +14,7 @@ from enum import Enum
 
 class GossipStrategy(str, Enum):
     """Strategies for gossip propagation"""
+
     RANDOM = "random"  # Random peer selection
     WEIGHTED = "weighted"  # Weighted by trust score
     FANOUT = "fanout"  # Fixed number of peers
@@ -23,6 +24,7 @@ class GossipStrategy(str, Enum):
 @dataclass
 class TrustGossip:
     """Trust update to gossip"""
+
     actor_a: str
     actor_b: str
     trust_score: float
@@ -49,6 +51,7 @@ class TrustGossip:
 @dataclass
 class GossipNode:
     """Represents a node in gossip network"""
+
     node_id: str
     region: str
     peers: Set[str] = field(default_factory=set)
@@ -109,11 +112,7 @@ class GossipProtocol:
             self._region_clusters[node.region] = set()
         self._region_clusters[node.region].add(node.node_id)
 
-    def add_peer_relationship(
-        self,
-        node_id_a: str,
-        node_id_b: str
-    ) -> None:
+    def add_peer_relationship(self, node_id_a: str, node_id_b: str) -> None:
         """Add peering relationship between nodes"""
         node_a = self._nodes.get(node_id_a)
         node_b = self._nodes.get(node_id_b)
@@ -134,11 +133,7 @@ class GossipProtocol:
                     if node_id_a != node_id_b:
                         node_a.add_peer(node_id_b)
 
-    async def gossip_trust_update(
-        self,
-        source_node_id: str,
-        gossip: TrustGossip
-    ) -> None:
+    async def gossip_trust_update(self, source_node_id: str, gossip: TrustGossip) -> None:
         """Start gossip of trust update from source node"""
         node = self._nodes.get(source_node_id)
         if not node or not node.is_online:
@@ -154,11 +149,7 @@ class GossipProtocol:
         # Start gossip propagation
         await self._propagate_gossip(source_node_id, gossip)
 
-    async def _propagate_gossip(
-        self,
-        node_id: str,
-        gossip: TrustGossip
-    ) -> None:
+    async def _propagate_gossip(self, node_id: str, gossip: TrustGossip) -> None:
         """Propagate gossip to peers"""
         if not gossip.is_valid():
             return
@@ -177,24 +168,12 @@ class GossipProtocol:
         for peer_id in peers:
             peer = self._nodes.get(peer_id)
             if peer and peer.is_online:
-                await self._gossip_queue.put({
-                    'to_node': peer_id,
-                    'gossip': gossip,
-                    'from_node': node_id
-                })
+                await self._gossip_queue.put({"to_node": peer_id, "gossip": gossip, "from_node": node_id})
 
                 # Update peer's version
-                peer.mark_trust_version(
-                    gossip.actor_a,
-                    gossip.actor_b,
-                    self._version_counter
-                )
+                peer.mark_trust_version(gossip.actor_a, gossip.actor_b, self._version_counter)
 
-    async def receive_gossip(
-        self,
-        node_id: str,
-        gossip: TrustGossip
-    ) -> None:
+    async def receive_gossip(self, node_id: str, gossip: TrustGossip) -> None:
         """Node receives gossip update"""
         node = self._nodes.get(node_id)
         if not node:
@@ -208,7 +187,7 @@ class GossipProtocol:
         # Log gossip
         self._gossip_log.append(gossip)
         if len(self._gossip_log) > self._max_log_size:
-            self._gossip_log = self._gossip_log[-self._max_log_size:]
+            self._gossip_log = self._gossip_log[-self._max_log_size :]
 
         # Re-propagate to other peers (but not back to source)
         if gossip.is_valid():
@@ -242,20 +221,15 @@ class GossipProtocol:
         online_nodes = sum(1 for n in self._nodes.values() if n.is_online)
 
         return {
-            'total_nodes': len(self._nodes),
-            'online_nodes': online_nodes,
-            'regions': len(self._region_clusters),
-            'gossip_log_size': len(self._gossip_log),
-            'pending_gossip': self._gossip_queue.qsize(),
-            'version_counter': self._version_counter,
+            "total_nodes": len(self._nodes),
+            "online_nodes": online_nodes,
+            "regions": len(self._region_clusters),
+            "gossip_log_size": len(self._gossip_log),
+            "pending_gossip": self._gossip_queue.qsize(),
+            "version_counter": self._version_counter,
         }
 
-    def get_gossip_history(
-        self,
-        actor_a: str = None,
-        actor_b: str = None,
-        limit: int = 100
-    ) -> List[TrustGossip]:
+    def get_gossip_history(self, actor_a: str = None, actor_b: str = None, limit: int = 100) -> List[TrustGossip]:
         """Get gossip history"""
         results = []
 
@@ -291,16 +265,16 @@ class GossipEnabledCoordinator:
         node_id: str,
         trust_score: float,
         successful: int,
-        failed: int
+        failed: int,
     ) -> None:
         """Update trust locally and gossip to network"""
         # Store locally
         key = tuple(sorted([actor_a, actor_b]))
         self._trust_data[key] = {
-            'score': trust_score,
-            'successful': successful,
-            'failed': failed,
-            'updated_at': datetime.now(),
+            "score": trust_score,
+            "successful": successful,
+            "failed": failed,
+            "updated_at": datetime.now(),
         }
 
         # Create gossip
@@ -309,17 +283,13 @@ class GossipEnabledCoordinator:
             actor_b=actor_b,
             trust_score=trust_score,
             successful_interactions=successful,
-            failed_interactions=failed
+            failed_interactions=failed,
         )
 
         # Propagate via gossip
         await self._gossip_protocol.gossip_trust_update(node_id, gossip)
 
-    def get_trust_data(
-        self,
-        actor_a: str,
-        actor_b: str
-    ) -> Optional[Dict]:
+    def get_trust_data(self, actor_a: str, actor_b: str) -> Optional[Dict]:
         """Get trust data (from gossip)"""
         key = tuple(sorted([actor_a, actor_b]))
         return self._trust_data.get(key)
@@ -333,8 +303,6 @@ class GossipEnabledCoordinator:
     def get_gossip_stats(self) -> Dict[str, any]:
         """Get gossip statistics"""
         stats = self._gossip_protocol.get_gossip_stats()
-        stats['trust_relationships'] = len(self._trust_data)
-        stats['hosted_actors'] = sum(
-            len(actors) for actors in self._node_to_actor_map.values()
-        )
+        stats["trust_relationships"] = len(self._trust_data)
+        stats["hosted_actors"] = sum(len(actors) for actors in self._node_to_actor_map.values())
         return stats

@@ -13,6 +13,7 @@ except ModuleNotFoundError:
 # Load environment variables
 load_dotenv()
 
+
 # ============================
 # RUN SERVER
 # ============================
@@ -26,17 +27,14 @@ async def run_server():
         logger.info("=" * 70)
 
         config = uvicorn.Config(
-            app=app,
-            host="0.0.0.0",
-            port=port,
-            log_level="info",
-            access_log=True
+            app=app, host="0.0.0.0", port=port, log_level="info", access_log=True
         )
         server = uvicorn.Server(config)
         await server.serve()
 
     except Exception as e:
         logger.error(f"FAILURE: Could not start server — {e}", exc_info=True)
+
 
 if __name__ == "__main__":
     try:

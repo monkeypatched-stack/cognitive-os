@@ -18,10 +18,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Result & Interface
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class VerificationResult:
@@ -53,6 +53,7 @@ class IVerifier(ABC):
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
+
 
 class VerificationPipeline:
     """Run a sequence of verifiers against an artifact.
@@ -100,6 +101,7 @@ class VerificationPipeline:
 # Concrete Verifiers
 # ---------------------------------------------------------------------------
 
+
 class EpistemicVerifier(IVerifier):
     """L_B verifier — confidence and uncertainty invariants.
 
@@ -128,9 +130,7 @@ class EpistemicVerifier(IVerifier):
             belief = artifact.get("B")
 
         if belief is None:
-            return VerificationResult(
-                passed=True, evidence={"note": "no belief state to verify"}, score=1.0
-            )
+            return VerificationResult(passed=True, evidence={"note": "no belief state to verify"}, score=1.0)
 
         conf = getattr(belief, "confidence", None)
         if conf is not None:
@@ -157,8 +157,12 @@ class EpistemicVerifier(IVerifier):
                 pass
 
         score = 1.0 - (len(violations) / max(3, len(violations) + 1))
-        return VerificationResult(passed=not violations, violations=violations,
-                                  evidence=evidence, score=round(score, 4))
+        return VerificationResult(
+            passed=not violations,
+            violations=violations,
+            evidence=evidence,
+            score=round(score, 4),
+        )
 
 
 class CapabilityVerifier(IVerifier):
@@ -183,9 +187,7 @@ class CapabilityVerifier(IVerifier):
         elif hasattr(artifact, "preconditions"):
             descriptors = [artifact]
         else:
-            return VerificationResult(
-                passed=True, evidence={"note": "no capability descriptor"}, score=1.0
-            )
+            return VerificationResult(passed=True, evidence={"note": "no capability descriptor"}, score=1.0)
 
         total, failed = 0, 0
         for desc in descriptors:
@@ -197,8 +199,12 @@ class CapabilityVerifier(IVerifier):
 
         evidence = {"total_preconditions": total, "failed": failed}
         score = 1.0 - (failed / max(total, 1))
-        return VerificationResult(passed=not violations, violations=violations,
-                                  evidence=evidence, score=round(score, 4))
+        return VerificationResult(
+            passed=not violations,
+            violations=violations,
+            evidence=evidence,
+            score=round(score, 4),
+        )
 
     def _eval(self, predicate: str, ws: dict) -> bool:
         for op in ("==", "!=", ">=", "<=", ">", "<"):
@@ -207,12 +213,18 @@ class CapabilityVerifier(IVerifier):
                 lv = self._resolve(lhs.strip(), ws)
                 rv = self._coerce(rhs.strip())
                 try:
-                    if op == "==":  return lv == rv
-                    if op == "!=":  return lv != rv
-                    if op == ">":   return float(lv) > float(rv)  # type: ignore[arg-type]
-                    if op == ">=":  return float(lv) >= float(rv)  # type: ignore[arg-type]
-                    if op == "<":   return float(lv) < float(rv)   # type: ignore[arg-type]
-                    if op == "<=":  return float(lv) <= float(rv)  # type: ignore[arg-type]
+                    if op == "==":
+                        return lv == rv
+                    if op == "!=":
+                        return lv != rv
+                    if op == ">":
+                        return float(lv) > float(rv)  # type: ignore[arg-type]
+                    if op == ">=":
+                        return float(lv) >= float(rv)  # type: ignore[arg-type]
+                    if op == "<":
+                        return float(lv) < float(rv)  # type: ignore[arg-type]
+                    if op == "<=":
+                        return float(lv) <= float(rv)  # type: ignore[arg-type]
                 except Exception:
                     return True
         return True
@@ -226,12 +238,18 @@ class CapabilityVerifier(IVerifier):
 
     @staticmethod
     def _coerce(v: str) -> Any:
-        if v.lower() in ("true", "yes"):  return True
-        if v.lower() in ("false", "no"):  return False
-        try:  return int(v)
-        except ValueError: pass
-        try:  return float(v)
-        except ValueError: pass
+        if v.lower() in ("true", "yes"):
+            return True
+        if v.lower() in ("false", "no"):
+            return False
+        try:
+            return int(v)
+        except ValueError:
+            pass
+        try:
+            return float(v)
+        except ValueError:
+            pass
         return v.strip("'\"")
 
 
@@ -267,7 +285,9 @@ class SimulationVerifier(IVerifier):
 
         if loss_val is None:
             return VerificationResult(
-                passed=True, evidence={"note": "no simulation loss to verify"}, score=1.0
+                passed=True,
+                evidence={"note": "no simulation loss to verify"},
+                score=1.0,
             )
 
         evidence["loss_value"] = loss_val
@@ -276,8 +296,12 @@ class SimulationVerifier(IVerifier):
             violations.append(f"simulation loss {loss_val:.4f} > threshold {self._threshold}")
 
         score = max(0.0, 1.0 - loss_val)
-        return VerificationResult(passed=not violations, violations=violations,
-                                  evidence=evidence, score=round(score, 4))
+        return VerificationResult(
+            passed=not violations,
+            violations=violations,
+            evidence=evidence,
+            score=round(score, 4),
+        )
 
 
 class MeshVerifier(IVerifier):
@@ -321,5 +345,9 @@ class MeshVerifier(IVerifier):
             violations.append(f"capability gaps in mesh: {sorted(gaps)}")
 
         score = 1.0 - (len(gaps) / max(len(required), 1))
-        return VerificationResult(passed=not violations, violations=violations,
-                                  evidence=evidence, score=round(score, 4))
+        return VerificationResult(
+            passed=not violations,
+            violations=violations,
+            evidence=evidence,
+            score=round(score, 4),
+        )

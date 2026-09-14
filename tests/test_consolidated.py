@@ -5,6 +5,7 @@ Tests the consolidated modules that import from kernel:
 - auth_security.py (consolidated auth/policy/security)
 - monitoring_consolidated.py (consolidated monitoring using Lemon)
 """
+
 import pytest
 import asyncio
 from src.monkey_brain.api.auth_security import (
@@ -20,10 +21,10 @@ from src.monkey_brain.api.monitoring_consolidated import (
     LEMON_AVAILABLE,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # AuthPolicySecurity Tests
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestAuthPolicySecurity:
     """Test consolidated auth/policy/security module."""
@@ -34,11 +35,13 @@ class TestAuthPolicySecurity:
 
     def test_rate_limiter_imported(self):
         from src.monkey_brain.api.auth_security import RateLimiter
+
         limiter = RateLimiter()
         assert limiter.allow("test")
 
     def test_sanitize_imported(self):
         from src.monkey_brain.api.auth_security import sanitize_input
+
         # Kernel's sanitize_input raises ValueError for blocked patterns
         # Test with safe input
         result = sanitize_input("Hello World")
@@ -46,11 +49,13 @@ class TestAuthPolicySecurity:
 
     def test_governance_imported(self):
         from src.monkey_brain.api.auth_security import GovernanceEngine
+
         engine = GovernanceEngine()
         assert engine is not None
 
     def test_trust_network_imported(self):
         from src.monkey_brain.api.auth_security import TrustNetwork
+
         network = TrustNetwork()
         assert network is not None
 
@@ -72,6 +77,7 @@ class TestAuthPolicySecurity:
 # ═══════════════════════════════════════════════════════════════════════════════
 # MonitoringService Tests
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestMonitoringService:
     """Test consolidated monitoring module."""
@@ -108,6 +114,7 @@ class TestMonitoringService:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Integration Tests
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class TestConsolidatedIntegration:
     """Integration tests for consolidated modules."""

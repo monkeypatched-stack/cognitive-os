@@ -1,4 +1,5 @@
 """GitLabCIAgent — triggers and monitors GitLab CI/CD pipelines via REST API."""
+
 from __future__ import annotations
 
 import logging
@@ -31,27 +32,56 @@ class GitLabCIAgent(BaseETASSAgent):
 
         if not project_id or not token:
             self._reward(False, 0.0)
-            return self._result(payload={"triggered": False}, observations=["missing project_id or gitlab_token"])
+            return self._result(
+                payload={"triggered": False},
+                observations=["missing project_id or gitlab_token"],
+            )
 
         import httpx
+
         api = f"{base_url.rstrip('/')}/api/v4/projects/{project_id}/pipeline"
         headers = {"PRIVATE-TOKEN": token}
         try:
             async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(api, headers=headers, json={"ref": branch, "variables": [{"key": k, "value": v} for k, v in variables.items()]})
+                resp = await client.post(
+                    api,
+                    headers=headers,
+                    json={
+                        "ref": branch,
+                        "variables": [{"key": k, "value": v} for k, v in variables.items()],
+                    },
+                )
             data = resp.json()
             success = resp.status_code in (200, 201)
         except Exception as e:
             self._reward(False, 0.1)
-            return self._result(payload={"triggered": False, "error": str(e)}, observations=[f"GitLab API error: {e}"])
+            return self._result(
+                payload={"triggered": False, "error": str(e)},
+                observations=[f"GitLab API error: {e}"],
+            )
 
         pipeline_id = data.get("id", "")
         pipeline_url = data.get("web_url", "")
         self._reward(success, 0.6)
-        artifacts = [Artifact(kind="ci_pipeline", name=f"GitLab:{pipeline_id}", uri=pipeline_url)] if Artifact and success else []
+        artifacts = (
+            [Artifact(kind="ci_pipeline", name=f"GitLab:{pipeline_id}", uri=pipeline_url)]
+            if Artifact and success
+            else []
+        )
 
         return self._result(
-            payload={"triggered": success, "pipeline_id": pipeline_id, "pipeline_url": pipeline_url, "branch": branch},
+            payload={
+                "triggered": success,
+                "pipeline_id": pipeline_id,
+                "pipeline_url": pipeline_url,
+                "branch": branch,
+            },
             artifacts=artifacts,
-            observations=[f"GitLab CI pipeline #{pipeline_id} created" if success else f"GitLab trigger failed: {data.get('message', '')}"],
+            observations=[
+                (
+                    f"GitLab CI pipeline #{pipeline_id} created"
+                    if success
+                    else f"GitLab trigger failed: {data.get('message', '')}"
+                )
+            ],
         )

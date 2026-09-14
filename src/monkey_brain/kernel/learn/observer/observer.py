@@ -14,7 +14,7 @@ from uuid import uuid4
 @dataclass
 class Observation:
     """A single observation of execution."""
-    
+
     observation_id: str = field(default_factory=lambda: f"obs-{uuid4().hex[:8]}")
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     capability: str = ""
@@ -29,22 +29,22 @@ class Observation:
 
 class Observer:
     """Passive execution observer.
-    
+
     Responsibilities:
     - Record every capability execution
     - Compute execution metrics
     - Feed observations to Learning
-    
+
     The Observer never:
     - Reorders execution
     - Schedules work
     - Modifies Policy
     - Chooses capabilities
     """
-    
+
     def __init__(self):
         self._observations: list[Observation] = []
-    
+
     def observe(
         self,
         capability: str,
@@ -69,16 +69,16 @@ class Observer:
         )
         self._observations.append(obs)
         return obs
-    
+
     def get_observations(self) -> list[Observation]:
         return list(self._observations)
-    
+
     def get_last_observation(self) -> Observation | None:
         return self._observations[-1] if self._observations else None
-    
+
     def clear(self):
         self._observations.clear()
-    
+
     async def on_outcome(self, outcome) -> None:
         """OutcomeSubscriber — record typed ExecutionOutcome as an Observation."""
         self.observe(
@@ -86,9 +86,9 @@ class Observer:
             action=outcome.agent_type or "execute",
             input_state=outcome.state_before,
             output_state=outcome.state_after,
-            reward=outcome.result.reward,           # typed
+            reward=outcome.result.reward,  # typed
             latency_ms=outcome.latency_ms,
-            success=outcome.result.success,         # typed
+            success=outcome.result.success,  # typed
             workflow_id=outcome.workflow_id,
             goal=outcome.goal,
             observations=outcome.result.observations,  # typed — human-readable notes
@@ -98,11 +98,11 @@ class Observer:
     def summary(self) -> dict:
         if not self._observations:
             return {"count": 0}
-        
+
         rewards = [o.reward for o in self._observations]
         latencies = [o.latency_ms for o in self._observations]
         successes = [o.success for o in self._observations]
-        
+
         return {
             "count": len(self._observations),
             "total_reward": sum(rewards),

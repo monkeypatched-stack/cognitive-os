@@ -4,6 +4,7 @@ Validates the CandidateGenerator: multiple alternative PlanCandidates per
 goal, each built from a registered PlanStrategy's operator sequence, none
 scored yet (that's Step 8.6).
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.pipeline.planning.domain import Goal, PlanCandidate
@@ -16,10 +17,10 @@ from src.monkey_brain.kernel.pipeline.planning.candidates import (
     CandidateGenerator,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Default "acquire_milk" scenario — matches Step 8's own acceptance example
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAcquireMilkScenario:
     def test_produces_three_candidates(self):
@@ -62,6 +63,7 @@ class TestAcquireMilkScenario:
 # "Do not score yet" — the explicit constraint for this step
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNoScoringYet:
     def test_all_candidates_unscored(self):
         generator = CandidateGenerator()
@@ -83,6 +85,7 @@ class TestNoScoringYet:
 # Unregistered goals
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestUnregisteredGoal:
     def test_no_rule_produces_no_candidates(self):
         generator = CandidateGenerator()
@@ -93,27 +96,33 @@ class TestUnregisteredGoal:
 # Custom rule registration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCustomRuleRegistration:
     def test_register_new_rule(self):
         generator = CandidateGenerator(rules={})
-        generator.register_rule(GenerationRule(
-            goal_name="get_coffee",
-            strategies=(
-                PlanStrategy(
-                    name="brew_at_home",
-                    operator_calls=(OperatorCall(operator_name="Wait", params={"duration_seconds": 300.0}),),
+        generator.register_rule(
+            GenerationRule(
+                goal_name="get_coffee",
+                strategies=(
+                    PlanStrategy(
+                        name="brew_at_home",
+                        operator_calls=(OperatorCall(operator_name="Wait", params={"duration_seconds": 300.0}),),
+                    ),
+                    PlanStrategy(
+                        name="buy_from_cafe",
+                        operator_calls=(OperatorCall(operator_name="Navigate", params={"destination": "cafe"}),),
+                    ),
                 ),
-                PlanStrategy(
-                    name="buy_from_cafe",
-                    operator_calls=(OperatorCall(operator_name="Navigate", params={"destination": "cafe"}),),
-                ),
-            ),
-        ))
+            )
+        )
 
         candidates = generator.generate(Goal(name="get_coffee"))
 
         assert len(candidates) == 2
-        assert {c.plan.metadata["strategy"] for c in candidates} == {"brew_at_home", "buy_from_cafe"}
+        assert {c.plan.metadata["strategy"] for c in candidates} == {
+            "brew_at_home",
+            "buy_from_cafe",
+        }
 
     def test_default_rules_not_mutated_by_registration(self):
         generator = CandidateGenerator()
@@ -122,15 +131,17 @@ class TestCustomRuleRegistration:
 
     def test_unresolvable_operator_reference_is_skipped_not_invented(self):
         generator = CandidateGenerator(rules={})
-        generator.register_rule(GenerationRule(
-            goal_name="broken",
-            strategies=(
-                PlanStrategy(
-                    name="uses_nonexistent_operator",
-                    operator_calls=(OperatorCall(operator_name="DoesNotExist", params={}),),
+        generator.register_rule(
+            GenerationRule(
+                goal_name="broken",
+                strategies=(
+                    PlanStrategy(
+                        name="uses_nonexistent_operator",
+                        operator_calls=(OperatorCall(operator_name="DoesNotExist", params={}),),
+                    ),
                 ),
-            ),
-        ))
+            )
+        )
 
         candidates = generator.generate(Goal(name="broken"))
 
@@ -141,6 +152,7 @@ class TestCustomRuleRegistration:
 # ═══════════════════════════════════════════════════════════════════════════
 # Step ordering and operator template usage
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestStepConstruction:
     def test_steps_are_sequenced_in_operator_call_order(self):
@@ -172,10 +184,12 @@ class TestStepConstruction:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_runtime_or_execution_imports(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.planning.candidates as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

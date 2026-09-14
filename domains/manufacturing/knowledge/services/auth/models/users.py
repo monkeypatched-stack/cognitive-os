@@ -16,17 +16,17 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 
 class UserEntry(BaseModel):
-    user_id:     str            = Field(..., min_length=1)
-    employee_id: str            = None
-    name:        str            = Field(..., min_length=1)
-    department:  Optional[str]  = None
-    team:        Optional[str]  = None
-    email:       Optional[str]  = None
-    phone:       Optional[str]  = None
-    is_active:   bool           = False
-    role:        Optional[str]  = None
-    created_at:  datetime       = Field(default_factory=utc_now)
-    updated_at:  datetime       = Field(default_factory=utc_now)
+    user_id: str = Field(..., min_length=1)
+    employee_id: str = None
+    name: str = Field(..., min_length=1)
+    department: Optional[str] = None
+    team: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: bool = False
+    role: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
     def normalize_datetimes(self) -> "UserEntry":
@@ -40,16 +40,16 @@ class UserEntryCreate(UserEntry):
 
 
 class UserEntryUpdate(BaseModel):
-    employee_id: Optional[str]  = None
-    name:        Optional[str]  = None
-    department:  Optional[str]  = None
-    team:        Optional[str]  = None
-    email:       Optional[str]  = None
-    phone:       Optional[str]  = None
-    is_active:   Optional[bool] = None
-    role:        Optional[str]  = None
-    password:    Optional[SecretStr] = Field(None, min_length=8)
-    updated_at:  datetime       = Field(default_factory=utc_now)
+    employee_id: Optional[str] = None
+    name: Optional[str] = None
+    department: Optional[str] = None
+    team: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: Optional[bool] = None
+    role: Optional[str] = None
+    password: Optional[SecretStr] = Field(None, min_length=8)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     @field_validator("password", mode="before")
     @classmethod
@@ -61,15 +61,16 @@ class UserEntryUpdate(BaseModel):
 
 class UserEntryResponse(UserEntry):
     """Password is intentionally absent — never serialized back to the client."""
+
     class Config:
         from_attributes = True
 
 
 class PaginatedUserEntryResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[UserEntryResponse]
+    results: list[UserEntryResponse]
 
 
 class UserResponse(UserEntry):

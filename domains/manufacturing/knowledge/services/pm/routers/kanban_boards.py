@@ -113,7 +113,9 @@ async def get_work_order_kanban_board(
     return _work_order_board_response(work_orders)
 
 
-@router.get("/work-orders/{work_order_id}/subtasks", response_model=list[WorkOrderResponse])
+@router.get(
+    "/work-orders/{work_order_id}/subtasks", response_model=list[WorkOrderResponse]
+)
 async def list_work_order_subtasks(
     work_order_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -134,7 +136,9 @@ async def move_work_order_on_kanban_board(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-tasks")),
 ):
-    updated = await work_order_crud.update(db, work_order_id, WorkOrderUpdate(status=data.status))
+    updated = await work_order_crud.update(
+        db, work_order_id, WorkOrderUpdate(status=data.status)
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -143,7 +147,11 @@ async def move_work_order_on_kanban_board(
     return updated
 
 
-@router.post("/work-orders/{work_order_id}/subtasks", response_model=WorkOrderResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/work-orders/{work_order_id}/subtasks",
+    response_model=WorkOrderResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_work_order_subtask(
     work_order_id: str,
     data: WorkOrderSubtaskCreate,
@@ -167,7 +175,10 @@ async def create_work_order_subtask(
     return updated
 
 
-@router.patch("/work-orders/{work_order_id}/subtasks/{subtask_work_order_id}", response_model=WorkOrderResponse)
+@router.patch(
+    "/work-orders/{work_order_id}/subtasks/{subtask_work_order_id}",
+    response_model=WorkOrderResponse,
+)
 async def update_work_order_subtask(
     work_order_id: str,
     subtask_work_order_id: str,
@@ -175,7 +186,9 @@ async def update_work_order_subtask(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-tasks")),
 ):
-    updated = await work_order_crud.update_subtask(db, work_order_id, subtask_work_order_id, data)
+    updated = await work_order_crud.update_subtask(
+        db, work_order_id, subtask_work_order_id, data
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -184,21 +197,28 @@ async def update_work_order_subtask(
     return updated
 
 
-@router.delete("/work-orders/{work_order_id}/subtasks/{subtask_work_order_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/work-orders/{work_order_id}/subtasks/{subtask_work_order_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_work_order_subtask(
     work_order_id: str,
     subtask_work_order_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-tasks")),
 ):
-    if not await work_order_crud.remove_subtask(db, work_order_id, subtask_work_order_id):
+    if not await work_order_crud.remove_subtask(
+        db, work_order_id, subtask_work_order_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Linked work order '{subtask_work_order_id}' not found under work order '{work_order_id}'",
         )
 
 
-@router.get("/by-workstation/{workstation_id}", response_model=list[KanbanBoardResponse])
+@router.get(
+    "/by-workstation/{workstation_id}", response_model=list[KanbanBoardResponse]
+)
 async def list_kanban_boards_by_workstation(
     workstation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -240,7 +260,9 @@ async def get_kanban_board(
     return record
 
 
-@router.post("/", response_model=KanbanBoardResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=KanbanBoardResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_kanban_board(
     data: KanbanBoardCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

@@ -7,6 +7,7 @@ permanent, isolated unit test — using the in-memory backend directly
 FastAPI app rather than the full MonkeyBrain app, so this has no external
 dependencies at all.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -15,7 +16,10 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from src.monkey_brain.api.idempotency import (
-    IdempotencyStore, get_idempotency_store, idempotent, request_fingerprint,
+    IdempotencyStore,
+    get_idempotency_store,
+    idempotent,
+    request_fingerprint,
 )
 
 

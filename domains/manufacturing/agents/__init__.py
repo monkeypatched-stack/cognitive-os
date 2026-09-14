@@ -49,7 +49,11 @@ def register_manufacturing_agents(runtime: Any = None) -> list[str]:
         registry.register(agent)
 
     names = [a.agent_type for a in agents]
-    logger.info("[manufacturing] registered %d data-backed agents: %s", len(names), ", ".join(names))
+    logger.info(
+        "[manufacturing] registered %d data-backed agents: %s",
+        len(names),
+        ", ".join(names),
+    )
     return names
 
 

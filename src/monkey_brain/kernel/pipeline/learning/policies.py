@@ -31,17 +31,23 @@ names:
   decisively far from neutral (configurable threshold); ambiguous outcomes
   near reward=0.5 are recorded but not acted on.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningPolicy, LearningResult, LearningSignal,
+    LearningExperience,
+    LearningPolicy,
+    LearningResult,
+    LearningSignal,
 )
 from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
 from src.monkey_brain.kernel.pipeline.learning.belief_learning import BeliefLearner
-from src.monkey_brain.kernel.pipeline.learning.world_evolution import WorldEvolutionEngine
+from src.monkey_brain.kernel.pipeline.learning.world_evolution import (
+    WorldEvolutionEngine,
+)
 
 
 @runtime_checkable
@@ -56,12 +62,13 @@ def _new_signals(before: LearningExperience, after: LearningExperience) -> tuple
     """Both BeliefLearner and WorldEvolutionEngine only ever append to
     .signals, so the signals this policy pass actually contributed are
     everything past the caller's original count."""
-    return tuple(after.signals[len(before.signals):])
+    return tuple(after.signals[len(before.signals) :])
 
 
 @dataclass
 class ReinforcementLearningPolicy:
     """Default strategy — always runs Reward -> Belief -> World."""
+
     reward_engine: ExperienceRewardEngine | None = None
     belief_learner: BeliefLearner | None = None
     world_engine: WorldEvolutionEngine | None = None
@@ -102,6 +109,7 @@ class ReinforcementLearningPolicy:
 class PassiveLearningPolicy:
     """Records reward for the historical record; applies no belief/world
     updates. For actors that should observe without influencing beliefs."""
+
     reward_engine: ExperienceRewardEngine | None = None
 
     def __post_init__(self) -> None:
@@ -125,6 +133,7 @@ class ConservativeLearningPolicy:
     """Only applies belief/world updates when the reward is decisively far
     from neutral (0.5) — ambiguous outcomes are recorded but not acted on,
     to avoid overreacting to a single marginal experience."""
+
     reward_engine: ExperienceRewardEngine | None = None
     belief_learner: BeliefLearner | None = None
     world_engine: WorldEvolutionEngine | None = None
@@ -147,8 +156,7 @@ class ConservativeLearningPolicy:
                 belief_updated=False,
                 world_updated=False,
                 rationale=(
-                    f"reward {evaluated.reward:.2f} too ambiguous to act on "
-                    f"(threshold={self.confidence_threshold})"
+                    f"reward {evaluated.reward:.2f} too ambiguous to act on (threshold={self.confidence_threshold})"
                 ),
                 metadata=evaluated.metadata,
             )

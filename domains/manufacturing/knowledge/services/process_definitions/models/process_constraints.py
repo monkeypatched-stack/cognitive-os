@@ -11,7 +11,10 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from services.process_definitions.models.process_definition_common import ConstraintType, Severity
+from services.process_definitions.models.process_definition_common import (
+    ConstraintType,
+    Severity,
+)
 
 
 def utc_now() -> datetime:
@@ -30,18 +33,19 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 # Constraint
 # ---------------------------------------------------------------------------
 
+
 class Constraint(BaseModel):
-    id:                     str             = Field(..., min_length=1)
-    process_definition_id:            str             = Field(..., min_length=1)
-    name:                   str             = Field(..., min_length=1)
-    description:            str             = Field(...)
-    constraint_type:        ConstraintType  = Field(...)
-    is_hard_constraint:     bool            = True
-    severity:               Severity        = Field(default=Severity.CRITICAL)
-    enforcement_mechanism:  Optional[str]   = None
-    violation_message:      Optional[str]   = None
-    created_at:             datetime        = Field(default_factory=utc_now)
-    updated_at:             datetime        = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    process_definition_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    description: str = Field(...)
+    constraint_type: ConstraintType = Field(...)
+    is_hard_constraint: bool = True
+    severity: Severity = Field(default=Severity.CRITICAL)
+    enforcement_mechanism: Optional[str] = None
+    violation_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -57,14 +61,14 @@ class ConstraintCreate(Constraint):
 
 
 class ConstraintUpdate(BaseModel):
-    name:                   Optional[str]            = None
-    description:            Optional[str]            = None
-    constraint_type:        Optional[ConstraintType] = None
-    is_hard_constraint:     Optional[bool]           = None
-    severity:               Optional[Severity]       = None
-    enforcement_mechanism:  Optional[str]            = None
-    violation_message:      Optional[str]            = None
-    updated_at:             datetime                 = Field(default_factory=utc_now)
+    name: Optional[str] = None
+    description: Optional[str] = None
+    constraint_type: Optional[ConstraintType] = None
+    is_hard_constraint: Optional[bool] = None
+    severity: Optional[Severity] = None
+    enforcement_mechanism: Optional[str] = None
+    violation_message: Optional[str] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ConstraintResponse(Constraint):
@@ -76,12 +80,13 @@ class ConstraintResponse(Constraint):
 # ProcessConstraints
 # ---------------------------------------------------------------------------
 
+
 class ProcessConstraints(BaseModel):
-    id:          str              = Field(..., min_length=1)
-    process_definition_id: str              = Field(..., min_length=1)
+    id: str = Field(..., min_length=1)
+    process_definition_id: str = Field(..., min_length=1)
     constraints: List[Constraint] = Field(default_factory=list)
-    created_at:  datetime         = Field(default_factory=utc_now)
-    updated_at:  datetime         = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -98,7 +103,7 @@ class ProcessConstraintsCreate(ProcessConstraints):
 
 class ProcessConstraintsUpdate(BaseModel):
     constraints: Optional[List[Constraint]] = None
-    updated_at:  datetime                   = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ProcessConstraintsResponse(ProcessConstraints):
@@ -110,13 +115,14 @@ class ProcessConstraintsResponse(ProcessConstraints):
 # ProcessStepConstraints
 # ---------------------------------------------------------------------------
 
+
 class ProcessStepConstraints(BaseModel):
-    id:               str              = Field(..., min_length=1)
-    process_definition_id:      str              = Field(..., min_length=1)
-    process_step_id: str              = Field(..., min_length=1)
-    constraints:      List[Constraint] = Field(default_factory=list)
-    created_at:       datetime         = Field(default_factory=utc_now)
-    updated_at:       datetime         = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    process_definition_id: str = Field(..., min_length=1)
+    process_step_id: str = Field(..., min_length=1)
+    constraints: List[Constraint] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -133,7 +139,7 @@ class ProcessStepConstraintsCreate(ProcessStepConstraints):
 
 class ProcessStepConstraintsUpdate(BaseModel):
     constraints: Optional[List[Constraint]] = None
-    updated_at:  datetime                   = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ProcessStepConstraintsResponse(ProcessStepConstraints):
@@ -145,15 +151,16 @@ class ProcessStepConstraintsResponse(ProcessStepConstraints):
 # Paginated responses
 # ---------------------------------------------------------------------------
 
+
 class PaginatedProcessConstraintsResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[ProcessConstraintsResponse]
+    results: list[ProcessConstraintsResponse]
 
 
 class PaginatedProcessStepConstraintsResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[ProcessStepConstraintsResponse]
+    results: list[ProcessStepConstraintsResponse]

@@ -16,13 +16,20 @@ which now drives the SAME propagation engine directly (not just the
 Usage:
     python3 demo/coordination/mb3103_warehouse_fire.py
 """
+
 from __future__ import annotations
 
 import sys
 import time
 from typing import Any
 
-from bootstrap_mb3103 import ApiError, TRACKED_PRODUCT_NAME, _call, _client, bootstrap_world
+from bootstrap_mb3103 import (
+    ApiError,
+    TRACKED_PRODUCT_NAME,
+    _call,
+    _client,
+    bootstrap_world,
+)
 
 PROMPT = "Buy a wireless gaming mouse."
 
@@ -52,11 +59,15 @@ def kv(label: str, value: Any, width: int = 28) -> None:
     print(f"{label} {dots} {value}")
 
 
-def _prompt_with_retry(client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0) -> dict[str, Any]:
+def _prompt_with_retry(
+    client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0
+) -> dict[str, Any]:
     last_response: dict[str, Any] = {}
     for attempt in range(attempts):
         response = _call(
-            client, "POST", "/prompt",
+            client,
+            "POST",
+            "/prompt",
             json={"question": question},
             headers={"X-User-ID": actor_id},
         )
@@ -100,9 +111,16 @@ def step_submit_order(client, actor_id: str) -> dict[str, Any]:
 def step_inject_fire(client, space_id: str) -> dict[str, Any]:
     section("Inject Event")
     print("Warehouse A Fire")
-    result = _call(client, "POST", "/events", json={
-        "type": "fire", "space_id": space_id, "description": "Warehouse A Fire",
-    })
+    result = _call(
+        client,
+        "POST",
+        "/events",
+        json={
+            "type": "fire",
+            "space_id": space_id,
+            "description": "Warehouse A Fire",
+        },
+    )
     kv("Actors Evacuated", len(result.get("evacuated") or []))
     return result
 
@@ -119,8 +137,7 @@ def print_scope_and_trace(label: str, scope: dict[str, Any], trace: list[dict[st
     for step in trace:
         events = ", ".join(step.get("events") or [])
         actors = ", ".join(step.get("actors_ticked") or []) or "(none)"
-        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} "
-              f"-> actors ticked: {actors}")
+        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} -> actors ticked: {actors}")
 
 
 def step_verify(world: dict[str, Any], order_execution: dict[str, Any], fire_result: dict[str, Any]) -> bool:
@@ -146,9 +163,15 @@ def step_verify(world: dict[str, Any], order_execution: dict[str, Any], fire_res
     events_published |= set((fire_result.get("execution_scope") or {}).get("domain_events_seen") or [])
 
     checks = [
-        ("Warehouse A worker never coordinated", "Warehouse Worker A" not in reacted_names),
+        (
+            "Warehouse A worker never coordinated",
+            "Warehouse Worker A" not in reacted_names,
+        ),
         ("Warehouse B (alternate) coordinated", "Inventory Robot B" in reacted_names),
-        ("Inventory reserved at alternate warehouse", "InventoryReserved" in events_published),
+        (
+            "Inventory reserved at alternate warehouse",
+            "InventoryReserved" in events_published,
+        ),
         ("Driver rerouted/assigned", "Driver" in reacted_names),
     ]
     all_pass = True
@@ -168,12 +191,18 @@ def main() -> int:
             customer_id = world["actors"]["Alice"]
 
             order_execution = step_submit_order(client, customer_id)
-            print_scope_and_trace("Order", (order_execution.get("execution_scope") or {}).get("propagation") or {},
-                                   order_execution.get("coordination_trace") or [])
+            print_scope_and_trace(
+                "Order",
+                (order_execution.get("execution_scope") or {}).get("propagation") or {},
+                order_execution.get("coordination_trace") or [],
+            )
 
             fire_result = step_inject_fire(client, world["spaces"]["warehouse_a"])
-            print_scope_and_trace("Fire", fire_result.get("execution_scope") or {},
-                                   fire_result.get("coordination_trace") or [])
+            print_scope_and_trace(
+                "Fire",
+                fire_result.get("execution_scope") or {},
+                fire_result.get("coordination_trace") or [],
+            )
 
             passed = step_verify(world, order_execution, fire_result)
 

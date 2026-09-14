@@ -9,6 +9,7 @@ The runtime should validate:
 
 Reject invalid executions early.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,20 +20,36 @@ logger = logging.getLogger("agentos.runtime_validator")
 
 class ValidationError(Exception):
     """Raised when validation fails."""
+
     pass
 
 
 @runtime_checkable
 class Validatable(Protocol):
     """Interface for objects that can be validated."""
+
     def validate(self) -> list[str]: ...
 
 
 class IntentIRValidator:
     """Validates IntentIR structure and content."""
 
-    REQUIRED_FIELDS = ["schema_version", "intent_ir_id", "run_id", "intent_type", "goal"]
-    VALID_INTENT_TYPES = {"planned", "query", "create", "update", "delete", "analyze", "compare"}
+    REQUIRED_FIELDS = [
+        "schema_version",
+        "intent_ir_id",
+        "run_id",
+        "intent_type",
+        "goal",
+    ]
+    VALID_INTENT_TYPES = {
+        "planned",
+        "query",
+        "create",
+        "update",
+        "delete",
+        "analyze",
+        "compare",
+    }
 
     def validate(self, intent_ir: dict[str, Any]) -> list[str]:
         """Validate IntentIR. Returns list of errors."""
@@ -125,7 +142,9 @@ class RepositoryConsistencyValidator:
                 if field not in state:
                     errors.append(f"Missing state field: {field}")
                 elif not isinstance(state[field], expected_type):
-                    errors.append(f"State field {field} has wrong type: expected {expected_type}, got {type(state[field])}")
+                    errors.append(
+                        f"State field {field} has wrong type: expected {expected_type}, got {type(state[field])}"
+                    )
 
         return errors
 

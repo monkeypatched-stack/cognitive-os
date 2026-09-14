@@ -24,6 +24,7 @@ Stores trust edges as a JSON file with the structure:
 
 Thread-safe: all mutations are guarded by a lock.
 """
+
 from __future__ import annotations
 
 import json
@@ -63,7 +64,11 @@ class TrustKVStore:
                 data = json.loads(self._path.read_text())
                 self._edges = data.get("edges", {})
                 self._loaded = True
-                logger.info("TrustKVStore: loaded %d edges from %s", len(self._edges), self._path)
+                logger.info(
+                    "TrustKVStore: loaded %d edges from %s",
+                    len(self._edges),
+                    self._path,
+                )
             except Exception as exc:
                 logger.warning("TrustKVStore: load failed: %s", exc)
                 self._edges = {}
@@ -95,10 +100,7 @@ class TrustKVStore:
         """Load all non-revoked trust edges."""
         self._ensure_loaded()
         with self._lock:
-            return [
-                dict(edge) for edge in self._edges.values()
-                if not edge.get("revoked", False)
-            ]
+            return [dict(edge) for edge in self._edges.values() if not edge.get("revoked", False)]
 
     def get_edge(self, src: str, dst: str) -> dict[str, Any] | None:
         """Get a specific trust edge."""
@@ -115,7 +117,8 @@ class TrustKVStore:
         self._ensure_loaded()
         with self._lock:
             return [
-                dict(edge) for key, edge in self._edges.items()
+                dict(edge)
+                for key, edge in self._edges.items()
                 if edge.get("src") == src and not edge.get("revoked", False)
             ]
 
@@ -124,7 +127,8 @@ class TrustKVStore:
         self._ensure_loaded()
         with self._lock:
             return [
-                dict(edge) for key, edge in self._edges.items()
+                dict(edge)
+                for key, edge in self._edges.items()
                 if edge.get("dst") == dst and not edge.get("revoked", False)
             ]
 

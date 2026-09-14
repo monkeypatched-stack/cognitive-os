@@ -24,6 +24,7 @@ Per this session's standing convention, this file is written but not
 executed by the assistant. Run with:
     python -m pytest tests/unit/test_prediction_scenario_participation.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,18 +35,26 @@ from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.actor import Actor
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
 from src.monkey_brain.kernel.pipeline.prediction.transitions import (
-    TransitionModel, TransitionPredictionEngine, WorldTransition, TransitionKind,
+    TransitionModel,
+    TransitionPredictionEngine,
+    WorldTransition,
+    TransitionKind,
 )
 from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationEngine
 from src.monkey_brain.kernel.pipeline.prediction.risk import RiskEngine
 from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
-    CounterfactualAssumption, CounterfactualEngine,
+    CounterfactualAssumption,
+    CounterfactualEngine,
 )
 from src.monkey_brain.kernel.pipeline.prediction.scenarios import (
-    ScenarioEvaluator, ScenarioParticipation, scenarios_from_counterfactuals,
+    ScenarioEvaluator,
+    ScenarioParticipation,
+    scenarios_from_counterfactuals,
     build_scenario_participation,
 )
-from src.monkey_brain.kernel.pipeline.prediction.integration import PredictionIntegratedPolicy
+from src.monkey_brain.kernel.pipeline.prediction.integration import (
+    PredictionIntegratedPolicy,
+)
 from src.monkey_brain.kernel.pipeline.learning.domain import Provenance
 
 
@@ -57,15 +66,26 @@ def _plan(steps: tuple[str, ...], goal: str = "") -> Plan:
     return Plan(
         goal=goal,
         steps=tuple(PlanStep(action=s, description=s) for s in steps),
-        cost=0.0, confidence=0.8, risk=0.0, planner="llm",
+        cost=0.0,
+        confidence=0.8,
+        risk=0.0,
+        planner="llm",
     )
 
 
 def _model_with_probability(action_names: tuple[str, ...], probability: float) -> TransitionModel:
-    return TransitionModel(known_transitions={
-        ("", name): (WorldTransition(description=f"{name} outcome", probability=probability, confidence=0.9),)
-        for name in action_names
-    })
+    return TransitionModel(
+        known_transitions={
+            ("", name): (
+                WorldTransition(
+                    description=f"{name} outcome",
+                    probability=probability,
+                    confidence=0.9,
+                ),
+            )
+            for name in action_names
+        }
+    )
 
 
 def _trajectory(model: TransitionModel, plan: Plan):
@@ -86,9 +106,15 @@ class TestAllRequiredScenariosInvoked:
         )
         branches = cf_engine.generate_branches(None, None, plan, assumptions)
         participation = build_scenario_participation(
-            "Baseline", tuple(a.description for a in assumptions), branches,
+            "Baseline",
+            tuple(a.description for a in assumptions),
+            branches,
         )
-        assert participation.scenarios_invoked == ("Baseline", "Assumption 1", "Assumption 2")
+        assert participation.scenarios_invoked == (
+            "Baseline",
+            "Assumption 1",
+            "Assumption 2",
+        )
         assert participation.aggregation_status == "complete"
 
 
@@ -206,7 +232,7 @@ class TestOutputsNotDoubleCounted:
         model = _model_with_probability(tuple(f"step_{i}" for i in range(6)), 0.9)
         trajectory = _trajectory(model, plan)
         assessment = RiskEngine().assess(trajectory)
-        assert assessment.probability_of_success == pytest.approx(0.9 ** 6, rel=1e-6)
+        assert assessment.probability_of_success == pytest.approx(0.9**6, rel=1e-6)
 
 
 class TestControlledScenarioProbabilities:
@@ -216,7 +242,7 @@ class TestControlledScenarioProbabilities:
     each applied transition's own probability... the honest answer to how
     likely is the predicted path to occur")."""
 
-    @pytest.mark.parametrize("p,expected", [(0.9, 0.9 ** 6), (0.5, 0.5 ** 6), (0.15, 0.15 ** 6)])
+    @pytest.mark.parametrize("p,expected", [(0.9, 0.9**6), (0.5, 0.5**6), (0.15, 0.15**6)])
     def test_six_step_plan_matches_expected_product(self, p, expected):
         plan = _plan(tuple(f"step_{i}" for i in range(6)))
         model = _model_with_probability(tuple(f"step_{i}" for i in range(6)), p)
@@ -239,11 +265,13 @@ class TestSequentialDependencyModel:
 
     def test_one_low_probability_step_drags_down_the_whole_sequence(self):
         plan = _plan(("good_a", "bad", "good_b"))
-        model = TransitionModel(known_transitions={
-            ("", "good_a"): (WorldTransition(description="ok", probability=0.99, confidence=0.9),),
-            ("", "bad"): (WorldTransition(description="bad", probability=0.01, confidence=0.9),),
-            ("", "good_b"): (WorldTransition(description="ok", probability=0.99, confidence=0.9),),
-        })
+        model = TransitionModel(
+            known_transitions={
+                ("", "good_a"): (WorldTransition(description="ok", probability=0.99, confidence=0.9),),
+                ("", "bad"): (WorldTransition(description="bad", probability=0.01, confidence=0.9),),
+                ("", "good_b"): (WorldTransition(description="ok", probability=0.99, confidence=0.9),),
+            }
+        )
         trajectory = _trajectory(model, plan)
         assessment = RiskEngine().assess(trajectory)
         # A single near-certain-failure step dominates the joint probability,
@@ -316,10 +344,12 @@ class TestFreshPlanReachesAndIsEvaluatedByPrediction:
 
     def test_live_wiring_produces_a_real_populated_prediction(self):
         plan = _plan(("step_a", "step_b"), goal="find the nearest pharmacy")
-        model = TransitionModel(known_transitions={
-            ("find nearest pharmacy", "step_a"): (WorldTransition(probability=0.9, confidence=0.9),),
-            ("find nearest pharmacy", "step_b"): (WorldTransition(probability=0.9, confidence=0.9),),
-        })
+        model = TransitionModel(
+            known_transitions={
+                ("find nearest pharmacy", "step_a"): (WorldTransition(probability=0.9, confidence=0.9),),
+                ("find nearest pharmacy", "step_b"): (WorldTransition(probability=0.9, confidence=0.9),),
+            }
+        )
         assumption = CounterfactualAssumption(description="Pharmacy closed")
         policy = PredictionIntegratedPolicy(transition_model=model, counterfactual_assumptions=(assumption,))
 
@@ -327,8 +357,15 @@ class TestFreshPlanReachesAndIsEvaluatedByPrediction:
             return state
 
         policy.configure(
-            observe=noop, believe=noop, plan=noop, execute=noop, observe_outcome=noop,
-            learn=noop, compile_phi=noop, predict=noop, commit=noop,
+            observe=noop,
+            believe=noop,
+            plan=noop,
+            execute=noop,
+            observe_outcome=noop,
+            learn=noop,
+            compile_phi=noop,
+            predict=noop,
+            commit=noop,
         )
         predict_stage = dict(policy._stages)["predict"]
 
@@ -353,6 +390,7 @@ class TestFreshPlanReachesAndIsEvaluatedByPrediction:
 # the plan -- and UI observability, covered on the frontend side).
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDependencyAwareProbability:
     """Gap 1: PlanStep.depends_on (0-based indices of other steps in the
     same plan that must have succeeded first), threaded through
@@ -370,9 +408,11 @@ class TestDependencyAwareProbability:
         model = _model_with_probability(("step_a", "step_b", "step_c"), 0.9)
         trajectory = _trajectory(model, plan)
         assessment = RiskEngine().assess(trajectory)
-        assert assessment.probability_of_success == pytest.approx(0.9 ** 3, rel=1e-9)
+        assert assessment.probability_of_success == pytest.approx(0.9**3, rel=1e-9)
 
-    def test_dependency_on_a_failed_step_excludes_the_dependent_steps_own_probability(self):
+    def test_dependency_on_a_failed_step_excludes_the_dependent_steps_own_probability(
+        self,
+    ):
         """Production Hardening fix (Phase 1D): step 1 ("b") depends on
         step 0 ("a"); "a"'s own registered transition is a near-certain
         failure (0.05). "b" can not meaningfully happen, so its OWN
@@ -394,16 +434,22 @@ class TestDependencyAwareProbability:
         own probability alone (0.05), not 0.0 and not the naive product
         with "b"'s irrelevant 0.95."""
         plan = Plan(
-            goal="", cost=0.0, confidence=0.8, risk=0.0, planner="llm",
+            goal="",
+            cost=0.0,
+            confidence=0.8,
+            risk=0.0,
+            planner="llm",
             steps=(
                 PlanStep(action="a", description="a"),
                 PlanStep(action="b", description="b", depends_on=(0,)),
             ),
         )
-        model = TransitionModel(known_transitions={
-            ("", "a"): (WorldTransition(description="a fails", probability=0.05, confidence=0.9),),
-            ("", "b"): (WorldTransition(description="b would succeed", probability=0.95, confidence=0.9),),
-        })
+        model = TransitionModel(
+            known_transitions={
+                ("", "a"): (WorldTransition(description="a fails", probability=0.05, confidence=0.9),),
+                ("", "b"): (WorldTransition(description="b would succeed", probability=0.95, confidence=0.9),),
+            }
+        )
         trajectory = _trajectory(model, plan)
         assessment = RiskEngine().assess(trajectory)
         assert assessment.probability_of_success == pytest.approx(0.05, abs=1e-9)
@@ -414,16 +460,22 @@ class TestDependencyAwareProbability:
         ordinary product of both steps' own probabilities, exactly as if
         depends_on had never been declared."""
         plan = Plan(
-            goal="", cost=0.0, confidence=0.8, risk=0.0, planner="llm",
+            goal="",
+            cost=0.0,
+            confidence=0.8,
+            risk=0.0,
+            planner="llm",
             steps=(
                 PlanStep(action="a", description="a"),
                 PlanStep(action="b", description="b", depends_on=(0,)),
             ),
         )
-        model = TransitionModel(known_transitions={
-            ("", "a"): (WorldTransition(description="a succeeds", probability=0.9, confidence=0.9),),
-            ("", "b"): (WorldTransition(description="b succeeds", probability=0.95, confidence=0.9),),
-        })
+        model = TransitionModel(
+            known_transitions={
+                ("", "a"): (WorldTransition(description="a succeeds", probability=0.9, confidence=0.9),),
+                ("", "b"): (WorldTransition(description="b succeeds", probability=0.95, confidence=0.9),),
+            }
+        )
         trajectory = _trajectory(model, plan)
         assessment = RiskEngine().assess(trajectory)
         assert assessment.probability_of_success == pytest.approx(0.9 * 0.95, rel=1e-9)
@@ -440,18 +492,22 @@ class TestPolicyDelegationEquivalence:
 
     def test_direct_policy_call_matches_live_stage_output(self):
         plan = _plan(("step_a", "step_b"), goal="find the nearest pharmacy")
-        model = TransitionModel(known_transitions={
-            ("find nearest pharmacy", "step_a"): (WorldTransition(probability=0.9, confidence=0.9),),
-            ("find nearest pharmacy", "step_b"): (WorldTransition(probability=0.9, confidence=0.9),),
-        })
+        model = TransitionModel(
+            known_transitions={
+                ("find nearest pharmacy", "step_a"): (WorldTransition(probability=0.9, confidence=0.9),),
+                ("find nearest pharmacy", "step_b"): (WorldTransition(probability=0.9, confidence=0.9),),
+            }
+        )
         assumption = CounterfactualAssumption(description="Pharmacy closed")
 
         from src.monkey_brain.kernel.pipeline.prediction.policies import (
-            DeterministicPredictionPolicy, PredictionPolicyInput,
+            DeterministicPredictionPolicy,
+            PredictionPolicyInput,
         )
 
         direct_result = DeterministicPredictionPolicy(
-            transition_model=model, counterfactual_assumptions=(assumption,),
+            transition_model=model,
+            counterfactual_assumptions=(assumption,),
         ).predict(PredictionPolicyInput(plan=plan))
 
         policy = PredictionIntegratedPolicy(transition_model=model, counterfactual_assumptions=(assumption,))
@@ -460,8 +516,15 @@ class TestPolicyDelegationEquivalence:
             return state
 
         policy.configure(
-            observe=noop, believe=noop, plan=noop, execute=noop, observe_outcome=noop,
-            learn=noop, compile_phi=noop, predict=noop, commit=noop,
+            observe=noop,
+            believe=noop,
+            plan=noop,
+            execute=noop,
+            observe_outcome=noop,
+            learn=noop,
+            compile_phi=noop,
+            predict=noop,
+            commit=noop,
         )
         predict_stage = dict(policy._stages)["predict"]
 
@@ -482,5 +545,7 @@ class TestPolicyDelegationEquivalence:
         live_probs = sorted(c["probability"] for c in live_pr["candidates"])
         direct_probs = sorted(c.probability for c in direct_result.result.candidates)
         assert live_probs == pytest.approx(direct_probs, rel=1e-9)
-        assert live_pr["metadata"]["scenario_participation"]["aggregation_status"] == \
-            direct_result.result.metadata["scenario_participation"]["aggregation_status"]
+        assert (
+            live_pr["metadata"]["scenario_participation"]["aggregation_status"]
+            == direct_result.result.metadata["scenario_participation"]["aggregation_status"]
+        )

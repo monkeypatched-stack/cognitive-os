@@ -29,7 +29,9 @@ def render_template(template: str, payload: dict[str, Any]) -> str:
         return template
 
 
-def payload_message(payload: dict[str, Any], config: dict, template_key: str = "message_template") -> str:
+def payload_message(
+    payload: dict[str, Any], config: dict, template_key: str = "message_template"
+) -> str:
     template = config.get(template_key)
     if isinstance(template, str) and template.strip():
         try:
@@ -56,7 +58,9 @@ def nested_value(value: Any, path: str):
     return current
 
 
-def set_nested_value(value: dict[str, Any], path: str, new_value: Any) -> dict[str, Any]:
+def set_nested_value(
+    value: dict[str, Any], path: str, new_value: Any
+) -> dict[str, Any]:
     if not path:
         return value
     parts = [part for part in path.split(".") if part]
@@ -204,7 +208,10 @@ def simple_yaml_parse(text: str) -> dict:
 
 def simple_yaml_dump(value: Any) -> str:
     if isinstance(value, dict):
-        return "\n".join(f"{key}: {json.dumps(item) if isinstance(item, (dict, list)) else item}" for key, item in value.items())
+        return "\n".join(
+            f"{key}: {json.dumps(item) if isinstance(item, (dict, list)) else item}"
+            for key, item in value.items()
+        )
     return json.dumps(value)
 
 

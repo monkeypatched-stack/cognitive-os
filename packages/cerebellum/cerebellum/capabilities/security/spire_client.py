@@ -16,8 +16,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_SOCKET     = os.getenv("SPIFFE_ENDPOINT_SOCKET", "")
-_STATIC_ID  = os.getenv("SPIFFE_ID", "")
+_SOCKET = os.getenv("SPIFFE_ENDPOINT_SOCKET", "")
+_STATIC_ID = os.getenv("SPIFFE_ID", "")
 
 
 async def fetch_svid(socket_path: str = "", spiffe_id_override: str = "") -> dict[str, Any] | None:
@@ -48,6 +48,7 @@ async def fetch_svid(socket_path: str = "", spiffe_id_override: str = "") -> dic
                 insecure_dev_mode,
                 production_mode_enabled,
             )
+
             if production_mode_enabled():
                 logger.error(
                     "SPIFFE_ID env override is set but COGNITIVEOS_PRODUCTION_MODE "
@@ -73,14 +74,22 @@ async def fetch_svid(socket_path: str = "", spiffe_id_override: str = "") -> dic
             "API SVID -- local development only, never valid in production.",
             static,
         )
-        return {"spiffe_id": static, "source": "env", "cert_pem": None, "key_pem": None, "bundle_pem": None}
+        return {
+            "spiffe_id": static,
+            "source": "env",
+            "cert_pem": None,
+            "key_pem": None,
+            "bundle_pem": None,
+        }
 
     return None
 
 
 async def _try_pyspiffe(socket_path: str) -> dict[str, Any] | None:
     try:
-        from pyspiffe.workloadapi.default_workload_api_client import DefaultWorkloadApiClient
+        from pyspiffe.workloadapi.default_workload_api_client import (
+            DefaultWorkloadApiClient,
+        )
         import asyncio
 
         loop = asyncio.get_event_loop()

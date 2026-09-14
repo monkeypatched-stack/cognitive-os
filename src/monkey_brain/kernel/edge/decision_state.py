@@ -22,6 +22,7 @@ local_governance.py) rather than inventing a second taxonomy; it adds
 only the finer-grained REASON a decision landed where it did, which
 GovernanceOrigin alone does not carry.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -66,6 +67,7 @@ class EdgeExecutionAssessment:
     and FRESH world state does not imply fresh policy or authority. A
     caller (or dashboard) must look at all four, never infer one from
     another."""
+
     connectivity: ConnectivityStatus
     policy_freshness: Freshness
     world_state_freshness: Freshness
@@ -96,14 +98,19 @@ class EdgeExecutionAssessment:
 
 
 def assess_edge_execution(
-    *, connectivity: ConnectivityStatus, policy_freshness: Freshness,
-    world_state_freshness: Freshness, authority_freshness: Freshness,
+    *,
+    connectivity: ConnectivityStatus,
+    policy_freshness: Freshness,
+    world_state_freshness: Freshness,
+    authority_freshness: Freshness,
 ) -> EdgeExecutionAssessment:
     """Pure composition -- every input is computed by its own existing
     authority (assess_connectivity for connectivity, classify_freshness
     for each of the other three against ITS OWN CacheProvenance); this
     function performs no I/O and makes no decision of its own."""
     return EdgeExecutionAssessment(
-        connectivity=connectivity, policy_freshness=policy_freshness,
-        world_state_freshness=world_state_freshness, authority_freshness=authority_freshness,
+        connectivity=connectivity,
+        policy_freshness=policy_freshness,
+        world_state_freshness=world_state_freshness,
+        authority_freshness=authority_freshness,
     )

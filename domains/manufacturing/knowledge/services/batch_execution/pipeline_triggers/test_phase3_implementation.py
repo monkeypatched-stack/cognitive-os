@@ -142,9 +142,11 @@ class TestReEvaluationQueue:
                 work_order_id=f"WO-{i:03d}",
                 batch_id="BATCH-001",
                 execution_id=f"EXEC-{i:03d}",
-                priority=ReEvaluationPriority.HIGH
-                if i % 2 == 0
-                else ReEvaluationPriority.LOW,
+                priority=(
+                    ReEvaluationPriority.HIGH
+                    if i % 2 == 0
+                    else ReEvaluationPriority.LOW
+                ),
             )
             queue.enqueue(request)
 

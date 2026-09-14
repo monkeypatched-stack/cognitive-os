@@ -22,10 +22,14 @@ async def list_customs_declarations(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedCustomsDeclarationResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedCustomsDeclarationResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
-@router.get("/by-reference/{declaration_reference}", response_model=CustomsDeclarationResponse)
+@router.get(
+    "/by-reference/{declaration_reference}", response_model=CustomsDeclarationResponse
+)
 async def get_customs_declaration_by_reference(
     declaration_reference: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -33,11 +37,16 @@ async def get_customs_declaration_by_reference(
 ):
     record = await crud.get_by_reference(db, declaration_reference)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Customs declaration '{declaration_reference}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Customs declaration '{declaration_reference}' not found",
+        )
     return record
 
 
-@router.get("/by-type/{declaration_type}", response_model=list[CustomsDeclarationResponse])
+@router.get(
+    "/by-type/{declaration_type}", response_model=list[CustomsDeclarationResponse]
+)
 async def list_customs_declarations_by_type(
     declaration_type: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -46,7 +55,9 @@ async def list_customs_declarations_by_type(
     return await crud.get_by_type(db, declaration_type)
 
 
-@router.get("/by-shipment/{shipment_id}", response_model=list[CustomsDeclarationResponse])
+@router.get(
+    "/by-shipment/{shipment_id}", response_model=list[CustomsDeclarationResponse]
+)
 async def list_customs_declarations_by_shipment(
     shipment_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -55,7 +66,10 @@ async def list_customs_declarations_by_shipment(
     return await crud.get_by_shipment(db, shipment_id)
 
 
-@router.get("/by-delivery-note/{delivery_note_id}", response_model=list[CustomsDeclarationResponse])
+@router.get(
+    "/by-delivery-note/{delivery_note_id}",
+    response_model=list[CustomsDeclarationResponse],
+)
 async def list_customs_declarations_by_delivery_note(
     delivery_note_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -64,7 +78,9 @@ async def list_customs_declarations_by_delivery_note(
     return await crud.get_by_delivery_note(db, delivery_note_id)
 
 
-@router.get("/by-clearance/{customs_cleared}", response_model=list[CustomsDeclarationResponse])
+@router.get(
+    "/by-clearance/{customs_cleared}", response_model=list[CustomsDeclarationResponse]
+)
 async def list_customs_declarations_by_clearance(
     customs_cleared: bool,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -81,11 +97,16 @@ async def get_customs_declaration(
 ):
     record = await crud.get_by_id(db, declaration_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Customs declaration '{declaration_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Customs declaration '{declaration_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=CustomsDeclarationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=CustomsDeclarationResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_customs_declaration(
     data: CustomsDeclarationCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -93,7 +114,10 @@ async def create_customs_declaration(
 ):
     declaration_id = str(data.id)
     if await crud.get_by_id(db, declaration_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Customs declaration '{declaration_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Customs declaration '{declaration_id}' already exists",
+        )
     if await crud.get_by_reference(db, data.declaration_reference):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -118,7 +142,10 @@ async def update_customs_declaration(
             )
     updated = await crud.update(db, declaration_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Customs declaration '{declaration_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Customs declaration '{declaration_id}' not found",
+        )
     return updated
 
 
@@ -129,4 +156,7 @@ async def delete_customs_declaration(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, declaration_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Customs declaration '{declaration_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Customs declaration '{declaration_id}' not found",
+        )

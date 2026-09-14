@@ -16,6 +16,7 @@ exactly as if no cache existed at all.
 kernel/delegation.py itself is never modified — this module only ever
 calls its existing, public verify_delegation_chain.
 """
+
 from __future__ import annotations
 
 import time
@@ -46,19 +47,28 @@ class VerifiedDelegationCache:
         return f"{chain_ids}|{authenticated_delegate}"
 
     def verify(
-        self, *, chain: tuple[Any, ...], authenticated_delegate: str,
+        self,
+        *,
+        chain: tuple[Any, ...],
+        authenticated_delegate: str,
         current_authority_epoch: int = 0,
         is_revoked: Callable[[str], bool] | None = None,
         max_depth: int | None = None,
         now: float | None = None,
     ):
-        from src.monkey_brain.kernel.delegation import DEFAULT_MAX_DELEGATION_DEPTH, verify_delegation_chain
+        from src.monkey_brain.kernel.delegation import (
+            DEFAULT_MAX_DELEGATION_DEPTH,
+            verify_delegation_chain,
+        )
 
         now = time.time() if now is None else now
         if not chain:
             return verify_delegation_chain(
-                chain=chain, authenticated_delegate=authenticated_delegate, is_revoked=is_revoked,
-                max_depth=max_depth or DEFAULT_MAX_DELEGATION_DEPTH, now=now,
+                chain=chain,
+                authenticated_delegate=authenticated_delegate,
+                is_revoked=is_revoked,
+                max_depth=max_depth or DEFAULT_MAX_DELEGATION_DEPTH,
+                now=now,
             )
 
         key = self._key(chain, authenticated_delegate)
@@ -68,8 +78,11 @@ class VerifiedDelegationCache:
             return cached
 
         result = verify_delegation_chain(
-            chain=chain, authenticated_delegate=authenticated_delegate, is_revoked=is_revoked,
-            max_depth=max_depth or DEFAULT_MAX_DELEGATION_DEPTH, now=now,
+            chain=chain,
+            authenticated_delegate=authenticated_delegate,
+            is_revoked=is_revoked,
+            max_depth=max_depth or DEFAULT_MAX_DELEGATION_DEPTH,
+            now=now,
         )
         leaf = chain[-1]
         ttl = min(_MAX_CACHE_TTL_SECONDS, max(0.0, leaf.expires_at - now))

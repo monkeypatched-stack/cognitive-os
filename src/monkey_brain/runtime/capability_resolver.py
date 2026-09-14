@@ -7,6 +7,7 @@ The resolver selects the best implementation:
 
 The resolver is free to choose the best implementation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ logger = logging.getLogger("agentos.capability_resolver")
 @dataclass
 class CapabilityResolution:
     """Result of capability resolution."""
+
     capability: str
     group: str
     implementation: str

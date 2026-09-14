@@ -6,7 +6,11 @@ from uuid import UUID
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.shipping.models.delivery_note import DeliveryNoteCreate, DeliveryNoteUpdate, utc_now
+from services.shipping.models.delivery_note import (
+    DeliveryNoteCreate,
+    DeliveryNoteUpdate,
+    utc_now,
+)
 
 COLLECTION = "delivery_notes"
 
@@ -37,7 +41,9 @@ def _prepare(value):
     return value
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -48,8 +54,12 @@ async def get_by_id(db: AsyncIOMotorDatabase, delivery_note_id: str) -> Optional
     return _serialize(await db[COLLECTION].find_one({"id": delivery_note_id}))
 
 
-async def get_by_number(db: AsyncIOMotorDatabase, delivery_note_number: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"delivery_note_number": delivery_note_number}))
+async def get_by_number(
+    db: AsyncIOMotorDatabase, delivery_note_number: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"delivery_note_number": delivery_note_number})
+    )
 
 
 async def get_by_status(db: AsyncIOMotorDatabase, status: str) -> list[dict]:
@@ -67,8 +77,12 @@ async def get_by_vehicle(db: AsyncIOMotorDatabase, vehicle_id: str) -> list[dict
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_tracking_number(db: AsyncIOMotorDatabase, tracking_number: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"tracking_number": tracking_number}))
+async def get_by_tracking_number(
+    db: AsyncIOMotorDatabase, tracking_number: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"tracking_number": tracking_number})
+    )
 
 
 async def create(db: AsyncIOMotorDatabase, data: DeliveryNoteCreate) -> dict:

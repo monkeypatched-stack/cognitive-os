@@ -15,6 +15,7 @@ response. Fixed by scoping the order scan to attributes["buyer_id"] ==
 context["actor_id"], the same field OrderCreationCapability already
 persists onto every order.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import ExplainCapability
@@ -25,18 +26,31 @@ BOB = "bob"
 
 
 def _seed_order(kg, order_id: str, buyer_id: str, item: str, created_at: float):
-    kg.add_entity(order_id, EntityType.EVENT, "Grocery Order", {
-        "order_id": order_id,
-        "created_at": created_at,
-        "decision_traces": [{
-            "item": item,
-            "candidates": [{"store": f"{buyer_id}'s Secret Store", "price": 3.99, "trust": 1.0}],
-            "optimization_label": "cost",
-            "chosen": {"store": f"{buyer_id}'s Secret Store"},
-            "confidence": "high",
-        }],
-        "buyer_id": buyer_id,
-    })
+    kg.add_entity(
+        order_id,
+        EntityType.EVENT,
+        "Grocery Order",
+        {
+            "order_id": order_id,
+            "created_at": created_at,
+            "decision_traces": [
+                {
+                    "item": item,
+                    "candidates": [
+                        {
+                            "store": f"{buyer_id}'s Secret Store",
+                            "price": 3.99,
+                            "trust": 1.0,
+                        }
+                    ],
+                    "optimization_label": "cost",
+                    "chosen": {"store": f"{buyer_id}'s Secret Store"},
+                    "confidence": "high",
+                }
+            ],
+            "buyer_id": buyer_id,
+        },
+    )
 
 
 def test_a_generic_question_never_returns_a_different_actors_decision_trace():
@@ -47,9 +61,15 @@ def test_a_generic_question_never_returns_a_different_actors_decision_trace():
     _seed_order(kg, "ORD-alice-1", ALICE, "Milk", created_at=1000.0)
     _seed_order(kg, "ORD-bob-1", BOB, "Milk", created_at=2000.0)
 
-    result = ExplainCapability().handle({"context": {
-        "knowledge_graph": kg, "actor_id": ALICE, "question": "why did you buy milk",
-    }})
+    result = ExplainCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "actor_id": ALICE,
+                "question": "why did you buy milk",
+            }
+        }
+    )
 
     assert result["success"] is True
     assert result["chosen"]["store"] == "alice's Secret Store"
@@ -60,9 +80,15 @@ def test_an_actor_with_no_orders_of_their_own_gets_an_honest_failure_not_someone
     kg = KnowledgeGraph()
     _seed_order(kg, "ORD-bob-1", BOB, "Milk", created_at=2000.0)
 
-    result = ExplainCapability().handle({"context": {
-        "knowledge_graph": kg, "actor_id": ALICE, "question": "why did you buy milk",
-    }})
+    result = ExplainCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "actor_id": ALICE,
+                "question": "why did you buy milk",
+            }
+        }
+    )
 
     assert result["success"] is False
     assert "no past decision" in result["error"]
@@ -72,9 +98,15 @@ def test_the_actors_own_matching_order_is_still_found_normally():
     kg = KnowledgeGraph()
     _seed_order(kg, "ORD-alice-1", ALICE, "Milk", created_at=1000.0)
 
-    result = ExplainCapability().handle({"context": {
-        "knowledge_graph": kg, "actor_id": ALICE, "question": "why did you buy milk",
-    }})
+    result = ExplainCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "actor_id": ALICE,
+                "question": "why did you buy milk",
+            }
+        }
+    )
 
     assert result["success"] is True
     assert result["chosen"]["store"] == "alice's Secret Store"

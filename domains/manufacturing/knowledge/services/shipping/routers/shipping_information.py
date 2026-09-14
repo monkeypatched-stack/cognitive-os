@@ -54,7 +54,9 @@ async def get_shipping_information(
     return record
 
 
-@router.post("/", response_model=ShippingInformationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=ShippingInformationResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_shipping_information(
     data: ShippingInformationCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

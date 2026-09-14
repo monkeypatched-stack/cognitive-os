@@ -45,6 +45,7 @@ singleton architecture (mirrors kernel/plan/goals/run_store.py::
 RunStore's same "backend chosen once" scaffolding), not a product bug
 fixed here.
 """
+
 from __future__ import annotations
 
 import random as _random
@@ -52,7 +53,11 @@ from unittest.mock import patch
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -66,25 +71,36 @@ def _build_warehouse_fire_scenario():
     default_space_id = marketplace.default_bootstrap_space_id
     building = marketplace.geo_registry.parent_of(default_space_id)
     warehouse_space = marketplace.geo_registry.create(
-        GeographicEntityType.SPACE, "Warehouse Floor", parent_id=building.entity_id,
+        GeographicEntityType.SPACE,
+        "Warehouse Floor",
+        parent_id=building.entity_id,
     )
     marketplace.host_society(warehouse_space.entity_id, warehouse_id)
 
     # Worker Wendy: PERMANENT Warehouse Society member, based there.
     wendy = marketplace.register_actor(
         ActorProfile(identity=ActorIdentity(name="Worker Wendy", actor_type=ActorType.HUMAN)),
-        society_id=warehouse_id, home_space_id=warehouse_space.entity_id,
+        society_id=warehouse_id,
+        home_space_id=warehouse_space.entity_id,
     )
     # Driver Rae: PERMANENT Logistics Society member, currently delivering
     # inside the warehouse (TEMPORARY Warehouse membership, MB-3054).
     rae = marketplace.register_actor(
         ActorProfile(identity=ActorIdentity(name="Driver Rae", actor_type=ActorType.HUMAN)),
-        society_id=logistics_id, home_space_id=default_space_id,
+        society_id=logistics_id,
+        home_space_id=default_space_id,
     )
     marketplace.move_actor(rae.actor_id, warehouse_space.entity_id, activity="delivering")
     assert warehouse_id in marketplace.membership_governor.temporary_societies_for_actor(rae.actor_id)
 
-    return marketplace, wendy, rae, warehouse_id, logistics_id, warehouse_space.entity_id
+    return (
+        marketplace,
+        wendy,
+        rae,
+        warehouse_id,
+        logistics_id,
+        warehouse_space.entity_id,
+    )
 
 
 def _trigger_fire_at(marketplace, warehouse_space_id) -> list[dict]:
@@ -101,7 +117,10 @@ def _trigger_fire_at(marketplace, warehouse_space_id) -> list[dict]:
             return warehouse_space_id
         return real_choice(candidates)
 
-    with patch("src.monkey_brain.kernel.society.movement_perturbation.random.choice", side_effect=biased_choice):
+    with patch(
+        "src.monkey_brain.kernel.society.movement_perturbation.random.choice",
+        side_effect=biased_choice,
+    ):
         perturbations = marketplace._movement_perturbation.perturb(event_chance=1.0)
     return [p for p in perturbations if p["from_space_id"] == warehouse_space_id]
 
@@ -157,6 +176,5 @@ def test_mb3055_context_updates_are_published_for_the_evacuation():
     assert events_after > events_before
     assert any(e.event_type is ContextEventType.WORLD_UPDATE for e in new_events)
     assert any(
-        e.event_type is ContextEventType.TEMPORARY_MEMBERSHIP_REVOKED and e.actor_id == rae.actor_id
-        for e in new_events
+        e.event_type is ContextEventType.TEMPORARY_MEMBERSHIP_REVOKED and e.actor_id == rae.actor_id for e in new_events
     )

@@ -3,7 +3,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
 AreaRoomUsageStatus = Literal["Planned", "In Use", "Completed", "Aborted", "Rejected"]
 
 
@@ -77,16 +76,24 @@ class AreaRoomUsageLedgerEntry(BaseModel):
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
 
         if not (self.room_id or self.area_id or self.bay_id):
-            raise ValueError("area/room usage ledger entries must reference a room_id, area_id, or bay_id.")
+            raise ValueError(
+                "area/room usage ledger entries must reference a room_id, area_id, or bay_id."
+            )
         if self.ended_at and self.ended_at < self.started_at:
-            raise ValueError("ended_at cannot be before started_at for an area/room usage ledger entry.")
+            raise ValueError(
+                "ended_at cannot be before started_at for an area/room usage ledger entry."
+            )
         if self.duration_minutes is None and self.ended_at:
             elapsed = (self.ended_at - self.started_at).total_seconds() / 60
             self.duration_minutes = round(max(elapsed, 0), 4)
         if self.status == "Completed" and not self.ended_at:
-            raise ValueError("completed area/room usage ledger entries must include ended_at.")
+            raise ValueError(
+                "completed area/room usage ledger entries must include ended_at."
+            )
         if self.regulated and self.status == "Completed" and not self.signature_ids:
-            raise ValueError("completed regulated area/room usage entries must include signature_ids.")
+            raise ValueError(
+                "completed regulated area/room usage entries must include signature_ids."
+            )
         return self
 
 

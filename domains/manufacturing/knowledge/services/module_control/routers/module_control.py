@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from services.common.config import settings
@@ -36,7 +45,6 @@ from services.module_control.models.module_control import (
     PolicyPatchRequest,
 )
 
-
 router = APIRouter()
 
 
@@ -66,7 +74,9 @@ async def status(db: AsyncIOMotorDatabase = Depends(get_database)) -> dict[str, 
 
 
 @router.post("/activation/challenge", response_model=ActivationChallengeResponse)
-async def activation_challenge(db: AsyncIOMotorDatabase = Depends(get_database)) -> dict[str, Any]:
+async def activation_challenge(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+) -> dict[str, Any]:
     return await create_activation_challenge(db)
 
 
@@ -116,7 +126,9 @@ async def set_module_state(
     )
 
 
-@router.patch("/integrations/{integration_id}", response_model=ModuleControlPolicyResponse)
+@router.patch(
+    "/integrations/{integration_id}", response_model=ModuleControlPolicyResponse
+)
 async def set_integration_state(
     integration_id: str,
     request: ModuleStateRequest,
@@ -146,7 +158,10 @@ async def read_integration_config(
 ) -> dict[str, Any]:
     document = await get_integration_config(db, adapter_id)
     if not document:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Integration config '{adapter_id}' not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Integration config '{adapter_id}' not found.",
+        )
     return document
 
 
@@ -170,7 +185,9 @@ async def upload_integration_config(
     session: dict[str, Any] = Depends(active_module_control_session),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> dict[str, Any]:
-    manifest = parse_manifest_bytes(await file.read(), file.filename or "integration-config.yaml")
+    manifest = parse_manifest_bytes(
+        await file.read(), file.filename or "integration-config.yaml"
+    )
     return await upsert_integration_config_manifest(
         db,
         manifest,
@@ -189,9 +206,15 @@ async def receive_integration_webhook(
     try:
         payload = await request.json()
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload must be JSON.") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook payload must be JSON.",
+        ) from exc
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Webhook payload must be a JSON object.")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Webhook payload must be a JSON object.",
+        )
     return await publish_inbound_integration_webhook(
         db,
         adapter_id=adapter_id,
@@ -204,11 +227,19 @@ async def receive_integration_webhook(
 @router.post("/evaluate")
 async def evaluate(
     request: EvaluationRequest,
-    x_module_control_internal_secret: str = Header(default="", alias="X-Module-Control-Internal-Secret"),
+    x_module_control_internal_secret: str = Header(
+        default="", alias="X-Module-Control-Internal-Secret"
+    ),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> dict[str, Any]:
-    if settings.MODULE_CONTROL_INTERNAL_SECRET and x_module_control_internal_secret != settings.MODULE_CONTROL_INTERNAL_SECRET:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid module-control internal secret.")
+    if (
+        settings.MODULE_CONTROL_INTERNAL_SECRET
+        and x_module_control_internal_secret != settings.MODULE_CONTROL_INTERNAL_SECRET
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid module-control internal secret.",
+        )
     return await evaluate_module_control(
         db,
         module_id=request.module_id,

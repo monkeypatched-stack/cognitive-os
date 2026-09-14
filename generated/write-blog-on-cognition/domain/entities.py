@@ -1,22 +1,38 @@
 from typing import Optional
 
+
 class Status:
     PUBLISHED = "published"
     DRAFT = "draft"
+
 
 class Reference:
     def __init__(self, url: str):
         self.url = url
 
+
 class WriteBlogOnCognitionItem:
-    def __init__(self, id: int, title: str, content: str, status: Status, references: Optional[list[Reference]] = None):
+    def __init__(
+        self,
+        id: int,
+        title: str,
+        content: str,
+        status: Status,
+        references: Optional[list[Reference]] = None,
+    ):
         self.id = id
         self.title = title
         self.content = content
         self.status = status
         self.references = references or []
 
-    def update(self, title: Optional[str] = None, content: Optional[str] = None, status: Optional[Status] = None, references: Optional[list[Reference]] = None):
+    def update(
+        self,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        status: Optional[Status] = None,
+        references: Optional[list[Reference]] = None,
+    ):
         if title is not None:
             self.title = title
         if content is not None:
@@ -38,4 +54,6 @@ class WriteBlogOnCognitionItem:
         )
 
     def __hash__(self):
-        return hash((self.id, self.title, self.content, self.status, tuple(self.references)))
+        return hash(
+            (self.id, self.title, self.content, self.status, tuple(self.references))
+        )

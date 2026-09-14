@@ -16,6 +16,7 @@ Step 10.9 (this): trace.py — LearningTrace, the full pipeline narrative
 (Experience Capture -> Reward -> Belief -> World -> Policy -> Φ),
 standalone/opt-in, mirroring Step 9.8's ExecutionTrace shape.
 """
+
 from src.monkey_brain.kernel.pipeline.learning.domain import (
     LearningEvent,
     LearningObservation,

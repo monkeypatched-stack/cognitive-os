@@ -7,6 +7,7 @@ wraps this directly, and test_world_mutation.py's
 test_world008_warehouse_fire_mid_tick_self_heals_within_order_creation
 for the resulting self-heal behavior this makes possible to trigger.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import update_organization
@@ -21,7 +22,12 @@ def test_setting_a_warehouses_status_breaks_its_supply_chain():
     # A warehouse with zero trucks assigned is itself treated as
     # not-operational (supply_chain_status's own documented rule) --
     # needs at least one operational truck for the baseline "ok" case.
-    kg.add_entity("truck_1", EntityType.ORGANIZATION, "Truck 1", {"type": "truck", "assigned_warehouse_id": "wh_a", "status": "operational"})
+    kg.add_entity(
+        "truck_1",
+        EntityType.ORGANIZATION,
+        "Truck 1",
+        {"type": "truck", "assigned_warehouse_id": "wh_a", "status": "operational"},
+    )
     all_orgs = {e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)}
     assert supply_chain_ok(all_orgs, "store_a") is True
 
@@ -65,9 +71,16 @@ def test_a_new_org_id_is_created_not_rejected():
 
 def test_partial_update_only_touches_named_attributes():
     kg = KnowledgeGraph()
-    kg.add_entity("wh_a", EntityType.ORGANIZATION, "Warehouse A", {
-        "status": "operational", "robot_status": "operational", "supplied_by": "supplier_1",
-    })
+    kg.add_entity(
+        "wh_a",
+        EntityType.ORGANIZATION,
+        "Warehouse A",
+        {
+            "status": "operational",
+            "robot_status": "operational",
+            "supplied_by": "supplier_1",
+        },
+    )
 
     update_organization(kg, "wh_a", status="on_fire")
 

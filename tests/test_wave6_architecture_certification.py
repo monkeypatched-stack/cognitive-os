@@ -43,6 +43,10 @@ def test_positive_ownership_graph_is_fully_verified():
     graph_path = Path(__file__).parents[1] / "OWNERSHIP_GRAPH.json"
     graph = json.loads(graph_path.read_text())
     assert set(graph["owners"]) == {
-        "Kernel", "ActorRuntime", "PlanetaryRuntime", "CognitiveOS",
-        "AgentRuntime", "CapabilityRuntime",
+        "Kernel",
+        "ActorRuntime",
+        "PlanetaryRuntime",
+        "CognitiveOS",
+        "AgentRuntime",
+        "CapabilityRuntime",
     }

@@ -17,6 +17,7 @@ Edges:
     (:Capability)-[:DISABLES]->(:Capability)
     (:Agent)-[:DEPENDS_ON]->(:Agent)  # agent-to-agent dependencies
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,15 +61,16 @@ class GraphStore:
     async def connect(self) -> None:
         if not self._password:
             logger.error(
-                "GraphStore disabled: NEO4J_PASSWORD is unset. Export it rather than "
-                "relying on a default credential.",
+                "GraphStore disabled: NEO4J_PASSWORD is unset. Export it rather than relying on a default credential.",
             )
             self._driver = None
             return
         try:
             from neo4j import AsyncGraphDatabase
+
             driver = AsyncGraphDatabase.driver(
-                self._uri, auth=(self._user, self._password),
+                self._uri,
+                auth=(self._user, self._password),
             )
             # Only cache the driver on successful creation
             # If exception occurs below, driver stays None and next call retries
@@ -263,7 +265,9 @@ class GraphStore:
                     "MATCH (a:Agent {_PlanStep: true, name: $src}), "
                     "      (b:Agent {_PlanStep: true, name: $dst}) "
                     "CREATE (a)-[:DEPENDS_ON {reason: $reason}]->(b)",
-                    src=dep["from"], dst=dep["to"], reason=dep.get("reason", ""),
+                    src=dep["from"],
+                    dst=dep["to"],
+                    reason=dep.get("reason", ""),
                 )
 
     # ── Capability mesh ──────────────────────────────────────────────────────
@@ -289,9 +293,15 @@ class GraphStore:
                     MERGE (c)-[r:REQUIRES]->(s)
                     SET r.order = $order
                     """,
-                    capability=capability, sub=sub, order=order,
+                    capability=capability,
+                    sub=sub,
+                    order=order,
                 )
-        logger.info("GraphStore: persisted capability composition %s -> %s", capability, sub_capabilities)
+        logger.info(
+            "GraphStore: persisted capability composition %s -> %s",
+            capability,
+            sub_capabilities,
+        )
 
     async def get_capability_composition(self, capability: str) -> list[str] | None:
         """Previously-discovered decomposition for this capability, in
@@ -314,6 +324,7 @@ class GraphStore:
     def _slug(name: str) -> str:
         """Normalized token for canonical ids — lowercase, dot-separated."""
         import re
+
         return re.sub(r"[^a-z0-9]+", ".", (name or "").lower()).strip(".")[:60]
 
     # External provider tiers that legitimately appear as (:Provider) nodes.
@@ -364,7 +375,9 @@ class GraphStore:
                 SET r.last_confirmed = timestamp(), r.tool = $tool_name
                 MERGE (p)-[:EXPOSES]->(t)
                 """,
-                capability=capability, provider_name=provider_name, tool_name=tool_name,
+                capability=capability,
+                provider_name=provider_name,
+                tool_name=tool_name,
                 cap_id=f"cap.{self._slug(capability)}",
                 provider_id=f"provider.{self._slug(provider_name)}",
                 tool_id=f"tool.{self._slug(tool_name)}",
@@ -417,7 +430,8 @@ class GraphStore:
                 ON CREATE SET g.id = $general_id
                 MERGE (s)-[:IS_A]->(g)
                 """,
-                specific=specific, general=general,
+                specific=specific,
+                general=general,
                 specific_id=f"concept.{self._slug(specific)}",
                 general_id=f"concept.{self._slug(general)}",
             )
@@ -427,9 +441,14 @@ class GraphStore:
                 ON CREATE SET c.id = $cap_id
                 SET c.rank = coalesce(c.rank, 0) + 1
                 """,
-                general=general, cap_id=f"cap.{self._slug(general)}",
+                general=general,
+                cap_id=f"cap.{self._slug(general)}",
             )
-        logger.info("GraphStore: linked capability generalization %s -> %s (ontology IS_A)", specific, general)
+        logger.info(
+            "GraphStore: linked capability generalization %s -> %s (ontology IS_A)",
+            specific,
+            general,
+        )
 
     async def find_generalization(self, specific: str) -> str | None:
         """The existing, real capability/agent this specific name was
@@ -468,7 +487,9 @@ class GraphStore:
         async with self._driver.session() as session:
             result = await session.run("MATCH (o:OntologyConcept) RETURN o.name AS name")
             nodes = [record["name"] async for record in result]
-            result = await session.run("MATCH (s:OntologyConcept)-[:IS_A]->(g:OntologyConcept) RETURN s.name AS src, g.name AS dst")
+            result = await session.run(
+                "MATCH (s:OntologyConcept)-[:IS_A]->(g:OntologyConcept) RETURN s.name AS src, g.name AS dst"
+            )
             edges = [(record["src"], record["dst"]) async for record in result]
 
         if not nodes:
@@ -499,7 +520,11 @@ class GraphStore:
 
         async with self._driver.session() as session:
             for name, score in rank.items():
-                await session.run("MATCH (c:Capability {name: $name}) SET c.pagerank = $score", name=name, score=score)
+                await session.run(
+                    "MATCH (c:Capability {name: $name}) SET c.pagerank = $score",
+                    name=name,
+                    score=score,
+                )
 
         return rank
 
@@ -564,6 +589,7 @@ class GraphStore:
         """Stable identity for a reusable workflow: hash of its sorted agent
         set. Two runs that planned the same agents ARE the same workflow."""
         import hashlib
+
         return hashlib.sha1("|".join(sorted(set(agent_names))).encode()).hexdigest()[:16]
 
     @staticmethod
@@ -577,6 +603,7 @@ class GraphStore:
         successful run's, with run_count tracking repetition.
         """
         import hashlib
+
         normalized = " ".join((goal or "").lower().split())
         return hashlib.sha1(normalized.encode()).hexdigest()[:16]
 
@@ -634,9 +661,13 @@ class GraphStore:
                 ON CREATE SET a.id = 'agent.' + $agent_id_prefix + agent_name
                 MERGE (e)-[:HAS_AGENT]->(a)
                 """,
-                graph_key=graph_key, goal=(goal or "")[:500], run_id=run_id,
-                agent_count=len(set(agent_names)), agents=sorted(set(agent_names)),
-                graph_id=f"graph.{self._slug(goal)}", agent_id_prefix="",
+                graph_key=graph_key,
+                goal=(goal or "")[:500],
+                run_id=run_id,
+                agent_count=len(set(agent_names)),
+                agents=sorted(set(agent_names)),
+                graph_id=f"graph.{self._slug(goal)}",
+                agent_id_prefix="",
             )
             # Namespaced canonical ids on agents (slugified after the merge —
             # ON CREATE above can't call a Python helper, so normalize here).
@@ -649,14 +680,16 @@ class GraphStore:
                 """,
                 agents=sorted(set(agent_names)),
             )
-            for src, dst in (agent_edges or []):
+            for src, dst in agent_edges or []:
                 if src and dst:
                     await session.run(
                         """
                         MATCH (a:Agent {name: $src}), (b:Agent {name: $dst})
                         MERGE (a)-[r:DEPENDS_ON {graph_key: $graph_key}]->(b)
                         """,
-                        src=src, dst=dst, graph_key=graph_key,
+                        src=src,
+                        dst=dst,
+                        graph_key=graph_key,
                     )
             # Layer 3: link agent -> capability only through real ontology
             # knowledge. No IS_A known => no edge, and no Capability node.
@@ -684,11 +717,19 @@ class GraphStore:
                 """,
                 graph_key=graph_key,
             )
-        logger.info("GraphStore: recorded ExecutionGraph %s (run=%s, %d agents)", graph_key, run_id, len(set(agent_names)))
+        logger.info(
+            "GraphStore: recorded ExecutionGraph %s (run=%s, %d agents)",
+            graph_key,
+            run_id,
+            len(set(agent_names)),
+        )
         return graph_key
 
     async def find_similar_execution_graphs(
-        self, capability_names: list[str], min_overlap: int = 2, exclude_run_id: str = "",
+        self,
+        capability_names: list[str],
+        min_overlap: int = 2,
+        exclude_run_id: str = "",
     ) -> list[dict[str, Any]]:
         """Mesh nodes whose agents/capabilities overlap the given names —
         "has a goal like this already been solved." Matches either the
@@ -713,7 +754,9 @@ class GraphStore:
                 ORDER BY overlap DESC, mesh_pagerank DESC
                 LIMIT 10
                 """,
-                names=capability_names, min_overlap=min_overlap, exclude_run_id=exclude_run_id,
+                names=capability_names,
+                min_overlap=min_overlap,
+                exclude_run_id=exclude_run_id,
             )
             return [dict(record) async for record in result]
 
@@ -753,12 +796,10 @@ class GraphStore:
         async with self._driver.session() as session:
             result = await session.run("MATCH (e:ExecutionGraph) RETURN e.graph_key AS k")
             nodes = [record["k"] async for record in result]
-            result = await session.run(
-                """
+            result = await session.run("""
                 MATCH (e1:ExecutionGraph)-[s:SIMILAR_TO]->(e2:ExecutionGraph)
                 RETURN e1.graph_key AS a, e2.graph_key AS b, coalesce(s.weight, 1) AS weight
-                """
-            )
+                """)
             edges = [(record["a"], record["b"], record["weight"]) async for record in result]
 
         if not nodes:
@@ -786,7 +827,11 @@ class GraphStore:
 
         async with self._driver.session() as session:
             for k, score in rank.items():
-                await session.run("MATCH (e:ExecutionGraph {graph_key: $k}) SET e.mesh_pagerank = $score", k=k, score=score)
+                await session.run(
+                    "MATCH (e:ExecutionGraph {graph_key: $k}) SET e.mesh_pagerank = $score",
+                    k=k,
+                    score=score,
+                )
 
         return rank
 
@@ -816,30 +861,35 @@ class GraphStore:
         if not self.is_connected():
             return {"nodes": [], "edges": []}
         async with self._driver.session() as session:
-            result = await session.run(
-                """
+            result = await session.run("""
                 MATCH (e:ExecutionGraph)
                 OPTIONAL MATCH (e)-[r:COMPOSES|REFERENCES|GENERALIZES|SIMILAR_TO]->(e2:ExecutionGraph)
                 RETURN e, r, e2
-                """
-            )
+                """)
             nodes, edges, seen = [], [], set()
             async for record in result:
                 for key in ("e", "e2"):
                     n = record[key]
                     if n and n.get("graph_key") not in seen:
                         seen.add(n.get("graph_key"))
-                        nodes.append({
-                            "graph_key": n.get("graph_key"), "name": n.get("name"),
-                            "run_count": n.get("run_count", 0),
-                            "mesh_pagerank": n.get("mesh_pagerank", 0.0),
-                        })
+                        nodes.append(
+                            {
+                                "graph_key": n.get("graph_key"),
+                                "name": n.get("name"),
+                                "run_count": n.get("run_count", 0),
+                                "mesh_pagerank": n.get("mesh_pagerank", 0.0),
+                            }
+                        )
                 r = record["r"]
                 if r:
-                    edges.append({
-                        "from": r.start_node.get("graph_key"), "to": r.end_node.get("graph_key"),
-                        "type": r.type, "weight": r.get("weight", 1),
-                    })
+                    edges.append(
+                        {
+                            "from": r.start_node.get("graph_key"),
+                            "to": r.end_node.get("graph_key"),
+                            "type": r.type,
+                            "weight": r.get("weight", 1),
+                        }
+                    )
             return {"nodes": nodes, "edges": edges}
 
     async def get_execution_graph_view(self, graph_key: str) -> dict[str, Any]:
@@ -865,12 +915,19 @@ class GraphStore:
                         seen.add(n.get("name"))
                         nodes.append({"name": n.get("name")})
                 if record["r"]:
-                    edges.append({
-                        "from": record["r"].start_node.get("name"),
-                        "to": record["r"].end_node.get("name"),
-                        "type": "DEPENDS_ON",
-                    })
-            return {"graph_key": graph_key, "goal": goal, "nodes": nodes, "edges": edges}
+                    edges.append(
+                        {
+                            "from": record["r"].start_node.get("name"),
+                            "to": record["r"].end_node.get("name"),
+                            "type": "DEPENDS_ON",
+                        }
+                    )
+            return {
+                "graph_key": graph_key,
+                "goal": goal,
+                "nodes": nodes,
+                "edges": edges,
+            }
 
     async def get_agent_capability_graph(self, agent_name: str) -> dict[str, Any]:
         """Layer 3 only: one Agent's private capability graph — its
@@ -892,12 +949,14 @@ class GraphStore:
             )
             capabilities = []
             async for record in result:
-                capabilities.append({
-                    "capability": record["capability"],
-                    "pagerank": record["pagerank"],
-                    "providers": [p for p in record["providers"] if p.get("provider")],
-                    "requires": [r for r in record["requires"] if r],
-                })
+                capabilities.append(
+                    {
+                        "capability": record["capability"],
+                        "pagerank": record["pagerank"],
+                        "providers": [p for p in record["providers"] if p.get("provider")],
+                        "requires": [r for r in record["requires"] if r],
+                    }
+                )
             return {"agent": agent_name, "capabilities": capabilities}
 
     async def get_ontology_view(self) -> dict[str, Any]:
@@ -906,13 +965,11 @@ class GraphStore:
         if not self.is_connected():
             return {"nodes": [], "edges": []}
         async with self._driver.session() as session:
-            result = await session.run(
-                """
+            result = await session.run("""
                 MATCH (o:OntologyConcept)
                 OPTIONAL MATCH (o)-[r:IS_A|PART_OF|SPECIALIZES|GENERALIZES]->(o2:OntologyConcept)
                 RETURN o.name AS name, type(r) AS rel, o2.name AS target
-                """
-            )
+                """)
             nodes, edges, seen = [], [], set()
             async for record in result:
                 for name in (record["name"], record["target"]):
@@ -920,7 +977,13 @@ class GraphStore:
                         seen.add(name)
                         nodes.append({"name": name})
                 if record["rel"] and record["target"]:
-                    edges.append({"from": record["name"], "to": record["target"], "type": record["rel"]})
+                    edges.append(
+                        {
+                            "from": record["name"],
+                            "to": record["target"],
+                            "type": record["rel"],
+                        }
+                    )
             return {"nodes": nodes, "edges": edges}
 
     async def migrate_enforce_canonical_semantics(self) -> dict[str, int]:
@@ -951,8 +1014,7 @@ class GraphStore:
             r = await session.run("MATCH (:Capability)-[g:GENERALIZES]->(:Capability) DELETE g RETURN count(g) AS n")
             counts["capability_generalizes_deleted"] = int((await r.single())["n"] or 0)
 
-            r = await session.run(
-                """
+            r = await session.run("""
                 MATCH (p:Provider {name: 'broca'})
                 OPTIONAL MATCH (p)-[:EXPOSES]->(t:Tool)
                 WHERE NOT EXISTS { MATCH (other:Provider)-[:EXPOSES]->(t) WHERE other.name <> 'broca' }
@@ -960,23 +1022,24 @@ class GraphStore:
                 WITH DISTINCT p
                 DETACH DELETE p
                 RETURN 1 AS n
-                """
-            )
+                """)
             rec = await r.single()
             counts["broca_removed"] = 1 if rec else 0
 
-            r = await session.run(
-                "MATCH (c:Capability) WHERE NOT (c)--() DETACH DELETE c RETURN count(c) AS n"
-            )
+            r = await session.run("MATCH (c:Capability) WHERE NOT (c)--() DETACH DELETE c RETURN count(c) AS n")
             counts["orphan_capabilities_deleted"] = int((await r.single())["n"] or 0)
 
             r = await session.run("MATCH (e:ExecutionGraph) DETACH DELETE e RETURN count(e) AS n")
             counts["execution_graphs_reset"] = int((await r.single())["n"] or 0)
 
-            for label, prefix in [("Agent", "agent"), ("Capability", "cap"), ("Provider", "provider"), ("Tool", "tool"), ("OntologyConcept", "concept")]:
-                await session.run(
-                    f"MATCH (n:{label}) WHERE n.id IS NULL SET n.id = '{prefix}.' + toLower(n.name)"
-                )
+            for label, prefix in [
+                ("Agent", "agent"),
+                ("Capability", "cap"),
+                ("Provider", "provider"),
+                ("Tool", "tool"),
+                ("OntologyConcept", "concept"),
+            ]:
+                await session.run(f"MATCH (n:{label}) WHERE n.id IS NULL SET n.id = '{prefix}.' + toLower(n.name)")
         logger.info("GraphStore: canonical-semantics migration: %s", counts)
         return counts
 
@@ -1007,13 +1070,11 @@ class GraphStore:
 
             # MeshRun instances -> ExecutionGraph workflows, rebuilt from the
             # run-log plan steps each STEP edge points at.
-            result = await session.run(
-                """
+            result = await session.run("""
                 MATCH (m:MeshRun)
                 OPTIONAL MATCH (m)-[:STEP]->(s:_PlanStep)
                 RETURN m.run_id AS run_id, m.goal AS goal, collect(DISTINCT s.agent) AS agents
-                """
-            )
+                """)
             meshruns = [(rec["run_id"], rec["goal"] or "", [a for a in rec["agents"] if a]) async for rec in result]
         for run_id, goal, agents in meshruns:
             edges: list[tuple[str, str]] = []
@@ -1034,20 +1095,17 @@ class GraphStore:
             await session.run("MATCH (m:MeshRun) DETACH DELETE m")
             await session.run("MATCH (:_PlanStep)-[r:RESOLVES]->() DELETE r")
             # Ontology mirror for pre-existing generalizations.
-            r = await session.run(
-                """
+            r = await session.run("""
                 MATCH (s:Capability)-[:GENERALIZES]->(g:Capability)
                 MERGE (so:OntologyConcept {name: s.name})
                 MERGE (go:OntologyConcept {name: g.name})
                 MERGE (so)-[:IS_A]->(go)
                 RETURN count(*) AS n
-                """
-            )
+                """)
             rec = await r.single()
             counts["ontology_mirrored"] = int(rec["n"] or 0) if rec else 0
         logger.info("GraphStore: three-layer migration complete: %s", counts)
         return counts
-
 
     # ── Read ─────────────────────────────────────────────────────────────────
 
@@ -1057,10 +1115,7 @@ class GraphStore:
             return {"nodes": [], "edges": []}
 
         async with self._driver.session() as session:
-            result = await session.run(
-                "MATCH (n:_PlanStep) OPTIONAL MATCH (n)-[r]->(m:_PlanStep) "
-                "RETURN n, r, m"
-            )
+            result = await session.run("MATCH (n:_PlanStep) OPTIONAL MATCH (n)-[r]->(m:_PlanStep) RETURN n, r, m")
             nodes = []
             edges = []
             seen_nodes: set[str] = set()
@@ -1069,20 +1124,24 @@ class GraphStore:
                 if n:
                     nid = n.get("id", n.get("node_id", str(n.element_id)))
                     if nid not in seen_nodes:
-                        nodes.append({
-                            "id": nid,
-                            "type": self._label_to_type(list(n.labels)),
-                            "label": n.get("display_name", n.get("label", n.get("name", ""))),
-                        })
+                        nodes.append(
+                            {
+                                "id": nid,
+                                "type": self._label_to_type(list(n.labels)),
+                                "label": n.get("display_name", n.get("label", n.get("name", ""))),
+                            }
+                        )
                         seen_nodes.add(nid)
                 r = record["r"]
                 m = record["m"]
                 if r and m:
-                    edges.append({
-                        "from": r.start_node.get("id", r.start_node.get("node_id", "")),
-                        "to": r.end_node.get("id", r.end_node.get("node_id", "")),
-                        "type": r.type.lower(),
-                    })
+                    edges.append(
+                        {
+                            "from": r.start_node.get("id", r.start_node.get("node_id", "")),
+                            "to": r.end_node.get("id", r.end_node.get("node_id", "")),
+                            "type": r.type.lower(),
+                        }
+                    )
             return {"nodes": nodes, "edges": edges}
 
     async def get_graph_by_run_id(self, run_id: str) -> dict[str, Any] | None:
@@ -1127,15 +1186,21 @@ class GraphStore:
                 r = record["r"]
                 m = record["m"]
                 if r and m:
-                    edges.append({
-                        "from": r.start_node.get("id", r.start_node.get("node_id", "")),
-                        "to": r.end_node.get("id", r.end_node.get("node_id", "")),
-                        "type": r.type.lower(),
-                    })
+                    edges.append(
+                        {
+                            "from": r.start_node.get("id", r.start_node.get("node_id", "")),
+                            "to": r.end_node.get("id", r.end_node.get("node_id", "")),
+                            "type": r.type.lower(),
+                        }
+                    )
 
         if not nodes:
             return None
-        return {"nodes": nodes, "edges": edges, "metadata": {"run_id": run_id, "source": "neo4j_recovery"}}
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "metadata": {"run_id": run_id, "source": "neo4j_recovery"},
+        }
 
     async def get_agent_dependencies(self) -> list[dict[str, str]]:
         """Read agent-to-agent dependencies."""
@@ -1147,10 +1212,7 @@ class GraphStore:
                 "MATCH (a:Agent:_PlanStep)-[r:DEPENDS_ON]->(b:Agent:_PlanStep) "
                 "RETURN a.name AS src, b.name AS dst, r.reason AS reason"
             )
-            return [
-                {"from": record["src"], "to": record["dst"], "reason": record["reason"]}
-                async for record in result
-            ]
+            return [{"from": record["src"], "to": record["dst"], "reason": record["reason"]} async for record in result]
 
     async def add_query_paths(self, paths: list) -> None:
         """Persist query-result graph paths returned by an execution.
@@ -1177,7 +1239,10 @@ class GraphStore:
                     # rather than letting query-path data inject Cypher.
                     safe_labels = [s for s in (_safe_cypher_ident(str(l)) for l in labels if l) if s]
                     if len(safe_labels) != len([l for l in labels if l]):
-                        logger.warning("add_query_paths dropped unsafe node label(s) on node %r", node_id)
+                        logger.warning(
+                            "add_query_paths dropped unsafe node label(s) on node %r",
+                            node_id,
+                        )
                     label_str = ":".join(safe_labels)
                     if label_str:
                         await session.run(
@@ -1194,8 +1259,7 @@ class GraphStore:
                     rel_type = _safe_cypher_ident(str(self._get_attr(rel, "rel_type", "RELATED"))) or "RELATED"
                     if src and dst:
                         await session.run(
-                            f"MATCH (a {{node_id: $src}}), (b {{node_id: $dst}}) "
-                            f"MERGE (a)-[:{rel_type}]->(b)",
+                            f"MATCH (a {{node_id: $src}}), (b {{node_id: $dst}}) MERGE (a)-[:{rel_type}]->(b)",
                             src=src,
                             dst=dst,
                         )
@@ -1285,21 +1349,27 @@ class GraphStore:
                 return label.lower()
         return "unknown"
 
-
     # ── Trust persistence ────────────────────────────────────────────────
 
-    async def save_trust_edge(self, src: str, dst: str, relationship: str,
-                              permissions: list[str], trust_score: float,
-                              knowledge_scope: list[str] | None = None,
-                              policy_scope: list[str] | None = None,
-                              expiration: float = 0.0,
-                              reputation: float = 0.5,
-                              delegation_chain: list[str] | None = None) -> None:
+    async def save_trust_edge(
+        self,
+        src: str,
+        dst: str,
+        relationship: str,
+        permissions: list[str],
+        trust_score: float,
+        knowledge_scope: list[str] | None = None,
+        policy_scope: list[str] | None = None,
+        expiration: float = 0.0,
+        reputation: float = 0.5,
+        delegation_chain: list[str] | None = None,
+    ) -> None:
         """Persist a trust edge to Neo4j."""
         if not self.is_connected():
             return
         async with self._driver.session() as session:
-            await session.run("""
+            await session.run(
+                """
                 MERGE (a:Runtime {id: $src})
                 MERGE (b:Runtime {id: $dst})
                 MERGE (a)-[r:TRUSTS]->(b)
@@ -1312,24 +1382,35 @@ class GraphStore:
                     r.reputation = $reputation,
                     r.delegation_chain = $delegation_chain,
                     r.updated_at = timestamp()
-            """, src=src, dst=dst, relationship=relationship,
-                 permissions=permissions, trust_score=trust_score,
-                 knowledge_scope=knowledge_scope or [],
-                 policy_scope=policy_scope or [],
-                 expiration=expiration, reputation=reputation,
-                 delegation_chain=delegation_chain or [])
+            """,
+                src=src,
+                dst=dst,
+                relationship=relationship,
+                permissions=permissions,
+                trust_score=trust_score,
+                knowledge_scope=knowledge_scope or [],
+                policy_scope=policy_scope or [],
+                expiration=expiration,
+                reputation=reputation,
+                delegation_chain=delegation_chain or [],
+            )
 
     async def revoke_trust_edge(self, src: str, dst: str, revoked_by: str = "") -> None:
         """Mark a trust edge as revoked in Neo4j."""
         if not self.is_connected():
             return
         async with self._driver.session() as session:
-            await session.run("""
+            await session.run(
+                """
                 MATCH (a:Runtime {id: $src})-[r:TRUSTS]->(b:Runtime {id: $dst})
                 SET r.revoked = true,
                     r.revoked_at = timestamp(),
                     r.revoked_by = $revoked_by
-            """, src=src, dst=dst, revoked_by=revoked_by)
+            """,
+                src=src,
+                dst=dst,
+                revoked_by=revoked_by,
+            )
 
     async def load_trust_edges(self) -> list[dict[str, Any]]:
         """Load all non-revoked trust edges from Neo4j."""

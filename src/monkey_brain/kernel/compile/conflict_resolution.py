@@ -15,6 +15,7 @@ Architectural Invariant:
     Conflict resolution operates on beliefs, not on the world tensor.
     The world tensor remains the source of truth.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +30,7 @@ logger = logging.getLogger("agentos.conflict_resolution")
 
 class ResolutionStrategy(str, Enum):
     """Strategies for resolving conflicting beliefs."""
+
     MAJORITY_VOTE = "majority_vote"
     HIGHEST_CONFIDENCE = "highest_confidence"
     MOST_RECENT = "most_recent"
@@ -40,6 +42,7 @@ class ResolutionStrategy(str, Enum):
 @dataclass
 class BeliefConflict:
     """A conflict between two actors' beliefs about the same transition."""
+
     src: str
     dst: str
     domain: str
@@ -89,7 +92,7 @@ class ConflictResolver:
         conflicts = []
         seen = set()
 
-        for (src_a, dst_a) in belief_a:
+        for src_a, dst_a in belief_a:
             key = (src_a, dst_a)
             if key in seen:
                 continue
@@ -105,12 +108,17 @@ class ConflictResolver:
                     ts_b = belief_b.feature(src_a, dst_a, Feature.RECENCY)
 
                     conflict = BeliefConflict(
-                        src=src_a, dst=dst_a,
+                        src=src_a,
+                        dst=dst_a,
                         domain=belief_a.domain_of(src_a),
-                        actor_a=actor_a, actor_b=actor_b,
-                        value_a=val_a, value_b=val_b,
-                        confidence_a=conf_a, confidence_b=conf_b,
-                        timestamp_a=ts_a, timestamp_b=ts_b,
+                        actor_a=actor_a,
+                        actor_b=actor_b,
+                        value_a=val_a,
+                        value_b=val_b,
+                        confidence_a=conf_a,
+                        confidence_b=conf_b,
+                        timestamp_a=ts_a,
+                        timestamp_b=ts_b,
                         trust_score=trust_score,
                     )
                     conflicts.append(conflict)

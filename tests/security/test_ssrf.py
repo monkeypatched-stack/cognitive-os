@@ -10,8 +10,13 @@ import pytest
 _root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 if _root not in sys.path:
     sys.path.insert(0, _root)
-for p in ("src", "packages/cerebellum", "packages/broca", "packages/soma-cli",
-          "domains/manufacturing/knowledge"):
+for p in (
+    "src",
+    "packages/cerebellum",
+    "packages/broca",
+    "packages/soma-cli",
+    "domains/manufacturing/knowledge",
+):
     _full = os.path.join(_root, p)
     if _full not in sys.path:
         sys.path.insert(0, _full)
@@ -22,6 +27,7 @@ class TestSSRFProtection:
 
     def _import_validator(self):
         from cerebellum.capabilities.api.webhook import _is_safe_url
+
         return _is_safe_url
 
     def test_blocked_schemes_file(self):
@@ -107,6 +113,7 @@ class TestSSRFProtection:
 
     def test_process_def_validator_same_rules(self):
         import importlib
+
         utils = importlib.import_module("services.process_definitions.utils")
         validate_outbound_url = utils.validate_outbound_url
         assert validate_outbound_url("http://example.com/hook") is True
@@ -117,6 +124,7 @@ class TestSSRFProtection:
 
     def test_validate_blocks_internal_ranges(self):
         import importlib
+
         utils = importlib.import_module("services.process_definitions.utils")
         validate_outbound_url = utils.validate_outbound_url
         blocked = [
@@ -133,6 +141,7 @@ class TestSSRFProtection:
 
     def test_validate_allows_public(self):
         import importlib
+
         utils = importlib.import_module("services.process_definitions.utils")
         validate_outbound_url = utils.validate_outbound_url
         allowed = [

@@ -283,7 +283,13 @@ async def seed():
     print(f"\nDone. Neo4j: {nodes} nodes, {rels} relationships")
 
     # Verify hierarchy links
-    for coll in ["industrial_plants", "industrial_lines", "industrial_stages", "industrial_workstations", "workstations"]:
+    for coll in [
+        "industrial_plants",
+        "industrial_lines",
+        "industrial_stages",
+        "industrial_workstations",
+        "workstations",
+    ]:
         count = await db[coll].count_documents({})
         print(f"  {coll}: {count} docs")
 

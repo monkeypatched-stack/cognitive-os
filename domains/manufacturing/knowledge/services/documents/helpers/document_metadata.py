@@ -10,7 +10,10 @@ from fastapi import UploadFile
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from services.common.embeddings import build_embedding
-from src.monkey_brain.documents.document_ocr import DocumentOcrError, extract_document_text_with_qwen_ocr
+from src.monkey_brain.documents.document_ocr import (
+    DocumentOcrError,
+    extract_document_text_with_qwen_ocr,
+)
 from services.documents.models.document_metadata import (
     DocumentMetadataCreate,
     DocumentMetadataResponse,
@@ -22,8 +25,12 @@ COLLECTION = "document_metadata"
 DOCUMENT_EMBEDDINGS_COLLECTION = "document_embeddings"
 GRAPH_RAG_DOCUMENT_CHUNKS_COLLECTION = "agentos_document_chunks"
 LOCAL_UPLOAD_DIR = Path(os.getenv("DOCUMENT_UPLOAD_DIR", "uploads/documents"))
-DOCUMENT_EMBEDDING_MAX_BYTES = int(os.getenv("DOCUMENT_EMBEDDING_MAX_BYTES", str(5 * 1024 * 1024)))
-DOCUMENT_EMBEDDING_TEXT_MAX_CHARS = int(os.getenv("DOCUMENT_EMBEDDING_TEXT_MAX_CHARS", "20000"))
+DOCUMENT_EMBEDDING_MAX_BYTES = int(
+    os.getenv("DOCUMENT_EMBEDDING_MAX_BYTES", str(5 * 1024 * 1024))
+)
+DOCUMENT_EMBEDDING_TEXT_MAX_CHARS = int(
+    os.getenv("DOCUMENT_EMBEDDING_TEXT_MAX_CHARS", "20000")
+)
 DOCUMENT_CHUNK_SIZE = int(os.getenv("DOCUMENT_CHUNK_SIZE", "1400"))
 DOCUMENT_CHUNK_OVERLAP = int(os.getenv("DOCUMENT_CHUNK_OVERLAP", "180"))
 S3_BUCKET = os.getenv("S3_DOCUMENT_BUCKET") or os.getenv("AWS_S3_BUCKET")
@@ -48,7 +55,9 @@ def _coerce_legacy_document(doc: dict) -> dict:
     coerced = dict(doc)
     now = _utc_now()
 
-    coerced.setdefault("document_name", coerced.get("document_title") or "Untitled Document")
+    coerced.setdefault(
+        "document_name", coerced.get("document_title") or "Untitled Document"
+    )
     coerced.setdefault("document_version", "1.0")
     coerced.setdefault("document_tags", coerced.get("tags") or [])
     coerced.setdefault(
@@ -58,15 +67,22 @@ def _coerce_legacy_document(doc: dict) -> dict:
         or f"/api/v1/document-metadata/{coerced.get('document_id', 'unknown')}/view",
     )
     coerced.setdefault("document_status", coerced.get("status") or "Draft")
-    coerced.setdefault("document_owner", coerced.get("document_author") or "Unknown Owner")
-    coerced.setdefault("document_preparer", coerced.get("created_by") or "Unknown Preparer")
+    coerced.setdefault(
+        "document_owner", coerced.get("document_author") or "Unknown Owner"
+    )
+    coerced.setdefault(
+        "document_preparer", coerced.get("created_by") or "Unknown Preparer"
+    )
     coerced.setdefault("document_reviewer", "Unknown Reviewer")
     coerced.setdefault("document_approver", "Unknown Approver")
     coerced.setdefault("document_due_date", now)
     coerced.setdefault("created_by", coerced.get("document_author") or "system")
     coerced.setdefault("last_modified_by", coerced.get("document_author") or "system")
     coerced.setdefault("created_at", now)
-    coerced.setdefault("last_modified_at", coerced.get("updated_at") or coerced.get("created_at") or now)
+    coerced.setdefault(
+        "last_modified_at",
+        coerced.get("updated_at") or coerced.get("created_at") or now,
+    )
 
     return coerced
 
@@ -137,7 +153,9 @@ def _extract_pdf_text(content: bytes) -> str:
         return ""
 
 
-def _extract_upload_text(content: bytes, content_type: str | None, filename: str | None) -> tuple[str, str]:
+def _extract_upload_text(
+    content: bytes, content_type: str | None, filename: str | None
+) -> tuple[str, str]:
     content_type_normalized = (content_type or "").split(";")[0].strip().lower()
     suffix = Path(filename or "").suffix.lower()
 
@@ -157,7 +175,11 @@ def _extract_upload_text(content: bytes, content_type: str | None, filename: str
         ".yaml",
         ".yml",
     }
-    if content_type_normalized.startswith("text/") or suffix in text_extensions or _looks_like_text(content):
+    if (
+        content_type_normalized.startswith("text/")
+        or suffix in text_extensions
+        or _looks_like_text(content)
+    ):
         text = _decode_text(content)
         return text[:DOCUMENT_EMBEDDING_TEXT_MAX_CHARS], "text"
 
@@ -189,7 +211,9 @@ async def _replace_document_chunks(
     extraction_method: str,
 ) -> None:
     document_id = document["document_id"]
-    await db[GRAPH_RAG_DOCUMENT_CHUNKS_COLLECTION].delete_many({"document_id": document_id})
+    await db[GRAPH_RAG_DOCUMENT_CHUNKS_COLLECTION].delete_many(
+        {"document_id": document_id}
+    )
     chunks = _chunk_document_text(extracted_text)
     if not chunks:
         return
@@ -208,7 +232,9 @@ async def _replace_document_chunks(
             "created_at": now,
             "updated_at": now,
         }
-        record["embedding"] = build_embedding(GRAPH_RAG_DOCUMENT_CHUNKS_COLLECTION, record)
+        record["embedding"] = build_embedding(
+            GRAPH_RAG_DOCUMENT_CHUNKS_COLLECTION, record
+        )
         records.append(record)
     await db[GRAPH_RAG_DOCUMENT_CHUNKS_COLLECTION].insert_many(records)
     await db[GRAPH_RAG_DOCUMENT_CHUNKS_COLLECTION].create_index("document_id")
@@ -220,7 +246,10 @@ async def _read_upload_bytes_for_embedding(file: UploadFile) -> tuple[bytes, boo
     await file.seek(0)
     content = await file.read(DOCUMENT_EMBEDDING_MAX_BYTES + 1)
     await file.seek(0)
-    return content[:DOCUMENT_EMBEDDING_MAX_BYTES], len(content) > DOCUMENT_EMBEDDING_MAX_BYTES
+    return (
+        content[:DOCUMENT_EMBEDDING_MAX_BYTES],
+        len(content) > DOCUMENT_EMBEDDING_MAX_BYTES,
+    )
 
 
 async def _upsert_document_embedding(
@@ -294,7 +323,9 @@ async def _upsert_document_embedding(
         embedding_record,
         upsert=True,
     )
-    await _replace_document_chunks(db, document, storage_fields, extracted_text, extraction_method)
+    await _replace_document_chunks(
+        db, document, storage_fields, extracted_text, extraction_method
+    )
 
 
 def _s3_client():
@@ -305,7 +336,9 @@ def _s3_client():
     return boto3.client("s3", region_name=S3_REGION, endpoint_url=S3_ENDPOINT_URL)
 
 
-def generate_s3_view_url(doc: dict, expires_in: int = 3600, *, as_attachment: bool = False) -> Optional[str]:
+def generate_s3_view_url(
+    doc: dict, expires_in: int = 3600, *, as_attachment: bool = False
+) -> Optional[str]:
     bucket = doc.get("s3_bucket") or S3_BUCKET
     key = doc.get("s3_key")
     document_url = doc.get("document_url")
@@ -322,12 +355,19 @@ def generate_s3_view_url(doc: dict, expires_in: int = 3600, *, as_attachment: bo
     try:
         params = {"Bucket": bucket, "Key": key}
         if as_attachment:
-            filename = doc.get("file_name") or Path(str(key)).name or doc.get("document_id") or "document"
+            filename = (
+                doc.get("file_name")
+                or Path(str(key)).name
+                or doc.get("document_id")
+                or "document"
+            )
             safe_name = Path(str(filename)).name.replace('"', "")
             params["ResponseContentDisposition"] = f'attachment; filename="{safe_name}"'
         else:
             params["ResponseContentDisposition"] = "inline"
-        return _s3_client().generate_presigned_url("get_object", Params=params, ExpiresIn=expires_in)
+        return _s3_client().generate_presigned_url(
+            "get_object", Params=params, ExpiresIn=expires_in
+        )
     except Exception:
         return doc.get("s3_url")
 
@@ -361,7 +401,11 @@ async def store_upload(file: UploadFile, document_id: str) -> dict:
     s3_error: Optional[str] = None
 
     if S3_BUCKET:
-        key = f"{S3_PREFIX}/{document_id}/{safe_name}" if S3_PREFIX else f"{document_id}/{safe_name}"
+        key = (
+            f"{S3_PREFIX}/{document_id}/{safe_name}"
+            if S3_PREFIX
+            else f"{document_id}/{safe_name}"
+        )
         try:
             await file.seek(0)
             client = _s3_client()
@@ -450,7 +494,9 @@ async def get_by_owner(db: AsyncIOMotorDatabase, document_owner: str) -> list[di
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_department(db: AsyncIOMotorDatabase, document_department: str) -> list[dict]:
+async def get_by_department(
+    db: AsyncIOMotorDatabase, document_department: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"document_department": document_department})
     return [_serialize(doc) async for doc in cursor]
 

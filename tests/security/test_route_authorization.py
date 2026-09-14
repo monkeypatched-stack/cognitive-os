@@ -9,6 +9,7 @@ Found unauthenticated during the domains review:
 
 This test fails if any router regresses to open.
 """
+
 from __future__ import annotations
 
 import re
@@ -23,7 +24,8 @@ SERVICES = ROOT / "domains/manufacturing/knowledge/services"
 ROUTE_RE = re.compile(r"@(?:router|root_router)\.(get|post|put|patch|delete)\(")
 GUARD_RE = re.compile(
     r"Depends\(\s*(get_current_user|require_permission|require_auth_context"
-    r"|active_module_control_session|require_activation_session)")
+    r"|active_module_control_session|require_activation_session)"
+)
 DOCSTRING_RE = re.compile(r'("""|\'\'\')(?:.|\n)*?\1')
 
 # Intentionally public (service discovery / health), verified by hand.
@@ -59,18 +61,20 @@ def test_no_router_exposes_routes_without_an_auth_guard():
     assert not offenders, "UNAUTHENTICATED ROUTES:\n  " + "\n  ".join(sorted(offenders))
 
 
-@pytest.mark.parametrize("rel", [
-    "file/src/routes/files.py",
-    "file/src/routes/presigned.py",
-    "file/src/routes/cad_conversion.py",
-    "assets/routers/equipment.py",
-    "pm/routers/calibration_point.py",
-])
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "file/src/routes/files.py",
+        "file/src/routes/presigned.py",
+        "file/src/routes/cad_conversion.py",
+        "assets/routers/equipment.py",
+        "pm/routers/calibration_point.py",
+    ],
+)
 def test_previously_open_routers_are_now_guarded(rel):
     text = (SERVICES / rel).read_text()
     assert GUARD_RE.search(text), f"{rel} lost its auth guard"
-    assert not re.search(r"^\s*#\s*dependencies=\[Depends", text, re.M), \
-        f"{rel} has its auth dependency COMMENTED OUT"
+    assert not re.search(r"^\s*#\s*dependencies=\[Depends", text, re.M), f"{rel} has its auth dependency COMMENTED OUT"
 
 
 def test_cad_upload_filename_cannot_inject_headers():
@@ -78,7 +82,7 @@ def test_cad_upload_filename_cannot_inject_headers():
     sys.path.insert(0, str(SERVICES / "file"))
     from src.helpers.cad_conversion import safe_filename_stem as stem
 
-    assert '"' not in stem('evil"; x=y')                  # cannot escape the quoted value
-    assert "\n" not in stem("a\nSet-Cookie: x=y")         # cannot inject a header
-    assert "/" not in stem("../../etc/passwd")            # no path separators
+    assert '"' not in stem('evil"; x=y')  # cannot escape the quoted value
+    assert "\n" not in stem("a\nSet-Cookie: x=y")  # cannot inject a header
+    assert "/" not in stem("../../etc/passwd")  # no path separators
     assert stem(None) == "drawing"

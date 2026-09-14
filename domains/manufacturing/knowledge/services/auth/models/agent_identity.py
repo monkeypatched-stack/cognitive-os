@@ -15,9 +15,9 @@ class AgentRegisterRequest(BaseModel):
 
 
 class AgentRegisterResponse(BaseModel):
-    agent_id: str          # canonical SPIFFE URI
+    agent_id: str  # canonical SPIFFE URI
     client_id: str
-    client_secret: str     # returned once; store it securely
+    client_secret: str  # returned once; store it securely
     agent_type: str
     role_ids: list[str]
     scopes: list[str]
@@ -28,7 +28,7 @@ class AgentTokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-    expires_in: int        # seconds
+    expires_in: int  # seconds
     scope: str
 
 

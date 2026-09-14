@@ -14,13 +14,14 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
+
 class Department(BaseModel):
-    department_id: str           = Field(..., min_length=1)
-    name:          str           = Field(..., min_length=1)
-    description:   Optional[str] = None
-    head_user_id:  Optional[str] = None   # references UserEntry.user_id
-    is_active:     bool          = True
-    
+    department_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    head_user_id: Optional[str] = None  # references UserEntry.user_id
+    is_active: bool = True
+
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -36,10 +37,10 @@ class DepartmentCreate(Department):
 
 
 class DepartmentUpdate(BaseModel):
-    name:         Optional[str]  = None
-    description:  Optional[str]  = None
-    head_user_id: Optional[str]  = None
-    is_active:    Optional[bool] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    head_user_id: Optional[str] = None
+    is_active: Optional[bool] = None
     updated_at: datetime = Field(default_factory=utc_now)
 
 
@@ -49,7 +50,7 @@ class DepartmentResponse(Department):
 
 
 class PaginatedDepartmentResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   List[DepartmentResponse]
+    results: List[DepartmentResponse]

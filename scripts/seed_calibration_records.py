@@ -48,7 +48,7 @@ def _record(asset_id: str, name: str, line_id: str, today: date) -> dict:
 
     # Where in its cycle this asset sits. A few land past due — that is the point of the
     # demo — but which ones is a function of the asset id, not of chance.
-    offset = _bucket(asset_id + "o", interval + 45) - 30      # -30 .. interval+14
+    offset = _bucket(asset_id + "o", interval + 45) - 30  # -30 .. interval+14
     performed = today - timedelta(days=offset if offset > 0 else 1)
     next_due = performed + timedelta(days=interval)
 
@@ -95,11 +95,15 @@ def main() -> int:
     records = [_record(aid, name, line, today) for aid, name, line in assets]
     overdue = [r for r in records if r["status"] == "Overdue"]
 
-    print(f"{DB}.{COLLECTION}: {len(records)} records from {len(assets)} real assets "
-          f"({len(overdue)} overdue as of {today})")
+    print(
+        f"{DB}.{COLLECTION}: {len(records)} records from {len(assets)} real assets "
+        f"({len(overdue)} overdue as of {today})"
+    )
     for r in overdue[:5]:
-        print(f"   OVERDUE  {r['equipment_id']:20s} {r['instrument_tag'][:28]:30s} "
-              f"due {r['next_due_date']}  every {r['calibration_interval_days']}d")
+        print(
+            f"   OVERDUE  {r['equipment_id']:20s} {r['instrument_tag'][:28]:30s} "
+            f"due {r['next_due_date']}  every {r['calibration_interval_days']}d"
+        )
 
     if args.dry_run:
         print("\n--dry-run: nothing written")

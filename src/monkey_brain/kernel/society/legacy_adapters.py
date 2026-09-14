@@ -34,6 +34,7 @@ hierarchy the same way: api/routes/agents.py's `/agents/{type}/execute` and
 `/execute-direct` construct AgentMiddleware (the AgentRuntime alias) directly
 — AgentRuntimeAdapter wraps that construction with the same pattern.
 """
+
 from __future__ import annotations
 
 from typing import Any

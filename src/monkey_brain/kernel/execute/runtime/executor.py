@@ -23,6 +23,7 @@ from src.monkey_brain.kernel.plan.goals.executor import GoalExecutor
 
 logger = logging.getLogger("agentos.executor")
 
+
 class UnifiedExecutor:
     """Receives a question and returns an ExecutionResult."""
 
@@ -61,7 +62,7 @@ class UnifiedExecutor:
                 # 1. Classify the question and create a goal.
                 # Only reached when no `intent` was handed in — i.e. no prior
                 # /plan call to freeze the goal from (see docstring above).
-                 # FL - STEP 6
+                # FL - STEP 6
                 normalized, intent, goal = create_goal(question, lemon=lemon, trace_id=run_id)
         except Exception as e:
             logger.error("run=%r create_goal failed: %s", run_id, e)
@@ -98,7 +99,7 @@ class UnifiedExecutor:
         goal_executor = GoalExecutor()
 
         # 2. Execute the goal and return the result
-         # FL - STEP 15
+        # FL - STEP 15
         answer, semantic_hits, graph_paths, llm_answered = await goal_executor.execute(
             goal=goal,
             mongo_client=mongo_client,
@@ -111,7 +112,6 @@ class UnifiedExecutor:
         # 3. Return the execution result
         return ExecutionResult(answer, semantic_hits, graph_paths, llm_answered)
 
-
     async def _world_graph_fallback(self, question: str, mongo_client: Any) -> ExecutionResult | None:
         """Search the world graph for states matching the question.
 
@@ -122,12 +122,13 @@ class UnifiedExecutor:
         try:
             # Get the CognitionEngine from the request context
             from src.monkey_brain.api import bootstrap
-            arch = getattr(bootstrap, '_architecture', None)
-            if arch is None or not hasattr(arch, '_world'):
+
+            arch = getattr(bootstrap, "_architecture", None)
+            if arch is None or not hasattr(arch, "_world"):
                 return None
 
             world = arch._world
-            if not hasattr(world, 'states') or not world.states():
+            if not hasattr(world, "states") or not world.states():
                 return None
 
             # Search for matching states
@@ -135,8 +136,12 @@ class UnifiedExecutor:
             if not start_state:
                 return None
 
-            logger.info("[executor] world_graph_fallback: %r → start=%r, goal=%r",
-                       question, start_state, goal_state)
+            logger.info(
+                "[executor] world_graph_fallback: %r → start=%r, goal=%r",
+                question,
+                start_state,
+                goal_state,
+            )
 
             # Build answer from world graph traversal
             path = self._trace_path(start_state, goal_state, world)
@@ -217,6 +222,7 @@ class UnifiedExecutor:
     def _find_terminal_from(self, start: str, world: Any) -> str:
         """BFS from start to find the farthest reachable terminal state."""
         from collections import deque
+
         visited = {start}
         queue = deque([start])
         farthest = start
@@ -237,6 +243,7 @@ class UnifiedExecutor:
     def _trace_path(self, start: str, goal: str, world: Any) -> list[tuple[str, str]]:
         """Trace the path from start to goal through the world graph."""
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         path = []
         cur = start
         seen = set()

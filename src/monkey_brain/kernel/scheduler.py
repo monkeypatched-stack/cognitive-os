@@ -17,6 +17,7 @@ site. Left in place rather than deleted (dataclasses are load-bearing,
 deletion risk outweighs the naming-confusion cost) — do not confuse the two
 schedulers when reading either file.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,6 +37,7 @@ class RuntimeDescriptor:
     second runtime metadata type. Scheduler fields remain backward compatible;
     the additional ownership/lifecycle fields are metadata only.
     """
+
     runtime_id: str
     name: str = ""
     runtime_class: str = ""
@@ -48,12 +50,12 @@ class RuntimeDescriptor:
     shutdown_hook: str = "shutdown"
     url: str = ""
     capabilities: list[str] = field(default_factory=list)
-    cpu_available: float = 1.0      # 0.0-1.0 fraction
-    memory_available: float = 1.0   # 0.0-1.0 fraction
+    cpu_available: float = 1.0  # 0.0-1.0 fraction
+    memory_available: float = 1.0  # 0.0-1.0 fraction
     queue_depth: int = 0
     active_tasks: int = 0
     last_heartbeat: float = 0.0
-    status: str = "online"          # online | offline | degraded
+    status: str = "online"  # online | offline | degraded
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -74,21 +76,25 @@ class RuntimeDescriptor:
 @dataclass
 class ScheduledTask:
     """A task scheduled for execution on a specific runtime."""
+
     task_id: str = field(default_factory=lambda: str(uuid4()))
     task_type: str = ""
     payload: dict[str, Any] = field(default_factory=dict)
     required_capabilities: list[str] = field(default_factory=list)
-    priority: int = 0               # higher = more urgent
+    priority: int = 0  # higher = more urgent
     assigned_runtime: str = ""
     created_at: float = field(default_factory=time.time)
     scheduled_at: float = 0.0
-    status: str = "pending"         # pending | scheduled | running | completed | failed
+    status: str = "pending"  # pending | scheduled | running | completed | failed
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "task_id": self.task_id, "task_type": self.task_type,
-            "assigned_runtime": self.assigned_runtime, "status": self.status,
-            "priority": self.priority, "created_at": self.created_at,
+            "task_id": self.task_id,
+            "task_type": self.task_type,
+            "assigned_runtime": self.assigned_runtime,
+            "status": self.status,
+            "priority": self.priority,
+            "created_at": self.created_at,
         }
 
 
@@ -107,13 +113,22 @@ class DistributedScheduler:
     def register_runtime(self, descriptor: RuntimeDescriptor) -> None:
         """Register or update a runtime's descriptor."""
         self._runtimes[descriptor.runtime_id] = descriptor
-        logger.info("[scheduler] registered runtime %s (caps=%d)", descriptor.runtime_id, len(descriptor.capabilities))
+        logger.info(
+            "[scheduler] registered runtime %s (caps=%d)",
+            descriptor.runtime_id,
+            len(descriptor.capabilities),
+        )
 
     def unregister_runtime(self, runtime_id: str) -> None:
         self._runtimes.pop(runtime_id, None)
 
-    def heartbeat(self, runtime_id: str, cpu: float = 1.0, memory: float = 1.0,
-                  queue_depth: int = 0) -> None:
+    def heartbeat(
+        self,
+        runtime_id: str,
+        cpu: float = 1.0,
+        memory: float = 1.0,
+        queue_depth: int = 0,
+    ) -> None:
         """Update a runtime's resource state."""
         if runtime_id in self._runtimes:
             rt = self._runtimes[runtime_id]
@@ -161,7 +176,12 @@ class DistributedScheduler:
         task.status = "scheduled"
         best.queue_depth += 1
 
-        logger.info("[scheduler] scheduled task %s → %s (score=%.3f)", task.task_id[:8], best.runtime_id, scored[0][0])
+        logger.info(
+            "[scheduler] scheduled task %s → %s (score=%.3f)",
+            task.task_id[:8],
+            best.runtime_id,
+            scored[0][0],
+        )
         return best.runtime_id
 
     def complete_task(self, task_id: str, runtime_id: str) -> None:

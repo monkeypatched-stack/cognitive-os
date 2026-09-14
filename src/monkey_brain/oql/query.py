@@ -3,6 +3,7 @@
 Every OQL query targets exactly one entity and exactly one repository.
 Business agents never generate SQL, Cypher, or Mongo queries.
 """
+
 from __future__ import annotations
 
 import time
@@ -13,6 +14,7 @@ from typing import Any
 
 class Operation(str, Enum):
     """Supported OQL operations."""
+
     SELECT = "select"
     INSERT = "insert"
     UPDATE = "update"
@@ -33,6 +35,7 @@ class SortDirection(str, Enum):
 @dataclass
 class SortClause:
     """Sort specification for a query."""
+
     field: str
     direction: SortDirection = SortDirection.ASC
 
@@ -52,6 +55,7 @@ class Query:
 
     The middleware compiles this into the native database query.
     """
+
     entity: str
     operation: Operation
     filters: dict[str, Any] = field(default_factory=dict)
@@ -88,10 +92,12 @@ class Query:
         sort_clauses = []
         for s in data.get("sort", []):
             if isinstance(s, dict):
-                sort_clauses.append(SortClause(
-                    field=s.get("field", ""),
-                    direction=SortDirection(s.get("direction", "asc")),
-                ))
+                sort_clauses.append(
+                    SortClause(
+                        field=s.get("field", ""),
+                        direction=SortDirection(s.get("direction", "asc")),
+                    )
+                )
             elif isinstance(s, (list, tuple)) and len(s) == 2:
                 sort_clauses.append(SortClause(field=s[0], direction=SortDirection(s[1])))
 
@@ -115,6 +121,7 @@ class Query:
 @dataclass
 class QueryResult:
     """Result of an OQL query execution."""
+
     success: bool
     data: list[dict[str, Any]] = field(default_factory=list)
     count: int = 0

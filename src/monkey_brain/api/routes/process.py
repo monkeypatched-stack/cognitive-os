@@ -2,6 +2,7 @@
 
 Exposes the ProcessManager's lifecycle primitives as REST endpoints.
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,12 +65,14 @@ async def list_processes(
 
     processes = []
     for run_id, rpcb in pm._table.items():
-        processes.append(ProcessStateResponse(
-            run_id=run_id,
-            state=rpcb.state.value,
-            checkpoints=[c.checkpoint_id for c in rpcb.checkpoints],
-            created_at=rpcb.created_at,
-        ))
+        processes.append(
+            ProcessStateResponse(
+                run_id=run_id,
+                state=rpcb.state.value,
+                checkpoints=[c.checkpoint_id for c in rpcb.checkpoints],
+                created_at=rpcb.created_at,
+            )
+        )
     return ProcessListResponse(processes=processes, total=len(processes))
 
 

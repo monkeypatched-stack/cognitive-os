@@ -12,6 +12,7 @@ for get_backend()/get_executor()/get_somatic_compiler() — avoids plumbing
 this through app.state and kernel boot for what is, structurally, just a
 topic-based pub/sub registry.
 """
+
 from __future__ import annotations
 
 import logging
@@ -52,7 +53,8 @@ class TransactionEventHub:
             except Exception:
                 logger.debug(
                     "TransactionEventHub.publish: dropping dead subscriber for %r",
-                    transaction_id, exc_info=True,
+                    transaction_id,
+                    exc_info=True,
                 )
                 dead.append(websocket)
         for websocket in dead:

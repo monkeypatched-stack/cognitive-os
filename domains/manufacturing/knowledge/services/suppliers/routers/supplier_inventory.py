@@ -22,10 +22,14 @@ async def list_supplier_inventory(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedSupplierInventoryResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedSupplierInventoryResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
-@router.get("/by-supplier/{supplier_id}", response_model=list[SupplierInventoryResponse])
+@router.get(
+    "/by-supplier/{supplier_id}", response_model=list[SupplierInventoryResponse]
+)
 async def list_supplier_inventory_by_supplier(
     supplier_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -43,7 +47,9 @@ async def list_supplier_inventory_by_item(
     return await crud.get_by_item(db, item_id)
 
 
-@router.get("/by-location/{location_id}", response_model=list[SupplierInventoryResponse])
+@router.get(
+    "/by-location/{location_id}", response_model=list[SupplierInventoryResponse]
+)
 async def list_supplier_inventory_by_location(
     location_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -69,11 +75,16 @@ async def get_supplier_inventory(
 ):
     record = await crud.get_by_id(db, supplier_inventory_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier inventory '{supplier_inventory_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier inventory '{supplier_inventory_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=SupplierInventoryResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=SupplierInventoryResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_supplier_inventory(
     data: SupplierInventoryCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -91,7 +102,10 @@ async def update_supplier_inventory(
 ):
     updated = await crud.update(db, supplier_inventory_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier inventory '{supplier_inventory_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier inventory '{supplier_inventory_id}' not found",
+        )
     return updated
 
 
@@ -102,4 +116,7 @@ async def delete_supplier_inventory(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, supplier_inventory_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier inventory '{supplier_inventory_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier inventory '{supplier_inventory_id}' not found",
+        )

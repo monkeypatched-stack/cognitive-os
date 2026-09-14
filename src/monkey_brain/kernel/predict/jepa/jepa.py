@@ -6,7 +6,14 @@ import hashlib
 
 import numpy as np
 
-from src.monkey_brain.kernel.predict.jepa.base import ISolver, SolverClass, SolverResult, _MODALITY_REGISTRY
+from src.monkey_brain.kernel.predict.jepa.base import (
+    ISolver,
+    SolverClass,
+    SolverResult,
+    _MODALITY_REGISTRY,
+)
+
+
 class JEPAWorldModel(ISolver):
     """Epistemic JEPA world model.
 
@@ -41,25 +48,27 @@ class JEPAWorldModel(ISolver):
     Backward-compatible interface maintained for epa_transition / epa_loss callers.
     """
 
-    FEATURE_DIM   = 64    # world encoder input (after hash projection)
-    LATENT_DIM    = 32    # z_W ∈ R^32  (world state latent)
-    ACTION_DIM    = 16    # action embedding
-    BELIEF_IN     = 6     # [confidence, unc.epistemic, unc.aleatoric, k_count_norm, consistency_avg, B.loss()]
-    BELIEF_DIM    = 16    # z_B ∈ R^16  (belief latent)
-    EMA_M         = 0.996 # EMA momentum
-    LR            = 0.01  # predictor learning rate
-    REG_COEFF     = 0.04  # variance collapse regularization weight
+    FEATURE_DIM = 64  # world encoder input (after hash projection)
+    LATENT_DIM = 32  # z_W ∈ R^32  (world state latent)
+    ACTION_DIM = 16  # action embedding
+    BELIEF_IN = 6  # [confidence, unc.epistemic, unc.aleatoric, k_count_norm, consistency_avg, B.loss()]
+    BELIEF_DIM = 16  # z_B ∈ R^16  (belief latent)
+    EMA_M = 0.996  # EMA momentum
+    LR = 0.01  # predictor learning rate
+    REG_COEFF = 0.04  # variance collapse regularization weight
 
     # ── Epistemic JEPA extension: K, A, G, M component encoders ─────────────
     # Together with z_W and z_B, these form the unified epistemic latent z_E ∈ R^80.
-    KNOWLEDGE_IN   = 6    # [item_count_norm, avg_confidence, avg_epistemic_unc, avg_provenance, avg_freshness, consistency_avg]
-    KNOWLEDGE_DIM  = 8    # z_K ∈ R^8  — retrieved knowledge quality + provenance
-    AFFORDANCE_DIM = 8    # z_A ∈ R^8  — hash-sum over available capability name embeddings
-    GOAL_IN        = 8    # [4 obj-hash bytes, predicate_count_norm, progress, priority_norm, n_criteria_norm]
-    GOAL_DIM       = 8    # z_G ∈ R^8  — goal state
-    MESH_IN        = 6    # [agent_count_norm, active_ratio, role_entropy, goal_progress, cap_coverage, 0.0]
-    MESH_DIM       = 8    # z_M ∈ R^8  — agent mesh topology
-    EPISTEMIC_DIM  = 80   # LATENT_DIM + BELIEF_DIM + KNOWLEDGE_DIM + AFFORDANCE_DIM + GOAL_DIM + MESH_DIM
+    KNOWLEDGE_IN = (
+        6  # [item_count_norm, avg_confidence, avg_epistemic_unc, avg_provenance, avg_freshness, consistency_avg]
+    )
+    KNOWLEDGE_DIM = 8  # z_K ∈ R^8  — retrieved knowledge quality + provenance
+    AFFORDANCE_DIM = 8  # z_A ∈ R^8  — hash-sum over available capability name embeddings
+    GOAL_IN = 8  # [4 obj-hash bytes, predicate_count_norm, progress, priority_norm, n_criteria_norm]
+    GOAL_DIM = 8  # z_G ∈ R^8  — goal state
+    MESH_IN = 6  # [agent_count_norm, active_ratio, role_entropy, goal_progress, cap_coverage, 0.0]
+    MESH_DIM = 8  # z_M ∈ R^8  — agent mesh topology
+    EPISTEMIC_DIM = 80  # LATENT_DIM + BELIEF_DIM + KNOWLEDGE_DIM + AFFORDANCE_DIM + GOAL_DIM + MESH_DIM
 
     name = "jepa"
     solver_class = SolverClass.JEPA
@@ -69,13 +78,11 @@ class JEPAWorldModel(ISolver):
 
         # ── World state encoder (W) ───────────────────────────────────────────
         # Fixed random projection: raw(256,) → features(FEATURE_DIM,)
-        self._feat_proj: np.ndarray = rng.normal(
-            0, 1.0, (self.FEATURE_DIM, 256)
-        ).astype(np.float32)
+        self._feat_proj: np.ndarray = rng.normal(0, 1.0, (self.FEATURE_DIM, 256)).astype(np.float32)
 
         scale = 1.0 / np.sqrt(self.FEATURE_DIM)
-        self._W_enc: np.ndarray    = rng.normal(0, scale, (self.LATENT_DIM, self.FEATURE_DIM)).astype(np.float32)
-        self._b_enc: np.ndarray    = np.zeros(self.LATENT_DIM, dtype=np.float32)
+        self._W_enc: np.ndarray = rng.normal(0, scale, (self.LATENT_DIM, self.FEATURE_DIM)).astype(np.float32)
+        self._b_enc: np.ndarray = np.zeros(self.LATENT_DIM, dtype=np.float32)
         self._W_target: np.ndarray = self._W_enc.copy()
         self._b_target: np.ndarray = self._b_enc.copy()
 
@@ -85,46 +92,48 @@ class JEPAWorldModel(ISolver):
 
         # ── Belief encoder (B = K, C, U) ──────────────────────────────────────
         b_scale = 1.0 / np.sqrt(self.BELIEF_IN)
-        self._W_enc_B: np.ndarray    = rng.normal(0, b_scale, (self.BELIEF_DIM, self.BELIEF_IN)).astype(np.float32)
-        self._b_enc_B: np.ndarray    = np.zeros(self.BELIEF_DIM, dtype=np.float32)
+        self._W_enc_B: np.ndarray = rng.normal(0, b_scale, (self.BELIEF_DIM, self.BELIEF_IN)).astype(np.float32)
+        self._b_enc_B: np.ndarray = np.zeros(self.BELIEF_DIM, dtype=np.float32)
         self._W_target_B: np.ndarray = self._W_enc_B.copy()
         self._b_target_B: np.ndarray = self._b_enc_B.copy()
 
         # Belief predictor: (z_W, a_embed) → z'_B
         # Conditioned on world latent + action, NOT on z_B — avoids circular dependence.
         b_pred_in = self.LATENT_DIM + self.ACTION_DIM
-        self._W_pred_B: np.ndarray = rng.normal(0, 1.0 / np.sqrt(b_pred_in), (self.BELIEF_DIM, b_pred_in)).astype(np.float32)
+        self._W_pred_B: np.ndarray = rng.normal(0, 1.0 / np.sqrt(b_pred_in), (self.BELIEF_DIM, b_pred_in)).astype(
+            np.float32
+        )
         self._b_pred_B: np.ndarray = np.zeros(self.BELIEF_DIM, dtype=np.float32)
 
         # ── Knowledge pack encoder (K) ─────────────────────────────────────────
         # Encodes retrieved knowledge quality — provenance, freshness, consistency.
         # Unlike B which encodes belief about knowledge, K encodes the evidence itself.
         k_scale = 1.0 / np.sqrt(self.KNOWLEDGE_IN)
-        self._W_enc_K: np.ndarray    = rng.normal(0, k_scale, (self.KNOWLEDGE_DIM, self.KNOWLEDGE_IN)).astype(np.float32)
-        self._b_enc_K: np.ndarray    = np.zeros(self.KNOWLEDGE_DIM, dtype=np.float32)
+        self._W_enc_K: np.ndarray = rng.normal(0, k_scale, (self.KNOWLEDGE_DIM, self.KNOWLEDGE_IN)).astype(np.float32)
+        self._b_enc_K: np.ndarray = np.zeros(self.KNOWLEDGE_DIM, dtype=np.float32)
         self._W_target_K: np.ndarray = self._W_enc_K.copy()
         self._b_target_K: np.ndarray = self._b_enc_K.copy()
 
         # ── Affordance set encoder (A) ─────────────────────────────────────────
         # Fixed embedding matrix: each capability name hashes to a slot,
         # z_A = sum of embeddings / sqrt(|A|) — cardinality-invariant.
-        self._afford_embed: np.ndarray = rng.normal(
-            0, 1.0, (self.AFFORDANCE_DIM, 256)
-        ).astype(np.float32)  # columns are per-slot embeddings
+        self._afford_embed: np.ndarray = rng.normal(0, 1.0, (self.AFFORDANCE_DIM, 256)).astype(
+            np.float32
+        )  # columns are per-slot embeddings
 
         # ── Goal encoder (G) ──────────────────────────────────────────────────
         # Encodes goal objective (hash), predicate structure, and progress estimate.
         g_scale = 1.0 / np.sqrt(self.GOAL_IN)
-        self._W_enc_G: np.ndarray    = rng.normal(0, g_scale, (self.GOAL_DIM, self.GOAL_IN)).astype(np.float32)
-        self._b_enc_G: np.ndarray    = np.zeros(self.GOAL_DIM, dtype=np.float32)
+        self._W_enc_G: np.ndarray = rng.normal(0, g_scale, (self.GOAL_DIM, self.GOAL_IN)).astype(np.float32)
+        self._b_enc_G: np.ndarray = np.zeros(self.GOAL_DIM, dtype=np.float32)
         self._W_target_G: np.ndarray = self._W_enc_G.copy()
         self._b_target_G: np.ndarray = self._b_enc_G.copy()
 
         # ── Mesh encoder (M) ──────────────────────────────────────────────────
         # Encodes agent topology — count, role distribution, capability coverage.
         m_scale = 1.0 / np.sqrt(self.MESH_IN)
-        self._W_enc_M: np.ndarray    = rng.normal(0, m_scale, (self.MESH_DIM, self.MESH_IN)).astype(np.float32)
-        self._b_enc_M: np.ndarray    = np.zeros(self.MESH_DIM, dtype=np.float32)
+        self._W_enc_M: np.ndarray = rng.normal(0, m_scale, (self.MESH_DIM, self.MESH_IN)).astype(np.float32)
+        self._b_enc_M: np.ndarray = np.zeros(self.MESH_DIM, dtype=np.float32)
         self._W_target_M: np.ndarray = self._W_enc_M.copy()
         self._b_target_M: np.ndarray = self._b_enc_M.copy()
 
@@ -132,9 +141,9 @@ class JEPAWorldModel(ISolver):
         # One predictor over the full epistemic latent.
         # Cross-component learning: retrieval action → predict z'_K and z'_B jointly.
         e_pred_in = self.EPISTEMIC_DIM + self.ACTION_DIM
-        self._W_pred_E: np.ndarray = rng.normal(
-            0, 1.0 / np.sqrt(e_pred_in), (self.EPISTEMIC_DIM, e_pred_in)
-        ).astype(np.float32)
+        self._W_pred_E: np.ndarray = rng.normal(0, 1.0 / np.sqrt(e_pred_in), (self.EPISTEMIC_DIM, e_pred_in)).astype(
+            np.float32
+        )
         self._b_pred_E: np.ndarray = np.zeros(self.EPISTEMIC_DIM, dtype=np.float32)
         self._W_target_E: np.ndarray = self._W_pred_E.copy()
 
@@ -269,15 +278,15 @@ class JEPAWorldModel(ISolver):
                 fused = _MODALITY_REGISTRY.fuse(embeddings, weights)
                 # Project fused embedding into scalar quality scores
                 # (the full fused vector is available for richer encoders)
-                raw[1] = float(np.mean(fused[:8]))    # first 8 dims as content signal
-                raw[2] = float(np.std(fused[:8]))     # embedding variance (diversity)
+                raw[1] = float(np.mean(fused[:8]))  # first 8 dims as content signal
+                raw[2] = float(np.std(fused[:8]))  # embedding variance (diversity)
             else:
                 raw[1] = sum(confs) / n
                 raw[2] = sum(unc_vals) / n
 
-            raw[3] = sum(prov_vals) / n    # mean provenance
-            raw[4] = sum(fresh_vals) / n   # mean freshness
-            raw[5] = sum(cons_vals) / n    # mean consistency
+            raw[3] = sum(prov_vals) / n  # mean provenance
+            raw[4] = sum(fresh_vals) / n  # mean freshness
+            raw[5] = sum(cons_vals) / n  # mean consistency
         except Exception as e:
             logger.debug("Exception caught: %s", e)
         return raw
@@ -324,7 +333,7 @@ class JEPAWorldModel(ISolver):
             for i in range(4):
                 raw[i] = float((h >> (i * 8)) & 0xFF) / 255.0
             preds = getattr(goal, "target_predicates", []) or []
-            raw[4] = float(min(len(preds), 20)) / 20.0   # predicate count (normalised)
+            raw[4] = float(min(len(preds), 20)) / 20.0  # predicate count (normalised)
             # Goal progress: how many predicates are satisfied in current world state
             if world_state and preds:
                 met = sum(1 for p in preds if world_state.get(p))
@@ -360,6 +369,7 @@ class JEPAWorldModel(ISolver):
                 n = len(types)
                 # role entropy proxy: 1 - max_freq/n (higher = more diverse)
                 from collections import Counter
+
                 freq = Counter(types)
                 max_f = max(freq.values())
                 raw[2] = 1.0 - float(max_f) / float(n)
@@ -405,11 +415,13 @@ class JEPAWorldModel(ISolver):
         """
         z_W = self._encode(S, target=target)
         z_B = self._encode_belief(B, target=target)
-        z_K = self._encode_knowledge(
-            getattr(B, "knowledge", K or []), target=target
-        )
+        z_K = self._encode_knowledge(getattr(B, "knowledge", K or []), target=target)
         z_A = self._encode_affordances(A or set())
-        z_G = self._encode_goal(G, world_state=S, target=target) if G is not None else np.zeros(self.GOAL_DIM, dtype=np.float32)
+        z_G = (
+            self._encode_goal(G, world_state=S, target=target)
+            if G is not None
+            else np.zeros(self.GOAL_DIM, dtype=np.float32)
+        )
         z_M = self._encode_mesh(M or {}, target=target)
         return np.concatenate([z_W, z_B, z_K, z_A, z_G, z_M])  # R^80
 
@@ -425,16 +437,24 @@ class JEPAWorldModel(ISolver):
 
     def _epistemic_update(
         self,
-        S_t: dict, B_t, A_t, G_t, M_t: dict,
+        S_t: dict,
+        B_t,
+        A_t,
+        G_t,
+        M_t: dict,
         action: str,
-        S_next: dict, B_next, A_next, G_next, M_next: dict,
+        S_next: dict,
+        B_next,
+        A_next,
+        G_next,
+        M_next: dict,
     ) -> float:
         """Online epistemic JEPA update — one gradient step on the unified predictor.
 
         Predicts z'_E from current (S_t, B_t, K_t, A_t, G_t, M_t) and action,
         compares against target encoder applied to actual (S_next, …).
         """
-        z_E  = self._encode_epistemic(S_t, B_t, A=A_t, G=G_t, M=M_t)
+        z_E = self._encode_epistemic(S_t, B_t, A=A_t, G=G_t, M=M_t)
         a_embed = self._embed_action(action)
         z_pred_E = self._predict_epistemic(z_E, a_embed)
 
@@ -453,7 +473,7 @@ class JEPAWorldModel(ISolver):
 
         # EMA on all component target encoders
         m = self.EMA_M
-        for (W, Wt, b, bt) in [
+        for W, Wt, b, bt in [
             (self._W_enc, self._W_target, self._b_enc, self._b_target),
             (self._W_enc_B, self._W_target_B, self._b_enc_B, self._b_target_B),
             (self._W_enc_K, self._W_target_K, self._b_enc_K, self._b_target_K),
@@ -564,7 +584,7 @@ class JEPAWorldModel(ISolver):
         the belief at t+1 is predicted from the world context and action, not from
         the current belief (avoids circular dependence).
         """
-        z_S     = self._encode(S_t)
+        z_S = self._encode(S_t)
         a_embed = self._embed_action(action)
         z_pred_B = self._predict_belief(z_S, a_embed)
 
@@ -644,12 +664,17 @@ class JEPAWorldModel(ISolver):
 
         # Split predicted latent back into component slices
         s = 0
-        z_pred_W = z_pred_E[s: s + self.LATENT_DIM];       s += self.LATENT_DIM
-        z_pred_B = z_pred_E[s: s + self.BELIEF_DIM];       s += self.BELIEF_DIM
-        z_pred_K = z_pred_E[s: s + self.KNOWLEDGE_DIM];    s += self.KNOWLEDGE_DIM
-        z_pred_A = z_pred_E[s: s + self.AFFORDANCE_DIM];   s += self.AFFORDANCE_DIM
-        z_pred_G = z_pred_E[s: s + self.GOAL_DIM];         s += self.GOAL_DIM
-        z_pred_M = z_pred_E[s: s + self.MESH_DIM]
+        z_pred_W = z_pred_E[s : s + self.LATENT_DIM]
+        s += self.LATENT_DIM
+        z_pred_B = z_pred_E[s : s + self.BELIEF_DIM]
+        s += self.BELIEF_DIM
+        z_pred_K = z_pred_E[s : s + self.KNOWLEDGE_DIM]
+        s += self.KNOWLEDGE_DIM
+        z_pred_A = z_pred_E[s : s + self.AFFORDANCE_DIM]
+        s += self.AFFORDANCE_DIM
+        z_pred_G = z_pred_E[s : s + self.GOAL_DIM]
+        s += self.GOAL_DIM
+        z_pred_M = z_pred_E[s : s + self.MESH_DIM]
 
         avg_e = float(self._epistemic_avg_loss)
         return {
@@ -728,5 +753,3 @@ class JEPAWorldModel(ISolver):
             confidence=confidence,
             proof=proof,
         )
-
-

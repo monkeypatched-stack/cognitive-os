@@ -3,6 +3,7 @@
 MFA and authentication state are bound from verified JWT claims or service
 credentials. Agents cannot set these fields.
 """
+
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -17,46 +18,48 @@ MFA_NOT_REQUIRED = "not_required"
 _VALID_MFA = frozenset({MFA_SATISFIED, MFA_NOT_SATISFIED, MFA_UNKNOWN, MFA_NOT_REQUIRED})
 
 # Agent-supplied keys that must never be treated as security evidence.
-UNTRUSTED_SECURITY_SIGNAL_KEYS = frozenset({
-    "mfa_enforced",
-    "mfa_status",
-    "mfa_satisfied",
-    "authenticated",
-    "token_valid",
-    "mfa_required",
-    "trusted_auth",
-    "authorized",
-    "authorization",
-    "is_admin",
-    "role",
-    "roles",
-    "permissions",
-    "policy_approval",
-    "governance_approval",
-    "governance_allowed",
-    "opa_allow",
-    "audit_authority",
-    "execution_authority",
-    # SPIFFE/SPIRE workload identity layer: an agent claiming its own
-    # spiffe_id/trust_domain/verified flag in message content must never
-    # be treated as if mTLS/the Workload API actually attested it -- see
-    # kernel/workload_identity.py's module docstring and
-    # evidence_from_spiffe() below, the only sanctioned construction path.
-    "spiffe_id",
-    "spiffe_verified",
-    "sender_spiffe_id",
-    "recipient_spiffe_id",
-    # Portable Delegation: an agent's own claim about what authority it
-    # was delegated (or that it holds delegation at all) must never reach
-    # OPA as if trusted -- only build_opa_input's `verified_delegation`
-    # keyword (populated exclusively from a chain that has already passed
-    # kernel/delegation.py::verify_delegation_chain) may set the
-    # `delegation` input key. See kernel/delegation.py::
-    # to_opa_delegation_context, the only sanctioned constructor for it.
-    "delegation",
-    "delegation_id",
-    "delegation_chain",
-})
+UNTRUSTED_SECURITY_SIGNAL_KEYS = frozenset(
+    {
+        "mfa_enforced",
+        "mfa_status",
+        "mfa_satisfied",
+        "authenticated",
+        "token_valid",
+        "mfa_required",
+        "trusted_auth",
+        "authorized",
+        "authorization",
+        "is_admin",
+        "role",
+        "roles",
+        "permissions",
+        "policy_approval",
+        "governance_approval",
+        "governance_allowed",
+        "opa_allow",
+        "audit_authority",
+        "execution_authority",
+        # SPIFFE/SPIRE workload identity layer: an agent claiming its own
+        # spiffe_id/trust_domain/verified flag in message content must never
+        # be treated as if mTLS/the Workload API actually attested it -- see
+        # kernel/workload_identity.py's module docstring and
+        # evidence_from_spiffe() below, the only sanctioned construction path.
+        "spiffe_id",
+        "spiffe_verified",
+        "sender_spiffe_id",
+        "recipient_spiffe_id",
+        # Portable Delegation: an agent's own claim about what authority it
+        # was delegated (or that it holds delegation at all) must never reach
+        # OPA as if trusted -- only build_opa_input's `verified_delegation`
+        # keyword (populated exclusively from a chain that has already passed
+        # kernel/delegation.py::verify_delegation_chain) may set the
+        # `delegation` input key. See kernel/delegation.py::
+        # to_opa_delegation_context, the only sanctioned constructor for it.
+        "delegation",
+        "delegation_id",
+        "delegation_chain",
+    }
+)
 
 _current: ContextVar["TrustedAuthEvidence | None"] = ContextVar("trusted_auth", default=None)
 
@@ -124,11 +127,7 @@ def evidence_from_jwt(payload: Mapping[str, Any]) -> TrustedAuthEvidence:
     principal = str(payload.get("sub") or payload.get("user_id") or "")
     mfa_status = normalize_mfa_status(payload.get("mfa_status"))
     permissions = payload.get("permissions") or []
-    perms = tuple(
-        p if isinstance(p, str) else str(p.get("permission_id", ""))
-        for p in permissions
-        if p
-    )
+    perms = tuple(p if isinstance(p, str) else str(p.get("permission_id", "")) for p in permissions if p)
     return TrustedAuthEvidence(
         authenticated=bool(principal),
         token_valid=True,
@@ -205,7 +204,9 @@ def _strip_untrusted_value(value: Any) -> Any:
     return value
 
 
-def strip_untrusted_security_signals(signals: Mapping[str, Any] | None) -> dict[str, Any]:
+def strip_untrusted_security_signals(
+    signals: Mapping[str, Any] | None,
+) -> dict[str, Any]:
     """Drop agent-attested security properties (recursively)."""
     if not signals:
         return {}

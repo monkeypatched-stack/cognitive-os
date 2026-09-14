@@ -31,6 +31,7 @@ class TestLoadHealthEndpoint:
     def test_health_200_requests_sequential(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
         latencies = []
 
@@ -51,14 +52,17 @@ class TestLoadHealthEndpoint:
     def test_health_100_concurrent(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
             async with AsyncClient(transport=transport, base_url="http://test") as client:
+
                 async def req():
                     t0 = time.monotonic()
                     resp = await client.get("/health")
                     return time.monotonic() - t0, resp.status_code
+
                 tasks = [req() for _ in range(100)]
                 return await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -75,6 +79,7 @@ class TestLoadQueryEndpoint:
     def test_query_sustained_throughput(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
         success_count = 0
 
@@ -95,8 +100,10 @@ class TestMemoryLeak:
 
     def test_keystore_no_memory_leak(self, tmp_path):
         from cerebellum.keystore import SecureKeystore
+
         gc.collect()
         import tracemalloc
+
         tracemalloc.start()
         snapshot1 = tracemalloc.take_snapshot()
         ks = SecureKeystore(
@@ -115,8 +122,10 @@ class TestMemoryLeak:
 
     def test_url_validator_no_memory_leak(self):
         from cerebellum.capabilities.api.webhook import _is_safe_url
+
         gc.collect()
         import tracemalloc
+
         tracemalloc.start()
         snapshot1 = tracemalloc.take_snapshot()
         for _ in range(10000):
@@ -136,6 +145,7 @@ class TestSoak:
     def test_health_endpoint_soak(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
         latencies = []
 
@@ -153,12 +163,11 @@ class TestSoak:
         last_20 = latencies[-20:]
         avg_first = sum(first_20) / len(first_20)
         avg_last = sum(last_20) / len(last_20)
-        assert avg_last < avg_first * 3, (
-            f"Performance degraded: first={avg_first:.3f}s, last={avg_last:.3f}s"
-        )
+        assert avg_last < avg_first * 3, f"Performance degraded: first={avg_first:.3f}s, last={avg_last:.3f}s"
 
     def test_keystore_soak(self, tmp_path):
         from cerebellum.keystore import SecureKeystore
+
         ks = SecureKeystore(
             master_key="soak-test-key-32-bytes-long!!!",
             db_path=str(tmp_path / "soak.json"),

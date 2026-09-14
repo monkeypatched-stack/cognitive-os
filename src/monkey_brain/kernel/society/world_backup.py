@@ -27,6 +27,7 @@ matching how restore-from-backup works in most real systems. Documented
 here rather than pretending a live, in-place restore is safe when it
 genuinely is not proven to be.
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,7 +64,11 @@ def export_backup(planetary_runtime: Any) -> dict[str, Any]:
             elif key_type == "list":
                 keys[key] = {"type": "list", "value": redis.lrange(key, 0, -1)}
             else:
-                logger.debug("world_backup: skipping key %r of unsupported type %r", key, key_type)
+                logger.debug(
+                    "world_backup: skipping key %r of unsupported type %r",
+                    key,
+                    key_type,
+                )
         except Exception as exc:
             logger.warning("world_backup: failed to read key %r: %s", key, exc)
 
@@ -91,7 +96,10 @@ def restore_backup(planetary_runtime: Any, backup: dict[str, Any], *, overwrite:
     """
     redis = getattr(planetary_runtime, "_redis", None)
     if redis is None:
-        return {"restored": False, "reason": "no Redis connection on this PlanetaryRuntime"}
+        return {
+            "restored": False,
+            "reason": "no Redis connection on this PlanetaryRuntime",
+        }
 
     schema_version = backup.get("schema_version")
     if schema_version != SCHEMA_VERSION:

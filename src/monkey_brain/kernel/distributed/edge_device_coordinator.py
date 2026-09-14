@@ -13,6 +13,7 @@ from enum import Enum
 
 class DeviceType(str, Enum):
     """Types of execution devices"""
+
     CENTRAL = "central"  # Central server
     EDGE = "edge"  # Edge device (field, robot, etc)
     MOBILE = "mobile"  # Mobile device
@@ -20,6 +21,7 @@ class DeviceType(str, Enum):
 
 class SyncStrategy(str, Enum):
     """Strategies for syncing state with central"""
+
     EAGER = "eager"  # Sync immediately
     BATCHED = "batched"  # Batch updates
     PERIODIC = "periodic"  # Sync on interval
@@ -29,6 +31,7 @@ class SyncStrategy(str, Enum):
 @dataclass
 class EdgeDevice:
     """Represents an edge device in distributed system"""
+
     device_id: str
     device_type: DeviceType
     region: str
@@ -73,7 +76,7 @@ class EdgeDevice:
             return len(self.pending_events) > 0
 
         if self.sync_strategy == SyncStrategy.ON_CRITICAL:
-            return any(e.get('critical', False) for e in self.pending_events)
+            return any(e.get("critical", False) for e in self.pending_events)
 
         # BATCHED and PERIODIC return True only when checked
         return True
@@ -88,6 +91,7 @@ class EdgeDevice:
 @dataclass
 class DeviceCluster:
     """Groups devices in geographic region"""
+
     cluster_id: str
     region: str
     central_device: Optional[str] = None  # Central hub for region
@@ -112,10 +116,7 @@ class DeviceCluster:
 
     def get_capacity(self) -> Dict[str, int]:
         """Get available capacity summary"""
-        return {
-            device_id: device.capacity - len(device.hosted_actors)
-            for device_id, device in self.devices.items()
-        }
+        return {device_id: device.capacity - len(device.hosted_actors) for device_id, device in self.devices.items()}
 
 
 class DistributedExecutionCoordinator:
@@ -144,10 +145,7 @@ class DistributedExecutionCoordinator:
 
         # Add to cluster
         if device.region not in self._clusters:
-            self._clusters[device.region] = DeviceCluster(
-                cluster_id=f"cluster_{device.region}",
-                region=device.region
-            )
+            self._clusters[device.region] = DeviceCluster(cluster_id=f"cluster_{device.region}", region=device.region)
 
         self._clusters[device.region].add_device(device)
 
@@ -172,11 +170,7 @@ class DistributedExecutionCoordinator:
 
         return True
 
-    def place_actor_on_device(
-        self,
-        actor_id: str,
-        device_id: str
-    ) -> bool:
+    def place_actor_on_device(self, actor_id: str, device_id: str) -> bool:
         """Place actor on specific device"""
         device = self._devices.get(device_id)
         if not device or not device.can_host():
@@ -195,11 +189,7 @@ class DistributedExecutionCoordinator:
 
         return True
 
-    def place_actor_in_region(
-        self,
-        actor_id: str,
-        region: str
-    ) -> bool:
+    def place_actor_in_region(self, actor_id: str, region: str) -> bool:
         """Place actor in specific region (choose best device)"""
         cluster = self._clusters.get(region)
         if not cluster:
@@ -210,10 +200,7 @@ class DistributedExecutionCoordinator:
         if not available:
             return False
 
-        best_device = max(
-            available,
-            key=lambda d: d.capacity - len(d.hosted_actors)
-        )
+        best_device = max(available, key=lambda d: d.capacity - len(d.hosted_actors))
 
         return self.place_actor_on_device(actor_id, best_device.device_id)
 
@@ -235,21 +222,19 @@ class DistributedExecutionCoordinator:
             return False
 
         # Queue sync
-        await self._pending_syncs.put({
-            'device_id': device_id,
-            'events': device.pending_events.copy(),
-            'observations': device.pending_observations.copy(),
-            'timestamp': datetime.now()
-        })
+        await self._pending_syncs.put(
+            {
+                "device_id": device_id,
+                "events": device.pending_events.copy(),
+                "observations": device.pending_observations.copy(),
+                "timestamp": datetime.now(),
+            }
+        )
 
         device.mark_synced()
         return True
 
-    async def sync_central_to_device(
-        self,
-        device_id: str,
-        events: List[Dict]
-    ) -> bool:
+    async def sync_central_to_device(self, device_id: str, events: List[Dict]) -> bool:
         """Push events from central to edge device"""
         device = self._devices.get(device_id)
         if not device or not device.is_connected:
@@ -283,25 +268,14 @@ class DistributedExecutionCoordinator:
         # Sync pending events
         await self.sync_device_to_central(device_id)
 
-    def _migrate_actor(
-        self,
-        actor_id: str,
-        from_device_id: str,
-        to_device_id: Optional[str] = None
-    ) -> bool:
+    def _migrate_actor(self, actor_id: str, from_device_id: str, to_device_id: Optional[str] = None) -> bool:
         """Migrate actor from one device to another"""
         if to_device_id is None:
             # Find best device
-            available = [
-                d for d in self._devices.values()
-                if d.can_host() and d.device_id != from_device_id
-            ]
+            available = [d for d in self._devices.values() if d.can_host() and d.device_id != from_device_id]
             if not available:
                 return False
-            to_device_id = max(
-                available,
-                key=lambda d: d.capacity - len(d.hosted_actors)
-            ).device_id
+            to_device_id = max(available, key=lambda d: d.capacity - len(d.hosted_actors)).device_id
 
         return self.place_actor_on_device(actor_id, to_device_id)
 
@@ -315,12 +289,12 @@ class DistributedExecutionCoordinator:
         total_hosted = sum(len(d.hosted_actors) for d in cluster.devices.values())
 
         return {
-            'region': region,
-            'device_count': len(cluster.devices),
-            'total_capacity': total_capacity,
-            'hosted_actors': total_hosted,
-            'available_capacity': total_capacity - total_hosted,
-            'connected': cluster.is_connected(),
+            "region": region,
+            "device_count": len(cluster.devices),
+            "total_capacity": total_capacity,
+            "hosted_actors": total_hosted,
+            "available_capacity": total_capacity - total_hosted,
+            "connected": cluster.is_connected(),
         }
 
     def get_global_stats(self) -> Dict[str, Any]:
@@ -331,13 +305,13 @@ class DistributedExecutionCoordinator:
         connected_devices = sum(1 for d in self._devices.values() if d.is_connected)
 
         return {
-            'total_devices': total_devices,
-            'connected_devices': connected_devices,
-            'total_actors': total_actors,
-            'total_capacity': total_capacity,
-            'utilization': total_actors / total_capacity if total_capacity > 0 else 0,
-            'clusters': len(self._clusters),
-            'pending_syncs': self._pending_syncs.qsize(),
+            "total_devices": total_devices,
+            "connected_devices": connected_devices,
+            "total_actors": total_actors,
+            "total_capacity": total_capacity,
+            "utilization": total_actors / total_capacity if total_capacity > 0 else 0,
+            "clusters": len(self._clusters),
+            "pending_syncs": self._pending_syncs.qsize(),
         }
 
     async def get_pending_syncs(self, limit: int = 100) -> List[Dict]:
@@ -362,10 +336,7 @@ class DistributedActor:
         self._local_state: Dict[str, Any] = {}
         self._synced_at: Optional[datetime] = None
 
-    def set_distributed_coordinator(
-        self,
-        coordinator: DistributedExecutionCoordinator
-    ) -> None:
+    def set_distributed_coordinator(self, coordinator: DistributedExecutionCoordinator) -> None:
         """Link actor to distributed coordinator"""
         self._distributed_coordinator = coordinator
 
@@ -374,10 +345,7 @@ class DistributedActor:
         if not self._distributed_coordinator:
             return False
 
-        success = self._distributed_coordinator.place_actor_on_device(
-            self.id,
-            device_id
-        )
+        success = self._distributed_coordinator.place_actor_on_device(self.id, device_id)
 
         if success:
             self._device_id = device_id
@@ -423,9 +391,7 @@ class DistributedActor:
         if not self._distributed_coordinator or not self._device_id:
             return False
 
-        success = await self._distributed_coordinator.sync_device_to_central(
-            self._device_id
-        )
+        success = await self._distributed_coordinator.sync_device_to_central(self._device_id)
 
         if success:
             self._synced_at = datetime.now()
@@ -443,9 +409,9 @@ class DistributedActor:
     def get_distribution_stats(self) -> Dict[str, Any]:
         """Get distribution statistics"""
         return {
-            'actor_id': self.id,
-            'device_id': self._device_id,
-            'region': self._region,
-            'is_edge': self.is_on_edge(),
-            'last_sync': self._synced_at,
+            "actor_id": self.id,
+            "device_id": self._device_id,
+            "region": self._region,
+            "is_edge": self.is_on_edge(),
+            "last_sync": self._synced_at,
         }

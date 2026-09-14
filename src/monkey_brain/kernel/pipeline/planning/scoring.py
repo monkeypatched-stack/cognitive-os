@@ -20,12 +20,16 @@ scored (there's no fixed "good"/"bad" cost or duration in the abstract —
 only relative to the alternatives on the table), so scoring is inherently a
 function of the whole candidate set, not one candidate in isolation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
-from src.monkey_brain.kernel.pipeline.planning.domain import PlanCandidate, ValidationStatus
+from src.monkey_brain.kernel.pipeline.planning.domain import (
+    PlanCandidate,
+    ValidationStatus,
+)
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,7 @@ class ScoreBreakdown:
     better, so they can be combined (and later, in Step 8.8, explained)
     uniformly regardless of the raw units of what they measure.
     """
+
     cost_score: float = 0.0
     duration_score: float = 0.0
     confidence_score: float = 0.0
@@ -49,7 +54,9 @@ class ScoringPolicy(Protocol):
     """Interface every scoring policy satisfies."""
 
     def score(
-        self, candidate: PlanCandidate, candidates: tuple[PlanCandidate, ...],
+        self,
+        candidate: PlanCandidate,
+        candidates: tuple[PlanCandidate, ...],
     ) -> ScoreBreakdown: ...
 
 
@@ -77,6 +84,7 @@ class DefaultScoringPolicy:
     """Weighted combination of cost, duration, confidence, risk, and policy
     preference. Weights need not sum to 1.0 — they're normalized internally.
     """
+
     cost_weight: float = 0.25
     duration_weight: float = 0.25
     confidence_weight: float = 0.2
@@ -86,7 +94,9 @@ class DefaultScoringPolicy:
     penalized_operators: frozenset[str] = field(default_factory=frozenset)
 
     def score(
-        self, candidate: PlanCandidate, candidates: tuple[PlanCandidate, ...],
+        self,
+        candidate: PlanCandidate,
+        candidates: tuple[PlanCandidate, ...],
     ) -> ScoreBreakdown:
         plan = candidate.plan
         costs = tuple(c.plan.estimated_cost for c in candidates)
@@ -99,8 +109,11 @@ class DefaultScoringPolicy:
         policy_score = self._policy_score(plan)
 
         weights = (
-            self.cost_weight, self.duration_weight, self.confidence_weight,
-            self.risk_weight, self.policy_weight,
+            self.cost_weight,
+            self.duration_weight,
+            self.confidence_weight,
+            self.risk_weight,
+            self.policy_weight,
         )
         weight_sum = sum(weights) or 1.0
         total = (
@@ -112,9 +125,12 @@ class DefaultScoringPolicy:
         ) / weight_sum
 
         return ScoreBreakdown(
-            cost_score=cost_score, duration_score=duration_score,
-            confidence_score=confidence_score, risk_score=risk_score,
-            policy_score=policy_score, total=round(total, 4),
+            cost_score=cost_score,
+            duration_score=duration_score,
+            confidence_score=confidence_score,
+            risk_score=risk_score,
+            policy_score=policy_score,
+            total=round(total, 4),
         )
 
     def _policy_score(self, plan) -> float:
@@ -139,12 +155,12 @@ class PlanScorer:
         """Return NEW candidates (PlanCandidate is frozen) with `.score` set."""
         if not candidates:
             return ()
-        return tuple(
-            replace(c, score=self._policy.score(c, candidates).total) for c in candidates
-        )
+        return tuple(replace(c, score=self._policy.score(c, candidates).total) for c in candidates)
 
     def score_breakdown(
-        self, candidate: PlanCandidate, candidates: tuple[PlanCandidate, ...],
+        self,
+        candidate: PlanCandidate,
+        candidates: tuple[PlanCandidate, ...],
     ) -> ScoreBreakdown:
         """The full per-dimension breakdown for one candidate — useful for
         explainability (Step 8.8) without re-deriving it from `.score` alone."""

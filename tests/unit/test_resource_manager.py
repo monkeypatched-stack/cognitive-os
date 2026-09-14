@@ -1,22 +1,35 @@
 """Tests for ResourceManager — health states, retry, config validation, graceful degradation."""
+
 import asyncio
 import os
 import sys
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 from unittest.mock import AsyncMock, MagicMock
 from src.monkey_brain.kernel.resource_manager import (
-    ResourceManager, ResourceState, ErrorCategory, ResourceHealth,
-    ResourceConfig, ConfigValidator, BackoffRetryPolicy, ConfigIssue,
+    ResourceManager,
+    ResourceState,
+    ErrorCategory,
+    ResourceHealth,
+    ResourceConfig,
+    ConfigValidator,
+    BackoffRetryPolicy,
+    ConfigIssue,
 )
 
 
 class FakeResource:
-    def __init__(self, name: str, init_state: ResourceState = ResourceState.READY, init_reason: str = "", required: bool = True):
+    def __init__(
+        self,
+        name: str,
+        init_state: ResourceState = ResourceState.READY,
+        init_reason: str = "",
+        required: bool = True,
+    ):
         self._name = name
         self._init_state = init_state
         self._init_reason = init_reason
@@ -110,6 +123,7 @@ def test_initialize_ready():
         assert health["mongo"].state == ResourceState.READY
         assert rm.is_ready("mongo")
         assert rm.all_ready()
+
     asyncio.run(scenario())
 
 
@@ -121,6 +135,7 @@ def test_initialize_degraded():
         health = await rm.initialize_all()
         assert health["influx"].state == ResourceState.DEGRADED
         assert rm.all_ready()
+
     asyncio.run(scenario())
 
 
@@ -132,6 +147,7 @@ def test_optional_resource_unavailable_does_not_block():
         health = await rm.initialize_all()
         assert health["mem0"].state == ResourceState.UNAVAILABLE
         assert rm.all_ready()
+
     asyncio.run(scenario())
 
 
@@ -145,6 +161,7 @@ def test_required_resource_failed_raises():
             assert False, "Should have raised"
         except RuntimeError as e:
             assert "mongo" in str(e)
+
     asyncio.run(scenario())
 
 
@@ -158,6 +175,7 @@ def test_required_resource_exception_raises():
             assert False, "Should have raised"
         except RuntimeError as e:
             assert "mongo" in str(e)
+
     asyncio.run(scenario())
 
 
@@ -169,6 +187,7 @@ def test_optional_resource_exception_degrades():
         health = await rm.initialize_all()
         assert health["neo4j"].state == ResourceState.FAILED
         assert rm.all_ready()
+
     asyncio.run(scenario())
 
 
@@ -180,6 +199,7 @@ def test_disabled_resource():
         health = await rm.initialize_all()
         assert health["nats"].state == ResourceState.DISABLED
         assert rm.all_ready()
+
     asyncio.run(scenario())
 
 
@@ -209,6 +229,7 @@ def test_optional_resource_single_attempt_at_boot():
     unreachable optional resource used to be able to add multi-minute
     blocking sleeps to boot (up to 1+5+30+60+300s) before this fix capped
     the boot-time pass at a single attempt via max_retries_override=0."""
+
     async def scenario():
         rm = ResourceManager()
         r = FailingResource("ollama", Exception("connection refused"), required=False)
@@ -219,6 +240,7 @@ def test_optional_resource_single_attempt_at_boot():
         # resource, regardless of its configured max_retries.
         assert health["ollama"].state == ResourceState.FAILED
         assert r.init_calls == 1
+
     asyncio.run(scenario())
 
 
@@ -251,6 +273,7 @@ def test_health_summary():
         assert len(summary) == 2
         assert any(s["state"] == "ready" for s in summary)
         assert any(s["state"] == "degraded" for s in summary)
+
     asyncio.run(scenario())
 
 
@@ -259,16 +282,21 @@ class FirebaseResource:
         self._name = name
         self._state = state
         self._config = ResourceConfig(name=name)
+
     @property
     def name(self):
         return self._name
+
     @property
     def config(self):
         return self._config
+
     async def initialize(self):
         return ResourceHealth(name=self._name, state=self._state)
+
     async def health(self):
         return ResourceHealth(name=self._name, state=self._state)
+
     async def shutdown(self):
         pass
 
@@ -281,6 +309,7 @@ def test_shutdown_all():
         await rm.initialize_all()
         await rm.shutdown_all()
         assert rm.get_health("mongo").state == ResourceState.DISABLED
+
     asyncio.run(scenario())
 
 
@@ -297,9 +326,18 @@ def test_multiple_resources_mixed():
         # resources return their reported state immediately (no boot-blocking retry).
         rm.register(FirebaseResource("mongo", ResourceState.READY))
         rm.register(FirebaseResource("redis", ResourceState.READY))
-        rm.register(FirebaseResource("neo4j", ResourceState.DEGRADED), ResourceConfig(name="neo4j", required=False))
-        rm.register(FirebaseResource("influx", ResourceState.UNAVAILABLE), ResourceConfig(name="influx", required=False))
-        rm.register(FirebaseResource("mem0", ResourceState.DISABLED), ResourceConfig(name="mem0", required=False))
+        rm.register(
+            FirebaseResource("neo4j", ResourceState.DEGRADED),
+            ResourceConfig(name="neo4j", required=False),
+        )
+        rm.register(
+            FirebaseResource("influx", ResourceState.UNAVAILABLE),
+            ResourceConfig(name="influx", required=False),
+        )
+        rm.register(
+            FirebaseResource("mem0", ResourceState.DISABLED),
+            ResourceConfig(name="mem0", required=False),
+        )
 
         await rm.initialize_all()
         assert rm.is_ready("mongo")
@@ -313,6 +351,7 @@ def test_multiple_resources_mixed():
         assert states["neo4j"] == "degraded"
         assert states["influx"] == "unavailable"
         assert states["mem0"] == "disabled"
+
     asyncio.run(scenario())
 
 

@@ -15,6 +15,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedPermissionResponse)
 async def list_permissions(
     page: int = Query(1, ge=1),
@@ -23,10 +24,13 @@ async def list_permissions(
     _: dict = Depends(require_permission("perm-view-permissions")),
 ):
     permissions, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedPermissionResponse(total=total, page=page, page_size=page_size, results=permissions)
+    return PaginatedPermissionResponse(
+        total=total, page=page, page_size=page_size, results=permissions
+    )
 
 
 # ── Get by resource ───────────────────────────────────────────────────────────
+
 
 @router.get("/by-resource/{resource}", response_model=list[PermissionResponse])
 async def list_permissions_by_resource(
@@ -38,6 +42,7 @@ async def list_permissions_by_resource(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{permission_id}", response_model=PermissionResponse)
 async def get_permission(
@@ -56,7 +61,10 @@ async def get_permission(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=PermissionResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=PermissionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_permission(
     data: PermissionCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -71,6 +79,7 @@ async def create_permission(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{permission_id}", response_model=PermissionResponse)
 async def update_permission(
@@ -89,6 +98,7 @@ async def update_permission(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{permission_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_permission(

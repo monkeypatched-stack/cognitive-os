@@ -34,7 +34,9 @@ def _prepare(value):
     return value
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -60,7 +62,9 @@ async def create(db: AsyncIOMotorDatabase, data: CarrierCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, carrier_id: str, data: CarrierUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, carrier_id: str, data: CarrierUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, carrier_id)

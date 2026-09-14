@@ -19,9 +19,14 @@ fresh PlanetaryRuntime, so "home society created/hosted" reflects the
 actual first-boot bootstrap (Default Planet -> ... -> Default Space) a
 real marketplace deployment goes through — not a hand-built fixture.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 CUSTOMER_NAME = "Alice"

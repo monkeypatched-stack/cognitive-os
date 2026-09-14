@@ -5,7 +5,12 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from services.products.models.product_common import ComponentType, UnitOfMeasure, utc_now, ensure_utc
+from services.products.models.product_common import (
+    ComponentType,
+    UnitOfMeasure,
+    utc_now,
+    ensure_utc,
+)
 
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -72,8 +77,8 @@ class HazardClass(str, Enum):
 class BOMRelationshipType(str, Enum):
     ASSEMBLY = "assembly"
     SUBASSEMBLY = "subassembly"
-    PHANTOM = "phantom"        # Transient assembly — not stocked
-    REFERENCE = "reference"    # Informational only, not consumed
+    PHANTOM = "phantom"  # Transient assembly — not stocked
+    REFERENCE = "reference"  # Informational only, not consumed
     CO_PRODUCT = "co_product"  # By-product produced alongside main output
 
 
@@ -170,14 +175,17 @@ class ScrapAndYield(BaseModel):
 
         gross_qty = net_qty × gross_quantity_multiplier
         """
-        scrap   = Decimal("1") + (self.scrap_factor_percent   / Decimal("100"))
-        shrink  = Decimal("1") + (self.shrinkage_factor_percent / Decimal("100"))
-        yield_  = self.process_yield_percent / Decimal("100")
+        scrap = Decimal("1") + (self.scrap_factor_percent / Decimal("100"))
+        shrink = Decimal("1") + (self.shrinkage_factor_percent / Decimal("100"))
+        yield_ = self.process_yield_percent / Decimal("100")
         return (scrap * shrink) / yield_
 
     def gross_quantity_for(self, net_quantity: Decimal) -> Decimal:
         """Returns the gross quantity needed to deliver `net_quantity` good units."""
-        return (net_quantity * self.gross_quantity_multiplier).quantize(Decimal("0.0001"))
+        return (net_quantity * self.gross_quantity_multiplier).quantize(
+            Decimal("0.0001")
+        )
+
 
 class ReferenceDesignator(BaseModel):
     """
@@ -191,12 +199,20 @@ class ReferenceDesignator(BaseModel):
         pattern=r"^[A-Z]{1,5}\d+[A-Z]?$",
         description="IPC-7711 reference designator, e.g. R1, C12, U3A, TP101.",
     )
-    board_id: str = Field(..., max_length=50, description="PCB assembly part number or ID.")
-    schematic_page: Optional[int] = Field(None, ge=1, description="Schematic sheet number.")
+    board_id: str = Field(
+        ..., max_length=50, description="PCB assembly part number or ID."
+    )
+    schematic_page: Optional[int] = Field(
+        None, ge=1, description="Schematic sheet number."
+    )
     x_mm: Optional[Decimal] = Field(None, description="X centroid on board (mm).")
     y_mm: Optional[Decimal] = Field(None, description="Y centroid on board (mm).")
-    rotation_deg: Optional[Decimal] = Field(None, ge=0, lt=360, description="Placement rotation (°).")
-    side: Optional[str] = Field(None, pattern=r"^(top|bottom)$", description="'top' or 'bottom'.")
+    rotation_deg: Optional[Decimal] = Field(
+        None, ge=0, lt=360, description="Placement rotation (°)."
+    )
+    side: Optional[str] = Field(
+        None, pattern=r"^(top|bottom)$", description="'top' or 'bottom'."
+    )
     dnp: bool = Field(
         default=False,
         description="Do Not Place — part is listed but intentionally unpopulated.",
@@ -207,6 +223,7 @@ class ReferenceDesignator(BaseModel):
     def uppercase_designator(cls, v: str) -> str:
         return v.upper() if isinstance(v, str) else v
 
+
 class ShelfLifeInfo(BaseModel):
     """Shelf-life tracking for moisture-sensitive, chemical, or perishable parts."""
 
@@ -214,14 +231,17 @@ class ShelfLifeInfo(BaseModel):
         None, gt=0, description="Total shelf life from manufacture date (days)."
     )
     floor_life_hours: Optional[int] = Field(
-        None, gt=0,
+        None,
+        gt=0,
         description=(
             "IPC/JEDEC MSL floor life once the original packaging is opened (hours). "
             "Relevant for moisture-sensitive devices (MSDs)."
         ),
     )
     msl_level: Optional[int] = Field(
-        None, ge=1, le=6,
+        None,
+        ge=1,
+        le=6,
         description="IPC/JEDEC J-STD-020 Moisture Sensitivity Level (1–6).",
     )
     storage_temperature_min_c: Optional[Decimal] = Field(
@@ -240,7 +260,8 @@ class ShelfLifeInfo(BaseModel):
         default=False, description="Must remain in a refrigerated/frozen supply chain."
     )
     date_code_format: Optional[str] = Field(
-        None, max_length=20,
+        None,
+        max_length=20,
         description="Expected date-code format on the part label, e.g. 'YYWW' or 'YYYYMMDD'.",
     )
 
@@ -249,7 +270,9 @@ class ShelfLifeInfo(BaseModel):
         lo = self.storage_temperature_min_c
         hi = self.storage_temperature_max_c
         if lo is not None and hi is not None and lo >= hi:
-            raise ValueError("storage_temperature_min_c must be less than storage_temperature_max_c")
+            raise ValueError(
+                "storage_temperature_min_c must be less than storage_temperature_max_c"
+            )
         return self
 
     def is_expired(self, manufacture_date: date) -> bool:
@@ -290,7 +313,9 @@ class ECNRecord(BaseModel):
     title: str = Field(..., max_length=200)
     description: str = Field(..., max_length=2000)
     status: ECNStatus = Field(default=ECNStatus.DRAFT)
-    initiated_by: str = Field(..., max_length=100, description="Engineer or team who raised the ECN.")
+    initiated_by: str = Field(
+        ..., max_length=100, description="Engineer or team who raised the ECN."
+    )
     approved_by: Optional[str] = Field(None, max_length=100)
     date_initiated: date = Field(default_factory=date.today)
     date_approved: Optional[date] = None
@@ -302,7 +327,8 @@ class ECNRecord(BaseModel):
         None, max_length=10, description="New part revision introduced by this ECN."
     )
     reason_code: Optional[str] = Field(
-        None, max_length=50,
+        None,
+        max_length=50,
         description="Reason category, e.g. 'COST_REDUCTION', 'SAFETY', 'SUPPLIER_CHANGE'.",
     )
     linked_documents: List[str] = Field(
@@ -312,11 +338,20 @@ class ECNRecord(BaseModel):
 
     @model_validator(mode="after")
     def validate_approval_flow(self) -> "ECNRecord":
-        if self.status in (ECNStatus.APPROVED, ECNStatus.RELEASED) and not self.approved_by:
-            raise ValueError("approved_by is required when status is APPROVED or RELEASED")
+        if (
+            self.status in (ECNStatus.APPROVED, ECNStatus.RELEASED)
+            and not self.approved_by
+        ):
+            raise ValueError(
+                "approved_by is required when status is APPROVED or RELEASED"
+            )
         if self.date_approved and self.date_approved < self.date_initiated:
             raise ValueError("date_approved cannot precede date_initiated")
-        if self.date_effective and self.date_approved and self.date_effective < self.date_approved:
+        if (
+            self.date_effective
+            and self.date_approved
+            and self.date_effective < self.date_approved
+        ):
             raise ValueError("date_effective cannot precede date_approved")
         return self
 
@@ -329,6 +364,7 @@ class ECNRecord(BaseModel):
         end = self.date_approved or date.today()
         return (end - self.date_initiated).days
 
+
 class BOMLink(BaseModel):
     """
     Defines this part's position inside a multi-level Bill of Materials.
@@ -337,19 +373,23 @@ class BOMLink(BaseModel):
     """
 
     parent_bom_id: str = Field(
-        ..., max_length=50,
+        ...,
+        max_length=50,
         description="Part number of the immediate parent assembly in the BOM.",
     )
     bom_level: int = Field(
-        ..., ge=1,
+        ...,
+        ge=1,
         description="BOM depth level (1 = top-level assembly, 2 = subassembly, …).",
     )
     quantity_per_assembly: Decimal = Field(
-        ..., gt=0,
+        ...,
+        gt=0,
         description="Net quantity of this part required per one parent assembly.",
     )
     find_number: Optional[int] = Field(
-        None, ge=1,
+        None,
+        ge=1,
         description="Find number / item sequence on the engineering drawing BOM table.",
     )
     relationship_type: BOMRelationshipType = Field(default=BOMRelationshipType.ASSEMBLY)
@@ -373,14 +413,20 @@ class BOMLink(BaseModel):
     def validate_effectivity(self) -> "BOMLink":
         s, e = self.effective_date_start, self.effective_date_end
         if s and e and s >= e:
-            raise ValueError("effective_date_start must be earlier than effective_date_end")
+            raise ValueError(
+                "effective_date_start must be earlier than effective_date_end"
+            )
         return self
 
     @property
     def is_currently_effective(self) -> bool:
         today = date.today()
-        after_start  = (self.effective_date_start is None) or (today >= self.effective_date_start)
-        before_end   = (self.effective_date_end   is None) or (today <  self.effective_date_end)
+        after_start = (self.effective_date_start is None) or (
+            today >= self.effective_date_start
+        )
+        before_end = (self.effective_date_end is None) or (
+            today < self.effective_date_end
+        )
         return after_start and before_end
 
 
@@ -413,14 +459,16 @@ class CostInfo(BaseModel):
             return self.unit_cost - discount
         return self.unit_cost
 
+
 class QuantityInfo(BaseModel):
     base_unit_of_measure: UnitOfMeasure = "Each"
     packaging_type: Optional[str] = None
     units_per_case: Optional[float] = Field(default=None, gt=0)
     units_per_pallet: Optional[float] = Field(default=None, gt=0)
     alternate_uoms: Optional[list[Any]] = None  # AlternateUom handled via dict in DB
-    
+
     model_config = {"str_strip_whitespace": True}
+
 
 class MaterialSpec(BaseModel):
     weight_kg: Optional[float] = Field(default=None, ge=0)
@@ -457,7 +505,7 @@ class ProductComponent(BaseModel):
     created_date: date = Field(default_factory=date.today)
     notes: Optional[str] = Field(None, max_length=2000)
 
-    # asset tag 
+    # asset tag
     asset_tag: Optional[str] = None
     sku: Optional[str] = None
     gtin: Optional[str] = None
@@ -466,9 +514,11 @@ class ProductComponent(BaseModel):
     cas_number: Optional[str] = None
 
     # drawing association
-    revision: str = Field(default="A", max_length=10, description="Part revision/version")
+    revision: str = Field(
+        default="A", max_length=10, description="Part revision/version"
+    )
     drawing_number: Optional[str] = Field(None, max_length=50)
-    
+
     quantity: QuantityInfo
     cost: CostInfo
     supplier_name: str
@@ -545,7 +595,9 @@ class ProductComponent(BaseModel):
     def validate_bom_effectivity(self) -> "ProductComponent":
         s, e = self.effective_date_start, self.effective_date_end
         if s and e and s >= e:
-            raise ValueError("effective_date_start must be earlier than effective_date_end")
+            raise ValueError(
+                "effective_date_start must be earlier than effective_date_end"
+            )
         return self
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -621,17 +673,25 @@ class BOMComponent(BaseModel):
     and MBOM enrichment fields.
     """
 
-    line_id: str = Field(..., min_length=1, description="Unique line identifier within this BOM")
-    component_product_id: str = Field(..., min_length=1, description="FK to the product catalogue")
+    line_id: str = Field(
+        ..., min_length=1, description="Unique line identifier within this BOM"
+    )
+    component_product_id: str = Field(
+        ..., min_length=1, description="FK to the product catalogue"
+    )
     component_sku: str = Field(default="")
     component_name: str = Field(default="")
     component_type: BOMComponentType
     quantity_per_parent: float = Field(..., gt=0)
-    uom: str = Field(..., min_length=1, description="Unit of measure, e.g. 'Each', 'kg'")
+    uom: str = Field(
+        ..., min_length=1, description="Unit of measure, e.g. 'Each', 'kg'"
+    )
     usage_type: UsageType = UsageType.STANDARD
     scrap_rate_pct: Optional[float] = Field(default=None, ge=0)
     sequence_number: int = Field(..., ge=0, description="Assembly sequence order")
-    operation_step: Optional[int] = Field(default=None, ge=0, description="Work-centre operation ref")
+    operation_step: Optional[int] = Field(
+        default=None, ge=0, description="Work-centre operation ref"
+    )
     effective_from: Optional[date] = None
     effective_to: Optional[date] = None
     material: Optional[str] = Field(
@@ -648,7 +708,11 @@ class BOMComponent(BaseModel):
 
     @model_validator(mode="after")
     def effective_to_after_from(self) -> "BOMComponent":
-        if self.effective_from and self.effective_to and self.effective_to < self.effective_from:
+        if (
+            self.effective_from
+            and self.effective_to
+            and self.effective_to < self.effective_from
+        ):
             raise ValueError("effective_to must be on or after effective_from")
         return self
 
@@ -758,13 +822,27 @@ class BOMBase(BaseModel):
 
     @model_validator(mode="after")
     def expiry_after_effective(self) -> "BOMBase":
-        if self.effective_date and self.expiry_date and self.expiry_date < self.effective_date:
+        if (
+            self.effective_date
+            and self.expiry_date
+            and self.expiry_date < self.effective_date
+        ):
             raise ValueError("expiry_date must be on or after effective_date")
         if self.status == BOMStatus.ACTIVE:
-            if not (self.approved_process_definition_id or self.approved_process_route_id or self.routing_id):
-                raise ValueError("active BOMs must be bound to an approved process definition or route")
-            if not (self.mbmr_template_id or self.bmr_template_id or self.bpr_template_id):
-                raise ValueError("active BOMs must be bound to an MBMR, BMR, or BPR template")
+            if not (
+                self.approved_process_definition_id
+                or self.approved_process_route_id
+                or self.routing_id
+            ):
+                raise ValueError(
+                    "active BOMs must be bound to an approved process definition or route"
+                )
+            if not (
+                self.mbmr_template_id or self.bmr_template_id or self.bpr_template_id
+            ):
+                raise ValueError(
+                    "active BOMs must be bound to an MBMR, BMR, or BPR template"
+                )
         return self
 
 
@@ -819,9 +897,7 @@ class BOMRecord(BOMBase):
             or self.approved_process_route_id
             or self.routing_id
         ) and bool(
-            self.mbmr_template_id
-            or self.bmr_template_id
-            or self.bpr_template_id
+            self.mbmr_template_id or self.bmr_template_id or self.bpr_template_id
         )
 
         return self
@@ -1015,7 +1091,9 @@ class ProductComponentUpdate(BaseModel):
     def validate_bom_effectivity(self) -> "ProductComponentUpdate":
         s, e = self.effective_date_start, self.effective_date_end
         if s and e and s >= e:
-            raise ValueError("effective_date_start must be earlier than effective_date_end")
+            raise ValueError(
+                "effective_date_start must be earlier than effective_date_end"
+            )
         return self
 
 
@@ -1024,5 +1102,6 @@ class PaginatedProductComponentResponse(BaseModel):
     page: int
     page_size: int
     results: list[ProductComponent]
+
 
 ProductComponentRecord = ProductComponent

@@ -277,6 +277,7 @@ class SwarmHealthMonitor:
 ```python
 # tests/scenarios/test_swarm_isolation.py
 
+
 async def test_three_drones_execute_independently():
     """Verify 3 drones tick without interference"""
     drones = [
@@ -284,71 +285,75 @@ async def test_three_drones_execute_independently():
         CognitiveActor(entity_id="drone-2"),
         CognitiveActor(entity_id="drone-3"),
     ]
-    
+
     # Register all 3
     for drone in drones:
         society.register_actor(drone)
-    
+
     # Execute independently
     results = await asyncio.gather(
         society.tick_one_actor("drone-1"),
         society.tick_one_actor("drone-2"),
         society.tick_one_actor("drone-3"),
     )
-    
+
     # Verify no cross-contamination
     assert len(results) == 3
     for result in results:
         assert result is not None
-    
+
     # Verify each drone's state is unchanged
     for drone in drones:
         assert drone.belief.nnz() == initial_belief[drone.id]
 
+
 async def test_drone_crash_doesnt_affect_others():
     """Verify one drone crash doesn't affect others"""
-    
+
     # Drone 1 will crash mid-tick
     def crash_on_tick(actor):
         if actor.id == "drone-1":
             raise RuntimeError("Simulated crash")
-    
+
     # Tick all three
     results = await asyncio.gather(
         society.tick_one_actor("drone-1"),  # Will crash
         society.tick_one_actor("drone-2"),  # Should succeed
         society.tick_one_actor("drone-3"),  # Should succeed
     )
-    
+
     # Verify:
     assert results[0] is None  # Drone-1 crashed (caught)
     assert results[1] is True  # Drone-2 succeeded
     assert results[2] is True  # Drone-3 succeeded
-    
+
     # Verify isolation:
     assert drone_2_belief_unchanged
     assert drone_3_belief_unchanged
 
+
 async def test_task_allocation_isolation():
     """Verify tasks don't leak between drones"""
     coordinator = SwarmCoordinator()
-    
-    mission = coordinator.create_mission({
-        "drones": ["drone-1", "drone-2", "drone-3"],
-        "tasks": [
-            {"drone": "drone-1", "task": "scan", "sector": "A"},
-            {"drone": "drone-2", "task": "scan", "sector": "B"},
-            {"drone": "drone-3", "task": "scan", "sector": "C"},
-        ],
-    })
-    
+
+    mission = coordinator.create_mission(
+        {
+            "drones": ["drone-1", "drone-2", "drone-3"],
+            "tasks": [
+                {"drone": "drone-1", "task": "scan", "sector": "A"},
+                {"drone": "drone-2", "task": "scan", "sector": "B"},
+                {"drone": "drone-3", "task": "scan", "sector": "C"},
+            ],
+        }
+    )
+
     coordinator.assign_tasks(mission.mission_id)
-    
+
     # Verify each drone got correct assignment
     assert drone_1_assignment["sector"] == "A"
     assert drone_2_assignment["sector"] == "B"
     assert drone_3_assignment["sector"] == "C"
-    
+
     # Verify no cross-assignment
     assert drone_1_assignment["sector"] != "B"
     assert drone_2_assignment["sector"] != "A"
@@ -371,33 +376,33 @@ async def test_task_allocation_isolation():
 ```python
 # tests/scenarios/test_three_drone_survey.py
 
+
 async def test_survey_mission_complete():
     """End-to-end: 3 drones survey grid, results aggregate"""
-    
+
     # Setup
     coordinator = await setup_coordinator()
     drones = await setup_three_drones()
-    
+
     # Create mission
-    mission = coordinator.create_mission({
-        "name": "Survey 3x3 Grid",
-        "drones": ["drone-1", "drone-2", "drone-3"],
-        "grid": {"x_size": 3, "y_size": 3, "cell_size": 10.0},
-    })
-    
+    mission = coordinator.create_mission(
+        {
+            "name": "Survey 3x3 Grid",
+            "drones": ["drone-1", "drone-2", "drone-3"],
+            "grid": {"x_size": 3, "y_size": 3, "cell_size": 10.0},
+        }
+    )
+
     # Assign sectors
     coordinator.assign_tasks(mission.mission_id)
-    
+
     # Simulate mission execution
     for t in range(100):  # 100 ticks
-        await asyncio.gather(*[
-            society.tick_one_actor(drone.id)
-            for drone in drones
-        ])
-    
+        await asyncio.gather(*[society.tick_one_actor(drone.id) for drone in drones])
+
     # Mission should complete
     assert mission.status == "complete"
-    
+
     # Results should aggregate correctly
     results = coordinator.get_results(mission.mission_id)
     assert len(results["measurements"]) == 9  # 3x3 grid
@@ -515,29 +520,31 @@ spec:
 ```python
 # api/routes/missions.py
 
+
 @router.post("/missions")
 async def create_mission(mission_request: MissionRequest) -> MissionResponse:
     """Create and start a swarm mission"""
     coordinator = get_swarm_coordinator()
-    
+
     # Create mission
     mission = coordinator.create_mission(mission_request.dict())
-    
+
     # Assign tasks to drones
     coordinator.assign_tasks(mission.mission_id)
-    
+
     return MissionResponse(
         mission_id=mission.mission_id,
         status="assigned",
         drone_count=len(mission_request.drones),
     )
 
+
 @router.get("/missions/{mission_id}")
 async def get_mission_status(mission_id: str) -> MissionStatus:
     """Get mission status"""
     coordinator = get_swarm_coordinator()
     mission = coordinator.get_mission(mission_id)
-    
+
     return MissionStatus(
         mission_id=mission_id,
         status=mission.status,
@@ -557,30 +564,31 @@ async def get_mission_status(mission_id: str) -> MissionStatus:
 ```python
 # observability/swarm_observer.py
 
+
 class SwarmObserver:
     """
     Monitors swarm execution and logs events.
     """
-    
+
     def __init__(self, mission_id):
         self.mission_id = mission_id
         self.logger = logging.getLogger(f"swarm.{mission_id}")
-    
+
     def log_assignment(self, drone_id, task):
         self.logger.info(f"Assigned {task} to {drone_id}")
-    
+
     def log_task_start(self, drone_id, task):
         self.logger.info(f"Drone {drone_id} starting {task}")
-    
+
     def log_task_complete(self, drone_id, task, result):
         self.logger.info(f"Drone {drone_id} completed {task}: {result}")
-    
+
     def log_drone_failure(self, drone_id, error):
         self.logger.error(f"Drone {drone_id} failed: {error}")
-    
+
     def log_mission_complete(self, results):
         self.logger.info(f"Mission {self.mission_id} complete. Results: {results}")
-    
+
     def get_mission_trace(self):
         """Return full mission execution trace"""
         return {

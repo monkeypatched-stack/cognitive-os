@@ -7,24 +7,42 @@ wrinkle this step surfaced — that live composition alone never sees steps
 the scheduler SKIPPED (built directly, without calling dispatch()), while
 observe_all() correctly fills that gap without double-counting.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionStep, ExecutionPlan, ExecutionContext, ExecutionStatus,
-    ExecutionOutcome, ExecutionError, RetryPolicy, RetryStrategy,
+    ExecutionStep,
+    ExecutionPlan,
+    ExecutionContext,
+    ExecutionStatus,
+    ExecutionOutcome,
+    ExecutionError,
+    RetryPolicy,
+    RetryStrategy,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry, ExecutionCapability
-from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import ExecutionScheduler
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+    ExecutionCapability,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import (
+    ExecutionScheduler,
+)
 from src.monkey_brain.kernel.pipeline.execution_runtime.retry import RetryExecutor
 from src.monkey_brain.kernel.pipeline.execution_runtime.monitoring import (
-    TimelineEventType, TimelineEntry, ExecutionTimeline, ExecutionProgress, ExecutionMonitor,
+    TimelineEventType,
+    TimelineEntry,
+    ExecutionTimeline,
+    ExecutionProgress,
+    ExecutionMonitor,
 )
 
 
 def _step(
-    operator_name: str = "Navigate", dependencies: tuple[str, ...] = (),
-    retry_policy: RetryPolicy | None = None, **parameters,
+    operator_name: str = "Navigate",
+    dependencies: tuple[str, ...] = (),
+    retry_policy: RetryPolicy | None = None,
+    **parameters,
 ) -> ExecutionStep:
     # retry_policy is a real top-level ExecutionStep field, not an
     # operator parameter -- without pulling it out of **parameters here,
@@ -33,7 +51,11 @@ def _step(
     # leaving the step on RetryPolicy()'s default (strategy=NONE) and
     # making RetryExecutor give up after the first failure instead of
     # actually retrying.
-    kwargs = {"operator": PlanningOperator(name=operator_name), "dependencies": dependencies, "parameters": parameters}
+    kwargs = {
+        "operator": PlanningOperator(name=operator_name),
+        "dependencies": dependencies,
+        "parameters": parameters,
+    }
     if retry_policy is not None:
         kwargs["retry_policy"] = retry_policy
     return ExecutionStep(**kwargs)
@@ -54,7 +76,8 @@ class _FlakyHandler:
         self.calls += 1
         if self.calls <= self.fail_count:
             return ExecutionOutcome(
-                step_id=step.step_id, status=ExecutionStatus.FAILED,
+                step_id=step.step_id,
+                status=ExecutionStatus.FAILED,
                 error=ExecutionError(step_id=step.step_id, code="TRANSIENT", retryable=True),
             )
         return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.SUCCEEDED, output={"ok": True})
@@ -63,6 +86,7 @@ class _FlakyHandler:
 # ═══════════════════════════════════════════════════════════════════════════
 # Live composition — .dispatch()
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLiveComposition:
     def test_dispatch_returns_outcome_unchanged(self):
@@ -96,9 +120,14 @@ class TestLiveComposition:
         retry_executor = RetryExecutor(registry=registry, sleep_fn=lambda d: None)
         monitor = ExecutionMonitor(registry=retry_executor, total_steps=1)
 
-        step = _step("FlakyOp", retry_policy=RetryPolicy(
-            strategy=RetryStrategy.FIXED_DELAY, max_attempts=3, base_delay_seconds=0.0,
-        ))
+        step = _step(
+            "FlakyOp",
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_attempts=3,
+                base_delay_seconds=0.0,
+            ),
+        )
         outcome = monitor.dispatch(step, ExecutionContext())
 
         assert outcome.success is True
@@ -110,6 +139,7 @@ class TestLiveComposition:
 # Timeline
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestTimeline:
     def test_records_started_and_succeeded_events(self):
         monitor = ExecutionMonitor()
@@ -119,7 +149,10 @@ class TestTimeline:
         timeline = monitor.timeline()
 
         events = [e.event_type for e in timeline.events_for_step(step.step_id)]
-        assert events == [TimelineEventType.STEP_STARTED, TimelineEventType.STEP_SUCCEEDED]
+        assert events == [
+            TimelineEventType.STEP_STARTED,
+            TimelineEventType.STEP_SUCCEEDED,
+        ]
 
     def test_records_failed_event_with_error_detail(self):
         monitor = ExecutionMonitor()
@@ -153,6 +186,7 @@ class TestTimeline:
 # Progress
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestProgress:
     def test_percent_complete_and_is_complete(self):
         monitor = ExecutionMonitor(total_steps=2)
@@ -175,9 +209,7 @@ class TestProgress:
         monitor = ExecutionMonitor()
         monitor.dispatch(_step("Navigate", destination="store"), ExecutionContext())  # succeeds
         monitor.dispatch(_step("Navigate"), ExecutionContext())  # fails (no destination)
-        monitor.observe_all((
-            ExecutionOutcome(step_id="skipped-1", status=ExecutionStatus.SKIPPED),
-        ))
+        monitor.observe_all((ExecutionOutcome(step_id="skipped-1", status=ExecutionStatus.SKIPPED),))
 
         progress = monitor.progress()
         assert progress.succeeded_steps == 1
@@ -195,6 +227,7 @@ class TestProgress:
 # ═══════════════════════════════════════════════════════════════════════════
 # Metrics
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestMetrics:
     def test_metrics_reflect_outcomes(self):
@@ -215,9 +248,17 @@ class TestMetrics:
         retry_executor = RetryExecutor(registry=registry, sleep_fn=lambda d: None)
         monitor = ExecutionMonitor(registry=retry_executor)
 
-        monitor.dispatch(_step("FlakyOp", retry_policy=RetryPolicy(
-            strategy=RetryStrategy.FIXED_DELAY, max_attempts=3, base_delay_seconds=0.0,
-        )), ExecutionContext())
+        monitor.dispatch(
+            _step(
+                "FlakyOp",
+                retry_policy=RetryPolicy(
+                    strategy=RetryStrategy.FIXED_DELAY,
+                    max_attempts=3,
+                    base_delay_seconds=0.0,
+                ),
+            ),
+            ExecutionContext(),
+        )
 
         assert monitor.metrics().retried == 1
 
@@ -225,6 +266,7 @@ class TestMetrics:
 # ═══════════════════════════════════════════════════════════════════════════
 # The skip-visibility gap and observe_all()
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestObserveAll:
     def test_live_composition_alone_misses_skipped_steps(self):
@@ -271,10 +313,12 @@ class TestObserveAll:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_planning_engine_or_cognitive_runtime_coupling(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.execution_runtime.monitoring as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

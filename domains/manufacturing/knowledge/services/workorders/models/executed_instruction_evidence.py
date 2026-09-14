@@ -3,9 +3,12 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
-ExecutedInstructionEvidenceStatus = Literal["Draft", "Captured", "Verified", "Rejected", "Voided"]
-InstructionSourceRecordType = Literal["BMR", "BPR", "Cleaning", "Equipment", "Area", "Other"]
+ExecutedInstructionEvidenceStatus = Literal[
+    "Draft", "Captured", "Verified", "Rejected", "Voided"
+]
+InstructionSourceRecordType = Literal[
+    "BMR", "BPR", "Cleaning", "Equipment", "Area", "Other"
+]
 
 
 def utc_now() -> datetime:
@@ -68,24 +71,48 @@ class ExecutedInstructionEvidence(BaseModel):
         self.created_at = ensure_utc(self.created_at) or utc_now()
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
         if not self.batch_step_execution_id and not self.executed_bpr_step_id:
-            raise ValueError("executed instruction evidence must include batch_step_execution_id or executed_bpr_step_id.")
-        if self.verified_at and self.performed_at and self.verified_at < self.performed_at:
-            raise ValueError("verified_at cannot be before performed_at for executed instruction evidence.")
+            raise ValueError(
+                "executed instruction evidence must include batch_step_execution_id or executed_bpr_step_id."
+            )
+        if (
+            self.verified_at
+            and self.performed_at
+            and self.verified_at < self.performed_at
+        ):
+            raise ValueError(
+                "verified_at cannot be before performed_at for executed instruction evidence."
+            )
         if self.status in {"Captured", "Verified"}:
             if not self.source_record_id or not self.source_document_id:
-                raise ValueError("captured executed instruction evidence must include source_record_id and source_document_id.")
+                raise ValueError(
+                    "captured executed instruction evidence must include source_record_id and source_document_id."
+                )
             if not self.performed_by or not self.performed_at:
-                raise ValueError("captured executed instruction evidence must include performed_by and performed_at.")
+                raise ValueError(
+                    "captured executed instruction evidence must include performed_by and performed_at."
+                )
             if not self.actual_values:
-                raise ValueError("captured executed instruction evidence must include actual_values.")
+                raise ValueError(
+                    "captured executed instruction evidence must include actual_values."
+                )
             if not self.evidence_document_ids:
-                raise ValueError("captured executed instruction evidence must include evidence_document_ids.")
+                raise ValueError(
+                    "captured executed instruction evidence must include evidence_document_ids."
+                )
             if not self.signature_ids:
-                raise ValueError("captured executed instruction evidence must include signature_ids.")
+                raise ValueError(
+                    "captured executed instruction evidence must include signature_ids."
+                )
         if self.status == "Verified" and (not self.verified_by or not self.verified_at):
-            raise ValueError("verified executed instruction evidence must include verified_by and verified_at.")
-        if self.status == "Rejected" and not (self.exception_notes or self.deviation_id):
-            raise ValueError("rejected executed instruction evidence must include exception_notes or deviation_id.")
+            raise ValueError(
+                "verified executed instruction evidence must include verified_by and verified_at."
+            )
+        if self.status == "Rejected" and not (
+            self.exception_notes or self.deviation_id
+        ):
+            raise ValueError(
+                "rejected executed instruction evidence must include exception_notes or deviation_id."
+            )
         return self
 
 

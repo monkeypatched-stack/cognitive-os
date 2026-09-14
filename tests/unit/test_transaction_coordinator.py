@@ -19,6 +19,7 @@ that would otherwise need a live PlanetaryRuntime (society/affiliation
 resolution, actor ticking, LLM calls) with test-controlled scripts --
 the negotiation-loop control flow under test is exercised unmodified.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,7 +27,9 @@ import unittest
 from typing import Any
 
 from src.monkey_brain.kernel.society.transaction import (
-    NegotiationTrace, TransactionCoordinator, TransactionStatus,
+    NegotiationTrace,
+    TransactionCoordinator,
+    TransactionStatus,
 )
 
 
@@ -38,7 +41,10 @@ class _ScriptedCoordinator(TransactionCoordinator):
     """
 
     def __init__(
-        self, *, candidates: tuple[str, ...], traces: dict[str, Any],
+        self,
+        *,
+        candidates: tuple[str, ...],
+        traces: dict[str, Any],
         strategic_contexts: dict[str, dict] | None = None,
         decisions: dict[str, Any] | None = None,
         trust: dict[str, float] | None = None,
@@ -77,13 +83,23 @@ class _ScriptedCoordinator(TransactionCoordinator):
         return self._strategic_contexts.get(target_actor_id)
 
     async def _decide_next_action(
-        self, originating_actor_id, objective, prior_steps, last_target,
-        last_trace, remaining_candidates, strategic_context,
+        self,
+        originating_actor_id,
+        objective,
+        prior_steps,
+        last_target,
+        last_trace,
+        remaining_candidates,
+        strategic_context,
     ) -> dict[str, Any]:
         self.decide_calls += 1
         scripted = self._decisions.get(
             last_target,
-            {"next_action": "contact_another_affiliate", "reason": "default", "target_actor_id": None},
+            {
+                "next_action": "contact_another_affiliate",
+                "reason": "default",
+                "target_actor_id": None,
+            },
         )
         if isinstance(scripted, list):
             scripted = scripted.pop(0)
@@ -101,12 +117,20 @@ class _ScriptedCoordinator(TransactionCoordinator):
         pass
 
 
-def _run(coordinator: TransactionCoordinator, objective: str = "ask my roommate if we need to buy more milk", **kwargs):
+def _run(
+    coordinator: TransactionCoordinator,
+    objective: str = "ask my roommate if we need to buy more milk",
+    **kwargs,
+):
     return asyncio.run(coordinator.execute("originator", objective, **kwargs))
 
 
 def _achieved(actor_id: str) -> NegotiationTrace:
-    return NegotiationTrace(actor_id=actor_id, execution_outcome="goal_achieved", explanation=f"{actor_id} achieved it")
+    return NegotiationTrace(
+        actor_id=actor_id,
+        execution_outcome="goal_achieved",
+        explanation=f"{actor_id} achieved it",
+    )
 
 
 def _failed(actor_id: str) -> NegotiationTrace:
@@ -114,10 +138,18 @@ def _failed(actor_id: str) -> NegotiationTrace:
 
 
 def _ambiguous(actor_id: str) -> NegotiationTrace:
-    return NegotiationTrace(actor_id=actor_id, execution_outcome="acted", explanation=f"{actor_id} acted, unclear")
+    return NegotiationTrace(
+        actor_id=actor_id,
+        execution_outcome="acted",
+        explanation=f"{actor_id} acted, unclear",
+    )
 
 
-_CONTACT_ANOTHER = {"next_action": "contact_another_affiliate", "reason": "keep going", "target_actor_id": None}
+_CONTACT_ANOTHER = {
+    "next_action": "contact_another_affiliate",
+    "reason": "keep going",
+    "target_actor_id": None,
+}
 
 
 class TestFirstAffiliateSucceeds(unittest.TestCase):
@@ -146,7 +178,10 @@ class TestSecondAffiliateRequired(unittest.TestCase):
     def test_terminates_after_second_success(self):
         coordinator = _ScriptedCoordinator(
             candidates=("trader_joes", "safeway", "alice"),
-            traces={"trader_joes": _failed("trader_joes"), "safeway": _achieved("safeway")},
+            traces={
+                "trader_joes": _failed("trader_joes"),
+                "safeway": _achieved("safeway"),
+            },
             decisions={"trader_joes": dict(_CONTACT_ANOTHER)},
             trust={"trader_joes": 0.90, "safeway": 0.85, "alice": 0.80},
         )
@@ -217,7 +252,10 @@ class TestNashEquilibrium(unittest.TestCase):
             candidates=("trader_joes", "safeway", "alice"),
             traces={"trader_joes": _ambiguous("trader_joes")},
             strategic_contexts={
-                "trader_joes": {"suggested_action": "terminate_transaction", "equilibrium": True},
+                "trader_joes": {
+                    "suggested_action": "terminate_transaction",
+                    "equilibrium": True,
+                },
             },
             trust={"trader_joes": 0.90, "safeway": 0.85, "alice": 0.80},
         )
@@ -318,9 +356,9 @@ class TestPlannerReplanning(unittest.TestCase):
         result = _run(coordinator)
 
         self.assertEqual(
-            coordinator.contacted_log, ["a", "b"],
-            "planner should have re-ranked and picked 'b' (now trust 0.99), "
-            "not 'c' (a static list walk's next item)",
+            coordinator.contacted_log,
+            ["a", "b"],
+            "planner should have re-ranked and picked 'b' (now trust 0.99), not 'c' (a static list walk's next item)",
         )
         self.assertNotIn("c", coordinator.contacted_log)
         self.assertEqual(result.status, TransactionStatus.COMPLETED)
@@ -344,7 +382,10 @@ class TestEarlyTerminationRegression(unittest.TestCase):
             candidates=("trader_joes", "safeway", "alice"),
             traces={"trader_joes": _achieved("trader_joes")},
             strategic_contexts={
-                "trader_joes": {"suggested_action": "complete_objective", "equilibrium": True},
+                "trader_joes": {
+                    "suggested_action": "complete_objective",
+                    "equilibrium": True,
+                },
             },
             decisions={
                 "trader_joes": {

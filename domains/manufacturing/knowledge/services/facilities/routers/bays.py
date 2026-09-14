@@ -5,7 +5,12 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from services.common.db import get_database
 from services.common.auth import require_permission
-from services.facilities.helpers.locations import get_all_locations, update_location, delete_location, get_location_by_id
+from services.facilities.helpers.locations import (
+    get_all_locations,
+    update_location,
+    delete_location,
+    get_location_by_id,
+)
 from services.facilities.models.locations import LocationCreate, LocationUpdate
 
 router = APIRouter()
@@ -13,7 +18,9 @@ router = APIRouter()
 
 def _to_bay(doc: dict, parent_loc_id_map: dict[str, str] | None = None) -> dict:
     parent_id = doc.get("parent_id")
-    room_id = parent_loc_id_map.get(parent_id, parent_id) if parent_loc_id_map else parent_id
+    room_id = (
+        parent_loc_id_map.get(parent_id, parent_id) if parent_loc_id_map else parent_id
+    )
     return {
         "bay_id": doc.get("location_id") or doc.get("id"),
         "room_id": room_id,
@@ -28,7 +35,9 @@ async def list_bays(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-bays")),
 ):
-    locs, _ = await get_all_locations(db, page=page, page_size=page_size, location_type="bay")
+    locs, _ = await get_all_locations(
+        db, page=page, page_size=page_size, location_type="bay"
+    )
 
     parent_ids = {loc.get("parent_id") for loc in locs if loc.get("parent_id")}
     parent_loc_id_map: dict[str, str] = {}
@@ -47,9 +56,11 @@ async def create_bay(
     _: dict = Depends(require_permission("perm-create-bays")),
 ):
     from services.facilities.helpers.locations import create_location
+
     loc_data = LocationCreate(
         name=data["name"],
-        location_id=data.get("bay_id") or data.get("name", "").upper().replace(" ", "-"),
+        location_id=data.get("bay_id")
+        or data.get("name", "").upper().replace(" ", "-"),
         type="bay",
         level=5,
         path=data.get("path", data["name"]),

@@ -34,15 +34,15 @@ class ConditionOperator(str, Enum):
 
 
 class ConstraintType(str, Enum):
-    RESOURCE = "resource"            # e.g. "must not access DB during migration"
-    TEMPORAL = "temporal"            # e.g. "must not run between 09:00–17:00"
+    RESOURCE = "resource"  # e.g. "must not access DB during migration"
+    TEMPORAL = "temporal"  # e.g. "must not run between 09:00–17:00"
     ENVIRONMENTAL = "environmental"  # e.g. "must not run in production"
-    OPERATIONAL = "operational"      # e.g. "must not restart service X"
-    SECURITY = "security"            # e.g. "must not expose credentials"
-    CONCURRENCY = "concurrency"      # e.g. "only one instance may run at a time"
+    OPERATIONAL = "operational"  # e.g. "must not restart service X"
+    SECURITY = "security"  # e.g. "must not expose credentials"
+    CONCURRENCY = "concurrency"  # e.g. "only one instance may run at a time"
 
 
 class ActionType(str, Enum):
-    MANUAL = "manual"        # Human must perform
+    MANUAL = "manual"  # Human must perform
     AUTOMATED = "automated"  # System can execute automatically
-    HYBRID = "hybrid"        # Combination of both
+    HYBRID = "hybrid"  # Combination of both

@@ -6,22 +6,36 @@ module) is the actual behavioral contract, and resolve_policy() bridges
 between them. Three concrete strategies (reinforcement/passive/conservative)
 prove policies are genuinely pluggable, not one hardcoded pipeline.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningObservation, LearningOutcome, LearningPolicy, LearningResult,
+    LearningExperience,
+    LearningObservation,
+    LearningOutcome,
+    LearningPolicy,
+    LearningResult,
 )
 from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
 from src.monkey_brain.kernel.pipeline.learning.policies import (
-    ConservativeLearningPolicy, LearningPolicyEngine, PassiveLearningPolicy,
-    ReinforcementLearningPolicy, apply_learning_policy, resolve_policy,
+    ConservativeLearningPolicy,
+    LearningPolicyEngine,
+    PassiveLearningPolicy,
+    ReinforcementLearningPolicy,
+    apply_learning_policy,
+    resolve_policy,
 )
 
 
 def _milk_experience(duration_seconds: float = 360.0, confidence: float = 0.9) -> LearningExperience:
-    obs = LearningObservation(entity="Store A", attribute="stocks_whole_milk", value=True, confidence=confidence)
+    obs = LearningObservation(
+        entity="Store A",
+        attribute="stocks_whole_milk",
+        value=True,
+        confidence=confidence,
+    )
     outcome = LearningOutcome(goal_achieved=True, cost=0.0, duration_seconds=duration_seconds)
     return LearningExperience(outcome=outcome, observations=(obs,))
 
@@ -29,6 +43,7 @@ def _milk_experience(duration_seconds: float = 360.0, confidence: float = 0.9) -
 # ═══════════════════════════════════════════════════════════════════════════
 # Protocol conformance
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestProtocolConformance:
     def test_all_three_policies_satisfy_learning_policy_engine(self):
@@ -44,6 +59,7 @@ class TestProtocolConformance:
 # ═══════════════════════════════════════════════════════════════════════════
 # ReinforcementLearningPolicy — full pipeline every time
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestReinforcementLearningPolicy:
     def test_runs_the_full_reward_belief_world_pipeline(self):
@@ -89,6 +105,7 @@ class TestReinforcementLearningPolicy:
 # PassiveLearningPolicy — reward only, no belief/world influence
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPassiveLearningPolicy:
     def test_records_reward_without_updating_beliefs_or_world(self):
         experience = _milk_experience()
@@ -110,6 +127,7 @@ class TestPassiveLearningPolicy:
 # ConservativeLearningPolicy — threshold gating
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestConservativeLearningPolicy:
     def test_decisive_reward_triggers_updates(self):
         experience = _milk_experience()
@@ -125,7 +143,10 @@ class TestConservativeLearningPolicy:
         """Partial credit (base 0.3, |0.3-0.5|=0.2) is well under the
         default 0.3 threshold -- clearly ambiguous, not a boundary case."""
         obs = LearningObservation(entity="Store A", attribute="stocks_whole_milk", confidence=0.9)
-        experience = LearningExperience(outcome=LearningOutcome(goal_achieved=False, partial=True), observations=(obs,))
+        experience = LearningExperience(
+            outcome=LearningOutcome(goal_achieved=False, partial=True),
+            observations=(obs,),
+        )
 
         result = ConservativeLearningPolicy().learn(experience)
 
@@ -136,7 +157,10 @@ class TestConservativeLearningPolicy:
 
     def test_custom_threshold_changes_the_gate(self):
         obs = LearningObservation(entity="Store A", attribute="stocks_whole_milk", confidence=0.9)
-        experience = LearningExperience(outcome=LearningOutcome(goal_achieved=False, partial=True), observations=(obs,))
+        experience = LearningExperience(
+            outcome=LearningOutcome(goal_achieved=False, partial=True),
+            observations=(obs,),
+        )
 
         lenient = ConservativeLearningPolicy(confidence_threshold=0.1)
         result = lenient.learn(experience)
@@ -147,7 +171,10 @@ class TestConservativeLearningPolicy:
         """Reward is recorded even when no belief/world action is taken --
         conservatism withholds updates, not the historical record."""
         obs = LearningObservation(entity="Store A", attribute="stocks_whole_milk", confidence=0.9)
-        experience = LearningExperience(outcome=LearningOutcome(goal_achieved=False, partial=True), observations=(obs,))
+        experience = LearningExperience(
+            outcome=LearningOutcome(goal_achieved=False, partial=True),
+            observations=(obs,),
+        )
 
         result = ConservativeLearningPolicy().learn(experience)
 
@@ -157,6 +184,7 @@ class TestConservativeLearningPolicy:
 # ═══════════════════════════════════════════════════════════════════════════
 # resolve_policy — the LearningPolicy (data) -> LearningPolicyEngine bridge
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestResolvePolicy:
     def test_resolves_reinforcement_by_name(self):
@@ -197,6 +225,7 @@ class TestResolvePolicy:
 # apply_learning_policy — module-level convenience
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestApplyLearningPolicy:
     def test_matches_resolved_engine(self):
         experience = _milk_experience()
@@ -218,9 +247,11 @@ class TestApplyLearningPolicy:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -234,12 +265,19 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_runtime_coupling(self):
         import src.monkey_brain.kernel.pipeline.learning.policies as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "belief_state", "execution_state", "action_executor"):
+        for forbidden in (
+            "belief_runtime",
+            "belief_state",
+            "execution_state",
+            "action_executor",
+        ):
             assert forbidden not in imports, f"policies.py must not import: {forbidden}"
 
     def test_depends_only_on_learning_subpackage(self):
         import src.monkey_brain.kernel.pipeline.learning.policies as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

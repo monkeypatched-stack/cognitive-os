@@ -5,7 +5,10 @@ from typing import Any
 import httpx
 
 from services.common.n8n_auth import n8n_webhook_auth_headers
-from services.process_definitions.node_services.models import NodeExecutionResult, config_value
+from services.process_definitions.node_services.models import (
+    NodeExecutionResult,
+    config_value,
+)
 
 
 async def execute_webhook_node(
@@ -45,7 +48,11 @@ async def execute_webhook_node(
         return NodeExecutionResult(
             response.is_success,
             response.status_code,
-            {"status": "sent" if response.is_success else "failed", "provider": provider, "body": body},
+            {
+                "status": "sent" if response.is_success else "failed",
+                "provider": provider,
+                "body": body,
+            },
             None if response.is_success else response.text,
         )
     except httpx.HTTPError as exc:

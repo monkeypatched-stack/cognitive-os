@@ -4,6 +4,7 @@ Defines the contract that all runtimes must implement.
 Both CognitiveRuntime and SocietyRuntime depend on this abstraction,
 eliminating direct coupling.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -14,6 +15,7 @@ from dataclasses import dataclass
 @dataclass
 class RequestContext:
     """Context passed between runtimes."""
+
     request_id: str
     tenant_id: str = "default"
     metadata: dict[str, Any] | None = None
@@ -146,8 +148,7 @@ class RuntimeCoordinator(ABC):
     """
 
     @abstractmethod
-    async def coordinate(self, cognitive: CognitiveRuntimeInterface,
-                        society: SocietyRuntimeInterface) -> None:
+    async def coordinate(self, cognitive: CognitiveRuntimeInterface, society: SocietyRuntimeInterface) -> None:
         """Establish bidirectional coordination between runtimes.
 
         Args:

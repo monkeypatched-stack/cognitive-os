@@ -13,6 +13,7 @@ by a full return_order()/approve_return() cycle restores the product's
 quantity to precisely its starting value, plus the multi-item,
 stock-increment (not overwrite), and discontinued-product edge cases.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import (
@@ -26,7 +27,12 @@ from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
 def test_mb3028_restock_is_symmetric_with_a_real_purchase_decrement():
     kg = KnowledgeGraph()
-    kg.add_entity("wallet_1", EntityType.ACCOUNT, "Alice Wallet", {"account_type": "debit", "balance": 20.0})
+    kg.add_entity(
+        "wallet_1",
+        EntityType.ACCOUNT,
+        "Alice Wallet",
+        {"account_type": "debit", "balance": 20.0},
+    )
     kg.add_entity("prod_1", EntityType.ASSET, "Oat Milk", {"price": 4.5, "quantity": 10})
 
     # Real purchase path: reserve, then confirm — the actual stock
@@ -37,11 +43,19 @@ def test_mb3028_restock_is_symmetric_with_a_real_purchase_decrement():
     assert ok, msg
     assert kg.get_entity("prod_1").attributes["quantity"] == 7
 
-    kg.add_entity("ORD-1", EntityType.EVENT, "Grocery Order", {
-        "items": [{"product_id": "prod_1", "qty": 3}],
-        "total": 13.5, "status": "delivered",
-        "paid_wallet_id": "wallet_1", "paid_amount": 13.5, "payment_status": "paid",
-    })
+    kg.add_entity(
+        "ORD-1",
+        EntityType.EVENT,
+        "Grocery Order",
+        {
+            "items": [{"product_id": "prod_1", "qty": 3}],
+            "total": 13.5,
+            "status": "delivered",
+            "paid_wallet_id": "wallet_1",
+            "paid_amount": 13.5,
+            "payment_status": "paid",
+        },
+    )
 
     return_order(kg, "ORD-1", actor_id="alice")
     result = approve_return(kg, "ORD-1", approved_by="merchant")
@@ -52,14 +66,30 @@ def test_mb3028_restock_is_symmetric_with_a_real_purchase_decrement():
 
 def _seed_multi_item_order() -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity("wallet_1", EntityType.ACCOUNT, "Alice Wallet", {"account_type": "debit", "balance": 0.0})
+    kg.add_entity(
+        "wallet_1",
+        EntityType.ACCOUNT,
+        "Alice Wallet",
+        {"account_type": "debit", "balance": 0.0},
+    )
     kg.add_entity("prod_1", EntityType.ASSET, "Oat Milk", {"price": 4.5, "quantity": 5})
     kg.add_entity("prod_2", EntityType.ASSET, "Bread", {"price": 3.0, "quantity": 2})
-    kg.add_entity("ORD-1", EntityType.EVENT, "Grocery Order", {
-        "items": [{"product_id": "prod_1", "qty": 3}, {"product_id": "prod_2", "qty": 1}],
-        "total": 16.5, "status": "delivered",
-        "paid_wallet_id": "wallet_1", "paid_amount": 16.5, "payment_status": "paid",
-    })
+    kg.add_entity(
+        "ORD-1",
+        EntityType.EVENT,
+        "Grocery Order",
+        {
+            "items": [
+                {"product_id": "prod_1", "qty": 3},
+                {"product_id": "prod_2", "qty": 1},
+            ],
+            "total": 16.5,
+            "status": "delivered",
+            "paid_wallet_id": "wallet_1",
+            "paid_amount": 16.5,
+            "payment_status": "paid",
+        },
+    )
     return kg
 
 

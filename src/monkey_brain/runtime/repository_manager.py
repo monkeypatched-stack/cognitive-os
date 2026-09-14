@@ -6,6 +6,7 @@ The runtime calls only:
 The runtime never manipulates repositories directly.
 Repositories own persistence, CRUD, transactions, consistency.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,7 +16,8 @@ from pathlib import Path
 from typing import Any
 
 from src.monkey_brain.runtime.repository_operations import (
-    RepositoryOperation, OperationType,
+    RepositoryOperation,
+    OperationType,
 )
 
 logger = logging.getLogger("agentos.repository_manager")

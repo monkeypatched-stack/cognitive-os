@@ -1,4 +1,5 @@
 """Goal Router — maps a classified intent dict to a typed Goal object."""
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.plan.goals.goal import Goal, build_goal_from_question

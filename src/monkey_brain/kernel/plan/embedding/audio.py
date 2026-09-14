@@ -21,7 +21,11 @@ from typing import Any
 
 import numpy as np
 
-from src.monkey_brain.kernel.plan.embedding._utils import EMBEDDING_DIM, _l2, _bow_project
+from src.monkey_brain.kernel.plan.embedding._utils import (
+    EMBEDDING_DIM,
+    _l2,
+    _bow_project,
+)
 from src.monkey_brain.kernel.plan.embedding.provider import Embedding, EmbeddingEmbedder
 
 logger = logging.getLogger(__name__)
@@ -51,6 +55,7 @@ def _load_waveform(content: Any, target_sr: int = 16000) -> tuple[np.ndarray, in
         if sr != target_sr:
             try:
                 import resampy
+
                 waveform = resampy.resample(waveform, sr, target_sr)
             except ImportError:
                 logger.debug("resampy not available — using original sample rate %d", sr)
@@ -89,6 +94,7 @@ class WhisperAudioEmbedder(EmbeddingEmbedder):
     def _get_text_provider(self) -> EmbeddingEmbedder:
         if self._text_provider is None:
             from src.monkey_brain.kernel.plan.embedding.text import SBERTEmbedder
+
             self._text_provider = SBERTEmbedder()
         return self._text_provider
 
@@ -99,6 +105,7 @@ class WhisperAudioEmbedder(EmbeddingEmbedder):
 
     def _load(self) -> None:
         import whisper
+
         self._model = whisper.load_model(self._model_size)
 
     def embed(self, item: Any) -> Embedding:
@@ -169,8 +176,8 @@ class SpectralAudioEmbedder(EmbeddingEmbedder):
 
         # Duration and amplitude (slots 0-2)
         feat[0] = min(len(waveform) / sr, 300.0) / 300.0  # duration in seconds, capped at 5 min
-        feat[1] = float(np.sqrt(np.mean(waveform ** 2)))   # RMS energy
-        feat[2] = float(np.max(np.abs(waveform)))           # peak amplitude
+        feat[1] = float(np.sqrt(np.mean(waveform**2)))  # RMS energy
+        feat[2] = float(np.max(np.abs(waveform)))  # peak amplitude
 
         # Zero-crossing rate (slot 3)
         signs = np.sign(waveform[:-1]) != np.sign(waveform[1:])
@@ -185,15 +192,18 @@ class SpectralAudioEmbedder(EmbeddingEmbedder):
         """Approximate MFCCs using FFT + log-mel bins + DCT."""
         try:
             frame_len = min(int(0.025 * sr), len(waveform))  # 25 ms
-            hop = max(int(0.010 * sr), 1)                     # 10 ms
+            hop = max(int(0.010 * sr), 1)  # 10 ms
 
             # Frame the signal
             n_frames = max((len(waveform) - frame_len) // hop + 1, 1)
-            frames = np.array([
-                waveform[i * hop: i * hop + frame_len]
-                for i in range(n_frames)
-                if i * hop + frame_len <= len(waveform)
-            ], dtype=np.float32)
+            frames = np.array(
+                [
+                    waveform[i * hop : i * hop + frame_len]
+                    for i in range(n_frames)
+                    if i * hop + frame_len <= len(waveform)
+                ],
+                dtype=np.float32,
+            )
 
             if frames.size == 0:
                 return np.zeros(n_coeffs, dtype=np.float32)
@@ -208,10 +218,10 @@ class SpectralAudioEmbedder(EmbeddingEmbedder):
             # Bin into n_coeffs mel-like buckets (linear spacing as approximation)
             n_fft = log_spec.shape[0]
             bin_size = max(n_fft // n_coeffs, 1)
-            coeffs = np.array([
-                float(np.mean(log_spec[i * bin_size: (i + 1) * bin_size]))
-                for i in range(n_coeffs)
-            ], dtype=np.float32)
+            coeffs = np.array(
+                [float(np.mean(log_spec[i * bin_size : (i + 1) * bin_size])) for i in range(n_coeffs)],
+                dtype=np.float32,
+            )
 
             return _l2(coeffs)
 

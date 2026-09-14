@@ -3,6 +3,7 @@
 Each adapter connects to a specific database type and provides
 a uniform interface for entity resolution.
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,7 +25,9 @@ class RepositoryAdapter(ABC):
         ...
 
     @abstractmethod
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         """Query entities from this source."""
         ...
 
@@ -57,14 +60,30 @@ class PostgreSQLAdapter(RepositoryAdapter):
             logger.warning("[pg] Connect failed: %s", e)
             return False
 
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health(self) -> dict[str, Any]:
-        return {"status": "healthy" if self._connected else "disconnected", "type": self.db_type}
+        return {
+            "status": "healthy" if self._connected else "disconnected",
+            "type": self.db_type,
+        }
 
     def capabilities(self) -> list[str]:
-        return ["customer", "order", "invoice", "product", "employee", "account", "transaction", "payment", "shipment", "inventory"]
+        return [
+            "customer",
+            "order",
+            "invoice",
+            "product",
+            "employee",
+            "account",
+            "transaction",
+            "payment",
+            "shipment",
+            "inventory",
+        ]
 
 
 class MongoDBAdapter(RepositoryAdapter):
@@ -85,14 +104,29 @@ class MongoDBAdapter(RepositoryAdapter):
             logger.warning("[mongo] Connect failed: %s", e)
             return False
 
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health(self) -> dict[str, Any]:
-        return {"status": "healthy" if self._connected else "disconnected", "type": self.db_type}
+        return {
+            "status": "healthy" if self._connected else "disconnected",
+            "type": self.db_type,
+        }
 
     def capabilities(self) -> list[str]:
-        return ["customer", "order", "product", "session", "log", "event", "document", "catalog", "preference"]
+        return [
+            "customer",
+            "order",
+            "product",
+            "session",
+            "log",
+            "event",
+            "document",
+            "catalog",
+            "preference",
+        ]
 
 
 class Neo4jAdapter(RepositoryAdapter):
@@ -113,14 +147,29 @@ class Neo4jAdapter(RepositoryAdapter):
             logger.warning("[neo4j] Connect failed: %s", e)
             return False
 
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health(self) -> dict[str, Any]:
-        return {"status": "healthy" if self._connected else "disconnected", "type": self.db_type}
+        return {
+            "status": "healthy" if self._connected else "disconnected",
+            "type": self.db_type,
+        }
 
     def capabilities(self) -> list[str]:
-        return ["relationship", "graph", "path", "network", "dependency", "workflow", "route", "fleet", "mission"]
+        return [
+            "relationship",
+            "graph",
+            "path",
+            "network",
+            "dependency",
+            "workflow",
+            "route",
+            "fleet",
+            "mission",
+        ]
 
 
 class RedisAdapter(RepositoryAdapter):
@@ -141,11 +190,16 @@ class RedisAdapter(RepositoryAdapter):
             logger.warning("[redis] Connect failed: %s", e)
             return False
 
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health(self) -> dict[str, Any]:
-        return {"status": "healthy" if self._connected else "disconnected", "type": self.db_type}
+        return {
+            "status": "healthy" if self._connected else "disconnected",
+            "type": self.db_type,
+        }
 
     def capabilities(self) -> list[str]:
         return ["session", "cache", "token", "rate_limit", "queue", "real_time"]
@@ -169,14 +223,28 @@ class InfluxDBAdapter(RepositoryAdapter):
             logger.warning("[influx] Connect failed: %s", e)
             return False
 
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health(self) -> dict[str, Any]:
-        return {"status": "healthy" if self._connected else "disconnected", "type": self.db_type}
+        return {
+            "status": "healthy" if self._connected else "disconnected",
+            "type": self.db_type,
+        }
 
     def capabilities(self) -> list[str]:
-        return ["telemetry", "metrics", "sensor", "time_series", "monitoring", "alert", "grid", "network_stats"]
+        return [
+            "telemetry",
+            "metrics",
+            "sensor",
+            "time_series",
+            "monitoring",
+            "alert",
+            "grid",
+            "network_stats",
+        ]
 
 
 class ElasticsearchAdapter(RepositoryAdapter):
@@ -197,14 +265,28 @@ class ElasticsearchAdapter(RepositoryAdapter):
             logger.warning("[es] Connect failed: %s", e)
             return False
 
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health(self) -> dict[str, Any]:
-        return {"status": "healthy" if self._connected else "disconnected", "type": self.db_type}
+        return {
+            "status": "healthy" if self._connected else "disconnected",
+            "type": self.db_type,
+        }
 
     def capabilities(self) -> list[str]:
-        return ["log", "audit", "search", "full_text", "analytics", "trace", "incident", "ticket"]
+        return [
+            "log",
+            "audit",
+            "search",
+            "full_text",
+            "analytics",
+            "trace",
+            "incident",
+            "ticket",
+        ]
 
 
 class SQLiteAdapter(RepositoryAdapter):
@@ -225,11 +307,16 @@ class SQLiteAdapter(RepositoryAdapter):
             logger.warning("[sqlite] Connect failed: %s", e)
             return False
 
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health(self) -> dict[str, Any]:
-        return {"status": "healthy" if self._connected else "disconnected", "type": self.db_type}
+        return {
+            "status": "healthy" if self._connected else "disconnected",
+            "type": self.db_type,
+        }
 
     def capabilities(self) -> list[str]:
         return ["config", "local_state", "cache", "metadata"]
@@ -253,14 +340,27 @@ class MySQLAdapter(RepositoryAdapter):
             logger.warning("[mysql] Connect failed: %s", e)
             return False
 
-    async def query(self, entity: str, entity_id: str | None = None, filters: dict | None = None) -> list[dict[str, Any]]:
+    async def query(
+        self, entity: str, entity_id: str | None = None, filters: dict | None = None
+    ) -> list[dict[str, Any]]:
         return []
 
     async def health(self) -> dict[str, Any]:
-        return {"status": "healthy" if self._connected else "disconnected", "type": self.db_type}
+        return {
+            "status": "healthy" if self._connected else "disconnected",
+            "type": self.db_type,
+        }
 
     def capabilities(self) -> list[str]:
-        return ["customer", "order", "product", "inventory", "shipment", "invoice", "employee"]
+        return [
+            "customer",
+            "order",
+            "product",
+            "inventory",
+            "shipment",
+            "invoice",
+            "employee",
+        ]
 
 
 ADAPTER_REGISTRY: dict[str, type[RepositoryAdapter]] = {

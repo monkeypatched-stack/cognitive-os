@@ -4,6 +4,7 @@ build_learning_trace() / learn_with_trace() are pure functions over
 (LearningExperience, LearningPolicy) — no CognitiveState, no mocking,
 mirroring Step 9.8's ExecutionTrace tests exactly in shape.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,13 +12,23 @@ import json
 import pytest
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningObservation, LearningOutcome, LearningPolicy, Provenance,
+    LearningExperience,
+    LearningObservation,
+    LearningOutcome,
+    LearningPolicy,
+    Provenance,
 )
 from src.monkey_brain.kernel.pipeline.learning.reward import ExperienceRewardEngine
-from src.monkey_brain.kernel.pipeline.learning.policies import ReinforcementLearningPolicy, resolve_policy
+from src.monkey_brain.kernel.pipeline.learning.policies import (
+    ReinforcementLearningPolicy,
+    resolve_policy,
+)
 from src.monkey_brain.kernel.pipeline.learning.phi import PhiCompiler
 from src.monkey_brain.kernel.pipeline.learning.trace import (
-    LearningTrace, LearningTraceStage, build_learning_trace, learn_with_trace,
+    LearningTrace,
+    LearningTraceStage,
+    build_learning_trace,
+    learn_with_trace,
 )
 
 
@@ -26,14 +37,18 @@ def _milk_experience() -> LearningExperience:
     outcome = LearningOutcome(goal_achieved=True, cost=0.0, duration_seconds=360.0)
     provenance = Provenance(actor_id="alice", tenant_id="acme", run_id="run-001")
     return LearningExperience(
-        goal="acquire_milk", outcome=outcome, observations=(obs,),
-        provenance=provenance, metadata={"goal_name": "acquire_milk"},
+        goal="acquire_milk",
+        outcome=outcome,
+        observations=(obs,),
+        provenance=provenance,
+        metadata={"goal_name": "acquire_milk"},
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Acceptance-criteria scenario
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAcceptanceScenario:
     def test_reproduces_the_acceptance_criteria_flow(self):
@@ -42,7 +57,9 @@ class TestAcceptanceScenario:
         Compilation -> Learning Trace' from Step 10's own acceptance
         criteria, reproduced almost verbatim by the real narrative."""
         experience = _milk_experience()
-        result = ReinforcementLearningPolicy(reward_engine=ExperienceRewardEngine(duration_budget_seconds=900.0)).learn(experience)
+        result = ReinforcementLearningPolicy(reward_engine=ExperienceRewardEngine(duration_budget_seconds=900.0)).learn(
+            experience
+        )
         trace = build_learning_trace(experience, LearningPolicy(strategy="reinforcement"), result=result)
 
         narrative = trace.explain()
@@ -63,8 +80,12 @@ class TestAcceptanceScenario:
     def test_stage_names_and_order(self):
         trace = learn_with_trace(_milk_experience())
         assert [s.name for s in trace.stages] == [
-            "Experience Capture", "Reward Evaluation", "Belief Update",
-            "World Model Update", "Learning Policy", "Φ Compilation",
+            "Experience Capture",
+            "Reward Evaluation",
+            "Belief Update",
+            "World Model Update",
+            "Learning Policy",
+            "Φ Compilation",
         ]
 
 
@@ -72,11 +93,13 @@ class TestAcceptanceScenario:
 # Ambiguous / no-op stages explain themselves
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNoOpStagesAreExplained:
     def test_conservative_ambiguous_reward_explains_why_belief_was_skipped(self):
         obs = LearningObservation(entity="Store A", attribute="stocks_whole_milk", confidence=0.9)
         experience = LearningExperience(
-            outcome=LearningOutcome(goal_achieved=False, partial=True), observations=(obs,),
+            outcome=LearningOutcome(goal_achieved=False, partial=True),
+            observations=(obs,),
             metadata={"goal_name": "acquire_milk"},
         )
 
@@ -99,6 +122,7 @@ class TestNoOpStagesAreExplained:
 # Reusing precomputed result/phi (no double computation)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestAvoidsRecomputation:
     def test_precomputed_result_and_phi_are_reused_not_recomputed(self):
         experience = _milk_experience()
@@ -119,6 +143,7 @@ class TestAvoidsRecomputation:
 # ═══════════════════════════════════════════════════════════════════════════
 # to_dict — serialization
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestToDict:
     def test_json_serializable(self):
@@ -147,15 +172,18 @@ class TestToDict:
 # LearningTrace / LearningTraceStage — immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestImmutability:
     def test_trace_frozen(self):
         from dataclasses import FrozenInstanceError
+
         trace = LearningTrace()
         with pytest.raises(FrozenInstanceError):
             trace.narrative = "x"
 
     def test_stage_frozen(self):
         from dataclasses import FrozenInstanceError
+
         stage = LearningTraceStage()
         with pytest.raises(FrozenInstanceError):
             stage.summary = "x"
@@ -168,9 +196,11 @@ class TestImmutability:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -184,12 +214,19 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_runtime_coupling(self):
         import src.monkey_brain.kernel.pipeline.learning.trace as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "belief_state", "execution_state", "action_executor"):
+        for forbidden in (
+            "belief_runtime",
+            "belief_state",
+            "execution_state",
+            "action_executor",
+        ):
             assert forbidden not in imports, f"trace.py must not import: {forbidden}"
 
     def test_depends_only_on_learning_subpackage(self):
         import src.monkey_brain.kernel.pipeline.learning.trace as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

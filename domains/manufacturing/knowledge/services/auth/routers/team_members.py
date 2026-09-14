@@ -13,7 +13,6 @@ from services.auth.models.teamMembers import (
 
 from services.auth.helpers import team_members as crud
 
-
 router = APIRouter()
 
 
@@ -26,7 +25,6 @@ async def list_team_members(
     search: str | None = Query(None),
     is_active: bool | None = Query(None),
     sort_desc: bool = Query(False),
-
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-teams")),  # reuse same permission
 ):
@@ -76,12 +74,18 @@ async def get_member(
 
 
 # ── Add member ───────────────────────────────────────────────────────────────
-@router.post("/teams/{team_id}/", response_model=TeamMemberResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/teams/{team_id}/",
+    response_model=TeamMemberResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_member(
     team_id: str,
     data: TeamMemberCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    _: dict = Depends(require_permission("perm-update-teams")),  # adding = modifying team
+    _: dict = Depends(
+        require_permission("perm-update-teams")
+    ),  # adding = modifying team
 ):
     # prevent duplicate
     existing = await crud.get_member(db, team_id, data.user_id)

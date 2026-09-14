@@ -17,6 +17,7 @@ Usage:
         longitude=-74.0060,
     )
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,6 +31,7 @@ logger = logging.getLogger("agentos.location")
 @dataclass
 class Coordinates:
     """Geographic coordinates."""
+
     latitude: float = 0.0
     longitude: float = 0.0
     altitude: float = 0.0
@@ -76,6 +78,7 @@ class Location:
         last_updated: Last location update timestamp
         metadata: Additional custom fields
     """
+
     country: str = ""
     country_code: str = ""
     state: str = ""

@@ -24,7 +24,9 @@ async def list_checklists(
     _: dict = Depends(require_permission("perm-view-checklists")),
 ):
     checklists, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedChecklistResponse(total=total, page=page, page_size=page_size, results=checklists)
+    return PaginatedChecklistResponse(
+        total=total, page=page, page_size=page_size, results=checklists
+    )
 
 
 @router.get("/by-owner/{owner_id}", response_model=list[ChecklistResponse])
@@ -45,7 +47,10 @@ async def list_checklists_by_work_order(
     return await crud.get_by_work_order(db, work_order_id)
 
 
-@router.get("/by-process_definition/{process_definition_id}", response_model=list[ChecklistResponse])
+@router.get(
+    "/by-process_definition/{process_definition_id}",
+    response_model=list[ChecklistResponse],
+)
 async def list_checklists_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -96,7 +101,10 @@ async def get_checklist(
 ):
     record = await crud.get_by_id(db, checklist_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Checklist '{checklist_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist '{checklist_id}' not found",
+        )
     return record
 
 
@@ -107,7 +115,10 @@ async def create_checklist(
     _: dict = Depends(require_permission("perm-create-checklists")),
 ):
     if await crud.get_by_id(db, data.checklist_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Checklist '{data.checklist_id}' already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Checklist '{data.checklist_id}' already exists",
+        )
     return await crud.create(db, data)
 
 
@@ -120,11 +131,18 @@ async def update_checklist(
 ):
     updated = await crud.update(db, checklist_id, data)
     if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Checklist '{checklist_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist '{checklist_id}' not found",
+        )
     return updated
 
 
-@router.post("/{checklist_id}/items", response_model=ChecklistResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{checklist_id}/items",
+    response_model=ChecklistResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_checklist_item(
     checklist_id: str,
     data: ChecklistItemCreate,
@@ -133,7 +151,10 @@ async def add_checklist_item(
 ):
     updated = await crud.add_item(db, checklist_id, data)
     if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Checklist '{checklist_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist '{checklist_id}' not found",
+        )
     return updated
 
 
@@ -147,11 +168,16 @@ async def update_checklist_item(
 ):
     updated = await crud.update_item(db, checklist_id, item_id, data)
     if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Checklist item '{item_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist item '{item_id}' not found",
+        )
     return updated
 
 
-@router.patch("/{checklist_id}/items/{item_id}/completed", response_model=ChecklistResponse)
+@router.patch(
+    "/{checklist_id}/items/{item_id}/completed", response_model=ChecklistResponse
+)
 async def set_checklist_item_completed(
     checklist_id: str,
     item_id: str,
@@ -161,7 +187,10 @@ async def set_checklist_item_completed(
 ):
     updated = await crud.set_item_completed(db, checklist_id, item_id, value)
     if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Checklist item '{item_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist item '{item_id}' not found",
+        )
     return updated
 
 
@@ -174,7 +203,10 @@ async def remove_checklist_item(
 ):
     updated = await crud.remove_item(db, checklist_id, item_id)
     if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Checklist '{checklist_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist '{checklist_id}' not found",
+        )
     return updated
 
 
@@ -185,4 +217,7 @@ async def delete_checklist(
     _: dict = Depends(require_permission("perm-delete-checklists")),
 ):
     if not await crud.delete(db, checklist_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Checklist '{checklist_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist '{checklist_id}' not found",
+        )

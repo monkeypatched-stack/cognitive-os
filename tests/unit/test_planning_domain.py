@@ -3,6 +3,7 @@
 Validates construction, defaults, and immutability for all 8 planning domain
 types. These are pure data objects — no algorithm, no mocking needed.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -20,10 +21,10 @@ from src.monkey_brain.kernel.pipeline.planning import (
     PlanningContext,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Goal
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestGoal:
     def test_construction_minimal(self):
@@ -60,6 +61,7 @@ class TestGoal:
 # SubGoal
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestSubGoal:
     def test_construction(self):
         parent = Goal(name="prepare_breakfast")
@@ -86,6 +88,7 @@ class TestSubGoal:
 # ═══════════════════════════════════════════════════════════════════════════
 # PlanningOperator
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPlanningOperator:
     def test_construction(self):
@@ -124,6 +127,7 @@ class TestPlanningOperator:
 # PlanningConstraint
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPlanningConstraint:
     def test_construction(self):
         c = PlanningConstraint(
@@ -151,6 +155,7 @@ class TestPlanningConstraint:
 # PlanStep
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPlanStep:
     def test_construction_without_operator(self):
         step = PlanStep(sequence=0, description="Walk to store")
@@ -173,6 +178,7 @@ class TestPlanStep:
 # ═══════════════════════════════════════════════════════════════════════════
 # Plan
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPlan:
     def test_construction_minimal(self):
@@ -222,6 +228,7 @@ class TestPlan:
 # PlanCandidate
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPlanCandidate:
     def test_construction_unscored(self):
         plan = Plan(goal=Goal(name="acquire_milk"))
@@ -247,6 +254,7 @@ class TestPlanCandidate:
 # ═══════════════════════════════════════════════════════════════════════════
 # PlanningContext
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPlanningContext:
     def test_composes_operators_and_constraints(self):
@@ -284,12 +292,14 @@ class TestPlanningContext:
 # Ownership boundary — model-only, no coupling to runtime/execution
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_runtime_or_execution_imports(self):
         """domain.py must not import CognitiveRuntime or ExecutionEngine — Step 8.1
         is model-only; those stay untouched until Step 8.7."""
         import inspect
         import src.monkey_brain.kernel.pipeline.planning.domain as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

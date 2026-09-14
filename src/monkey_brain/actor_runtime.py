@@ -85,6 +85,7 @@ execution (real capability calls) never begins before this sequence
 completes, because it never begins before the Actor reaches ACTIVE via
 the same governed reconcile()/tick_one_actor() path the cloud API uses.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -166,6 +167,7 @@ Bump when this module's own startup/health/shutdown behavior changes."""
 
 # ── Configuration ────────────────────────────────────────────────────────
 
+
 @dataclass
 class ActorRuntimeConfig:
     actor_id: str
@@ -220,7 +222,9 @@ class ActorRuntimeConfig:
             node_capabilities=node_capabilities,
             node_region=str(_get("ACTOR_NODE_REGION", "node_region", "") or ""),
             artifact_version=str(_get("ACTOR_ARTIFACT_VERSION", "artifact_version", "") or ""),
-            runtime_version=str(_get("ACTOR_RUNTIME_VERSION", "runtime_version", ACTOR_RUNTIME_VERSION) or ACTOR_RUNTIME_VERSION),
+            runtime_version=str(
+                _get("ACTOR_RUNTIME_VERSION", "runtime_version", ACTOR_RUNTIME_VERSION) or ACTOR_RUNTIME_VERSION
+            ),
             claim_placement=_truthy(_get("ACTOR_CLAIM_PLACEMENT", "claim_placement", False)),
             bootstrap_if_missing=_truthy(_get("ACTOR_BOOTSTRAP_IF_MISSING", "bootstrap_if_missing", False)),
             tick_interval=float(_get("ACTOR_TICK_INTERVAL", "tick_interval", 300.0)),
@@ -244,20 +248,31 @@ def _load_config_file(path: str) -> dict[str, Any]:
         with open(path, "r") as f:
             text = f.read()
     except OSError as exc:
-        logger.warning("ActorRuntimeConfig: could not read --config %r (%s) — using env vars/defaults only", path, exc)
+        logger.warning(
+            "ActorRuntimeConfig: could not read --config %r (%s) — using env vars/defaults only",
+            path,
+            exc,
+        )
         return {}
     try:
         if path.endswith((".yaml", ".yml")):
             import yaml
+
             return yaml.safe_load(text) or {}
         import json
+
         return json.loads(text) or {}
     except Exception as exc:
-        logger.warning("ActorRuntimeConfig: could not parse --config %r (%s) — using env vars/defaults only", path, exc)
+        logger.warning(
+            "ActorRuntimeConfig: could not parse --config %r (%s) — using env vars/defaults only",
+            path,
+            exc,
+        )
         return {}
 
 
 # ── Readiness states (Section 21: process-alive != Actor-ready) ─────────
+
 
 class ReadinessState:
     STARTING = "STARTING"
@@ -286,6 +301,7 @@ class ReadinessState:
 
 # ── Runtime state ─────────────────────────────────────────────────────────
 
+
 class ActorRuntime:
     """Owns exactly the process-lifecycle concerns (Section 16: Actor
     Binary vs. Actor Runtime Infrastructure) — construction, startup,
@@ -313,6 +329,7 @@ class ActorRuntime:
         # kernel/actor_identity.py. Never persisted: a Cell restart just
         # re-minted this from scratch, which is the desired behavior.
         from src.monkey_brain.kernel.actor_identity import ActorCellIdentityCache
+
         self.cell_identity = ActorCellIdentityCache(actor_id=config.actor_id)
         # Actor Cell -> ROS Adapter binding (docs/ACTOR_CELL_ARCHITECTURE.md
         # Section I/3): built in start() below, only for a node_class=robot
@@ -351,6 +368,7 @@ class ActorRuntime:
             self.planetary_runtime = self._planetary_runtime_factory()
         else:
             from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
+
             self.planetary_runtime = PlanetaryRuntime()
         pr = self.planetary_runtime
 
@@ -368,14 +386,20 @@ class ActorRuntime:
             self._bootstrap_actor()
 
         from src.monkey_brain.kernel.society.actor_scheduler import NodeClass
+
         try:
             node_class = NodeClass(self.config.node_class)
         except ValueError:
-            logger.warning("Unknown ACTOR_NODE_CLASS %r, defaulting to cloud", self.config.node_class)
+            logger.warning(
+                "Unknown ACTOR_NODE_CLASS %r, defaulting to cloud",
+                self.config.node_class,
+            )
             node_class = NodeClass.CLOUD
         pr.register_self_as_node(
-            node_class=node_class, capacity=self.config.node_capacity,
-            capabilities=self.config.node_capabilities, region=self.config.node_region,
+            node_class=node_class,
+            capacity=self.config.node_capacity,
+            capabilities=self.config.node_capabilities,
+            region=self.config.node_region,
         )
 
         if node_class == NodeClass.ROBOT:
@@ -398,10 +422,14 @@ class ActorRuntime:
             # available yet (e.g. bringing up the Pod before its px4-sitl
             # sidecar is ready) can still opt back into the old
             # never-fails behavior by setting ROS_REQUIRE_REAL=false.
-            from src.monkey_brain.kernel.edge.ros_integration import build_ros_execution_adapter
+            from src.monkey_brain.kernel.edge.ros_integration import (
+                build_ros_execution_adapter,
+            )
+
             require_real = os.getenv("ROS_REQUIRE_REAL", "true").strip().lower() not in ("false", "0", "no")
             self.ros_adapter = build_ros_execution_adapter(
-                actor_id=self.config.actor_id, require_real=require_real,
+                actor_id=self.config.actor_id,
+                require_real=require_real,
             )
 
         if self.config.claim_placement:
@@ -440,23 +468,34 @@ class ActorRuntime:
             except Exception:
                 logger.debug(
                     "ActorRuntime.start: ROS adapter attachment to ActorCell skipped for %s (non-fatal)",
-                    self.config.actor_id, exc_info=True,
+                    self.config.actor_id,
+                    exc_info=True,
                 )
 
         if self.state == ReadinessState.READY:
             pr.start_auto_tick(interval_seconds=self.config.tick_interval)
 
     def _bootstrap_actor(self) -> None:
-        from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+        from src.monkey_brain.kernel.society.domain import (
+            ActorProfile,
+            ActorIdentity,
+            ActorType,
+        )
+
         logger.warning(
             "ACTOR_BOOTSTRAP_IF_MISSING=true: registering a NEW actor_id "
             "for %r (dev/test convenience — never use in a real deployment "
-            "expecting a pre-existing Actor identity)", self.config.actor_id,
+            "expecting a pre-existing Actor identity)",
+            self.config.actor_id,
         )
         self.planetary_runtime.register_actor(
-            ActorProfile(identity=ActorIdentity(
-                actor_id=self.config.actor_id, name=self.config.actor_id, actor_type=ActorType.AI_AGENT,
-            )),
+            ActorProfile(
+                identity=ActorIdentity(
+                    actor_id=self.config.actor_id,
+                    name=self.config.actor_id,
+                    actor_type=ActorType.AI_AGENT,
+                )
+            ),
         )
 
     async def _reconcile_until_settled(self, *, max_attempts: int = 3, delay_seconds: float = 1.0) -> None:
@@ -471,28 +510,46 @@ class ActorRuntime:
         for attempt in range(max_attempts):
             result = pr.lifecycle.reconcile(self.config.actor_id)
             if result.action == "unschedulable":
-                self.state, self.state_reason = ReadinessState.UNSCHEDULABLE, result.reason
+                self.state, self.state_reason = (
+                    ReadinessState.UNSCHEDULABLE,
+                    result.reason,
+                )
                 return
             if result.action == "scheduled_elsewhere":
-                self.state, self.state_reason = ReadinessState.SCHEDULED_ELSEWHERE, result.reason
+                self.state, self.state_reason = (
+                    ReadinessState.SCHEDULED_ELSEWHERE,
+                    result.reason,
+                )
                 return
             if result.action in ("start", "resume", "recover", "none") and result.succeeded:
                 observed = pr.observe_actor(self.config.actor_id)
-                if observed.resident_here and observed.status in ("active", "initialized"):
+                if observed.resident_here and observed.status in (
+                    "active",
+                    "initialized",
+                ):
                     self.state = ReadinessState.READY
                     self.ready_since = time.time()
                     self.state_reason = ""
                     return
             if result.action == "skipped_lease_held":
-                self.state, self.state_reason = ReadinessState.RESTORING, "lease held elsewhere, retrying"
+                self.state, self.state_reason = (
+                    ReadinessState.RESTORING,
+                    "lease held elsewhere, retrying",
+                )
                 await asyncio.sleep(delay_seconds)
                 continue
-            self.state, self.state_reason = ReadinessState.RESTORING, f"last action={result.action!r} succeeded={result.succeeded!r}"
+            self.state, self.state_reason = (
+                ReadinessState.RESTORING,
+                f"last action={result.action!r} succeeded={result.succeeded!r}",
+            )
             await asyncio.sleep(delay_seconds)
         logger.warning(
             "Actor %r did not reach READY within %d startup attempts (state=%s, reason=%s) — "
             "the background reconciliation loop will keep retrying",
-            self.config.actor_id, max_attempts, self.state, self.state_reason,
+            self.config.actor_id,
+            max_attempts,
+            self.state,
+            self.state_reason,
         )
 
     async def shutdown(self) -> None:
@@ -510,7 +567,10 @@ class ActorRuntime:
         try:
             await pr.stop_actor_lifecycle_reconciliation()
         except Exception as exc:
-            logger.warning("stop_actor_lifecycle_reconciliation() failed during shutdown (non-fatal): %s", exc)
+            logger.warning(
+                "stop_actor_lifecycle_reconciliation() failed during shutdown (non-fatal): %s",
+                exc,
+            )
         try:
             pr.checkpoint_actor_belief(self.config.actor_id)
         except Exception as exc:
@@ -548,11 +608,17 @@ class ActorRuntime:
             "ready": live_state == ReadinessState.READY,
             "ready_since": self.ready_since,
             "last_reconcile_state": self.state,
-            "observed": None if observed is None else {
-                "exists": observed.exists, "status": observed.status,
-                "node_id": observed.node_id, "resident_here": observed.resident_here,
-                "desired_node_id": observed.desired_node_id,
-            },
+            "observed": (
+                None
+                if observed is None
+                else {
+                    "exists": observed.exists,
+                    "status": observed.status,
+                    "node_id": observed.node_id,
+                    "resident_here": observed.resident_here,
+                    "desired_node_id": observed.desired_node_id,
+                }
+            ),
             **self.artifact_info(),
         }
 
@@ -595,11 +661,15 @@ class ActorRuntime:
             # longer supports that (e.g. suspended/migrated elsewhere
             # for a reason not already covered above) -- never keep
             # reporting a cached READY once it's demonstrably stale.
-            return ReadinessState.RESTORING, "no longer resident/active here — awaiting reconciliation"
+            return (
+                ReadinessState.RESTORING,
+                "no longer resident/active here — awaiting reconciliation",
+            )
         return self.state, self.state_reason
 
 
 # ── ASGI app (uvicorn src.monkey_brain.actor_runtime:app) ────────────────
+
 
 def _build_app() -> Any:
     from fastapi import FastAPI
@@ -634,6 +704,7 @@ def _build_app() -> Any:
     @fastapi_app.get("/ready")
     async def ready() -> Any:
         from fastapi import Response
+
         runtime = _runtime()
         # Conformance-run finding (live Kubernetes readinessProbe test):
         # this MUST gate on body["ready"] (the freshly live-recomputed
@@ -679,8 +750,11 @@ def _build_app() -> Any:
         from src.monkey_brain.api.routes.actors import run_actor_tick
         from src.monkey_brain.kernel.security_boundary import ensure_governed
         from src.monkey_brain.kernel.trusted_auth import (
-            bind_trusted_auth, evidence_for_service, evidence_from_spiffe,
-            get_trusted_auth, unauthenticated_evidence,
+            bind_trusted_auth,
+            evidence_for_service,
+            evidence_from_spiffe,
+            get_trusted_auth,
+            unauthenticated_evidence,
         )
         from src.monkey_brain.kernel.actor_identity import ActorIdentityError
 
@@ -706,7 +780,9 @@ def _build_app() -> Any:
         # in production / when explicitly required (Non-negotiable #12:
         # unknown/unauthenticated workload identity must not communicate
         # in production).
-        from src.monkey_brain.kernel.workload_identity import get_workload_identity_provider
+        from src.monkey_brain.kernel.workload_identity import (
+            get_workload_identity_provider,
+        )
         from src.monkey_brain.kernel.production_gates import production_mode_enabled
         import os as _os
 
@@ -714,7 +790,8 @@ def _build_app() -> Any:
         if identity is not None:
             bind_trusted_auth(evidence_from_spiffe(identity))
         elif production_mode_enabled() or _os.getenv(
-            "COGNITIVEOS_REQUIRE_SPIFFE_AGENT_IDENTITY", "",
+            "COGNITIVEOS_REQUIRE_SPIFFE_AGENT_IDENTITY",
+            "",
         ).strip().lower() in ("true", "1", "yes", "on"):
             bind_trusted_auth(unauthenticated_evidence())
             raise HTTPException(
@@ -770,7 +847,11 @@ def _build_app() -> Any:
         talking to the Pod that already legitimately holds it.
         """
         from src.monkey_brain.api.internal_auth import require_internal_service_token
-        from src.monkey_brain.kernel.trusted_auth import bind_trusted_auth, evidence_for_service, get_trusted_auth
+        from src.monkey_brain.kernel.trusted_auth import (
+            bind_trusted_auth,
+            evidence_for_service,
+            get_trusted_auth,
+        )
         from src.monkey_brain.kernel.actor_identity import ActorIdentityError
 
         require_internal_service_token(request)
@@ -811,8 +892,10 @@ def _build_app() -> Any:
             fallback_space = next(iter(pr._geo_registry.all(GeographicEntityType.SPACE)), None)
             if fallback_space is not None:
                 pr.move_actor(
-                    actor_id, fallback_space.entity_id,
-                    activity="idle", source="edge-local-presence-bootstrap",
+                    actor_id,
+                    fallback_space.entity_id,
+                    activity="idle",
+                    source="edge-local-presence-bootstrap",
                 )
 
         body = await request.json()
@@ -835,11 +918,18 @@ def _build_app() -> Any:
         actions = getattr(result, "actions", []) or []
         return {
             "question": question,
-            "goal_achieved": outcome.get("goal_achieved") if isinstance(outcome, dict) else None,
-            "plan": {"steps": [getattr(s, "action", s) for s in getattr(plan, "steps", ())]} if plan is not None else None,
+            "goal_achieved": (outcome.get("goal_achieved") if isinstance(outcome, dict) else None),
+            "plan": (
+                {"steps": [getattr(s, "action", s) for s in getattr(plan, "steps", ())]} if plan is not None else None
+            ),
             "actions": [
-                {"action_id": a.get("action_id"), "success": a.get("success"), "error": a.get("error")}
-                for a in actions if isinstance(a, dict)
+                {
+                    "action_id": a.get("action_id"),
+                    "success": a.get("success"),
+                    "error": a.get("error"),
+                }
+                for a in actions
+                if isinstance(a, dict)
             ],
         }
 
@@ -850,6 +940,7 @@ app = _build_app()
 
 
 # ── CLI entry point (python -m src.monkey_brain.actor_runtime run ...) ──
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="cognitiveos-actor")

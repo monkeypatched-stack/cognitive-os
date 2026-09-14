@@ -2,6 +2,7 @@
 
 Validates observation model, provider, fusion rules, and runtime integration.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -9,21 +10,27 @@ import pytest
 from unittest.mock import MagicMock
 
 from src.monkey_brain.kernel.pipeline.contracts import (
-    PipelineRequest, CompiledRequest, RuntimeContext,
+    PipelineRequest,
+    CompiledRequest,
+    RuntimeContext,
 )
 from src.monkey_brain.kernel.pipeline.observations import (
-    Observation, ObservationSet, ObservationProvider, WorldPollingProvider,
-    Provenance, BeliefFusion,
+    Observation,
+    ObservationSet,
+    ObservationProvider,
+    WorldPollingProvider,
+    Provenance,
+    BeliefFusion,
 )
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.actor import Actor
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _make_compiled(question: str = "get 2 l of milk") -> CompiledRequest:
     request = PipelineRequest(question=question, actor_id="user-1", tenant_id="acme")
@@ -38,6 +45,7 @@ def _make_compiled(question: str = "get 2 l of milk") -> CompiledRequest:
         execution_context=ctx,
     )
 
+
 def _make_context() -> RuntimeContext:
     world = MagicMock()
     world.states.return_value = ["start", "middle", "end"]
@@ -45,11 +53,18 @@ def _make_context() -> RuntimeContext:
     world.nnz.return_value = 5
     return RuntimeContext(world=world, actor=MagicMock())
 
-def _make_obs(entity: str = "milk", attribute: str = "quantity",
-              value: Any = "2L", confidence: float = 0.9,
-              source: str = "sensor") -> Observation:
+
+def _make_obs(
+    entity: str = "milk",
+    attribute: str = "quantity",
+    value: Any = "2L",
+    confidence: float = 0.9,
+    source: str = "sensor",
+) -> Observation:
     return Observation(
-        entity=entity, attribute=attribute, value=value,
+        entity=entity,
+        attribute=attribute,
+        value=value,
         confidence=confidence,
         provenance=Provenance(source=source, method="direct", reliability=0.9),
     )
@@ -58,6 +73,7 @@ def _make_obs(entity: str = "milk", attribute: str = "quantity",
 # ═══════════════════════════════════════════════════════════════════════════
 # Observation Model
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestObservation:
     def test_construction(self):
@@ -70,6 +86,7 @@ class TestObservation:
 
     def test_immutable(self):
         from dataclasses import FrozenInstanceError
+
         obs = _make_obs()
         with pytest.raises(FrozenInstanceError):
             obs.entity = "bread"
@@ -81,6 +98,7 @@ class TestObservation:
 
     def test_provenance_immutable(self):
         from dataclasses import FrozenInstanceError
+
         p = Provenance(source="x")
         with pytest.raises(FrozenInstanceError):
             p.source = "y"
@@ -89,6 +107,7 @@ class TestObservation:
 # ═══════════════════════════════════════════════════════════════════════════
 # ObservationSet
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestObservationSet:
     def test_empty(self):
@@ -132,6 +151,7 @@ class TestObservationSet:
 
     def test_immutable(self):
         from dataclasses import FrozenInstanceError
+
         s = ObservationSet(observations=(_make_obs(),))
         with pytest.raises(FrozenInstanceError):
             s.observations = ()
@@ -140,6 +160,7 @@ class TestObservationSet:
 # ═══════════════════════════════════════════════════════════════════════════
 # WorldPollingProvider
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestWorldPollingProvider:
     def test_observes_world(self):
@@ -171,6 +192,7 @@ class TestWorldPollingProvider:
 # ═══════════════════════════════════════════════════════════════════════════
 # BeliefFusion
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBeliefFusion:
     def test_new_observation_creates_fact(self):
@@ -270,16 +292,23 @@ class TestBeliefFusion:
 # Runtime Integration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRuntimeIntegration:
     @pytest.mark.asyncio
     async def test_observe_uses_provider(self):
         """Observe should use ObservationProvider, not construct observations."""
+
         class MockProvider:
             def observe(self, actor_id, world):
                 return ObservationSet(
                     observations=(
-                        Observation(entity="milk", attribute="qty", value="2L",
-                                   confidence=0.9, provenance=Provenance(source="mock")),
+                        Observation(
+                            entity="milk",
+                            attribute="qty",
+                            value="2L",
+                            confidence=0.9,
+                            provenance=Provenance(source="mock"),
+                        ),
                     ),
                     actor_id=actor_id,
                 )
@@ -303,6 +332,7 @@ class TestRuntimeIntegration:
     @pytest.mark.asyncio
     async def test_custom_fusion_engine(self):
         """A custom BeliefFusion can be injected."""
+
         class CustomFusion:
             def update(self, belief, observations):
                 belief.add_fact(entity="custom", attribute="injected", value=True)

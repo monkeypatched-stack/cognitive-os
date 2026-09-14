@@ -3,15 +3,14 @@
 The plan maps to concrete `monkeypatched make` commands and is consumed by ExecutorAgent.
 Uses the planner workload spec; falls back to Anthropic when Ollama is unavailable.
 """
+
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from ._base import BaseETASSAgent
@@ -87,8 +86,8 @@ class PlannerAgent(BaseETASSAgent):
 
         sim_flag = (
             "simulate_enabled: true — include step 12 (simulate) in the plan."
-            if simulate_enabled else
-            "simulate_enabled: false — OMIT step 12 (simulate). Renumber steps consecutively."
+            if simulate_enabled
+            else "simulate_enabled: false — OMIT step 12 (simulate). Renumber steps consecutively."
         )
         prompt = (
             f"Goal: {goal}\n"
@@ -135,6 +134,7 @@ class PlannerAgent(BaseETASSAgent):
             return ""
         try:
             import anthropic
+
             msg = anthropic.Anthropic(api_key=api_key).messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=2048,
@@ -148,44 +148,59 @@ class PlannerAgent(BaseETASSAgent):
 
     # Known subcommands and their canonical form
     _KNOWN_SUBCMDS = {
-        "api", "codegen", "seed", "test-service", "govern", "fixit", "ddd-check",
-        "serve", "client", "chart-from-client", "compile-agent", "comply",
-        "simulate", "create-agent", "plan", "execute-plan", "list-plans", "run",
+        "api",
+        "codegen",
+        "seed",
+        "test-service",
+        "govern",
+        "fixit",
+        "ddd-check",
+        "serve",
+        "client",
+        "chart-from-client",
+        "compile-agent",
+        "comply",
+        "simulate",
+        "create-agent",
+        "plan",
+        "execute-plan",
+        "list-plans",
+        "run",
     }
 
     # Map step name fragments → canonical subcommand
     _NAME_TO_SUBCMD: dict[str, str] = {
-        "api":              "api",
-        "codegen":          "codegen",
+        "api": "api",
+        "codegen": "codegen",
         "generate_service": "codegen",
-        "generate":         "codegen",
-        "seed":             "seed",
-        "seed_data":        "seed",
-        "seed_db":          "seed",
-        "test_service":     "test-service",
-        "test-service":     "test-service",
-        "govern":           "govern",
-        "fixit":            "fixit",
-        "fix":              "fixit",
-        "ddd_check":        "ddd-check",
-        "ddd-check":        "ddd-check",
-        "serve":            "serve",
-        "client":           "client",
-        "chart_from_client":"chart-from-client",
-        "chart-from-client":"chart-from-client",
-        "compile_agent":    "compile-agent",
-        "compile-agent":    "compile-agent",
-        "comply":           "comply",
-        "comply_gdpr":      "comply",
-        "comply_soc2":      "comply",
-        "simulate":         "simulate",
-        "simulation":       "simulate",
-        "world_model":      "simulate",
-        "create_agent":     "create-agent",
-        "create-agent":     "create-agent",
-        "plan":             "plan",
-        "execute_plan":     "execute-plan",
-        "execute-plan":     "execute-plan",
+        "generate": "codegen",
+        "seed": "seed",
+        "seed_data": "seed",
+        "seed_db": "seed",
+        "test_service": "test-service",
+        "test-service": "test-service",
+        "govern": "govern",
+        "fixit": "fixit",
+        "fix": "fixit",
+        "ddd_check": "ddd-check",
+        "ddd-check": "ddd-check",
+        "serve": "serve",
+        "client": "client",
+        "chart_from_client": "chart-from-client",
+        "chart-from-client": "chart-from-client",
+        "compile_agent": "compile-agent",
+        "compile-agent": "compile-agent",
+        "comply": "comply",
+        "comply_gdpr": "comply",
+        "comply_soc2": "comply",
+        "simulate": "simulate",
+        "simulation": "simulate",
+        "world_model": "simulate",
+        "create_agent": "create-agent",
+        "create-agent": "create-agent",
+        "plan": "plan",
+        "execute_plan": "execute-plan",
+        "execute-plan": "execute-plan",
     }
 
     @classmethod
@@ -200,10 +215,7 @@ class PlannerAgent(BaseETASSAgent):
         # Check if command is already valid: "monkeypatched make <known> ..."
         parts = cmd.split()
         valid = (
-            len(parts) >= 3
-            and parts[0] == "monkeypatched"
-            and parts[1] == "make"
-            and parts[2] in cls._KNOWN_SUBCMDS
+            len(parts) >= 3 and parts[0] == "monkeypatched" and parts[1] == "make" and parts[2] in cls._KNOWN_SUBCMDS
         )
 
         # govern must have a file path, not a bare slug
@@ -216,7 +228,7 @@ class PlannerAgent(BaseETASSAgent):
         if valid and parts[2] == "comply" and len(parts) >= 4:
             if "--signals" not in cmd and "--attributes" not in cmd:
                 std = parts[3]
-                cmd = f"monkeypatched make comply {std} --signals '{{\"stores_pii\": true}}' --attributes '{{\"region\": \"EU\"}}'"
+                cmd = f'monkeypatched make comply {std} --signals \'{{"stores_pii": true}}\' --attributes \'{{"region": "EU"}}\''
 
         if not valid:
             # Derive canonical subcommand from step name
@@ -234,7 +246,7 @@ class PlannerAgent(BaseETASSAgent):
                 if subcmd == "govern":
                     cmd = f"monkeypatched make govern somatic/compiled/{svc}-api.prompt.md"
                 elif subcmd == "comply":
-                    cmd = f"monkeypatched make comply gdpr --signals '{{\"stores_pii\": true}}' --attributes '{{\"region\": \"EU\"}}'"
+                    cmd = 'monkeypatched make comply gdpr --signals \'{"stores_pii": true}\' --attributes \'{"region": "EU"}\''
                 elif subcmd in ("plan", "execute-plan"):
                     cmd = f"monkeypatched make {subcmd}"
                 else:
@@ -260,6 +272,7 @@ class PlannerAgent(BaseETASSAgent):
 
         try:
             import yaml
+
             data = yaml.safe_load(raw) or {}
             if "plan" in data and "steps" in data:
                 steps = [cls._sanitize_step(s, service) for s in data["steps"]]
@@ -269,9 +282,7 @@ class PlannerAgent(BaseETASSAgent):
                     for i, s in enumerate(steps, 1):
                         old_id = s["id"]
                         s["id"] = i
-                        s["depends_on"] = [
-                            i - 1 for d in s.get("depends_on", []) if d == old_id - 1
-                        ] if i > 1 else []
+                        s["depends_on"] = [i - 1 for d in s.get("depends_on", []) if d == old_id - 1] if i > 1 else []
                 data["steps"] = steps
                 return data
         except Exception:
@@ -283,29 +294,113 @@ class PlannerAgent(BaseETASSAgent):
         short_id = str(uuid.uuid4())[:8]
 
         gdpr_cmd = (
-            f"monkeypatched make comply gdpr "
-            f"--signals '{{\"has_pii\":true,\"lawful_basis\":\"contract\",\"privacy_by_design\":true,"
-            f"\"retention_period_defined\":true,\"right_to_erasure_enabled\":true,"
-            f"\"right_to_access_enabled\":true,\"breach_notification_proc\":true,"
-            f"\"consent_withdrawable\":true}}' "
-            f"--attributes '{{\"region\":\"EU\"}}'"
+            "monkeypatched make comply gdpr "
+            '--signals \'{"has_pii":true,"lawful_basis":"contract","privacy_by_design":true,'
+            '"retention_period_defined":true,"right_to_erasure_enabled":true,'
+            '"right_to_access_enabled":true,"breach_notification_proc":true,'
+            '"consent_withdrawable":true}\' '
+            '--attributes \'{"region":"EU"}\''
         )
 
         all_steps = [
-            {"id": 1,  "name": "api",              "command": f"monkeypatched make api {svc}",                                       "description": "Compile DDD API chart → somatic prompt",                   "depends_on": []},
-            {"id": 2,  "name": "codegen",           "command": f"monkeypatched make codegen {svc}",                                   "description": "Generate DDD-layered service code",                        "depends_on": [1]},
-            {"id": 3,  "name": "seed",              "command": f"monkeypatched make seed {svc}",                                      "description": "Seed MongoDB with Pydantic-validated synthetic data",       "depends_on": [2]},
-            {"id": 4,  "name": "ddd_check",         "command": f"monkeypatched make ddd-check {svc} --max-loops 2",                 "description": "Structural DDD compliance audit with self-healing codegen retry", "depends_on": [3]},
-            {"id": 5,  "name": "client",            "command": f"monkeypatched make client {svc}",                                    "description": "Generate typed httpx API client",                           "depends_on": [4]},
-            {"id": 6,  "name": "chart_from_client", "command": f"monkeypatched make chart-from-client {svc}",                         "description": "ClientCharterAgent → capability chart",                     "depends_on": [5]},
-            {"id": 7,  "name": "compile_agent",     "command": f"monkeypatched make compile-agent {svc}",                             "description": "Capability chart → .prompt.md",                            "depends_on": [6]},
-            {"id": 8,  "name": "test_service",      "command": f"monkeypatched make test-service {svc}",                              "description": "ruff + pytest + correction loop",                           "depends_on": [7]},
-            {"id": 9,  "name": "fixit",             "command": f"monkeypatched make fixit {svc}",                                     "description": "Auto-fix test/governance findings",                        "depends_on": [8]},
-            {"id": 10, "name": "govern",            "command": f"monkeypatched make govern somatic/compiled/{svc}-api.prompt.md",     "description": "CingulateAgent governance review",                          "depends_on": [9]},
-            {"id": 11, "name": "comply_gdpr",       "command": gdpr_cmd,                                                              "description": "GDPR data-protection compliance check",                    "depends_on": [10]},
-            {"id": 12, "name": "simulate",          "command": f'monkeypatched make simulate "build {svc} service"',                  "description": "G→A→R world-model simulation — adversarial design review", "depends_on": [11]},
-            {"id": 13, "name": "create_agent",      "command": f"monkeypatched make create-agent {svc}",                              "description": "Register ClientCapabilityAgent in Broca registry",         "depends_on": [12]},
-            {"id": 14, "name": "serve",             "command": f"monkeypatched make serve {svc}",                                     "description": "Launch service with uvicorn",                               "depends_on": [13]},
+            {
+                "id": 1,
+                "name": "api",
+                "command": f"monkeypatched make api {svc}",
+                "description": "Compile DDD API chart → somatic prompt",
+                "depends_on": [],
+            },
+            {
+                "id": 2,
+                "name": "codegen",
+                "command": f"monkeypatched make codegen {svc}",
+                "description": "Generate DDD-layered service code",
+                "depends_on": [1],
+            },
+            {
+                "id": 3,
+                "name": "seed",
+                "command": f"monkeypatched make seed {svc}",
+                "description": "Seed MongoDB with Pydantic-validated synthetic data",
+                "depends_on": [2],
+            },
+            {
+                "id": 4,
+                "name": "ddd_check",
+                "command": f"monkeypatched make ddd-check {svc} --max-loops 2",
+                "description": "Structural DDD compliance audit with self-healing codegen retry",
+                "depends_on": [3],
+            },
+            {
+                "id": 5,
+                "name": "client",
+                "command": f"monkeypatched make client {svc}",
+                "description": "Generate typed httpx API client",
+                "depends_on": [4],
+            },
+            {
+                "id": 6,
+                "name": "chart_from_client",
+                "command": f"monkeypatched make chart-from-client {svc}",
+                "description": "ClientCharterAgent → capability chart",
+                "depends_on": [5],
+            },
+            {
+                "id": 7,
+                "name": "compile_agent",
+                "command": f"monkeypatched make compile-agent {svc}",
+                "description": "Capability chart → .prompt.md",
+                "depends_on": [6],
+            },
+            {
+                "id": 8,
+                "name": "test_service",
+                "command": f"monkeypatched make test-service {svc}",
+                "description": "ruff + pytest + correction loop",
+                "depends_on": [7],
+            },
+            {
+                "id": 9,
+                "name": "fixit",
+                "command": f"monkeypatched make fixit {svc}",
+                "description": "Auto-fix test/governance findings",
+                "depends_on": [8],
+            },
+            {
+                "id": 10,
+                "name": "govern",
+                "command": f"monkeypatched make govern somatic/compiled/{svc}-api.prompt.md",
+                "description": "CingulateAgent governance review",
+                "depends_on": [9],
+            },
+            {
+                "id": 11,
+                "name": "comply_gdpr",
+                "command": gdpr_cmd,
+                "description": "GDPR data-protection compliance check",
+                "depends_on": [10],
+            },
+            {
+                "id": 12,
+                "name": "simulate",
+                "command": f'monkeypatched make simulate "build {svc} service"',
+                "description": "G→A→R world-model simulation — adversarial design review",
+                "depends_on": [11],
+            },
+            {
+                "id": 13,
+                "name": "create_agent",
+                "command": f"monkeypatched make create-agent {svc}",
+                "description": "Register ClientCapabilityAgent in Broca registry",
+                "depends_on": [12],
+            },
+            {
+                "id": 14,
+                "name": "serve",
+                "command": f"monkeypatched make serve {svc}",
+                "description": "Launch service with uvicorn",
+                "depends_on": [13],
+            },
         ]
 
         if not simulate_enabled:

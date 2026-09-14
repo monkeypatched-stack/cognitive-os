@@ -2,7 +2,10 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.pm.models.calibration_point import CalibrationPointCreate, CalibrationPointUpdate
+from services.pm.models.calibration_point import (
+    CalibrationPointCreate,
+    CalibrationPointUpdate,
+)
 
 COLLECTION = "calibration_points"
 
@@ -14,6 +17,7 @@ def _serialize(doc: dict) -> dict:
 
 
 # ── Read ──────────────────────────────────────────────────────────────────────
+
 
 async def get_all(
     db: AsyncIOMotorDatabase,
@@ -47,6 +51,7 @@ async def get_by_id(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 async def create(
     db: AsyncIOMotorDatabase,
     calibration_id: str,
@@ -68,6 +73,7 @@ async def create(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 async def update(
     db: AsyncIOMotorDatabase,
@@ -97,6 +103,7 @@ async def update(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 async def delete(
     db: AsyncIOMotorDatabase,

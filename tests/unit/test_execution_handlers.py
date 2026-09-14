@@ -6,13 +6,16 @@ dispatch (including the "no operator"/"no handler" failure paths), and
 "never perform planning" (handlers only validate + execute, no planning
 decisions).
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionStep, ExecutionContext, ExecutionStatus,
+    ExecutionStep,
+    ExecutionContext,
+    ExecutionStatus,
 )
 from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
     ExecutionCapability,
@@ -37,11 +40,19 @@ def _step(operator_name: str, **parameters) -> ExecutionStep:
 # ExecutionHandler interface
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExecutionHandlerInterface:
-    @pytest.mark.parametrize("handler_cls", [
-        NavigateHandler, AcquireItemHandler, QueryInventoryHandler,
-        WaitHandler, NotifyHandler, ReserveResourceHandler,
-    ])
+    @pytest.mark.parametrize(
+        "handler_cls",
+        [
+            NavigateHandler,
+            AcquireItemHandler,
+            QueryInventoryHandler,
+            WaitHandler,
+            NotifyHandler,
+            ReserveResourceHandler,
+        ],
+    )
     def test_satisfies_execution_handler_protocol(self, handler_cls):
         handler = handler_cls()
         assert isinstance(handler, ExecutionHandler)
@@ -49,13 +60,21 @@ class TestExecutionHandlerInterface:
         assert isinstance(handler.capability, ExecutionCapability)
 
     def test_default_handlers_cover_all_six_operators(self):
-        expected = {"Navigate", "AcquireItem", "QueryInventory", "Wait", "Notify", "ReserveResource"}
+        expected = {
+            "Navigate",
+            "AcquireItem",
+            "QueryInventory",
+            "Wait",
+            "Notify",
+            "ReserveResource",
+        }
         assert {h.operator_name for h in DEFAULT_HANDLERS} == expected
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Per-handler validation + execution
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestNavigateHandler:
     def test_execute_succeeds_with_destination(self):
@@ -109,7 +128,8 @@ class TestWaitHandler:
 class TestNotifyHandler:
     def test_execute_succeeds_with_recipient_and_message(self):
         outcome = NotifyHandler().execute(
-            _step("Notify", recipient="alice", message="done"), ExecutionContext(),
+            _step("Notify", recipient="alice", message="done"),
+            ExecutionContext(),
         )
         assert outcome.status == ExecutionStatus.SUCCEEDED
         assert outcome.output["notified"] == "alice"
@@ -123,7 +143,8 @@ class TestNotifyHandler:
 class TestReserveResourceHandler:
     def test_execute_succeeds_with_resource(self):
         outcome = ReserveResourceHandler().execute(
-            _step("ReserveResource", resource="delivery_slot"), ExecutionContext(),
+            _step("ReserveResource", resource="delivery_slot"),
+            ExecutionContext(),
         )
         assert outcome.status == ExecutionStatus.SUCCEEDED
         assert outcome.output["reserved"] == "delivery_slot"
@@ -132,6 +153,7 @@ class TestReserveResourceHandler:
 # ═══════════════════════════════════════════════════════════════════════════
 # Timing and outcome shape (SimulatedHandler base)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSimulatedHandlerBase:
     def test_outcome_has_step_id_and_timing(self):
@@ -159,6 +181,7 @@ class TestSimulatedHandlerBase:
 # ExecutionRegistry — the PlanningOperator -> ExecutionHandler mapping
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExecutionRegistry:
     def test_dispatches_to_the_correct_handler(self):
         registry = ExecutionRegistry()
@@ -169,7 +192,14 @@ class TestExecutionRegistry:
     def test_capabilities_lists_all_registered_handlers(self):
         registry = ExecutionRegistry()
         names = {c.name for c in registry.capabilities()}
-        assert names == {"navigation", "shopping", "inventory_query", "wait", "messaging", "reservation"}
+        assert names == {
+            "navigation",
+            "shopping",
+            "inventory_query",
+            "wait",
+            "messaging",
+            "reservation",
+        }
 
     def test_step_with_no_operator_fails_cleanly(self):
         step = ExecutionStep(operator=None, parameters={})
@@ -186,11 +216,20 @@ class TestExecutionRegistry:
         class StubHandler:
             operator_name = "StubOp"
             capability = ExecutionCapability(name="stub")
+
             def validate(self, step):
                 return None
+
             def execute(self, step, context):
-                from src.monkey_brain.kernel.pipeline.execution_runtime.domain import ExecutionOutcome
-                return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.SUCCEEDED, output={"stub": True})
+                from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
+                    ExecutionOutcome,
+                )
+
+                return ExecutionOutcome(
+                    step_id=step.step_id,
+                    status=ExecutionStatus.SUCCEEDED,
+                    output={"stub": True},
+                )
 
         registry = ExecutionRegistry(handlers={})
         registry.register(StubHandler())
@@ -203,10 +242,15 @@ class TestExecutionRegistry:
         class StubHandler:
             operator_name = "AnotherStubOp"
             capability = ExecutionCapability(name="stub2")
+
             def validate(self, step):
                 return None
+
             def execute(self, step, context):
-                from src.monkey_brain.kernel.pipeline.execution_runtime.domain import ExecutionOutcome
+                from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
+                    ExecutionOutcome,
+                )
+
                 return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.SUCCEEDED)
 
         registry_a = ExecutionRegistry()
@@ -228,10 +272,12 @@ class TestExecutionRegistry:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_planning_engine_or_cognitive_runtime_coupling(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.execution_runtime.handlers as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

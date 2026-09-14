@@ -45,7 +45,9 @@ async def get_customer_metadata(
     return record
 
 
-@router.post("/", response_model=CustomerMetadataResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=CustomerMetadataResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_customer_metadata(
     data: CustomerMetadataCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

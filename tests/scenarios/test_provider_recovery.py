@@ -15,16 +15,22 @@ already uses. fault_injection.py's register_forced_failure gained an
 opt-in `recoverable` flag (default False) so FAULT-001/002's existing,
 unmodified honest-failure assertions are completely unaffected.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 from src.monkey_brain.kernel.pipeline.execution import Action
-from src.monkey_brain.kernel.testing.fault_injection import clear_forced_failures, register_forced_failure
+from src.monkey_brain.kernel.testing.fault_injection import (
+    clear_forced_failures,
+    register_forced_failure,
+)
 
 ACTOR_ID = "recovery_test_actor"
 
@@ -38,7 +44,10 @@ def _clean_fault_registry():
 
 def _sel(action_id, step_index, product_id, depends_on=()):
     return Action(
-        action_id=action_id, capability="ProductSelection", step_index=step_index, depends_on=depends_on,
+        action_id=action_id,
+        capability="ProductSelection",
+        step_index=step_index,
+        depends_on=depends_on,
         parameters={"selection": [{"id": product_id, "qty": 1}]},
     )
 
@@ -59,8 +68,9 @@ async def test_recovery001_forced_failure_recovers_to_a_real_alternative_same_ex
 
     register_forced_failure(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_a for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_a for s in a.parameters.get("selection", []))
+        ),
         error="Simulated provider outage for Trader Joe's",
         recoverable=True,
     )
@@ -95,8 +105,9 @@ async def test_recovery002_only_the_affected_step_retries():
 
     register_forced_failure(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_a for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_a for s in a.parameters.get("selection", []))
+        ),
         error="Simulated provider outage for Trader Joe's",
         recoverable=True,
     )
@@ -134,8 +145,9 @@ async def test_recovery003_dependency_ordering_respected_around_a_recovered_step
 
     register_forced_failure(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_a for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_a for s in a.parameters.get("selection", []))
+        ),
         error="Simulated provider outage for Trader Joe's",
         recoverable=True,
     )
@@ -169,8 +181,9 @@ async def test_recovery004_no_real_alternative_is_an_honest_failure_no_infinite_
 
     register_forced_failure(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == milk_a for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == milk_a for s in a.parameters.get("selection", []))
+        ),
         error="Simulated provider outage for Trader Joe's",
         recoverable=True,
     )

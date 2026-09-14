@@ -35,6 +35,7 @@ Architectural invariants:
     - Actors learn into LOCAL belief, never into global state
     - Φ is recompiled after significant belief changes
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,7 +45,10 @@ from datetime import datetime
 from typing import Any, Callable
 
 from src.monkey_brain.kernel.compile.entity import Entity, EntityType
-from src.monkey_brain.kernel.compile.actor_belief import ActorBelief, ActorBeliefSnapshot
+from src.monkey_brain.kernel.compile.actor_belief import (
+    ActorBelief,
+    ActorBeliefSnapshot,
+)
 from src.monkey_brain.kernel.compile.sparse import SparseMatrix, epistemic_loss
 from src.monkey_brain.kernel.compile.tensor import Feature, SparseTransitionTensor
 from src.monkey_brain.kernel.compile.actor import ActorModel
@@ -55,6 +59,7 @@ logger = logging.getLogger("agentos.cognitive_actor")
 @dataclass(frozen=True)
 class CycleResult:
     """Result of one complete cognitive cycle (plan → simulate → execute → learn)."""
+
     plan: list[str]
     predicted: dict[str, float]
     observed: list[tuple[str, str | None]]
@@ -67,6 +72,7 @@ class CycleResult:
 class Delta:
     """A piece of world knowledge an actor learned — the unit of gossip communication.
     Immutable; carries only what was revealed, never a handle to global state."""
+
     origin: str
     domain: str
     src: str
@@ -82,6 +88,7 @@ class Delta:
 @dataclass
 class CognitiveState:
     """Mutable state tracking the actor's cognitive lifecycle."""
+
     tick_count: int = 0
     last_tick: datetime | None = None
     last_observation: dict = field(default_factory=dict)
@@ -172,6 +179,7 @@ class CognitiveActor(Entity):
 
         # ── Policy (Layer 3) ────────────────────────────────────────────────
         from src.monkey_brain.kernel.policy.store import PolicyStore
+
         self.policy = PolicyStore(owner_id=entity_id)
 
         # ── Social graph ────────────────────────────────────────────────────
@@ -190,6 +198,7 @@ class CognitiveActor(Entity):
 
         # ── Domain Knowledge Graph ──────────────────────────────────────────
         from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
+
         self._knowledge_graph = KnowledgeGraph(person_id=entity_id)
 
         # ── Goal (Step 12.2: Actor Runtime owns its own goal) ────────────────
@@ -199,7 +208,9 @@ class CognitiveActor(Entity):
         # (add_goal) genuinely preempts whatever the actor was pursuing on
         # its very next tick, and a completed goal (_complete_goal) falls
         # back to the next-highest-priority one still queued, if any.
-        self._goal_queue: list[dict[str, Any]] = [{"goal": g, "priority": 0.0, "skip_next": False} for g in (goals or [])]
+        self._goal_queue: list[dict[str, Any]] = [
+            {"goal": g, "priority": 0.0, "skip_next": False} for g in (goals or [])
+        ]
         # Phase 5 stress (GS-5200): an index alongside the queue, keyed by
         # goal text, so add_goal/_defer_goal can look up an existing entry
         # in O(1) instead of a linear scan over the whole queue. Without
@@ -218,6 +229,7 @@ class CognitiveActor(Entity):
 
         # ── Affiliations (Actor-centric: actor owns all relationships) ────
         from src.monkey_brain.kernel.affiliations.manager import AffiliationManager
+
         self._affiliations = AffiliationManager()
 
         # ── Canonical Cognitive Engine (Step 12.2: delegation, not duplication) ─
@@ -230,7 +242,10 @@ class CognitiveActor(Entity):
         # pair (below) rather than rebuilding everything fresh via .run().
         self._cognitive_engine: Any = None
         if engine is not None:
-            from src.monkey_brain.kernel.pipeline.belief_formation import BeliefFormation
+            from src.monkey_brain.kernel.pipeline.belief_formation import (
+                BeliefFormation,
+            )
+
             self._cognitive_engine = BeliefFormation(engine=engine)
 
         # Optional override for the context passed into the cognitive tick —
@@ -440,11 +455,14 @@ class CognitiveActor(Entity):
         only ever accumulated instead of completing."""
         from src.monkey_brain.kernel.timeline.entry import TimelineKind
         from src.monkey_brain.kernel.timeline.store import TimelineStore
+
         current_goal = state.belief.goal
         if not current_goal.name.strip():
             return
         TimelineStore().record(
-            TimelineKind.GOAL, actor_id=self.id, name=current_goal.name,
+            TimelineKind.GOAL,
+            actor_id=self.id,
+            name=current_goal.name,
             description=current_goal.description,
             success_criteria=tuple(current_goal.success_criteria),
             optimization_objective=current_goal.optimization_objective,
@@ -458,7 +476,10 @@ class CognitiveActor(Entity):
         LearningIntegratedPolicy/PredictionIntegratedPolicy factories used
         for the identical reason)."""
         if self._cognitive_engine is None:
-            from src.monkey_brain.kernel.pipeline.belief_formation import BeliefFormation
+            from src.monkey_brain.kernel.pipeline.belief_formation import (
+                BeliefFormation,
+            )
+
             self._cognitive_engine = BeliefFormation()
         return self._cognitive_engine
 
@@ -474,9 +495,13 @@ class CognitiveActor(Entity):
         _cognitive_tick()'s bookkeeping (self._actor_belief.remember(...))
         does that translation, same as before 12.11."""
         if self._pipeline_belief is None:
-            from src.monkey_brain.kernel.pipeline.belief_state import BeliefState as PipelineBeliefState
+            from src.monkey_brain.kernel.pipeline.belief_state import (
+                BeliefState as PipelineBeliefState,
+            )
+
             self._pipeline_belief = PipelineBeliefState(
-                actor_id=self.id, tenant_id=self.tenant_id or "default",
+                actor_id=self.id,
+                tenant_id=self.tenant_id or "default",
             )
         return self._pipeline_belief
 
@@ -504,8 +529,10 @@ class CognitiveActor(Entity):
         resetting every cycle the way a fresh Actor() would."""
         if self._pipeline_actor is None:
             from src.monkey_brain.kernel.pipeline.actor import Actor as PipelineActor
+
             self._pipeline_actor = PipelineActor(
-                actor_id=self.id, tenant_id=self.tenant_id or "default",
+                actor_id=self.id,
+                tenant_id=self.tenant_id or "default",
             )
         return self._pipeline_actor
 
@@ -523,12 +550,19 @@ class CognitiveActor(Entity):
             return False
         self._seen.add(delta.key())
         self.belief.observe(
-            delta.src, delta.dst, domain=delta.domain,
-            reward=delta.reward, confidence=delta.confidence,
+            delta.src,
+            delta.dst,
+            domain=delta.domain,
+            reward=delta.reward,
+            confidence=delta.confidence,
         )
         self._actor_belief.observe(
-            delta.src, delta.dst, reward=delta.reward,
-            confidence=delta.confidence, source="gossip", domain=delta.domain,
+            delta.src,
+            delta.dst,
+            reward=delta.reward,
+            confidence=delta.confidence,
+            source="gossip",
+            domain=delta.domain,
         )
         return True
 
@@ -536,12 +570,25 @@ class CognitiveActor(Entity):
         """Check if this actor knows a specific transition."""
         return any((s, d) == (src, dst) for s, d in self.belief)
 
-    def observe_transition(self, src: str, dst: str, *, reward: float = 0.0,
-                           confidence: float = 1.0, domain: str = "default") -> None:
+    def observe_transition(
+        self,
+        src: str,
+        dst: str,
+        *,
+        reward: float = 0.0,
+        confidence: float = 1.0,
+        domain: str = "default",
+    ) -> None:
         """Record a direct observation into both the tensor belief and ActorBelief."""
         self.belief.observe(src, dst, domain=domain, reward=reward, confidence=confidence)
-        self._actor_belief.observe(src, dst, reward=reward, confidence=confidence,
-                                   source="direct", domain=domain)
+        self._actor_belief.observe(
+            src,
+            dst,
+            reward=reward,
+            confidence=confidence,
+            source="direct",
+            domain=domain,
+        )
 
     # ═══════════════════════════════════════════════════════════════════════
     # Actor Runtime review (Society architecture hardening), Phase 5: five of
@@ -573,7 +620,8 @@ class CognitiveActor(Entity):
 
     def plan(self, start: str, goal: str, k: int = 12) -> list[str]:
         """Plan a path start→goal through this actor's LOCAL belief graph.
-        Uses propagation + greedy dominant-successor. Returns [start] if no route yet."""
+        Uses propagation + greedy dominant-successor. Returns [start] if no route yet.
+        """
         m = SparseMatrix.from_tensor(self.belief, Feature.PROBABILITY)
         trace = m.propagate_k({start: 1.0}, k)
         path = [start]
@@ -597,8 +645,13 @@ class CognitiveActor(Entity):
 
     # ── Execution ───────────────────────────────────────────────────────────
 
-    def execute(self, plan: list[str], world: SparseTransitionTensor,
-                goal: str | None = None, horizon: int = 64) -> list[tuple[str, str | None]]:
+    def execute(
+        self,
+        plan: list[str],
+        world: SparseTransitionTensor,
+        goal: str | None = None,
+        horizon: int = 64,
+    ) -> list[tuple[str, str | None]]:
         """Execute against the given world (global/constrained), following true transitions
         and folding each into the local belief. The plan is a hint; when incomplete,
         the actor explores up to `horizon` steps."""
@@ -614,8 +667,12 @@ class CognitiveActor(Entity):
                 break
             actual = max(succ, key=succ.get)
             observed.append((cur, actual))
-            self.observe_transition(cur, actual, domain=world.domain_of(cur),
-                                    reward=world.feature(cur, actual, Feature.REWARD))
+            self.observe_transition(
+                cur,
+                actual,
+                domain=world.domain_of(cur),
+                reward=world.feature(cur, actual, Feature.REWARD),
+            )
             cur = actual
             if goal is not None and actual == goal:
                 break
@@ -630,11 +687,13 @@ class CognitiveActor(Entity):
             if b:
                 self.policy.update(a, "transition", reward, b)
                 self._actor_belief.update_bellman(a, "transition", reward, b)
-        self._actor_belief.remember({
-            "type": "cognitive_cycle",
-            "observed": [(a, b) for a, b in observed],
-            "reward": reward,
-        })
+        self._actor_belief.remember(
+            {
+                "type": "cognitive_cycle",
+                "observed": [(a, b) for a, b in observed],
+                "reward": reward,
+            }
+        )
 
     # ── Φ Compilation ──────────────────────────────────────────────────────
 
@@ -646,8 +705,14 @@ class CognitiveActor(Entity):
 
     # ── Synchronous Cognitive Cycle ─────────────────────────────────────────
 
-    def cognitive_cycle(self, start: str, goal: str, world: SparseTransitionTensor,
-                        *, reward: float = 1.0) -> CycleResult:
+    def cognitive_cycle(
+        self,
+        start: str,
+        goal: str,
+        world: SparseTransitionTensor,
+        *,
+        reward: float = 1.0,
+    ) -> CycleResult:
         """Full plan → simulate → execute → learn over the actor's own graph."""
         plan = self.plan(start, goal)
         predicted = self.simulate(plan)
@@ -659,8 +724,15 @@ class CognitiveActor(Entity):
         )
         self.learn(observed, reward)
         reached = bool(observed) and observed[-1][1] == goal
-        logger.info("[actor %s] cycle %s→%s plan=%s reached=%s loss=%.2f",
-                    self.id, start, goal, "→".join(plan), reached, loss)
+        logger.info(
+            "[actor %s] cycle %s→%s plan=%s reached=%s loss=%.2f",
+            self.id,
+            start,
+            goal,
+            "→".join(plan),
+            reached,
+            loss,
+        )
         return CycleResult(plan, predicted, observed, loss, reward, reached)
 
     # ── Async Cognitive Loop (Phase 8) ──────────────────────────────────────
@@ -702,13 +774,16 @@ class CognitiveActor(Entity):
 
         """
         from src.monkey_brain.kernel.pipeline.contracts import (
-            PipelineRequest, CompiledRequest, RuntimeContext,
+            PipelineRequest,
+            CompiledRequest,
+            RuntimeContext,
         )
-        from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState as PipelineCognitiveState
+        from src.monkey_brain.kernel.pipeline.execution_state import (
+            CognitiveState as PipelineCognitiveState,
+        )
 
-        triggering_event = (
-            getattr(prompt_request, "question", None)
-            or (prompt_request.get("question") if isinstance(prompt_request, dict) else None)
+        triggering_event = getattr(prompt_request, "question", None) or (
+            prompt_request.get("question") if isinstance(prompt_request, dict) else None
         )
         # Combine, don't replace: a reactive (broadcast_context) tick's
         # triggering event explains WHY this actor woke up, but dropping
@@ -740,7 +815,10 @@ class CognitiveActor(Entity):
             # not fix it. This distinguishes the two cases this call site
             # already knows for certain, honestly, without claiming NLU
             # this vertical doesn't have.
-            intent={"intent": "user_request" if triggering_event else "autonomous_tick", "confidence": 1.0},
+            intent={
+                "intent": "user_request" if triggering_event else "autonomous_tick",
+                "confidence": 1.0,
+            },
             # Real gap this closes: name/description were both set to the
             # SAME combined "standing goal + one-off triggering text"
             # string above — harmless for planning, but
@@ -771,7 +849,9 @@ class CognitiveActor(Entity):
                 "name": self._current_goal or triggering_event or "",
                 "description": (
                     triggering_event
-                    if self._current_goal and triggering_event and triggering_event.strip() != self._current_goal.strip()
+                    if self._current_goal
+                    and triggering_event
+                    and triggering_event.strip() != self._current_goal.strip()
                     else ""
                 ),
                 "optimization_objective": self._objective,
@@ -781,8 +861,7 @@ class CognitiveActor(Entity):
             execution_context=None,
         )
         context = (
-            self._context_factory(goal) if self._context_factory is not None
-            else RuntimeContext(world=self._world_view)
+            self._context_factory(goal) if self._context_factory is not None else RuntimeContext(world=self._world_view)
         )
 
         state = PipelineCognitiveState(
@@ -817,9 +896,12 @@ class CognitiveActor(Entity):
         # execution_checkpoint_store's step-by-step record for the
         # earlier attempt actually be found by the resumed one.
         from uuid import uuid4
-        meta = getattr(prompt_request, "meta", None) or (
-            prompt_request.get("meta") if isinstance(prompt_request, dict) else None
-        ) or {}
+
+        meta = (
+            getattr(prompt_request, "meta", None)
+            or (prompt_request.get("meta") if isinstance(prompt_request, dict) else None)
+            or {}
+        )
         resume_execution_id = meta.get("resume_execution_id") if isinstance(meta, dict) else None
         execution_id = resume_execution_id or uuid4().hex
         state.metrics["execution_id"] = execution_id
@@ -862,7 +944,10 @@ class CognitiveActor(Entity):
         if plan_stale:
             self._cognitive_state.last_observation["plan_stale"] = plan_stale
         self._cognitive_state.last_plan = state.plan
-        self._cognitive_state.last_execution = {"actions": [a.__dict__ if hasattr(a, '__dict__') else a for a in state.actions], "status": "completed" if formation_result.success else "failed"}
+        self._cognitive_state.last_execution = {
+            "actions": [a.__dict__ if hasattr(a, "__dict__") else a for a in state.actions],
+            "status": "completed" if formation_result.success else "failed",
+        }
         self._cognitive_state.last_prediction = getattr(state, "prediction_result", None)
         self._cognitive_state.converged = formation_result.goal_achieved
 
@@ -891,15 +976,17 @@ class CognitiveActor(Entity):
         elif goal and self._goal_queue:
             self._defer_goal(goal)
 
-        self._actor_belief.remember({
-            "type": "cognitive_tick",
-            "goal": goal,
-            "status": "completed" if formation_result.success else "failed",
-            "goal_achieved": formation_result.goal_achieved,
-            "actions": formation_result.actions_executed,
-            "reward": formation_result.reward,
-            "actor_loss": formation_result.actor_loss,
-        })
+        self._actor_belief.remember(
+            {
+                "type": "cognitive_tick",
+                "goal": goal,
+                "status": "completed" if formation_result.success else "failed",
+                "goal_achieved": formation_result.goal_achieved,
+                "actions": formation_result.actions_executed,
+                "reward": formation_result.reward,
+                "actor_loss": formation_result.actor_loss,
+            }
+        )
 
         # Context-event publishing is handled by the coordinator
         # (SocietyRuntime._coordinate_actor()), not by the actor.
@@ -910,7 +997,7 @@ class CognitiveActor(Entity):
             observations=self._cognitive_state.last_observation,
             belief_updated=state.belief.version != belief_version_before,
             plan=state.plan or {},
-            actions=[a.__dict__ if hasattr(a, '__dict__') else a for a in state.actions],
+            actions=[a.__dict__ if hasattr(a, "__dict__") else a for a in state.actions],
             predicted_outcome=getattr(state, "prediction_result", None) or {},
             actual_outcome=state.outcome or {},
             error=formation_result.actor_loss,
@@ -924,7 +1011,10 @@ class CognitiveActor(Entity):
             # what its name claims.
             learned=formation_result.success,
             execution_id=execution_id,
-            stage_timings_ms={**state.stage_durations, **state.metrics.get("stage_timings_ms", {})},
+            stage_timings_ms={
+                **state.stage_durations,
+                **state.metrics.get("stage_timings_ms", {}),
+            },
         )
 
     def _record_cognitive_artifacts(self, state: Any, formation_result: Any) -> None:
@@ -949,7 +1039,9 @@ class CognitiveActor(Entity):
 
         intent = state.belief.intent
         TimelineStore().record(
-            TimelineKind.INTENT, actor_id=self.id, intent_type=intent.type,
+            TimelineKind.INTENT,
+            actor_id=self.id,
+            intent_type=intent.type,
             confidence=intent.confidence,
             metadata={**dict(intent.metadata), "execution_id": execution_id},
         )
@@ -984,11 +1076,17 @@ class CognitiveActor(Entity):
             # record["subject"] directly.
             subject = content.split(" (", 1)[0].split(" <-> ", 1)[0][:80] or content[:80]
             TimelineStore().record(
-                TimelineKind.BELIEF, actor_id=self.id,
-                subject=subject, predicate="known_fact", value=content,
-                confidence=getattr(item, "confidence", 1.0), source=source,
+                TimelineKind.BELIEF,
+                actor_id=self.id,
+                subject=subject,
+                predicate="known_fact",
+                value=content,
+                confidence=getattr(item, "confidence", 1.0),
+                source=source,
                 metadata={
-                    "evidence": [source], "evidence_count": 1, "previous_value": None,
+                    "evidence": [source],
+                    "evidence_count": 1,
+                    "previous_value": None,
                     "reason": "retrieved from knowledge graph for this goal",
                     "execution_id": execution_id,
                 },
@@ -1022,9 +1120,7 @@ class CognitiveActor(Entity):
         # decide_new_plan_id/decide_current_plan_id as this record's
         # plan_id (instead of a fresh uuid every tick) lets the debugger
         # group every real execution of the same Current Plan together.
-        correlated_plan_id = (
-            state.metrics.get("decide_new_plan_id") or state.metrics.get("decide_current_plan_id")
-        )
+        correlated_plan_id = state.metrics.get("decide_new_plan_id") or state.metrics.get("decide_current_plan_id")
         # Comparator-hardening pass left state.comparison_result
         # (kernel/pipeline/comparison/integration.py::_run_comparison's
         # real, unmocked ComparisonResult.to_dict()) reachable only for
@@ -1043,10 +1139,12 @@ class CognitiveActor(Entity):
                 "comparator_world_loss": comparison.get("world_loss"),
                 "comparator_policy_loss": comparison.get("policy_loss"),
             }
-            if comparison else {}
+            if comparison
+            else {}
         )
         TimelineStore().record(
-            TimelineKind.PLAN, actor_id=self.id,
+            TimelineKind.PLAN,
+            actor_id=self.id,
             **({"plan_id": correlated_plan_id} if correlated_plan_id else {}),
             goal=plan.goal if plan else "",
             steps=tuple(s.action for s in (plan.steps if plan else ())),
@@ -1072,12 +1170,14 @@ class CognitiveActor(Entity):
         replaced_snapshot = state.metrics.get("decide_replaced_plan_snapshot")
         if state.metrics.get("decide_action") == "replace" and replaced_snapshot:
             TimelineStore().record(
-                TimelineKind.PLAN, actor_id=self.id,
+                TimelineKind.PLAN,
+                actor_id=self.id,
                 plan_id=replaced_snapshot.get("plan_id", ""),
                 goal=replaced_snapshot.get("goal", ""),
                 steps=tuple(replaced_snapshot.get("steps") or ()),
                 step_descriptions=tuple(replaced_snapshot.get("step_descriptions") or ()),
-                node_count=len(replaced_snapshot.get("steps") or ()), completed_nodes=0,
+                node_count=len(replaced_snapshot.get("steps") or ()),
+                completed_nodes=0,
                 cost=float(replaced_snapshot.get("cost", 0.0) or 0.0),
                 risk=float(replaced_snapshot.get("risk", 0.0) or 0.0),
                 confidence=float(replaced_snapshot.get("confidence", 0.0) or 0.0),
@@ -1123,7 +1223,8 @@ class CognitiveActor(Entity):
             if override_reason:
                 reason = f"{reason} (overridden: {override_reason})" if reason else f"Overridden: {override_reason}"
             TimelineStore().record(
-                TimelineKind.DECISION, actor_id=self.id,
+                TimelineKind.DECISION,
+                actor_id=self.id,
                 selected_strategy=str(prediction.get("recommendation") or selected.get("scenario_label") or ""),
                 reason=reason,
                 confidence=float(confidence_info.get("point_estimate", 0.0) or 0.0),
@@ -1138,7 +1239,8 @@ class CognitiveActor(Entity):
                     for candidate in candidates_raw
                 ),
                 metadata={
-                    "decision_kind": "scenario_recommendation", "execution_id": execution_id,
+                    "decision_kind": "scenario_recommendation",
+                    "execution_id": execution_id,
                     # Prediction subsystem hardening: reuses the same
                     # prediction_id/scenario_participation the Predict
                     # stage already computed (kernel/pipeline/prediction/
@@ -1161,10 +1263,14 @@ class CognitiveActor(Entity):
         # plan actually ran this tick, and why.
         decide_action = state.metrics.get("decide_action")
         if decide_action:
-            from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import hysteresis_margin
+            from src.monkey_brain.kernel.pipeline.planning.plan_hysteresis import (
+                hysteresis_margin,
+            )
+
             TimelineStore().record(
-                TimelineKind.DECISION, actor_id=self.id,
-                selected_strategy="Replace Plan" if decide_action == "replace" else "Keep Existing Plan",
+                TimelineKind.DECISION,
+                actor_id=self.id,
+                selected_strategy=("Replace Plan" if decide_action == "replace" else "Keep Existing Plan"),
                 reason=str(state.metrics.get("decide_reason") or ""),
                 utility=float(state.metrics.get("decide_new_score") or 0.0),
                 evidence=(
@@ -1174,16 +1280,22 @@ class CognitiveActor(Entity):
                 ),
                 candidates=(
                     {
-                        "name": "current_plan", "plan_id": state.metrics.get("decide_current_plan_id"),
+                        "name": "current_plan",
+                        "plan_id": state.metrics.get("decide_current_plan_id"),
                         "utility": state.metrics.get("decide_current_score"),
                     },
                     {
-                        "name": "new_plan", "plan_id": state.metrics.get("decide_new_plan_id"),
+                        "name": "new_plan",
+                        "plan_id": state.metrics.get("decide_new_plan_id"),
                         "utility": state.metrics.get("decide_new_score"),
                         **(state.metrics.get("decide_score_components") or {}),
                     },
                 ),
-                metadata={"decision_kind": "plan_hysteresis", "action": decide_action, "execution_id": execution_id},
+                metadata={
+                    "decision_kind": "plan_hysteresis",
+                    "action": decide_action,
+                    "execution_id": execution_id,
+                },
             )
             _obs.counter(f"cognitive.plan_decide_{decide_action}")
 
@@ -1216,6 +1328,7 @@ class CognitiveActor(Entity):
 @dataclass(frozen=True)
 class _CognitiveTickResult:
     """Internal result of one async cognitive tick."""
+
     tick: int
     observations: dict
     belief_updated: bool

@@ -5,7 +5,14 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from services.products.models.product_common import ProductStatus, ProductType, LifecycleStage, UnitOfMeasure, utc_now, ensure_utc
+from services.products.models.product_common import (
+    ProductStatus,
+    ProductType,
+    LifecycleStage,
+    UnitOfMeasure,
+    utc_now,
+    ensure_utc,
+)
 
 
 class Product(BaseModel):
@@ -19,7 +26,7 @@ class Product(BaseModel):
     barcode: Optional[str] = None
     upc_ean: Optional[str] = None
     mpn: Optional[str] = None
-    ndc:Optional[str] = None
+    ndc: Optional[str] = None
     internal_code: Optional[str] = None
 
     name: str = Field(..., min_length=1)
@@ -75,8 +82,10 @@ class Product(BaseModel):
     images: list[str] = Field(default_factory=list)
     attachments: list[str] = Field(default_factory=list)
 
+
 class ProductCreate(Product):
     pass
+
 
 class ProductUpdate(BaseModel):
     product_id: Optional[str] = None

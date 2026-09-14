@@ -10,7 +10,6 @@ from services.documents.models.report_templates import (
     ReportTemplateUpdate,
 )
 
-
 COLLECTION = "report_templates"
 
 
@@ -71,7 +70,9 @@ async def get_all(
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, report_template_id: str) -> Optional[dict]:
+async def get_by_id(
+    db: AsyncIOMotorDatabase, report_template_id: str
+) -> Optional[dict]:
     doc = await db[COLLECTION].find_one({"report_template_id": report_template_id})
     return _serialize(doc) if doc else None
 

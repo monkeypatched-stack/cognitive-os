@@ -12,6 +12,7 @@ Accepted proposals wait in a merge queue and are applied only via a batch world 
 never silently overwritten. Sensitive classes (journal, credentials, health, …) never
 leave a runtime.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,10 +30,32 @@ from src.monkey_brain.kernel.compile.trust import Perm, TrustNetwork
 logger = logging.getLogger("agentos.compile.exchange")
 
 # Knowledge classes that may be shared, and domains that NEVER leave a runtime.
-SHAREABLE_KINDS = {"observation", "belief", "experience", "workflow",
-                   "execution_graph", "ontology", "policy", "tool", "api"}
-NEVER_SHARE = {"journal", "secret", "secrets", "credential", "credentials", "password",
-               "health", "medical", "private", "financial", "finance", "conversation", "conversations"}
+SHAREABLE_KINDS = {
+    "observation",
+    "belief",
+    "experience",
+    "workflow",
+    "execution_graph",
+    "ontology",
+    "policy",
+    "tool",
+    "api",
+}
+NEVER_SHARE = {
+    "journal",
+    "secret",
+    "secrets",
+    "credential",
+    "credentials",
+    "password",
+    "health",
+    "medical",
+    "private",
+    "financial",
+    "finance",
+    "conversation",
+    "conversations",
+}
 
 
 # A proposal's kind determines which permission on the origin→recipient edge governs it
@@ -60,27 +83,33 @@ def is_shareable(kind: str, domain: str) -> bool:
 @dataclass(frozen=True)
 class BeliefProposal:
     """A signed candidate knowledge update published by a runtime."""
+
     origin: str
-    kind: str                        # observation | belief | workflow | execution_graph | ontology | ...
+    kind: str  # observation | belief | workflow | execution_graph | ontology | ...
     domain: str
-    transitions: tuple               # tuple of (src, dst, reward)
+    transitions: tuple  # tuple of (src, dst, reward)
     signature: str = ""
-    proposal_id: str = ""            # idempotency key (auto-generated if empty)
+    proposal_id: str = ""  # idempotency key (auto-generated if empty)
     certificate: dict | None = None  # CA-signed cert binding origin→public key (cross-host)
 
     def __post_init__(self):
         if not self.proposal_id:
             from uuid import uuid4
-            object.__setattr__(self, 'proposal_id', str(uuid4()))
+
+            object.__setattr__(self, "proposal_id", str(uuid4()))
 
     def payload(self) -> dict:
-        return {"origin": self.origin, "kind": self.kind, "domain": self.domain,
-                "transitions": sorted(self.transitions)}
+        return {
+            "origin": self.origin,
+            "kind": self.kind,
+            "domain": self.domain,
+            "transitions": sorted(self.transitions),
+        }
 
 
 @dataclass(frozen=True)
 class ExchangeResult:
-    status: str                      # accepted | rejected | quarantined
+    status: str  # accepted | rejected | quarantined
     reason: str
     merged: int = 0
     conflicts: tuple = ()
@@ -92,11 +121,13 @@ class MergeQueue:
     grow without limit).
 
     Thread-safe: all mutations are guarded by a lock."""
+
     def __init__(self, max_size: int = 10000, dedup_window: int = 50000) -> None:
         import threading
+
         self._lock = threading.Lock()
         self._q: list[tuple[str, BeliefProposal]] = []
-        self._seen: "OrderedDict[str, bool]" = OrderedDict()   # bounded LRU of proposal_ids
+        self._seen: "OrderedDict[str, bool]" = OrderedDict()  # bounded LRU of proposal_ids
         self._max = max_size
         self._dedup_window = dedup_window
 
@@ -115,7 +146,7 @@ class MergeQueue:
             self._q.append((recipient, proposal))
             self._seen[proposal.proposal_id] = True
             while len(self._seen) > self._dedup_window:
-                self._seen.popitem(last=False)             # evict oldest — bounds memory
+                self._seen.popitem(last=False)  # evict oldest — bounds memory
             return "queued"
 
     def pending(self) -> int:
@@ -132,9 +163,8 @@ class MergeQueue:
         by_tenant: dict[str, list[dict]] = {}
         for recipient, proposal in snapshot:
             tenant = tenant_of(recipient)
-            for (s, d, r) in proposal.transitions:
-                by_tenant.setdefault(tenant, []).append(
-                    {"src": s, "dst": d, "domain": proposal.domain, "reward": r})
+            for s, d, r in proposal.transitions:
+                by_tenant.setdefault(tenant, []).append({"src": s, "dst": d, "domain": proposal.domain, "reward": r})
         applied = 0
         for tenant, trans in by_tenant.items():
             world_runtime.batch_update(tenant, trans, source="trust_merge")
@@ -150,10 +180,19 @@ class KnowledgeExchange:
     agreements before allowing knowledge exchange.
     """
 
-    def __init__(self, network: TrustNetwork, *, signing_key: bytes = b"trust-signing-key",
-                 trust_threshold: float = 0.5, max_queue: int = 10000,
-                 key_manager: Any = None, ca: Any = None, ca_public_pem: str | None = None,
-                 crl: Any = None, cross_certs: Any = None) -> None:
+    def __init__(
+        self,
+        network: TrustNetwork,
+        *,
+        signing_key: bytes = b"trust-signing-key",
+        trust_threshold: float = 0.5,
+        max_queue: int = 10000,
+        key_manager: Any = None,
+        ca: Any = None,
+        ca_public_pem: str | None = None,
+        crl: Any = None,
+        cross_certs: Any = None,
+    ) -> None:
         self._net = network
         self._key = signing_key
         self._threshold = trust_threshold
@@ -175,13 +214,13 @@ class KnowledgeExchange:
     def _key_manager(self):
         if self._km is None:
             from src.monkey_brain.kernel.identity import get_key_manager
+
             self._km = get_key_manager()
         return self._km
 
     # ── publish (with never-share filter + signing) ──────────────────────────────
 
-    def publish(self, origin: str, kind: str, domain: str,
-                transitions: Iterable[tuple]) -> BeliefProposal | None:
+    def publish(self, origin: str, kind: str, domain: str, transitions: Iterable[tuple]) -> BeliefProposal | None:
         """Create a signed belief proposal.
 
         Uses Ed25519 signing via the identity module when available,
@@ -189,7 +228,12 @@ class KnowledgeExchange:
         """
         if not is_shareable(kind, domain):
             _obs.event("trust.publish_blocked", origin=origin, kind=kind, domain=domain)
-            logger.info("[exchange] %s blocked from sharing %s/%s (never-share)", origin, kind, domain)
+            logger.info(
+                "[exchange] %s blocked from sharing %s/%s (never-share)",
+                origin,
+                kind,
+                domain,
+            )
             return None
         prop = BeliefProposal(origin, kind, domain, tuple(tuple(t) for t in transitions))
         signature = self._sign(prop.payload(), origin)
@@ -203,7 +247,13 @@ class KnowledgeExchange:
             except Exception as exc:
                 logger.debug("[exchange] cert issue failed for %s: %s", origin, exc)
         prop = replace(prop, signature=signature, certificate=cert)
-        _obs.event("trust.publish", origin=origin, kind=kind, domain=domain, n=len(prop.transitions))
+        _obs.event(
+            "trust.publish",
+            origin=origin,
+            kind=kind,
+            domain=domain,
+            n=len(prop.transitions),
+        )
         return prop
 
     # ── signing (scheme-tagged: Ed25519 asymmetric, HMAC fallback) ───────────────
@@ -218,14 +268,20 @@ class KnowledgeExchange:
         back to HMAC only if the identity module is unavailable."""
         try:
             from src.monkey_brain.kernel.identity import sign_bytes
+
             key = self._key_manager().get_or_create(origin)
             return "ed25519:" + sign_bytes(self._blob(payload), key)
-        except Exception as exc:                       # identity unavailable → shared-key HMAC
+        except Exception as exc:  # identity unavailable → shared-key HMAC
             logger.debug("[exchange] Ed25519 sign unavailable (%s); HMAC fallback", exc)
             return "hmac:" + sign_checkpoint(payload, self._key)
 
-    def _verify(self, payload: dict, signature: str, origin: str,
-                certificate: dict | None = None) -> bool:
+    def _verify(
+        self,
+        payload: dict,
+        signature: str,
+        origin: str,
+        certificate: dict | None = None,
+    ) -> bool:
         """Verify a proposal's signature.
 
         Cross-host: when a CA anchor is configured and the proposal carries a certificate,
@@ -235,18 +291,26 @@ class KnowledgeExchange:
         """
         scheme, _, sig = signature.partition(":")
         if self._ca_anchor and certificate:
-            from src.monkey_brain.kernel.ca import verify_certificate, verify_certificate_chain
+            from src.monkey_brain.kernel.ca import (
+                verify_certificate,
+                verify_certificate_chain,
+            )
             from src.monkey_brain.kernel.identity import verify_bytes
+
             crl = self._crl() if callable(self._crl) else self._crl
             cross = self._cross() if callable(self._cross) else self._cross
-            if certificate.get("chain"):               # federated: walk the chain to root
-                ok = verify_certificate_chain(certificate, {self._ca_anchor}, revoked_serials=crl,
-                                              cross_certs=cross)
-            else:                                      # flat single-CA
+            if certificate.get("chain"):  # federated: walk the chain to root
+                ok = verify_certificate_chain(
+                    certificate,
+                    {self._ca_anchor},
+                    revoked_serials=crl,
+                    cross_certs=cross,
+                )
+            else:  # flat single-CA
                 ok = verify_certificate(certificate, self._ca_anchor, revoked_serials=crl)
             if not ok:
                 return False
-            if certificate.get("runtime_id") != origin:      # cert must bind THIS origin
+            if certificate.get("runtime_id") != origin:  # cert must bind THIS origin
                 return False
             if scheme != "ed25519":
                 return False
@@ -257,6 +321,7 @@ class KnowledgeExchange:
         if scheme == "ed25519":
             try:
                 from src.monkey_brain.kernel.identity import verify_bytes
+
                 pub = self._key_manager().get_public_key_pem(origin)
                 return verify_bytes(self._blob(payload), sig, pub)
             except Exception as exc:
@@ -264,12 +329,19 @@ class KnowledgeExchange:
                 return False
         if scheme == "hmac":
             return verify_checkpoint(payload, sig, self._key)
-        return verify_checkpoint(payload, signature, self._key)   # legacy untagged
+        return verify_checkpoint(payload, signature, self._key)  # legacy untagged
 
     # ── deliver (the proposal-as-candidate pipeline) ─────────────────────────────
 
-    def deliver(self, proposal: BeliefProposal, recipient: str, recipient_belief: SparseTransitionTensor,
-                *, required_perm: str | None = None, actor_getter: Any = None) -> ExchangeResult:
+    def deliver(
+        self,
+        proposal: BeliefProposal,
+        recipient: str,
+        recipient_belief: SparseTransitionTensor,
+        *,
+        required_perm: str | None = None,
+        actor_getter: Any = None,
+    ) -> ExchangeResult:
         """Validate a proposal for a recipient. On accept it is QUEUED for a batch merge
         (never written to the world directly). Reject/quarantine leave the world untouched.
 
@@ -283,8 +355,12 @@ class KnowledgeExchange:
         perm = required_perm or _KIND_PERM.get(proposal.kind, Perm.PUBLISH_BELIEFS)
         # 1. Verify signature — tamper-evident, against the origin's public key (Ed25519),
         # via the CA-signed certificate when present (cross-host).
-        if not self._verify(proposal.payload(), proposal.signature, proposal.origin,
-                            proposal.certificate):
+        if not self._verify(
+            proposal.payload(),
+            proposal.signature,
+            proposal.origin,
+            proposal.certificate,
+        ):
             return self._reject(proposal, recipient, "signature_invalid")
         # 2. Never-share guard (defense in depth on the receiving side)
         if not is_shareable(proposal.kind, proposal.domain):
@@ -296,6 +372,7 @@ class KnowledgeExchange:
         if os.getenv("TRUST_REQUIRE_AGREEMENTS", "").lower() in ("1", "true", "yes"):
             try:
                 from src.monkey_brain.kernel.agreements import get_agreement_store
+
                 store = get_agreement_store()
                 if store.covers_knowledge(proposal.origin, recipient, proposal.kind) is None:
                     return self._reject(proposal, recipient, "no_active_agreement")
@@ -310,16 +387,20 @@ class KnowledgeExchange:
         # 5+6. Simulate / Compare — conflict with the recipient's current belief, no mutation
         conflicts = self._compare(recipient_belief, proposal)
         if conflicts:
-            _obs.event("trust.quarantine", origin=proposal.origin, recipient=recipient, conflicts=len(conflicts))
-            return ExchangeResult("quarantined", "conflict_with_local_belief",
-                                  conflicts=tuple(conflicts))
+            _obs.event(
+                "trust.quarantine",
+                origin=proposal.origin,
+                recipient=recipient,
+                conflicts=len(conflicts),
+            )
+            return ExchangeResult("quarantined", "conflict_with_local_belief", conflicts=tuple(conflicts))
         # 7. Accept → observation queue (not direct world write)
         # Proposal goes to actor's observation queue for belief formation (Layer 2: fusion)
         # The fusion function will apply trust weighting when integrating the observation
         outcome = self.queue.enqueue(recipient, proposal)
         if outcome == "full":
             return self._reject(proposal, recipient, "queue_full")
-        if outcome == "duplicate":                     # idempotent redelivery — already accepted
+        if outcome == "duplicate":  # idempotent redelivery — already accepted
             return ExchangeResult("accepted", "duplicate", merged=0)
 
         # LAYER 1 → LAYER 2 HANDOFF: Queue proposal in actor's observation queue
@@ -332,7 +413,12 @@ class KnowledgeExchange:
             except Exception as e:
                 logger.debug("[exchange] actor handoff failed for %s: %s", recipient, e)
 
-        _obs.event("trust.accept", origin=proposal.origin, recipient=recipient, n=len(proposal.transitions))
+        _obs.event(
+            "trust.accept",
+            origin=proposal.origin,
+            recipient=recipient,
+            n=len(proposal.transitions),
+        )
         return ExchangeResult("accepted", "queued_for_fusion", merged=len(proposal.transitions))
 
     # ── helpers ──────────────────────────────────────────────────────────────────
@@ -340,10 +426,11 @@ class KnowledgeExchange:
     @staticmethod
     def _compare(belief: SparseTransitionTensor, proposal: BeliefProposal) -> list[dict]:
         """Comparator: find edges the proposal would change (same edge, materially
-        different reward) — recorded as conflicts, never silently overwritten. No mutation."""
+        different reward) — recorded as conflicts, never silently overwritten. No mutation.
+        """
         existing = set(belief)
         conflicts: list[dict] = []
-        for (s, d, r) in proposal.transitions:
+        for s, d, r in proposal.transitions:
             if (s, d) in existing:
                 cur = belief.feature(s, d, Feature.REWARD)
                 if abs(cur - float(r)) > 1e-6:
@@ -352,5 +439,10 @@ class KnowledgeExchange:
 
     def _reject(self, proposal: BeliefProposal, recipient: str, reason: str) -> ExchangeResult:
         _obs.event("trust.reject", origin=proposal.origin, recipient=recipient, reason=reason)
-        logger.info("[exchange] rejected proposal from %s to %s: %s", proposal.origin, recipient, reason)
+        logger.info(
+            "[exchange] rejected proposal from %s to %s: %s",
+            proposal.origin,
+            recipient,
+            reason,
+        )
         return ExchangeResult("rejected", reason)

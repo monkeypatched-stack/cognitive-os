@@ -36,7 +36,9 @@ def _prepare(value):
     return value
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -52,8 +54,12 @@ async def get_by_carrier(db: AsyncIOMotorDatabase, carrier_id: str) -> list[dict
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_registration_plate(db: AsyncIOMotorDatabase, registration_plate: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"registration_plate": registration_plate}))
+async def get_by_registration_plate(
+    db: AsyncIOMotorDatabase, registration_plate: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"registration_plate": registration_plate})
+    )
 
 
 async def get_by_active(db: AsyncIOMotorDatabase, active: bool) -> list[dict]:
@@ -67,7 +73,9 @@ async def create(db: AsyncIOMotorDatabase, data: VehicleCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, vehicle_id: str, data: VehicleUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, vehicle_id: str, data: VehicleUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, vehicle_id)

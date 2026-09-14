@@ -38,34 +38,59 @@ def _run(coro):
 
 # ---------------------------------------------------------------- the echo test itself
 
-@pytest.mark.parametrize("payload", [
-    {"action": "line.status", "success": True},                       # LineAgent
-    {"action": "scheduling.optimize", "success": True, "schedule": {}},  # SchedulingAgent
-    {"action": "plant.status", "success": True, "layer": "domain"},
-    {"action": "x", "success": True, "items": [], "detail": "", "meta": None},
-])
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"action": "line.status", "success": True},  # LineAgent
+        {
+            "action": "scheduling.optimize",
+            "success": True,
+            "schedule": {},
+        },  # SchedulingAgent
+        {"action": "plant.status", "success": True, "layer": "domain"},
+        {"action": "x", "success": True, "items": [], "detail": "", "meta": None},
+    ],
+)
 def test_a_status_with_no_result_is_an_echo(payload):
     assert is_status_echo(payload) is True
 
 
-@pytest.mark.parametrize("payload", [
-    {"action": "report", "success": True, "summary": "78 assets on LINE-TAB-001"},
-    {"action": "report", "success": True, "sources": [{"source": "mongo://demo/instruments"}]},
-    {"action": "report", "success": True, "count": 0, "assets": []},   # a real zero IS a result
-    {"action": "report", "success": True, "out_of_tolerance": False},  # so is a real False
-])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"action": "report", "success": True, "summary": "78 assets on LINE-TAB-001"},
+        {
+            "action": "report",
+            "success": True,
+            "sources": [{"source": "mongo://demo/instruments"}],
+        },
+        {
+            "action": "report",
+            "success": True,
+            "count": 0,
+            "assets": [],
+        },  # a real zero IS a result
+        {
+            "action": "report",
+            "success": True,
+            "out_of_tolerance": False,
+        },  # so is a real False
+    ],
+)
 def test_a_payload_with_real_content_is_not_an_echo(payload):
     assert is_status_echo(payload) is False
 
 
 def test_zero_and_false_are_results_not_emptiness():
-    """"no pumps on this line" is an answer. Treating count=0 as 'nothing produced' would
+    """ "no pumps on this line" is an answer. Treating count=0 as 'nothing produced' would
     throw away exactly the grounded negatives this whole effort exists to protect."""
     assert is_status_echo({"action": "report", "count": 0}) is False
     assert is_status_echo({"action": "report", "overdue": False}) is False
 
 
 # ---------------------------------------------------------------- the agents
+
 
 def test_the_manufacturing_stub_now_reports_unimplemented():
     from broca.agents.domains.manufacturing import LineAgent
@@ -108,11 +133,11 @@ def test_an_agent_that_starts_producing_results_stops_being_a_stub():
             return {"action": "report", "success": True}
 
     agent = Waking()
-    assert _run(agent.handle({})).success is False        # stub
+    assert _run(agent.handle({})).success is False  # stub
 
     agent.produce = True
     result = _run(agent.handle({}))
-    assert result.success is True                          # real, with no code change
+    assert result.success is True  # real, with no code change
     assert "unimplemented" not in result.payload
 
 

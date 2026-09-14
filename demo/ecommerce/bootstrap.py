@@ -11,6 +11,7 @@ Every call below hits the live server at BASE_URL. Run the server
 first (scripts/start_server.sh) before running this module or
 run_demo.py.
 """
+
 from __future__ import annotations
 
 import os
@@ -52,6 +53,7 @@ def _call(client: httpx.Client, method: str, path: str, **kwargs: Any) -> dict:
 
 # ── Geography ────────────────────────────────────────────────────────────
 
+
 def _create_geo(client: httpx.Client, entity_type: str, name: str, parent_id: str | None = None) -> str:
     body: dict[str, Any] = {"entity_type": entity_type, "name": name}
     if parent_id:
@@ -86,20 +88,35 @@ def build_geography(client: httpx.Client) -> dict[str, str]:
         space = _create_geo(client, "space", f"{label} Floor", building)
         spaces[key] = space
 
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, **spaces}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        **spaces,
+    }
 
 
 # ── Societies ────────────────────────────────────────────────────────────
 
 SOCIETY_DEFS = (
-    ("marketplace", "Marketplace Society", "Coordinates catalog browsing and order orchestration"),
+    (
+        "marketplace",
+        "Marketplace Society",
+        "Coordinates catalog browsing and order orchestration",
+    ),
     ("merchant", "Merchant Society", "Merchant storefront operations"),
     ("warehouse", "Warehouse Society", "Inventory, picking, and packing"),
     ("logistics", "Logistics Society", "Delivery routing and driver coordination"),
     ("payment", "Payment Society", "Payment authorization and settlement"),
     ("customer", "Customer Society", "Customers browsing and purchasing"),
-    ("support", "Customer Support Society", "Post-purchase support and issue resolution"),
+    (
+        "support",
+        "Customer Support Society",
+        "Post-purchase support and issue resolution",
+    ),
 )
 
 
@@ -112,10 +129,20 @@ def build_societies(client: httpx.Client, spaces: dict[str, str]) -> dict[str, s
     actual check."""
     societies: dict[str, str] = {}
     for key, name, description in SOCIETY_DEFS:
-        result = _call(client, "POST", "/societies", json={"name": name, "description": description})
+        result = _call(
+            client,
+            "POST",
+            "/societies",
+            json={"name": name, "description": description},
+        )
         society_id = result["society_id"]
         societies[key] = society_id
-        _call(client, "POST", f"/planet/geo/{spaces[key]}/host", json={"society_id": society_id})
+        _call(
+            client,
+            "POST",
+            f"/planet/geo/{spaces[key]}/host",
+            json={"society_id": society_id},
+        )
     return societies
 
 
@@ -143,11 +170,18 @@ def build_actors(client: httpx.Client, societies: dict[str, str]) -> dict[str, s
     real ActorType values (human/robot/ai_agent/enterprise/government)."""
     actors: dict[str, str] = {}
     for society_key, name, actor_type, goals in ACTOR_DEFS:
-        result = _call(client, "POST", "/actors", json={
-            "name": name, "actor_type": actor_type, "goals": goals,
-            "society_id": societies[society_key],
-            "capabilities": [{"name": "general"}],
-        })
+        result = _call(
+            client,
+            "POST",
+            "/actors",
+            json={
+                "name": name,
+                "actor_type": actor_type,
+                "goals": goals,
+                "society_id": societies[society_key],
+                "capabilities": [{"name": "general"}],
+            },
+        )
         actors[name] = result["actor_id"]
 
     # DeliveryCapability (grocery.py) resolves a delivery address from a
@@ -156,10 +190,17 @@ def build_actors(client: httpx.Client, societies: dict[str, str]) -> dict[str, s
     # actor"), not a guess. POST /actors/{id}/addresses is the real,
     # production way to set one (it now also writes the matching KG
     # entity, not just the society-scoped contact record).
-    _call(client, "POST", f"/actors/{actors['Alice']}/addresses", json={
-        "actor_id": actors["Alice"], "address_type": "physical",
-        "value": "1600 Customer Ave, San Francisco, CA 94103", "is_primary": True,
-    })
+    _call(
+        client,
+        "POST",
+        f"/actors/{actors['Alice']}/addresses",
+        json={
+            "actor_id": actors["Alice"],
+            "address_type": "physical",
+            "value": "1600 Customer Ave, San Francisco, CA 94103",
+            "is_primary": True,
+        },
+    )
 
     return actors
 
@@ -178,23 +219,38 @@ def build_commerce(client: httpx.Client) -> dict[str, Any]:
     """One merchant storefront and a small real product catalog with
     real starting inventory (quantity is set at product creation — the
     same field a real merchant onboarding flow would set)."""
-    merchant = _call(client, "POST", "/merchants", json={
-        "merchant_id": "merchant_bob", "store_name": "Bob's Electronics", "delivery_fee": 4.99,
-        # DeliveryCapability (grocery.py) requires a store address before
-        # it will schedule a pickup/delivery — found live, via a genuine
-        # execution failure ("no address on file for store ..."), not a
-        # guess. address is a real, already-supported MerchantCreateRequest
-        # field (api/gateway_models.py) this just wasn't populating.
-        "address": "742 Market Street, San Francisco, CA 94102",
-    })
+    merchant = _call(
+        client,
+        "POST",
+        "/merchants",
+        json={
+            "merchant_id": "merchant_bob",
+            "store_name": "Bob's Electronics",
+            "delivery_fee": 4.99,
+            # DeliveryCapability (grocery.py) requires a store address before
+            # it will schedule a pickup/delivery — found live, via a genuine
+            # execution failure ("no address on file for store ..."), not a
+            # guess. address is a real, already-supported MerchantCreateRequest
+            # field (api/gateway_models.py) this just wasn't populating.
+            "address": "742 Market Street, San Francisco, CA 94102",
+        },
+    )
     store_id = merchant["store_id"]
 
     products = {}
     for name, price, quantity in PRODUCT_DEFS:
-        result = _call(client, "POST", "/products", json={
-            "store_id": store_id, "merchant_id": "merchant_bob",
-            "name": name, "price": price, "quantity": quantity,
-        })
+        result = _call(
+            client,
+            "POST",
+            "/products",
+            json={
+                "store_id": store_id,
+                "merchant_id": "merchant_bob",
+                "name": name,
+                "price": price,
+                "quantity": quantity,
+            },
+        )
         products[name] = result.get("product_id", result.get("id", ""))
 
     # DeliveryCapability's rider assignment (select_delivery_riders,
@@ -210,6 +266,7 @@ def build_commerce(client: httpx.Client) -> dict[str, Any]:
 
 
 # ── Validation ───────────────────────────────────────────────────────────
+
 
 def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float = 2.0) -> dict:
     """POST /verify/world — the real world-invariant validator (Gate 3,
@@ -242,9 +299,7 @@ def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float =
             return result
         last_result = result
         violations = result.get("violations", [])
-        only_presence = bool(violations) and all(
-            v.get("category") == "presence_consistency" for v in violations
-        )
+        only_presence = bool(violations) and all(v.get("category") == "presence_consistency" for v in violations)
         if not only_presence or attempt == attempts - 1:
             break
         time.sleep(delay_seconds)
@@ -252,6 +307,7 @@ def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float =
 
 
 # ── Orchestration ────────────────────────────────────────────────────────
+
 
 def bootstrap_world(client: httpx.Client | None = None) -> dict[str, Any]:
     """Build the complete demo world. Returns every id run_demo.py
@@ -265,8 +321,11 @@ def bootstrap_world(client: httpx.Client | None = None) -> dict[str, Any]:
         commerce = build_commerce(client)
         verification = verify_world(client)
         return {
-            "spaces": spaces, "societies": societies, "actors": actors,
-            "commerce": commerce, "verification": verification,
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "commerce": commerce,
+            "verification": verification,
         }
     finally:
         if owns_client:

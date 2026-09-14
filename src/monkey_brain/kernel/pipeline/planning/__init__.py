@@ -12,6 +12,7 @@ CognitiveRuntime(planning_engine=...) with zero changes to any existing file.
 Step 8.8 (this): trace.py — PlanningTrace + explainability, attached to
 every Plan's metadata["planning_trace"] by IntegratedPlanningEngine.
 """
+
 from src.monkey_brain.kernel.pipeline.planning.domain import (
     ValidationStatus,
     Goal,
@@ -67,8 +68,13 @@ from src.monkey_brain.kernel.pipeline.planning.scoring import (
     DefaultScoringPolicy,
     PlanScorer,
 )
-from src.monkey_brain.kernel.pipeline.planning.integration import IntegratedPlanningEngine
-from src.monkey_brain.kernel.pipeline.planning.trace import PlanningTrace, build_planning_trace
+from src.monkey_brain.kernel.pipeline.planning.integration import (
+    IntegratedPlanningEngine,
+)
+from src.monkey_brain.kernel.pipeline.planning.trace import (
+    PlanningTrace,
+    build_planning_trace,
+)
 
 __all__ = [
     "ValidationStatus",

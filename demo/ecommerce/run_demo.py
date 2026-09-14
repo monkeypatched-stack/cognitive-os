@@ -29,6 +29,7 @@ Usage:
 Requires a running server (scripts/start_server.sh) at DEMO_BASE_URL
 (default http://localhost:8031/api/v1/agentos).
 """
+
 from __future__ import annotations
 
 import re
@@ -42,10 +43,18 @@ WAREHOUSE_PROMPT = "I need a wireless gaming mouse under $100 that can arrive to
 TRACKED_PRODUCT_NAME = "Wireless Gaming Mouse"
 
 _BUDGET_RE = re.compile(r"\$\s?(\d+(?:\.\d{1,2})?)")
-_DELIVERY_KEYWORDS = ("tomorrow", "same-day", "same day", "next-day", "next day", "today")
+_DELIVERY_KEYWORDS = (
+    "tomorrow",
+    "same-day",
+    "same day",
+    "next-day",
+    "next day",
+    "today",
+)
 
 
 # ── Console formatting ──────────────────────────────────────────────────
+
 
 def banner(title: str) -> None:
     print("\n" + "=" * 56)
@@ -70,6 +79,7 @@ def kv(label: str, value: Any, width: int = 26) -> None:
 
 # ── Step 1: Bootstrap ────────────────────────────────────────────────────
 
+
 def step_bootstrap(client) -> dict[str, Any]:
     banner("CognitiveOS Backend Demonstration")
     print("\nBootstrapping World")
@@ -85,6 +95,7 @@ def step_bootstrap(client) -> dict[str, Any]:
 
 
 # ── Step 2 / 5: Planetary Cycle ─────────────────────────────────────────
+
 
 def _tick_with_retry(client, attempts: int = 20, delay_seconds: float = 15.0) -> dict[str, Any]:
     """POST /planet/tick returns a real 503 ("Planetary cycle already
@@ -120,6 +131,7 @@ def step_planetary_tick(client, label: str) -> dict[str, Any]:
 
 # ── World Snapshot (real facts, independent of what the LLM said) ───────
 
+
 def snapshot_world(client, product_id: str, warehouse_space_id: str) -> dict[str, Any]:
     """Real, comparable facts about the world — from GET /products/{id}
     and GET /presence/spaces/{id} (both existing, already-production
@@ -134,7 +146,10 @@ def snapshot_world(client, product_id: str, warehouse_space_id: str) -> dict[str
 
 # ── Step 3 / 6: Customer Prompt ──────────────────────────────────────────
 
-def _prompt_with_retry(client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0) -> dict[str, Any]:
+
+def _prompt_with_retry(
+    client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0
+) -> dict[str, Any]:
     """POST /prompt can occasionally return 200 with
     query_result.llm_answered=False and no actor_execution data at all —
     observed live as the server logging "Actor '...' was not reached by
@@ -148,7 +163,9 @@ def _prompt_with_retry(client, actor_id: str, question: str, attempts: int = 3, 
     last_response: dict[str, Any] = {}
     for attempt in range(attempts):
         response = _call(
-            client, "POST", "/prompt",
+            client,
+            "POST",
+            "/prompt",
             json={"question": question},
             headers={"X-User-ID": actor_id},
         )
@@ -173,15 +190,26 @@ def extract_intent(question: str, plan: dict, catalog_names: list[str]) -> dict[
 
     delivery = next((kw for kw in _DELIVERY_KEYWORDS if kw in question.lower()), "(unspecified)")
 
-    haystack = (question + " " + " ".join(
-        s.get("description", "") for s in (plan.get("steps") or [])
-    )).lower()
+    haystack = (question + " " + " ".join(s.get("description", "") for s in (plan.get("steps") or []))).lower()
     product = next((name for name in catalog_names if name.lower() in haystack), "(unresolved)")
 
-    return {"action": "Purchase Product", "product": product, "budget": budget, "delivery": delivery}
+    return {
+        "action": "Purchase Product",
+        "product": product,
+        "budget": budget,
+        "delivery": delivery,
+    }
 
 
-_RESULT_KEYS = ("selected", "order_id", "status", "delivery_id", "fulfillment_method", "pickup_addresses", "note")
+_RESULT_KEYS = (
+    "selected",
+    "order_id",
+    "status",
+    "delivery_id",
+    "fulfillment_method",
+    "pickup_addresses",
+    "note",
+)
 
 
 def _summarize_result(result: Any) -> str:
@@ -242,8 +270,10 @@ def step_customer_prompt(client, actor_id: str, question: str, catalog_names: li
         print(f"  {mark} {name}" + (f" — {detail}" if detail else ""))
 
     print(f"\nGoal Achieved: {outcome.get('goal_achieved')}")
-    print(f"Actions Executed: {outcome.get('actions_executed')} "
-          f"(success={outcome.get('success_count')}, failure={outcome.get('failure_count')})")
+    print(
+        f"Actions Executed: {outcome.get('actions_executed')} "
+        f"(success={outcome.get('success_count')}, failure={outcome.get('failure_count')})"
+    )
     print(f"Round-trip: {elapsed_ms:.0f} ms")
 
     scope = execution.get("execution_scope") or {}
@@ -256,23 +286,38 @@ def step_customer_prompt(client, actor_id: str, question: str, catalog_names: li
         kv("  Context Events Consumed", scope.get("context_events_consumed"))
         kv("  Context Events Produced", scope.get("context_events_produced"))
 
-    return {"response": response, "plan": plan, "steps": steps, "outcome": outcome, "actions": raw_actions}
+    return {
+        "response": response,
+        "plan": plan,
+        "steps": steps,
+        "outcome": outcome,
+        "actions": raw_actions,
+    }
 
 
 # ── Step 4: Inject Event ─────────────────────────────────────────────────
 
+
 def step_inject_event(client, space_id: str) -> dict[str, Any]:
     section("Inject Event")
     print("Warehouse Fire")
-    result = _call(client, "POST", "/events", json={
-        "type": "fire", "space_id": space_id, "description": "Warehouse Fire",
-    })
+    result = _call(
+        client,
+        "POST",
+        "/events",
+        json={
+            "type": "fire",
+            "space_id": space_id,
+            "description": "Warehouse Fire",
+        },
+    )
     evacuated = (result.get("payload") or {}).get("evacuated") or result.get("evacuated") or []
     kv("Actors Evacuated", len(evacuated))
     return result
 
 
 # ── Reasoning Comparison (real world-state diff, not just plan text) ────
+
 
 def print_comparison(first_snapshot: dict, second_snapshot: dict, first: dict, second: dict) -> dict[str, bool]:
     section("Reasoning Comparison")
@@ -292,9 +337,18 @@ def print_comparison(first_snapshot: dict, second_snapshot: dict, first: dict, s
     def tag(changed: bool) -> str:
         return "changed" if changed else "unchanged"
 
-    kv("Selected Product", f"{second_product.get('name', '?')} ({tag(product_changed)})")
-    kv("Product Inventory", f"{first_product.get('inventory')} -> {second_product.get('inventory')} ({tag(product_changed)})")
-    kv("Warehouse Staffing", f"{len(first_occupants)} -> {len(second_occupants)} ({tag(staffing_changed)})")
+    kv(
+        "Selected Product",
+        f"{second_product.get('name', '?')} ({tag(product_changed)})",
+    )
+    kv(
+        "Product Inventory",
+        f"{first_product.get('inventory')} -> {second_product.get('inventory')} ({tag(product_changed)})",
+    )
+    kv(
+        "Warehouse Staffing",
+        f"{len(first_occupants)} -> {len(second_occupants)} ({tag(staffing_changed)})",
+    )
 
     if plan_changed:
         print(f"Plan Steps ................ changed")
@@ -304,9 +358,11 @@ def print_comparison(first_snapshot: dict, second_snapshot: dict, first: dict, s
         print(f"Plan Steps ................ unchanged ({' -> '.join(first_actions)})")
 
     if staffing_changed and not product_changed:
-        reason = (f"Warehouse fire evacuated the on-site team "
-                   f"({len(first_occupants)} -> {len(second_occupants)} present); the product "
-                   f"itself remained in stock, so the order still routes through the same store.")
+        reason = (
+            f"Warehouse fire evacuated the on-site team "
+            f"({len(first_occupants)} -> {len(second_occupants)} present); the product "
+            f"itself remained in stock, so the order still routes through the same store."
+        )
     elif product_changed and staffing_changed:
         reason = "Warehouse fire evacuated staff AND changed available stock — both fulfillment capacity and supply were affected."
     elif product_changed:
@@ -324,6 +380,7 @@ def print_comparison(first_snapshot: dict, second_snapshot: dict, first: dict, s
 
 
 # ── Step 7: Metrics ───────────────────────────────────────────────────────
+
 
 def step_metrics(client) -> dict[str, float]:
     section("Lemon Metrics")
@@ -349,10 +406,15 @@ def step_metrics(client) -> dict[str, float]:
 
 # ── Benchmark Summary ────────────────────────────────────────────────────
 
+
 def print_benchmark_summary(
-    world: dict, first: dict, second: dict,
-    first_tick: dict, second_tick: dict,
-    comparison: dict, metrics: dict,
+    world: dict,
+    first: dict,
+    second: dict,
+    first_tick: dict,
+    second_tick: dict,
+    comparison: dict,
+    metrics: dict,
 ) -> None:
     """Synthesized entirely from data already computed earlier in this
     same run — no new checks invented, no latency PASS/FAIL judgment
@@ -386,6 +448,7 @@ def print_benchmark_summary(
 
 
 # ── Orchestration ────────────────────────────────────────────────────────
+
 
 def main() -> int:
     with _client() as client:

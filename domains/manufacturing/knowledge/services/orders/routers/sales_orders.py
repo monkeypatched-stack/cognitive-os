@@ -73,7 +73,9 @@ async def get_sales_order(
     return record
 
 
-@router.post("/", response_model=SalesOrderResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=SalesOrderResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_sales_order(
     data: SalesOrderCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

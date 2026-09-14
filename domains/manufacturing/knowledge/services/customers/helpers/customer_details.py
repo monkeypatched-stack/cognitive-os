@@ -4,7 +4,10 @@ from uuid import uuid4
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.customers.models.customer_details import CustomerDetailsCreate, CustomerDetailsUpdate
+from services.customers.models.customer_details import (
+    CustomerDetailsCreate,
+    CustomerDetailsUpdate,
+)
 
 COLLECTION = "customer_details"
 

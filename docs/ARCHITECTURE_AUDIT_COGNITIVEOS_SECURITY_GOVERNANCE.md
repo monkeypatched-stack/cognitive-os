@@ -114,15 +114,16 @@ EXTERNAL REQUEST (UNTRUSTED)
 ```python
 # src/monkey_brain/kernel/trusted_auth.py
 
+
 @dataclass(frozen=True)
 class TrustedAuthEvidence:
-    authenticated: bool         # Must be True after successful JWT decode
-    token_valid: bool          # JWT signature verified
-    principal_id: str          # From JWT 'sub' or 'user_id' (never agent-supplied)
-    principal_type: str        # 'human' | 'service' | 'unknown'
-    mfa_status: str            # Normalized: 'satisfied' | 'not_satisfied' | 'unknown' | 'not_required'
-    session_id: str            # From JWT 'jti' (token ID for revocation)
-    permissions: tuple[str, ...] # From JWT 'permissions' claim
+    authenticated: bool  # Must be True after successful JWT decode
+    token_valid: bool  # JWT signature verified
+    principal_id: str  # From JWT 'sub' or 'user_id' (never agent-supplied)
+    principal_type: str  # 'human' | 'service' | 'unknown'
+    mfa_status: str  # Normalized: 'satisfied' | 'not_satisfied' | 'unknown' | 'not_required'
+    session_id: str  # From JWT 'jti' (token ID for revocation)
+    permissions: tuple[str, ...]  # From JWT 'permissions' claim
 ```
 
 **Sources of TrustedAuthEvidence:**
@@ -163,10 +164,18 @@ _current: ContextVar["TrustedAuthEvidence | None"] = ContextVar("trusted_auth", 
 evidence = get_trusted_auth()  # Always from context var, never from request
 
 # Untrusted keys are stripped:
-UNTRUSTED_SECURITY_SIGNAL_KEYS = frozenset({
-    "mfa_status", "authenticated", "token_valid", "mfa_required",
-    "permissions", "policy_approval", "governance_approval", ...
-})
+UNTRUSTED_SECURITY_SIGNAL_KEYS = frozenset(
+    {
+        "mfa_status",
+        "authenticated",
+        "token_valid",
+        "mfa_required",
+        "permissions",
+        "policy_approval",
+        "governance_approval",
+        ...,
+    }
+)
 ```
 
 **Failure behavior:**
@@ -196,6 +205,7 @@ def mfa_allows_operation(evidence: TrustedAuthEvidence | None = None) -> bool:
         return True  # MFA not enforced
     return ev.mfa_status == MFA_SATISFIED  # Fail-closed: default deny
 
+
 # Called in security_boundary.py:649
 if not mfa_allows_operation():
     raise SecurityBoundaryDenied("mfa_not_satisfied")
@@ -223,23 +233,20 @@ if not mfa_allows_operation():
 if require_opa() or not insecure_dev_mode():
     policy = await _authorize(action, resource, extra)
 
+
 # Which calls:
 # src/monkey_brain/kernel/governance.py:116-256
 async def evaluate(self, runtime_id: str, action: str, context: dict) -> dict:
     trusted = get_trusted_auth().to_opa_auth()  # Immutable, from context var
     ctx = strip_untrusted_security_signals(extra or {})  # Strip agent claims
-    
+
     # Send to OPA:
-    result = await evaluate_full("agentos/governance", 
-        input_data={
-            "runtime_id": runtime_id,
-            "action": action,
-            "context": ctx,
-            "auth": trusted
-        },
-        default_allow=False
+    result = await evaluate_full(
+        "agentos/governance",
+        input_data={"runtime_id": runtime_id, "action": action, "context": ctx, "auth": trusted},
+        default_allow=False,
     )
-    
+
     # Extract decision:
     return {
         "allowed": bool(result.get("allowed", False)),
@@ -315,6 +322,7 @@ def evidence_from_jwt(payload: Mapping[str, Any]) -> TrustedAuthEvidence:
     mfa_status = normalize_mfa_status(payload.get("mfa_status"))
     # ... JWT is decoded by JWT library (verified externally)
 
+
 # security_boundary.py:651
 evidence = get_trusted_auth()  # From context var, set at request entry
 
@@ -367,12 +375,14 @@ def get_agent(
 **Code evidence:**
 ```python
 # UNTRUSTED_SECURITY_SIGNAL_KEYS in trusted_auth.py:23
-UNTRUSTED_SECURITY_SIGNAL_KEYS = frozenset({
-    "mfa_status",  # ← explicitly listed
-    "mfa_satisfied",
-    "mfa_required",
-    ...
-})
+UNTRUSTED_SECURITY_SIGNAL_KEYS = frozenset(
+    {
+        "mfa_status",  # ← explicitly listed
+        "mfa_satisfied",
+        "mfa_required",
+        ...,
+    }
+)
 
 # strip_untrusted_security_signals() called in governance.py:183
 ctx = strip_untrusted_security_signals(dict(context or {}))
@@ -406,7 +416,7 @@ input_data = {
     "runtime_id": runtime_id,
     "action": action,
     "context": ctx,
-    "auth": trusted  # ← OPA checks this, not agent-supplied fields
+    "auth": trusted,  # ← OPA checks this, not agent-supplied fields
 }
 
 # OPA policy (opa/policies/agentos_governance.rego) evaluates input_data

@@ -48,6 +48,7 @@ class Workload:
         self-loops, or steps with empty capability names.
         """
         from src.monkey_brain.kernel.plan.workload.dag import WorkloadDAG
+
         self.dag = WorkloadDAG.from_steps(self.steps)
         return self.dag
 

@@ -45,7 +45,9 @@ async def get_customer_payment_data(
     return record
 
 
-@router.post("/", response_model=CustomerPaymentDataResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=CustomerPaymentDataResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_customer_payment_data(
     data: CustomerPaymentDataCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

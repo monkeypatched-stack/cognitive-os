@@ -34,13 +34,17 @@ Architecture:
          ▼          ▼          ▼
     Policy A   Policy B   Policy C
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor
-from src.monkey_brain.kernel.compile.action_operator import ActionOperator, ActionLegality
+from src.monkey_brain.kernel.compile.action_operator import (
+    ActionOperator,
+    ActionLegality,
+)
 from src.monkey_brain.kernel.learn.world_learner import WorldLearner
 from src.monkey_brain.kernel.learn.policy_learner import PolicyLearner
 from src.monkey_brain.kernel.policy.store import PolicyStore
@@ -90,8 +94,12 @@ class CognitionEngine:
         self._action_operators: dict[str, ActionOperator] = {}
         self._legality = ActionLegality(self._world)
 
-        logger.info("[cognition_engine:%d] initialized with %d states, %d transitions",
-                     self.engine_id, len(self._world.states()), self._world.nnz())
+        logger.info(
+            "[cognition_engine:%d] initialized with %d states, %d transitions",
+            self.engine_id,
+            len(self._world.states()),
+            self._world.nnz(),
+        )
 
     # ── World (shared, read-only to actors) ────────────────────────────────
 
@@ -125,10 +133,15 @@ class CognitionEngine:
         Returns True if accepted, False if rejected.
         """
         return self._world_learner.observe_transition(
-            src, dst,
-            domain=domain, dst_domain=dst_domain,
-            latency_ms=latency_ms, cost=cost, confidence=confidence,
-            origin=origin, weight=weight,
+            src,
+            dst,
+            domain=domain,
+            dst_domain=dst_domain,
+            latency_ms=latency_ms,
+            cost=cost,
+            confidence=confidence,
+            origin=origin,
+            weight=weight,
         )
 
     def propose_batch(self, transitions: list[dict]) -> int:
@@ -174,8 +187,15 @@ class CognitionEngine:
             actor = self.create_actor(actor_id)
         actor["belief"].observe(src, dst, **kwargs)
 
-    def actor_learn(self, actor_id: str, state: str, action: str, reward: float,
-                    next_state: str = "", actor_loss: float = 0.0) -> dict:
+    def actor_learn(
+        self,
+        actor_id: str,
+        state: str,
+        action: str,
+        reward: float,
+        next_state: str = "",
+        actor_loss: float = 0.0,
+    ) -> dict:
         """Actor learns from experience. Updates its local policy."""
         actor = self._actors.get(actor_id)
         if actor is None:

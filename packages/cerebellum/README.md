@@ -29,11 +29,13 @@ pip install monkeybrain-cerebellum[all]       # Everything
 ```python
 from cerebellum import Capability, CapabilityRegistry
 
+
 class MyCapability(Capability):
     name = "my-capability"
-    
+
     async def execute(self, state, inputs):
         return {"result": "done"}
+
 
 registry = CapabilityRegistry()
 registry.register(MyCapability())

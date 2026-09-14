@@ -5,6 +5,7 @@ and domain-security primitives with grocery-specific product matching and
 household behavior.  Each capability queries the actor's KnowledgeGraph;
 there is no hardcoded catalog or fulfillment state here.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,6 @@ from src.monkey_brain.kernel.compile import _obs
 from src.monkey_brain.common.correlation import new_correlation_id
 from src.monkey_brain.kernel.society.transition_gate import ProposedTransition
 
-
 GROCERY_VERTICAL = VerticalDefinition(
     name="Grocery",
     requires=("commerce", "grocery", "finance", "logistics", "supply_chain"),
@@ -36,11 +36,13 @@ class GroceryCapability(DomainCapability):
     name = "grocery"
 
     def __init__(self):
-        super().__init__({
-            "substitution_rules": _matches_request,
-            "nutrition": self._nutrition,
-            "perishable_handling": self._perishable_handling,
-        })
+        super().__init__(
+            {
+                "substitution_rules": _matches_request,
+                "nutrition": self._nutrition,
+                "perishable_handling": self._perishable_handling,
+            }
+        )
 
     @staticmethod
     def _nutrition(*args, **kwargs):
@@ -48,10 +50,14 @@ class GroceryCapability(DomainCapability):
 
     @staticmethod
     def _perishable_handling(product):
-        return {"cold_chain": bool(getattr(product, "attributes", {}).get("cold_chain"))}
+        return {
+            "cold_chain": bool(getattr(product, "attributes", {}).get("cold_chain"))
+        }
 
 
-def grocery_capability_bundle(bus: CommerceCapabilityBus | None = None) -> VerticalCapabilityBundle:
+def grocery_capability_bundle(
+    bus: CommerceCapabilityBus | None = None,
+) -> VerticalCapabilityBundle:
     """Build the Grocery vertical from discoverable domain capabilities."""
     capability_bus = bus or CommerceCapabilityBus()
     if capability_bus.discover("commerce") is None:
@@ -60,15 +66,19 @@ def grocery_capability_bundle(bus: CommerceCapabilityBus | None = None) -> Verti
         capability_bus.register(GroceryCapability())
     if capability_bus.discover("finance") is None:
         from src.monkey_brain.kernel.domains.finance import FinanceCapability
+
         capability_bus.register(FinanceCapability())
     if capability_bus.discover("logistics") is None:
         from src.monkey_brain.kernel.domains.logistics import LogisticsCapability
+
         capability_bus.register(LogisticsCapability())
     if capability_bus.discover("supply_chain") is None:
         from src.monkey_brain.kernel.domains.supply_chain import SupplyChainCapability
+
         capability_bus.register(SupplyChainCapability())
     if capability_bus.discover("support") is None:
         from src.monkey_brain.kernel.domains.support import SupportCapability
+
         capability_bus.register(SupportCapability())
     return VerticalCapabilityBundle(GROCERY_VERTICAL, capability_bus)
 
@@ -121,13 +131,19 @@ def build_default_capability_bus() -> "GroceryCapabilityBus":
     bus.register(RefundOrderCapability())
     bus.register(DeliveryCapability())
     from src.monkey_brain.kernel.domains.recall import RecallCapability
+
     bus.register(RecallCapability())
     # Swarm-readiness audit: the one real, governed, minimal ROS capability
     # (docs/ACTOR_CELL_ARCHITECTURE.md / kernel/domains/robot.py). A no-op
     # for any actor with no bound ROS adapter (i.e. every non-robot actor).
     from src.monkey_brain.kernel.domains.robot import (
-        ArmCapability, HeartbeatCapability, LandCapability, TakeoffCapability, WaypointCapability,
+        ArmCapability,
+        HeartbeatCapability,
+        LandCapability,
+        TakeoffCapability,
+        WaypointCapability,
     )
+
     bus.register(HeartbeatCapability())
     # Prompt-driven PX4 demo (docs/PX4_MAC_DOCKER.md): the four operations
     # Px4RosExecutionAdapter actually implements, selectable by the same
@@ -233,13 +249,16 @@ def _propose_transition(action, context: dict):
         resource_ids: list[str] = []
         owners: list[str] = []
         for item_phrase in _split_requested_items(question):
-            if _parse_requested_volume_ml(item_phrase) or _parse_requested_mass_g(item_phrase):
+            if _parse_requested_volume_ml(item_phrase) or _parse_requested_mass_g(
+                item_phrase
+            ):
                 continue
             borrowable = find_borrowable(kg, item_phrase, exclude_owner_id=actor_id)
             if borrowable:
                 lender = max(
                     borrowable,
-                    key=lambda e: e.attributes.get("quantity", 0) - sum(l.get("qty", 0) for l in e.attributes.get("loans", [])),
+                    key=lambda e: e.attributes.get("quantity", 0)
+                    - sum(l.get("qty", 0) for l in e.attributes.get("loans", [])),
                 )
                 resource_ids.append(lender.entity_id)
                 owner = lender.attributes.get("owner_id")
@@ -247,26 +266,39 @@ def _propose_transition(action, context: dict):
                     owners.append(owner)
                 continue
             from src.monkey_brain.kernel.knowledge_graph import EntityType
+
             for_sale_kw = _keyword_surface_forms(_keywords(item_phrase))
             for_sale_pool = (
-                [e for e in kg.entities_by_keywords(for_sale_kw) if e.entity_type == EntityType.ASSET]
-                if for_sale_kw else kg.entities_by_type(EntityType.ASSET)
+                [
+                    e
+                    for e in kg.entities_by_keywords(for_sale_kw)
+                    if e.entity_type == EntityType.ASSET
+                ]
+                if for_sale_kw
+                else kg.entities_by_type(EntityType.ASSET)
             )
             for_sale = [
-                e for e in for_sale_pool
+                e
+                for e in for_sale_pool
                 if e.attributes.get("pantry")
-                and e.attributes.get("for_sale") and e.attributes.get("owner_id") != actor_id
-                and _match_score(e.name, item_phrase) > 0 and e.attributes.get("quantity", 0) > 0
+                and e.attributes.get("for_sale")
+                and e.attributes.get("owner_id") != actor_id
+                and _match_score(e.name, item_phrase) > 0
+                and e.attributes.get("quantity", 0) > 0
             ]
             if for_sale:
-                seller = min(for_sale, key=lambda e: e.attributes.get("price", float("inf")))
+                seller = min(
+                    for_sale, key=lambda e: e.attributes.get("price", float("inf"))
+                )
                 resource_ids.append(seller.entity_id)
                 owner = seller.attributes.get("owner_id")
                 if owner:
                     owners.append(owner)
         if not resource_ids:
             return None
-        required_consent_from = tuple(dict.fromkeys(o for o in owners if o and o != actor_id))
+        required_consent_from = tuple(
+            dict.fromkeys(o for o in owners if o and o != actor_id)
+        )
         return ProposedTransition(
             actor_id=actor_id,
             resource_ids=tuple(resource_ids),
@@ -360,7 +392,9 @@ CAPABILITY_DOMAIN_EVENTS: dict[tuple[str, bool], str] = {
 }
 
 
-def resolve_domain_event(capability: str, success: bool, result: Any = None) -> str | None:
+def resolve_domain_event(
+    capability: str, success: bool, result: Any = None
+) -> str | None:
     """ActionExecutor's domain_event_resolver for the grocery vertical —
     returns None (no event) for capabilities with no real-world business
     meaning to broadcast (ProductSelection, SocietyQuery, ...): those are
@@ -390,13 +424,64 @@ logger = logging.getLogger("agentos.domain.grocery")
 # milk" reduces to {"milk"}, which is compared against each candidate
 # product's own name keywords.
 _STOPWORDS = {
-    "buy", "get", "order", "purchase", "some", "a", "an", "the", "of", "for",
-    "me", "please", "and", "l", "kg", "g", "ml", "oz", "lb", "lbs", "one",
-    "two", "three", "four", "five", "liter", "liters", "litre", "litres",
-    "half", "bottle", "bottles", "x", "lactose", "dairy", "free", "budget",
-    "with", "within", "under", "no", "more", "than", "stay",
-    "gram", "grams", "kilogram", "kilograms", "before", "by", "need",
-    "dinner", "lunch", "breakfast", "they", "expire", "expires", "tomorrow",
+    "buy",
+    "get",
+    "order",
+    "purchase",
+    "some",
+    "a",
+    "an",
+    "the",
+    "of",
+    "for",
+    "me",
+    "please",
+    "and",
+    "l",
+    "kg",
+    "g",
+    "ml",
+    "oz",
+    "lb",
+    "lbs",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "liter",
+    "liters",
+    "litre",
+    "litres",
+    "half",
+    "bottle",
+    "bottles",
+    "x",
+    "lactose",
+    "dairy",
+    "free",
+    "budget",
+    "with",
+    "within",
+    "under",
+    "no",
+    "more",
+    "than",
+    "stay",
+    "gram",
+    "grams",
+    "kilogram",
+    "kilograms",
+    "before",
+    "by",
+    "need",
+    "dinner",
+    "lunch",
+    "breakfast",
+    "they",
+    "expire",
+    "expires",
+    "tomorrow",
 }
 
 # Regional/marketing terms for the same product, canonicalized to whatever
@@ -410,9 +495,9 @@ _STOPWORDS = {
 # canonicalizing "cream" -> "whole" there was nothing to prefer the whole
 # milk match specifically (see _match_score, which does that preferring).
 _SYNONYMS = {
-    "cream": "whole",       # "full cream milk" (AU/UK/IN)
+    "cream": "whole",  # "full cream milk" (AU/UK/IN)
     "fullcream": "whole",
-    "skimmed": "skim",      # "skimmed milk" (UK) -> skim milk (US)
+    "skimmed": "skim",  # "skimmed milk" (UK) -> skim milk (US)
     "fatfree": "skim",
     "nonfat": "skim",
 }
@@ -442,10 +527,26 @@ def _keyword_surface_forms(keywords: set[str]) -> set[str]:
     return forms
 
 
-_TIME_KEYWORDS = {"fastest", "quickest", "quick", "fast", "nearest", "closest", "asap", "soonest"}
+_TIME_KEYWORDS = {
+    "fastest",
+    "quickest",
+    "quick",
+    "fast",
+    "nearest",
+    "closest",
+    "asap",
+    "soonest",
+}
 _QUALITY_KEYWORDS = {
-    "quality", "premium", "best", "organic", "top", "finest", "highest",
-    "healthy", "healthiest",  # GS-0400: no nutrition data modeled — quality
+    "quality",
+    "premium",
+    "best",
+    "organic",
+    "top",
+    "finest",
+    "highest",
+    "healthy",
+    "healthiest",  # GS-0400: no nutrition data modeled — quality
     # score is the only "how good is this" dimension we have, so it doubles
     # as the proxy for "healthy" (organic/higher-tier dairy skews both ways
     # in the seeded data, which is at least directionally defensible).
@@ -504,13 +605,30 @@ def _matches_request(product_name: str, request_text: str) -> bool:
 
 
 _NUMBER_WORDS = {
-    "a": 1, "an": 1,
-    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "a": 1,
+    "an": 1,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
 }
 _UNIT_ML = {
-    "ml": 1, "milliliter": 1, "milliliters": 1, "millilitre": 1, "millilitres": 1,
-    "l": 1000, "liter": 1000, "liters": 1000, "litre": 1000, "litres": 1000,
+    "ml": 1,
+    "milliliter": 1,
+    "milliliters": 1,
+    "millilitre": 1,
+    "millilitres": 1,
+    "l": 1000,
+    "liter": 1000,
+    "liters": 1000,
+    "litre": 1000,
+    "litres": 1000,
 }
 _QTY_RE = re.compile(
     # "a"/"an" before a unit means count=1 ("a litre of milk") — without it,
@@ -564,8 +682,12 @@ def _parse_requested_volume_ml(text: str) -> int | None:
 
 
 _UNIT_G = {
-    "g": 1, "gram": 1, "grams": 1,
-    "kg": 1000, "kilogram": 1000, "kilograms": 1000,
+    "g": 1,
+    "gram": 1,
+    "grams": 1,
+    "kg": 1000,
+    "kilogram": 1000,
+    "kilograms": 1000,
 }
 _MASS_RE = re.compile(
     # \d+(?:\.\d+)? — see _QTY_RE's comment: a bare \d+ silently mis-parses
@@ -681,9 +803,16 @@ def wants_approval_before_substitution(question: str) -> bool:
     if "approv" not in q and "ask" not in q:
         return False
     markers = (
-        "ask me", "ask before", "ask for approval", "must approve",
-        "without my approval", "without approval", "before buying",
-        "before purchasing", "before substituting", "stop and ask",
+        "ask me",
+        "ask before",
+        "ask for approval",
+        "must approve",
+        "without my approval",
+        "without approval",
+        "before buying",
+        "before purchasing",
+        "before substituting",
+        "stop and ask",
     )
     return any(m in q for m in markers)
 
@@ -698,7 +827,13 @@ def wants_pickup(question: str) -> bool:
     wants_lactose_free is, since "pick"/"pickup" would need to survive as
     a product-matching keyword otherwise, which it was never meant to be."""
     q = (question or "").lower()
-    return "pick up" in q or "pick-up" in q or "pickup" in q or "picking up" in q or "self-pickup" in q
+    return (
+        "pick up" in q
+        or "pick-up" in q
+        or "pickup" in q
+        or "picking up" in q
+        or "self-pickup" in q
+    )
 
 
 def wants_low_sodium(question: str) -> bool:
@@ -728,8 +863,18 @@ def wants_allergen_free(question: str) -> set[str]:
 
 
 _BUDGET_RE = re.compile(r"\$\s?(\d+(?:\.\d{1,2})?)")
-_BUDGET_KEYWORDS = ("budget", "spend", "afford", "under", "less than", "no more than",
-                    "at most", "cap", "limit", "have exactly")
+_BUDGET_KEYWORDS = (
+    "budget",
+    "spend",
+    "afford",
+    "under",
+    "less than",
+    "no more than",
+    "at most",
+    "cap",
+    "limit",
+    "have exactly",
+)
 
 
 def parse_budget(question: str) -> float | None:
@@ -770,16 +915,31 @@ def parse_shared_budget(question: str) -> float | None:
     up a throwaway shared-budget entity for what is, and stays, a normal
     single-actor purchase."""
     q = (question or "").lower()
-    if not any(m in q for m in ("shared budget", "joint budget", "shared $", "joint $", "budget between", "combined budget")):
+    if not any(
+        m in q
+        for m in (
+            "shared budget",
+            "joint budget",
+            "shared $",
+            "joint $",
+            "budget between",
+            "combined budget",
+        )
+    ):
         return None
     m = _BUDGET_RE.search(question or "")
     return float(m.group(1)) if m else None
 
 
 from src.monkey_brain.kernel.domains.logistics import (
-    parse_deadline_minutes, predict_delivery_delay, _format_address,
-    estimate_pickup_minutes, select_delivery_riders,
-    find_schedule_conflict, create_shipment, mark_rider_assigned,
+    parse_deadline_minutes,
+    predict_delivery_delay,
+    _format_address,
+    estimate_pickup_minutes,
+    select_delivery_riders,
+    find_schedule_conflict,
+    create_shipment,
+    mark_rider_assigned,
 )
 
 
@@ -814,10 +974,14 @@ def _unit_cost(entity, stores_by_id=None) -> float:
     return base
 
 
-_REJECTION_THRESHOLD = 2  # GS-0800: this many rejections of the same type reads as "always rejects"
+_REJECTION_THRESHOLD = (
+    2  # GS-0800: this many rejections of the same type reads as "always rejects"
+)
 
 
-def record_rejection(kg, actor_id: str, type_keyword: str, max_attempts: int = 5) -> int:
+def record_rejection(
+    kg, actor_id: str, type_keyword: str, max_attempts: int = 5
+) -> int:
     """Record that the actor rejected a product of this type (e.g.
     'almond'). Stored as a small Preference entity in the actor's OWN
     graph — rejection is personal to the actor, not a property of the
@@ -843,21 +1007,38 @@ def record_rejection(kg, actor_id: str, type_keyword: str, max_attempts: int = 5
     been found.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     entity_id = f"pref_reject_{actor_id}_{type_keyword}"
     for _ in range(max_attempts):
         existing = kg.get_entity(entity_id)
         if existing is None:
             # First rejection of this type — no prior version to race
             # against; add_entity's own write is the initial creation.
-            entity = kg.add_entity(entity_id, EntityType.OTHER, f"Rejection: {type_keyword}",
-                                    {"actor_id": actor_id, "type_keyword": type_keyword, "count": 1, "last_rejected": time.time()})
+            entity = kg.add_entity(
+                entity_id,
+                EntityType.OTHER,
+                f"Rejection: {type_keyword}",
+                {
+                    "actor_id": actor_id,
+                    "type_keyword": type_keyword,
+                    "count": 1,
+                    "last_rejected": time.time(),
+                },
+            )
             return entity.attributes["count"]
 
         count = existing.attributes.get("count", 0) + 1
         version = kg.version_of(entity_id)
-        ok, _current = kg.compare_and_swap(entity_id, version, {
-            "actor_id": actor_id, "type_keyword": type_keyword, "count": count, "last_rejected": time.time(),
-        })
+        ok, _current = kg.compare_and_swap(
+            entity_id,
+            version,
+            {
+                "actor_id": actor_id,
+                "type_keyword": type_keyword,
+                "count": count,
+                "last_rejected": time.time(),
+            },
+        )
         if ok:
             return count
     current = kg.get_entity(entity_id)
@@ -871,21 +1052,27 @@ def get_rejected_keywords(kg, actor_id: str) -> frozenset:
     actor's results (see record_rejection's own docstring for the leak
     this closes)."""
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     rejected = set()
     # record_rejection (above) always creates these as EntityType.OTHER --
     # narrowing to that type keeps this off the catalog-scale ASSET pool
     # entirely (GS-6000), rather than scanning every product to find a
     # handful of preference-rejection markers.
     for e in kg.entities_by_type(EntityType.OTHER):
-        if (e.entity_id.startswith("pref_reject_") and e.attributes.get("actor_id") == actor_id
-                and e.attributes.get("count", 0) >= _REJECTION_THRESHOLD):
+        if (
+            e.entity_id.startswith("pref_reject_")
+            and e.attributes.get("actor_id") == actor_id
+            and e.attributes.get("count", 0) >= _REJECTION_THRESHOLD
+        ):
             kw = e.attributes.get("type_keyword", "")
             if kw:
                 rejected.add(kw)
     return frozenset(rejected)
 
 
-def record_order_outcome(kg, store_id: str, fulfilled: bool, max_attempts: int = 30) -> float:
+def record_order_outcome(
+    kg, store_id: str, fulfilled: bool, max_attempts: int = 30
+) -> float:
     """Record a store's order outcome and update its trust score (fraction
     of orders actually fulfilled, not cancelled). Returns the new trust
     score. GS-0801/0802: trust lives on the STORE entity (shared/global,
@@ -904,19 +1091,30 @@ def record_order_outcome(kg, store_id: str, fulfilled: bool, max_attempts: int =
     mostly isn't — this is the one where the bug was always going to bite.
     """
     import random
+
     for attempt in range(max_attempts):
         store = kg.get_entity(store_id)
         if store is None:
             return 1.0
-        fulfilled_count = store.attributes.get("fulfilled_count", 0) + (1 if fulfilled else 0)
-        cancelled_count = store.attributes.get("cancelled_count", 0) + (0 if fulfilled else 1)
+        fulfilled_count = store.attributes.get("fulfilled_count", 0) + (
+            1 if fulfilled else 0
+        )
+        cancelled_count = store.attributes.get("cancelled_count", 0) + (
+            0 if fulfilled else 1
+        )
         total = fulfilled_count + cancelled_count
         trust = round(fulfilled_count / total, 4) if total else 1.0
 
         version = kg.version_of(store_id)
-        ok, _current = kg.compare_and_swap(store_id, version, {
-            "fulfilled_count": fulfilled_count, "cancelled_count": cancelled_count, "trust": trust,
-        })
+        ok, _current = kg.compare_and_swap(
+            store_id,
+            version,
+            {
+                "fulfilled_count": fulfilled_count,
+                "cancelled_count": cancelled_count,
+                "trust": trust,
+            },
+        )
         if ok:
             return trust
         # Lost the race — compare_and_swap refreshed the local cache with
@@ -939,7 +1137,13 @@ def record_order_outcome(kg, store_id: str, fulfilled: bool, max_attempts: int =
 _TRUST_SHARD_COUNT = 10
 
 
-def record_order_outcome_sharded(kg, store_id: str, fulfilled: bool, shard_count: int = _TRUST_SHARD_COUNT, max_attempts: int = 40) -> None:
+def record_order_outcome_sharded(
+    kg,
+    store_id: str,
+    fulfilled: bool,
+    shard_count: int = _TRUST_SHARD_COUNT,
+    max_attempts: int = 40,
+) -> None:
     """Level 12: record_order_outcome's single-counter CAS retry loop —
     correct, but under 300 concurrent writers to ONE node, retries and
     backoff alone still left ~43% of writers empty-handed even with 30
@@ -972,23 +1176,39 @@ def record_order_outcome_sharded(kg, store_id: str, fulfilled: bool, shard_count
     concurrent load, not by reasoning about it.
     """
     import random
+
     shard_id = f"{store_id}_shard_{random.randrange(shard_count)}"
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     for attempt in range(max_attempts):
         shard = kg.get_entity(shard_id)
         if shard is None:
-            kg.add_entity(shard_id, EntityType.OTHER, f"trust shard for {store_id}", {
-                "parent_store_id": store_id,
-                "fulfilled_count": 1 if fulfilled else 0,
-                "cancelled_count": 0 if fulfilled else 1,
-            })
+            kg.add_entity(
+                shard_id,
+                EntityType.OTHER,
+                f"trust shard for {store_id}",
+                {
+                    "parent_store_id": store_id,
+                    "fulfilled_count": 1 if fulfilled else 0,
+                    "cancelled_count": 0 if fulfilled else 1,
+                },
+            )
             return
-        fulfilled_count = shard.attributes.get("fulfilled_count", 0) + (1 if fulfilled else 0)
-        cancelled_count = shard.attributes.get("cancelled_count", 0) + (0 if fulfilled else 1)
+        fulfilled_count = shard.attributes.get("fulfilled_count", 0) + (
+            1 if fulfilled else 0
+        )
+        cancelled_count = shard.attributes.get("cancelled_count", 0) + (
+            0 if fulfilled else 1
+        )
         version = kg.version_of(shard_id)
-        ok, _current = kg.compare_and_swap(shard_id, version, {
-            "fulfilled_count": fulfilled_count, "cancelled_count": cancelled_count,
-        })
+        ok, _current = kg.compare_and_swap(
+            shard_id,
+            version,
+            {
+                "fulfilled_count": fulfilled_count,
+                "cancelled_count": cancelled_count,
+            },
+        )
         if ok:
             return
         # Same reasoning as record_order_outcome's backoff: many writers can
@@ -1043,11 +1263,15 @@ def pick_best_unit(candidates, item_optimization, stores_by_id):
         best = min(candidates, key=lambda e: _unit_cost(e, stores_by_id))
         price = best.attributes.get("price", 0)
         size = best.attributes.get("size_ml")
-        store = stores_by_id.get(best.attributes.get("store_id")) if stores_by_id else None
+        store = (
+            stores_by_id.get(best.attributes.get("store_id")) if stores_by_id else None
+        )
         trust = store.attributes.get("trust") if store else None
         trust_note = f", trust {trust:.2f}" if trust is not None and trust < 1.0 else ""
         if size:
-            reason = f"Best value at ${price:.2f} (${price / size * 1000:.2f}/L{trust_note})"
+            reason = (
+                f"Best value at ${price:.2f} (${price / size * 1000:.2f}/L{trust_note})"
+            )
         else:
             reason = f"Lowest price at ${price:.2f}{trust_note}"
     elif item_optimization == "quality":
@@ -1057,20 +1281,32 @@ def pick_best_unit(candidates, item_optimization, stores_by_id):
         # store — a closer store on a congested route (high traffic_factor)
         # can predict slower than a farther store with clear roads.
         def _predicted_minutes(p):
-            store = stores_by_id.get(p.attributes.get("store_id")) if stores_by_id else None
+            store = (
+                stores_by_id.get(p.attributes.get("store_id")) if stores_by_id else None
+            )
             return predict_delivery_delay(store)
+
         best = min(candidates, key=_predicted_minutes)
-        store = stores_by_id.get(best.attributes.get("store_id")) if stores_by_id else None
+        store = (
+            stores_by_id.get(best.attributes.get("store_id")) if stores_by_id else None
+        )
         predicted = _predicted_minutes(best)
         any_traffic = stores_by_id and any(
-            s.attributes.get("traffic_factor", 1.0) != 1.0 for s in stores_by_id.values()
+            s.attributes.get("traffic_factor", 1.0) != 1.0
+            for s in stores_by_id.values()
         )
         if store and any_traffic:
-            reason = (f"Fastest predicted delivery (~{predicted:.0f} min from "
-                      f"{store.attributes.get('distance_miles', '?')} mi, traffic factor "
-                      f"{store.attributes.get('traffic_factor', 1.0):.1f}x)")
+            reason = (
+                f"Fastest predicted delivery (~{predicted:.0f} min from "
+                f"{store.attributes.get('distance_miles', '?')} mi, traffic factor "
+                f"{store.attributes.get('traffic_factor', 1.0):.1f}x)"
+            )
         else:
-            reason = f"Closest store at {store.attributes.get('distance_miles', '?')} miles" if store else "selected"
+            reason = (
+                f"Closest store at {store.attributes.get('distance_miles', '?')} miles"
+                if store
+                else "selected"
+            )
     return best, 1, reason
 
 
@@ -1095,22 +1331,42 @@ def _decision_confidence(item_optimization: str, candidates, stores_by_id) -> fl
     if len(candidates) <= 1:
         return 1.0
     if item_optimization == "quality":
-        metrics = sorted((c.attributes.get("quality", 0) for c in candidates), reverse=True)
+        metrics = sorted(
+            (c.attributes.get("quality", 0) for c in candidates), reverse=True
+        )
         winner, runner_up = metrics[0], metrics[1]
         gap = (winner - runner_up) / winner if winner else 0.0
     elif item_optimization == "time":
-        metrics = sorted(predict_delivery_delay(stores_by_id.get(c.attributes.get("store_id")) if stores_by_id else None)
-                          for c in candidates)
+        metrics = sorted(
+            predict_delivery_delay(
+                stores_by_id.get(c.attributes.get("store_id")) if stores_by_id else None
+            )
+            for c in candidates
+        )
         winner, runner_up = metrics[0], metrics[1]
-        gap = (runner_up - winner) / runner_up if runner_up not in (0, float("inf")) else 0.0
+        gap = (
+            (runner_up - winner) / runner_up
+            if runner_up not in (0, float("inf"))
+            else 0.0
+        )
     else:  # cost — the same trust-adjusted _unit_cost that actually ranked candidates
         metrics = sorted(_unit_cost(c, stores_by_id) for c in candidates)
         winner, runner_up = metrics[0], metrics[1]
-        gap = (runner_up - winner) / runner_up if runner_up not in (0, float("inf")) else 0.0
+        gap = (
+            (runner_up - winner) / runner_up
+            if runner_up not in (0, float("inf"))
+            else 0.0
+        )
     return round(min(0.99, max(0.5, 0.5 + gap)), 2)
 
 
-def build_decision_trace(item_label: str, candidates, item_optimization: str, stores_by_id, chosen_selection: dict) -> dict:
+def build_decision_trace(
+    item_label: str,
+    candidates,
+    item_optimization: str,
+    stores_by_id,
+    chosen_selection: dict,
+) -> dict:
     """GS-1600: a structured, honest record of what was actually weighed —
     every real candidate considered (not just the winner), the SAME
     trust-adjusted metric that actually drove the ranking (not just raw
@@ -1140,7 +1396,9 @@ def build_decision_trace(item_label: str, candidates, item_optimization: str, st
             # begin with, so their raw effective cost is already correct.
             size = c.attributes.get("size_ml")
             unit_cost = _unit_cost(c, stores_by_id)
-            row["effective_cost"] = round(unit_cost * 1000, 4) if size else round(unit_cost, 4)
+            row["effective_cost"] = (
+                round(unit_cost * 1000, 4) if size else round(unit_cost, 4)
+            )
             row["effective_cost_unit"] = "per liter" if size else "total"
         if item_optimization == "quality":
             row["quality"] = c.attributes.get("quality")
@@ -1151,7 +1409,9 @@ def build_decision_trace(item_label: str, candidates, item_optimization: str, st
     return {
         "item": item_label,
         "optimization": item_optimization,
-        "optimization_label": _OPTIMIZATION_LABELS.get(item_optimization, item_optimization),
+        "optimization_label": _OPTIMIZATION_LABELS.get(
+            item_optimization, item_optimization
+        ),
         "candidates": candidate_rows,
         "chosen": {
             "store": chosen_selection.get("store_name"),
@@ -1214,7 +1474,11 @@ def _cheapest_package_combo(sized, requested_qty: int, size_key: str):
     items = []  # (candidate_idx, weight, cost)
     for idx, (c, size, price) in enumerate(sizes):
         on_hand = c.attributes.get("quantity")
-        max_count = (cap // size) + 1 if on_hand is None else max(0, min(on_hand, cap // size + 1))
+        max_count = (
+            (cap // size) + 1
+            if on_hand is None
+            else max(0, min(on_hand, cap // size + 1))
+        )
         remaining = max_count
         k = 1
         while remaining > 0:
@@ -1258,7 +1522,9 @@ def _cheapest_package_combo(sized, requested_qty: int, size_key: str):
     return best_cost[target_v], combo
 
 
-def pick_best_for_volume(candidates, requested_qty, item_optimization, stores_by_id, size_key="size_ml"):
+def pick_best_for_volume(
+    candidates, requested_qty, item_optimization, stores_by_id, size_key="size_ml"
+):
     """Multi-unit pick meeting the requested quantity (ml for liquids via
     size_key="size_ml", grams for solids via size_key="size_g"). Module-level
     for the same reason as pick_best_unit — OrderConfirmationCapability
@@ -1314,8 +1580,10 @@ def pick_best_for_volume(candidates, requested_qty, item_optimization, stores_by
         shortfall = needed_qty - qty
         if shortfall <= 0:
             return ""
-        return (f" — only {qty} package(s) in stock, {shortfall} short of the "
-                f"{needed_qty} needed to cover the requested {requested_qty}{unit_label}")
+        return (
+            f" — only {qty} package(s) in stock, {shortfall} short of the "
+            f"{needed_qty} needed to cover the requested {requested_qty}{unit_label}"
+        )
 
     if near_expiry:
         scored = []
@@ -1326,7 +1594,9 @@ def pick_best_for_volume(candidates, requested_qty, item_optimization, stores_by
             excess = max(0, qty * size - requested_qty)
             total = c.attributes.get("price", float("inf")) * qty
             scored.append((qty < needed_qty, excess, total, c, qty, needed_qty))
-        has_shortfall, excess, total, best, qty, needed_qty = min(scored, key=lambda t: (t[0], t[1], t[2]))
+        has_shortfall, excess, total, best, qty, needed_qty = min(
+            scored, key=lambda t: (t[0], t[1], t[2])
+        )
         reason = (
             f"{qty} x {best.attributes.get(size_key)}{unit_label} = ${total:.2f} total "
             f"(needs {requested_qty}{unit_label}; minimizing excess to {excess}{unit_label} — "
@@ -1351,8 +1621,12 @@ def pick_best_for_volume(candidates, requested_qty, item_optimization, stores_by
             qty = _capped_qty(c, needed_qty)
             real_total = c.attributes.get("price", float("inf")) * qty
             effective_total = _unit_cost(c, stores_by_id) * qty * size
-            scored.append((qty < needed_qty, effective_total, real_total, c, qty, needed_qty))
-        has_shortfall, effective_total, real_total, best, qty, needed_qty = min(scored, key=lambda t: (t[0], t[1]))
+            scored.append(
+                (qty < needed_qty, effective_total, real_total, c, qty, needed_qty)
+            )
+        has_shortfall, effective_total, real_total, best, qty, needed_qty = min(
+            scored, key=lambda t: (t[0], t[1])
+        )
         reason = (
             f"{qty} x {best.attributes.get(size_key)}{unit_label} = ${real_total:.2f} total "
             f"(needs {requested_qty}{unit_label}){_shortfall_suffix(qty, needed_qty)}"
@@ -1375,12 +1649,15 @@ def pick_best_for_volume(candidates, requested_qty, item_optimization, stores_by
         if combo is not None and (has_shortfall or combo[0] < real_total):
             combo_cost, combo_items = combo
             (best, qty), *extra = combo_items
-            names = ", ".join(f"{n} x {c.attributes.get(size_key)}{unit_label}" for c, n in combo_items)
+            names = ", ".join(
+                f"{n} x {c.attributes.get(size_key)}{unit_label}"
+                for c, n in combo_items
+            )
             reason = (
                 f"Mixed packages ({names}) = ${combo_cost:.2f} total "
                 f"(needs {requested_qty}{unit_label}) — cheaper than any single package size"
-                if not has_shortfall else
-                f"Split order ({names}) = ${combo_cost:.2f} total "
+                if not has_shortfall
+                else f"Split order ({names}) = ${combo_cost:.2f} total "
                 f"(needs {requested_qty}{unit_label}) — no single store had enough in stock"
             )
             return best, qty, reason, extra
@@ -1403,8 +1680,11 @@ _LEARNED_AVOIDANCE_TRUST_THRESHOLD = 0.5
 _LEARNED_AVOIDANCE_MIN_ATTEMPTS = 10
 
 
-def has_learned_to_avoid(store, trust_threshold: float = _LEARNED_AVOIDANCE_TRUST_THRESHOLD,
-                          min_attempts: int = _LEARNED_AVOIDANCE_MIN_ATTEMPTS) -> bool:
+def has_learned_to_avoid(
+    store,
+    trust_threshold: float = _LEARNED_AVOIDANCE_TRUST_THRESHOLD,
+    min_attempts: int = _LEARNED_AVOIDANCE_MIN_ATTEMPTS,
+) -> bool:
     """Level 17: a QUALITATIVE cutoff on top of Level 9's continuous
     trust-adjusted ranking (_unit_cost divides by trust, making a mediocre
     store systematically more expensive but never literally unavailable
@@ -1431,7 +1711,9 @@ def has_learned_to_avoid(store, trust_threshold: float = _LEARNED_AVOIDANCE_TRUS
     return attrs.get("trust", 1.0) < trust_threshold
 
 
-def open_products(kg, actor_permissions=..., actor_attributes=..., item_phrase: str | None = None):
+def open_products(
+    kg, actor_permissions=..., actor_attributes=..., item_phrase: str | None = None
+):
     """Every purchasable product in kg, excluding anything sold by a closed
     store, a store the planner has LEARNED to avoid (Level 17), OR a store
     whose upstream supply chain can't actually deliver stock right now. A
@@ -1493,13 +1775,18 @@ def open_products(kg, actor_permissions=..., actor_attributes=..., item_phrase: 
     has any real data for.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     all_orgs = {e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)}
 
     open_store_ids = {
-        eid for eid, e in all_orgs.items()
-        if e.attributes.get("is_open", True) is not False and not has_learned_to_avoid(e)
+        eid
+        for eid, e in all_orgs.items()
+        if e.attributes.get("is_open", True) is not False
+        and not has_learned_to_avoid(e)
     }
-    timed_out_store_ids = {eid for eid, e in all_orgs.items() if e.attributes.get("status") == "timeout"}
+    timed_out_store_ids = {
+        eid for eid, e in all_orgs.items() if e.attributes.get("status") == "timeout"
+    }
 
     def reachable(product):
         store_id = product.attributes.get("store_id")
@@ -1530,8 +1817,11 @@ def open_products(kg, actor_permissions=..., actor_attributes=..., item_phrase: 
     # sees exactly the unrestricted behavior every existing call site
     # already relies on.
     category_ban_policy = find_household_policy(kg, "category_ban")
-    household_banned_categories = set(category_ban_policy.attributes.get("params", {}).get("categories", [])) \
-        if category_ban_policy else set()
+    household_banned_categories = (
+        set(category_ban_policy.attributes.get("params", {}).get("categories", []))
+        if category_ban_policy
+        else set()
+    )
 
     def policy_allowed(product):
         category = product.attributes.get("category")
@@ -1543,7 +1833,10 @@ def open_products(kg, actor_permissions=..., actor_attributes=..., item_phrase: 
         # independent of anything the household's own governance set).
         if category in _CONSTITUTIONAL_PROTECTED_CATEGORIES:
             return False
-        if not household_banned_categories or category not in household_banned_categories:
+        if (
+            not household_banned_categories
+            or category not in household_banned_categories
+        ):
             return True
         # Level 42 (GS-4201): a specific, owner-approved allow-exception
         # carves ONE named product out of an otherwise-blanket HOUSEHOLD
@@ -1560,13 +1853,19 @@ def open_products(kg, actor_permissions=..., actor_attributes=..., item_phrase: 
         # token with the (surface-form-expanded) request. Falls back to the
         # full type scan below if the phrase had no extractable keywords at
         # all (_matches_request's own "nothing to match against" case).
-        asset_pool = [e for e in kg.entities_by_keywords(request_kw) if e.entity_type == EntityType.ASSET]
+        asset_pool = [
+            e
+            for e in kg.entities_by_keywords(request_kw)
+            if e.entity_type == EntityType.ASSET
+        ]
     else:
         asset_pool = kg.entities_by_type(EntityType.ASSET)
 
     return [
-        e for e in asset_pool
-        if e.attributes.get("product") and e.attributes.get("store_id") in open_store_ids
+        e
+        for e in asset_pool
+        if e.attributes.get("product")
+        and e.attributes.get("store_id") in open_store_ids
         and supply_chain_ok(all_orgs, e.attributes.get("store_id"))
         and detect_inventory_inconsistency(kg, e.entity_id).get("consistent", True)
         and reachable(e)
@@ -1576,8 +1875,7 @@ def open_products(kg, actor_permissions=..., actor_attributes=..., item_phrase: 
         # product is STILL excluded if the household's own category-ban
         # policy independently denies it; every real enforcement layer
         # must agree, not just one of them.
-        and abac_authorized(e)
-        and policy_allowed(e)
+        and abac_authorized(e) and policy_allowed(e)
     ]
 
 
@@ -1586,7 +1884,14 @@ from src.monkey_brain.kernel.domains.supply_chain import (
 )
 
 
-def try_reserve(kg, entity_id: str, actor_id: str, qty: int, hold_seconds: float = 5.0, max_attempts: int = 5) -> tuple[bool, str]:
+def try_reserve(
+    kg,
+    entity_id: str,
+    actor_id: str,
+    qty: int,
+    hold_seconds: float = 5.0,
+    max_attempts: int = 5,
+) -> tuple[bool, str]:
     """Attempt to hold `qty` units of entity_id for actor_id for
     hold_seconds, without overselling under concurrent reservation attempts.
 
@@ -1623,7 +1928,9 @@ def try_reserve(kg, entity_id: str, actor_id: str, qty: int, hold_seconds: float
             return False, "not found"
         attrs = entity.attributes
         now = time.time()
-        active_reservations = [r for r in attrs.get("reservations", []) if r.get("until", 0) > now]
+        active_reservations = [
+            r for r in attrs.get("reservations", []) if r.get("until", 0) > now
+        ]
         held_qty = sum(r.get("qty", 0) for r in active_reservations)
         available = attrs.get("quantity", 0) - held_qty
         if available < qty:
@@ -1631,11 +1938,17 @@ def try_reserve(kg, entity_id: str, actor_id: str, qty: int, hold_seconds: float
 
         # A fresh reservation from this actor supersedes any prior one of
         # theirs (expired or not) rather than stacking a second entry.
-        new_reservations = [r for r in active_reservations if r.get("actor_id") != actor_id]
-        new_reservations.append({"actor_id": actor_id, "qty": qty, "until": now + hold_seconds})
+        new_reservations = [
+            r for r in active_reservations if r.get("actor_id") != actor_id
+        ]
+        new_reservations.append(
+            {"actor_id": actor_id, "qty": qty, "until": now + hold_seconds}
+        )
 
         version = kg.version_of(entity_id)
-        ok, _current = kg.compare_and_swap(entity_id, version, {"reservations": new_reservations})
+        ok, _current = kg.compare_and_swap(
+            entity_id, version, {"reservations": new_reservations}
+        )
         if ok:
             return True, f"reserved {qty} until {now + hold_seconds:.1f}"
         # Lost the race — compare_and_swap already refreshed the local
@@ -1644,7 +1957,9 @@ def try_reserve(kg, entity_id: str, actor_id: str, qty: int, hold_seconds: float
     return False, "too much contention, gave up"
 
 
-def confirm_reservation(kg, entity_id: str, actor_id: str, max_attempts: int = 5) -> tuple[bool, str]:
+def confirm_reservation(
+    kg, entity_id: str, actor_id: str, max_attempts: int = 5
+) -> tuple[bool, str]:
     """Convert an active reservation held by actor_id into a real stock
     decrement. Fails if the reservation expired (GS-0601: the actor must
     call try_reserve again, not assume their old hold still counts) or was
@@ -1662,7 +1977,9 @@ def confirm_reservation(kg, entity_id: str, actor_id: str, max_attempts: int = 5
             return False, "reservation expired — retry with try_reserve"
 
         qty = mine.get("qty", 0)
-        remaining_reservations = [r for r in reservations if r.get("actor_id") != actor_id]
+        remaining_reservations = [
+            r for r in reservations if r.get("actor_id") != actor_id
+        ]
         version = kg.version_of(entity_id)
         # round(..., 2): a no-op for every existing integer-quantity caller
         # (inventory) but a real fix for Phase 5's shared-budget reuse of
@@ -1670,16 +1987,22 @@ def confirm_reservation(kg, entity_id: str, actor_id: str, max_attempts: int = 5
         # 20.00 - 14.04) otherwise leaves genuine binary-float noise
         # (5.960000000000001) permanently persisted in a real money
         # ceiling, compounding further with every subsequent confirm.
-        ok, _current = kg.compare_and_swap(entity_id, version, {
-            "quantity": round(attrs.get("quantity", 0) - qty, 2),
-            "reservations": remaining_reservations,
-        })
+        ok, _current = kg.compare_and_swap(
+            entity_id,
+            version,
+            {
+                "quantity": round(attrs.get("quantity", 0) - qty, 2),
+                "reservations": remaining_reservations,
+            },
+        )
         if ok:
             return True, f"confirmed, {qty} unit(s) committed"
     return False, "too much contention, gave up"
 
 
-def release_reservation(kg, entity_id: str, actor_id: str, max_attempts: int = 5) -> tuple[bool, str]:
+def release_reservation(
+    kg, entity_id: str, actor_id: str, max_attempts: int = 5
+) -> tuple[bool, str]:
     """MB-3102 True Multi-Actor Coordination: explicitly release
     actor_id's held reservation on entity_id — the real reaction an
     Inventory Society's own actor takes when a PaymentDeclined event
@@ -1696,9 +2019,13 @@ def release_reservation(kg, entity_id: str, actor_id: str, max_attempts: int = 5
         reservations = attrs.get("reservations", [])
         if not any(r.get("actor_id") == actor_id for r in reservations):
             return False, "no active reservation held by this actor"
-        remaining_reservations = [r for r in reservations if r.get("actor_id") != actor_id]
+        remaining_reservations = [
+            r for r in reservations if r.get("actor_id") != actor_id
+        ]
         version = kg.version_of(entity_id)
-        ok, _current = kg.compare_and_swap(entity_id, version, {"reservations": remaining_reservations})
+        ok, _current = kg.compare_and_swap(
+            entity_id, version, {"reservations": remaining_reservations}
+        )
         if ok:
             return True, "released"
     return False, "too much contention, gave up"
@@ -1728,7 +2055,9 @@ def ensure_shared_budget_from_question(context: dict) -> None:
     ceiling = parse_shared_budget(context.get("question", ""))
     if ceiling is None:
         return
-    context["shared_budget_id"] = create_shared_budget(kg, ceiling, owner_ids=(context.get("actor_id", ""),))
+    context["shared_budget_id"] = create_shared_budget(
+        kg, ceiling, owner_ids=(context.get("actor_id", ""),)
+    )
 
 
 def create_shared_budget(kg, ceiling: float, owner_ids: tuple[str, ...] = ()) -> str:
@@ -1749,13 +2078,22 @@ def create_shared_budget(kg, ceiling: float, owner_ids: tuple[str, ...] = ()) ->
     from src.monkey_brain.kernel.knowledge_graph import EntityType
 
     budget_id = f"budget_{uuid.uuid4().hex}"
-    kg.add_entity(budget_id, EntityType.ACCOUNT, "Shared Budget", {
-        "quantity": ceiling, "reservations": [], "owner_ids": list(owner_ids),
-    })
+    kg.add_entity(
+        budget_id,
+        EntityType.ACCOUNT,
+        "Shared Budget",
+        {
+            "quantity": ceiling,
+            "reservations": [],
+            "owner_ids": list(owner_ids),
+        },
+    )
     return budget_id
 
 
-def place_backorder(kg, product_id: str, actor_id: str, qty: int, now: float | None = None) -> dict:
+def place_backorder(
+    kg, product_id: str, actor_id: str, qty: int, now: float | None = None
+) -> dict:
     """MB-3016 Inventory Conflict: record a queued claim on product_id
     for actor_id — the losing side of a try_reserve race isn't simply
     declined, it's "backordered": a real, persisted spot in line, filled
@@ -1768,12 +2106,26 @@ def place_backorder(kg, product_id: str, actor_id: str, qty: int, now: float | N
 
     now = now if now is not None else time.time()
     backorder_id = f"backorder_{uuid.uuid4().hex}"
-    kg.add_entity(backorder_id, EntityType.OTHER, f"Backorder: {product_id}", {
-        "backorder": True, "product_id": product_id, "actor_id": actor_id,
-        "qty": qty, "created_at": now, "status": "pending",
-    })
-    return {"backorder_id": backorder_id, "product_id": product_id,
-            "actor_id": actor_id, "qty": qty, "status": "pending"}
+    kg.add_entity(
+        backorder_id,
+        EntityType.OTHER,
+        f"Backorder: {product_id}",
+        {
+            "backorder": True,
+            "product_id": product_id,
+            "actor_id": actor_id,
+            "qty": qty,
+            "created_at": now,
+            "status": "pending",
+        },
+    )
+    return {
+        "backorder_id": backorder_id,
+        "product_id": product_id,
+        "actor_id": actor_id,
+        "qty": qty,
+        "status": "pending",
+    }
 
 
 def fulfill_backorders(kg, product_id: str, max_attempts: int = 5) -> list[dict]:
@@ -1798,31 +2150,49 @@ def fulfill_backorders(kg, product_id: str, max_attempts: int = 5) -> list[dict]
 
     kg.refresh()
     pending = sorted(
-        (e for e in kg.entities
-         if e.entity_type == EntityType.OTHER and e.attributes.get("backorder")
-         and e.attributes.get("product_id") == product_id and e.attributes.get("status") == "pending"),
+        (
+            e
+            for e in kg.entities
+            if e.entity_type == EntityType.OTHER
+            and e.attributes.get("backorder")
+            and e.attributes.get("product_id") == product_id
+            and e.attributes.get("status") == "pending"
+        ),
         key=lambda e: e.attributes.get("created_at", 0),
     )
 
     fulfilled = []
     for backorder in pending:
         ok, _msg = try_reserve(
-            kg, product_id, backorder.attributes["actor_id"],
-            backorder.attributes["qty"], max_attempts=max_attempts,
+            kg,
+            product_id,
+            backorder.attributes["actor_id"],
+            backorder.attributes["qty"],
+            max_attempts=max_attempts,
         )
         if not ok:
             break
-        kg.update_entity(backorder.entity_id, attributes={
-            "status": "fulfilled", "fulfilled_at": time.time(),
-        })
-        fulfilled.append({
-            "backorder_id": backorder.entity_id, "product_id": product_id,
-            "actor_id": backorder.attributes["actor_id"], "qty": backorder.attributes["qty"],
-        })
+        kg.update_entity(
+            backorder.entity_id,
+            attributes={
+                "status": "fulfilled",
+                "fulfilled_at": time.time(),
+            },
+        )
+        fulfilled.append(
+            {
+                "backorder_id": backorder.entity_id,
+                "product_id": product_id,
+                "actor_id": backorder.attributes["actor_id"],
+                "qty": backorder.attributes["qty"],
+            }
+        )
     return fulfilled
 
 
-def allocate_fair_share(kg, entity_id: str, claims: list[tuple[str, int]], max_attempts: int = 5) -> dict:
+def allocate_fair_share(
+    kg, entity_id: str, claims: list[tuple[str, int]], max_attempts: int = 5
+) -> dict:
     """GS-0900: neighborhood shortage — divide available stock fairly among
     everyone who wants it instead of first-come-first-served draining it
     for whoever asks first (which Level 7's try_reserve alone would do —
@@ -1852,7 +2222,9 @@ def allocate_fair_share(kg, entity_id: str, claims: list[tuple[str, int]], max_a
 
         total_allocated = sum(allocation.values())
         version = kg.version_of(entity_id)
-        ok, _current = kg.compare_and_swap(entity_id, version, {"quantity": available - total_allocated})
+        ok, _current = kg.compare_and_swap(
+            entity_id, version, {"quantity": available - total_allocated}
+        )
         if ok:
             return allocation
     return {}
@@ -1888,7 +2260,9 @@ def _water_fill_allocation(claims: list[tuple[str, int]], available: int) -> dic
     return allocation
 
 
-def allocate_by_priority(kg, entity_id: str, claims: list[tuple[str, int, int]], max_attempts: int = 5) -> dict:
+def allocate_by_priority(
+    kg, entity_id: str, claims: list[tuple[str, int, int]], max_attempts: int = 5
+) -> dict:
     """GS-0902: food bank distribution — fulfill higher-priority claimants
     FIRST (lower priority number served first: 0=infants, 1=elderly,
     2=families, matching the exact ordering the scenario specifies), not
@@ -1912,7 +2286,9 @@ def allocate_by_priority(kg, entity_id: str, claims: list[tuple[str, int, int]],
 
         total_allocated = sum(allocation.values())
         version = kg.version_of(entity_id)
-        ok, _current = kg.compare_and_swap(entity_id, version, {"quantity": available - total_allocated})
+        ok, _current = kg.compare_and_swap(
+            entity_id, version, {"quantity": available - total_allocated}
+        )
         if ok:
             return allocation
     return {}
@@ -1943,11 +2319,15 @@ def household_has_infant(kg) -> bool:
     would let anyone claim priority just by asking for it.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     for e in kg.entities:
         if e.attributes.get("has_infant") is True:
             return True
-        if e.entity_type == EntityType.PERSON and e.attributes.get("age_months") is not None \
-                and e.attributes.get("age_months") <= _INFANT_AGE_MONTHS_THRESHOLD:
+        if (
+            e.entity_type == EntityType.PERSON
+            and e.attributes.get("age_months") is not None
+            and e.attributes.get("age_months") <= _INFANT_AGE_MONTHS_THRESHOLD
+        ):
             return True
     return False
 
@@ -1972,7 +2352,9 @@ def derive_ethical_priority(kg, product) -> tuple[int, str]:
 _DEFAULT_RATIONING_WINDOW_HOURS = 24.0
 
 
-def household_recent_purchases(kg, product_id: str, window_hours: float = _DEFAULT_RATIONING_WINDOW_HOURS) -> int:
+def household_recent_purchases(
+    kg, product_id: str, window_hours: float = _DEFAULT_RATIONING_WINDOW_HOURS
+) -> int:
     """Level 29 (GS-2901): real cumulative quantity this household has
     ALREADY bought of product_id within the rationing window, summed from
     actual order history — a household can't evade a per-household cap by
@@ -1980,6 +2362,7 @@ def household_recent_purchases(kg, product_id: str, window_hours: float = _DEFAU
     same real running total.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
     cutoff = time.time() - window_hours * 3600
     total = 0
@@ -1995,8 +2378,13 @@ def household_recent_purchases(kg, product_id: str, window_hours: float = _DEFAU
     return total
 
 
-def apply_rationing_cap(kg, product_id: str, requested_qty: int, ration_limit: int,
-                         window_hours: float = _DEFAULT_RATIONING_WINDOW_HOURS) -> dict:
+def apply_rationing_cap(
+    kg,
+    product_id: str,
+    requested_qty: int,
+    ration_limit: int,
+    window_hours: float = _DEFAULT_RATIONING_WINDOW_HOURS,
+) -> dict:
     """Level 29 (GS-2901): during an active emergency ration, caps how
     much MORE this household may buy right now given what it's already
     bought recently — a hard ethical constraint (no single household may
@@ -2008,13 +2396,17 @@ def apply_rationing_cap(kg, product_id: str, requested_qty: int, ration_limit: i
     remaining_allowance = max(0, ration_limit - already)
     allowed_qty = min(requested_qty, remaining_allowance)
     return {
-        "allowed_qty": allowed_qty, "requested_qty": requested_qty,
-        "already_purchased": already, "ration_limit": ration_limit,
+        "allowed_qty": allowed_qty,
+        "requested_qty": requested_qty,
+        "already_purchased": already,
+        "ration_limit": ration_limit,
         "capped": allowed_qty < requested_qty,
     }
 
 
-def allocate_ethically(shared_kg, entity_id: str, claims: list, max_attempts: int = 5) -> dict:
+def allocate_ethically(
+    shared_kg, entity_id: str, claims: list, max_attempts: int = 5
+) -> dict:
     """Level 29 (GS-2900/2901/2902): the full ethical allocation for one
     scarce resource — combines automatically-DERIVED priority
     (GS-2900: infant-critical need, not a manually-assigned number a
@@ -2065,14 +2457,22 @@ def allocate_ethically(shared_kg, entity_id: str, claims: list, max_attempts: in
 
         total_allocated = sum(allocation.values())
         version = shared_kg.version_of(entity_id)
-        ok, _current = shared_kg.compare_and_swap(entity_id, version, {"quantity": available - total_allocated})
+        ok, _current = shared_kg.compare_and_swap(
+            entity_id, version, {"quantity": available - total_allocated}
+        )
         if ok:
             return {"allocation": allocation, "details": details}
     return {"allocation": {}, "details": {}}
 
 
-def pool_bulk_order(kg, entity_id: str, claims: list[tuple[str, int]], bulk_threshold: int,
-                     bulk_discount: float, max_attempts: int = 5) -> dict | None:
+def pool_bulk_order(
+    kg,
+    entity_id: str,
+    claims: list[tuple[str, int]],
+    bulk_threshold: int,
+    bulk_discount: float,
+    max_attempts: int = 5,
+) -> dict | None:
     """GS-0901: community bulk purchase — pool several actors' individual
     orders into ONE purchase. Reaching bulk_threshold total units unlocks
     bulk_discount off the per-unit price for EVERYONE in the pool — buying
@@ -2089,15 +2489,25 @@ def pool_bulk_order(kg, entity_id: str, claims: list[tuple[str, int]], bulk_thre
         available = entity.attributes.get("quantity", 0)
         total_units = sum(qty for _, qty in claims)
         if total_units > available:
-            return {"success": False, "error": f"insufficient stock: {available} available, {total_units} requested by the pool"}
+            return {
+                "success": False,
+                "error": f"insufficient stock: {available} available, {total_units} requested by the pool",
+            }
 
         unit_price = entity.attributes.get("price", 0)
         discounted = total_units >= bulk_threshold
-        effective_price = round(unit_price * (1 - bulk_discount), 2) if discounted else unit_price
-        shares = {actor: {"units": qty, "cost": round(qty * effective_price, 2)} for actor, qty in claims}
+        effective_price = (
+            round(unit_price * (1 - bulk_discount), 2) if discounted else unit_price
+        )
+        shares = {
+            actor: {"units": qty, "cost": round(qty * effective_price, 2)}
+            for actor, qty in claims
+        }
 
         version = kg.version_of(entity_id)
-        ok, _current = kg.compare_and_swap(entity_id, version, {"quantity": available - total_units})
+        ok, _current = kg.compare_and_swap(
+            entity_id, version, {"quantity": available - total_units}
+        )
         if ok:
             return {
                 "success": True,
@@ -2111,8 +2521,14 @@ def pool_bulk_order(kg, entity_id: str, claims: list[tuple[str, int]], bulk_thre
     return None
 
 
-def eligible_candidates(item_phrase: str, all_products, lactose_free: bool, rejected_keywords: frozenset = frozenset(),
-                         low_sodium: bool = False, excluded_allergens: frozenset = frozenset()):
+def eligible_candidates(
+    item_phrase: str,
+    all_products,
+    lactose_free: bool,
+    rejected_keywords: frozenset = frozenset(),
+    low_sodium: bool = False,
+    excluded_allergens: frozenset = frozenset(),
+):
     """The candidate pool a single requested item resolves to: dietary
     filter, then learned-rejection filter, then either substitution-policy
     type resolution (generic request for a policy-covered item, e.g.
@@ -2154,11 +2570,17 @@ def eligible_candidates(item_phrase: str, all_products, lactose_free: bool, reje
             return None, f"no low-sodium products matching {item_phrase!r}"
 
     if excluded_allergens:
-        safe = [c for c in candidates if c.attributes.get("allergens") is not None
-                and not (set(c.attributes.get("allergens", [])) & excluded_allergens)]
+        safe = [
+            c
+            for c in candidates
+            if c.attributes.get("allergens") is not None
+            and not (set(c.attributes.get("allergens", [])) & excluded_allergens)
+        ]
         if not safe:
-            return None, (f"no products matching {item_phrase!r} verified free of "
-                           f"{', '.join(sorted(excluded_allergens))} — refusing to guess on an allergy")
+            return None, (
+                f"no products matching {item_phrase!r} verified free of "
+                f"{', '.join(sorted(excluded_allergens))} — refusing to guess on an allergy"
+            )
         candidates = safe
 
     base = _base_item(item_phrase)
@@ -2176,16 +2598,25 @@ def eligible_candidates(item_phrase: str, all_products, lactose_free: bool, reje
     # out of stock), fall back to the unfiltered set rather than turning a
     # soft learned preference into a request the system can't fulfill.
     if not explicit_type and rejected_keywords:
-        non_rejected = [c for c in candidates if not (_keywords(c.name) & rejected_keywords)]
+        non_rejected = [
+            c for c in candidates if not (_keywords(c.name) & rejected_keywords)
+        ]
         if non_rejected:
             candidates = non_rejected
 
     if policy and not explicit_type and not lactose_free:
         for i, type_kw in enumerate(policy):
-            type_candidates = [c for c in candidates
-                                if type_kw in _keywords(c.name) and c.attributes.get("quantity", 1) != 0]
+            type_candidates = [
+                c
+                for c in candidates
+                if type_kw in _keywords(c.name) and c.attributes.get("quantity", 1) != 0
+            ]
             if type_candidates:
-                note = f"{policy[0]} milk out of stock, substituted {type_kw} per policy — " if i > 0 else ""
+                note = (
+                    f"{policy[0]} milk out of stock, substituted {type_kw} per policy — "
+                    if i > 0
+                    else ""
+                )
                 return type_candidates, note
         return None, f"no in-stock {base} available (tried: {', '.join(policy)})"
 
@@ -2200,28 +2631,45 @@ def eligible_candidates(item_phrase: str, all_products, lactose_free: bool, reje
     # policy's preferred whole — semantically wrong regardless of price.
     if policy and explicit_type:
         asked_type = next((t for t in policy if t in phrase_kws), None)
-        asked_candidates = [c for c in candidates
-                             if asked_type in _keywords(c.name) and c.attributes.get("quantity", 1) != 0]
+        asked_candidates = [
+            c
+            for c in candidates
+            if asked_type in _keywords(c.name) and c.attributes.get("quantity", 1) != 0
+        ]
         if asked_candidates:
             return asked_candidates, ""
         for type_kw in policy:
             if type_kw == asked_type:
                 continue
-            type_candidates = [c for c in candidates
-                                if type_kw in _keywords(c.name) and c.attributes.get("quantity", 1) != 0]
+            type_candidates = [
+                c
+                for c in candidates
+                if type_kw in _keywords(c.name) and c.attributes.get("quantity", 1) != 0
+            ]
             if type_candidates:
-                return type_candidates, f"{item_phrase!r} out of stock, substituted {type_kw} per policy — "
+                return (
+                    type_candidates,
+                    f"{item_phrase!r} out of stock, substituted {type_kw} per policy — ",
+                )
         return None, f"{item_phrase!r} out of stock, no substitute available"
 
     best_score = max(_match_score(c.name, item_phrase) for c in candidates)
-    specific = [c for c in candidates if _match_score(c.name, item_phrase) == best_score]
+    specific = [
+        c for c in candidates if _match_score(c.name, item_phrase) == best_score
+    ]
     in_stock = [c for c in specific if c.attributes.get("quantity", 1) != 0]
     if not in_stock and policy:
         for type_kw in policy:
-            type_candidates = [c for c in candidates
-                                if type_kw in _keywords(c.name) and c.attributes.get("quantity", 1) != 0]
+            type_candidates = [
+                c
+                for c in candidates
+                if type_kw in _keywords(c.name) and c.attributes.get("quantity", 1) != 0
+            ]
             if type_candidates:
-                return type_candidates, f"{item_phrase!r} out of stock, substituted {type_kw} per policy — "
+                return (
+                    type_candidates,
+                    f"{item_phrase!r} out of stock, substituted {type_kw} per policy — ",
+                )
     if not in_stock:
         return None, f"{item_phrase!r} out of stock, no substitute available"
     return in_stock, ""
@@ -2234,8 +2682,13 @@ def _belief_id(entity_id: str) -> str:
     return f"belief:{entity_id}"
 
 
-def form_belief(kg, entity_id: str, tracked_attrs=_BELIEF_TRACKED_ATTRS,
-                 source: str = "direct_observation", trust: float = 1.0) -> dict | None:
+def form_belief(
+    kg,
+    entity_id: str,
+    tracked_attrs=_BELIEF_TRACKED_ATTRS,
+    source: str = "direct_observation",
+    trust: float = 1.0,
+) -> dict | None:
     """GS-1200: the actor observes ground truth right now and records what it
     BELIEVES as a distinct entity in its own private scope (belief:{entity_id}),
     separate from the shared ground-truth entity. This is what makes belief
@@ -2250,7 +2703,9 @@ def form_belief(kg, entity_id: str, tracked_attrs=_BELIEF_TRACKED_ATTRS,
     truth = kg.get_entity(entity_id)
     if truth is None:
         return None
-    believed = {k: truth.attributes.get(k) for k in tracked_attrs if k in truth.attributes}
+    believed = {
+        k: truth.attributes.get(k) for k in tracked_attrs if k in truth.attributes
+    }
     belief_id = _belief_id(entity_id)
     attrs = {
         "target_entity_id": entity_id,
@@ -2262,6 +2717,7 @@ def form_belief(kg, entity_id: str, tracked_attrs=_BELIEF_TRACKED_ATTRS,
     }
     if kg.get_entity(belief_id) is None:
         from src.monkey_brain.kernel.knowledge_graph import EntityType
+
         kg.add_entity(belief_id, EntityType.OTHER, f"belief about {entity_id}", attrs)
     else:
         kg.update_entity(belief_id, attributes=attrs)
@@ -2276,7 +2732,9 @@ def get_belief(kg, entity_id: str) -> dict | None:
     return b.attributes.get("believed_attrs") if b else None
 
 
-def detect_belief_divergence(kg, entity_id: str, tracked_attrs=_BELIEF_TRACKED_ATTRS) -> dict:
+def detect_belief_divergence(
+    kg, entity_id: str, tracked_attrs=_BELIEF_TRACKED_ATTRS
+) -> dict:
     """GS-1200: compare the actor's STANDING belief (formed at some earlier
     point, possibly long before this call) against CURRENT ground truth.
     Returns {attr: (believed, actual)} for every attribute that no longer
@@ -2302,8 +2760,9 @@ def detect_belief_divergence(kg, entity_id: str, tracked_attrs=_BELIEF_TRACKED_A
     return diffs
 
 
-def reconcile_beliefs(kg, entity_id: str, observations: list[dict],
-                       tracked_attrs=_BELIEF_TRACKED_ATTRS) -> tuple[dict, dict]:
+def reconcile_beliefs(
+    kg, entity_id: str, observations: list[dict], tracked_attrs=_BELIEF_TRACKED_ATTRS
+) -> tuple[dict, dict]:
     """GS-1201: multiple sources disagree about the same entity (e.g. a store
     API says available, an inventory scanner says sold out). Each observation
     is {"source": str, "trust": float, "attrs": dict, "observed_at": float}.
@@ -2323,8 +2782,13 @@ def reconcile_beliefs(kg, entity_id: str, observations: list[dict],
             if k not in obs["attrs"]:
                 continue
             cur = winners.get(k)
-            if cur is None or obs["trust"] > cur["trust"] or (
-                obs["trust"] == cur["trust"] and obs["observed_at"] > cur["observed_at"]
+            if (
+                cur is None
+                or obs["trust"] > cur["trust"]
+                or (
+                    obs["trust"] == cur["trust"]
+                    and obs["observed_at"] > cur["observed_at"]
+                )
             ):
                 winners[k] = obs
                 resolved[k] = obs["attrs"][k]
@@ -2340,13 +2804,16 @@ def reconcile_beliefs(kg, entity_id: str, observations: list[dict],
     }
     if kg.get_entity(belief_id) is None:
         from src.monkey_brain.kernel.knowledge_graph import EntityType
+
         kg.add_entity(belief_id, EntityType.OTHER, f"belief about {entity_id}", attrs)
     else:
         kg.update_entity(belief_id, attributes=attrs)
     return resolved, attribution
 
 
-def refresh_belief_before_action(kg, entity_id: str, tracked_attrs=_BELIEF_TRACKED_ATTRS) -> tuple[bool, dict]:
+def refresh_belief_before_action(
+    kg, entity_id: str, tracked_attrs=_BELIEF_TRACKED_ATTRS
+) -> tuple[bool, dict]:
     """GS-1202: called immediately before executing an action that depends on
     entity_id. A planner may have formed its belief seconds or minutes ago;
     if the ground-truth entity's version has advanced since then (a new
@@ -2367,9 +2834,18 @@ def refresh_belief_before_action(kg, entity_id: str, tracked_attrs=_BELIEF_TRACK
     if truth is None:
         return False, {}
     current_version = kg.version_of(entity_id)
-    if belief_entity is None or belief_entity.attributes.get("observed_version") != current_version:
-        diffs = detect_belief_divergence(kg, entity_id, tracked_attrs) if belief_entity else {}
-        form_belief(kg, entity_id, tracked_attrs, source="pre_action_refresh", trust=1.0)
+    if (
+        belief_entity is None
+        or belief_entity.attributes.get("observed_version") != current_version
+    ):
+        diffs = (
+            detect_belief_divergence(kg, entity_id, tracked_attrs)
+            if belief_entity
+            else {}
+        )
+        form_belief(
+            kg, entity_id, tracked_attrs, source="pre_action_refresh", trust=1.0
+        )
         return True, diffs
     return False, {}
 
@@ -2384,8 +2860,12 @@ def _day_bucket(ts: float) -> str:
     return str(int(ts // 86400))
 
 
-def _bump_daily_bucket(buckets: dict, ts: float, amount: float,
-                        retention_days: float = _ORDER_STATS_RETENTION_DAYS) -> None:
+def _bump_daily_bucket(
+    buckets: dict,
+    ts: float,
+    amount: float,
+    retention_days: float = _ORDER_STATS_RETENTION_DAYS,
+) -> None:
     """Add amount to ts's day bucket, in place, then prune anything older
     than retention_days -- keeps the dict's size bounded by the retention
     window (a small, fixed number of days) regardless of how many orders
@@ -2409,7 +2889,9 @@ def _order_stats_id(actor_id: str) -> str:
     return f"order_stats_{actor_id}"
 
 
-def update_order_stats(kg, actor_id: str, items: list[dict], ts: float, max_attempts: int = 20) -> bool:
+def update_order_stats(
+    kg, actor_id: str, items: list[dict], ts: float, max_attempts: int = 20
+) -> bool:
     """Phase 6 performance certification (GS-6000, "100K execution ticks:
     no unbounded latency increase"): predict_demand and learned_preference
     used to re-scan an actor's ENTIRE order history on every call — real,
@@ -2429,6 +2911,7 @@ def update_order_stats(kg, actor_id: str, items: list[dict], ts: float, max_atte
     order entity itself (each with product_id/qty/brand/type_keyword).
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     entity_id = _order_stats_id(actor_id)
     for _ in range(max_attempts):
         existing = kg.get_entity(entity_id)
@@ -2438,6 +2921,7 @@ def update_order_stats(kg, actor_id: str, items: list[dict], ts: float, max_atte
             # Deep-copy so a losing CAS attempt's mutations never leak
             # into the next retry's "current" read.
             import copy
+
             stats = copy.deepcopy(existing.attributes)
             stats.setdefault("daily_qty", {})
             stats.setdefault("pref_counts", {})
@@ -2452,14 +2936,21 @@ def update_order_stats(kg, actor_id: str, items: list[dict], ts: float, max_atte
             base = _base_item(item.get("product_name", ""))
             if base:
                 base_stats = stats["pref_counts"].setdefault(base, {})
-                for attribute, value in (("brand", item.get("brand")), ("type_keyword", item.get("type_keyword"))):
+                for attribute, value in (
+                    ("brand", item.get("brand")),
+                    ("type_keyword", item.get("type_keyword")),
+                ):
                     if not value:
                         continue
-                    value_buckets = base_stats.setdefault(attribute, {}).setdefault(value, {})
+                    value_buckets = base_stats.setdefault(attribute, {}).setdefault(
+                        value, {}
+                    )
                     _bump_daily_bucket(value_buckets, ts, 1)
 
         if existing is None:
-            kg.add_entity(entity_id, EntityType.OTHER, f"Order stats: {actor_id}", stats)
+            kg.add_entity(
+                entity_id, EntityType.OTHER, f"Order stats: {actor_id}", stats
+            )
             return True
         version = kg.version_of(entity_id)
         ok, _ = kg.compare_and_swap(entity_id, version, stats)
@@ -2468,7 +2959,9 @@ def update_order_stats(kg, actor_id: str, items: list[dict], ts: float, max_atte
     return False
 
 
-def predict_demand(kg, product_id: str, lookback_days: float = 30.0, actor_id: str | None = None) -> dict:
+def predict_demand(
+    kg, product_id: str, lookback_days: float = 30.0, actor_id: str | None = None
+) -> dict:
     """GS-1300/Phase 5 stress (GS-5100): forecast near-term demand for
     product_id from the actor's OWN purchase history — real persisted
     Order EVENT entities (OrderCreationCapability already writes one per
@@ -2509,14 +3002,20 @@ def predict_demand(kg, product_id: str, lookback_days: float = 30.0, actor_id: s
     history exists", it isn't modeling seasonality or trend.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
     now = time.time()
     daily: dict[int, int] = {}
 
     if actor_id is not None:
         stats = kg.get_entity(_order_stats_id(actor_id))
-        product_buckets = stats.attributes.get("daily_qty", {}).get(product_id, {}) if stats else {}
-        daily = {int(b): v for b, v in _sum_recent_buckets(product_buckets, now, lookback_days).items()}
+        product_buckets = (
+            stats.attributes.get("daily_qty", {}).get(product_id, {}) if stats else {}
+        )
+        daily = {
+            int(b): v
+            for b, v in _sum_recent_buckets(product_buckets, now, lookback_days).items()
+        }
     else:
         for e in kg.entities_by_type(EntityType.EVENT):
             if not e.attributes.get("order_id"):
@@ -2537,8 +3036,12 @@ def predict_demand(kg, product_id: str, lookback_days: float = 30.0, actor_id: s
                 daily[bucket] = daily.get(bucket, 0) + item.get("qty", 0)
 
     if not daily:
-        return {"predicted_daily_demand": 0.0, "confidence": 0.0, "history_days": 0,
-                "basis": "no purchase history for this product"}
+        return {
+            "predicted_daily_demand": 0.0,
+            "confidence": 0.0,
+            "history_days": 0,
+            "basis": "no purchase history for this product",
+        }
 
     values = list(daily.values())
     avg = sum(values) / len(values)
@@ -2551,8 +3054,13 @@ def predict_demand(kg, product_id: str, lookback_days: float = 30.0, actor_id: s
     }
 
 
-def predict_stockout(kg, product_id: str, lookback_days: float = 30.0, urgency_days: float = 2.0,
-                      actor_id: str | None = None) -> dict:
+def predict_stockout(
+    kg,
+    product_id: str,
+    lookback_days: float = 30.0,
+    urgency_days: float = 2.0,
+    actor_id: str | None = None,
+) -> dict:
     """GS-1301: given the current quantity and predict_demand's daily rate,
     estimate days-until-stockout and flag urgency. days_remaining is None
     (not infinite/0) when there's no usable demand signal yet — "no
@@ -2562,15 +3070,26 @@ def predict_stockout(kg, product_id: str, lookback_days: float = 30.0, urgency_d
     kg.refresh()
     product = kg.get_entity(product_id)
     if product is None or product.attributes.get("quantity") is None:
-        return {"stockout_predicted": False, "days_remaining": None, "daily_rate": 0.0,
-                "reason": "product or quantity unknown"}
+        return {
+            "stockout_predicted": False,
+            "days_remaining": None,
+            "daily_rate": 0.0,
+            "reason": "product or quantity unknown",
+        }
 
     current_qty = product.attributes["quantity"]
-    demand = predict_demand(kg, product_id, lookback_days=lookback_days, actor_id=actor_id)
+    demand = predict_demand(
+        kg, product_id, lookback_days=lookback_days, actor_id=actor_id
+    )
     daily_rate = demand["predicted_daily_demand"]
     if daily_rate <= 0:
-        return {"stockout_predicted": False, "days_remaining": None, "daily_rate": 0.0,
-                "current_quantity": current_qty, "reason": "no demand signal"}
+        return {
+            "stockout_predicted": False,
+            "days_remaining": None,
+            "daily_rate": 0.0,
+            "current_quantity": current_qty,
+            "reason": "no demand signal",
+        }
 
     days_remaining = current_qty / daily_rate
     return {
@@ -2582,12 +3101,20 @@ def predict_stockout(kg, product_id: str, lookback_days: float = 30.0, urgency_d
     }
 
 
-_MAX_REORDER_MULTIPLE = 20  # never recommend buying more than this many times what was actually asked for
+_MAX_REORDER_MULTIPLE = (
+    20  # never recommend buying more than this many times what was actually asked for
+)
 
 
-def recommend_reorder_quantity(kg, product_id: str, requested_qty: int,
-                                lookback_days: float = 30.0, urgency_days: float = 2.0,
-                                buffer_days: float = 5.0, actor_id: str | None = None) -> tuple[int, dict]:
+def recommend_reorder_quantity(
+    kg,
+    product_id: str,
+    requested_qty: int,
+    lookback_days: float = 30.0,
+    urgency_days: float = 2.0,
+    buffer_days: float = 5.0,
+    actor_id: str | None = None,
+) -> tuple[int, dict]:
     """GS-1301: "planner buys earlier" — when predict_stockout says this
     item is about to run out, buy enough now to cover buffer_days of
     predicted demand on top of what was actually requested, rather than
@@ -2610,7 +3137,13 @@ def recommend_reorder_quantity(kg, product_id: str, requested_qty: int,
     estimator remaining sensitive to outliers is the underlying cause and
     a real, acknowledged simplification, not fixed here.
     """
-    prediction = predict_stockout(kg, product_id, lookback_days=lookback_days, urgency_days=urgency_days, actor_id=actor_id)
+    prediction = predict_stockout(
+        kg,
+        product_id,
+        lookback_days=lookback_days,
+        urgency_days=urgency_days,
+        actor_id=actor_id,
+    )
     if not prediction["stockout_predicted"]:
         return requested_qty, prediction
     buffer_qty = max(0, round(prediction["daily_rate"] * buffer_days))
@@ -2636,6 +3169,7 @@ class _CounterfactualView:
     inconsistency, get_belief) — a read is exactly the kind of operation
     this view exists to serve safely; only mutation is off-limits.
     """
+
     def __init__(self, kg, overrides: dict[str, dict]):
         self._kg = kg
         self._overrides = overrides or {}
@@ -2644,6 +3178,7 @@ class _CounterfactualView:
     @property
     def entities(self):
         import copy
+
         result = []
         for e in self._kg.entities:
             if e.entity_id in self._overrides:
@@ -2670,15 +3205,22 @@ class _CounterfactualView:
 
     def entities_by_keywords(self, keywords):
         from src.monkey_brain.kernel.knowledge_graph import _index_keywords
+
         return [e for e in self.entities if _index_keywords(e.name) & set(keywords)]
 
     def version_of(self, entity_id):
         return self._kg.version_of(entity_id)
 
 
-def simulate_plan(kg, item_phrases: list[str], optimization: str, overrides: dict[str, dict] | None = None,
-                   lactose_free: bool = False, rejected_keywords: frozenset = frozenset(),
-                   force_optimization: bool = False) -> dict:
+def simulate_plan(
+    kg,
+    item_phrases: list[str],
+    optimization: str,
+    overrides: dict[str, dict] | None = None,
+    lactose_free: bool = False,
+    rejected_keywords: frozenset = frozenset(),
+    force_optimization: bool = False,
+) -> dict:
     """GS-1400/1401/1402: run the SAME selection logic ProductSelection uses
     for a real purchase — eligible_candidates, pick_best_unit/
     pick_best_for_volume — against a (possibly counterfactual) view of the
@@ -2701,45 +3243,81 @@ def simulate_plan(kg, item_phrases: list[str], optimization: str, overrides: dic
     two different objectives.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
     view = _CounterfactualView(kg, overrides)
     all_products = open_products(view)
-    stores_by_id = {e.entity_id: e for e in view.entities if e.entity_type == EntityType.ORGANIZATION}
+    stores_by_id = {
+        e.entity_id: e
+        for e in view.entities
+        if e.entity_type == EntityType.ORGANIZATION
+    }
 
     selections = []
     total = 0.0
     for item_phrase in item_phrases:
-        candidates, note = eligible_candidates(item_phrase, all_products, lactose_free, rejected_keywords)
+        candidates, note = eligible_candidates(
+            item_phrase, all_products, lactose_free, rejected_keywords
+        )
         if candidates is None:
             return {"feasible": False, "reason": note, "item": item_phrase}
-        item_optimization = optimization if force_optimization else (detect_optimization(item_phrase) or optimization)
+        item_optimization = (
+            optimization
+            if force_optimization
+            else (detect_optimization(item_phrase) or optimization)
+        )
         volume_ml = _parse_requested_volume_ml(item_phrase)
         mass_g = _parse_requested_mass_g(item_phrase) if volume_ml is None else None
         extra = []
         if volume_ml:
-            best, qty, reason, extra = pick_best_for_volume(candidates, volume_ml, item_optimization, stores_by_id)
+            best, qty, reason, extra = pick_best_for_volume(
+                candidates, volume_ml, item_optimization, stores_by_id
+            )
         elif mass_g:
-            best, qty, reason, extra = pick_best_for_volume(candidates, mass_g, item_optimization, stores_by_id, size_key="size_g")
+            best, qty, reason, extra = pick_best_for_volume(
+                candidates, mass_g, item_optimization, stores_by_id, size_key="size_g"
+            )
         else:
-            best, qty, reason = pick_best_unit(candidates, item_optimization, stores_by_id)
+            best, qty, reason = pick_best_unit(
+                candidates, item_optimization, stores_by_id
+            )
         price = best.attributes.get("price", 0)
-        selections.append({
-            "id": best.entity_id, "name": best.name, "store_id": best.attributes.get("store_id"),
-            "store_name": best.attributes.get("store_name"), "qty": qty, "price": price, "reason": reason,
-        })
+        selections.append(
+            {
+                "id": best.entity_id,
+                "name": best.name,
+                "store_id": best.attributes.get("store_id"),
+                "store_name": best.attributes.get("store_name"),
+                "qty": qty,
+                "price": price,
+                "reason": reason,
+            }
+        )
         total += price * qty
         # Quantity Optimization: a mixed-package combo (pick_best_for_volume)
         # returns additional package types beyond the primary one — each is
         # a real, separate line item, same shape as the primary selection.
         for extra_c, extra_qty in extra:
             extra_price = extra_c.attributes.get("price", 0)
-            selections.append({
-                "id": extra_c.entity_id, "name": extra_c.name, "store_id": extra_c.attributes.get("store_id"),
-                "store_name": extra_c.attributes.get("store_name"), "qty": extra_qty, "price": extra_price, "reason": reason,
-            })
+            selections.append(
+                {
+                    "id": extra_c.entity_id,
+                    "name": extra_c.name,
+                    "store_id": extra_c.attributes.get("store_id"),
+                    "store_name": extra_c.attributes.get("store_name"),
+                    "qty": extra_qty,
+                    "price": extra_price,
+                    "reason": reason,
+                }
+            )
             total += extra_price * extra_qty
 
-    return {"feasible": True, "selections": selections, "total": round(total, 2), "optimization": optimization}
+    return {
+        "feasible": True,
+        "selections": selections,
+        "total": round(total, 2),
+        "optimization": optimization,
+    }
 
 
 def diff_plans(baseline: dict, alternative: dict) -> dict:
@@ -2754,7 +3332,11 @@ def diff_plans(baseline: dict, alternative: dict) -> dict:
             "changed": True,
             "baseline_feasible": baseline.get("feasible", False),
             "alternative_feasible": alternative.get("feasible", False),
-            "reason": alternative.get("reason") if not alternative.get("feasible") else baseline.get("reason"),
+            "reason": (
+                alternative.get("reason")
+                if not alternative.get("feasible")
+                else baseline.get("reason")
+            ),
         }
     base_by_name = {s["name"]: s for s in baseline["selections"]}
     alt_by_name = {s["name"]: s for s in alternative["selections"]}
@@ -2764,11 +3346,13 @@ def diff_plans(baseline: dict, alternative: dict) -> dict:
         if a is None:
             item_changes.append({"item": name, "change": "no longer available"})
         elif b["store_id"] != a["store_id"] or b["price"] != a["price"]:
-            item_changes.append({
-                "item": name,
-                "from": {"store": b["store_name"], "price": b["price"]},
-                "to": {"store": a["store_name"], "price": a["price"]},
-            })
+            item_changes.append(
+                {
+                    "item": name,
+                    "from": {"store": b["store_name"], "price": b["price"]},
+                    "to": {"store": a["store_name"], "price": a["price"]},
+                }
+            )
     return {
         "changed": bool(item_changes) or baseline["total"] != alternative["total"],
         "item_changes": item_changes,
@@ -2776,23 +3360,40 @@ def diff_plans(baseline: dict, alternative: dict) -> dict:
     }
 
 
-def compare_plans(kg, item_phrases: list[str], optimizations: list[str],
-                   lactose_free: bool = False, rejected_keywords: frozenset = frozenset()) -> dict:
+def compare_plans(
+    kg,
+    item_phrases: list[str],
+    optimizations: list[str],
+    lactose_free: bool = False,
+    rejected_keywords: frozenset = frozenset(),
+) -> dict:
     """GS-1400: evaluate multiple candidate strategies (e.g. cost vs
     quality) for the SAME real world before committing to one — each is
     just simulate_plan with no overrides, run under a different
     optimization objective, so this is "which of several plans is best"
     rather than "what if the world were different" (that's what overrides
     on simulate_plan are for)."""
-    plans = {opt: simulate_plan(kg, item_phrases, opt, lactose_free=lactose_free,
-                                 rejected_keywords=rejected_keywords, force_optimization=True)
-              for opt in optimizations}
+    plans = {
+        opt: simulate_plan(
+            kg,
+            item_phrases,
+            opt,
+            lactose_free=lactose_free,
+            rejected_keywords=rejected_keywords,
+            force_optimization=True,
+        )
+        for opt in optimizations
+    }
     feasible = {opt: p for opt, p in plans.items() if p.get("feasible")}
-    best_opt = min(feasible, key=lambda opt: feasible[opt]["total"]) if feasible else None
+    best_opt = (
+        min(feasible, key=lambda opt: feasible[opt]["total"]) if feasible else None
+    )
     return {"plans": plans, "recommended": best_opt}
 
 
-_STORE_CLOSE_RE = re.compile(r"what if (.+?) (?:closes|closed|shuts down|shut down)", re.IGNORECASE)
+_STORE_CLOSE_RE = re.compile(
+    r"what if (.+?) (?:closes|closed|shuts down|shut down)", re.IGNORECASE
+)
 _PRICE_CHANGE_RE = re.compile(
     r"what if (?:the )?(.+?) price (?:doubles|doubled|(?:goes|went) up|increases?|triples|tripled)",
     re.IGNORECASE,
@@ -2821,25 +3422,45 @@ def parse_counterfactual(question: str, kg) -> dict | None:
         # whatever's left ("...would I still get milk") instead of feeding
         # eligible_candidates the whole hypothetical clause as if it were
         # an item phrase, which never matches any real product.
-        remainder = (question[:close_match.start()] + question[close_match.end():]).strip(" ,.")
+        remainder = (
+            question[: close_match.start()] + question[close_match.end() :]
+        ).strip(" ,.")
         name_fragment = close_match.group(1).strip().lower()
-        stores = [e for e in kg.entities_by_type(EntityType.ORGANIZATION)
-                  if e.attributes.get("type") == "grocery_store"]
+        stores = [
+            e
+            for e in kg.entities_by_type(EntityType.ORGANIZATION)
+            if e.attributes.get("type") == "grocery_store"
+        ]
         target = next((s for s in stores if name_fragment in s.name.lower()), None)
         if target is None:
-            return {"recognized": True, "resolved": False,
-                    "reason": f"no store matching {name_fragment!r} found"}
-        return {"recognized": True, "resolved": True, "kind": "store_closes",
-                "overrides": {target.entity_id: {"is_open": False}}, "subject": target.name,
-                "remainder": remainder}
+            return {
+                "recognized": True,
+                "resolved": False,
+                "reason": f"no store matching {name_fragment!r} found",
+            }
+        return {
+            "recognized": True,
+            "resolved": True,
+            "kind": "store_closes",
+            "overrides": {target.entity_id: {"is_open": False}},
+            "subject": target.name,
+            "remainder": remainder,
+        }
 
     price_match = _PRICE_CHANGE_RE.search(question)
     if price_match:
-        remainder = (question[:price_match.start()] + question[price_match.end():]).strip(" ,.")
+        remainder = (
+            question[: price_match.start()] + question[price_match.end() :]
+        ).strip(" ,.")
         item_phrase = price_match.group(1).strip()
-        return {"recognized": True, "resolved": True, "kind": "price_change",
-                "item_phrase": item_phrase, "multiplier": 2.0,
-                "remainder": remainder or item_phrase}
+        return {
+            "recognized": True,
+            "resolved": True,
+            "kind": "price_change",
+            "item_phrase": item_phrase,
+            "multiplier": 2.0,
+            "remainder": remainder or item_phrase,
+        }
 
     return None
 
@@ -2854,6 +3475,7 @@ def find_borrowable(kg, item_phrase: str, exclude_owner_id: str | None = None) -
     item must not be offered twice.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
     candidates = []
     # Performance certification (GS-6000): pantry/shareable entities are a
@@ -2863,8 +3485,13 @@ def find_borrowable(kg, item_phrase: str, exclude_owner_id: str | None = None) -
     # catalog-scale pool the same way open_products' item_phrase does.
     request_kw = _keyword_surface_forms(_keywords(item_phrase))
     asset_pool = (
-        [e for e in kg.entities_by_keywords(request_kw) if e.entity_type == EntityType.ASSET]
-        if request_kw else kg.entities_by_type(EntityType.ASSET)
+        [
+            e
+            for e in kg.entities_by_keywords(request_kw)
+            if e.entity_type == EntityType.ASSET
+        ]
+        if request_kw
+        else kg.entities_by_type(EntityType.ASSET)
     )
     for e in asset_pool:
         if not e.attributes.get("pantry"):
@@ -2882,7 +3509,9 @@ def find_borrowable(kg, item_phrase: str, exclude_owner_id: str | None = None) -
     return candidates
 
 
-def borrow_item(kg, item_id: str, borrower_id: str, qty: int, max_attempts: int = 5) -> tuple[bool, str]:
+def borrow_item(
+    kg, item_id: str, borrower_id: str, qty: int, max_attempts: int = 5
+) -> tuple[bool, str]:
     """GS-1500: CAS-append a loan to item_id's `loans` list (same
     reservations-list pattern try_reserve uses — Level 7/12 already proved
     a single-slot design silently overwrites concurrent claims instead of
@@ -2899,8 +3528,13 @@ def borrow_item(kg, item_id: str, borrower_id: str, qty: int, max_attempts: int 
         held = sum(l.get("qty", 0) for l in loans)
         available = attrs.get("quantity", 0) - held
         if available < qty:
-            return False, f"insufficient shareable stock: {available} available, {qty} requested"
-        new_loans = loans + [{"borrower_id": borrower_id, "qty": qty, "borrowed_at": time.time()}]
+            return (
+                False,
+                f"insufficient shareable stock: {available} available, {qty} requested",
+            )
+        new_loans = loans + [
+            {"borrower_id": borrower_id, "qty": qty, "borrowed_at": time.time()}
+        ]
         version = kg.version_of(item_id)
         ok, _current = kg.compare_and_swap(item_id, version, {"loans": new_loans})
         if ok:
@@ -2908,7 +3542,9 @@ def borrow_item(kg, item_id: str, borrower_id: str, qty: int, max_attempts: int 
     return False, "too much contention, gave up"
 
 
-def return_borrowed_item(kg, item_id: str, borrower_id: str, max_attempts: int = 5) -> tuple[bool, str]:
+def return_borrowed_item(
+    kg, item_id: str, borrower_id: str, max_attempts: int = 5
+) -> tuple[bool, str]:
     """Hand a borrowed item back — removes borrower_id's loan entry,
     freeing that quantity for someone else to borrow again."""
     for _ in range(max_attempts):
@@ -2927,7 +3563,9 @@ def return_borrowed_item(kg, item_id: str, borrower_id: str, max_attempts: int =
     return False, "too much contention, gave up"
 
 
-def _cas_adjust_balance(kg, wallet_id: str, delta: float, max_attempts: int = 20) -> bool:
+def _cas_adjust_balance(
+    kg, wallet_id: str, delta: float, max_attempts: int = 20
+) -> bool:
     """Atomically adjust a wallet's balance by delta (negative to debit,
     positive to credit), retrying on a concurrent-write conflict — the
     same compare_and_swap retry pattern Level 34 established for
@@ -2940,7 +3578,9 @@ def _cas_adjust_balance(kg, wallet_id: str, delta: float, max_attempts: int = 20
             return False
         current = wallet.attributes.get("balance", 0)
         version = kg.version_of(wallet_id)
-        ok, _ = kg.compare_and_swap(wallet_id, version, {"balance": round(current + delta, 2)})
+        ok, _ = kg.compare_and_swap(
+            wallet_id, version, {"balance": round(current + delta, 2)}
+        )
         if ok:
             return True
     return False
@@ -2986,14 +3626,20 @@ def _debit_store_accounts_for_refund(kg, order, refund_amount: float) -> None:
         store_id = product.attributes.get("store_id")
         if not store_id:
             continue
-        totals_by_store[store_id] = totals_by_store.get(store_id, 0.0) + (item.get("price", 0) * item.get("qty", 1))
+        totals_by_store[store_id] = totals_by_store.get(store_id, 0.0) + (
+            item.get("price", 0) * item.get("qty", 1)
+        )
 
     for store_id, gross_value in totals_by_store.items():
         debit = round(gross_value * refund_ratio, 2)
         if debit <= 0:
             continue
         store_account = next(
-            (a for a in kg.entities_by_type(EntityType.ACCOUNT) if a.attributes.get("store_id") == store_id),
+            (
+                a
+                for a in kg.entities_by_type(EntityType.ACCOUNT)
+                if a.attributes.get("store_id") == store_id
+            ),
             None,
         )
         if store_account is not None:
@@ -3024,10 +3670,22 @@ def _seller_scoped_kg(kg, seller_id: str):
     uri = getattr(kg, "_uri", None)
     if uri is None:
         return kg
-    return type(kg)(person_id=seller_id, uri=uri, user=getattr(kg, "_user", None), password=getattr(kg, "_password", None))
+    return type(kg)(
+        person_id=seller_id,
+        uri=uri,
+        user=getattr(kg, "_user", None),
+        password=getattr(kg, "_password", None),
+    )
 
 
-def buy_from_neighbor(kg, item_id: str, buyer_id: str, qty: int, agreed_price: float, max_attempts: int = 5) -> tuple[bool, str]:
+def buy_from_neighbor(
+    kg,
+    item_id: str,
+    buyer_id: str,
+    qty: int,
+    agreed_price: float,
+    max_attempts: int = 5,
+) -> tuple[bool, str]:
     """GS-1501/Level 45 (GS-4500): a real peer-to-peer transaction once
     negotiation succeeds — permanently decrements the seller's pantry
     quantity (unlike borrow_item, this item doesn't come back) AND moves
@@ -3052,7 +3710,10 @@ def buy_from_neighbor(kg, item_id: str, buyer_id: str, qty: int, agreed_price: f
     if buyer_wallet is None:
         return False, f"{buyer_id} has no wallet to pay ${total:.2f} for this"
     if buyer_wallet.attributes.get("balance", 0) < total:
-        return False, f"insufficient funds: {buyer_id} needs ${total:.2f} for this peer purchase"
+        return (
+            False,
+            f"insufficient funds: {buyer_id} needs ${total:.2f} for this peer purchase",
+        )
 
     entity = kg.get_entity(item_id)
     if entity is None:
@@ -3072,17 +3733,26 @@ def buy_from_neighbor(kg, item_id: str, buyer_id: str, qty: int, agreed_price: f
         if available < qty:
             return False, f"insufficient stock: {available} available, {qty} requested"
         version = kg.version_of(item_id)
-        ok, _current = kg.compare_and_swap(item_id, version, {"quantity": available - qty})
+        ok, _current = kg.compare_and_swap(
+            item_id, version, {"quantity": available - qty}
+        )
         if ok:
             if not _cas_adjust_balance(kg, buyer_wallet.entity_id, -total):
                 return False, "payment failed: too much contention on buyer's wallet"
             _cas_adjust_balance(seller_kg, seller_wallet.entity_id, total)
-            return True, f"bought {qty} from {seller_id} at ${agreed_price:.2f} each (${total:.2f} paid)"
+            return (
+                True,
+                f"bought {qty} from {seller_id} at ${agreed_price:.2f} each (${total:.2f} paid)",
+            )
     return False, "too much contention, gave up"
 
 
-def negotiate_price(listed_price: float, min_seller_price: float, buyer_target_price: float,
-                     max_rounds: int = 3) -> dict:
+def negotiate_price(
+    listed_price: float,
+    min_seller_price: float,
+    buyer_target_price: float,
+    max_rounds: int = 3,
+) -> dict:
     """GS-1501: bounded split-the-difference bargaining, not a fixed
     take-it-or-leave-it price. Each round both sides move halfway toward
     the other; the seller's ask never drops below min_seller_price (their
@@ -3094,19 +3764,35 @@ def negotiate_price(listed_price: float, min_seller_price: float, buyer_target_p
     than run through rounds that could never converge.
     """
     if buyer_target_price < min_seller_price:
-        return {"agreed": False, "price": None, "rounds": [],
-                "reason": "buyer's target is below the seller's floor"}
+        return {
+            "agreed": False,
+            "price": None,
+            "rounds": [],
+            "reason": "buyer's target is below the seller's floor",
+        }
 
     seller_ask, buyer_offer = listed_price, buyer_target_price
     rounds = []
     for i in range(1, max_rounds + 1):
         if buyer_offer >= seller_ask:
             price = round((buyer_offer + seller_ask) / 2, 2)
-            rounds.append({"round": i, "seller_ask": round(seller_ask, 2),
-                            "buyer_offer": round(buyer_offer, 2), "outcome": "deal"})
+            rounds.append(
+                {
+                    "round": i,
+                    "seller_ask": round(seller_ask, 2),
+                    "buyer_offer": round(buyer_offer, 2),
+                    "outcome": "deal",
+                }
+            )
             return {"agreed": True, "price": price, "rounds": rounds}
-        rounds.append({"round": i, "seller_ask": round(seller_ask, 2),
-                        "buyer_offer": round(buyer_offer, 2), "outcome": "no deal yet"})
+        rounds.append(
+            {
+                "round": i,
+                "seller_ask": round(seller_ask, 2),
+                "buyer_offer": round(buyer_offer, 2),
+                "outcome": "no deal yet",
+            }
+        )
         gap = seller_ask - buyer_offer
         seller_ask = max(min_seller_price, seller_ask - gap / 2)
         buyer_offer = buyer_offer + gap / 2
@@ -3114,11 +3800,22 @@ def negotiate_price(listed_price: float, min_seller_price: float, buyer_target_p
     if buyer_offer >= seller_ask:
         price = round((buyer_offer + seller_ask) / 2, 2)
         return {"agreed": True, "price": price, "rounds": rounds}
-    return {"agreed": False, "price": None, "rounds": rounds,
-            "reason": f"no agreement within {max_rounds} rounds"}
+    return {
+        "agreed": False,
+        "price": None,
+        "rounds": rounds,
+        "reason": f"no agreement within {max_rounds} rounds",
+    }
 
 
-def place_bid(kg, auction_id: str, actor_id: str, bid_price: float, qty: int, max_attempts: int = 5) -> tuple[bool, str]:
+def place_bid(
+    kg,
+    auction_id: str,
+    actor_id: str,
+    bid_price: float,
+    qty: int,
+    max_attempts: int = 5,
+) -> tuple[bool, str]:
     """GS-1502: CAS-append a bid to auction_id's `bids` list (same pattern
     as try_reserve/place_bid's siblings) — a fresh bid from an actor who
     already bid supersedes their prior one rather than stacking a second
@@ -3130,7 +3827,14 @@ def place_bid(kg, auction_id: str, actor_id: str, bid_price: float, qty: int, ma
             return False, "auction not found"
         bids = entity.attributes.get("bids", [])
         new_bids = [b for b in bids if b.get("actor_id") != actor_id]
-        new_bids.append({"actor_id": actor_id, "bid_price": bid_price, "qty": qty, "bid_at": time.time()})
+        new_bids.append(
+            {
+                "actor_id": actor_id,
+                "bid_price": bid_price,
+                "qty": qty,
+                "bid_at": time.time(),
+            }
+        )
         version = kg.version_of(auction_id)
         ok, _current = kg.compare_and_swap(auction_id, version, {"bids": new_bids})
         if ok:
@@ -3152,7 +3856,9 @@ def resolve_auction(kg, auction_id: str) -> dict:
     if entity is None:
         return {"resolved": False, "reason": "auction not found"}
     available = entity.attributes.get("quantity", 0)
-    bids = sorted(entity.attributes.get("bids", []), key=lambda b: (-b["bid_price"], b["bid_at"]))
+    bids = sorted(
+        entity.attributes.get("bids", []), key=lambda b: (-b["bid_price"], b["bid_at"])
+    )
     allocation = {}
     remaining = available
     for b in bids:
@@ -3162,12 +3868,16 @@ def resolve_auction(kg, auction_id: str) -> dict:
         allocation[b["actor_id"]] = {"qty": grant, "price": b["bid_price"]}
         remaining -= grant
     return {
-        "resolved": True, "allocation": allocation, "remaining": remaining,
+        "resolved": True,
+        "allocation": allocation,
+        "remaining": remaining,
         "clearing_price": bids[0]["bid_price"] if bids else None,
     }
 
 
-def household_autonomous_round(kg, actor_id: str, product_id: str, item_phrase: str = "milk") -> dict:
+def household_autonomous_round(
+    kg, actor_id: str, product_id: str, item_phrase: str = "milk"
+) -> dict:
     """Level 18: one household's complete autonomous decision cycle for a
     single round — no human-authored question drives any of this. Composes
     primitives every prior level already built and proved correct:
@@ -3197,23 +3907,40 @@ def household_autonomous_round(kg, actor_id: str, product_id: str, item_phrase: 
     # household's own autonomous demand forecast still silently absorbed
     # every OTHER actor sharing this KG's concurrent purchases.
     demand = predict_demand(kg, product_id, actor_id=actor_id)
-    needed = max(1, round(demand["predicted_daily_demand"])) if demand["predicted_daily_demand"] > 0 else 1
+    needed = (
+        max(1, round(demand["predicted_daily_demand"]))
+        if demand["predicted_daily_demand"] > 0
+        else 1
+    )
 
     borrowable = find_borrowable(kg, item_phrase, exclude_owner_id=actor_id)
     if borrowable:
         lender = max(
             borrowable,
-            key=lambda e: e.attributes.get("quantity", 0) - sum(l.get("qty", 0) for l in e.attributes.get("loans", [])),
+            key=lambda e: e.attributes.get("quantity", 0)
+            - sum(l.get("qty", 0) for l in e.attributes.get("loans", [])),
         )
-        available = lender.attributes.get("quantity", 0) - sum(l.get("qty", 0) for l in lender.attributes.get("loans", []))
+        available = lender.attributes.get("quantity", 0) - sum(
+            l.get("qty", 0) for l in lender.attributes.get("loans", [])
+        )
         borrow_qty = min(needed, available)
         ok, _msg = borrow_item(kg, lender.entity_id, actor_id, borrow_qty)
         if ok:
             remaining = needed - borrow_qty
             mode = "borrow" if remaining <= 0 else "partial_borrow"
-            return {"needed": needed, "satisfied_via": mode, "claim_qty": max(0, remaining), "borrowed": borrow_qty}
+            return {
+                "needed": needed,
+                "satisfied_via": mode,
+                "claim_qty": max(0, remaining),
+                "borrowed": borrow_qty,
+            }
 
-    return {"needed": needed, "satisfied_via": "none", "claim_qty": needed, "borrowed": 0}
+    return {
+        "needed": needed,
+        "satisfied_via": "none",
+        "claim_qty": needed,
+        "borrowed": 0,
+    }
 
 
 _MIN_LEARNED_PREFERENCE_PURCHASES = 2
@@ -3222,8 +3949,13 @@ _MIN_LEARNED_PREFERENCE_PURCHASES = 2
 _LEARNED_PREFERENCE_LOOKBACK_DAYS = 90.0
 
 
-def learned_preference(kg, base_item: str, attribute: str, min_purchases: int = _MIN_LEARNED_PREFERENCE_PURCHASES,
-                        lookback_days: float = _LEARNED_PREFERENCE_LOOKBACK_DAYS) -> tuple[str | None, dict]:
+def learned_preference(
+    kg,
+    base_item: str,
+    attribute: str,
+    min_purchases: int = _MIN_LEARNED_PREFERENCE_PURCHASES,
+    lookback_days: float = _LEARNED_PREFERENCE_LOOKBACK_DAYS,
+) -> tuple[str | None, dict]:
     """Level 19 (GS-1900/1901): infer a standing preference for `attribute`
     ("brand" or "type_keyword") from the actor's REAL past purchases of
     base_item, not a stored settings field — the preference IS the
@@ -3266,7 +3998,11 @@ def learned_preference(kg, base_item: str, attribute: str, min_purchases: int = 
     """
     now = time.time()
     stats = kg.get_entity(_order_stats_id(kg.person_id))
-    value_buckets = stats.attributes.get("pref_counts", {}).get(base_item, {}).get(attribute, {}) if stats else {}
+    value_buckets = (
+        stats.attributes.get("pref_counts", {}).get(base_item, {}).get(attribute, {})
+        if stats
+        else {}
+    )
     counts: dict[str, int] = {}
     total = 0
     for value, buckets in value_buckets.items():
@@ -3285,7 +4021,9 @@ def learned_preference(kg, base_item: str, attribute: str, min_purchases: int = 
     return None, stats
 
 
-def resolve_preference_conflict(candidates, member_preferences: dict[str, dict]) -> tuple:
+def resolve_preference_conflict(
+    candidates, member_preferences: dict[str, dict]
+) -> tuple:
     """GS-1902: a shared household purchase where members want different
     things (alice: organic, bob: cheap) — picks the candidate that
     maximizes AVERAGE satisfaction across every member with a stated
@@ -3312,12 +4050,18 @@ def resolve_preference_conflict(candidates, member_preferences: dict[str, dict])
         member_scores = {}
         for actor_id, pref in member_preferences.items():
             if "organic" in pref:
-                member_scores[actor_id] = 1.0 if c.attributes.get("organic") == pref["organic"] else 0.0
+                member_scores[actor_id] = (
+                    1.0 if c.attributes.get("organic") == pref["organic"] else 0.0
+                )
             elif pref.get("optimize") == "cost":
                 price = c.attributes.get("price", float("inf"))
-                member_scores[actor_id] = 1.0 if hi == lo else max(0.0, 1.0 - (price - lo) / (hi - lo))
+                member_scores[actor_id] = (
+                    1.0 if hi == lo else max(0.0, 1.0 - (price - lo) / (hi - lo))
+                )
             else:
-                member_scores[actor_id] = 0.5  # no dimension this candidate can be scored on for this member
+                member_scores[actor_id] = (
+                    0.5  # no dimension this candidate can be scored on for this member
+                )
         avg = sum(member_scores.values()) / len(member_scores) if member_scores else 0.0
         scored.append((avg, c, member_scores))
 
@@ -3329,8 +4073,14 @@ def resolve_preference_conflict(candidates, member_preferences: dict[str, dict])
     }
 
 
-def add_pantry_item(kg: Any, name: str, quantity: int = 0, owner_id: str | None = None,
-                     household_members: list[str] | None = None, **item_attrs: Any) -> dict:
+def add_pantry_item(
+    kg: Any,
+    name: str,
+    quantity: int = 0,
+    owner_id: str | None = None,
+    household_members: list[str] | None = None,
+    **item_attrs: Any,
+) -> dict:
     """Adds a real pantry entity to a household's shared stock — the write
     side find_household_pantry_stock()/predict_household_stockout() below
     have always assumed exists (attributes["pantry"]/["household_stock"]),
@@ -3344,9 +4094,15 @@ def add_pantry_item(kg: Any, name: str, quantity: int = 0, owner_id: str | None 
 
     entity_id = f"pantry_{uuid.uuid4().hex}"
     attributes = {
-        "pantry": True, "household_stock": True, "quantity": quantity,
+        "pantry": True,
+        "household_stock": True,
+        "quantity": quantity,
         **({"owner_id": owner_id} if owner_id is not None else {}),
-        **({"household_members": household_members} if household_members is not None else {}),
+        **(
+            {"household_members": household_members}
+            if household_members is not None
+            else {}
+        ),
         **item_attrs,
     }
     kg.add_entity(entity_id, EntityType.ASSET, name, attributes)
@@ -3396,14 +4152,20 @@ def find_household_pantry_stock(kg, item_phrase: str, actor_id: str | None = Non
     Level 2/35's fixes scoped wallets/memberships — see _pantry_owned_by.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
     # Performance certification (GS-6000): same keyword pre-filter as
     # find_borrowable -- pantry entities are a tiny fraction of all
     # ASSET-typed entities once the catalog is large.
     request_kw = _keyword_surface_forms(_keywords(item_phrase))
     asset_pool = (
-        [e for e in kg.entities_by_keywords(request_kw) if e.entity_type == EntityType.ASSET]
-        if request_kw else kg.entities_by_type(EntityType.ASSET)
+        [
+            e
+            for e in kg.entities_by_keywords(request_kw)
+            if e.entity_type == EntityType.ASSET
+        ]
+        if request_kw
+        else kg.entities_by_type(EntityType.ASSET)
     )
     for e in asset_pool:
         if not e.attributes.get("pantry"):
@@ -3417,8 +4179,13 @@ def find_household_pantry_stock(kg, item_phrase: str, actor_id: str | None = Non
     return None
 
 
-def predict_household_stockout(kg, pantry_entity, reference_product_id: str, urgency_days: float = 2.0,
-                                actor_id: str | None = None) -> dict:
+def predict_household_stockout(
+    kg,
+    pantry_entity,
+    reference_product_id: str,
+    urgency_days: float = 2.0,
+    actor_id: str | None = None,
+) -> dict:
     """GS-2002: days remaining on the household's own pantry stock, using
     its REAL purchase-rate history against reference_product_id (the store
     product this household actually buys) as the consumption-rate proxy —
@@ -3435,12 +4202,19 @@ def predict_household_stockout(kg, pantry_entity, reference_product_id: str, urg
     daily_rate = demand["predicted_daily_demand"]
     current_qty = pantry_entity.attributes.get("quantity", 0) if pantry_entity else 0
     if daily_rate <= 0:
-        return {"days_remaining": None, "daily_rate": 0.0, "current_quantity": current_qty,
-                "urgent": False, "reason": "no demand signal"}
+        return {
+            "days_remaining": None,
+            "daily_rate": 0.0,
+            "current_quantity": current_qty,
+            "urgent": False,
+            "reason": "no demand signal",
+        }
     days_remaining = current_qty / daily_rate
     return {
-        "days_remaining": round(days_remaining, 2), "daily_rate": daily_rate,
-        "current_quantity": current_qty, "urgent": days_remaining <= urgency_days,
+        "days_remaining": round(days_remaining, 2),
+        "daily_rate": daily_rate,
+        "current_quantity": current_qty,
+        "urgent": days_remaining <= urgency_days,
         "confidence": demand["confidence"],
     }
 
@@ -3448,8 +4222,12 @@ def predict_household_stockout(kg, pantry_entity, reference_product_id: str, urg
 _DUPLICATE_PURCHASE_WINDOW_HOURS = 24.0
 
 
-def check_recent_duplicate_purchase(kg, item_phrase: str, window_hours: float = _DUPLICATE_PURCHASE_WINDOW_HOURS,
-                                     actor_id: str | None = None) -> dict | None:
+def check_recent_duplicate_purchase(
+    kg,
+    item_phrase: str,
+    window_hours: float = _DUPLICATE_PURCHASE_WINDOW_HOURS,
+    actor_id: str | None = None,
+) -> dict | None:
     """Level 20/46 (GS-2001/4600): has ANYONE in THIS actor's household
     already bought item_phrase recently? Real orders are persisted in the
     BUYER's private scope (Level 14/19 rely on that — personal purchase
@@ -3472,6 +4250,7 @@ def check_recent_duplicate_purchase(kg, item_phrase: str, window_hours: float = 
     would be reported as "someone in YOUR household already bought this."
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
     now = time.time()
     cutoff = now - window_hours * 3600
@@ -3499,7 +4278,9 @@ def check_recent_duplicate_purchase(kg, item_phrase: str, window_hours: float = 
 _ITEM_VERB_PREFIX_RE = re.compile(r"^(?:buy|get|purchase|order)\s+", re.IGNORECASE)
 
 
-def cooperative_shopping_split(coordination_engine, shared_goal: str, member_ids: list[str]) -> dict[str, str]:
+def cooperative_shopping_split(
+    coordination_engine, shared_goal: str, member_ids: list[str]
+) -> dict[str, str]:
     """Level 47 (GS-4700): splits a household's SHARED shopping goal
     across its members via real task assignment, instead of every member
     independently pursuing the FULL list — which would duplicate every
@@ -3532,7 +4313,10 @@ def cooperative_shopping_split(coordination_engine, shared_goal: str, member_ids
     # per-member goal ("buy " + "buy milk, bread") produces a malformed
     # "buy buy milk, bread" that fails to match the milk product at all —
     # caught live, it silently zeroed out that member's own assigned item.
-    items = [_ITEM_VERB_PREFIX_RE.sub("", item).strip() for item in _split_requested_items(shared_goal)]
+    items = [
+        _ITEM_VERB_PREFIX_RE.sub("", item).strip()
+        for item in _split_requested_items(shared_goal)
+    ]
     if not items or not member_ids:
         return {}
     assignments: dict[str, list[str]] = {m: [] for m in member_ids}
@@ -3542,12 +4326,19 @@ def cooperative_shopping_split(coordination_engine, shared_goal: str, member_ids
         coordination_engine.assign_task(
             task_id=f"shop-{item.replace(' ', '_')}-{i}",
             task_description=f"buy {item}",
-            assigned_to=member, assigned_by="household",
+            assigned_to=member,
+            assigned_by="household",
         )
-    return {member: f"buy {', '.join(assigned)}" for member, assigned in assignments.items() if assigned}
+    return {
+        member: f"buy {', '.join(assigned)}"
+        for member, assigned in assignments.items()
+        if assigned
+    }
 
 
-_COUPON_CODE_RE = re.compile(r"\b(?:coupon|code|promo)[\s:]+([A-Za-z0-9-]+)", re.IGNORECASE)
+_COUPON_CODE_RE = re.compile(
+    r"\b(?:coupon|code|promo)[\s:]+([A-Za-z0-9-]+)", re.IGNORECASE
+)
 
 
 def parse_coupon_code(question: str) -> str | None:
@@ -3577,27 +4368,42 @@ def validate_coupon(kg, code: str, store_id: str) -> dict:
     data as a standalone check should refresh the kg themselves first.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     for e in kg.entities_by_type(EntityType.OTHER):
         if not e.attributes.get("coupon"):
             continue
         if e.attributes.get("code", "").upper() != code.upper():
             continue
         if e.attributes.get("store_id") not in (None, store_id):
-            return {"valid": False, "fraud_suspected": True,
-                    "reason": f"coupon {code} was not issued for this store"}
+            return {
+                "valid": False,
+                "fraud_suspected": True,
+                "reason": f"coupon {code} was not issued for this store",
+            }
         valid_until = e.attributes.get("valid_until")
         if valid_until and time.time() > valid_until:
-            return {"valid": False, "fraud_suspected": False, "reason": f"coupon {code} has expired"}
-        expires_in_hours = round((valid_until - time.time()) / 3600, 1) if valid_until else None
+            return {
+                "valid": False,
+                "fraud_suspected": False,
+                "reason": f"coupon {code} has expired",
+            }
+        expires_in_hours = (
+            round((valid_until - time.time()) / 3600, 1) if valid_until else None
+        )
         return {
-            "valid": True, "fraud_suspected": False,
+            "valid": True,
+            "fraud_suspected": False,
             "discount_amount": e.attributes.get("discount_amount"),
             "discount_percent": e.attributes.get("discount_percent"),
             "expires_in_hours": expires_in_hours,
-            "urgent": expires_in_hours is not None and expires_in_hours <= _COUPON_URGENT_HOURS,
+            "urgent": expires_in_hours is not None
+            and expires_in_hours <= _COUPON_URGENT_HOURS,
         }
-    return {"valid": False, "fraud_suspected": True,
-            "reason": f"no such coupon {code!r} exists — rejected as forged"}
+    return {
+        "valid": False,
+        "fraud_suspected": True,
+        "reason": f"no such coupon {code!r} exists — rejected as forged",
+    }
 
 
 def has_active_membership(kg, store_id: str, actor_id: str | None = None) -> bool:
@@ -3621,12 +4427,19 @@ def has_active_membership(kg, store_id: str, actor_id: str | None = None) -> boo
     is True is shared by any household member, same as a shared wallet.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     for e in kg.entities_by_type(EntityType.OTHER):
-        if e.attributes.get("membership") \
-                and e.attributes.get("store_id") == store_id and e.attributes.get("active", True):
+        if (
+            e.attributes.get("membership")
+            and e.attributes.get("store_id") == store_id
+            and e.attributes.get("active", True)
+        ):
             if actor_id is None:
                 return True
-            if e.attributes.get("person_id") == actor_id or e.attributes.get("household") is True:
+            if (
+                e.attributes.get("person_id") == actor_id
+                or e.attributes.get("household") is True
+            ):
                 return True
     return False
 
@@ -3662,7 +4475,11 @@ def apply_subsidy(product, programs: list) -> dict:
         return {"applied": False, "reason": f"not eligible under {', '.join(programs)}"}
     price = product.attributes.get("price", 0)
     subsidy_amount = min(price, product.attributes.get("subsidy_max_amount", price))
-    return {"applied": True, "program": matching[0], "subsidy_amount": round(subsidy_amount, 2)}
+    return {
+        "applied": True,
+        "program": matching[0],
+        "subsidy_amount": round(subsidy_amount, 2),
+    }
 
 
 def government_purchase_limit(product) -> int | None:
@@ -3676,7 +4493,9 @@ def government_purchase_limit(product) -> int | None:
     return product.attributes.get("gov_purchase_limit")
 
 
-def declare_emergency_rationing(kg, category: str, ration_limit_per_household: int) -> dict:
+def declare_emergency_rationing(
+    kg, category: str, ration_limit_per_household: int
+) -> dict:
     """Level 30 (GS-3002): a government emergency declaration cascades
     automatically to every REAL product in the declared category —
     tagging each with Level 29's rationed/ration_limit_per_household
@@ -3686,16 +4505,29 @@ def declare_emergency_rationing(kg, category: str, ration_limit_per_household: i
     a real integration between the two levels, not a duplicate of either.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
     affected = []
     for e in kg.entities_by_type(EntityType.ASSET):
         if e.attributes.get("product") and category in _keywords(e.name):
-            kg.update_entity(e.entity_id, attributes={"rationed": True, "ration_limit_per_household": ration_limit_per_household})
+            kg.update_entity(
+                e.entity_id,
+                attributes={
+                    "rationed": True,
+                    "ration_limit_per_household": ration_limit_per_household,
+                },
+            )
             affected.append(e.entity_id)
-    return {"category": category, "ration_limit_per_household": ration_limit_per_household, "affected_products": affected}
+    return {
+        "category": category,
+        "ration_limit_per_household": ration_limit_per_household,
+        "affected_products": affected,
+    }
 
 
-def apply_discounts_to_candidates(kg, candidates, coupon_code: str | None, actor_id: str | None = None) -> tuple[list, dict]:
+def apply_discounts_to_candidates(
+    kg, candidates, coupon_code: str | None, actor_id: str | None = None
+) -> tuple[list, dict]:
     """Level 23/30 (GS-2300/2301/2302/3000): applies a valid coupon,
     active membership discount, AND a real automatic government subsidy
     to whichever candidates they actually apply to, BEFORE ranking — not
@@ -3711,6 +4543,7 @@ def apply_discounts_to_candidates(kg, candidates, coupon_code: str | None, actor
     ranking sees.
     """
     import copy
+
     subsidy_programs = household_subsidy_programs(kg)
     notes = {"coupon": None, "memberships_applied": [], "subsidies_applied": []}
     adjusted = []
@@ -3726,22 +4559,36 @@ def apply_discounts_to_candidates(kg, candidates, coupon_code: str | None, actor
             if coupon["valid"]:
                 coupon_seen_valid = True
                 notes["coupon"] = coupon
-                discount += coupon.get("discount_amount") or (price * (coupon.get("discount_percent") or 0) / 100)
+                discount += coupon.get("discount_amount") or (
+                    price * (coupon.get("discount_percent") or 0) / 100
+                )
             elif notes["coupon"] is None:
-                notes["coupon"] = coupon  # keep the rejection reason if nothing validates it anywhere
+                notes["coupon"] = (
+                    coupon  # keep the rejection reason if nothing validates it anywhere
+                )
 
         if has_active_membership(kg, store_id, actor_id):
-            member_discount_pct = (kg.get_entity(store_id).attributes.get("membership_discount_percent", 0)
-                                    if kg.get_entity(store_id) else 0)
+            member_discount_pct = (
+                kg.get_entity(store_id).attributes.get("membership_discount_percent", 0)
+                if kg.get_entity(store_id)
+                else 0
+            )
             if member_discount_pct:
                 discount += price * member_discount_pct / 100
-                notes["memberships_applied"].append({"store_id": store_id, "discount_percent": member_discount_pct})
+                notes["memberships_applied"].append(
+                    {"store_id": store_id, "discount_percent": member_discount_pct}
+                )
 
         subsidy = apply_subsidy(c, subsidy_programs)
         if subsidy["applied"]:
             discount += subsidy["subsidy_amount"]
-            notes["subsidies_applied"].append({"product": c.name, "program": subsidy["program"],
-                                                "amount": subsidy["subsidy_amount"]})
+            notes["subsidies_applied"].append(
+                {
+                    "product": c.name,
+                    "program": subsidy["program"],
+                    "amount": subsidy["subsidy_amount"],
+                }
+            )
 
         if discount > 0:
             shadow = copy.deepcopy(c)
@@ -3750,12 +4597,18 @@ def apply_discounts_to_candidates(kg, candidates, coupon_code: str | None, actor
         adjusted.append(shadow)
 
     if coupon_code and not coupon_seen_valid and notes["coupon"] is None:
-        notes["coupon"] = {"valid": False, "fraud_suspected": True,
-                            "reason": f"no such coupon {coupon_code!r} exists — rejected as forged"}
+        notes["coupon"] = {
+            "valid": False,
+            "fraud_suspected": True,
+            "reason": f"no such coupon {coupon_code!r} exists — rejected as forged",
+        }
     return adjusted, notes
 
 
-_MACRO_TARGET_RE = re.compile(r"(\d+(?:\.\d+)?)\s*g(?:rams)?\s+(?:of\s+)?(protein|fiber|calcium|iron)", re.IGNORECASE)
+_MACRO_TARGET_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*g(?:rams)?\s+(?:of\s+)?(protein|fiber|calcium|iron)",
+    re.IGNORECASE,
+)
 
 
 def parse_macro_target(question: str) -> tuple[str, float] | None:
@@ -3782,28 +4635,49 @@ def build_macro_shopping_list(all_products, nutrient: str, target_g: float) -> d
     """
     candidates = [p for p in all_products if p.attributes.get(f"{nutrient}_g", 0) > 0]
     if not candidates:
-        return {"feasible": False, "target_g": target_g, "achieved_g": 0.0, "selected": [], "total_cost": 0.0,
-                "reason": f"no products with {nutrient} data available"}
+        return {
+            "feasible": False,
+            "target_g": target_g,
+            "achieved_g": 0.0,
+            "selected": [],
+            "total_cost": 0.0,
+            "reason": f"no products with {nutrient} data available",
+        }
 
-    ranked = sorted(candidates, key=lambda p: p.attributes.get("price", float("inf")) / p.attributes.get(f"{nutrient}_g", 1))
+    ranked = sorted(
+        candidates,
+        key=lambda p: p.attributes.get("price", float("inf"))
+        / p.attributes.get(f"{nutrient}_g", 1),
+    )
     selected = []
     total_nutrient = 0.0
     total_cost = 0.0
     for p in ranked:
         if total_nutrient >= target_g:
             break
-        selected.append({
-            "id": p.entity_id, "name": p.name, "store_name": p.attributes.get("store_name"),
-            f"{nutrient}_g": p.attributes.get(f"{nutrient}_g"), "price": p.attributes.get("price"),
-        })
+        selected.append(
+            {
+                "id": p.entity_id,
+                "name": p.name,
+                "store_name": p.attributes.get("store_name"),
+                f"{nutrient}_g": p.attributes.get(f"{nutrient}_g"),
+                "price": p.attributes.get("price"),
+            }
+        )
         total_nutrient += p.attributes.get(f"{nutrient}_g", 0)
         total_cost += p.attributes.get("price", 0)
 
     return {
-        "feasible": total_nutrient >= target_g, "target_g": target_g, "achieved_g": round(total_nutrient, 1),
-        "selected": selected, "total_cost": round(total_cost, 2),
-        "reason": "" if total_nutrient >= target_g else
-                  f"only {round(total_nutrient, 1)}g of {target_g}g achievable from available {nutrient} sources",
+        "feasible": total_nutrient >= target_g,
+        "target_g": target_g,
+        "achieved_g": round(total_nutrient, 1),
+        "selected": selected,
+        "total_cost": round(total_cost, 2),
+        "reason": (
+            ""
+            if total_nutrient >= target_g
+            else f"only {round(total_nutrient, 1)}g of {target_g}g achievable from available {nutrient} sources"
+        ),
     }
 
 
@@ -3834,18 +4708,28 @@ def detect_inventory_inconsistency(kg, product_id: str, tolerance: float = 0.2) 
     verified = product.attributes.get("verified_quantity")
     if verified is None or reported is None:
         return {"consistent": True, "reason": "no independent verification available"}
-    discrepancy = (float("inf") if reported > 0 else 0.0) if verified == 0 else abs(reported - verified) / verified
+    discrepancy = (
+        (float("inf") if reported > 0 else 0.0)
+        if verified == 0
+        else abs(reported - verified) / verified
+    )
     suspicious = discrepancy > tolerance
     return {
-        "consistent": not suspicious, "reported_quantity": reported, "verified_quantity": verified,
-        "discrepancy": discrepancy if discrepancy == float("inf") else round(discrepancy, 2),
+        "consistent": not suspicious,
+        "reported_quantity": reported,
+        "verified_quantity": verified,
+        "discrepancy": (
+            discrepancy if discrepancy == float("inf") else round(discrepancy, 2)
+        ),
         "reason": f"reported {reported} vs verified {verified} — "
-                  f"{'exceeds' if suspicious else 'within'} {tolerance:.0%} tolerance",
+        f"{'exceeds' if suspicious else 'within'} {tolerance:.0%} tolerance",
     }
 
 
 _SUSPICIOUS_PRICE_RATIO = 0.5  # priced below half the group's median is suspicious
-_SUSPICIOUS_MIN_ATTEMPTS = 3   # fewer real transactions than this counts as "no track record"
+_SUSPICIOUS_MIN_ATTEMPTS = (
+    3  # fewer real transactions than this counts as "no track record"
+)
 
 
 def is_suspicious_new_seller(candidate, all_candidates_for_item, stores_by_id) -> dict:
@@ -3859,27 +4743,47 @@ def is_suspicious_new_seller(candidate, all_candidates_for_item, stores_by_id) -
     record — the same spirit as Level 17's learned avoidance, applied to
     the ABSENCE of evidence rather than a bad one.
     """
-    store = stores_by_id.get(candidate.attributes.get("store_id")) if stores_by_id else None
+    store = (
+        stores_by_id.get(candidate.attributes.get("store_id")) if stores_by_id else None
+    )
     if store is None:
         return {"suspicious": False}
-    attempts = store.attributes.get("fulfilled_count", 0) + store.attributes.get("cancelled_count", 0)
-    prices = sorted(c.attributes.get("price", float("inf")) for c in all_candidates_for_item)
+    attempts = store.attributes.get("fulfilled_count", 0) + store.attributes.get(
+        "cancelled_count", 0
+    )
+    prices = sorted(
+        c.attributes.get("price", float("inf")) for c in all_candidates_for_item
+    )
     median_price = prices[len(prices) // 2] if prices else 0
     price = candidate.attributes.get("price", 0)
     is_new = attempts < _SUSPICIOUS_MIN_ATTEMPTS
     is_too_cheap = median_price > 0 and price < median_price * _SUSPICIOUS_PRICE_RATIO
     suspicious = is_new and is_too_cheap
     return {
-        "suspicious": suspicious, "attempts": attempts, "price": price, "median_price": median_price,
-        "reason": (f"new seller ({attempts} prior transactions) pricing ${price} vs market median "
-                   f"${median_price} — withheld from automatic selection") if suspicious else "",
+        "suspicious": suspicious,
+        "attempts": attempts,
+        "price": price,
+        "median_price": median_price,
+        "reason": (
+            (
+                f"new seller ({attempts} prior transactions) pricing ${price} vs market median "
+                f"${median_price} — withheld from automatic selection"
+            )
+            if suspicious
+            else ""
+        ),
     }
 
 
 from src.monkey_brain.kernel.domains.finance import (
-    process_payment_with_fallback, _find_wallet, find_payment_sources,
-    _available_funds, choose_payment_source, attempt_borrowing,
-    check_monthly_cap, _PAYMENT_SOURCE_PRIORITY,
+    process_payment_with_fallback,
+    _find_wallet,
+    find_payment_sources,
+    _available_funds,
+    choose_payment_source,
+    attempt_borrowing,
+    check_monthly_cap,
+    _PAYMENT_SOURCE_PRIORITY,
 )
 
 
@@ -3896,10 +4800,17 @@ def resolve_store_with_fallback(kg, store_id: str, product_id: str) -> dict:
         return {"available": True, "source": "live"}
     cached = get_belief(kg, product_id)
     if cached is not None:
-        return {"available": True, "source": "cache", "cached_attrs": cached,
-                "reason": f"{store.name} unreachable (timeout) — using last known cached data"}
-    return {"available": False, "source": None,
-            "reason": f"{store.name} unreachable (timeout) and no cached data exists — excluded"}
+        return {
+            "available": True,
+            "source": "cache",
+            "cached_attrs": cached,
+            "reason": f"{store.name} unreachable (timeout) — using last known cached data",
+        }
+    return {
+        "available": False,
+        "source": None,
+        "reason": f"{store.name} unreachable (timeout) and no cached data exists — excluded",
+    }
 
 
 def resume_partial_checkout(kg, order_id: str, cart: list[dict]) -> dict:
@@ -3917,12 +4828,19 @@ def resume_partial_checkout(kg, order_id: str, cart: list[dict]) -> dict:
     collide with each other's reservations.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     order = kg.get_entity(order_id)
     if order is None:
-        kg.add_entity(order_id, EntityType.EVENT, "Partial Checkout", {
-            "order_id": order_id, "status": "partial",
-            "item_status": {item["id"]: "pending" for item in cart},
-        })
+        kg.add_entity(
+            order_id,
+            EntityType.EVENT,
+            "Partial Checkout",
+            {
+                "order_id": order_id,
+                "status": "partial",
+                "item_status": {item["id"]: "pending" for item in cart},
+            },
+        )
         order = kg.get_entity(order_id)
 
     item_status = dict(order.attributes.get("item_status", {}))
@@ -3943,10 +4861,20 @@ def resume_partial_checkout(kg, order_id: str, cart: list[dict]) -> dict:
 
     all_confirmed = all(v == "confirmed" for v in item_status.values())
     version = kg.version_of(order_id)
-    kg.compare_and_swap(order_id, version, {
-        "item_status": item_status, "status": "complete" if all_confirmed else "partial",
-    })
-    return {"order_id": order_id, "complete": all_confirmed, "results": results, "item_status": item_status}
+    kg.compare_and_swap(
+        order_id,
+        version,
+        {
+            "item_status": item_status,
+            "status": "complete" if all_confirmed else "partial",
+        },
+    )
+    return {
+        "order_id": order_id,
+        "complete": all_confirmed,
+        "results": results,
+        "item_status": item_status,
+    }
 
 
 # Level 47/48 note: the identity/policy/governance/RBAC/ABAC/SoD/audit/
@@ -3959,22 +4887,36 @@ def resume_partial_checkout(kg, order_id: str, cart: list[dict]) -> dict:
 # so every existing call site in this file, in prompt.py, and in the
 # already-built test suite continues to work completely unchanged.
 from src.monkey_brain.kernel.domains.domain_security import (
-    parse_target_payment_actor, authorize_payment_source, authorize_resource_access,
-    check_delegation, parse_delegator,
-    find_household_policy, consume_policy_exception,
-    is_same_household, _CONSTITUTIONAL_PROTECTED_CATEGORIES,
+    parse_target_payment_actor,
+    authorize_payment_source,
+    authorize_resource_access,
+    check_delegation,
+    parse_delegator,
+    find_household_policy,
+    consume_policy_exception,
+    is_same_household,
+    _CONSTITUTIONAL_PROTECTED_CATEGORIES,
     enterprise_purchase_authorized,
-    authorize_abac_access, consume_purchase_request, separation_of_duties_satisfied,
+    authorize_abac_access,
+    consume_purchase_request,
+    separation_of_duties_satisfied,
 )
 from src.monkey_brain.kernel.domains import domain_security as _domain_security
 
 _REQUIRED_SECURITY_CAPABILITIES = (
-    "DelegationCheck", "SocietyQuery", "ProductSelection", "OrderConfirmation",
-    "OrderCreation", "PaymentConfirmation", "Payment",
+    "DelegationCheck",
+    "SocietyQuery",
+    "ProductSelection",
+    "OrderConfirmation",
+    "OrderCreation",
+    "PaymentConfirmation",
+    "Payment",
 )
 
 
-def verify_required_capabilities(bus, required_names=_REQUIRED_SECURITY_CAPABILITIES) -> dict:
+def verify_required_capabilities(
+    bus, required_names=_REQUIRED_SECURITY_CAPABILITIES
+) -> dict:
     """Grocery-specific default preserved here: the generic core in
     domain_security.py takes no default (required_names is genuinely
     domain-specific and must always be explicit there); this thin wrapper
@@ -3989,6 +4931,7 @@ class GroceryCapabilityBus(CommerceCapabilityBus):
 
     Implements discover(name) for ActionExecutor compatibility.
     """
+
     pass
 
 
@@ -4009,6 +4952,7 @@ def find_recipe(kg, name: str):
     the household has no recipe for must fail honestly, not hallucinate a
     plausible-looking ingredient list."""
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg.refresh()
     name_kws = _keywords(name)
     for e in kg.entities_by_type(EntityType.OTHER):
@@ -4075,6 +5019,7 @@ class DelegationCheckCapability:
     there was never anything to switch: acting_as alone is both necessary
     and sufficient.
     """
+
     name = "DelegationCheck"
 
     def handle(self, args: dict) -> dict:
@@ -4099,23 +5044,37 @@ class DelegationCheckCapability:
         delegator_id = parsed_name
         pr = context.get("planetary_runtime")
         if pr is not None:
-            from src.monkey_brain.kernel.affiliations.reachability import reachable_colleagues
+            from src.monkey_brain.kernel.affiliations.reachability import (
+                reachable_colleagues,
+            )
+
             candidates = [
-                c for c in reachable_colleagues(pr, delegate_id)
+                c
+                for c in reachable_colleagues(pr, delegate_id)
                 if c["name"].strip().lower().split(" ")[0] == parsed_name
             ]
             if len(candidates) == 1:
                 delegator_id = candidates[0]["actor_id"]
             elif len(candidates) > 1:
                 names = ", ".join(c["name"] for c in candidates)
-                return {"success": False, "error": f"{parsed_name!r} is ambiguous — could mean any of: {names}"}
+                return {
+                    "success": False,
+                    "error": f"{parsed_name!r} is ambiguous — could mean any of: {names}",
+                }
 
-        check = check_delegation(delegator_id, delegate_id, kg=context.get("knowledge_graph"))
+        check = check_delegation(
+            delegator_id, delegate_id, kg=context.get("knowledge_graph")
+        )
         if not check["active"]:
             return {"success": False, "error": f"delegation denied: {check['reason']}"}
 
         context["acting_as"] = delegator_id
-        return {"success": True, "delegated": True, "delegator": delegator_id, "reason": check["reason"]}
+        return {
+            "success": True,
+            "delegated": True,
+            "delegator": delegator_id,
+            "reason": check["reason"],
+        }
 
 
 class RecipeExpansionCapability:
@@ -4130,6 +5089,7 @@ class RecipeExpansionCapability:
     text — a query for "cook lasagna tonight" would match zero real
     product names.
     """
+
     name = "RecipeExpansion"
 
     def handle(self, args: dict) -> dict:
@@ -4149,22 +5109,31 @@ class RecipeExpansionCapability:
         context["question"] = "buy " + ", ".join(ingredients)
         context["recipe_substitutes"] = recipe.attributes.get("substitutes", {})
         context["recipe_name"] = recipe.name
-        return {"success": True, "expanded": True, "recipe": recipe.name, "ingredients": ingredients}
+        return {
+            "success": True,
+            "expanded": True,
+            "recipe": recipe.name,
+            "ingredients": ingredients,
+        }
 
 
 class SocietyQueryCapability:
     """Queries the actor's KG for stores in the Grocery Store Society."""
+
     name = "SocietyQuery"
 
     def handle(self, args: dict) -> dict:
         context = args.get("context", {})
         kg = context.get("knowledge_graph")
-        question = context.get("question") or args.get("parameters", {}).get("description", "")
+        question = context.get("question") or args.get("parameters", {}).get(
+            "description", ""
+        )
 
         if kg is None:
             return {"success": False, "error": "no knowledge graph available"}
 
         from src.monkey_brain.kernel.knowledge_graph import EntityType
+
         # onboard_merchant() (kernel/domains/commerce.py) never sets
         # attributes["type"] on a store — only owner_id, plus whatever the
         # caller passes through **store_attrs, which nothing in this
@@ -4172,8 +5141,11 @@ class SocietyQueryCapability:
         # stores unconditionally, no matter how many real, open stores
         # existed. is_open is the same real signal open_products() itself
         # uses to decide whether a store is a live candidate at all.
-        stores = [e for e in kg.entities_by_type(EntityType.ORGANIZATION)
-                  if e.attributes.get("is_open", True) is not False]
+        stores = [
+            e
+            for e in kg.entities_by_type(EntityType.ORGANIZATION)
+            if e.attributes.get("is_open", True) is not False
+        ]
 
         products = open_products(kg, item_phrase=question)
 
@@ -4181,8 +5153,12 @@ class SocietyQueryCapability:
             "success": True,
             "stores_found": len(stores),
             "products_found": len(products),
-            "stores": [{"id": e.entity_id, "name": e.name, **e.attributes} for e in stores],
-            "products": [{"id": e.entity_id, "name": e.name, **e.attributes} for e in products],
+            "stores": [
+                {"id": e.entity_id, "name": e.name, **e.attributes} for e in stores
+            ],
+            "products": [
+                {"id": e.entity_id, "name": e.name, **e.attributes} for e in products
+            ],
         }
 
 
@@ -4195,6 +5171,7 @@ class CounterfactualCapability:
     question gets — asking "what if Costco closes" should never itself
     close Costco, reserve stock, or spend money.
     """
+
     name = "Counterfactual"
 
     def handle(self, args: dict) -> dict:
@@ -4220,26 +5197,40 @@ class CounterfactualCapability:
         if _COMPARE_RE.search(question):
             item_phrases = _split_requested_items(question)
             if not item_phrases:
-                return {"success": False, "error": "no grocery item mentioned to compare plans for"}
+                return {
+                    "success": False,
+                    "error": "no grocery item mentioned to compare plans for",
+                }
             lowered = question.lower()
             opts = [o for o in ("cost", "quality", "time") if o in lowered]
             if len(opts) < 2:
                 opts = ["cost", "quality", "time"]
-            result = compare_plans(kg, item_phrases, opts, lactose_free, rejected_keywords)
+            result = compare_plans(
+                kg, item_phrases, opts, lactose_free, rejected_keywords
+            )
             return {"success": True, "kind": "compare_plans", **result}
 
         parsed = parse_counterfactual(question, kg)
         if parsed is None:
             return {"success": False, "error": "not a recognized what-if question"}
         if not parsed.get("resolved"):
-            return {"success": False, "error": parsed.get("reason", "could not resolve counterfactual")}
+            return {
+                "success": False,
+                "error": parsed.get("reason", "could not resolve counterfactual"),
+            }
 
         item_phrases = _split_requested_items(parsed.get("remainder") or question)
         if not item_phrases:
             return {"success": False, "error": "no grocery item mentioned to evaluate"}
 
-        baseline = simulate_plan(kg, item_phrases, optimization, overrides=None,
-                                  lactose_free=lactose_free, rejected_keywords=rejected_keywords)
+        baseline = simulate_plan(
+            kg,
+            item_phrases,
+            optimization,
+            overrides=None,
+            lactose_free=lactose_free,
+            rejected_keywords=rejected_keywords,
+        )
 
         if parsed["kind"] == "store_closes":
             overrides, subject = parsed["overrides"], parsed["subject"]
@@ -4247,19 +5238,36 @@ class CounterfactualCapability:
             # picked ("the milk price doubles" means the deal I was about
             # to get, not every milk product at every store).
             if not baseline.get("feasible"):
-                return {"success": True, "kind": "what_if", "baseline": baseline,
-                        "counterfactual": baseline, "diff": {"changed": False}}
+                return {
+                    "success": True,
+                    "kind": "what_if",
+                    "baseline": baseline,
+                    "counterfactual": baseline,
+                    "diff": {"changed": False},
+                }
             target = baseline["selections"][0]
-            overrides = {target["id"]: {"price": target["price"] * parsed["multiplier"]}}
+            overrides = {
+                target["id"]: {"price": target["price"] * parsed["multiplier"]}
+            }
             subject = target["name"]
 
-        counterfactual = simulate_plan(kg, item_phrases, optimization, overrides=overrides,
-                                        lactose_free=lactose_free, rejected_keywords=rejected_keywords)
+        counterfactual = simulate_plan(
+            kg,
+            item_phrases,
+            optimization,
+            overrides=overrides,
+            lactose_free=lactose_free,
+            rejected_keywords=rejected_keywords,
+        )
         diff = diff_plans(baseline, counterfactual)
 
         return {
-            "success": True, "kind": "what_if", "subject": subject,
-            "baseline": baseline, "counterfactual": counterfactual, "diff": diff,
+            "success": True,
+            "kind": "what_if",
+            "subject": subject,
+            "baseline": baseline,
+            "counterfactual": counterfactual,
+            "diff": diff,
         }
 
 
@@ -4275,16 +5283,21 @@ def _format_explanation(trace: dict) -> str:
         detail = f"\n{c['store']}\nPrice: ${c['price']:.2f}\nTrust: {c['trust']:.2f}"
         if "effective_cost" in c:
             unit = c.get("effective_cost_unit", "total")
-            detail += f"\nEffective cost (trust-adjusted, {unit}): ${c['effective_cost']:.2f}"
+            detail += (
+                f"\nEffective cost (trust-adjusted, {unit}): ${c['effective_cost']:.2f}"
+            )
         if "quality" in c:
             detail += f"\nQuality: {c['quality']:.1f}/5"
         if "predicted_minutes" in c:
             detail += f"\nPredicted delivery: {c['predicted_minutes']:.0f} min"
         lines.append(detail)
     lines += [
-        "", f"Optimization:\n{trace['optimization_label']}",
-        "", f"Decision:\n{trace['chosen']['store']}",
-        "", f"Confidence:\n{trace['confidence']}",
+        "",
+        f"Optimization:\n{trace['optimization_label']}",
+        "",
+        f"Decision:\n{trace['chosen']['store']}",
+        "",
+        f"Confidence:\n{trace['confidence']}",
     ]
     return "\n".join(lines)
 
@@ -4299,6 +5312,7 @@ class ExplainCapability:
     same as CounterfactualCapability — asking why a decision was made must
     never itself trigger a new purchase.
     """
+
     name = "Explain"
 
     def handle(self, args: dict) -> dict:
@@ -4310,6 +5324,7 @@ class ExplainCapability:
             return {"success": False, "error": "no knowledge graph available"}
 
         from src.monkey_brain.kernel.knowledge_graph import EntityType
+
         kg.refresh()
         # Isolation fix: this used to scan EVERY actor's orders sharing
         # this KG with no ownership filter at all — a generic "why did
@@ -4324,8 +5339,10 @@ class ExplainCapability:
         # global view.
         actor_id = context.get("actor_id")
         orders = [
-            e for e in kg.entities_by_type(EntityType.EVENT)
-            if e.attributes.get("decision_traces") and e.attributes.get("buyer_id") == actor_id
+            e
+            for e in kg.entities_by_type(EntityType.EVENT)
+            if e.attributes.get("decision_traces")
+            and e.attributes.get("buyer_id") == actor_id
         ]
         if not orders:
             return {"success": False, "error": "no past decision found to explain"}
@@ -4339,7 +5356,10 @@ class ExplainCapability:
                     matches.append((order_ts, trace))
 
         if not matches:
-            return {"success": False, "error": "no past decision found matching that item"}
+            return {
+                "success": False,
+                "error": "no past decision found matching that item",
+            }
 
         matches.sort(key=lambda t: -t[0])
         _, trace = matches[0]
@@ -4356,6 +5376,7 @@ class NutritionCapability:
     different task shape (build a SET achieving a total) than picking one
     best item per requested phrase.
     """
+
     name = "Nutrition"
 
     def handle(self, args: dict) -> dict:
@@ -4368,7 +5389,10 @@ class NutritionCapability:
 
         target = parse_macro_target(question)
         if target is None:
-            return {"success": False, "error": "no macro target recognized in the question"}
+            return {
+                "success": False,
+                "error": "no macro target recognized in the question",
+            }
         nutrient, target_g = target
 
         all_products = open_products(kg)
@@ -4390,6 +5414,7 @@ class BeliefCheckCapability:
     rather than left for downstream steps to fail confusingly against.
     Candidates with no prior belief are observed for the first time.
     """
+
     name = "BeliefCheck"
 
     def handle(self, args: dict) -> dict:
@@ -4413,11 +5438,13 @@ class BeliefCheckCapability:
                 diffs = detect_belief_divergence(kg, entity_id)
                 if diffs:
                     form_belief(kg, entity_id)
-                    updates.append({
-                        "product": p.get("name", entity_id),
-                        "believed": {k: v[0] for k, v in diffs.items()},
-                        "observed": {k: v[1] for k, v in diffs.items()},
-                    })
+                    updates.append(
+                        {
+                            "product": p.get("name", entity_id),
+                            "believed": {k: v[0] for k, v in diffs.items()},
+                            "observed": {k: v[1] for k, v in diffs.items()},
+                        }
+                    )
 
             # Level 40 (GS-1201): a store's self-reported quantity and an
             # independent warehouse/scanner reading (verified_quantity)
@@ -4436,19 +5463,45 @@ class BeliefCheckCapability:
             if truth is not None:
                 reported_qty = truth.attributes.get("quantity")
                 verified_qty = truth.attributes.get("verified_quantity")
-                if reported_qty is not None and verified_qty is not None and reported_qty != verified_qty:
+                if (
+                    reported_qty is not None
+                    and verified_qty is not None
+                    and reported_qty != verified_qty
+                ):
                     now = time.time()
-                    resolved, attribution = reconcile_beliefs(kg, entity_id, [
-                        {"source": "store_reported", "trust": 0.7, "attrs": {"quantity": reported_qty}, "observed_at": now},
-                        {"source": "warehouse_scan", "trust": 1.0, "attrs": {"quantity": verified_qty}, "observed_at": now},
-                    ])
-                    reconciliations.append({
-                        "product": p.get("name", entity_id),
-                        "reported_quantity": reported_qty, "verified_quantity": verified_qty,
-                        "reconciled_quantity": resolved.get("quantity"), "attribution": attribution,
-                    })
+                    resolved, attribution = reconcile_beliefs(
+                        kg,
+                        entity_id,
+                        [
+                            {
+                                "source": "store_reported",
+                                "trust": 0.7,
+                                "attrs": {"quantity": reported_qty},
+                                "observed_at": now,
+                            },
+                            {
+                                "source": "warehouse_scan",
+                                "trust": 1.0,
+                                "attrs": {"quantity": verified_qty},
+                                "observed_at": now,
+                            },
+                        ],
+                    )
+                    reconciliations.append(
+                        {
+                            "product": p.get("name", entity_id),
+                            "reported_quantity": reported_qty,
+                            "verified_quantity": verified_qty,
+                            "reconciled_quantity": resolved.get("quantity"),
+                            "attribution": attribution,
+                        }
+                    )
 
-        return {"success": True, "belief_updates": updates, "reconciliations": reconciliations}
+        return {
+            "success": True,
+            "belief_updates": updates,
+            "reconciliations": reconciliations,
+        }
 
 
 class HouseholdCognitionCapability:
@@ -4470,6 +5523,7 @@ class HouseholdCognitionCapability:
     "here's when you'll likely need to buy this again," derived from the
     household's own real purchase-rate history.
     """
+
     name = "HouseholdCognition"
 
     def handle(self, args: dict) -> dict:
@@ -4489,11 +5543,16 @@ class HouseholdCognitionCapability:
         for item_phrase in item_phrases:
             pantry_item = find_household_pantry_stock(kg, item_phrase, actor_id)
             if pantry_item and pantry_item.attributes.get("quantity", 0) > 0:
-                fulfilled[item_phrase] = {"mode": "pantry_sufficient", "quantity": pantry_item.attributes.get("quantity")}
+                fulfilled[item_phrase] = {
+                    "mode": "pantry_sufficient",
+                    "quantity": pantry_item.attributes.get("quantity"),
+                }
                 note = f"Already have {pantry_item.attributes.get('quantity')} {pantry_item.name} at home — skipping purchase"
                 reference_id = pantry_item.attributes.get("reference_product_id")
                 if reference_id:
-                    stockout = predict_household_stockout(kg, pantry_item, reference_id, actor_id=actor_id)
+                    stockout = predict_household_stockout(
+                        kg, pantry_item, reference_id, actor_id=actor_id
+                    )
                     if stockout.get("days_remaining") is not None:
                         note += f" (predicted to last ~{stockout['days_remaining']:.1f} more day(s))"
                 notes.append(note)
@@ -4504,21 +5563,29 @@ class HouseholdCognitionCapability:
             # silently skipping the buy, the household is informed that
             # someone already bought this recently, so a duplicate order
             # is a known, visible choice, not a surprise on the bill.
-            duplicate = check_recent_duplicate_purchase(kg, item_phrase, actor_id=actor_id)
+            duplicate = check_recent_duplicate_purchase(
+                kg, item_phrase, actor_id=actor_id
+            )
             if duplicate:
                 household_notifications[item_phrase] = {
                     "buyer": duplicate["buyer"],
                     "product": duplicate["product"],
                     "hours_ago": duplicate["hours_ago"],
                 }
-                notes.append(f"{duplicate['buyer']} already bought {duplicate['product']} "
-                             f"{duplicate['hours_ago']}h ago — proceeding with a new purchase; "
-                             f"household notified")
+                notes.append(
+                    f"{duplicate['buyer']} already bought {duplicate['product']} "
+                    f"{duplicate['hours_ago']}h ago — proceeding with a new purchase; "
+                    f"household notified"
+                )
 
         context["pantry_fulfilled"] = fulfilled
         context["household_notifications"] = household_notifications
-        return {"success": True, "pantry_fulfilled": fulfilled,
-                "household_notifications": household_notifications, "notes": notes}
+        return {
+            "success": True,
+            "pantry_fulfilled": fulfilled,
+            "household_notifications": household_notifications,
+            "notes": notes,
+        }
 
 
 class SocialSourcingCapability:
@@ -4537,6 +5604,7 @@ class SocialSourcingCapability:
     that via a single borrowed/negotiated unit would silently under-deliver
     against what was actually asked for.
     """
+
     name = "SocialSourcing"
 
     def handle(self, args: dict) -> dict:
@@ -4549,12 +5617,15 @@ class SocialSourcingCapability:
             return {"success": True, "socially_fulfilled": {}, "actions": []}
 
         from src.monkey_brain.kernel.knowledge_graph import EntityType
+
         item_phrases = _split_requested_items(question)
         fulfilled: dict[str, dict] = {}
         actions: list[str] = []
 
         for item_phrase in item_phrases:
-            if _parse_requested_volume_ml(item_phrase) or _parse_requested_mass_g(item_phrase):
+            if _parse_requested_volume_ml(item_phrase) or _parse_requested_mass_g(
+                item_phrase
+            ):
                 continue
 
             # GS-1500: borrow first — it's free, and doesn't touch anyone's
@@ -4563,12 +5634,19 @@ class SocialSourcingCapability:
             if borrowable:
                 lender = max(
                     borrowable,
-                    key=lambda e: e.attributes.get("quantity", 0) - sum(l.get("qty", 0) for l in e.attributes.get("loans", [])),
+                    key=lambda e: e.attributes.get("quantity", 0)
+                    - sum(l.get("qty", 0) for l in e.attributes.get("loans", [])),
                 )
                 ok, msg = borrow_item(kg, lender.entity_id, actor_id, 1)
                 if ok:
-                    fulfilled[item_phrase] = {"mode": "borrow", "from": lender.attributes.get("owner_id"), "item": lender.name}
-                    actions.append(f"Borrowed {lender.name} from {lender.attributes.get('owner_id')} instead of buying — {msg}")
+                    fulfilled[item_phrase] = {
+                        "mode": "borrow",
+                        "from": lender.attributes.get("owner_id"),
+                        "item": lender.name,
+                    }
+                    actions.append(
+                        f"Borrowed {lender.name} from {lender.attributes.get('owner_id')} instead of buying — {msg}"
+                    )
                     continue
 
             # GS-1501: no one to borrow from — check for a neighbor selling
@@ -4576,32 +5654,56 @@ class SocialSourcingCapability:
             # store price before accepting anything.
             _for_sale_kw = _keyword_surface_forms(_keywords(item_phrase))
             _for_sale_pool = (
-                [e for e in kg.entities_by_keywords(_for_sale_kw) if e.entity_type == EntityType.ASSET]
-                if _for_sale_kw else kg.entities_by_type(EntityType.ASSET)
+                [
+                    e
+                    for e in kg.entities_by_keywords(_for_sale_kw)
+                    if e.entity_type == EntityType.ASSET
+                ]
+                if _for_sale_kw
+                else kg.entities_by_type(EntityType.ASSET)
             )
             for_sale = [
-                e for e in _for_sale_pool
+                e
+                for e in _for_sale_pool
                 if e.attributes.get("pantry")
-                and e.attributes.get("for_sale") and e.attributes.get("owner_id") != actor_id
-                and _match_score(e.name, item_phrase) > 0 and e.attributes.get("quantity", 0) > 0
+                and e.attributes.get("for_sale")
+                and e.attributes.get("owner_id") != actor_id
+                and _match_score(e.name, item_phrase) > 0
+                and e.attributes.get("quantity", 0) > 0
             ]
             if not for_sale:
                 continue
-            seller = min(for_sale, key=lambda e: e.attributes.get("price", float("inf")))
+            seller = min(
+                for_sale, key=lambda e: e.attributes.get("price", float("inf"))
+            )
             store_candidates = open_products(kg, item_phrase=item_phrase)
-            store_best = min((p.attributes.get("price", float("inf")) for p in store_candidates), default=None)
+            store_best = min(
+                (p.attributes.get("price", float("inf")) for p in store_candidates),
+                default=None,
+            )
             listed = seller.attributes.get("price", 0)
             floor = seller.attributes.get("min_price", listed)
-            target = round(store_best * 0.9, 2) if store_best else round(listed * 0.9, 2)
+            target = (
+                round(store_best * 0.9, 2) if store_best else round(listed * 0.9, 2)
+            )
             deal = negotiate_price(listed, floor, target)
             if deal["agreed"] and (store_best is None or deal["price"] < store_best):
-                ok, msg = buy_from_neighbor(kg, seller.entity_id, actor_id, 1, deal["price"])
+                ok, msg = buy_from_neighbor(
+                    kg, seller.entity_id, actor_id, 1, deal["price"]
+                )
                 if ok:
                     fulfilled[item_phrase] = {
-                        "mode": "negotiated_purchase", "from": seller.attributes.get("owner_id"),
-                        "item": seller.name, "price": deal["price"], "rounds": len(deal["rounds"]),
+                        "mode": "negotiated_purchase",
+                        "from": seller.attributes.get("owner_id"),
+                        "item": seller.name,
+                        "price": deal["price"],
+                        "rounds": len(deal["rounds"]),
                     }
-                    store_note = f" (best store price was ${store_best:.2f})" if store_best else ""
+                    store_note = (
+                        f" (best store price was ${store_best:.2f})"
+                        if store_best
+                        else ""
+                    )
                     actions.append(
                         f"Negotiated {seller.name} from {seller.attributes.get('owner_id')} at "
                         f"${deal['price']:.2f} after {len(deal['rounds'])} round(s){store_note} — {msg}"
@@ -4619,6 +5721,7 @@ class ProductSelectionCapability:
     implementation remains below as a migration reference but is not used by
     the capability bus.
     """
+
     name = "ProductSelection"
 
     def handle(self, args: dict) -> dict:
@@ -4644,7 +5747,9 @@ class ProductSelectionCapability:
             # first real, currently-available candidate that is NOT one of
             # the ids that just failed -- genuinely excluding whatever
             # just failed, not retrying the identical selection.
-            original_selection = parameters.get("selection") or parameters.get("selected") or []
+            original_selection = (
+                parameters.get("selection") or parameters.get("selected") or []
+            )
             if isinstance(original_selection, dict):
                 original_selection = [original_selection]
             excluded_ids = {
@@ -4657,8 +5762,12 @@ class ProductSelectionCapability:
                 qty = item.get("qty", 1) if isinstance(item, dict) else 1
                 original_entity = kg.get_entity(original_id)
                 phrase = original_entity.name if original_entity is not None else ""
-                candidates = open_products(kg, context.get("actor_permissions"),
-                                            context.get("actor_attributes"), item_phrase=phrase)
+                candidates = open_products(
+                    kg,
+                    context.get("actor_permissions"),
+                    context.get("actor_attributes"),
+                    item_phrase=phrase,
+                )
                 alternative = next(
                     (p for p in candidates if p.entity_id not in excluded_ids),
                     None,
@@ -4669,9 +5778,20 @@ class ProductSelectionCapability:
                         "error": f"recovery: no real alternative available for {phrase or original_id!r}",
                         "recoverable": False,
                     }
-                selected.append({"id": alternative.entity_id, "name": alternative.name,
-                                  "qty": qty, **alternative.attributes})
-            return {"success": True, "selected": selected, "planner_decision": True, "recovered": True}
+                selected.append(
+                    {
+                        "id": alternative.entity_id,
+                        "name": alternative.name,
+                        "qty": qty,
+                        **alternative.attributes,
+                    }
+                )
+            return {
+                "success": True,
+                "selected": selected,
+                "planner_decision": True,
+                "recovered": True,
+            }
 
         decision = parameters.get("selection") or parameters.get("selected")
         if decision:
@@ -4695,11 +5815,14 @@ class ProductSelectionCapability:
                     return {
                         "success": False,
                         "error": f"planner selected {product_id!r}, which was never offered in this "
-                                 "execution's grounding — refusing to substitute an ungrounded product",
+                        "execution's grounding — refusing to substitute an ungrounded product",
                     }
                 entity = kg.get_entity(product_id)
                 if entity is None:
-                    return {"success": False, "error": f"planner selected unknown product: {product_id}"}
+                    return {
+                        "success": False,
+                        "error": f"planner selected unknown product: {product_id}",
+                    }
                 # Real gap this closes: nothing on this path ever checked
                 # stock. Reproduced live: a product patched to quantity=0
                 # was still selected, ordered, paid, and delivered —
@@ -4715,9 +5838,14 @@ class ProductSelectionCapability:
                 available_qty = entity.attributes.get("quantity", 1)
                 if available_qty is not None and available_qty <= 0:
                     return {"success": False, "error": f"{entity.name} is out of stock"}
-                selected.append({"id": entity.entity_id, "name": entity.name,
-                                 "qty": item.get("qty", 1) if isinstance(item, dict) else 1,
-                                 **entity.attributes})
+                selected.append(
+                    {
+                        "id": entity.entity_id,
+                        "name": entity.name,
+                        "qty": item.get("qty", 1) if isinstance(item, dict) else 1,
+                        **entity.attributes,
+                    }
+                )
             return {"success": True, "selected": selected, "planner_decision": True}
 
         question = context.get("question", "")
@@ -4735,11 +5863,26 @@ class ProductSelectionCapability:
         for phrase in _split_requested_items(question):
             if phrase in socially_fulfilled or phrase in pantry_fulfilled:
                 continue
-            products = open_products(kg, context.get("actor_permissions"),
-                                     context.get("actor_attributes"), item_phrase=phrase)
-            candidates.append({"request": phrase, "products": tuple(
-                {"id": p.entity_id, "name": p.name, **p.attributes} for p in products)})
-        return {"success": True, "decision_required": True, "candidates": tuple(candidates)}
+            products = open_products(
+                kg,
+                context.get("actor_permissions"),
+                context.get("actor_attributes"),
+                item_phrase=phrase,
+            )
+            candidates.append(
+                {
+                    "request": phrase,
+                    "products": tuple(
+                        {"id": p.entity_id, "name": p.name, **p.attributes}
+                        for p in products
+                    ),
+                }
+            )
+        return {
+            "success": True,
+            "decision_required": True,
+            "candidates": tuple(candidates),
+        }
 
     def _legacy_handle(self, args: dict) -> dict:
         context = args.get("context", {})
@@ -4751,6 +5894,7 @@ class ProductSelectionCapability:
             return {"success": False, "error": "no knowledge graph available"}
 
         from src.monkey_brain.kernel.knowledge_graph import EntityType
+
         # Level 35 (GS-3503): opts into the restricted-resource check —
         # a specially-flagged item (e.g. a society's emergency reserve)
         # is excluded from ordinary candidate pools unless the actor's
@@ -4764,7 +5908,9 @@ class ProductSelectionCapability:
         # (open_products(..., item_phrase=...)), narrowed via the KG's real
         # keyword index before any business-rule check runs — a per-item
         # search is now O(matching keyword count), not O(catalog size).
-        stores_by_id = {e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)}
+        stores_by_id = {
+            e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)
+        }
 
         lactose_free = wants_lactose_free(question)
         low_sodium = wants_low_sodium(question)
@@ -4785,7 +5931,11 @@ class ProductSelectionCapability:
         # no longer excludes an item here -- reordering is always allowed;
         # HouseholdCognition only informs the household about it.
         pantry_fulfilled = context.get("pantry_fulfilled") or {}
-        item_phrases = [p for p in item_phrases if p not in socially_fulfilled and p not in pantry_fulfilled]
+        item_phrases = [
+            p
+            for p in item_phrases
+            if p not in socially_fulfilled and p not in pantry_fulfilled
+        ]
 
         def item_total(item):
             return item.get("price", 0) * item.get("qty", 1)
@@ -4816,28 +5966,54 @@ class ProductSelectionCapability:
                 policy = _SUBSTITUTION_POLICIES.get(base, ())
                 explicit_type = any(t in _keywords(item_phrase) for t in policy)
                 if not explicit_type:
-                    learned_type, type_stats = learned_preference(kg, base, "type_keyword")
+                    learned_type, type_stats = learned_preference(
+                        kg, base, "type_keyword"
+                    )
                     if learned_type:
                         effective_phrase = f"{item_phrase} {learned_type}"
-                        preference_note += (f"(inferred {learned_type} {base} from "
-                                             f"{type_stats['counts'][learned_type]} prior purchases) ")
+                        preference_note += (
+                            f"(inferred {learned_type} {base} from "
+                            f"{type_stats['counts'][learned_type]} prior purchases) "
+                        )
 
-            item_products = open_products(kg, context.get("actor_permissions"), context.get("actor_attributes"),
-                                           item_phrase=effective_phrase)
-            candidates, note_or_error = eligible_candidates(effective_phrase, item_products, lactose_free, rejected_keywords,
-                                                             low_sodium=low_sodium, excluded_allergens=excluded_allergens)
+            item_products = open_products(
+                kg,
+                context.get("actor_permissions"),
+                context.get("actor_attributes"),
+                item_phrase=effective_phrase,
+            )
+            candidates, note_or_error = eligible_candidates(
+                effective_phrase,
+                item_products,
+                lactose_free,
+                rejected_keywords,
+                low_sodium=low_sodium,
+                excluded_allergens=excluded_allergens,
+            )
             if candidates is None:
                 # GS-2502: a recipe-derived ingredient with nothing matching
                 # at all tries the RECIPE's own listed substitutes before
                 # failing outright — a real substitution the recipe itself
                 # names ("ground turkey" for "ground beef"), not a generic
                 # guess the way _SUBSTITUTION_POLICIES covers dairy alone.
-                recipe_substitutes = (context.get("recipe_substitutes") or {}).get(item_phrase.strip(), [])
+                recipe_substitutes = (context.get("recipe_substitutes") or {}).get(
+                    item_phrase.strip(), []
+                )
                 for sub_name in recipe_substitutes:
-                    sub_products = open_products(kg, context.get("actor_permissions"), context.get("actor_attributes"),
-                                                  item_phrase=sub_name)
-                    sub_candidates, _sub_note = eligible_candidates(sub_name, sub_products, lactose_free, rejected_keywords,
-                                                                     low_sodium=low_sodium, excluded_allergens=excluded_allergens)
+                    sub_products = open_products(
+                        kg,
+                        context.get("actor_permissions"),
+                        context.get("actor_attributes"),
+                        item_phrase=sub_name,
+                    )
+                    sub_candidates, _sub_note = eligible_candidates(
+                        sub_name,
+                        sub_products,
+                        lactose_free,
+                        rejected_keywords,
+                        low_sodium=low_sodium,
+                        excluded_allergens=excluded_allergens,
+                    )
                     if sub_candidates is not None:
                         candidates = sub_candidates
                         note_or_error = f"{item_phrase.strip()!r} unavailable, substituted {sub_name!r} — "
@@ -4854,18 +6030,28 @@ class ProductSelectionCapability:
             if base:
                 brand_pref, brand_stats = learned_preference(kg, base, "brand")
                 if brand_pref:
-                    brand_candidates = [c for c in candidates if c.attributes.get("brand") == brand_pref]
+                    brand_candidates = [
+                        c for c in candidates if c.attributes.get("brand") == brand_pref
+                    ]
                     if brand_candidates:
                         candidates = brand_candidates
-                        preference_note += (f"(brand loyalty: {brand_pref}, "
-                                             f"{brand_stats['counts'][brand_pref]} prior purchases) ")
+                        preference_note += (
+                            f"(brand loyalty: {brand_pref}, "
+                            f"{brand_stats['counts'][brand_pref]} prior purchases) "
+                        )
 
             # GS-2102: withhold a suspiciously cheap, unproven new seller
             # from AUTOMATIC selection — same principle as rejected_keywords
             # filtering, but only when at least one non-suspicious candidate
             # remains (never leave nothing purchasable just because every
             # remaining option happens to look new).
-            non_suspicious = [c for c in candidates if not is_suspicious_new_seller(c, candidates, stores_by_id)["suspicious"]]
+            non_suspicious = [
+                c
+                for c in candidates
+                if not is_suspicious_new_seller(c, candidates, stores_by_id)[
+                    "suspicious"
+                ]
+            ]
             if non_suspicious and len(non_suspicious) < len(candidates):
                 preference_note += f"(withheld {len(candidates) - len(non_suspicious)} suspiciously cheap new-seller offer(s)) "
                 candidates = non_suspicious
@@ -4876,16 +6062,28 @@ class ProductSelectionCapability:
             # cost ranking already does correctly, not a discount bolted
             # on after whichever candidate already won without it.
             coupon_code = parse_coupon_code(question)
-            candidates, discount_notes = apply_discounts_to_candidates(kg, candidates, coupon_code, _paying_actor_id(context))
+            candidates, discount_notes = apply_discounts_to_candidates(
+                kg, candidates, coupon_code, _paying_actor_id(context)
+            )
             if discount_notes["coupon"]:
                 c_info = discount_notes["coupon"]
                 if c_info["valid"]:
-                    urgency = f" (expires in {c_info['expires_in_hours']}h — use it now)" if c_info.get("urgent") else ""
-                    preference_note += f"(coupon {coupon_code} applied to price comparison{urgency}) "
+                    urgency = (
+                        f" (expires in {c_info['expires_in_hours']}h — use it now)"
+                        if c_info.get("urgent")
+                        else ""
+                    )
+                    preference_note += (
+                        f"(coupon {coupon_code} applied to price comparison{urgency}) "
+                    )
                 else:
-                    preference_note += f"(coupon {coupon_code} rejected: {c_info['reason']}) "
+                    preference_note += (
+                        f"(coupon {coupon_code} rejected: {c_info['reason']}) "
+                    )
             for m in discount_notes["memberships_applied"]:
-                preference_note += f"(membership discount applied: {m['discount_percent']}%) "
+                preference_note += (
+                    f"(membership discount applied: {m['discount_percent']}%) "
+                )
             for s in discount_notes["subsidies_applied"]:
                 preference_note += f"({s['program']} subsidy applied automatically: -${s['amount']:.2f}) "
 
@@ -4903,11 +6101,21 @@ class ProductSelectionCapability:
             mass_g = _parse_requested_mass_g(item_phrase) if volume_ml is None else None
             extra_packages = []
             if volume_ml:
-                best, qty, reason, extra_packages = pick_best_for_volume(candidates, volume_ml, item_optimization, stores_by_id)
+                best, qty, reason, extra_packages = pick_best_for_volume(
+                    candidates, volume_ml, item_optimization, stores_by_id
+                )
             elif mass_g:
-                best, qty, reason, extra_packages = pick_best_for_volume(candidates, mass_g, item_optimization, stores_by_id, size_key="size_g")
+                best, qty, reason, extra_packages = pick_best_for_volume(
+                    candidates,
+                    mass_g,
+                    item_optimization,
+                    stores_by_id,
+                    size_key="size_g",
+                )
             else:
-                best, qty, reason = pick_best_unit(candidates, item_optimization, stores_by_id)
+                best, qty, reason = pick_best_unit(
+                    candidates, item_optimization, stores_by_id
+                )
 
             # GS-1301: only for a plain, unspecified-quantity request ("buy
             # milk", qty 1) — a volume/mass request already states exactly
@@ -4917,7 +6125,9 @@ class ProductSelectionCapability:
             # budget enforcement and consolidation below see the real qty
             # being bought, not a number they never accounted for.
             if volume_ml is None and mass_g is None:
-                reorder_qty, stockout = recommend_reorder_quantity(kg, best.entity_id, qty, actor_id=context.get("actor_id"))
+                reorder_qty, stockout = recommend_reorder_quantity(
+                    kg, best.entity_id, qty, actor_id=context.get("actor_id")
+                )
                 # Inventory Constraints: recommend_reorder_quantity's own
                 # cap (_MAX_REORDER_MULTIPLE x requested_qty) only guards
                 # against its runaway-feedback-loop failure mode — it has
@@ -4932,9 +6142,11 @@ class ProductSelectionCapability:
                 if on_hand is not None:
                     reorder_qty = min(reorder_qty, max(0, on_hand))
                 if reorder_qty != qty:
-                    reason += (f"; predicted stockout in {stockout['days_remaining']}d at "
-                               f"~{stockout['daily_rate']}/day demand — buying {reorder_qty} "
-                               f"instead of {qty} to cover it")
+                    reason += (
+                        f"; predicted stockout in {stockout['days_remaining']}d at "
+                        f"~{stockout['daily_rate']}/day demand — buying {reorder_qty} "
+                        f"instead of {qty} to cover it"
+                    )
                     qty = reorder_qty
 
             # GS-3001: a real, permanent regulatory purchase limit is the
@@ -4947,14 +6159,23 @@ class ProductSelectionCapability:
                 reason += f"; capped at {gov_limit} per purchase (regulatory limit), was requesting {qty}"
                 qty = gov_limit
 
-            selections.append({"id": best.entity_id, "name": best.name, "qty": qty, **best.attributes})
+            selections.append(
+                {"id": best.entity_id, "name": best.name, "qty": qty, **best.attributes}
+            )
             # Quantity Optimization: pick_best_for_volume's mixed-package
             # combo returns additional package types beyond the primary
             # one — each is a real, separate line item (own id/qty/price),
             # the same shape OrderConfirmation/OrderCreation/Delivery
             # already expect for every entry in the selections list.
             for extra_c, extra_qty in extra_packages:
-                selections.append({"id": extra_c.entity_id, "name": extra_c.name, "qty": extra_qty, **extra_c.attributes})
+                selections.append(
+                    {
+                        "id": extra_c.entity_id,
+                        "name": extra_c.name,
+                        "qty": extra_qty,
+                        **extra_c.attributes,
+                    }
+                )
             reasons.append(f"{substitution_note}{best.name}: {reason}")
 
         # GS-0301: does splitting the cart across each item's own cheapest
@@ -4985,17 +6206,25 @@ class ProductSelectionCapability:
                 # substitution) by eligible_candidates — no need to
                 # re-check req_score here, every entry already satisfies it.
                 stores_for_item = {c.attributes.get("store_id") for c in candidates}
-                candidate_store_ids = stores_for_item if candidate_store_ids is None else candidate_store_ids & stores_for_item
+                candidate_store_ids = (
+                    stores_for_item
+                    if candidate_store_ids is None
+                    else candidate_store_ids & stores_for_item
+                )
 
             best_store_id, best_total, best_items = None, float("inf"), None
-            for store_id in (candidate_store_ids or ()):
+            for store_id in candidate_store_ids or ():
                 fee = stores_by_id[store_id].attributes.get("delivery_fee", 0)
                 store_items = []
                 total = fee
                 ok = True
                 for i, phrase in enumerate(item_phrases):
                     candidates, _req_score, item_optimization = eligible_per_item[i]
-                    at_store = [c for c in candidates if c.attributes.get("store_id") == store_id]
+                    at_store = [
+                        c
+                        for c in candidates
+                        if c.attributes.get("store_id") == store_id
+                    ]
                     if not at_store:
                         ok = False
                         break
@@ -5008,9 +6237,13 @@ class ProductSelectionCapability:
                     # is already at the same distance), so it falls back to
                     # cost like the un-optimized default.
                     if item_optimization == "quality":
-                        chosen = max(at_store, key=lambda e: e.attributes.get("quality", 0))
+                        chosen = max(
+                            at_store, key=lambda e: e.attributes.get("quality", 0)
+                        )
                     else:
-                        chosen = min(at_store, key=lambda e: _unit_cost(e, stores_by_id))
+                        chosen = min(
+                            at_store, key=lambda e: _unit_cost(e, stores_by_id)
+                        )
                     # A volume request (e.g. "2L of milk") needs qty
                     # recomputed against THIS store's own size_ml, not
                     # copied from the original per-item pick — a different
@@ -5018,7 +6251,11 @@ class ProductSelectionCapability:
                     # product.
                     volume_ml = _parse_requested_volume_ml(phrase)
                     size = chosen.attributes.get("size_ml")
-                    needed_qty = -(-volume_ml // size) if volume_ml and size else selections[i].get("qty", 1)
+                    needed_qty = (
+                        -(-volume_ml // size)
+                        if volume_ml and size
+                        else selections[i].get("qty", 1)
+                    )
                     # Partial Inventory: "consolidate everything to one
                     # store" is only a real option if that store actually
                     # HAS enough of every item — without this check, a
@@ -5031,22 +6268,36 @@ class ProductSelectionCapability:
                         ok = False
                         break
                     qty = needed_qty
-                    store_items.append({"id": chosen.entity_id, "name": chosen.name, "qty": qty, **chosen.attributes})
+                    store_items.append(
+                        {
+                            "id": chosen.entity_id,
+                            "name": chosen.name,
+                            "qty": qty,
+                            **chosen.attributes,
+                        }
+                    )
                     total += chosen.attributes.get("price", 0) * qty
                 if ok and total < best_total:
                     best_total, best_store_id, best_items = total, store_id, store_items
 
             if best_store_id is not None:
-                naive_fees = sum(stores_by_id[sid].attributes.get("delivery_fee", 0) for sid in stores_used)
+                naive_fees = sum(
+                    stores_by_id[sid].attributes.get("delivery_fee", 0)
+                    for sid in stores_used
+                )
                 naive_total = sum(item_total(s) for s in selections) + naive_fees
                 if best_total < naive_total:
                     store_name = stores_by_id[best_store_id].name
-                    best_fee = stores_by_id[best_store_id].attributes.get("delivery_fee", 0)
+                    best_fee = stores_by_id[best_store_id].attributes.get(
+                        "delivery_fee", 0
+                    )
                     # Replace the per-item reasons, not append to them — they
                     # described the pre-consolidation picks, which this plan
                     # no longer uses; keeping them alongside the new picks
                     # would report a different store than what's now selected.
-                    item_desc = "; ".join(f"{it['name']}: ${it['price']:.2f}" for it in best_items)
+                    item_desc = "; ".join(
+                        f"{it['name']}: ${it['price']:.2f}" for it in best_items
+                    )
                     reasons = [
                         item_desc,
                         f"Consolidated to {store_name}: ${best_total:.2f} total (incl. ${best_fee:.2f} delivery) "
@@ -5070,7 +6321,7 @@ class ProductSelectionCapability:
                 return {
                     "success": False,
                     "error": f"cannot fit any item within budget ${budget:.2f} "
-                             f"(cheapest is {selections[0]['name']} at ${item_total(selections[0]):.2f})",
+                    f"(cheapest is {selections[0]['name']} at ${item_total(selections[0]):.2f})",
                 }
             if dropped:
                 reasons.append(
@@ -5090,7 +6341,15 @@ class ProductSelectionCapability:
         for sel in selections:
             for candidates, _req_score, item_optimization in eligible_per_item:
                 if any(c.entity_id == sel.get("id") for c in candidates):
-                    decision_traces.append(build_decision_trace(sel.get("name", ""), candidates, item_optimization, stores_by_id, sel))
+                    decision_traces.append(
+                        build_decision_trace(
+                            sel.get("name", ""),
+                            candidates,
+                            item_optimization,
+                            stores_by_id,
+                            sel,
+                        )
+                    )
                     break
         context["decision_traces"] = decision_traces
 
@@ -5125,6 +6384,7 @@ class OrderConfirmationCapability:
     bread" bug, and the same principle applies to replanning: report what
     changed, don't just disappear it).
     """
+
     name = "OrderConfirmation"
 
     def handle(self, args: dict) -> dict:
@@ -5145,8 +6405,15 @@ class OrderConfirmationCapability:
         # the one legitimate case nothing needs confirming at all.
         if not context.get("order"):
             if context.get("socially_fulfilled") or context.get("pantry_fulfilled"):
-                return {"success": True, "note": "nothing to confirm — already fulfilled", "confirmed": []}
-            return {"success": False, "error": "no order to confirm — OrderCreation has not run yet"}
+                return {
+                    "success": True,
+                    "note": "nothing to confirm — already fulfilled",
+                    "confirmed": [],
+                }
+            return {
+                "success": False,
+                "error": "no order to confirm — OrderCreation has not run yet",
+            }
 
         # Real gap this closes: a plan whose Payment step returned
         # requires_payment_confirmation (pending UPI authorization, never a
@@ -5167,9 +6434,14 @@ class OrderConfirmationCapability:
         order_id = context["order"].get("order_id")
         if order_id and kg is not None:
             fresh_order = kg.get_entity(order_id)
-            if fresh_order is not None and fresh_order.attributes.get("payment_status") != "paid":
-                return {"success": False,
-                        "error": f"order {order_id!r} has not been paid for yet — cannot confirm"}
+            if (
+                fresh_order is not None
+                and fresh_order.attributes.get("payment_status") != "paid"
+            ):
+                return {
+                    "success": False,
+                    "error": f"order {order_id!r} has not been paid for yet — cannot confirm",
+                }
 
         if not products:
             # Level 16/20: an empty cart is only a REAL failure if nothing
@@ -5179,19 +6451,27 @@ class OrderConfirmationCapability:
             # genuinely nothing left to confirm from a store — a clean
             # no-op, not an error.
             if context.get("socially_fulfilled") or context.get("pantry_fulfilled"):
-                return {"success": True, "note": "nothing to confirm — already fulfilled", "confirmed": []}
+                return {
+                    "success": True,
+                    "note": "nothing to confirm — already fulfilled",
+                    "confirmed": [],
+                }
             return {"success": False, "error": "no product selected to confirm"}
         for product in products:
             if not product or not product.get("id"):
                 return {"success": False, "error": "no product selected to confirm"}
             price = product.get("price")
             if price is None or price <= 0:
-                return {"success": False, "error": f"invalid price for {product.get('name', product.get('id'))}: {price}"}
+                return {
+                    "success": False,
+                    "error": f"invalid price for {product.get('name', product.get('id'))}: {price}",
+                }
 
         if kg is not None and hasattr(kg, "refresh"):
             kg.refresh()
 
         from src.monkey_brain.kernel.knowledge_graph import EntityType
+
         # Performance certification (GS-6000): every product being
         # reconfirmed here is ALREADY a known id from ProductSelection's own
         # pick — this only needs to re-verify those SPECIFIC products still
@@ -5203,15 +6483,25 @@ class OrderConfirmationCapability:
         # exists, while still catching a real "used to qualify, now
         # doesn't" change exactly like the old full scan did.
         combined_names = " ".join(p.get("name", "") for p in products if p.get("name"))
-        fresh_products = (open_products(kg, item_phrase=combined_names) if kg is not None else [])
+        fresh_products = (
+            open_products(kg, item_phrase=combined_names) if kg is not None else []
+        )
         fresh_by_id = {p.entity_id: p for p in fresh_products}
         lactose_free = wants_lactose_free(context.get("question", ""))
         request_optimization = context.get("optimization", "cost")
-        stores_by_id = {e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)} if kg is not None else {}
+        stores_by_id = (
+            {e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)}
+            if kg is not None
+            else {}
+        )
         # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md Step 3):
         # see CounterfactualCapability's identical comment above.
         actor_kg = context.get("actor_local_knowledge_graph") or kg
-        rejected_keywords = get_rejected_keywords(actor_kg, context.get("actor_id", "")) if actor_kg is not None else frozenset()
+        rejected_keywords = (
+            get_rejected_keywords(actor_kg, context.get("actor_id", ""))
+            if actor_kg is not None
+            else frozenset()
+        )
         coupon_code = parse_coupon_code(context.get("question", ""))
 
         # Human approval / pause-resume (Qualification Gap Closure, Phase
@@ -5224,8 +6514,9 @@ class OrderConfirmationCapability:
         # approval_pending_candidate are threaded in by ActionExecutor.
         # execute() only on a resumed tick whose pending approval has
         # already been decided (kernel/pipeline/approval_store.py).
-        approval_required = bool(context.get("approval_required_for_substitution")) or \
-            wants_approval_before_substitution(context.get("question", ""))
+        approval_required = bool(
+            context.get("approval_required_for_substitution")
+        ) or wants_approval_before_substitution(context.get("question", ""))
         approval_decision = context.get("approval_decision")
         pending_candidate = context.get("approval_pending_candidate") or {}
 
@@ -5248,7 +6539,9 @@ class OrderConfirmationCapability:
             # from "the underlying price genuinely moved."
             live_priced = live
             if live is not None:
-                adjusted, _notes = apply_discounts_to_candidates(kg, [live], coupon_code, _paying_actor_id(context))
+                adjusted, _notes = apply_discounts_to_candidates(
+                    kg, [live], coupon_code, _paying_actor_id(context)
+                )
                 live_priced = adjusted[0] if adjusted else live
             stale_reason = None
             if kg is None:
@@ -5284,10 +6577,21 @@ class OrderConfirmationCapability:
             # SAME item from the live entity and proceed; only a real
             # stockout or store closure (handled above) falls through to
             # search for a genuine alternative below.
-            if live is not None and live.attributes.get("quantity", 1) != 0 and live_priced.attributes.get("price") != product.get("price"):
-                repriced = {**product, **live_priced.attributes, "id": live.entity_id, "name": live.name}
+            if (
+                live is not None
+                and live.attributes.get("quantity", 1) != 0
+                and live_priced.attributes.get("price") != product.get("price")
+            ):
+                repriced = {
+                    **product,
+                    **live_priced.attributes,
+                    "id": live.entity_id,
+                    "name": live.name,
+                }
                 confirmed.append(repriced)
-                replans.append(f"{stale_reason} — repriced to ${live_priced.attributes.get('price', 0):.2f}, same item")
+                replans.append(
+                    f"{stale_reason} — repriced to ${live_priced.attributes.get('price', 0):.2f}, same item"
+                )
                 continue
 
             # Resuming after a real human decision on THIS exact product's
@@ -5299,12 +6603,20 @@ class OrderConfirmationCapability:
             # docstring already commits to for a partially-valid cart —
             # a rejected substitution is not silently dropped while the
             # rest of the order proceeds).
-            if pending_candidate.get("original_id") == product["id"] and approval_decision is not None:
+            if (
+                pending_candidate.get("original_id") == product["id"]
+                and approval_decision is not None
+            ):
                 if approval_decision:
                     confirmed.append(dict(pending_candidate["replacement"]))
-                    replans.append(f"{stale_reason} — approved substitution to {pending_candidate['replacement'].get('name', '?')}")
+                    replans.append(
+                        f"{stale_reason} — approved substitution to {pending_candidate['replacement'].get('name', '?')}"
+                    )
                     continue
-                return {"success": False, "error": f"{stale_reason} — substitution for {product['name']} was not approved"}
+                return {
+                    "success": False,
+                    "error": f"{stale_reason} — substitution for {product['name']} was not approved",
+                }
 
             # Replan: re-resolve this item fresh, excluding whatever just
             # went stale (and any now-closed store, via open_products
@@ -5313,12 +6625,26 @@ class OrderConfirmationCapability:
             # matches "whole" + "milk"), without needing to thread the
             # original free-text item phrase all the way to this capability.
             remaining = [p for p in fresh_products if p.entity_id != product["id"]]
-            candidates, note_or_error = eligible_candidates(product["name"], remaining, lactose_free, rejected_keywords)
+            candidates, note_or_error = eligible_candidates(
+                product["name"], remaining, lactose_free, rejected_keywords
+            )
             if candidates is None:
-                return {"success": False, "error": f"{stale_reason} — no alternative available"}
-            item_optimization = detect_optimization(product["name"]) or request_optimization
-            best, qty, _reason = pick_best_unit(candidates, item_optimization, stores_by_id)
-            replacement = {"id": best.entity_id, "name": best.name, "qty": product.get("qty", qty), **best.attributes}
+                return {
+                    "success": False,
+                    "error": f"{stale_reason} — no alternative available",
+                }
+            item_optimization = (
+                detect_optimization(product["name"]) or request_optimization
+            )
+            best, qty, _reason = pick_best_unit(
+                candidates, item_optimization, stores_by_id
+            )
+            replacement = {
+                "id": best.entity_id,
+                "name": best.name,
+                "qty": product.get("qty", qty),
+                **best.attributes,
+            }
 
             if approval_required:
                 # Generic pause point (kernel/pipeline/action_executor.py
@@ -5331,7 +6657,8 @@ class OrderConfirmationCapability:
                     "success": False,
                     "requires_approval": True,
                     "proposed_action": {
-                        "original_id": product["id"], "original_name": product["name"],
+                        "original_id": product["id"],
+                        "original_name": product["name"],
                         "replacement": replacement,
                     },
                     "reason": (
@@ -5362,7 +6689,9 @@ class OrderConfirmationCapability:
         # has_learned_to_avoid()'s docstring describes a store needing to
         # climb back above the avoidance threshold.
         if kg is not None:
-            confirmed_store_ids = {p.get("store_id") for p in confirmed if p.get("store_id")}
+            confirmed_store_ids = {
+                p.get("store_id") for p in confirmed if p.get("store_id")
+            }
             for store_id in confirmed_store_ids:
                 record_order_outcome(kg, store_id, fulfilled=True)
 
@@ -5389,6 +6718,7 @@ class InventoryReserveCapability:
     the same way DeliveryCapability/select_delivery_riders() resolve
     real KG state rather than trusting planner-supplied specifics.
     """
+
     name = "InventoryReserve"
 
     def handle(self, args: dict) -> dict:
@@ -5398,10 +6728,13 @@ class InventoryReserveCapability:
             return {"success": False, "error": "no knowledge graph available"}
 
         from src.monkey_brain.kernel.knowledge_graph import EntityType
+
         all_events = kg.entities_by_type(EntityType.EVENT)
         orders = [
-            e for e in all_events
-            if e.attributes.get("order_id") and e.attributes.get("status") == "confirmed"
+            e
+            for e in all_events
+            if e.attributes.get("order_id")
+            and e.attributes.get("status") == "confirmed"
             and not e.attributes.get("inventory_reserved")
         ]
         if not orders:
@@ -5411,8 +6744,13 @@ class InventoryReserveCapability:
             # yet, so report exactly what the type index itself saw rather
             # than a bare "not found" that would hide the real state.
             statuses = [
-                (e.entity_id, e.attributes.get("status"), bool(e.attributes.get("inventory_reserved")))
-                for e in all_events if e.attributes.get("order_id")
+                (
+                    e.entity_id,
+                    e.attributes.get("status"),
+                    bool(e.attributes.get("inventory_reserved")),
+                )
+                for e in all_events
+                if e.attributes.get("order_id")
             ]
             return {
                 "success": False,
@@ -5426,18 +6764,29 @@ class InventoryReserveCapability:
             product_id = item.get("product_id")
             if not product_id:
                 continue
-            ok, reason = try_reserve(kg, product_id, order.attributes.get("buyer_id", ""), item.get("qty", 1))
+            ok, reason = try_reserve(
+                kg, product_id, order.attributes.get("buyer_id", ""), item.get("qty", 1)
+            )
             if ok:
                 reserved.append(product_id)
             else:
                 reasons.append(f"{product_id}: {reason}")
 
         if not reserved:
-            return {"success": False, "error": f"inventory reservation failed for every item on the order: {reasons}"}
+            return {
+                "success": False,
+                "error": f"inventory reservation failed for every item on the order: {reasons}",
+            }
 
-        kg.add_entity(order.entity_id, order.entity_type, order.name, {
-            **order.attributes, "inventory_reserved": True,
-        })
+        kg.add_entity(
+            order.entity_id,
+            order.entity_type,
+            order.name,
+            {
+                **order.attributes,
+                "inventory_reserved": True,
+            },
+        )
         return {"success": True, "order_id": order.entity_id, "reserved": reserved}
 
 
@@ -5456,6 +6805,7 @@ class InventoryReleaseCapability:
     InventoryReserveCapability above; a world with multiple concurrent
     unpaid orders would need a real correlation id this demo doesn't
     model."""
+
     name = "InventoryRelease"
 
     def handle(self, args: dict) -> dict:
@@ -5470,9 +6820,15 @@ class InventoryReleaseCapability:
         now = _time.time()
         released = []
         for product in kg.entities_by_type(EntityType.ASSET):
-            active = [r for r in product.attributes.get("reservations", []) if r.get("until", 0) > now]
+            active = [
+                r
+                for r in product.attributes.get("reservations", [])
+                if r.get("until", 0) > now
+            ]
             for r in active:
-                ok, _reason = release_reservation(kg, product.entity_id, r.get("actor_id", ""))
+                ok, _reason = release_reservation(
+                    kg, product.entity_id, r.get("actor_id", "")
+                )
                 if ok:
                     released.append(product.entity_id)
 
@@ -5486,9 +6842,15 @@ class InventoryReleaseCapability:
         # and yields an empty list here — genuinely inert for every
         # non-budget account, not a new special case.
         for account in kg.entities_by_type(EntityType.ACCOUNT):
-            active = [r for r in account.attributes.get("reservations", []) if r.get("until", 0) > now]
+            active = [
+                r
+                for r in account.attributes.get("reservations", [])
+                if r.get("until", 0) > now
+            ]
             for r in active:
-                ok, _reason = release_reservation(kg, account.entity_id, r.get("actor_id", ""))
+                ok, _reason = release_reservation(
+                    kg, account.entity_id, r.get("actor_id", "")
+                )
                 if ok:
                     released.append(account.entity_id)
 
@@ -5507,6 +6869,7 @@ class LoyaltyAwardCapability:
     which order just completed, so this finds the most recently
     completed order itself. award_points() is already idempotent per
     order_id (finance.py), so a retry here is always safe."""
+
     name = "LoyaltyAward"
 
     def handle(self, args: dict) -> dict:
@@ -5519,8 +6882,10 @@ class LoyaltyAwardCapability:
         from src.monkey_brain.kernel.domains.finance import award_points
 
         completed_orders = [
-            e for e in kg.entities_by_type(EntityType.EVENT)
-            if e.attributes.get("order_id") and e.attributes.get("status") == "completed"
+            e
+            for e in kg.entities_by_type(EntityType.EVENT)
+            if e.attributes.get("order_id")
+            and e.attributes.get("status") == "completed"
         ]
         if not completed_orders:
             return {"success": False, "error": "no completed order to award points for"}
@@ -5548,6 +6913,7 @@ class AnswerQuestionCapability:
     facts than a plan step's decision contract does. The reply itself
     is a real LLM call (get_backend().complete(), the same backend
     LLMPlanner uses) — never a template, never scripted."""
+
     name = "AnswerQuestion"
 
     async def handle(self, args: dict) -> dict:
@@ -5573,20 +6939,28 @@ class AnswerQuestionCapability:
         strategy_facts = []
         if strategy.get("preferences"):
             strategy_facts.append(
-                "Your preferences: " + ", ".join(f"{k}={v}" for k, v in strategy["preferences"].items())
+                "Your preferences: "
+                + ", ".join(f"{k}={v}" for k, v in strategy["preferences"].items())
             )
         if strategy.get("resources"):
             strategy_facts.append(
-                "Your resources: " + ", ".join(f"{k}={v}" for k, v in strategy["resources"].items())
+                "Your resources: "
+                + ", ".join(f"{k}={v}" for k, v in strategy["resources"].items())
             )
         if strategy.get("risk_tolerance") is not None:
             strategy_facts.append(f"Your risk tolerance: {strategy['risk_tolerance']}")
         if strategy.get("negotiation_policy"):
-            strategy_facts.append(f"Your negotiation stance: {strategy['negotiation_policy']}")
+            strategy_facts.append(
+                f"Your negotiation stance: {strategy['negotiation_policy']}"
+            )
 
         from src.monkey_brain.kernel.execute.provider.model_backend import get_backend
 
-        facts_text = "\n".join(f"- {f}" for f in facts) if facts else "(no specific facts found for this question)"
+        facts_text = (
+            "\n".join(f"- {f}" for f in facts)
+            if facts
+            else "(no specific facts found for this question)"
+        )
         if strategy_facts:
             facts_text += "\n" + "\n".join(f"- {f}" for f in strategy_facts)
         system = (
@@ -5603,7 +6977,7 @@ class AnswerQuestionCapability:
         prompt = (
             f"You are: {actor_role or 'a colleague'}\n\n"
             f"Facts you know:\n{facts_text}\n\n"
-            f"A colleague asks you: \"{question}\"\n\n"
+            f'A colleague asks you: "{question}"\n\n'
             f"Your natural-language reply:"
         )
         answer = (await get_backend().complete(prompt, system=system)).strip()
@@ -5634,24 +7008,37 @@ class AnswerQuestionCapability:
             # attribute one actor's order to whichever question asked
             # about "order" — same reasoning as observations.py's own
             # EVENT exclusion.
-            if entity.attributes.get("label") == "EpisodicTrace" or entity.attributes.get("purchase_log"):
+            if entity.attributes.get(
+                "label"
+            ) == "EpisodicTrace" or entity.attributes.get("purchase_log"):
                 continue
             if getattr(entity.entity_type, "value", entity.entity_type) == "event":
                 continue
             if len(facts) >= 8:
                 break
-            attrs = ", ".join(f"{k}={v}" for k, v in entity.attributes.items() if v is not None)
-            facts.append(f"{entity.name} ({entity.entity_type.value}, id={entity.entity_id}): {attrs}")
+            attrs = ", ".join(
+                f"{k}={v}" for k, v in entity.attributes.items() if v is not None
+            )
+            facts.append(
+                f"{entity.name} ({entity.entity_type.value}, id={entity.entity_id}): {attrs}"
+            )
             for connected_id in kg.connected_entities(entity.entity_id)[:3]:
                 connected = kg.get_entity(connected_id)
                 if connected is not None:
-                    facts.append(f"{entity.name} is connected to {connected.name} ({connected.entity_type.value})")
+                    facts.append(
+                        f"{entity.name} is connected to {connected.name} ({connected.entity_type.value})"
+                    )
         return facts
 
 
 async def _run_delegated_tasks(
-    pr: Any, actor_id: str, actor_role: str, tasks: list, shared_budget_id: str | None = None,
-    verified_delegation: dict | None = None, delegation_chain: tuple = (),
+    pr: Any,
+    actor_id: str,
+    actor_role: str,
+    tasks: list,
+    shared_budget_id: str | None = None,
+    verified_delegation: dict | None = None,
+    delegation_chain: tuple = (),
 ) -> dict:
     """Real dispatch shared by subscribe_actor_inbox's NATS path and
     DelegateTaskCapability's in-process fallback below -- exactly one real
@@ -5668,20 +7055,28 @@ async def _run_delegated_tasks(
     "depends_on": [int, ...]} entries -- a real, potentially multi-step
     chain, not just a single call."""
     if not tasks:
-        return {"success": False, "error": "delegated_task requires a non-empty tasks list"}
+        return {
+            "success": False,
+            "error": "delegated_task requires a non-empty tasks list",
+        }
     from src.monkey_brain.kernel.pipeline.execution import Action
 
     actions = tuple(
         Action(
-            action_id=f"{actor_id}_delegated_{i}", capability=t.get("capability", ""),
-            step_index=i, depends_on=tuple(t.get("depends_on", ()) or ()),
+            action_id=f"{actor_id}_delegated_{i}",
+            capability=t.get("capability", ""),
+            step_index=i,
+            depends_on=tuple(t.get("depends_on", ()) or ()),
             parameters=t.get("parameters", {}) or {},
         )
         for i, t in enumerate(tasks)
     )
     context = {
-        "knowledge_graph": pr.knowledge_graph, "actor_id": actor_id,
-        "actor_role": actor_role, "question": "", "planetary_runtime": pr,
+        "knowledge_graph": pr.knowledge_graph,
+        "actor_id": actor_id,
+        "actor_role": actor_role,
+        "question": "",
+        "planetary_runtime": pr,
     }
     if shared_budget_id:
         # Threaded from the asker's own tick (DelegateTaskCapability
@@ -5705,9 +7100,15 @@ async def _run_delegated_tasks(
     exec_result = await pr._execution_engine.execute(actions, context)
     return {
         "success": exec_result.goal_achieved,
-        "success_count": exec_result.success_count, "failure_count": exec_result.failure_count,
+        "success_count": exec_result.success_count,
+        "failure_count": exec_result.failure_count,
         "actions": [
-            {"capability": a.capability, "success": o.success, "result": o.result, "error": o.error}
+            {
+                "capability": a.capability,
+                "success": o.success,
+                "result": o.result,
+                "error": o.error,
+            }
             for a, o in zip(actions, exec_result.actions)
         ],
     }
@@ -5740,10 +7141,12 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
     # actor_id at registration), mirroring actor_runtime.py's per-Pod
     # /execute handler. See kernel/actor_identity.py.
     from src.monkey_brain.kernel.actor_identity import ActorCellIdentityCache
+
     cell_identity = ActorCellIdentityCache(actor_id=actor_id)
 
     async def _on_message(msg: Any) -> None:
         import json
+
         # Runtime Approval Gate: this NATS callback runs in its own task,
         # not the asking actor's request context -- nothing previously
         # bound a principal here, so any governed capability this handler
@@ -5767,17 +7170,28 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
         # DelegateTask, broadcast) actually passes through, so it is the
         # correct place to enforce this, not a downstream capability.
         from src.monkey_brain.kernel.trusted_auth import (
-            bind_trusted_auth, evidence_for_service, evidence_from_spiffe,
-            get_trusted_auth, unauthenticated_evidence,
+            bind_trusted_auth,
+            evidence_for_service,
+            evidence_from_spiffe,
+            get_trusted_auth,
+            unauthenticated_evidence,
         )
-        from src.monkey_brain.kernel.workload_identity import get_workload_identity_provider
+        from src.monkey_brain.kernel.workload_identity import (
+            get_workload_identity_provider,
+        )
         from src.monkey_brain.kernel.production_gates import production_mode_enabled
         from src.monkey_brain.kernel.actor_identity import ActorIdentityError
 
         def _spiffe_required_for_agent_communication() -> bool:
             import os as _os
-            explicit = _os.getenv("COGNITIVEOS_REQUIRE_SPIFFE_AGENT_IDENTITY", "").strip().lower() in (
-                "true", "1", "yes", "on",
+
+            explicit = _os.getenv(
+                "COGNITIVEOS_REQUIRE_SPIFFE_AGENT_IDENTITY", ""
+            ).strip().lower() in (
+                "true",
+                "1",
+                "yes",
+                "on",
             )
             return explicit or production_mode_enabled()
 
@@ -5794,12 +7208,20 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
             )
             if msg.reply:
                 try:
-                    await msg.respond(json.dumps({
-                        "success": False,
-                        "error": "unauthenticated agent communication refused: no verified workload identity",
-                    }).encode())
+                    await msg.respond(
+                        json.dumps(
+                            {
+                                "success": False,
+                                "error": "unauthenticated agent communication refused: no verified workload identity",
+                            }
+                        ).encode()
+                    )
                 except Exception:
-                    logger.debug("subscribe_actor_inbox: refusal reply failed for actor %s", actor_id, exc_info=True)
+                    logger.debug(
+                        "subscribe_actor_inbox: refusal reply failed for actor %s",
+                        actor_id,
+                        exc_info=True,
+                    )
             return
         else:
             bind_trusted_auth(evidence_for_service(f"actor-runtime:{actor_id}"))
@@ -5816,15 +7238,27 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
             cell_identity.ensure(issuer=issuer)
             cell_identity.bind_trusted_auth(authenticated_issuer=issuer)
         except ActorIdentityError as exc:
-            logger.warning("subscribe_actor_inbox: Actor Cell identity rejected for actor %s: %s", actor_id, exc)
+            logger.warning(
+                "subscribe_actor_inbox: Actor Cell identity rejected for actor %s: %s",
+                actor_id,
+                exc,
+            )
             if msg.reply:
                 try:
-                    await msg.respond(json.dumps({
-                        "success": False,
-                        "error": f"Actor Cell identity rejected: {exc}",
-                    }).encode())
+                    await msg.respond(
+                        json.dumps(
+                            {
+                                "success": False,
+                                "error": f"Actor Cell identity rejected: {exc}",
+                            }
+                        ).encode()
+                    )
                 except Exception:
-                    logger.debug("subscribe_actor_inbox: refusal reply failed for actor %s", actor_id, exc_info=True)
+                    logger.debug(
+                        "subscribe_actor_inbox: refusal reply failed for actor %s",
+                        actor_id,
+                        exc_info=True,
+                    )
             return
         try:
             payload = json.loads(msg.data.decode())
@@ -5848,9 +7282,13 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
             # ungoverned) since the caller explicitly supplied one; no
             # chain at all is the normal, unauthenticated-authority case
             # and falls through unchanged.
-            from src.monkey_brain.kernel.edge.delegation_message import extract_and_verify_delegation
+            from src.monkey_brain.kernel.edge.delegation_message import (
+                extract_and_verify_delegation,
+            )
 
-            extraction = extract_and_verify_delegation(payload, authenticated_delegate=actor_id)
+            extraction = extract_and_verify_delegation(
+                payload, authenticated_delegate=actor_id
+            )
             if extraction.present and not extraction.verified:
                 result = {
                     "success": False,
@@ -5858,7 +7296,10 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
                 }
             else:
                 result = await _run_delegated_tasks(
-                    pr, actor_id, actor_role, payload.get("tasks", []),
+                    pr,
+                    actor_id,
+                    actor_role,
+                    payload.get("tasks", []),
                     shared_budget_id=payload.get("shared_budget_id"),
                     verified_delegation=extraction.verified_delegation,
                     delegation_chain=extraction.chain,
@@ -5880,7 +7321,9 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
             if memory_manager is not None:
                 try:
                     memory_manager.record_experience(
-                        actor_id, kind="broadcast", text=payload.get("message", ""),
+                        actor_id,
+                        kind="broadcast",
+                        text=payload.get("message", ""),
                         metadata={
                             "timestamp": time.time(),
                             "from_actor_id": payload.get("from_actor_id", ""),
@@ -5889,14 +7332,24 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
                         },
                     )
                 except Exception:
-                    logger.debug("subscribe_actor_inbox: record_experience(kind=broadcast) failed for %s", actor_id, exc_info=True)
+                    logger.debug(
+                        "subscribe_actor_inbox: record_experience(kind=broadcast) failed for %s",
+                        actor_id,
+                        exc_info=True,
+                    )
             result = {"success": True, "received": True}
         else:
-            result = await AnswerQuestionCapability().handle({"context": {
-                "knowledge_graph": pr.knowledge_graph, "actor_id": actor_id,
-                "actor_role": actor_role, "question": payload.get("question", ""),
-                "planetary_runtime": pr,
-            }})
+            result = await AnswerQuestionCapability().handle(
+                {
+                    "context": {
+                        "knowledge_graph": pr.knowledge_graph,
+                        "actor_id": actor_id,
+                        "actor_role": actor_role,
+                        "question": payload.get("question", ""),
+                        "planetary_runtime": pr,
+                    }
+                }
+            )
         # Echo the asker's correlation_id back so the round-trip (test:
         # "a response retains the same correlation_id") is verifiable from
         # either side, not just asserted by the asker's own bookkeeping.
@@ -5907,13 +7360,21 @@ async def subscribe_actor_inbox(pr: Any, actor_id: str, actor_role: str) -> bool
             try:
                 await msg.respond(json.dumps(result).encode())
             except Exception:
-                logger.debug("subscribe_actor_inbox: reply failed for actor %s", actor_id, exc_info=True)
+                logger.debug(
+                    "subscribe_actor_inbox: reply failed for actor %s",
+                    actor_id,
+                    exc_info=True,
+                )
 
     try:
         await nc.subscribe(f"monkeybrain.actor.{actor_id}.inbox", cb=_on_message)
         return True
     except Exception:
-        logger.debug("subscribe_actor_inbox: subscribe failed for actor %s", actor_id, exc_info=True)
+        logger.debug(
+            "subscribe_actor_inbox: subscribe failed for actor %s",
+            actor_id,
+            exc_info=True,
+        )
         return False
 
 
@@ -5944,6 +7405,7 @@ class AskActorCapability:
     actor's PlanetaryRuntime has no live NATS connection — same
     non-fatal-degrade convention as every other real NATS use in this
     codebase."""
+
     name = "AskActor"
 
     async def handle(self, args: dict) -> dict:
@@ -5952,11 +7414,17 @@ class AskActorCapability:
         target_name = parameters.get("target_actor")
         question = parameters.get("question")
         if not target_name or not question:
-            return {"success": False, "error": "AskActor requires parameters.target_actor and parameters.question"}
+            return {
+                "success": False,
+                "error": "AskActor requires parameters.target_actor and parameters.question",
+            }
 
         pr = context.get("planetary_runtime")
         if pr is None:
-            return {"success": False, "error": "no planetary_runtime available to resolve target actor"}
+            return {
+                "success": False,
+                "error": "no planetary_runtime available to resolve target actor",
+            }
 
         # actor_id match first — the real, unambiguous identifier the
         # "Reachable colleagues" prompt section (llm_planner.py) now gives
@@ -5970,7 +7438,10 @@ class AskActorCapability:
                 if state.actor_id == target_name:
                     target_sr, target_state = sr, state
                     break
-                if target_state is None and state.profile.identity.name.strip().lower() == target_name_norm:
+                if (
+                    target_state is None
+                    and state.profile.identity.name.strip().lower() == target_name_norm
+                ):
                     target_sr, target_state = sr, state
             if target_state:
                 break
@@ -5989,10 +7460,14 @@ class AskActorCapability:
             # appear in their own reachable-colleagues list to begin
             # with). Exactly one match resolves silently; more than one
             # is a real, reported ambiguity — never a guess.
-            from src.monkey_brain.kernel.affiliations.reachability import reachable_colleagues
+            from src.monkey_brain.kernel.affiliations.reachability import (
+                reachable_colleagues,
+            )
+
             asker_id_for_fallback = context.get("actor_id", "")
             candidates = [
-                c for c in reachable_colleagues(pr, asker_id_for_fallback)
+                c
+                for c in reachable_colleagues(pr, asker_id_for_fallback)
                 if c["name"].strip().lower().split(" ")[0] == target_name_norm
             ]
             if len(candidates) == 1:
@@ -6004,7 +7479,10 @@ class AskActorCapability:
                         break
             elif len(candidates) > 1:
                 names = ", ".join(c["name"] for c in candidates)
-                return {"success": False, "error": f"{target_name!r} is ambiguous — could mean any of: {names}"}
+                return {
+                    "success": False,
+                    "error": f"{target_name!r} is ambiguous — could mean any of: {names}",
+                }
         if target_state is None:
             # Deployment Architecture (Section 8 / Top 10 item 4): every
             # search above only ever looks at pr.all_societies() — actors
@@ -6020,7 +7498,10 @@ class AskActorCapability:
             # overwhelmingly common same-process case.
             registry_entry = pr.locate_actor(target_name)
             if registry_entry is None or not registry_entry.actor_id:
-                return {"success": False, "error": f"no actor named {target_name!r} found"}
+                return {
+                    "success": False,
+                    "error": f"no actor named {target_name!r} found",
+                }
             target_id = registry_entry.actor_id
             target_display_name = registry_entry.name or target_id
             # No goals available from the lightweight registry record (by
@@ -6040,10 +7521,13 @@ class AskActorCapability:
             # original parameter/resolved id for lookup and error-message
             # purposes only.
             target_display_name = target_state.profile.identity.name
-            target_goals = list(target_state.profile.goals) if target_state.profile.goals else []
+            target_goals = (
+                list(target_state.profile.goals) if target_state.profile.goals else []
+            )
             target_role = (
                 f"{target_display_name}, whose responsibilities include: {', '.join(target_goals)}"
-                if target_goals else target_display_name
+                if target_goals
+                else target_display_name
             )
         asker_id = context.get("actor_id", "")
         # actor_role context isn't reliably populated on this real
@@ -6065,16 +7549,23 @@ class AskActorCapability:
         correlation_id = context.get("correlation_id") or new_correlation_id()
 
         start = time.monotonic()
-        decision = pr.resolve_communication(asker_id, target_id, correlation_id=correlation_id)
+        decision = pr.resolve_communication(
+            asker_id, target_id, correlation_id=correlation_id
+        )
         elapsed_ms = (time.monotonic() - start) * 1000
         societies_traversed = 1 if decision.society_id else 2
         _obs.gauge("communication.average_routing_time_ms", elapsed_ms)
         _obs.counter("communication.societies_traversed", societies_traversed)
         if decision.affiliation_id:
-            _obs.counter("communication.messages_per_affiliation", affiliation_id=decision.affiliation_id)
+            _obs.counter(
+                "communication.messages_per_affiliation",
+                affiliation_id=decision.affiliation_id,
+            )
         if not decision.allowed:
             return {
-                "success": False, "denied": True, "error": decision.reason,
+                "success": False,
+                "denied": True,
+                "error": decision.reason,
                 "sender_affiliations": list(decision.sender_affiliations),
                 "recipient_affiliations": list(decision.recipient_affiliations),
             }
@@ -6082,10 +7573,13 @@ class AskActorCapability:
         nc = getattr(pr, "_nats_client", None)
         if nc is not None:
             import json
+
             try:
                 msg = await nc.request(
                     f"monkeybrain.actor.{target_id}.inbox",
-                    json.dumps({"question": question, "correlation_id": correlation_id}).encode(),
+                    json.dumps(
+                        {"question": question, "correlation_id": correlation_id}
+                    ).encode(),
                     # Real gap this closed: the subscriber side answers by
                     # running AnswerQuestionCapability, a real LLM call
                     # (get_backend().complete()) -- model_backend.py's own
@@ -6101,13 +7595,22 @@ class AskActorCapability:
                 # nats.errors.TimeoutError (no subscriber answered in
                 # time) and any transport error both land here — an
                 # honest failure, never a guessed/fabricated answer.
-                return {"success": False, "error": f"{target_display_name} did not respond within 90s ({exc})"}
+                return {
+                    "success": False,
+                    "error": f"{target_display_name} did not respond within 90s ({exc})",
+                }
         elif target_state is not None:
-            result = await AnswerQuestionCapability().handle({"context": {
-                "knowledge_graph": pr.knowledge_graph, "actor_id": target_id,
-                "actor_role": target_role, "question": question,
-                "planetary_runtime": pr,
-            }})
+            result = await AnswerQuestionCapability().handle(
+                {
+                    "context": {
+                        "knowledge_graph": pr.knowledge_graph,
+                        "actor_id": target_id,
+                        "actor_role": target_role,
+                        "question": question,
+                        "planetary_runtime": pr,
+                    }
+                }
+            )
         else:
             # No NATS connection AND the target isn't resident in this
             # process — there is no way to reach it. The in-process
@@ -6121,38 +7624,50 @@ class AskActorCapability:
             return {
                 "success": False,
                 "error": f"{target_display_name} is on a different node and no NATS connection "
-                         "is available to reach it",
+                "is available to reach it",
             }
         if not result.get("success"):
-            return {"success": False, "error": result.get("error", f"{target_display_name} could not answer")}
+            return {
+                "success": False,
+                "error": result.get("error", f"{target_display_name} could not answer"),
+            }
 
         try:
-            from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
-            pr.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.INTERACTION,
-                # actor_id must be the asker, not the target: the read side
-                # (api/routes/actors.py::get_execution_conversation) filters
-                # context_stream.replay(actor_id=<the actor whose execution
-                # debugger this is>) -- AskActor is a step in the ASKER's
-                # own plan, so that's whose execution this interaction
-                # belongs to. Tagging it with target_id instead meant this
-                # event could only ever be found by replaying the TARGET's
-                # stream, which has no execution of its own to scope it to
-                # -- confirmed live: every real ask/answer exchange was
-                # invisible in the initiating actor's own Conversations
-                # panel, indistinguishable from "nothing was ever asked."
-                actor_id=asker_id,
-                description=f"{asker_display_name} asked {target_display_name}: {question}",
-                payload={
-                    "from_actor_id": asker_id, "from_actor_name": asker_display_name,
-                    "to_actor_id": target_id, "to_actor_name": target_display_name,
-                    "society_id": target_sr.society.society_id if target_sr else "",
-                    "society_name": target_sr.society.name if target_sr else "",
-                    "question": question, "answer": result.get("answer", ""),
-                },
-                correlation_id=correlation_id,
-                causation_id=decision.decision_id,
-            ))
+            from src.monkey_brain.kernel.society.context_stream import (
+                ContextEvent,
+                ContextEventType,
+            )
+
+            pr.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.INTERACTION,
+                    # actor_id must be the asker, not the target: the read side
+                    # (api/routes/actors.py::get_execution_conversation) filters
+                    # context_stream.replay(actor_id=<the actor whose execution
+                    # debugger this is>) -- AskActor is a step in the ASKER's
+                    # own plan, so that's whose execution this interaction
+                    # belongs to. Tagging it with target_id instead meant this
+                    # event could only ever be found by replaying the TARGET's
+                    # stream, which has no execution of its own to scope it to
+                    # -- confirmed live: every real ask/answer exchange was
+                    # invisible in the initiating actor's own Conversations
+                    # panel, indistinguishable from "nothing was ever asked."
+                    actor_id=asker_id,
+                    description=f"{asker_display_name} asked {target_display_name}: {question}",
+                    payload={
+                        "from_actor_id": asker_id,
+                        "from_actor_name": asker_display_name,
+                        "to_actor_id": target_id,
+                        "to_actor_name": target_display_name,
+                        "society_id": target_sr.society.society_id if target_sr else "",
+                        "society_name": target_sr.society.name if target_sr else "",
+                        "question": question,
+                        "answer": result.get("answer", ""),
+                    },
+                    correlation_id=correlation_id,
+                    causation_id=decision.decision_id,
+                )
+            )
         except Exception:
             logger.debug("handle: suppressed exception", exc_info=True)
 
@@ -6176,19 +7691,37 @@ class AskActorCapability:
                     continue
                 try:
                     memory_manager.record_experience(
-                        participant_id, kind="conversation", text=question,
-                        metadata={"timestamp": timestamp, "speaker": asker_display_name, "correlation_id": correlation_id},
+                        participant_id,
+                        kind="conversation",
+                        text=question,
+                        metadata={
+                            "timestamp": timestamp,
+                            "speaker": asker_display_name,
+                            "correlation_id": correlation_id,
+                        },
                     )
                     memory_manager.record_experience(
-                        participant_id, kind="conversation", text=result.get("answer", ""),
-                        metadata={"timestamp": timestamp, "speaker": target_display_name, "correlation_id": correlation_id},
+                        participant_id,
+                        kind="conversation",
+                        text=result.get("answer", ""),
+                        metadata={
+                            "timestamp": timestamp,
+                            "speaker": target_display_name,
+                            "correlation_id": correlation_id,
+                        },
                     )
                 except Exception:
-                    logger.debug("handle: record_experience(kind=conversation) failed for %s", participant_id, exc_info=True)
+                    logger.debug(
+                        "handle: record_experience(kind=conversation) failed for %s",
+                        participant_id,
+                        exc_info=True,
+                    )
 
         return {
-            "success": True, "target_actor": target_name,
-            "question": question, "answer": result.get("answer", ""),
+            "success": True,
+            "target_actor": target_name,
+            "question": question,
+            "answer": result.get("answer", ""),
             "affiliation_id": decision.affiliation_id,
             "society_id": decision.society_id,
             "reason": decision.reason,
@@ -6217,6 +7750,7 @@ class DelegateTaskCapability:
     actions), never a single free-text answer — because what actually
     happened at each step (a real capability outcome) is what a caller of
     a delegated TRANSACTION needs, not a summary."""
+
     name = "DelegateTask"
 
     @staticmethod
@@ -6251,9 +7785,13 @@ class DelegateTaskCapability:
 
         if not asker_id:
             return None, None, None
-        from src.monkey_brain.kernel.affiliations.reachability import reachable_colleagues
+        from src.monkey_brain.kernel.affiliations.reachability import (
+            reachable_colleagues,
+        )
+
         candidates = [
-            c for c in reachable_colleagues(pr, asker_id)
+            c
+            for c in reachable_colleagues(pr, asker_id)
             if c["name"].strip().lower().split(" ")[0] == target_norm
         ]
         if len(candidates) == 1:
@@ -6268,7 +7806,9 @@ class DelegateTaskCapability:
         return None, None, None
 
     @staticmethod
-    def _find_alternative_delegate(pr, original_state, excluded_ids: set, asker_id: str):
+    def _find_alternative_delegate(
+        pr, original_state, excluded_ids: set, asker_id: str
+    ):
         """Same-tick cross-agent recovery (Qualification Gap Closure,
         Phase 4 extension): "ask another agent; if they cannot complete,
         find another way" needs a real DIFFERENT actor to delegate the
@@ -6285,21 +7825,35 @@ class DelegateTaskCapability:
         be attempted — the original target's own society is irrelevant
         to whether the ASKER can reach a replacement) when the original
         target declared no goals to match against."""
-        original_goals = {g.strip().lower() for g in (original_state.profile.goals or ())}
+        original_goals = {
+            g.strip().lower() for g in (original_state.profile.goals or ())
+        }
         asker_society_ids = {
-            sr.society.society_id for sr in pr.all_societies() if sr.get_actor(asker_id) is not None
+            sr.society.society_id
+            for sr in pr.all_societies()
+            if sr.get_actor(asker_id) is not None
         }
         by_goal_overlap = None
         by_same_society = None
         for sr in pr.all_societies():
             for state in sr.active_actors():
-                if state.actor_id == original_state.actor_id or state.actor_id in excluded_ids or state.actor_id == asker_id:
+                if (
+                    state.actor_id == original_state.actor_id
+                    or state.actor_id in excluded_ids
+                    or state.actor_id == asker_id
+                ):
                     continue
-                if by_goal_overlap is None and original_goals and {
-                    g.strip().lower() for g in (state.profile.goals or ())
-                } & original_goals:
+                if (
+                    by_goal_overlap is None
+                    and original_goals
+                    and {g.strip().lower() for g in (state.profile.goals or ())}
+                    & original_goals
+                ):
                     by_goal_overlap = (sr, state)
-                if by_same_society is None and sr.society.society_id in asker_society_ids:
+                if (
+                    by_same_society is None
+                    and sr.society.society_id in asker_society_ids
+                ):
                     by_same_society = (sr, state)
         return by_goal_overlap or by_same_society or (None, None)
 
@@ -6309,16 +7863,27 @@ class DelegateTaskCapability:
         target_name = parameters.get("target_actor")
         tasks = parameters.get("tasks")
         if not target_name or not tasks:
-            return {"success": False, "error": "DelegateTask requires parameters.target_actor and parameters.tasks"}
+            return {
+                "success": False,
+                "error": "DelegateTask requires parameters.target_actor and parameters.tasks",
+            }
 
         pr = context.get("planetary_runtime")
         if pr is None:
-            return {"success": False, "error": "no planetary_runtime available to resolve target actor"}
+            return {
+                "success": False,
+                "error": "no planetary_runtime available to resolve target actor",
+            }
 
         asker_id = context.get("actor_id", "")
-        original_sr, original_state, ambiguity_error = self._find_actor_by_id_or_name(pr, target_name, asker_id)
+        original_sr, original_state, ambiguity_error = self._find_actor_by_id_or_name(
+            pr, target_name, asker_id
+        )
         if original_state is None:
-            return {"success": False, "error": ambiguity_error or f"no actor named {target_name!r} found"}
+            return {
+                "success": False,
+                "error": ambiguity_error or f"no actor named {target_name!r} found",
+            }
 
         if parameters.get("retry_after_failure"):
             # Domain-independent per "MAKE DOMAIN ISOLATION AIRTIGHT": the
@@ -6331,7 +7896,10 @@ class DelegateTaskCapability:
             # resolved original_state, with no input from the executor.
             excluded_ids = {original_state.actor_id}
             target_sr, target_state = self._find_alternative_delegate(
-                pr, original_state, excluded_ids, context.get("actor_id", ""),
+                pr,
+                original_state,
+                excluded_ids,
+                context.get("actor_id", ""),
             )
             if target_state is None:
                 return {
@@ -6344,23 +7912,31 @@ class DelegateTaskCapability:
             target_sr, target_state = original_sr, original_state
 
         target_id = target_state.actor_id
-        target_goals = list(target_state.profile.goals) if target_state.profile.goals else []
+        target_goals = (
+            list(target_state.profile.goals) if target_state.profile.goals else []
+        )
         target_role = (
             f"{target_name}, whose responsibilities include: {', '.join(target_goals)}"
-            if target_goals else target_name
+            if target_goals
+            else target_name
         )
         asker_name = str(context.get("actor_role", "")).split(",")[0] or asker_id
 
         correlation_id = context.get("correlation_id") or new_correlation_id()
 
         start = time.monotonic()
-        decision = pr.resolve_communication(asker_id, target_id, correlation_id=correlation_id)
+        decision = pr.resolve_communication(
+            asker_id, target_id, correlation_id=correlation_id
+        )
         elapsed_ms = (time.monotonic() - start) * 1000
         societies_traversed = 1 if decision.society_id else 2
         _obs.gauge("communication.average_routing_time_ms", elapsed_ms)
         _obs.counter("communication.societies_traversed", societies_traversed)
         if decision.affiliation_id:
-            _obs.counter("communication.messages_per_affiliation", affiliation_id=decision.affiliation_id)
+            _obs.counter(
+                "communication.messages_per_affiliation",
+                affiliation_id=decision.affiliation_id,
+            )
         # Same-tick cross-agent recovery (Qualification Gap Closure, Phase
         # 4 extension): this attempt is itself already a retry
         # (_find_alternative_delegate above already picked a DIFFERENT
@@ -6375,7 +7951,9 @@ class DelegateTaskCapability:
 
         if not decision.allowed:
             return {
-                "success": False, "denied": True, "error": decision.reason,
+                "success": False,
+                "denied": True,
+                "error": decision.reason,
                 "sender_affiliations": list(decision.sender_affiliations),
                 "recipient_affiliations": list(decision.recipient_affiliations),
                 "recoverable": not is_retry,
@@ -6384,13 +7962,18 @@ class DelegateTaskCapability:
         nc = getattr(pr, "_nats_client", None)
         if nc is not None:
             import json
+
             try:
                 msg = await nc.request(
                     f"monkeybrain.actor.{target_id}.inbox",
-                    json.dumps({
-                        "msg_type": "delegated_task", "tasks": tasks, "correlation_id": correlation_id,
-                        "shared_budget_id": context.get("shared_budget_id"),
-                    }).encode(),
+                    json.dumps(
+                        {
+                            "msg_type": "delegated_task",
+                            "tasks": tasks,
+                            "correlation_id": correlation_id,
+                            "shared_budget_id": context.get("shared_budget_id"),
+                        }
+                    ).encode(),
                     # Same real fix as AskActorCapability's identical
                     # nc.request call above -- a delegated task can run a
                     # real capability (possibly its own LLM-driven step),
@@ -6405,33 +7988,49 @@ class DelegateTaskCapability:
                 # time) and any transport error both land here — an
                 # honest failure, never a fabricated transaction result.
                 return {
-                    "success": False, "error": f"{target_name} did not respond within 90s ({exc})",
+                    "success": False,
+                    "error": f"{target_name} did not respond within 90s ({exc})",
                     "recoverable": not is_retry,
                 }
         else:
-            result = await _run_delegated_tasks(pr, target_id, target_role, tasks, shared_budget_id=context.get("shared_budget_id"))
+            result = await _run_delegated_tasks(
+                pr,
+                target_id,
+                target_role,
+                tasks,
+                shared_budget_id=context.get("shared_budget_id"),
+            )
 
         try:
-            from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
-            pr.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.INTERACTION,
-                # Same fix as AskActorCapability's identical publish above:
-                # actor_id must be the delegator (asker_id), not target_id —
-                # DelegateTask is a step in the DELEGATOR's own plan, and
-                # the read side filters by the actor whose execution is
-                # being viewed.
-                actor_id=asker_id,
-                description=f"{asker_name} delegated {len(tasks)} task(s) to {target_name}",
-                payload={
-                    "from_actor_id": asker_id, "from_actor_name": asker_name,
-                    "to_actor_id": target_id, "to_actor_name": target_name,
-                    "society_id": target_sr.society.society_id if target_sr else "",
-                    "society_name": target_sr.society.name if target_sr else "",
-                    "tasks": tasks, "result": result,
-                },
-                correlation_id=correlation_id,
-                causation_id=decision.decision_id,
-            ))
+            from src.monkey_brain.kernel.society.context_stream import (
+                ContextEvent,
+                ContextEventType,
+            )
+
+            pr.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.INTERACTION,
+                    # Same fix as AskActorCapability's identical publish above:
+                    # actor_id must be the delegator (asker_id), not target_id —
+                    # DelegateTask is a step in the DELEGATOR's own plan, and
+                    # the read side filters by the actor whose execution is
+                    # being viewed.
+                    actor_id=asker_id,
+                    description=f"{asker_name} delegated {len(tasks)} task(s) to {target_name}",
+                    payload={
+                        "from_actor_id": asker_id,
+                        "from_actor_name": asker_name,
+                        "to_actor_id": target_id,
+                        "to_actor_name": target_name,
+                        "society_id": target_sr.society.society_id if target_sr else "",
+                        "society_name": target_sr.society.name if target_sr else "",
+                        "tasks": tasks,
+                        "result": result,
+                    },
+                    correlation_id=correlation_id,
+                    causation_id=decision.decision_id,
+                )
+            )
         except Exception:
             logger.debug("handle: suppressed exception", exc_info=True)
 
@@ -6479,6 +8078,7 @@ class BroadcastToAffiliationCapability:
     (fire-and-forget; a broadcast needs no synchronous reply the way a
     question or delegated task does), to each recipient's own inbox,
     handled by subscribe_actor_inbox's new msg_type=="broadcast" branch."""
+
     name = "BroadcastToAffiliation"
 
     async def handle(self, args: dict) -> dict:
@@ -6486,12 +8086,18 @@ class BroadcastToAffiliationCapability:
         parameters = args.get("parameters", {}) or {}
         message = parameters.get("message")
         if not message:
-            return {"success": False, "error": "BroadcastToAffiliation requires parameters.message"}
+            return {
+                "success": False,
+                "error": "BroadcastToAffiliation requires parameters.message",
+            }
 
         pr = context.get("planetary_runtime")
         sender_id = context.get("actor_id", "")
         if pr is None or not sender_id:
-            return {"success": False, "error": "no planetary_runtime/actor_id available to broadcast from"}
+            return {
+                "success": False,
+                "error": "no planetary_runtime/actor_id available to broadcast from",
+            }
 
         sender_sr = None
         sender_state = None
@@ -6501,8 +8107,13 @@ class BroadcastToAffiliationCapability:
                 sender_sr, sender_state = sr, state
                 break
         if sender_sr is None:
-            return {"success": False, "error": f"sender {sender_id!r} has no home society to broadcast from"}
-        sender_display_name = sender_state.profile.identity.name if sender_state else sender_id
+            return {
+                "success": False,
+                "error": f"sender {sender_id!r} has no home society to broadcast from",
+            }
+        sender_display_name = (
+            sender_state.profile.identity.name if sender_state else sender_id
+        )
 
         correlation_id = context.get("correlation_id") or new_correlation_id()
 
@@ -6513,31 +8124,48 @@ class BroadcastToAffiliationCapability:
         # queueing keeps happening exactly as before, feeding the same
         # audit trail and Lemon metrics below. Actual delivery to each
         # recipient is the separate step right after this.
-        delivered = sender_sr.broadcast_message(sender_id, "broadcast", {"message": message}, correlation_id=correlation_id)
+        delivered = sender_sr.broadcast_message(
+            sender_id, "broadcast", {"message": message}, correlation_id=correlation_id
+        )
         elapsed_ms = (time.monotonic() - start) * 1000
         _obs.gauge("communication.average_routing_time_ms", elapsed_ms)
         _obs.counter("communication.societies_traversed", 1)
-        for decision in sender_sr.communication_audit()[-len(recipients):] if recipients else ():
+        for decision in (
+            sender_sr.communication_audit()[-len(recipients) :] if recipients else ()
+        ):
             if decision.affiliation_id:
-                _obs.counter("communication.messages_per_affiliation", affiliation_id=decision.affiliation_id)
+                _obs.counter(
+                    "communication.messages_per_affiliation",
+                    affiliation_id=decision.affiliation_id,
+                )
 
         nc = getattr(pr, "_nats_client", None)
         memory_manager = getattr(pr, "memory_manager", None)
         received_by: list[str] = []
         for recipient_id in recipients:
             wire_payload = {
-                "msg_type": "broadcast", "message": message,
-                "from_actor_id": sender_id, "from_actor_name": sender_display_name,
+                "msg_type": "broadcast",
+                "message": message,
+                "from_actor_id": sender_id,
+                "from_actor_name": sender_display_name,
                 "correlation_id": correlation_id,
             }
             if nc is not None:
                 try:
                     import json
-                    await nc.publish(f"monkeybrain.actor.{recipient_id}.inbox", json.dumps(wire_payload).encode())
+
+                    await nc.publish(
+                        f"monkeybrain.actor.{recipient_id}.inbox",
+                        json.dumps(wire_payload).encode(),
+                    )
                     received_by.append(recipient_id)
                     continue
                 except Exception:
-                    logger.debug("BroadcastToAffiliation: NATS publish failed for %s, falling back in-process", recipient_id, exc_info=True)
+                    logger.debug(
+                        "BroadcastToAffiliation: NATS publish failed for %s, falling back in-process",
+                        recipient_id,
+                        exc_info=True,
+                    )
             # No live NATS connection (or publish failed) — same
             # non-fatal in-process fallback AskActor/DelegateTask use,
             # applied here as the identical real effect
@@ -6546,46 +8174,74 @@ class BroadcastToAffiliationCapability:
             if memory_manager is not None:
                 try:
                     memory_manager.record_experience(
-                        recipient_id, kind="broadcast", text=message,
+                        recipient_id,
+                        kind="broadcast",
+                        text=message,
                         metadata={
-                            "timestamp": time.time(), "from_actor_id": sender_id,
-                            "from_actor_name": sender_display_name, "correlation_id": correlation_id,
+                            "timestamp": time.time(),
+                            "from_actor_id": sender_id,
+                            "from_actor_name": sender_display_name,
+                            "correlation_id": correlation_id,
                         },
                     )
                     received_by.append(recipient_id)
                 except Exception:
-                    logger.debug("BroadcastToAffiliation: in-process fallback failed for %s", recipient_id, exc_info=True)
+                    logger.debug(
+                        "BroadcastToAffiliation: in-process fallback failed for %s",
+                        recipient_id,
+                        exc_info=True,
+                    )
 
         try:
-            from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
-            pr.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.INTERACTION,
-                actor_id=sender_id,
-                description=f"{sender_display_name} broadcast to {len(received_by)} recipient(s): {message}",
-                payload={
-                    "from_actor_id": sender_id, "from_actor_name": sender_display_name,
-                    "participants": [sender_id, *received_by],
-                    "society_id": sender_sr.society.society_id,
-                    "society_name": sender_sr.society.name,
-                    "message": message, "recipients": list(recipients), "received_by": received_by,
-                },
-                correlation_id=correlation_id,
-            ))
+            from src.monkey_brain.kernel.society.context_stream import (
+                ContextEvent,
+                ContextEventType,
+            )
+
+            pr.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.INTERACTION,
+                    actor_id=sender_id,
+                    description=f"{sender_display_name} broadcast to {len(received_by)} recipient(s): {message}",
+                    payload={
+                        "from_actor_id": sender_id,
+                        "from_actor_name": sender_display_name,
+                        "participants": [sender_id, *received_by],
+                        "society_id": sender_sr.society.society_id,
+                        "society_name": sender_sr.society.name,
+                        "message": message,
+                        "recipients": list(recipients),
+                        "received_by": received_by,
+                    },
+                    correlation_id=correlation_id,
+                )
+            )
         except Exception:
             logger.debug("handle: suppressed exception", exc_info=True)
         if memory_manager is not None:
             try:
                 memory_manager.record_experience(
-                    sender_id, kind="broadcast", text=message,
-                    metadata={"timestamp": time.time(), "sent": True, "correlation_id": correlation_id},
+                    sender_id,
+                    kind="broadcast",
+                    text=message,
+                    metadata={
+                        "timestamp": time.time(),
+                        "sent": True,
+                        "correlation_id": correlation_id,
+                    },
                 )
             except Exception:
-                logger.debug("BroadcastToAffiliation: sender memory record failed", exc_info=True)
+                logger.debug(
+                    "BroadcastToAffiliation: sender memory record failed", exc_info=True
+                )
 
         return {
-            "success": True, "message": message,
-            "recipients": list(recipients), "delivered_count": delivered,
-            "received_by": received_by, "correlation_id": correlation_id,
+            "success": True,
+            "message": message,
+            "recipients": list(recipients),
+            "delivered_count": delivered,
+            "received_by": received_by,
+            "correlation_id": correlation_id,
         }
 
 
@@ -6599,13 +8255,17 @@ class RespondToInquiryCapability:
     already happened when the planner wrote this plan step's string
     parameter. An orchestrator watches for this action name to know the
     conversation is over — it never decides that itself."""
+
     name = "RespondToInquiry"
 
     def handle(self, args: dict) -> dict:
         parameters = args.get("parameters", {}) or {}
         answer = parameters.get("answer")
         if not answer:
-            return {"success": False, "error": "RespondToInquiry requires parameters.answer"}
+            return {
+                "success": False,
+                "error": "RespondToInquiry requires parameters.answer",
+            }
         return {"success": True, "answer": answer}
 
 
@@ -6636,6 +8296,7 @@ class EvaluateStrategyCapability:
     actor sees the real numbers as a fact on ITS NEXT round before
     committing to a strategy, not within the same plan that requested
     the evaluation."""
+
     name = "EvaluateStrategy"
 
     def handle(self, args: dict) -> dict:
@@ -6643,16 +8304,24 @@ class EvaluateStrategyCapability:
         parameters = args.get("parameters", {}) or {}
         candidates = parameters.get("candidates")
         if not candidates or not isinstance(candidates, list):
-            return {"success": False, "error": "EvaluateStrategy requires parameters.candidates (a non-empty list)"}
+            return {
+                "success": False,
+                "error": "EvaluateStrategy requires parameters.candidates (a non-empty list)",
+            }
 
         preferences = _actor_strategy_profile(context).get("preferences") or {}
         if not preferences:
-            return {"success": False, "error": "actor has no strategy preferences to evaluate candidates against"}
+            return {
+                "success": False,
+                "error": "actor has no strategy preferences to evaluate candidates against",
+            }
 
         from src.monkey_brain.kernel.domains.negotiation import evaluate_candidates
+
         evaluations = evaluate_candidates(preferences, candidates)
         return {
-            "success": True, "evaluations": evaluations,
+            "success": True,
+            "evaluations": evaluations,
             "best": evaluations[0]["name"] if evaluations else None,
         }
 
@@ -6672,6 +8341,7 @@ class CompeteForResourceCapability:
     a real multi-round LLM negotiation can easily take that long
     end-to-end, and a hold expiring mid-negotiation would silently
     undo a real win."""
+
     name = "CompeteForResource"
 
     def handle(self, args: dict) -> dict:
@@ -6679,7 +8349,10 @@ class CompeteForResourceCapability:
         parameters = args.get("parameters", {}) or {}
         resource_id = parameters.get("resource_id")
         if not resource_id:
-            return {"success": False, "error": "CompeteForResource requires parameters.resource_id"}
+            return {
+                "success": False,
+                "error": "CompeteForResource requires parameters.resource_id",
+            }
         try:
             qty = int(parameters.get("qty", 1))
         except (TypeError, ValueError):
@@ -6688,10 +8361,19 @@ class CompeteForResourceCapability:
         kg = context.get("knowledge_graph")
         actor_id = context.get("actor_id", "")
         if kg is None or not actor_id:
-            return {"success": False, "error": "no knowledge graph or actor_id available"}
+            return {
+                "success": False,
+                "error": "no knowledge graph or actor_id available",
+            }
 
         won, reason = try_reserve(kg, resource_id, actor_id, qty, hold_seconds=300.0)
-        return {"success": True, "won": won, "resource_id": resource_id, "qty": qty, "reason": reason}
+        return {
+            "success": True,
+            "won": won,
+            "resource_id": resource_id,
+            "qty": qty,
+            "reason": reason,
+        }
 
 
 class RecordAgreementCapability:
@@ -6703,6 +8385,7 @@ class RecordAgreementCapability:
     {"with": "Driver", "terms": "afternoon delivery", "price": 54.99})
     — this capability persists it verbatim, it doesn't compose or
     validate the deal's content."""
+
     name = "RecordAgreement"
 
     def handle(self, args: dict) -> dict:
@@ -6711,15 +8394,24 @@ class RecordAgreementCapability:
         entity_id = parameters.get("entity_id")
         agreement = parameters.get("agreement")
         if not entity_id or not isinstance(agreement, dict):
-            return {"success": False, "error": "RecordAgreement requires parameters.entity_id and parameters.agreement (a dict)"}
+            return {
+                "success": False,
+                "error": "RecordAgreement requires parameters.entity_id and parameters.agreement (a dict)",
+            }
 
         kg = context.get("knowledge_graph")
         if kg is None:
             return {"success": False, "error": "no knowledge graph available"}
 
         from src.monkey_brain.kernel.domains.negotiation import record_agreement
+
         ok, msg = record_agreement(kg, entity_id, agreement)
-        return {"success": ok, "entity_id": entity_id, "agreement": agreement, "message": msg}
+        return {
+            "success": ok,
+            "entity_id": entity_id,
+            "agreement": agreement,
+            "message": msg,
+        }
 
 
 class GetAgreementsCapability:
@@ -6737,6 +8429,7 @@ class GetAgreementsCapability:
     this?", had no way to ever see it again. This is a plain read of
     entity_id's real, persisted `agreements` list, nothing computed or
     inferred."""
+
     name = "GetAgreements"
 
     def handle(self, args: dict) -> dict:
@@ -6744,7 +8437,10 @@ class GetAgreementsCapability:
         parameters = args.get("parameters", {}) or {}
         entity_id = parameters.get("entity_id")
         if not entity_id:
-            return {"success": False, "error": "GetAgreements requires parameters.entity_id"}
+            return {
+                "success": False,
+                "error": "GetAgreements requires parameters.entity_id",
+            }
 
         kg = context.get("knowledge_graph")
         if kg is None:
@@ -6755,7 +8451,12 @@ class GetAgreementsCapability:
             return {"success": False, "error": f"entity {entity_id!r} not found"}
 
         agreements = list(entity.attributes.get("agreements", []))
-        return {"success": True, "entity_id": entity_id, "agreements": agreements, "count": len(agreements)}
+        return {
+            "success": True,
+            "entity_id": entity_id,
+            "agreements": agreements,
+            "count": len(agreements),
+        }
 
 
 class ReportWorldPerturbationCapability:
@@ -6782,6 +8483,7 @@ class ReportWorldPerturbationCapability:
     (POST /planet/perturbations, api/routes/planet.py) for an
     operator-triggered event — same handler either way, no duplicated
     logic."""
+
     name = "ReportWorldPerturbation"
 
     def handle(self, args: dict) -> dict:
@@ -6790,11 +8492,16 @@ class ReportWorldPerturbationCapability:
         entity_id = parameters.get("entity_id")
         description = parameters.get("description") or ""
         impact_attributes = parameters.get("impact_attributes")
-        if not entity_id or not description or not isinstance(impact_attributes, dict) or not impact_attributes:
+        if (
+            not entity_id
+            or not description
+            or not isinstance(impact_attributes, dict)
+            or not impact_attributes
+        ):
             return {
                 "success": False,
                 "error": "ReportWorldPerturbation requires parameters.entity_id, "
-                         "parameters.description, and a non-empty parameters.impact_attributes dict",
+                "parameters.description, and a non-empty parameters.impact_attributes dict",
             }
 
         kg = context.get("knowledge_graph")
@@ -6809,15 +8516,23 @@ class ReportWorldPerturbationCapability:
         published = False
         if pr is not None:
             try:
-                from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
-                pr.context_stream.publish(ContextEvent(
-                    event_type=ContextEventType.WORLD_UPDATE, actor_id=reported_by,
-                    description=description,
-                    payload={
-                        "entity_id": entity_id, "impact_attributes": impact_attributes,
-                        "source": "external_perturbation",
-                    },
-                ))
+                from src.monkey_brain.kernel.society.context_stream import (
+                    ContextEvent,
+                    ContextEventType,
+                )
+
+                pr.context_stream.publish(
+                    ContextEvent(
+                        event_type=ContextEventType.WORLD_UPDATE,
+                        actor_id=reported_by,
+                        description=description,
+                        payload={
+                            "entity_id": entity_id,
+                            "impact_attributes": impact_attributes,
+                            "source": "external_perturbation",
+                        },
+                    )
+                )
                 published = True
             except Exception:
                 published = False
@@ -6830,17 +8545,27 @@ class ReportWorldPerturbationCapability:
             # too, on the same reconciled-once-per-cycle cadence every
             # other World Perturbation follows).
             try:
-                from src.monkey_brain.kernel.society.perturbation_queue import WorldPerturbation
-                pr.perturbation_queue.publish(WorldPerturbation(
-                    entity_id=entity_id, description=description,
-                    attributes=dict(impact_attributes), source=reported_by,
-                ))
+                from src.monkey_brain.kernel.society.perturbation_queue import (
+                    WorldPerturbation,
+                )
+
+                pr.perturbation_queue.publish(
+                    WorldPerturbation(
+                        entity_id=entity_id,
+                        description=description,
+                        attributes=dict(impact_attributes),
+                        source=reported_by,
+                    )
+                )
             except Exception:
                 pass
 
         return {
-            "success": True, "entity_id": entity_id, "description": description,
-            "impact_attributes": impact_attributes, "entity": entity.to_dict(),
+            "success": True,
+            "entity_id": entity_id,
+            "description": description,
+            "impact_attributes": impact_attributes,
+            "entity": entity.to_dict(),
             "context_event_published": published,
         }
 
@@ -6856,6 +8581,7 @@ class PrepareOrderCapability:
     mutation in this file uses), then publishes OrderPrepared
     (CAPABILITY_DOMAIN_EVENTS below) so the NEXT propagation round can
     carry the cascade further (e.g. to a Logistics Society)."""
+
     name = "PrepareOrder"
 
     def handle(self, args: dict) -> dict:
@@ -6863,7 +8589,10 @@ class PrepareOrderCapability:
         parameters = args.get("parameters", {}) or {}
         order_id = parameters.get("order_id") or parameters.get("entity_id")
         if not order_id:
-            return {"success": False, "error": "PrepareOrder requires parameters.order_id"}
+            return {
+                "success": False,
+                "error": "PrepareOrder requires parameters.order_id",
+            }
 
         kg = context.get("knowledge_graph")
         if kg is None:
@@ -6881,14 +8610,22 @@ class AcceptDeliveryCapability:
     propagation mechanism, different subscribed event). Genuinely mutates
     the real order/shipment entity's status via kg.update_entity, then
     publishes OutForDelivery."""
+
     name = "AcceptDelivery"
 
     def handle(self, args: dict) -> dict:
         context = args.get("context", {})
         parameters = args.get("parameters", {}) or {}
-        entity_id = parameters.get("shipment_id") or parameters.get("order_id") or parameters.get("entity_id")
+        entity_id = (
+            parameters.get("shipment_id")
+            or parameters.get("order_id")
+            or parameters.get("entity_id")
+        )
         if not entity_id:
-            return {"success": False, "error": "AcceptDelivery requires parameters.shipment_id or parameters.order_id"}
+            return {
+                "success": False,
+                "error": "AcceptDelivery requires parameters.shipment_id or parameters.order_id",
+            }
 
         kg = context.get("knowledge_graph")
         if kg is None:
@@ -6921,6 +8658,7 @@ class NegotiatePriceCapability:
     behavior — the deal is still computed and returned, just not linked
     to anything to apply it to.
     """
+
     name = "NegotiatePrice"
 
     def handle(self, args: dict) -> dict:
@@ -6930,12 +8668,17 @@ class NegotiatePriceCapability:
             min_seller_price = float(parameters.get("min_seller_price"))
             buyer_target_price = float(parameters.get("buyer_target_price"))
         except (TypeError, ValueError):
-            return {"success": False, "error": (
-                "NegotiatePrice requires numeric parameters.listed_price, "
-                "parameters.min_seller_price, parameters.buyer_target_price"
-            )}
+            return {
+                "success": False,
+                "error": (
+                    "NegotiatePrice requires numeric parameters.listed_price, "
+                    "parameters.min_seller_price, parameters.buyer_target_price"
+                ),
+            }
         max_rounds = int(parameters.get("max_rounds", 3) or 3)
-        deal = negotiate_price(listed_price, min_seller_price, buyer_target_price, max_rounds=max_rounds)
+        deal = negotiate_price(
+            listed_price, min_seller_price, buyer_target_price, max_rounds=max_rounds
+        )
         result = {"success": True, **deal}
         product_id = parameters.get("product_id")
         if product_id:
@@ -6952,6 +8695,7 @@ class NegotiateTermsCapability:
     actor's own LLM supplies the three real inputs as plan-step
     parameters; this capability only runs the bargain, never invents
     the outcome."""
+
     name = "NegotiateTerms"
 
     def handle(self, args: dict) -> dict:
@@ -6961,14 +8705,20 @@ class NegotiateTermsCapability:
             high_side_floor = float(parameters.get("high_side_floor"))
             low_side_opening = float(parameters.get("low_side_opening"))
         except (TypeError, ValueError):
-            return {"success": False, "error": (
-                "NegotiateTerms requires numeric parameters.high_side_opening, "
-                "parameters.high_side_floor, parameters.low_side_opening"
-            )}
+            return {
+                "success": False,
+                "error": (
+                    "NegotiateTerms requires numeric parameters.high_side_opening, "
+                    "parameters.high_side_floor, parameters.low_side_opening"
+                ),
+            }
         max_rounds = int(parameters.get("max_rounds", 3) or 3)
 
         from src.monkey_brain.kernel.domains.negotiation import negotiate_terms
-        deal = negotiate_terms(high_side_opening, high_side_floor, low_side_opening, max_rounds=max_rounds)
+
+        deal = negotiate_terms(
+            high_side_opening, high_side_floor, low_side_opening, max_rounds=max_rounds
+        )
         return {"success": True, **deal}
 
 
@@ -6976,6 +8726,7 @@ class OrderCreationCapability:
     """Creates an order in the actor's KG covering every item in the cart —
     one order, multiple line items, subtotal/tax/total summed across all of
     them (not just the first or cheapest)."""
+
     name = "OrderCreation"
 
     def handle(self, args: dict) -> dict:
@@ -6995,8 +8746,11 @@ class OrderCreationCapability:
         negotiated_prices = context.get("negotiated_prices") or {}
         if negotiated_prices:
             products = [
-                {**p, "price": negotiated_prices[p["id"]], "negotiated": True}
-                if p.get("id") in negotiated_prices else p
+                (
+                    {**p, "price": negotiated_prices[p["id"]], "negotiated": True}
+                    if p.get("id") in negotiated_prices
+                    else p
+                )
                 for p in products
             ]
 
@@ -7025,8 +8779,15 @@ class OrderCreationCapability:
         # any OTHER reason is an honest failure, not a fabricated order.
         if not products:
             if context.get("socially_fulfilled") or context.get("pantry_fulfilled"):
-                return {"success": True, "note": "nothing to order — already fulfilled", "order_id": None}
-            return {"success": False, "error": "no products selected — nothing to order"}
+                return {
+                    "success": True,
+                    "note": "nothing to order — already fulfilled",
+                    "order_id": None,
+                }
+            return {
+                "success": False,
+                "error": "no products selected — nothing to order",
+            }
 
         belief_refreshed = []
         backordered = []
@@ -7049,12 +8810,25 @@ class OrderCreationCapability:
         # incurs it, the same fulfillment choice DeliveryCapability itself
         # honors by skipping rider assignment entirely.
         store_ids = {p.get("store_id") for p in products if p.get("store_id")}
-        delivery_fee = 0.0 if wants_pickup(context.get("question", "")) else round(sum(
-            (kg.get_entity(sid).attributes.get("delivery_fee", 0) if kg is not None and kg.get_entity(sid) else 0)
-            for sid in store_ids
-        ), 2)
+        delivery_fee = (
+            0.0
+            if wants_pickup(context.get("question", ""))
+            else round(
+                sum(
+                    (
+                        kg.get_entity(sid).attributes.get("delivery_fee", 0)
+                        if kg is not None and kg.get_entity(sid)
+                        else 0
+                    )
+                    for sid in store_ids
+                ),
+                2,
+            )
+        )
         total = round(subtotal + tax + delivery_fee, 2)
-        store_names = sorted({name for name in (store_name(p.get("store_id")) for p in products) if name})
+        store_names = sorted(
+            {name for name in (store_name(p.get("store_id")) for p in products) if name}
+        )
 
         # Level 36 (GS-3601): a household "spending_limit" policy blocks
         # the order OUTRIGHT (no entity is even written) if its real total
@@ -7066,11 +8840,21 @@ class OrderCreationCapability:
         if kg is not None:
             spending_policy = find_household_policy(kg, "spending_limit")
             if spending_policy is not None:
-                max_per_order = spending_policy.attributes.get("params", {}).get("max_per_order")
-                if max_per_order is not None and total > max_per_order and not consume_policy_exception(kg, "spending_limit"):
-                    return {"success": False, "error": (
-                        f"policy denied: order total ${total:.2f} exceeds household spending "
-                        f"limit of ${max_per_order:.2f}")}
+                max_per_order = spending_policy.attributes.get("params", {}).get(
+                    "max_per_order"
+                )
+                if (
+                    max_per_order is not None
+                    and total > max_per_order
+                    and not consume_policy_exception(kg, "spending_limit")
+                ):
+                    return {
+                        "success": False,
+                        "error": (
+                            f"policy denied: order total ${total:.2f} exceeds household spending "
+                            f"limit of ${max_per_order:.2f}"
+                        ),
+                    }
 
         # A budget stated IN THIS REQUEST ("under $20", "I have exactly
         # $20") is a real spending cap regardless of whether the household
@@ -7091,8 +8875,12 @@ class OrderCreationCapability:
         stated_budget = parse_budget(context.get("question", ""))
         shared_budget_id = context.get("shared_budget_id")
         if not shared_budget_id and stated_budget is not None and total > stated_budget:
-            return {"success": False, "error": (
-                f"order total ${total:.2f} exceeds the ${stated_budget:.2f} budget stated in the request")}
+            return {
+                "success": False,
+                "error": (
+                    f"order total ${total:.2f} exceeds the ${stated_budget:.2f} budget stated in the request"
+                ),
+            }
 
         # Level 43 (GS-4300): interrupt/resume safety. A caller that knows
         # it's RETRYING a checkout that may have already gone through (a
@@ -7110,15 +8898,21 @@ class OrderCreationCapability:
         resume_order_id = context.get("resume_order_id")
         if resume_order_id and kg is not None:
             existing_order = kg.get_entity(resume_order_id)
-            if existing_order is not None and existing_order.attributes.get("payment_status") == "paid":
+            if (
+                existing_order is not None
+                and existing_order.attributes.get("payment_status") == "paid"
+            ):
                 context["already_paid"] = True
                 return {
-                    "success": True, "order_id": resume_order_id, "resumed": True,
+                    "success": True,
+                    "order_id": resume_order_id,
+                    "resumed": True,
                     "status": "already completed in a prior attempt — no charge or reservation repeated",
                     "store": existing_order.attributes.get("store", ""),
                     "items": existing_order.attributes.get("items", []),
                     "subtotal": existing_order.attributes.get("subtotal", 0),
-                    "tax_rate": tax_rate, "tax": existing_order.attributes.get("tax", 0),
+                    "tax_rate": tax_rate,
+                    "tax": existing_order.attributes.get("tax", 0),
                     "delivery_fee": existing_order.attributes.get("delivery_fee", 0),
                     "total": existing_order.attributes.get("total", 0),
                     "belief_refreshed": [],
@@ -7143,6 +8937,7 @@ class OrderCreationCapability:
         # reused as-is so a LATER retry of THIS same attempt can
         # recognize it next time.
         import uuid
+
         order_id = resume_order_id or f"ORD-{int(time.time())}-{uuid.uuid4().hex}"
 
         # Shared multi-agent budget (Qualification Gap Closure, Phase 5):
@@ -7166,16 +8961,24 @@ class OrderCreationCapability:
                 return {"success": False, "error": f"shared budget: {reason}"}
 
         line_items = [
-            {"product": p.get("name", ""), "qty": p.get("qty", 1), "unit_price": p.get("price", 0), "store": store_name(p.get("store_id"))}
+            {
+                "product": p.get("name", ""),
+                "qty": p.get("qty", 1),
+                "unit_price": p.get("price", 0),
+                "store": store_name(p.get("store_id")),
+            }
             for p in products
         ]
 
         if kg:
             from src.monkey_brain.kernel.knowledge_graph import EntityType
+
             order_ts = time.time()
             order_items = [
                 {
-                    "product_id": p.get("id", ""), "qty": p.get("qty", 1), "price": p.get("price", 0),
+                    "product_id": p.get("id", ""),
+                    "qty": p.get("qty", 1),
+                    "price": p.get("price", 0),
                     # Level 19 (GS-1900/1901): captured off the product
                     # AS BOUGHT, not looked up again later — a
                     # discontinued/renamed product must not erase what
@@ -7186,30 +8989,39 @@ class OrderCreationCapability:
                 }
                 for p in products
             ]
-            kg.add_entity(order_id, EntityType.EVENT, "Grocery Order", {
-                "order_id": order_id,
-                "items": order_items,
-                "subtotal": subtotal, "tax": tax, "delivery_fee": delivery_fee, "total": total, "status": "confirmed",
-                # GS-1300: explicit, persisted purchase timestamp -- Entity's
-                # own created_at field is NOT written to Neo4j by
-                # _write_entity, so every fresh KG instance re-hydrates it
-                # to hydration time, not the real order time. Storing it in
-                # attributes (which DOES round-trip through attributes_json)
-                # is what makes real historical demand prediction possible.
-                "created_at": order_ts,
-                # GS-1600: the REAL decision trace(s) ProductSelection just
-                # built, persisted onto the order they actually produced —
-                # "why did you choose X" answers from what this specific
-                # purchase actually weighed, not a fresh re-simulation that
-                # could disagree with reality if the world changed since.
-                "decision_traces": context.get("decision_traces", []),
-                # Phase 5 stress (GS-5100): who actually placed this order —
-                # the same buyer_id convention the purchase_log marker below
-                # already uses. Without this, predict_demand had no way to
-                # scope demand prediction to THIS actor's own purchases (see
-                # its docstring for the real cross-actor inflation this fixes).
-                "buyer_id": context.get("actor_id", kg.person_id),
-            })
+            kg.add_entity(
+                order_id,
+                EntityType.EVENT,
+                "Grocery Order",
+                {
+                    "order_id": order_id,
+                    "items": order_items,
+                    "subtotal": subtotal,
+                    "tax": tax,
+                    "delivery_fee": delivery_fee,
+                    "total": total,
+                    "status": "confirmed",
+                    # GS-1300: explicit, persisted purchase timestamp -- Entity's
+                    # own created_at field is NOT written to Neo4j by
+                    # _write_entity, so every fresh KG instance re-hydrates it
+                    # to hydration time, not the real order time. Storing it in
+                    # attributes (which DOES round-trip through attributes_json)
+                    # is what makes real historical demand prediction possible.
+                    "created_at": order_ts,
+                    # GS-1600: the REAL decision trace(s) ProductSelection just
+                    # built, persisted onto the order they actually produced —
+                    # "why did you choose X" answers from what this specific
+                    # purchase actually weighed, not a fresh re-simulation that
+                    # could disagree with reality if the world changed since.
+                    "decision_traces": context.get("decision_traces", []),
+                    # Phase 5 stress (GS-5100): who actually placed this order —
+                    # the same buyer_id convention the purchase_log marker below
+                    # already uses. Without this, predict_demand had no way to
+                    # scope demand prediction to THIS actor's own purchases (see
+                    # its docstring for the real cross-actor inflation this fixes).
+                    "buyer_id": context.get("actor_id", kg.person_id),
+                },
+            )
             # Real gap this closes: nothing in the grocery domain ever
             # called KnowledgeGraph.add_relationship (confirmed by
             # grepping the whole domain — the only real callers anywhere
@@ -7223,6 +9035,7 @@ class OrderCreationCapability:
             # exist (the actor and the just-selected products), not new
             # ones minted for this.
             from src.monkey_brain.kernel.knowledge_graph import RelationshipType
+
             buyer_id = context.get("actor_id", kg.person_id)
             if buyer_id and kg.get_entity(buyer_id) is not None:
                 kg.add_relationship(buyer_id, order_id, RelationshipType.POSSESSES)
@@ -7234,7 +9047,9 @@ class OrderCreationCapability:
             # per-actor order-stats aggregate predict_demand/learned_preference
             # now read instead of re-scanning every order this actor has
             # ever placed — see update_order_stats' own docstring.
-            update_order_stats(kg, context.get("actor_id", kg.person_id), order_items, order_ts)
+            update_order_stats(
+                kg, context.get("actor_id", kg.person_id), order_items, order_ts
+            )
             # Level 20 (GS-2001): a lightweight, HOUSEHOLD-scoped marker per
             # item, separate from the order itself — orders stay in the
             # buyer's private scope (Level 14/19 need that for per-person
@@ -7283,7 +9098,12 @@ class OrderCreationCapability:
                 # past it. A separate type keeps this bounded by (OTHER-typed
                 # entities: markers + coupons + memberships + rejections +
                 # order-stats aggregates), not by total order count.
-                kg.add_entity(marker_id, EntityType.OTHER, f"Purchase log: {p.get('name', '')}", marker_attrs)
+                kg.add_entity(
+                    marker_id,
+                    EntityType.OTHER,
+                    f"Purchase log: {p.get('name', '')}",
+                    marker_attrs,
+                )
 
             # Inventory Constraints / Reservation Before Payment: an order
             # is a real claim on real stock, made via the existing CAS
@@ -7322,11 +9142,13 @@ class OrderCreationCapability:
                     continue
                 updated, diffs = refresh_belief_before_action(kg, pid)
                 if updated and diffs:
-                    belief_refreshed.append({
-                        "product": p.get("name", pid),
-                        "believed": {k: v[0] for k, v in diffs.items()},
-                        "observed": {k: v[1] for k, v in diffs.items()},
-                    })
+                    belief_refreshed.append(
+                        {
+                            "product": p.get("name", pid),
+                            "believed": {k: v[0] for k, v in diffs.items()},
+                            "observed": {k: v[1] for k, v in diffs.items()},
+                        }
+                    )
 
             # MB-3031 Backorder: inventory unavailable for an item no
             # longer fails the WHOLE order — it's queued via
@@ -7363,7 +9185,9 @@ class OrderCreationCapability:
             # unavailability this loop already self-heals from. all_orgs
             # is computed once up front (not lazily) since this check now
             # runs for every item, not just ones whose reservation fails.
-            all_orgs = {e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)}
+            all_orgs = {
+                e.entity_id: e for e in kg.entities_by_type(EntityType.ORGANIZATION)
+            }
             lactose_free = None
             rejected_keywords = None
             coupon_code = None
@@ -7388,7 +9212,9 @@ class OrderCreationCapability:
                     # Step 3): see CounterfactualCapability's identical
                     # comment above.
                     actor_kg = context.get("actor_local_knowledge_graph") or kg
-                    rejected_keywords = get_rejected_keywords(actor_kg, context.get("actor_id", ""))
+                    rejected_keywords = get_rejected_keywords(
+                        actor_kg, context.get("actor_id", "")
+                    )
                     coupon_code = parse_coupon_code(context.get("question", ""))
                     request_optimization = context.get("optimization", "cost")
 
@@ -7408,19 +9234,38 @@ class OrderCreationCapability:
                 # discovers the same staleness itself and pauses for a real
                 # human decision, exactly as it already does when nothing
                 # upstream silently resolved it.
-                approval_required_here = bool(context.get("approval_required_for_substitution")) or \
-                    wants_approval_before_substitution(context.get("question", ""))
-                fresh_catalog = [] if approval_required_here else open_products(kg, item_phrase=p.get("name", ""))
+                approval_required_here = bool(
+                    context.get("approval_required_for_substitution")
+                ) or wants_approval_before_substitution(context.get("question", ""))
+                fresh_catalog = (
+                    []
+                    if approval_required_here
+                    else open_products(kg, item_phrase=p.get("name", ""))
+                )
                 remaining = [e for e in fresh_catalog if e.entity_id != pid]
-                candidates, _note = eligible_candidates(p.get("name", ""), remaining, lactose_free, rejected_keywords)
+                candidates, _note = eligible_candidates(
+                    p.get("name", ""), remaining, lactose_free, rejected_keywords
+                )
                 if candidates:
-                    item_optimization = detect_optimization(p.get("name", "")) or request_optimization
-                    best, _unit_qty, _reason = pick_best_unit(candidates, item_optimization, all_orgs)
-                    adjusted, _notes = apply_discounts_to_candidates(kg, [best], coupon_code, buyer_id)
+                    item_optimization = (
+                        detect_optimization(p.get("name", "")) or request_optimization
+                    )
+                    best, _unit_qty, _reason = pick_best_unit(
+                        candidates, item_optimization, all_orgs
+                    )
+                    adjusted, _notes = apply_discounts_to_candidates(
+                        kg, [best], coupon_code, buyer_id
+                    )
                     priced = adjusted[0] if adjusted else best
                     sub_ok, sub_msg = try_reserve(kg, best.entity_id, order_id, qty)
                     if sub_ok:
-                        products[idx] = {**p, **priced.attributes, "id": best.entity_id, "name": best.name, "qty": qty}
+                        products[idx] = {
+                            **p,
+                            **priced.attributes,
+                            "id": best.entity_id,
+                            "name": best.name,
+                            "qty": qty,
+                        }
                         substitutions.append(
                             f"{p.get('name', pid)} unavailable ({msg}) — substituted {best.name} at "
                             f"{store_name(priced.attributes.get('store_id'))} (${priced.attributes.get('price', 0):.2f})"
@@ -7429,10 +9274,15 @@ class OrderCreationCapability:
 
                 if not substituted:
                     backorder = place_backorder(kg, pid, buyer_id, qty)
-                    backordered.append({
-                        "product": p.get("name", pid), "product_id": pid, "qty": qty,
-                        "reason": msg, "backorder_id": backorder["backorder_id"],
-                    })
+                    backordered.append(
+                        {
+                            "product": p.get("name", pid),
+                            "product_id": pid,
+                            "qty": qty,
+                            "reason": msg,
+                            "backorder_id": backorder["backorder_id"],
+                        }
+                    )
 
             # A substitution above changed what's actually in the cart
             # after subtotal/tax/total/line_items/order_items were already
@@ -7444,31 +9294,64 @@ class OrderCreationCapability:
             # on the rare substitution path, and keeps the well-tested
             # original computation completely untouched.
             if substitutions:
-                subtotal = round(sum(p.get("price", 0) * p.get("qty", 1) for p in products), 2)
+                subtotal = round(
+                    sum(p.get("price", 0) * p.get("qty", 1) for p in products), 2
+                )
                 tax = round(subtotal * tax_rate, 2)
                 store_ids = {p.get("store_id") for p in products if p.get("store_id")}
-                delivery_fee = 0.0 if wants_pickup(context.get("question", "")) else round(sum(
-                    (kg.get_entity(sid).attributes.get("delivery_fee", 0) if kg.get_entity(sid) else 0)
-                    for sid in store_ids
-                ), 2)
+                delivery_fee = (
+                    0.0
+                    if wants_pickup(context.get("question", ""))
+                    else round(
+                        sum(
+                            (
+                                kg.get_entity(sid).attributes.get("delivery_fee", 0)
+                                if kg.get_entity(sid)
+                                else 0
+                            )
+                            for sid in store_ids
+                        ),
+                        2,
+                    )
+                )
                 total = round(subtotal + tax + delivery_fee, 2)
-                store_names = sorted({name for name in (store_name(p.get("store_id")) for p in products) if name})
+                store_names = sorted(
+                    {
+                        name
+                        for name in (store_name(p.get("store_id")) for p in products)
+                        if name
+                    }
+                )
                 line_items = [
-                    {"product": p.get("name", ""), "qty": p.get("qty", 1), "unit_price": p.get("price", 0), "store": store_name(p.get("store_id"))}
+                    {
+                        "product": p.get("name", ""),
+                        "qty": p.get("qty", 1),
+                        "unit_price": p.get("price", 0),
+                        "store": store_name(p.get("store_id")),
+                    }
                     for p in products
                 ]
                 order_items = [
                     {
-                        "product_id": p.get("id", ""), "qty": p.get("qty", 1), "price": p.get("price", 0),
-                        "product_name": p.get("name", ""), "brand": p.get("brand"),
+                        "product_id": p.get("id", ""),
+                        "qty": p.get("qty", 1),
+                        "price": p.get("price", 0),
+                        "product_name": p.get("name", ""),
+                        "brand": p.get("brand"),
                         "type_keyword": _type_keyword_of(p.get("name", "")),
                     }
                     for p in products
                 ]
-                kg.update_entity(order_id, attributes={
-                    "items": order_items, "subtotal": subtotal, "tax": tax,
-                    "delivery_fee": delivery_fee, "total": total,
-                })
+                kg.update_entity(
+                    order_id,
+                    attributes={
+                        "items": order_items,
+                        "subtotal": subtotal,
+                        "tax": tax,
+                        "delivery_fee": delivery_fee,
+                        "total": total,
+                    },
+                )
                 context["selected_product"] = products
 
         result = {
@@ -7476,7 +9359,11 @@ class OrderCreationCapability:
             "order_id": order_id,
             "store": ", ".join(store_names),
             "items": line_items,
-            "subtotal": subtotal, "tax_rate": tax_rate, "tax": tax, "delivery_fee": delivery_fee, "total": total,
+            "subtotal": subtotal,
+            "tax_rate": tax_rate,
+            "tax": tax,
+            "delivery_fee": delivery_fee,
+            "total": total,
             "belief_refreshed": belief_refreshed,
             "backordered": backordered,
         }
@@ -7510,6 +9397,7 @@ def _paying_actor_id(context: dict) -> str | None:
 class PaymentConfirmationCapability:
     """Confirms payment is authorized to proceed — checks the order total
     against the actor's wallet balance instead of always succeeding."""
+
     name = "PaymentConfirmation"
 
     def handle(self, args: dict) -> dict:
@@ -7526,7 +9414,12 @@ class PaymentConfirmationCapability:
         # confirming it again would just be re-litigating a purchase that
         # already happened.
         if context.get("already_paid"):
-            return {"success": True, "status": "already paid (resumed order)", "order_id": order.get("order_id"), "total": total}
+            return {
+                "success": True,
+                "status": "already paid (resumed order)",
+                "order_id": order.get("order_id"),
+                "total": total,
+            }
 
         # Payment integrity: OrderCreation may have already discovered, in
         # this same tick, that some cart items couldn't be reserved and
@@ -7537,10 +9430,13 @@ class PaymentConfirmationCapability:
         # actually itemize what was reserved vs backordered.
         if order.get("backordered"):
             names = ", ".join(b.get("product", "?") for b in order["backordered"])
-            return {"success": False, "error": (
-                f"cannot confirm payment: {len(order['backordered'])} item(s) could not be "
-                f"reserved and are backordered ({names})"
-            )}
+            return {
+                "success": False,
+                "error": (
+                    f"cannot confirm payment: {len(order['backordered'])} item(s) could not be "
+                    f"reserved and are backordered ({names})"
+                ),
+            }
 
         # Level 35 (GS-3501/3502): checked against the AUTHENTICATED
         # actor_id (the JWT's verified sub claim, threaded through
@@ -7552,7 +9448,10 @@ class PaymentConfirmationCapability:
         if target_actor is not None:
             authz = authorize_payment_source(context.get("actor_id", ""), target_actor)
             if not authz["authorized"]:
-                return {"success": False, "error": f"authorization denied: {authz['reason']}"}
+                return {
+                    "success": False,
+                    "error": f"authorization denied: {authz['reason']}",
+                }
 
         # Level 39 (GS-3902): a delegation checked as active back at the
         # START of the pipeline (DelegationCheckCapability) is
@@ -7566,10 +9465,16 @@ class PaymentConfirmationCapability:
         # completed on stale authority.
         acting_as = context.get("acting_as")
         if acting_as:
-            recheck = check_delegation(acting_as, context.get("actor_id", ""), kg=context.get("knowledge_graph"))
+            recheck = check_delegation(
+                acting_as,
+                context.get("actor_id", ""),
+                kg=context.get("knowledge_graph"),
+            )
             if not recheck["active"]:
-                return {"success": False,
-                        "error": f"reauthorization required: delegation from {acting_as} is no longer active ({recheck['reason']})"}
+                return {
+                    "success": False,
+                    "error": f"reauthorization required: delegation from {acting_as} is no longer active ({recheck['reason']})",
+                }
 
         if total <= 0:
             # Level 16/20: a $0 total with zero line items is only a
@@ -7581,9 +9486,15 @@ class PaymentConfirmationCapability:
             # set means ProductSelection genuinely failed upstream (e.g. no
             # matching product exists at all) and must surface as the real
             # error it is, not get silently relabeled "already fulfilled".
-            if not order.get("items") and (context.get("socially_fulfilled") or context.get("pantry_fulfilled")):
-                return {"success": True, "status": "no payment needed — already fulfilled",
-                        "order_id": order.get("order_id"), "total": 0}
+            if not order.get("items") and (
+                context.get("socially_fulfilled") or context.get("pantry_fulfilled")
+            ):
+                return {
+                    "success": True,
+                    "status": "no payment needed — already fulfilled",
+                    "order_id": order.get("order_id"),
+                    "total": 0,
+                }
             return {"success": False, "error": f"invalid order total: {total}"}
 
         # MB-3014 Fraud Detection: checked BEFORE any balance/account
@@ -7598,6 +9509,7 @@ class PaymentConfirmationCapability:
         # order history) — never a hardcoded score.
         if kg is not None:
             from src.monkey_brain.kernel.domains.finance import assess_transaction_risk
+
             risk = assess_transaction_risk(kg, _paying_actor_id(context), total)
             if risk["high_risk"]:
                 return {
@@ -7622,15 +9534,31 @@ class PaymentConfirmationCapability:
             # engaged this branch, found no recognized account_type on
             # either real account, and rejected a payment real funds could
             # actually cover.
-            has_typed_accounts = any(a.attributes.get("account_type") in _PAYMENT_SOURCE_PRIORITY for a in accounts)
+            has_typed_accounts = any(
+                a.attributes.get("account_type") in _PAYMENT_SOURCE_PRIORITY
+                for a in accounts
+            )
             if has_typed_accounts:
                 import datetime
-                month_start = datetime.datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
-                cap_account = next((a for a in accounts if a.attributes.get("monthly_cap")), None)
+
+                month_start = (
+                    datetime.datetime.now()
+                    .replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                    .timestamp()
+                )
+                cap_account = next(
+                    (a for a in accounts if a.attributes.get("monthly_cap")), None
+                )
                 if cap_account is not None:
-                    cap_check = check_monthly_cap(kg, cap_account.attributes["monthly_cap"], total, month_start)
+                    cap_check = check_monthly_cap(
+                        kg, cap_account.attributes["monthly_cap"], total, month_start
+                    )
                     if not cap_check["within_cap"]:
-                        return {"success": False, "error": cap_check["reason"], "monthly_cap_check": cap_check}
+                        return {
+                            "success": False,
+                            "error": cap_check["reason"],
+                            "monthly_cap_check": cap_check,
+                        }
 
                 choice = choose_payment_source(accounts, total)
                 if choice["chosen"] is not None:
@@ -7639,42 +9567,86 @@ class PaymentConfirmationCapability:
                     # authorize_payment_source runs before any balance
                     # check — a role failure must block the purchase
                     # regardless of whether the account could afford it.
-                    ent_check = enterprise_purchase_authorized(kg, context.get("actor_id", ""), choice["chosen"], total)
+                    ent_check = enterprise_purchase_authorized(
+                        kg, context.get("actor_id", ""), choice["chosen"], total
+                    )
                     if not ent_check["authorized"]:
-                        return {"success": False, "error": f"RBAC denied: {ent_check['reason']}"}
+                        return {
+                            "success": False,
+                            "error": f"RBAC denied: {ent_check['reason']}",
+                        }
                     # Level 43 (GS-4300/4301): checked IN ADDITION TO the
                     # RBAC rank check above — even a procurement_manager
                     # cannot unilaterally clear their own large purchase.
-                    sod_check = separation_of_duties_satisfied(kg, context.get("actor_id", ""), choice["chosen"], total, order)
+                    sod_check = separation_of_duties_satisfied(
+                        kg, context.get("actor_id", ""), choice["chosen"], total, order
+                    )
                     if not sod_check["authorized"]:
-                        return {"success": False, "error": f"separation of duties denied: {sod_check['reason']}"}
+                        return {
+                            "success": False,
+                            "error": f"separation of duties denied: {sod_check['reason']}",
+                        }
                     context["chosen_payment_source"] = choice["chosen"].entity_id
-                    return {"success": True, "status": "confirmed", "order_id": order.get("order_id"),
-                            "total": total, "payment_source": choice["account_type"]}
+                    return {
+                        "success": True,
+                        "status": "confirmed",
+                        "order_id": order.get("order_id"),
+                        "total": total,
+                        "payment_source": choice["account_type"],
+                    }
 
                 # GS-2601: nothing alone covers it -- try a real, bounded
                 # emergency extension before failing outright.
-                credit_account = next((a for a in accounts if a.attributes.get("account_type") == "credit"), None)
-                max_available = max((_available_funds(a) for a in accounts), default=0.0)
+                credit_account = next(
+                    (
+                        a
+                        for a in accounts
+                        if a.attributes.get("account_type") == "credit"
+                    ),
+                    None,
+                )
+                max_available = max(
+                    (_available_funds(a) for a in accounts), default=0.0
+                )
                 shortfall = round(total - max_available, 2)
                 borrow = attempt_borrowing(credit_account, shortfall)
                 if borrow["approved"]:
                     context["chosen_payment_source"] = credit_account.entity_id
                     context["emergency_borrowing"] = borrow
-                    return {"success": True, "status": "confirmed via emergency credit extension",
-                            "order_id": order.get("order_id"), "total": total, "borrowing": borrow}
-                return {"success": False,
-                        "error": f"insufficient funds across all {len(accounts)} payment sources ({borrow['reason']})"}
+                    return {
+                        "success": True,
+                        "status": "confirmed via emergency credit extension",
+                        "order_id": order.get("order_id"),
+                        "total": total,
+                        "borrowing": borrow,
+                    }
+                return {
+                    "success": False,
+                    "error": f"insufficient funds across all {len(accounts)} payment sources ({borrow['reason']})",
+                }
 
             wallet = _find_wallet(kg, paying_actor_id)
             if wallet is None:
-                return {"success": False, "error": "no wallet account found for payment"}
-            ent_check = enterprise_purchase_authorized(kg, context.get("actor_id", ""), wallet, total)
+                return {
+                    "success": False,
+                    "error": "no wallet account found for payment",
+                }
+            ent_check = enterprise_purchase_authorized(
+                kg, context.get("actor_id", ""), wallet, total
+            )
             if not ent_check["authorized"]:
-                return {"success": False, "error": f"RBAC denied: {ent_check['reason']}"}
-            sod_check = separation_of_duties_satisfied(kg, context.get("actor_id", ""), wallet, total, order)
+                return {
+                    "success": False,
+                    "error": f"RBAC denied: {ent_check['reason']}",
+                }
+            sod_check = separation_of_duties_satisfied(
+                kg, context.get("actor_id", ""), wallet, total, order
+            )
             if not sod_check["authorized"]:
-                return {"success": False, "error": f"separation of duties denied: {sod_check['reason']}"}
+                return {
+                    "success": False,
+                    "error": f"separation of duties denied: {sod_check['reason']}",
+                }
             # UPI Reserve Pay (kernel/domains/payment_provider.py): a
             # wallet entity explicitly tagged account_type=="upi_reserve_pay"
             # has no meaningful local "balance" to check here at all — the
@@ -7692,11 +9664,17 @@ class PaymentConfirmationCapability:
                         "error": f"insufficient balance: {wallet.name} has ${balance:.2f}, order total is ${total:.2f}",
                     }
 
-        return {"success": True, "status": "confirmed", "order_id": order.get("order_id"), "total": total}
+        return {
+            "success": True,
+            "status": "confirmed",
+            "order_id": order.get("order_id"),
+            "total": total,
+        }
 
 
 class PaymentCapability:
     """Processes payment using wallet/bank/processor from the actor's KG."""
+
     name = "Payment"
 
     def handle(self, args: dict) -> dict:
@@ -7706,8 +9684,14 @@ class PaymentCapability:
         order_id = context.get("order", {}).get("order_id", "")
 
         def _finalize_successful_payment(
-            wallet, wallet_name: str, bank_name: str, processor_name: str,
-            payment_attempts: list, balance_before, balance_after, account_type,
+            wallet,
+            wallet_name: str,
+            bank_name: str,
+            processor_name: str,
+            payment_attempts: list,
+            balance_before,
+            balance_after,
+            account_type,
         ) -> dict:
             """Shared tail for EVERY real successful charge, wallet-debit
             or UPI Reserve Pay alike: confirms the stock/budget holds
@@ -7748,9 +9732,14 @@ class PaymentCapability:
                 # real paid wallet/amount here, at the point of a genuine
                 # successful charge, is the only honest signal of that.
                 if wallet is not None and order_id:
-                    kg.update_entity(order_id, attributes={
-                        "paid_wallet_id": wallet.entity_id, "paid_amount": total, "payment_status": "paid",
-                    })
+                    kg.update_entity(
+                        order_id,
+                        attributes={
+                            "paid_wallet_id": wallet.entity_id,
+                            "paid_amount": total,
+                            "payment_status": "paid",
+                        },
+                    )
 
                 # Credit the selling side of the transaction — see
                 # kernel/domains/commerce.py::onboard_merchant's own
@@ -7766,22 +9755,33 @@ class PaymentCapability:
                 # can be credited from many concurrent buyers at once,
                 # the identical concurrency hazard the buyer-side CAS
                 # loop above already guards against.
-                from src.monkey_brain.kernel.knowledge_graph import EntityType as _EntityType
+                from src.monkey_brain.kernel.knowledge_graph import (
+                    EntityType as _EntityType,
+                )
+
                 totals_by_store: dict[str, float] = {}
                 for p in context.get("selected_product") or []:
                     sid = p.get("store_id")
                     if not sid:
                         continue
-                    totals_by_store[sid] = totals_by_store.get(sid, 0.0) + (p.get("price", 0) * p.get("qty", 1))
+                    totals_by_store[sid] = totals_by_store.get(sid, 0.0) + (
+                        p.get("price", 0) * p.get("qty", 1)
+                    )
                 for sid, sale_amount in totals_by_store.items():
                     if sale_amount <= 0:
                         continue
                     store_account = next(
-                        (a for a in kg.entities_by_type(_EntityType.ACCOUNT) if a.attributes.get("store_id") == sid),
+                        (
+                            a
+                            for a in kg.entities_by_type(_EntityType.ACCOUNT)
+                            if a.attributes.get("store_id") == sid
+                        ),
                         None,
                     )
                     if store_account is not None:
-                        _cas_adjust_balance(kg, store_account.entity_id, round(sale_amount, 2))
+                        _cas_adjust_balance(
+                            kg, store_account.entity_id, round(sale_amount, 2)
+                        )
 
             result = {
                 "success": True,
@@ -7806,18 +9806,28 @@ class PaymentCapability:
             # member of the delegator, or the delegator acting for themselves,
             # sees the full detail unchanged.
             acting_as = context.get("acting_as")
-            if acting_as and not is_same_household(acting_as, context.get("actor_id", "")):
+            if acting_as and not is_same_household(
+                acting_as, context.get("actor_id", "")
+            ):
                 result["wallet"] = "[redacted]"
                 result["bank"] = "[redacted]"
                 result["wallet_balance_before"] = None
                 result["wallet_balance_after"] = None
 
-            from src.monkey_brain.kernel.pipeline.audit_trail import record_decision_event
+            from src.monkey_brain.kernel.pipeline.audit_trail import (
+                record_decision_event,
+            )
+
             record_decision_event(
-                "payment_completed", actor_id=context.get("actor_id", ""),
+                "payment_completed",
+                actor_id=context.get("actor_id", ""),
                 execution_id=context.get("execution_id", ""),
                 reason=f"Charged ${total:.2f} via {processor_name}",
-                metadata={"payment_id": result["payment_id"], "order_id": order_id, "amount": total},
+                metadata={
+                    "payment_id": result["payment_id"],
+                    "order_id": order_id,
+                    "amount": total,
+                },
             )
 
             return result
@@ -7843,7 +9853,9 @@ class PaymentCapability:
             own pause/resume capabilities.
             """
             from src.monkey_brain.kernel.domains.payment_provider import sync_call
-            from src.monkey_brain.kernel.domains.razorpay_upi_provider import get_default_provider
+            from src.monkey_brain.kernel.domains.razorpay_upi_provider import (
+                get_default_provider,
+            )
 
             provider = get_default_provider()
             payer_id = _paying_actor_id(context)
@@ -7855,12 +9867,22 @@ class PaymentCapability:
             # real-world delay (the payer approving in their own app), so
             # re-checking is the MORE correct application of that
             # principle here, not a redundant one.
-            ent_check = enterprise_purchase_authorized(kg, context.get("actor_id", ""), wallet, total)
+            ent_check = enterprise_purchase_authorized(
+                kg, context.get("actor_id", ""), wallet, total
+            )
             if not ent_check["authorized"]:
-                return {"success": False, "error": f"RBAC denied: {ent_check['reason']}"}
-            sod_check = separation_of_duties_satisfied(kg, context.get("actor_id", ""), wallet, total, context.get("order", {}))
+                return {
+                    "success": False,
+                    "error": f"RBAC denied: {ent_check['reason']}",
+                }
+            sod_check = separation_of_duties_satisfied(
+                kg, context.get("actor_id", ""), wallet, total, context.get("order", {})
+            )
             if not sod_check["authorized"]:
-                return {"success": False, "error": f"separation of duties denied: {sod_check['reason']}"}
+                return {
+                    "success": False,
+                    "error": f"separation of duties denied: {sod_check['reason']}",
+                }
 
             decision = context.get("payment_decision")
             if decision is not None:
@@ -7886,10 +9908,15 @@ class PaymentCapability:
                 current = kg.get_entity(wallet.entity_id)
                 balance_before = current.attributes.get("balance", 0) if current else 0
                 if balance_before < total:
-                    return {"success": False,
-                            "error": f"insufficient balance: {wallet.name} has ${balance_before:.2f}, charge is ${total:.2f}"}
+                    return {
+                        "success": False,
+                        "error": f"insufficient balance: {wallet.name} has ${balance_before:.2f}, charge is ${total:.2f}",
+                    }
                 if not _cas_adjust_balance(kg, wallet.entity_id, -total):
-                    return {"success": False, "error": "payment failed: too much contention on wallet, please retry"}
+                    return {
+                        "success": False,
+                        "error": "payment failed: too much contention on wallet, please retry",
+                    }
                 balance_after = round(balance_before - total, 2)
                 # Level 43's single-use consumption, deferred to HERE (not
                 # the reserve pass below) — for UPI, capture is the true
@@ -7900,8 +9927,14 @@ class PaymentCapability:
                 if "request_id" in sod_check:
                     consume_purchase_request(kg, sod_check["request_id"])
                 return _finalize_successful_payment(
-                    wallet, wallet.name, "UPI", provider.name, [],
-                    balance_before=balance_before, balance_after=balance_after, account_type=account_type,
+                    wallet,
+                    wallet.name,
+                    "UPI",
+                    provider.name,
+                    [],
+                    balance_before=balance_before,
+                    balance_after=balance_after,
+                    account_type=account_type,
                 )
 
             # First attempt: reserve (hold funds) — real money is not yet
@@ -7919,7 +9952,10 @@ class PaymentCapability:
             # this stands in for the payer actually approving the UPI
             # collect request, so checkout completes on its own instead of
             # pausing forever with nothing to ever resolve it.
-            from src.monkey_brain.kernel.domains.razorpay_upi_provider import schedule_auto_approval
+            from src.monkey_brain.kernel.domains.razorpay_upi_provider import (
+                schedule_auto_approval,
+            )
+
             schedule_auto_approval(r.reservation_id, r.amount)
             return {
                 "success": False,
@@ -7938,7 +9974,11 @@ class PaymentCapability:
         # charging it again would be a genuine double-charge, exactly the
         # failure mode interrupt/resume safety exists to prevent.
         if context.get("already_paid"):
-            return {"success": True, "status": "already paid (resumed order)", "amount": 0}
+            return {
+                "success": True,
+                "status": "already paid (resumed order)",
+                "amount": 0,
+            }
 
         # Level 16/20: nothing to charge for (everything was borrowed/
         # negotiated socially, or already covered at home) is a real,
@@ -7955,7 +9995,11 @@ class PaymentCapability:
         # returned {"success": True, "status": "completed", "amount": 0.0"}.
         if total <= 0:
             if context.get("socially_fulfilled") or context.get("pantry_fulfilled"):
-                return {"success": True, "status": "no payment needed — already fulfilled", "amount": 0}
+                return {
+                    "success": True,
+                    "status": "no payment needed — already fulfilled",
+                    "amount": 0,
+                }
             return {"success": False, "error": f"invalid order total: {total}"}
 
         # MB-3014 Fraud Detection: re-verified here too, the SAME "verify
@@ -7966,6 +10010,7 @@ class PaymentCapability:
         # HERE too, at the actual charge point, not only at Confirmation.
         if kg:
             from src.monkey_brain.kernel.domains.finance import assess_transaction_risk
+
             risk = assess_transaction_risk(kg, _paying_actor_id(context), total)
             if risk["high_risk"]:
                 return {
@@ -7982,13 +10027,18 @@ class PaymentCapability:
 
         if kg:
             from src.monkey_brain.kernel.knowledge_graph import EntityType
+
             # Level 26 (GS-2600): charge the SPECIFIC account
             # PaymentConfirmation actually chose (food assistance, cash,
             # or credit) when one was chosen — never re-guess with
             # _find_wallet and silently charge a different account than
             # the one that was confirmed.
             chosen_id = context.get("chosen_payment_source")
-            wallet = kg.get_entity(chosen_id) if chosen_id else _find_wallet(kg, _paying_actor_id(context))
+            wallet = (
+                kg.get_entity(chosen_id)
+                if chosen_id
+                else _find_wallet(kg, _paying_actor_id(context))
+            )
             account_type = wallet.attributes.get("account_type") if wallet else None
 
             # UPI Reserve Pay dispatch: a wallet explicitly tagged this way
@@ -8001,7 +10051,14 @@ class PaymentCapability:
                 return _handle_upi_reserve_pay(wallet, account_type)
 
             orgs = [e for e in kg.entities_by_type(EntityType.ORGANIZATION)]
-            bank = next((e for e in orgs if "bank" in e.name.lower() or e.attributes.get("type") == "bank"), None)
+            bank = next(
+                (
+                    e
+                    for e in orgs
+                    if "bank" in e.name.lower() or e.attributes.get("type") == "bank"
+                ),
+                None,
+            )
             # GS-2200: try every processor, retrying a transiently-down one
             # before falling back to the next — not just the first one found.
             payment_result = process_payment_with_fallback(kg, total)
@@ -8018,7 +10075,11 @@ class PaymentCapability:
             return {"success": False, "error": "no wallet account found for payment"}
 
         if kg and not payment_result["success"]:
-            return {"success": False, "error": payment_result["reason"], "attempts": payment_result["attempts"]}
+            return {
+                "success": False,
+                "error": payment_result["reason"],
+                "attempts": payment_result["attempts"],
+            }
 
         # Level 40 (GS-4000/4001): the SAME "verify directly, don't trust a
         # prior check" principle the balance re-check right below already
@@ -8026,16 +10087,26 @@ class PaymentCapability:
         # ActionExecutor from running this step anyway, so it's re-verified
         # here too, against the actual account about to be charged.
         if wallet is not None:
-            ent_check = enterprise_purchase_authorized(kg, context.get("actor_id", ""), wallet, total)
+            ent_check = enterprise_purchase_authorized(
+                kg, context.get("actor_id", ""), wallet, total
+            )
             if not ent_check["authorized"]:
-                return {"success": False, "error": f"RBAC denied: {ent_check['reason']}"}
+                return {
+                    "success": False,
+                    "error": f"RBAC denied: {ent_check['reason']}",
+                }
             # Level 43 (GS-4300/4301/4302): re-verified here too, and this
             # is the actual charge point — the approved request is
             # CONSUMED here (single-use), not at PaymentConfirmation,
             # since that step can run without the charge actually landing.
-            sod_check = separation_of_duties_satisfied(kg, context.get("actor_id", ""), wallet, total, context.get("order", {}))
+            sod_check = separation_of_duties_satisfied(
+                kg, context.get("actor_id", ""), wallet, total, context.get("order", {})
+            )
             if not sod_check["authorized"]:
-                return {"success": False, "error": f"separation of duties denied: {sod_check['reason']}"}
+                return {
+                    "success": False,
+                    "error": f"separation of duties denied: {sod_check['reason']}",
+                }
             if "request_id" in sod_check:
                 consume_purchase_request(kg, sod_check["request_id"])
 
@@ -8077,7 +10148,11 @@ class PaymentCapability:
         # on conflict instead of trusting the value read once at the top
         # of this function.
         def _apply_balance_change(current: float) -> float:
-            return round(current + total, 2) if account_type == "credit" else round(current - total, 2)
+            return (
+                round(current + total, 2)
+                if account_type == "credit"
+                else round(current - total, 2)
+            )
 
         if wallet:
             for _ in range(20):
@@ -8085,32 +10160,51 @@ class PaymentCapability:
                 current_balance = current.attributes.get("balance", 0)
                 expected_version = kg.version_of(wallet.entity_id)
                 if account_type == "credit":
-                    extension = (context.get("emergency_borrowing") or {}).get("extension_used", 0)
+                    extension = (context.get("emergency_borrowing") or {}).get(
+                        "extension_used", 0
+                    )
                     available = _available_funds(current) + extension
                     if available < total:
-                        return {"success": False,
-                                "error": f"insufficient credit: {wallet_name} has ${available:.2f} available "
-                                         f"(incl. any approved extension), charge is ${total:.2f}"}
+                        return {
+                            "success": False,
+                            "error": f"insufficient credit: {wallet_name} has ${available:.2f} available "
+                            f"(incl. any approved extension), charge is ${total:.2f}",
+                        }
                 elif current_balance < total:
-                    return {"success": False,
-                            "error": f"insufficient balance: {wallet_name} has ${current_balance:.2f}, charge is ${total:.2f}"}
+                    return {
+                        "success": False,
+                        "error": f"insufficient balance: {wallet_name} has ${current_balance:.2f}, charge is ${total:.2f}",
+                    }
                 balance_after = _apply_balance_change(current_balance)
-                ok, _ = kg.compare_and_swap(wallet.entity_id, expected_version, {"balance": balance_after})
+                ok, _ = kg.compare_and_swap(
+                    wallet.entity_id, expected_version, {"balance": balance_after}
+                )
                 if ok:
                     balance_before = current_balance
                     break
             else:
-                return {"success": False, "error": "payment failed: too much contention on wallet, please retry"}
+                return {
+                    "success": False,
+                    "error": "payment failed: too much contention on wallet, please retry",
+                }
         else:
             balance_after = _apply_balance_change(balance_before)
 
         return _finalize_successful_payment(
-            wallet, wallet_name, bank_name, processor_name, payment_result["attempts"],
-            balance_before, balance_after, account_type,
+            wallet,
+            wallet_name,
+            bank_name,
+            processor_name,
+            payment_result["attempts"],
+            balance_before,
+            balance_after,
+            account_type,
         )
 
 
-_SHIPPED_ORDER_STATUSES = frozenset({"delivered", "completed", "return_requested", "returned"})
+_SHIPPED_ORDER_STATUSES = frozenset(
+    {"delivered", "completed", "return_requested", "returned"}
+)
 """MB-3029: statuses that mean an order has already shipped (or is
 already mid-return) — cancel_order() refuses all of these, since
 return_order() (MB-3025/MB-3026) is the correct path once an order has
@@ -8157,15 +10251,21 @@ def cancel_order(kg, order_id: str, actor_id: str | None = None) -> dict:
         return {
             "success": False,
             "error": f"order {order_id!r} is {status!r} — it has already shipped, "
-                     f"use return_order instead of cancel_order",
+            f"use return_order instead of cancel_order",
         }
     if order.attributes.get("payment_status") != "paid":
-        return {"success": False, "error": f"order {order_id!r} was never successfully paid for — nothing to reverse"}
+        return {
+            "success": False,
+            "error": f"order {order_id!r} was never successfully paid for — nothing to reverse",
+        }
 
     wallet_id = order.attributes.get("paid_wallet_id")
     wallet = kg.get_entity(wallet_id) if wallet_id else None
     if wallet is None:
-        return {"success": False, "error": f"paid wallet {wallet_id!r} for order {order_id!r} no longer exists — cannot refund"}
+        return {
+            "success": False,
+            "error": f"paid wallet {wallet_id!r} for order {order_id!r} no longer exists — cannot refund",
+        }
 
     # MB-3027: never blindly refund the original paid_amount — a prior
     # partial/goodwill refund_order() call may have already returned
@@ -8173,13 +10273,21 @@ def cancel_order(kg, order_id: str, actor_id: str | None = None) -> dict:
     # here, so a partial refund followed by a full cancellation can
     # never double-refund the same money.
     already_refunded = order.attributes.get("total_refunded", 0)
-    refund_amount = round(order.attributes.get("paid_amount", order.attributes.get("total", 0)) - already_refunded, 2)
+    refund_amount = round(
+        order.attributes.get("paid_amount", order.attributes.get("total", 0))
+        - already_refunded,
+        2,
+    )
     account_type = wallet.attributes.get("account_type")
     balance = wallet.attributes.get("balance", 0)
     # A credit account's balance is debt owed (Level 26) — refunding a
     # credit purchase REDUCES the debt, the same direction Payment's own
     # charge/credit asymmetry already established.
-    new_balance = round(balance - refund_amount, 2) if account_type == "credit" else round(balance + refund_amount, 2)
+    new_balance = (
+        round(balance - refund_amount, 2)
+        if account_type == "credit"
+        else round(balance + refund_amount, 2)
+    )
     kg.update_entity(wallet.entity_id, attributes={"balance": new_balance})
     _debit_store_accounts_for_refund(kg, order, refund_amount)
 
@@ -8191,16 +10299,23 @@ def cancel_order(kg, order_id: str, actor_id: str | None = None) -> dict:
         product = kg.get_entity(pid) if pid else None
         if product is None:
             continue  # discontinued since purchase — nothing real to restock
-        kg.update_entity(pid, attributes={"quantity": product.attributes.get("quantity", 0) + qty})
+        kg.update_entity(
+            pid, attributes={"quantity": product.attributes.get("quantity", 0) + qty}
+        )
         restocked.append({"product_id": pid, "qty": qty})
         store_id = product.attributes.get("store_id")
         if store_id:
             stores_affected.add(store_id)
 
-    kg.update_entity(order_id, attributes={
-        "status": "cancelled", "cancelled_at": time.time(), "cancelled_by": actor_id,
-        "total_refunded": round(already_refunded + refund_amount, 2),
-    })
+    kg.update_entity(
+        order_id,
+        attributes={
+            "status": "cancelled",
+            "cancelled_at": time.time(),
+            "cancelled_by": actor_id,
+            "total_refunded": round(already_refunded + refund_amount, 2),
+        },
+    )
 
     # Level 17 write side: has_learned_to_avoid() (this module) reads
     # trust/fulfilled_count/cancelled_count off each store entity, but
@@ -8214,8 +10329,11 @@ def cancel_order(kg, order_id: str, actor_id: str | None = None) -> dict:
         record_order_outcome(kg, store_id, fulfilled=False)
 
     return {
-        "success": True, "order_id": order_id, "refunded": refund_amount,
-        "wallet_id": wallet.entity_id, "restocked": restocked,
+        "success": True,
+        "order_id": order_id,
+        "refunded": refund_amount,
+        "wallet_id": wallet.entity_id,
+        "restocked": restocked,
     }
 
 
@@ -8223,6 +10341,7 @@ class CancelOrderCapability:
     """Discoverable capability wrapper for cancel_order — an on-demand
     action, not part of the fixed checkout plan sequence every other
     capability here participates in."""
+
     name = "CancelOrder"
 
     def handle(self, args: dict) -> dict:
@@ -8246,11 +10365,16 @@ class CancelOrderCapability:
             or (selection[0].get("id") if selection else None)
         )
         if kg is None or not order_id:
-            return {"success": False, "error": "no knowledge graph or order_id provided"}
+            return {
+                "success": False,
+                "error": "no knowledge graph or order_id provided",
+            }
         return cancel_order(kg, order_id, actor_id=context.get("actor_id"))
 
 
-def return_order(kg, order_id: str, actor_id: str | None = None, reason: str = "") -> dict:
+def return_order(
+    kg, order_id: str, actor_id: str | None = None, reason: str = ""
+) -> dict:
     """MB-3025 Return Request: files a return REQUEST for a DELIVERED
     order — the customer's ask, not an automatic refund. Approval
     (MB-3026's approve_return()) is a separate, deliberate step that
@@ -8278,21 +10402,34 @@ def return_order(kg, order_id: str, actor_id: str | None = None, reason: str = "
         return {
             "success": False,
             "error": f"order {order_id!r} is {status!r}, cannot request a return — it was never delivered "
-                     f"(use cancel_order for an order that hasn't shipped)",
+            f"(use cancel_order for an order that hasn't shipped)",
         }
     if order.attributes.get("payment_status") != "paid":
-        return {"success": False, "error": f"order {order_id!r} was never successfully paid for — nothing to return"}
+        return {
+            "success": False,
+            "error": f"order {order_id!r} was never successfully paid for — nothing to return",
+        }
 
-    kg.update_entity(order_id, attributes={
+    kg.update_entity(
+        order_id,
+        attributes={
+            "status": "return_requested",
+            "return_requested_at": time.time(),
+            "return_requested_by": actor_id,
+            "return_reason": reason,
+        },
+    )
+    return {
+        "success": True,
+        "order_id": order_id,
         "status": "return_requested",
-        "return_requested_at": time.time(),
-        "return_requested_by": actor_id,
-        "return_reason": reason,
-    })
-    return {"success": True, "order_id": order_id, "status": "return_requested", "reason": reason}
+        "reason": reason,
+    }
 
 
-def approve_return(kg, order_id: str, approved_by: str | None = None, now: float | None = None) -> dict:
+def approve_return(
+    kg, order_id: str, approved_by: str | None = None, now: float | None = None
+) -> dict:
     """MB-3026 Return Approval: the deliberate step that actually acts on
     a return_order() (MB-3025) request — refunds the real wallet that
     paid for the order and restocks each item, the same mechanics as
@@ -8313,25 +10450,39 @@ def approve_return(kg, order_id: str, approved_by: str | None = None, now: float
         return {
             "success": False,
             "error": f"order {order_id!r} is {order.attributes.get('status')!r}, "
-                     f"no pending return request to approve",
+            f"no pending return request to approve",
         }
     if order.attributes.get("payment_status") != "paid":
-        return {"success": False, "error": f"order {order_id!r} was never successfully paid for — nothing to reverse"}
+        return {
+            "success": False,
+            "error": f"order {order_id!r} was never successfully paid for — nothing to reverse",
+        }
 
     wallet_id = order.attributes.get("paid_wallet_id")
     wallet = kg.get_entity(wallet_id) if wallet_id else None
     if wallet is None:
-        return {"success": False, "error": f"paid wallet {wallet_id!r} for order {order_id!r} no longer exists — cannot refund"}
+        return {
+            "success": False,
+            "error": f"paid wallet {wallet_id!r} for order {order_id!r} no longer exists — cannot refund",
+        }
 
     # MB-3027: same "never double-refund" guard as cancel_order() — only
     # what's actually still outstanding, in case a prior partial/goodwill
     # refund_order() call already returned some of it.
     already_refunded = order.attributes.get("total_refunded", 0)
-    refund_amount = round(order.attributes.get("paid_amount", order.attributes.get("total", 0)) - already_refunded, 2)
+    refund_amount = round(
+        order.attributes.get("paid_amount", order.attributes.get("total", 0))
+        - already_refunded,
+        2,
+    )
     account_type = wallet.attributes.get("account_type")
     balance = wallet.attributes.get("balance", 0)
     # Same credit/debit refund-direction asymmetry as cancel_order().
-    new_balance = round(balance - refund_amount, 2) if account_type == "credit" else round(balance + refund_amount, 2)
+    new_balance = (
+        round(balance - refund_amount, 2)
+        if account_type == "credit"
+        else round(balance + refund_amount, 2)
+    )
     kg.update_entity(wallet.entity_id, attributes={"balance": new_balance})
     _debit_store_accounts_for_refund(kg, order, refund_amount)
 
@@ -8342,16 +10493,26 @@ def approve_return(kg, order_id: str, approved_by: str | None = None, now: float
         product = kg.get_entity(pid) if pid else None
         if product is None:
             continue  # discontinued since purchase — nothing real to restock
-        kg.update_entity(pid, attributes={"quantity": product.attributes.get("quantity", 0) + qty})
+        kg.update_entity(
+            pid, attributes={"quantity": product.attributes.get("quantity", 0) + qty}
+        )
         restocked.append({"product_id": pid, "qty": qty})
 
-    kg.update_entity(order_id, attributes={
-        "status": "returned", "returned_at": now, "approved_by": approved_by,
-        "total_refunded": round(already_refunded + refund_amount, 2),
-    })
+    kg.update_entity(
+        order_id,
+        attributes={
+            "status": "returned",
+            "returned_at": now,
+            "approved_by": approved_by,
+            "total_refunded": round(already_refunded + refund_amount, 2),
+        },
+    )
     return {
-        "success": True, "order_id": order_id, "refunded": refund_amount,
-        "wallet_id": wallet.entity_id, "restocked": restocked,
+        "success": True,
+        "order_id": order_id,
+        "refunded": refund_amount,
+        "wallet_id": wallet.entity_id,
+        "restocked": restocked,
     }
 
 
@@ -8360,6 +10521,7 @@ class ReturnOrderCapability:
     convention as CancelOrderCapability, but for a customer requesting a
     return on an order they've already received rather than stopping
     one before it ships."""
+
     name = "ReturnOrder"
 
     def handle(self, args: dict) -> dict:
@@ -8380,9 +10542,14 @@ class ReturnOrderCapability:
             or parameters.get("order_id")
         )
         if kg is None or not order_id:
-            return {"success": False, "error": "no knowledge graph or order_id provided"}
+            return {
+                "success": False,
+                "error": "no knowledge graph or order_id provided",
+            }
         return return_order(
-            kg, order_id, actor_id=context.get("actor_id"),
+            kg,
+            order_id,
+            actor_id=context.get("actor_id"),
             reason=parameters.get("reason") or context.get("return_reason", ""),
         )
 
@@ -8391,6 +10558,7 @@ class ApproveReturnCapability:
     """Discoverable capability wrapper for approve_return — same
     on-demand convention as ReturnOrderCapability, but for the merchant
     side sign-off that actually triggers the refund/restock."""
+
     name = "ApproveReturn"
 
     def handle(self, args: dict) -> dict:
@@ -8405,12 +10573,21 @@ class ApproveReturnCapability:
             or parameters.get("order_id")
         )
         if kg is None or not order_id:
-            return {"success": False, "error": "no knowledge graph or order_id provided"}
+            return {
+                "success": False,
+                "error": "no knowledge graph or order_id provided",
+            }
         return approve_return(kg, order_id, approved_by=context.get("actor_id"))
 
 
-def refund_order(kg, order_id: str, amount: float | None = None, reason: str = "",
-                  refunded_by: str | None = None, now: float | None = None) -> dict:
+def refund_order(
+    kg,
+    order_id: str,
+    amount: float | None = None,
+    reason: str = "",
+    refunded_by: str | None = None,
+    now: float | None = None,
+) -> dict:
     """MB-3027 Refund: a standalone, partial-capable refund — credits the
     real wallet that paid for an order WITHOUT restocking inventory or
     changing the order's status to cancelled/returned. For the cases
@@ -8434,17 +10611,26 @@ def refund_order(kg, order_id: str, amount: float | None = None, reason: str = "
     if order is None:
         return {"success": False, "error": f"no such order {order_id!r}"}
     if order.attributes.get("payment_status") != "paid":
-        return {"success": False, "error": f"order {order_id!r} was never successfully paid for — nothing to refund"}
+        return {
+            "success": False,
+            "error": f"order {order_id!r} was never successfully paid for — nothing to refund",
+        }
 
     paid_amount = order.attributes.get("paid_amount", order.attributes.get("total", 0))
     already_refunded = order.attributes.get("total_refunded", 0)
     remaining = round(paid_amount - already_refunded, 2)
     if remaining <= 0:
-        return {"success": False, "error": f"order {order_id!r} has already been fully refunded"}
+        return {
+            "success": False,
+            "error": f"order {order_id!r} has already been fully refunded",
+        }
 
     refund_amount = remaining if amount is None else amount
     if refund_amount <= 0:
-        return {"success": False, "error": f"refund amount must be positive, got {refund_amount!r}"}
+        return {
+            "success": False,
+            "error": f"refund amount must be positive, got {refund_amount!r}",
+        }
     if refund_amount > remaining:
         return {
             "success": False,
@@ -8454,26 +10640,44 @@ def refund_order(kg, order_id: str, amount: float | None = None, reason: str = "
     wallet_id = order.attributes.get("paid_wallet_id")
     wallet = kg.get_entity(wallet_id) if wallet_id else None
     if wallet is None:
-        return {"success": False, "error": f"paid wallet {wallet_id!r} for order {order_id!r} no longer exists — cannot refund"}
+        return {
+            "success": False,
+            "error": f"paid wallet {wallet_id!r} for order {order_id!r} no longer exists — cannot refund",
+        }
 
     account_type = wallet.attributes.get("account_type")
     balance = wallet.attributes.get("balance", 0)
     # Same credit/debit refund-direction asymmetry as cancel_order().
-    new_balance = round(balance - refund_amount, 2) if account_type == "credit" else round(balance + refund_amount, 2)
+    new_balance = (
+        round(balance - refund_amount, 2)
+        if account_type == "credit"
+        else round(balance + refund_amount, 2)
+    )
     kg.update_entity(wallet.entity_id, attributes={"balance": new_balance})
     _debit_store_accounts_for_refund(kg, order, refund_amount)
 
     new_total_refunded = round(already_refunded + refund_amount, 2)
-    refund_record = {"amount": refund_amount, "reason": reason, "refunded_by": refunded_by, "refunded_at": now}
+    refund_record = {
+        "amount": refund_amount,
+        "reason": reason,
+        "refunded_by": refunded_by,
+        "refunded_at": now,
+    }
     refund_history = list(order.attributes.get("refund_history") or [])
     refund_history.append(refund_record)
-    kg.update_entity(order_id, attributes={
-        "total_refunded": new_total_refunded,
-        "refund_history": refund_history,
-    })
+    kg.update_entity(
+        order_id,
+        attributes={
+            "total_refunded": new_total_refunded,
+            "refund_history": refund_history,
+        },
+    )
     return {
-        "success": True, "order_id": order_id, "refunded": refund_amount,
-        "total_refunded": new_total_refunded, "wallet_id": wallet.entity_id,
+        "success": True,
+        "order_id": order_id,
+        "refunded": refund_amount,
+        "total_refunded": new_total_refunded,
+        "wallet_id": wallet.entity_id,
     }
 
 
@@ -8482,6 +10686,7 @@ class RefundOrderCapability:
     convention as CancelOrderCapability/ReturnOrderCapability, but for a
     standalone partial/goodwill refund that leaves the order and
     inventory untouched."""
+
     name = "RefundOrder"
 
     def handle(self, args: dict) -> dict:
@@ -8496,9 +10701,13 @@ class RefundOrderCapability:
             or parameters.get("order_id")
         )
         if kg is None or not order_id:
-            return {"success": False, "error": "no knowledge graph or order_id provided"}
+            return {
+                "success": False,
+                "error": "no knowledge graph or order_id provided",
+            }
         return refund_order(
-            kg, order_id,
+            kg,
+            order_id,
             amount=parameters.get("amount", context.get("refund_amount")),
             reason=parameters.get("reason") or context.get("refund_reason", ""),
             refunded_by=context.get("actor_id"),
@@ -8521,6 +10730,7 @@ class DeliveryCapability:
     refusing outright) but says so honestly rather than silently reporting
     "scheduled" as if the deadline were satisfied.
     """
+
     name = "Delivery"
 
     def handle(self, args: dict) -> dict:
@@ -8538,7 +10748,10 @@ class DeliveryCapability:
             # were never going to be delivered again — nothing here to
             # schedule is correct, not a failure.
             if context.get("socially_fulfilled") or context.get("pantry_fulfilled"):
-                return {"success": True, "note": "nothing to deliver — already fulfilled"}
+                return {
+                    "success": True,
+                    "note": "nothing to deliver — already fulfilled",
+                }
             return {"success": False, "error": "no items to deliver"}
 
         # Real gap this closes: same real bug as OrderConfirmationCapability
@@ -8551,13 +10764,20 @@ class DeliveryCapability:
         order_id = (context.get("order") or {}).get("order_id")
         if order_id:
             fresh_order = kg.get_entity(order_id)
-            if fresh_order is not None and fresh_order.attributes.get("payment_status") != "paid":
-                return {"success": False,
-                        "error": f"order {order_id!r} has not been paid for yet — cannot arrange delivery"}
+            if (
+                fresh_order is not None
+                and fresh_order.attributes.get("payment_status") != "paid"
+            ):
+                return {
+                    "success": False,
+                    "error": f"order {order_id!r} has not been paid for yet — cannot arrange delivery",
+                }
 
         from src.monkey_brain.kernel.knowledge_graph import EntityType
 
-        store_ids = sorted({p.get("store_id", "") for p in products if p.get("store_id")})
+        store_ids = sorted(
+            {p.get("store_id", "") for p in products if p.get("store_id")}
+        )
         pickup_addresses = []
         pickup_minutes = 0.0
         pickup_methods = []
@@ -8566,14 +10786,19 @@ class DeliveryCapability:
             store_name = store.name if store else "Unknown Store"
             address = store.attributes.get("address") if store else None
             if not address:
-                return {"success": False, "error": f"no address on file for store {store_name!r}"}
+                return {
+                    "success": False,
+                    "error": f"no address on file for store {store_name!r}",
+                }
             pickup_addresses.append(f"{store_name}, {address}")
             # GS-2800: a multi-store cart isn't ready until EVERY pickup
             # is — the binding constraint is whichever store takes longest,
             # not the first one checked.
             store_pickup_minutes, method = estimate_pickup_minutes(store)
             pickup_minutes = max(pickup_minutes, store_pickup_minutes)
-            pickup_methods.append({"store": store_name, "method": method, "minutes": store_pickup_minutes})
+            pickup_methods.append(
+                {"store": store_name, "method": method, "minutes": store_pickup_minutes}
+            )
 
         # Delivery vs Pickup: an explicit self-pickup request skips rider
         # assignment entirely — the actor collects the order themselves,
@@ -8601,7 +10826,8 @@ class DeliveryCapability:
         # across ALL actors), never the requester's own.
         recipient_id = _paying_actor_id(context)
         addresses = [
-            e for e in kg.entities_by_type(EntityType.ADDRESS)
+            e
+            for e in kg.entities_by_type(EntityType.ADDRESS)
             if e.attributes.get("actor_id") == recipient_id
         ]
         delivery_entity = next(
@@ -8612,14 +10838,19 @@ class DeliveryCapability:
             return {"success": False, "error": "no delivery address on file for actor"}
         delivery_address = _format_address(delivery_entity)
 
-        persons = [e for e in kg.entities_by_type(EntityType.PERSON)
-                   if e.attributes.get("status") == "available"]
+        persons = [
+            e
+            for e in kg.entities_by_type(EntityType.PERSON)
+            if e.attributes.get("status") == "available"
+        ]
         if not persons:
             return {"success": False, "error": "no riders available"}
 
         deadline_minutes = parse_deadline_minutes(context.get("question", ""))
         item_optimization = context.get("optimization", "cost")
-        assignment = select_delivery_riders(persons, products, item_optimization, deadline_minutes)
+        assignment = select_delivery_riders(
+            persons, products, item_optimization, deadline_minutes
+        )
         if not assignment["success"]:
             return assignment
 
@@ -8643,10 +10874,14 @@ class DeliveryCapability:
         order_id = context.get("order", {}).get("order_id", "")
         shipment_ids: list[str] = []
         if order_id and kg:
-            packages = [{"product_id": p.get("id"), "qty": p.get("qty", 1)} for p in products]
+            packages = [
+                {"product_id": p.get("id"), "qty": p.get("qty", 1)} for p in products
+            ]
             for a in assignments:
                 rider = a["rider"]
-                shipment = create_shipment(kg, order_id, packages, rider_id=rider.entity_id)
+                shipment = create_shipment(
+                    kg, order_id, packages, rider_id=rider.entity_id
+                )
                 if shipment.get("success"):
                     shipment_ids.append(shipment["shipment_id"])
                 mark_rider_assigned(kg, rider.entity_id)
@@ -8707,8 +10942,10 @@ class DeliveryCapability:
         # awkwardly represent several.
         riders_report = [
             {
-                "rider_id": a["rider"].entity_id, "rider_name": a["rider"].name,
-                "qty_assigned": a["qty"], "vehicle": a["rider"].attributes.get("vehicle", ""),
+                "rider_id": a["rider"].entity_id,
+                "rider_name": a["rider"].name,
+                "qty_assigned": a["qty"],
+                "vehicle": a["rider"].attributes.get("vehicle", ""),
                 "estimated_minutes": a["rider"].attributes.get("estimated_minutes", 30),
             }
             for a in assignments
@@ -8738,6 +10975,7 @@ def _build_vertical_runtime() -> "VerticalRuntime":
     from src.monkey_brain.kernel.domains.vertical_router import VerticalRuntime
     from src.monkey_brain.kernel.pipeline.llm_planner import LLMPlanner
     from src.monkey_brain.kernel.pipeline.plan_validator import PlanValidator
+
     return VerticalRuntime(
         bus=build_default_capability_bus(),
         context_projector=project_action_result_to_context,
@@ -8752,5 +10990,9 @@ def _build_vertical_runtime() -> "VerticalRuntime":
     )
 
 
-from src.monkey_brain.kernel.domains.vertical_router import VerticalRuntime, register_vertical  # noqa: E402
+from src.monkey_brain.kernel.domains.vertical_router import (
+    VerticalRuntime,
+    register_vertical,
+)  # noqa: E402
+
 register_vertical("grocery", _build_vertical_runtime)

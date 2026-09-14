@@ -151,7 +151,8 @@ async def add_step(
     steps = [*existing.get("steps", []), _prepare(step.model_dump())]
     updates = {
         "steps": steps,
-        "current_step_id": existing.get("current_step_id") or _next_current_step_id(steps),
+        "current_step_id": existing.get("current_step_id")
+        or _next_current_step_id(steps),
         "updated_at": utc_now(),
     }
     result = await db[COLLECTION].find_one_and_update(
@@ -188,7 +189,11 @@ async def update_step(
 
     status = existing.get("status")
     if steps and all(
-        step.get("status") in {DocumentWorkflowStepStatus.APPROVED.value, DocumentWorkflowStepStatus.SKIPPED.value}
+        step.get("status")
+        in {
+            DocumentWorkflowStepStatus.APPROVED.value,
+            DocumentWorkflowStepStatus.SKIPPED.value,
+        }
         for step in steps
     ):
         status = DocumentWorkflowStatus.APPROVED.value

@@ -26,7 +26,10 @@ def _get_embedding_registry() -> Any:
     search_episodic call instead of once per process."""
     global _embedding_registry
     if _embedding_registry is None:
-        from src.monkey_brain.kernel.plan.embedding.registry import build_default_registry
+        from src.monkey_brain.kernel.plan.embedding.registry import (
+            build_default_registry,
+        )
+
         _embedding_registry = build_default_registry()
     return _embedding_registry
 
@@ -49,7 +52,7 @@ class MemoryManager:
 
     def __init__(self, vector_client: Any, graph_client: Any) -> None:
         self.vector_db = vector_client
-        self.graph_db  = graph_client
+        self.graph_db = graph_client
 
         # Volatile working space — one slot per active task, keyed by
         # (actor_id, task_id) so two actors' tasks can never collide on the
@@ -70,10 +73,10 @@ class MemoryManager:
 
     def allocate_working_context(
         self,
-        actor_id:      str,
-        task_id:       str,
+        actor_id: str,
+        task_id: str,
         initial_state: dict[str, Any],
-        provenance:    ProvenanceToken,
+        provenance: ProvenanceToken,
     ) -> MemoryNode:
         """Allocate a volatile workspace for an active runtime thread,
         scoped to actor_id so a task_id collision across actors can never
@@ -98,7 +101,7 @@ class MemoryManager:
         if not node:
             return None
 
-        node.memory_type  = "episodic"
+        node.memory_type = "episodic"
         node.last_accessed = time.time()
 
         self.graph_db.insert_node(node.node_id, node.payload, label="EpisodicTrace")
@@ -112,8 +115,12 @@ class MemoryManager:
         return node
 
     def record_experience(
-        self, actor_id: str, kind: str, text: str,
-        metadata: dict[str, Any] | None = None, provenance: ProvenanceToken | None = None,
+        self,
+        actor_id: str,
+        kind: str,
+        text: str,
+        metadata: dict[str, Any] | None = None,
+        provenance: ProvenanceToken | None = None,
     ) -> MemoryNode:
         """One-shot write straight to the episodic store — for recording a
         COMPLETED experience/conversation/execution (not a live task's
@@ -125,8 +132,11 @@ class MemoryManager:
 
         payload = {"actor_id": actor_id, "kind": kind, "text": text, **(metadata or {})}
         node = MemoryNode(
-            node_id=uuid4().hex, memory_type="episodic", payload=payload,
-            vector_embedding=embedding.vector.tolist(), provenance=provenance,
+            node_id=uuid4().hex,
+            memory_type="episodic",
+            payload=payload,
+            vector_embedding=embedding.vector.tolist(),
+            provenance=provenance,
         )
         # `name` is content-derived (unlike `label`, which stays the
         # constant "EpisodicTrace" structural marker cognitive_gc.py /
@@ -135,7 +145,10 @@ class MemoryManager:
         # keywords, instead of every recorded experience sharing one
         # indistinguishable name.
         self.graph_db.insert_node(
-            node.node_id, node.payload, label="EpisodicTrace", name=f"{kind}: {text}",
+            node.node_id,
+            node.payload,
+            label="EpisodicTrace",
+            name=f"{kind}: {text}",
         )
         self.vector_db.upsert(id=node.node_id, vector=node.vector_embedding, metadata=payload)
         self._by_actor.setdefault(actor_id, []).append(node)
@@ -162,10 +175,15 @@ class MemoryManager:
             if actor_id is not None and metadata.get("actor_id") != actor_id:
                 continue
             payload = {**metadata, "_retrieval_score": score}
-            nodes.append(MemoryNode(
-                node_id=node_id, memory_type="episodic", payload=payload,
-                vector_embedding=None, access_count=0,
-            ))
+            nodes.append(
+                MemoryNode(
+                    node_id=node_id,
+                    memory_type="episodic",
+                    payload=payload,
+                    vector_embedding=None,
+                    access_count=0,
+                )
+            )
             if len(nodes) >= top_k:
                 break
         return nodes

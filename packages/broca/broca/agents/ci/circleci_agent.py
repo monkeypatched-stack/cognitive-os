@@ -1,4 +1,5 @@
 """CircleCIAgent — triggers and monitors CircleCI pipeline workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -30,9 +31,13 @@ class CircleCIAgent(BaseETASSAgent):
 
         if not token or not project_slug:
             self._reward(False, 0.0)
-            return self._result(payload={"triggered": False}, observations=["missing circleci_token or project_slug"])
+            return self._result(
+                payload={"triggered": False},
+                observations=["missing circleci_token or project_slug"],
+            )
 
         import httpx
+
         api = f"https://circleci.com/api/v2/project/{project_slug}/pipeline"
         headers = {"Circle-Token": token, "Content-Type": "application/json"}
 
@@ -43,15 +48,33 @@ class CircleCIAgent(BaseETASSAgent):
             success = resp.status_code in (200, 201)
         except Exception as e:
             self._reward(False, 0.1)
-            return self._result(payload={"triggered": False, "error": str(e)}, observations=[f"CircleCI API error: {e}"])
+            return self._result(
+                payload={"triggered": False, "error": str(e)},
+                observations=[f"CircleCI API error: {e}"],
+            )
 
         pipeline_id = data.get("id", "")
         pipeline_url = f"https://app.circleci.com/pipelines/{project_slug}"
         self._reward(success, 0.6)
-        artifacts = [Artifact(kind="ci_pipeline", name=f"CircleCI:{pipeline_id}", uri=pipeline_url)] if Artifact and success else []
+        artifacts = (
+            [Artifact(kind="ci_pipeline", name=f"CircleCI:{pipeline_id}", uri=pipeline_url)]
+            if Artifact and success
+            else []
+        )
 
         return self._result(
-            payload={"triggered": success, "pipeline_id": pipeline_id, "pipeline_url": pipeline_url, "branch": branch},
+            payload={
+                "triggered": success,
+                "pipeline_id": pipeline_id,
+                "pipeline_url": pipeline_url,
+                "branch": branch,
+            },
             artifacts=artifacts,
-            observations=[f"CircleCI pipeline {pipeline_id} triggered" if success else f"CircleCI trigger failed: {data.get('message', '')}"],
+            observations=[
+                (
+                    f"CircleCI pipeline {pipeline_id} triggered"
+                    if success
+                    else f"CircleCI trigger failed: {data.get('message', '')}"
+                )
+            ],
         )

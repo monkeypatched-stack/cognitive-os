@@ -9,6 +9,7 @@ object-store-backed world takes (swap file shards for S3/KV keys and the logic i
 Tenant ids are encoded to safe filenames (no path traversal), so a hostile tenant id like
 "../../etc/passwd" can never escape the shard directory.
 """
+
 from __future__ import annotations
 
 import base64
@@ -33,8 +34,14 @@ def _tenant_of(shard_name: str) -> str:
 class ShardedWorldStore:
     """Per-tenant tensor shards with a bounded in-memory LRU."""
 
-    def __init__(self, shard_dir: str | Path, *, max_resident: int = 128,
-                 learning_rate: float = 0.1, discount: float = 0.95) -> None:
+    def __init__(
+        self,
+        shard_dir: str | Path,
+        *,
+        max_resident: int = 128,
+        learning_rate: float = 0.1,
+        discount: float = 0.95,
+    ) -> None:
         self._dir = Path(shard_dir)
         self._dir.mkdir(parents=True, exist_ok=True)
         self._max = max(1, max_resident)
@@ -63,11 +70,14 @@ class ShardedWorldStore:
         self._resident[tenant] = t
         self._resident.move_to_end(tenant)
         while len(self._resident) > self._max:
-            old_tenant, old_t = self._resident.popitem(last=False)   # least-recently-used
-            old_t.save(self._shard_path(old_tenant))                 # persist before evicting
+            old_tenant, old_t = self._resident.popitem(last=False)  # least-recently-used
+            old_t.save(self._shard_path(old_tenant))  # persist before evicting
             self._evictions += 1
-            logger.info("[sharded] evicted tenant %s to shard (resident=%d)",
-                        old_tenant, len(self._resident))
+            logger.info(
+                "[sharded] evicted tenant %s to shard (resident=%d)",
+                old_tenant,
+                len(self._resident),
+            )
 
     def save(self, tenant: str) -> None:
         t = self._resident.get(tenant)

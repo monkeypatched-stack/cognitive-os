@@ -33,12 +33,12 @@ Sections, in the order they were originally built:
   - Runtime integrity (capability-manifest and plan-signature checks)
   - Separation of duties (request/approve, single-use, tenant-scoped)
 """
+
 from __future__ import annotations
 
 import hashlib
 import re
 import time
-
 
 # ── AUTHZ ─────────────────────────────────────────────────────────────
 
@@ -55,7 +55,9 @@ def parse_target_payment_actor(question: str) -> str | None:
     return m.group(1).lower() if m else None
 
 
-def authorize_payment_source(authenticated_actor_id: str, target_actor_id: str | None) -> dict:
+def authorize_payment_source(
+    authenticated_actor_id: str, target_actor_id: str | None
+) -> dict:
     """An authenticated actor may pay from their OWN identity, or a REAL
     shared household/tenant they're actually a member of — never another
     individual's personal identity just because a request happens to name
@@ -67,12 +69,15 @@ def authorize_payment_source(authenticated_actor_id: str, target_actor_id: str |
     if target_actor_id is None or target_actor_id == authenticated_actor_id:
         return {"authorized": True, "reason": "own account"}
     from src.monkey_brain.kernel.knowledge_graph_neo4j import resolve_household_id
+
     own_household = resolve_household_id(authenticated_actor_id)
     target_household = resolve_household_id(target_actor_id)
     if own_household is not None and own_household == target_household:
         return {"authorized": True, "reason": "shared household membership"}
-    return {"authorized": False,
-            "reason": f"{authenticated_actor_id} is not authorized to use {target_actor_id}'s personal account"}
+    return {
+        "authorized": False,
+        "reason": f"{authenticated_actor_id} is not authorized to use {target_actor_id}'s personal account",
+    }
 
 
 def authorize_resource_access(actor_permissions, resource) -> dict:
@@ -88,14 +93,20 @@ def authorize_resource_access(actor_permissions, resource) -> dict:
     if not required_permission:
         return {"authorized": True, "reason": "not a restricted resource"}
     if actor_permissions is None:
-        return {"authorized": True, "reason": "no permission enforcement active (dev mode)"}
+        return {
+            "authorized": True,
+            "reason": "no permission enforcement active (dev mode)",
+        }
     if required_permission in actor_permissions:
         return {"authorized": True, "reason": f"has {required_permission}"}
-    return {"authorized": False,
-            "reason": f"restricted resource requires {required_permission!r}, which this actor's token does not grant"}
+    return {
+        "authorized": False,
+        "reason": f"restricted resource requires {required_permission!r}, which this actor's token does not grant",
+    }
 
 
 # ── Delegation ────────────────────────────────────────────────────────
+
 
 def _delegation_id(delegator_id: str, delegate_id: str) -> str:
     return f"delegation_{delegator_id}_{delegate_id}"
@@ -108,11 +119,22 @@ def grant_delegation(kg, delegator_id: str, delegate_id: str, expires_at: float)
     someone else's authority.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     delegation_id = _delegation_id(delegator_id, delegate_id)
-    kg.add_entity(delegation_id, EntityType.OTHER, f"{delegator_id} delegates to {delegate_id}", {
-        "delegation": True, "delegator_id": delegator_id, "delegate_id": delegate_id,
-        "granted_at": time.time(), "expires_at": expires_at, "revoked": False, "household": True,
-    })
+    kg.add_entity(
+        delegation_id,
+        EntityType.OTHER,
+        f"{delegator_id} delegates to {delegate_id}",
+        {
+            "delegation": True,
+            "delegator_id": delegator_id,
+            "delegate_id": delegate_id,
+            "granted_at": time.time(),
+            "expires_at": expires_at,
+            "revoked": False,
+            "household": True,
+        },
+    )
     return delegation_id
 
 
@@ -153,14 +175,20 @@ def check_delegation(delegator_id: str, delegate_id: str, kg=None) -> dict:
     household_role/org_role fallback for the identical reasoning); a real
     Neo4j deployment still uses the genuinely tenant-scoped lookup above.
     """
-    from src.monkey_brain.kernel.knowledge_graph_neo4j import Neo4jBackedKnowledgeGraph, resolve_household_id, _default_driver
+    from src.monkey_brain.kernel.knowledge_graph_neo4j import (
+        Neo4jBackedKnowledgeGraph,
+        resolve_household_id,
+        _default_driver,
+    )
+
     if _default_driver() is None:
         if kg is None:
             return {"active": False, "reason": "no delegation exists"}
         entity = kg.get_entity(_delegation_id(delegator_id, delegate_id))
     else:
         delegator_kg = Neo4jBackedKnowledgeGraph(
-            person_id=delegator_id, household_id=resolve_household_id(delegator_id))
+            person_id=delegator_id, household_id=resolve_household_id(delegator_id)
+        )
         delegator_kg.refresh()
         entity = delegator_kg.get_entity(_delegation_id(delegator_id, delegate_id))
     if entity is None:
@@ -224,24 +252,38 @@ def set_household_policy(kg, rule_type: str, params: dict, created_by: str) -> d
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
     from src.monkey_brain.kernel.knowledge_graph_neo4j import household_role
+
     if household_role(created_by, kg=kg) != "owner":
-        return {"success": False,
-                "error": f"governance denied: {created_by} is not the household owner and cannot set policy"}
+        return {
+            "success": False,
+            "error": f"governance denied: {created_by} is not the household owner and cannot set policy",
+        }
 
     policy_id = _policy_id(rule_type)
     existing = kg.get_entity(policy_id)
     history = list(existing.attributes.get("history", [])) if existing else []
     if existing:
-        history.append({
-            "params": existing.attributes.get("params"),
-            "created_by": existing.attributes.get("created_by"),
-            "created_at": existing.attributes.get("created_at"),
-        })
-    kg.add_entity(policy_id, EntityType.OTHER, f"Household policy: {rule_type}", {
-        "policy": True, "rule_type": rule_type, "params": params,
-        "created_by": created_by, "created_at": time.time(), "history": history,
-        "household": True,
-    })
+        history.append(
+            {
+                "params": existing.attributes.get("params"),
+                "created_by": existing.attributes.get("created_by"),
+                "created_at": existing.attributes.get("created_at"),
+            }
+        )
+    kg.add_entity(
+        policy_id,
+        EntityType.OTHER,
+        f"Household policy: {rule_type}",
+        {
+            "policy": True,
+            "rule_type": rule_type,
+            "params": params,
+            "created_by": created_by,
+            "created_at": time.time(),
+            "history": history,
+            "household": True,
+        },
+    )
     return {"success": True, "policy_id": policy_id, "version": len(history) + 1}
 
 
@@ -252,15 +294,29 @@ def grant_policy_exception(kg, rule_type: str, approved_by: str, reason: str) ->
     bypass. The policy re-applies to every action after this one.
     """
     from src.monkey_brain.kernel.knowledge_graph_neo4j import household_role
+
     if household_role(approved_by, kg=kg) != "owner":
-        return {"success": False,
-                "error": f"governance denied: {approved_by} is not the household owner and cannot approve a policy exception"}
+        return {
+            "success": False,
+            "error": f"governance denied: {approved_by} is not the household owner and cannot approve a policy exception",
+        }
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     exception_id = f"policy_exception_{rule_type}"
-    kg.add_entity(exception_id, EntityType.OTHER, f"Policy exception: {rule_type}", {
-        "policy_exception": True, "rule_type": rule_type, "approved_by": approved_by,
-        "reason": reason, "granted_at": time.time(), "consumed": False, "household": True,
-    })
+    kg.add_entity(
+        exception_id,
+        EntityType.OTHER,
+        f"Policy exception: {rule_type}",
+        {
+            "policy_exception": True,
+            "rule_type": rule_type,
+            "approved_by": approved_by,
+            "reason": reason,
+            "granted_at": time.time(),
+            "consumed": False,
+            "household": True,
+        },
+    )
     return {"success": True, "exception_id": exception_id}
 
 
@@ -276,7 +332,9 @@ def consume_policy_exception(kg, rule_type: str) -> bool:
     return True
 
 
-def grant_category_ban_exception(kg, product_id: str, approved_by: str, reason: str) -> dict:
+def grant_category_ban_exception(
+    kg, product_id: str, approved_by: str, reason: str
+) -> dict:
     """A specific, governance-approved carve-out from an active
     category_ban policy — ONE named resource is let through despite the
     blanket ban, while every other resource in the banned category
@@ -292,24 +350,43 @@ def grant_category_ban_exception(kg, product_id: str, approved_by: str, reason: 
     channel has jurisdiction over in the first place.
     """
     product = kg.get_entity(product_id)
-    if product is not None and product.attributes.get("category") in _CONSTITUTIONAL_PROTECTED_CATEGORIES:
-        return {"success": False,
-                "error": f"constitutional violation: {product.attributes.get('category')!r} cannot be exempted "
-                         f"from its category ban by any authority, including the household owner"}
+    if (
+        product is not None
+        and product.attributes.get("category") in _CONSTITUTIONAL_PROTECTED_CATEGORIES
+    ):
+        return {
+            "success": False,
+            "error": f"constitutional violation: {product.attributes.get('category')!r} cannot be exempted "
+            f"from its category ban by any authority, including the household owner",
+        }
     from src.monkey_brain.kernel.knowledge_graph_neo4j import household_role
+
     if household_role(approved_by, kg=kg) != "owner":
-        return {"success": False,
-                "error": f"governance denied: {approved_by} is not the household owner and cannot grant a policy exception"}
+        return {
+            "success": False,
+            "error": f"governance denied: {approved_by} is not the household owner and cannot grant a policy exception",
+        }
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     exception_id = f"policy_allow_exception_{product_id}"
-    kg.add_entity(exception_id, EntityType.OTHER, f"Category-ban allow exception: {product_id}", {
-        "policy_allow_exception": True, "product_id": product_id, "approved_by": approved_by,
-        "reason": reason, "granted_at": time.time(), "household": True,
-    })
+    kg.add_entity(
+        exception_id,
+        EntityType.OTHER,
+        f"Category-ban allow exception: {product_id}",
+        {
+            "policy_allow_exception": True,
+            "product_id": product_id,
+            "approved_by": approved_by,
+            "reason": reason,
+            "granted_at": time.time(),
+            "household": True,
+        },
+    )
     return {"success": True, "exception_id": exception_id}
 
 
 # ── Privacy ───────────────────────────────────────────────────────────
+
 
 def is_same_household(actor_a: str, actor_b: str) -> bool:
     """Are these two real, distinct actors members of the same real
@@ -319,6 +396,7 @@ def is_same_household(actor_a: str, actor_b: str) -> bool:
     if actor_a == actor_b:
         return True
     from src.monkey_brain.kernel.knowledge_graph_neo4j import resolve_household_id
+
     household_a = resolve_household_id(actor_a)
     household_b = resolve_household_id(actor_b)
     return household_a is not None and household_a == household_b
@@ -350,6 +428,7 @@ def set_tenant_org_role(kg, org_id: str, person_id: str, role: str) -> None:
     """The tenant-safe way to grant an enterprise role — always use this
     (never the bare set_org_role) from real application code."""
     from src.monkey_brain.kernel.knowledge_graph_neo4j import set_org_role
+
     set_org_role(person_id, _tenant_scoped_org_key(kg, org_id), role, kg=kg)
 
 
@@ -358,6 +437,7 @@ def tenant_org_role(kg, org_id: str, person_id: str) -> str:
     enterprise_purchase_authorized and approve_purchase_request instead
     of the bare, cross-tenant-collidable org_role."""
     from src.monkey_brain.kernel.knowledge_graph_neo4j import org_role
+
     return org_role(person_id, _tenant_scoped_org_key(kg, org_id), kg=kg)
 
 
@@ -379,19 +459,32 @@ def enterprise_purchase_authorized(kg, actor_id: str, account, total: float) -> 
     if account is None or account.attributes.get("account_type") != "enterprise":
         return {"authorized": True, "reason": "not an enterprise account"}
     org_id = account.attributes.get("org_id")
-    threshold = account.attributes.get("approval_threshold", _ENTERPRISE_APPROVAL_THRESHOLD)
+    threshold = account.attributes.get(
+        "approval_threshold", _ENTERPRISE_APPROVAL_THRESHOLD
+    )
     role = tenant_org_role(kg, org_id, actor_id)
     if total <= threshold:
-        return {"authorized": True,
-                "reason": f"under the ${threshold:.2f} enterprise approval threshold (real role: {role!r})"}
-    if _ENTERPRISE_ROLE_RANK.get(role, -1) >= _ENTERPRISE_ROLE_RANK["procurement_manager"]:
-        return {"authorized": True, "reason": f"real role {role!r} has procurement authority"}
-    return {"authorized": False,
-            "reason": f"order total ${total:.2f} exceeds the ${threshold:.2f} enterprise approval threshold, "
-                      f"and {actor_id}'s real role ({role!r}) lacks procurement authority"}
+        return {
+            "authorized": True,
+            "reason": f"under the ${threshold:.2f} enterprise approval threshold (real role: {role!r})",
+        }
+    if (
+        _ENTERPRISE_ROLE_RANK.get(role, -1)
+        >= _ENTERPRISE_ROLE_RANK["procurement_manager"]
+    ):
+        return {
+            "authorized": True,
+            "reason": f"real role {role!r} has procurement authority",
+        }
+    return {
+        "authorized": False,
+        "reason": f"order total ${total:.2f} exceeds the ${threshold:.2f} enterprise approval threshold, "
+        f"and {actor_id}'s real role ({role!r}) lacks procurement authority",
+    }
 
 
 # ── ABAC ──────────────────────────────────────────────────────────────
+
 
 def _abac_condition_met(actor_attributes: dict, rule: dict) -> bool:
     attr = rule.get("attribute")
@@ -422,24 +515,39 @@ def authorize_abac_access(actor_attributes, resource) -> dict:
     if not rules:
         return {"authorized": True, "reason": "no ABAC rule on this resource"}
     if actor_attributes is None:
-        return {"authorized": True, "reason": "no attribute enforcement active (dev mode)"}
+        return {
+            "authorized": True,
+            "reason": "no attribute enforcement active (dev mode)",
+        }
     for rule in rules:
         if not _abac_condition_met(actor_attributes, rule):
-            return {"authorized": False,
-                    "reason": f"attribute {rule.get('attribute')!r} does not satisfy "
-                              f"{rule.get('op')} {rule.get('value')!r} "
-                              f"(actor has {actor_attributes.get(rule.get('attribute'))!r})"}
+            return {
+                "authorized": False,
+                "reason": f"attribute {rule.get('attribute')!r} does not satisfy "
+                f"{rule.get('op')} {rule.get('value')!r} "
+                f"(actor has {actor_attributes.get(rule.get('attribute'))!r})",
+            }
     return {"authorized": True, "reason": "all real attribute rules satisfied"}
 
 
 # ── Audit ─────────────────────────────────────────────────────────────
 
-def _audit_hash(prev_hash: str, action: str, actor_id: str, outcome: str, reason: str, timestamp: float) -> str:
+
+def _audit_hash(
+    prev_hash: str,
+    action: str,
+    actor_id: str,
+    outcome: str,
+    reason: str,
+    timestamp: float,
+) -> str:
     payload = f"{prev_hash}|{action}|{actor_id}|{outcome}|{reason}|{timestamp}"
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def record_audit_event(kg, org_id: str, action: str, actor_id: str, outcome: str, reason: str) -> dict:
+def record_audit_event(
+    kg, org_id: str, action: str, actor_id: str, outcome: str, reason: str
+) -> dict:
     """A real, KG-persisted, tamper-evident audit trail for security-
     relevant DECISIONS. Each entry is chained via a real SHA-256 hash of
     the previous entry's own hash plus this entry's fields, so altering,
@@ -451,7 +559,11 @@ def record_audit_event(kg, org_id: str, action: str, actor_id: str, outcome: str
     """
     kg.refresh()
     chain = sorted(
-        (e for e in kg.entities if e.attributes.get("audit_event") and e.attributes.get("org_id") == org_id),
+        (
+            e
+            for e in kg.entities
+            if e.attributes.get("audit_event") and e.attributes.get("org_id") == org_id
+        ),
         key=lambda e: e.attributes.get("sequence", 0),
     )
     prev_hash = chain[-1].attributes.get("hash", "genesis") if chain else "genesis"
@@ -459,12 +571,26 @@ def record_audit_event(kg, org_id: str, action: str, actor_id: str, outcome: str
     timestamp = time.time()
     this_hash = _audit_hash(prev_hash, action, actor_id, outcome, reason, timestamp)
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     event_id = f"audit_{org_id}_{sequence}"
-    kg.add_entity(event_id, EntityType.OTHER, f"Audit: {action}", {
-        "audit_event": True, "org_id": org_id, "sequence": sequence,
-        "action": action, "actor_id": actor_id, "outcome": outcome, "reason": reason,
-        "timestamp": timestamp, "prev_hash": prev_hash, "hash": this_hash, "household": True,
-    })
+    kg.add_entity(
+        event_id,
+        EntityType.OTHER,
+        f"Audit: {action}",
+        {
+            "audit_event": True,
+            "org_id": org_id,
+            "sequence": sequence,
+            "action": action,
+            "actor_id": actor_id,
+            "outcome": outcome,
+            "reason": reason,
+            "timestamp": timestamp,
+            "prev_hash": prev_hash,
+            "hash": this_hash,
+            "household": True,
+        },
+    )
     return {"event_id": event_id, "sequence": sequence, "hash": this_hash}
 
 
@@ -478,20 +604,35 @@ def verify_audit_chain(kg, org_id: str) -> dict:
     """
     kg.refresh()
     chain = sorted(
-        (e for e in kg.entities if e.attributes.get("audit_event") and e.attributes.get("org_id") == org_id),
+        (
+            e
+            for e in kg.entities
+            if e.attributes.get("audit_event") and e.attributes.get("org_id") == org_id
+        ),
         key=lambda e: e.attributes.get("sequence", 0),
     )
     prev_hash = "genesis"
     for e in chain:
-        expected = _audit_hash(prev_hash, e.attributes.get("action"), e.attributes.get("actor_id"),
-                                e.attributes.get("outcome"), e.attributes.get("reason"), e.attributes.get("timestamp"))
+        expected = _audit_hash(
+            prev_hash,
+            e.attributes.get("action"),
+            e.attributes.get("actor_id"),
+            e.attributes.get("outcome"),
+            e.attributes.get("reason"),
+            e.attributes.get("timestamp"),
+        )
         if expected != e.attributes.get("hash"):
-            return {"valid": False, "broken_at": e.entity_id, "sequence": e.attributes.get("sequence")}
+            return {
+                "valid": False,
+                "broken_at": e.entity_id,
+                "sequence": e.attributes.get("sequence"),
+            }
         prev_hash = e.attributes.get("hash")
     return {"valid": True, "length": len(chain)}
 
 
 # ── Runtime integrity ─────────────────────────────────────────────────
+
 
 def verify_required_capabilities(bus, required_names) -> dict:
     """Fail CLOSED if the pipeline's own capability bus is missing a
@@ -507,8 +648,11 @@ def verify_required_capabilities(bus, required_names) -> dict:
     """
     missing = [name for name in required_names if bus.discover(name) is None]
     if missing:
-        return {"integrity_ok": False, "missing": missing,
-                "reason": f"required security capabilities not registered: {missing}"}
+        return {
+            "integrity_ok": False,
+            "missing": missing,
+            "reason": f"required security capabilities not registered: {missing}",
+        }
     return {"integrity_ok": True, "missing": []}
 
 
@@ -532,19 +676,35 @@ def verify_plan_signature(plan, signature: str) -> bool:
 
 # ── Separation of duties ──────────────────────────────────────────────
 
-def create_purchase_request(kg, org_id: str, requested_by: str, description: str, amount: float) -> dict:
+
+def create_purchase_request(
+    kg, org_id: str, requested_by: str, description: str, amount: float
+) -> dict:
     """A real, KG-persisted request for an enterprise action above the
     approval threshold — the first half of separation of duties: whoever
     wants to spend the money must ask for it, they cannot also be the one
     who signs off on it (approve_purchase_request enforces that half).
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     request_id = f"purchase_request_{org_id}_{int(time.time() * 1000)}_{requested_by}"
-    kg.add_entity(request_id, EntityType.OTHER, f"Purchase request: {description}", {
-        "purchase_request": True, "org_id": org_id, "requested_by": requested_by,
-        "description": description, "amount": amount, "requested_at": time.time(),
-        "approved_by": None, "approved_at": None, "consumed": False, "household": True,
-    })
+    kg.add_entity(
+        request_id,
+        EntityType.OTHER,
+        f"Purchase request: {description}",
+        {
+            "purchase_request": True,
+            "org_id": org_id,
+            "requested_by": requested_by,
+            "description": description,
+            "amount": amount,
+            "requested_at": time.time(),
+            "approved_by": None,
+            "approved_at": None,
+            "consumed": False,
+            "household": True,
+        },
+    )
     return {"success": True, "request_id": request_id}
 
 
@@ -566,20 +726,37 @@ def approve_purchase_request(kg, request_id: str, approved_by: str) -> dict:
     org_id = entity.attributes.get("org_id")
     if entity.attributes.get("requested_by") == approved_by:
         reason = f"{approved_by} attempted to approve their own request ({request_id})"
-        record_audit_event(kg, org_id, "approve_purchase_request", approved_by, "deny", reason)
+        record_audit_event(
+            kg, org_id, "approve_purchase_request", approved_by, "deny", reason
+        )
         return {"success": False, "error": f"separation of duties violation: {reason}"}
     role = tenant_org_role(kg, org_id, approved_by)
-    if _ENTERPRISE_ROLE_RANK.get(role, -1) < _ENTERPRISE_ROLE_RANK["procurement_manager"]:
+    if (
+        _ENTERPRISE_ROLE_RANK.get(role, -1)
+        < _ENTERPRISE_ROLE_RANK["procurement_manager"]
+    ):
         reason = f"{approved_by}'s real role ({role!r}) in {org_id} lacks procurement authority to approve {request_id}"
-        record_audit_event(kg, org_id, "approve_purchase_request", approved_by, "deny", reason)
+        record_audit_event(
+            kg, org_id, "approve_purchase_request", approved_by, "deny", reason
+        )
         return {"success": False, "error": reason}
-    kg.update_entity(request_id, attributes={"approved_by": approved_by, "approved_at": time.time()})
-    record_audit_event(kg, org_id, "approve_purchase_request", approved_by, "allow",
-                       f"{approved_by} approved {request_id} (requested by {entity.attributes.get('requested_by')})")
+    kg.update_entity(
+        request_id, attributes={"approved_by": approved_by, "approved_at": time.time()}
+    )
+    record_audit_event(
+        kg,
+        org_id,
+        "approve_purchase_request",
+        approved_by,
+        "allow",
+        f"{approved_by} approved {request_id} (requested by {entity.attributes.get('requested_by')})",
+    )
     return {"success": True, "request_id": request_id, "approved_by": approved_by}
 
 
-def find_approved_purchase_request(kg, org_id: str, requested_by: str, item_names: list | None = None):
+def find_approved_purchase_request(
+    kg, org_id: str, requested_by: str, item_names: list | None = None
+):
     """The most recent real, approved-by-someone-else, not-yet-consumed
     purchase request from requested_by in org_id, or None. Re-hydrates
     first (kg.refresh()) so an approval or a prior consumption made
@@ -598,8 +775,10 @@ def find_approved_purchase_request(kg, org_id: str, requested_by: str, item_name
     """
     kg.refresh()
     candidates = [
-        e for e in kg.entities
-        if e.attributes.get("purchase_request") and e.attributes.get("org_id") == org_id
+        e
+        for e in kg.entities
+        if e.attributes.get("purchase_request")
+        and e.attributes.get("org_id") == org_id
         and e.attributes.get("requested_by") == requested_by
         and e.attributes.get("approved_by") is not None
         and not e.attributes.get("consumed")
@@ -610,11 +789,18 @@ def find_approved_purchase_request(kg, org_id: str, requested_by: str, item_name
         # way would deadlock the import machinery. By call time both
         # modules are already fully loaded.
         from src.monkey_brain.kernel.domains.grocery import _matches_request
+
         candidates = [
-            e for e in candidates
-            if any(_matches_request(name, e.attributes.get("description", "")) for name in item_names)
+            e
+            for e in candidates
+            if any(
+                _matches_request(name, e.attributes.get("description", ""))
+                for name in item_names
+            )
         ]
-    return max(candidates, key=lambda e: e.attributes.get("approved_at", 0), default=None)
+    return max(
+        candidates, key=lambda e: e.attributes.get("approved_at", 0), default=None
+    )
 
 
 def consume_purchase_request(kg, request_id: str) -> None:
@@ -624,7 +810,9 @@ def consume_purchase_request(kg, request_id: str) -> None:
     kg.update_entity(request_id, attributes={"consumed": True})
 
 
-def separation_of_duties_satisfied(kg, actor_id: str, account, total: float, order: dict | None = None) -> dict:
+def separation_of_duties_satisfied(
+    kg, actor_id: str, account, total: float, order: dict | None = None
+) -> dict:
     """For an action charged to a real enterprise account above its
     approval threshold, the ACTING user cannot be their own approver — a
     real, separately-APPROVED purchase request from someone else,
@@ -643,21 +831,43 @@ def separation_of_duties_satisfied(kg, actor_id: str, account, total: float, ord
     if account is None or account.attributes.get("account_type") != "enterprise":
         return {"authorized": True, "reason": "not an enterprise account"}
     if not account.attributes.get("separation_of_duties"):
-        return {"authorized": True, "reason": "this account has not opted into separation of duties"}
+        return {
+            "authorized": True,
+            "reason": "this account has not opted into separation of duties",
+        }
     org_id = account.attributes.get("org_id")
-    threshold = account.attributes.get("approval_threshold", _ENTERPRISE_APPROVAL_THRESHOLD)
+    threshold = account.attributes.get(
+        "approval_threshold", _ENTERPRISE_APPROVAL_THRESHOLD
+    )
     if total <= threshold:
-        return {"authorized": True, "reason": "under the enterprise approval threshold — separation of duties doesn't apply"}
-    item_names = [item.get("product", "") for item in (order or {}).get("items", []) if item.get("product")]
-    approved_request = find_approved_purchase_request(kg, org_id, actor_id, item_names) if kg is not None else None
+        return {
+            "authorized": True,
+            "reason": "under the enterprise approval threshold — separation of duties doesn't apply",
+        }
+    item_names = [
+        item.get("product", "")
+        for item in (order or {}).get("items", [])
+        if item.get("product")
+    ]
+    approved_request = (
+        find_approved_purchase_request(kg, org_id, actor_id, item_names)
+        if kg is not None
+        else None
+    )
     if approved_request is None:
-        return {"authorized": False,
-                "reason": f"order total ${total:.2f} exceeds the ${threshold:.2f} threshold and requires a "
-                          f"separately-approved purchase request (separation of duties) — none found for {actor_id}"}
+        return {
+            "authorized": False,
+            "reason": f"order total ${total:.2f} exceeds the ${threshold:.2f} threshold and requires a "
+            f"separately-approved purchase request (separation of duties) — none found for {actor_id}",
+        }
     if abs(approved_request.attributes.get("amount", 0.0) - total) > 0.01:
-        return {"authorized": False,
-                "reason": f"the approved request is for ${approved_request.attributes.get('amount', 0.0):.2f}, "
-                          f"which doesn't match this order's ${total:.2f} total"}
-    return {"authorized": True,
-            "reason": f"approved by {approved_request.attributes['approved_by']} (separation of duties satisfied)",
-            "request_id": approved_request.entity_id}
+        return {
+            "authorized": False,
+            "reason": f"the approved request is for ${approved_request.attributes.get('amount', 0.0):.2f}, "
+            f"which doesn't match this order's ${total:.2f} total",
+        }
+    return {
+        "authorized": True,
+        "reason": f"approved by {approved_request.attributes['approved_by']} (separation of duties satisfied)",
+        "request_id": approved_request.entity_id,
+    }

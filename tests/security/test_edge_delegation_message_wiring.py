@@ -11,6 +11,7 @@ scenario list: valid chain, attenuated chain, wrong delegate, wrong
 audience, expired parent, revoked parent, privilege escalation, malformed
 chain, excessive depth, SPIFFE mismatch.
 """
+
 from __future__ import annotations
 
 import time
@@ -25,9 +26,14 @@ from src.monkey_brain.kernel.delegation import (
     issue_delegation,
     reset_delegation_store_for_tests,
 )
-from src.monkey_brain.kernel.edge.delegation_message import extract_and_verify_delegation
+from src.monkey_brain.kernel.edge.delegation_message import (
+    extract_and_verify_delegation,
+)
 from src.monkey_brain.kernel.edge.local_governance import LocalGovernanceEvaluator
-from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache, issue_policy_snapshot
+from src.monkey_brain.kernel.edge.policy_cache import (
+    EdgePolicyCache,
+    issue_policy_snapshot,
+)
 from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.pipeline.execution import Action
@@ -41,6 +47,7 @@ PRINCIPAL = "spiffe://cognitiveos/agent/C"
 @pytest.fixture(autouse=True)
 def _reset():
     from src.monkey_brain.kernel.audit import get_audit_log
+
     get_audit_log().set_store(None)
     reset_delegation_store_for_tests()
     reset_approval_store()
@@ -51,16 +58,30 @@ def _reset():
     reset_governed_pipeline_for_tests()
 
 
-def _issue(issuer, delegate, capabilities=("grocery.purchase",), parent=None, ttl=3600, audience=""):
+def _issue(
+    issuer,
+    delegate,
+    capabilities=("grocery.purchase",),
+    parent=None,
+    ttl=3600,
+    audience="",
+):
     return issue_delegation(
-        issuer=issuer, delegate=delegate, capabilities=capabilities,
+        issuer=issuer,
+        delegate=delegate,
+        capabilities=capabilities,
         scope=DelegationScope(resources=("order-123",), actions=("create",)),
-        ttl_seconds=ttl, parent=parent, audience=audience,
+        ttl_seconds=ttl,
+        parent=parent,
+        audience=audience,
     )
 
 
 def _chain_payload(*hops):
-    return {"msg_type": "delegated_task", "delegation_chain": [h.to_dict() for h in hops]}
+    return {
+        "msg_type": "delegated_task",
+        "delegation_chain": [h.to_dict() for h in hops],
+    }
 
 
 class TestExtractionValidChains:
@@ -128,9 +149,13 @@ class TestExtractionRejections:
 
         d1 = _issue("A", "B", capabilities=("grocery.purchase",))
         forged = DelegationCredential(
-            issuer="B", delegate="C", parent_delegation_id=d1.delegation_id,
-            issued_at=time.time(), expires_at=d1.expires_at,
-            scope=d1.scope, capabilities=("grocery.purchase", "bank.transfer"),
+            issuer="B",
+            delegate="C",
+            parent_delegation_id=d1.delegation_id,
+            issued_at=time.time(),
+            expires_at=d1.expires_at,
+            scope=d1.scope,
+            capabilities=("grocery.purchase", "bank.transfer"),
             delegation_depth=d1.delegation_depth + 1,
         )
         km = get_key_manager()
@@ -142,7 +167,8 @@ class TestExtractionRejections:
 
     def test_malformed_chain_not_a_list_is_rejected(self):
         result = extract_and_verify_delegation(
-            {"msg_type": "delegated_task", "delegation_chain": "not-a-list"}, authenticated_delegate="C",
+            {"msg_type": "delegated_task", "delegation_chain": "not-a-list"},
+            authenticated_delegate="C",
         )
         assert result.present is True
         assert result.verified is False
@@ -150,7 +176,8 @@ class TestExtractionRejections:
 
     def test_malformed_chain_bad_hop_is_rejected(self):
         result = extract_and_verify_delegation(
-            {"msg_type": "delegated_task", "delegation_chain": [{"issuer": "A"}]}, authenticated_delegate="C",
+            {"msg_type": "delegated_task", "delegation_chain": [{"issuer": "A"}]},
+            authenticated_delegate="C",
         )
         assert result.present is True
         assert result.verified is False
@@ -184,10 +211,15 @@ class TestEndToEndActionExecutorWiring:
 
     @pytest.fixture(autouse=True)
     def _bind_identity(self):
-        bind_trusted_auth(TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id=PRINCIPAL,
-            principal_type="service", mfa_status="satisfied",
-        ))
+        bind_trusted_auth(
+            TrustedAuthEvidence(
+                authenticated=True,
+                token_valid=True,
+                principal_id=PRINCIPAL,
+                principal_type="service",
+                mfa_status="satisfied",
+            )
+        )
         yield
 
     def _edge_governance(self, tmp_path):
@@ -210,8 +242,14 @@ class TestEndToEndActionExecutorWiring:
         # .py's own convention (delegation is never a substitute for a
         # locally-cached policy decision, nor vice versa).
         snapshot = issue_policy_snapshot(
-            principal=PRINCIPAL, action="capability.grocery.purchase", resource="grocery.purchase",
-            policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE", "policy_rule": "edge_cached"},
+            principal=PRINCIPAL,
+            action="capability.grocery.purchase",
+            resource="grocery.purchase",
+            policy_decision={
+                "allowed": True,
+                "approval_mode": "AUTO_APPROVE",
+                "policy_rule": "edge_cached",
+            },
         )
         cache.store_snapshot(snapshot)
 
@@ -222,16 +260,26 @@ class TestEndToEndActionExecutorWiring:
 
         executor = ActionExecutor(
             bus,
-            connectivity_check=lambda cap: (False, "WAITING_FOR_AUTHORITY", "disconnected"),
+            connectivity_check=lambda cap: (
+                False,
+                "WAITING_FOR_AUTHORITY",
+                "disconnected",
+            ),
             edge_governance=gov,
         )
         action = Action(action_id="a1", capability="grocery.purchase", parameters={})
-        context = {"actor_id": PRINCIPAL, "delegation_chain": extraction.chain, "verified_delegation": extraction.verified_delegation}
+        context = {
+            "actor_id": PRINCIPAL,
+            "delegation_chain": extraction.chain,
+            "verified_delegation": extraction.verified_delegation,
+        }
 
         monkeypatch.setenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "true")
         await executor.execute((action,), context)
 
-        assert capability.handle.called, "verified delegation + cached policy should grant LOCAL authority -- capability must execute"
+        assert capability.handle.called, (
+            "verified delegation + cached policy should grant LOCAL authority -- capability must execute"
+        )
 
     @pytest.mark.asyncio
     async def test_unverifiable_chain_never_grants_local_authority(self, monkeypatch, tmp_path):
@@ -239,6 +287,7 @@ class TestEndToEndActionExecutorWiring:
         forged = _issue("B", PRINCIPAL, parent=d1)
         # Tamper post-issuance -- proof no longer matches content.
         import dataclasses
+
         tampered = dataclasses.replace(forged, capabilities=("bank.transfer",))
 
         gov = self._edge_governance(tmp_path)
@@ -249,7 +298,11 @@ class TestEndToEndActionExecutorWiring:
 
         executor = ActionExecutor(
             bus,
-            connectivity_check=lambda cap: (False, "WAITING_FOR_AUTHORITY", "disconnected"),
+            connectivity_check=lambda cap: (
+                False,
+                "WAITING_FOR_AUTHORITY",
+                "disconnected",
+            ),
             edge_governance=gov,
         )
         action = Action(action_id="a1", capability="grocery.purchase", parameters={})

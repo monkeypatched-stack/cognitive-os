@@ -11,9 +11,9 @@ from typing import Any
 
 logger = logging.getLogger("agentos.stability")
 
-_REPO_ROOT        = Path(os.getenv("MONKEYPATCHED_ROOT", str(Path(__file__).resolve().parents[5])))
-_SRC_DIR          = _REPO_ROOT / "src"
-_GEN_DIR          = Path(os.getenv("MONKEYPATCHED_GEN_DIR", str(_REPO_ROOT.parent / "generated" / "monkeypatched")))
+_REPO_ROOT = Path(os.getenv("MONKEYPATCHED_ROOT", str(Path(__file__).resolve().parents[5])))
+_SRC_DIR = _REPO_ROOT / "src"
+_GEN_DIR = Path(os.getenv("MONKEYPATCHED_GEN_DIR", str(_REPO_ROOT.parent / "generated" / "monkeypatched")))
 _OPS_EVIDENCE_DIR = _REPO_ROOT / ".operational_evidence"
 
 
@@ -29,18 +29,21 @@ def check_stability(error_lines: list[str] | None = None, evidence_since: float 
       4. no new operational evidence since evidence_since
     """
     result: dict[str, Any] = {
-        "git_clean":       False,
-        "no_errors":       False,
-        "codegen_diff":    -1,    # -1 = no generated/ baseline
+        "git_clean": False,
+        "no_errors": False,
+        "codegen_diff": -1,  # -1 = no generated/ baseline
         "no_new_evidence": False,
-        "stable":          False,
+        "stable": False,
     }
 
     # 1. Git diff
     try:
         proc = subprocess.run(
             ["git", "diff", "--stat", "HEAD"],
-            cwd=str(_REPO_ROOT), capture_output=True, text=True, timeout=10,
+            cwd=str(_REPO_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         result["git_clean"] = proc.returncode == 0 and proc.stdout.strip() == ""
     except Exception as e:
@@ -51,18 +54,13 @@ def check_stability(error_lines: list[str] | None = None, evidence_since: float 
 
     # 3. Codegen diff
     if _GEN_DIR.exists():
-        src_f = {
-            str(f.relative_to(_SRC_DIR)): f.read_text()
-            for f in _SRC_DIR.rglob("*.py") if f.name != "__init__.py"
-        }
-        gen_f = {
-            str(f.relative_to(_GEN_DIR)): f.read_text()
-            for f in _GEN_DIR.rglob("*.py") if f.name != "__init__.py"
-        }
+        src_f = {str(f.relative_to(_SRC_DIR)): f.read_text() for f in _SRC_DIR.rglob("*.py") if f.name != "__init__.py"}
+        gen_f = {str(f.relative_to(_GEN_DIR)): f.read_text() for f in _GEN_DIR.rglob("*.py") if f.name != "__init__.py"}
         if gen_f:
-            both  = set(src_f) & set(gen_f)
+            both = set(src_f) & set(gen_f)
             match = sum(
-                1 for k in both
+                1
+                for k in both
                 if difflib.SequenceMatcher(None, src_f[k].splitlines(), gen_f[k].splitlines()).ratio() > 0.9
             )
             result["codegen_diff"] = (len(both) - match) + len(set(src_f) - set(gen_f))
@@ -78,9 +76,6 @@ def check_stability(error_lines: list[str] | None = None, evidence_since: float 
         logger.debug("Exception caught: %s", e)
 
     result["stable"] = (
-        result["git_clean"]
-        and result["no_errors"]
-        and result["codegen_diff"] == 0
-        and result["no_new_evidence"]
+        result["git_clean"] and result["no_errors"] and result["codegen_diff"] == 0 and result["no_new_evidence"]
     )
     return result

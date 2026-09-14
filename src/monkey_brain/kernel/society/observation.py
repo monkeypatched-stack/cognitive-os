@@ -10,6 +10,7 @@ Support:
 
 Do not merge beliefs yet — that's Step 12.4's job.
 """
+
 from __future__ import annotations
 
 import time
@@ -19,7 +20,10 @@ from typing import Any, Callable
 from uuid import uuid4
 
 from src.monkey_brain.kernel.society.world import (
-    SharedWorld, WorldEntity, WorldRelationship, WorldEvent,
+    SharedWorld,
+    WorldEntity,
+    WorldRelationship,
+    WorldEvent,
 )
 
 
@@ -34,6 +38,7 @@ class ObservationQuality(Enum):
 @dataclass(frozen=True)
 class ObservationFilter:
     """Controls what an actor sees of the shared world."""
+
     visible_entity_types: tuple[str, ...] = ()
     """Empty means all types visible."""
     visible_entity_ids: tuple[str, ...] = ()
@@ -51,6 +56,7 @@ class ObservationFilter:
 @dataclass(frozen=True)
 class ObservedEntity:
     """An entity as seen by a specific actor through their observation lens."""
+
     entity: WorldEntity = field(default_factory=WorldEntity)
     quality: ObservationQuality = ObservationQuality.COMPLETE
     observation_delay: float = 0.0
@@ -61,6 +67,7 @@ class ObservedEntity:
 @dataclass(frozen=True)
 class ObservedRelationship:
     """A relationship as seen by a specific actor."""
+
     relationship: WorldRelationship = field(default_factory=WorldRelationship)
     quality: ObservationQuality = ObservationQuality.COMPLETE
 
@@ -69,6 +76,7 @@ class ObservedRelationship:
 class ActorObservation:
     """One actor's complete observation of the shared world at a point
     in time. Different actors may see different things."""
+
     observation_id: str = field(default_factory=lambda: uuid4().hex)
     actor_id: str = ""
     world_version: int = 0
@@ -89,7 +97,8 @@ class ObservationProvider:
     """
 
     def __init__(
-        self, world: SharedWorld,
+        self,
+        world: SharedWorld,
         membership_lookup: Callable[[str, str], bool] | None = None,
     ) -> None:
         self._world = world
@@ -116,8 +125,9 @@ class ObservationProvider:
             quality=quality,
         )
 
-    def observe_entity(self, actor_id: str, entity_id: str,
-                       filt: ObservationFilter | None = None) -> ObservedEntity | None:
+    def observe_entity(
+        self, actor_id: str, entity_id: str, filt: ObservationFilter | None = None
+    ) -> ObservedEntity | None:
         filt = filt or ObservationFilter()
         entity = self._world.get_entity(entity_id)
         if entity is None:
@@ -160,8 +170,9 @@ class ObservationProvider:
             return ObservationQuality.PARTIAL
         return ObservationQuality.COMPLETE
 
-    def _filter_relationships(self, filt: ObservationFilter,
-                              observed_entities: tuple[ObservedEntity, ...]) -> tuple[ObservedRelationship, ...]:
+    def _filter_relationships(
+        self, filt: ObservationFilter, observed_entities: tuple[ObservedEntity, ...]
+    ) -> tuple[ObservedRelationship, ...]:
         """Step 12.5 bugfix: this called `self._world.relationships_for("")`
         — an empty-string entity_id that never matches any real
         relationship (relationships_for() looks for an EXACT id match) —

@@ -15,6 +15,7 @@ router = APIRouter()
 
 # ── Summary: per-equipment total downtime + MTTR ──────────────────────────────
 
+
 @router.get("/summary")
 async def downtime_summary(
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -25,6 +26,7 @@ async def downtime_summary(
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedDowntimeResponse)
 async def list_downtime_logs(
     page: int = Query(1, ge=1),
@@ -33,10 +35,13 @@ async def list_downtime_logs(
     _: dict = Depends(require_permission("perm-view-breakdown")),
 ):
     logs, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedDowntimeResponse(total=total, page=page, page_size=page_size, results=logs)
+    return PaginatedDowntimeResponse(
+        total=total, page=page, page_size=page_size, results=logs
+    )
 
 
 # ── Get by machine ────────────────────────────────────────────────────────────
+
 
 @router.get("/by-machine/{machine_id}", response_model=list[DowntimeLogResponse])
 async def list_downtime_by_machine(
@@ -45,6 +50,7 @@ async def list_downtime_by_machine(
     _: dict = Depends(require_permission("perm-view-breakdown")),
 ):
     return await crud.get_by_machine(db, machine_id)
+
 
 @router.get("/by-equipment/{equipment_id}", response_model=list[DowntimeLogResponse])
 async def list_downtime_by_equipment(
@@ -57,6 +63,7 @@ async def list_downtime_by_equipment(
 
 # ── Get by line ───────────────────────────────────────────────────────────────
 
+
 @router.get("/by-line/{line_id}", response_model=list[DowntimeLogResponse])
 async def list_downtime_by_line(
     line_id: str,
@@ -68,6 +75,7 @@ async def list_downtime_by_line(
 
 # ── Get by status ─────────────────────────────────────────────────────────────
 
+
 @router.get("/by-status/{status_value}", response_model=list[DowntimeLogResponse])
 async def list_downtime_by_status(
     status_value: str,
@@ -78,6 +86,7 @@ async def list_downtime_by_status(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{log_id}", response_model=DowntimeLogResponse)
 async def get_downtime_log(
@@ -96,7 +105,10 @@ async def get_downtime_log(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=DowntimeLogResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=DowntimeLogResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_downtime_log(
     data: DowntimeLogCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -111,6 +123,7 @@ async def create_downtime_log(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{log_id}", response_model=DowntimeLogResponse)
 async def update_downtime_log(
@@ -129,6 +142,7 @@ async def update_downtime_log(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_downtime_log(

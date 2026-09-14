@@ -6,6 +6,7 @@ recursive tree decomposition, dependency resolution, and termination
 found while building this: a subgoal whose single completion criterion
 restates its own name must NOT be decomposed further.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.pipeline.planning.domain import Goal, SubGoal
@@ -17,10 +18,10 @@ from src.monkey_brain.kernel.pipeline.planning.decomposition import (
     DEFAULT_RULES,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # One-level decomposition via a registered rule
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDecomposeViaRule:
     def test_prepare_breakfast_example(self):
@@ -56,13 +57,15 @@ class TestDecomposeViaRule:
 
     def test_custom_rule_registration(self):
         decomposer = GoalDecomposer(rules={})
-        decomposer.register_rule(DecompositionRule(
-            goal_name="pack_lunch",
-            subgoals=(
-                SubGoalSpec(name="make_sandwich", completion_criteria=("sandwich_made",)),
-                SubGoalSpec(name="add_fruit", completion_criteria=("fruit_added",)),
-            ),
-        ))
+        decomposer.register_rule(
+            DecompositionRule(
+                goal_name="pack_lunch",
+                subgoals=(
+                    SubGoalSpec(name="make_sandwich", completion_criteria=("sandwich_made",)),
+                    SubGoalSpec(name="add_fruit", completion_criteria=("fruit_added",)),
+                ),
+            )
+        )
 
         subgoals = decomposer.decompose(Goal(name="pack_lunch"))
 
@@ -77,6 +80,7 @@ class TestDecomposeViaRule:
 # ═══════════════════════════════════════════════════════════════════════════
 # One-level decomposition via completion_criteria fallback
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDecomposeViaCompletionCriteria:
     def test_multiple_criteria_produce_one_subgoal_each(self):
@@ -110,6 +114,7 @@ class TestDecomposeViaCompletionCriteria:
 # Recursive tree decomposition
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDecomposeTree:
     def test_prepare_breakfast_tree_shape(self):
         decomposer = GoalDecomposer()
@@ -120,7 +125,11 @@ class TestDecomposeTree:
         assert isinstance(tree, GoalTree)
         assert tree.goal is breakfast
         assert tree.depth() == 2
-        assert {leaf.name for leaf in tree.leaves()} == {"buy_milk", "buy_eggs", "buy_bread"}
+        assert {leaf.name for leaf in tree.leaves()} == {
+            "buy_milk",
+            "buy_eggs",
+            "buy_bread",
+        }
 
     def test_leaf_goal_tree_has_depth_one(self):
         decomposer = GoalDecomposer(rules={})
@@ -159,10 +168,12 @@ class TestDecomposeTree:
         bounded by max_depth rather than recursing forever. max_depth bounds
         the resulting tree's total depth, not the recursion-call count."""
         decomposer = GoalDecomposer(rules={})
-        decomposer.register_rule(DecompositionRule(
-            goal_name="loopy",
-            subgoals=(SubGoalSpec(name="loopy"),),  # decomposes into itself
-        ))
+        decomposer.register_rule(
+            DecompositionRule(
+                goal_name="loopy",
+                subgoals=(SubGoalSpec(name="loopy"),),  # decomposes into itself
+            )
+        )
 
         assert decomposer.decompose_tree(Goal(name="loopy"), max_depth=3).depth() == 3
         assert decomposer.decompose_tree(Goal(name="loopy"), max_depth=1).depth() == 1
@@ -171,6 +182,7 @@ class TestDecomposeTree:
 # ═══════════════════════════════════════════════════════════════════════════
 # SubGoal shape produced by decomposition
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSubGoalShape:
     def test_generated_subgoals_are_real_subgoal_instances(self):
@@ -189,10 +201,12 @@ class TestSubGoalShape:
 # Ownership boundary — no coupling to execution/runtime
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_runtime_or_execution_imports(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.planning.decomposition as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

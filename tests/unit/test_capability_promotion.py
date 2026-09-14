@@ -130,7 +130,10 @@ class TestExtractRecipe:
         experience = _FakeExperience(
             plan=_FakePlan(
                 steps=(
-                    PlanStep(action="ProductSelection", parameters={"selection": [{"id": "m1", "qty": 2}]}),
+                    PlanStep(
+                        action="ProductSelection",
+                        parameters={"selection": [{"id": "m1", "qty": 2}]},
+                    ),
                     PlanStep(action="OrderCreation", depends_on=(0,)),
                 )
             ),
@@ -250,7 +253,9 @@ class TestOperatorActivation:
         """integrated_compile_phi observes only — never activates."""
         import inspect
 
-        from src.monkey_brain.kernel.pipeline.learning import integration as learning_integration
+        from src.monkey_brain.kernel.pipeline.learning import (
+            integration as learning_integration,
+        )
 
         source = inspect.getsource(learning_integration.LearningIntegratedPolicy.configure)
         assert "activate_promoted_capability" not in source

@@ -10,6 +10,7 @@ contract -- this environment has no real MOSS_PROJECT_ID/MOSS_PROJECT_KEY,
 so a real-credentials-gated smoke test honestly skips, matching
 tests/unit/test_ros_integration_contract.py's real-vs-fake convention.
 """
+
 from __future__ import annotations
 
 import os
@@ -38,7 +39,12 @@ class _FakeSearchResult:
 
 
 class _FakeSession:
-    def __init__(self, *, query_result: list[_FakeDoc] | None = None, raise_on_query: Exception | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        query_result: list[_FakeDoc] | None = None,
+        raise_on_query: Exception | None = None,
+    ) -> None:
         self._query_result = query_result or []
         self._raise_on_query = raise_on_query
         self.added_docs: list = []
@@ -68,7 +74,9 @@ class _FakeClient:
 class TestQueryContractMatchesSemanticMemory:
     @pytest.mark.asyncio
     async def test_query_returns_the_exact_shape_sittingface_expects(self):
-        session = _FakeSession(query_result=[_FakeDoc("CAPA is a corrective action process", {"name": "capa_chart"}, 0.87)])
+        session = _FakeSession(
+            query_result=[_FakeDoc("CAPA is a corrective action process", {"name": "capa_chart"}, 0.87)]
+        )
         memory = MossSemanticMemory(_FakeClient(session))
 
         result = await memory.query("what is CAPA")
@@ -138,10 +146,12 @@ class TestIndexDocuments:
         session = _FakeSession()
         memory = MossSemanticMemory(_FakeClient(session))
 
-        added = await memory.index_documents([
-            {"id": "1", "text": "fact one", "metadata": {"chart": "c1"}},
-            {"id": "2", "text": "fact two"},
-        ])
+        added = await memory.index_documents(
+            [
+                {"id": "1", "text": "fact one", "metadata": {"chart": "c1"}},
+                {"id": "2", "text": "fact two"},
+            ]
+        )
 
         assert added == 2
         assert len(session.added_docs) == 2
@@ -181,7 +191,10 @@ class TestBuildMossSemanticMemoryStartupBehavior:
         assert isinstance(memory, MossSemanticMemory)
 
 
-@pytest.mark.skipif(not _REAL_MOSS_CONFIGURED, reason="MOSS_PROJECT_ID/MOSS_PROJECT_KEY not set -- real Moss integration suite requires real credentials")
+@pytest.mark.skipif(
+    not _REAL_MOSS_CONFIGURED,
+    reason="MOSS_PROJECT_ID/MOSS_PROJECT_KEY not set -- real Moss integration suite requires real credentials",
+)
 class TestRealMossSmoke:
     """Only runs with real credentials configured. Never faked."""
 

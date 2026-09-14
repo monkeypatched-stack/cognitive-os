@@ -4,12 +4,17 @@ without duplicating cognition), Team's one-team-per-society rule extended
 across societies, dynamic goal-driven Society Activation, deterministic
 policy-precedence, and independence from the physical geography graph.
 """
+
 from __future__ import annotations
 
 import dataclasses
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.membership import SocietyMembershipRegistry
 from src.monkey_brain.kernel.society.activation import SocietyActivationEngine
 from src.monkey_brain.kernel.society.governance import GovernancePolicy
@@ -23,6 +28,7 @@ def _new_actor(pr: PlanetaryRuntime, name: str = "Alice") -> str:
 
 
 # ── Multi-membership without duplicating cognition ───────────────────────
+
 
 def test_join_society_does_not_duplicate_cognition():
     pr = PlanetaryRuntime()
@@ -38,9 +44,7 @@ def test_join_society_does_not_duplicate_cognition():
     # second society never got its own registration.
     assert home.get_actor(actor_id) is home_state
     assert second.get_actor(actor_id) is None
-    assert sorted(pr.societies_for_actor(actor_id)) == sorted(
-        [home.society.society_id, second.society.society_id]
-    )
+    assert sorted(pr.societies_for_actor(actor_id)) == sorted([home.society.society_id, second.society.society_id])
 
 
 def test_join_society_requires_existing_home_registration():
@@ -70,6 +74,7 @@ def test_leave_home_society_matches_unregister_behavior():
 
 
 # ── Team: one-team-per-society, but multiple societies allowed ───────────
+
 
 def test_actor_can_join_one_team_in_each_of_two_societies():
     pr = PlanetaryRuntime()
@@ -110,6 +115,7 @@ def test_add_actor_to_team_rejects_non_member():
 
 
 # ── SocietyActivationEngine ────────────────────────────────────────────
+
 
 def test_always_active_society_always_activates():
     pr = PlanetaryRuntime()
@@ -156,6 +162,7 @@ def test_policy_bundle_precedence_highest_priority_wins():
 
 # ── Geography/organization independence ──────────────────────────────────
 
+
 def test_geography_and_membership_are_independent_graphs():
     pr = PlanetaryRuntime()
     actor_id = _new_actor(pr)
@@ -164,14 +171,14 @@ def test_geography_and_membership_are_independent_graphs():
     pr.join_society(actor_id, second.society.society_id)
 
     country = pr.create_geographic_entity(
-        GeographicEntityType.COUNTRY, "Testland", pr._default_planet.entity_id,
+        GeographicEntityType.COUNTRY,
+        "Testland",
+        pr._default_planet.entity_id,
     )
     pr.host_society(country.entity_id, second.society.society_id)
 
     # Hosting at a geographic entity doesn't touch membership.
-    assert sorted(pr.societies_for_actor(actor_id)) == sorted(
-        [home.society.society_id, second.society.society_id]
-    )
+    assert sorted(pr.societies_for_actor(actor_id)) == sorted([home.society.society_id, second.society.society_id])
     # And membership changes don't touch geography.
     pr.leave_society(actor_id, second.society.society_id)
     assert pr.entity_for_society(second.society.society_id).entity_id == country.entity_id
@@ -181,7 +188,9 @@ def test_hosted_by_relationship_edge_written():
     pr = PlanetaryRuntime()
     society = pr.create_society("Some Society")
     country = pr.create_geographic_entity(
-        GeographicEntityType.COUNTRY, "Testland", pr._default_planet.entity_id,
+        GeographicEntityType.COUNTRY,
+        "Testland",
+        pr._default_planet.entity_id,
     )
     pr.host_society(country.entity_id, society.society.society_id)
     rels = pr.relationships.by_kind(RelationshipKind.HOSTED_BY)
@@ -198,6 +207,7 @@ def test_member_of_relationship_edge_written():
 
 
 # ── SocietyMembershipRegistry unit tests ──────────────────────────────────
+
 
 def test_membership_registry_many_to_many():
     registry = SocietyMembershipRegistry()

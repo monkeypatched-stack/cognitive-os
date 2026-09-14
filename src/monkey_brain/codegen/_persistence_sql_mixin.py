@@ -1,4 +1,5 @@
 """PersistenceSqlMixin — templates for database.py, models.py, crud.py, alembic (SQL flavor)."""
+
 from __future__ import annotations
 
 from ._types import _SA_TYPES, _PY_TYPES
@@ -148,11 +149,16 @@ class {self.cls}(Base):
             mapped_type = f"Mapped[{py_type}{nullable_suffix}]"
 
             parts = [sa_type]
-            if f.unique: parts.append("unique=True")
-            if f.index: parts.append("index=True")
-            if f.nullable or not f.required: parts.append("nullable=True")
-            if f.default is not None: parts.append(f"default={f.default!r}")
-            if f.foreign_key: parts.append(f'ForeignKey("{f.foreign_key}")')
+            if f.unique:
+                parts.append("unique=True")
+            if f.index:
+                parts.append("index=True")
+            if f.nullable or not f.required:
+                parts.append("nullable=True")
+            if f.default is not None:
+                parts.append(f"default={f.default!r}")
+            if f.foreign_key:
+                parts.append(f'ForeignKey("{f.foreign_key}")')
 
             col_args = ", ".join(parts)
             lines.append(f"    {f.name}: {mapped_type} = mapped_column({col_args})")
@@ -164,24 +170,26 @@ class {self.cls}(Base):
     def _crud_sql(self) -> str:
         sd_filter = ".where({cls}.deleted_at.is_(None))".format(cls=self.cls) if self.s.soft_delete else ""
         sd_delete = (
-            f"    if soft:\n"
-            f"        obj.deleted_at = datetime.utcnow()\n"
-            f"        obj.updated_at = datetime.utcnow()\n"
-            f"    else:\n"
-            f"        await db.delete(obj)\n"
-        ) if self.s.soft_delete else (
-            "    await db.delete(obj)\n"
+            (
+                f"    if soft:\n"
+                f"        obj.deleted_at = datetime.utcnow()\n"
+                f"        obj.updated_at = datetime.utcnow()\n"
+                f"    else:\n"
+                f"        await db.delete(obj)\n"
+            )
+            if self.s.soft_delete
+            else ("    await db.delete(obj)\n")
         )
         soft_param = ", soft: bool = True" if self.s.soft_delete else ""
         ts_update = "    obj.updated_at = datetime.utcnow()\n" if self.s.timestamps else ""
 
         filter_fields = "\n".join(
             f"    if {f.name} is not None:\n        q = q.where({self.cls}.{f.name} == {f.name})"
-            for f in self.s.fields if f.index or f.unique
+            for f in self.s.fields
+            if f.index or f.unique
         )
         filter_params = ", ".join(
-            f"{f.name}: {_PY_TYPES.get(f.type, 'str')} | None = None"
-            for f in self.s.fields if f.index or f.unique
+            f"{f.name}: {_PY_TYPES.get(f.type, 'str')} | None = None" for f in self.s.fields if f.index or f.unique
         )
         if filter_params:
             filter_params = f",\n    {filter_params}"
@@ -263,7 +271,7 @@ async def delete_{self.n}(db: AsyncSession, id: UUID{soft_param}) -> bool:
 '''
 
     def _alembic_ini(self) -> str:
-        return f'''\
+        return f"""\
 [alembic]
 script_location = alembic
 prepend_sys_path = .
@@ -302,7 +310,7 @@ formatter = generic
 [formatter_generic]
 format = %(levelname)-5.5s [%(name)s] %(message)s
 datefmt = %H:%M:%S
-'''
+"""
 
     def _alembic_env(self) -> str:
         return f'''\

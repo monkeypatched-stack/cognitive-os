@@ -30,6 +30,7 @@ DB_NAME = "demo"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ChaosResult:
     question: str
@@ -67,6 +68,7 @@ def _pull_real_ids() -> dict[str, list]:
 
 # ── Test cases ────────────────────────────────────────────────────────────────
 
+
 def build_test_cases(ids: dict) -> list[tuple[str, str]]:
     """(question, expected_intent) pairs built from real DB data."""
     b0 = ids["batch_ids"][0] if ids["batch_ids"] else "PB-1239A463"
@@ -85,56 +87,44 @@ def build_test_cases(ids: dict) -> list[tuple[str, str]]:
         (f"List all batches with status {bs}", "batch_record"),
         ("Show all batches in production", "batch_record"),
         ("Get me the latest 5 batches", "batch_record"),
-
         # ── batch_hold ────────────────────────────────────────────────────────
         (f"Put batch {b0} on hold", "batch_hold"),
         ("How many batches are on hold?", "batch_hold"),
         ("Show me batches that are suspended", "batch_hold"),
-
         # ── work_order_query ──────────────────────────────────────────────────
         (f"What is the status of work order {w0}?", "work_order_query"),
         ("How many work orders are open?", "work_order_query"),
         (f"Show work orders with status {ws}", "work_order_query"),
         ("List all high priority work orders", "work_order_query"),
         ("How many work orders are there in total?", "work_order_query"),
-
         # ── work_order_create ─────────────────────────────────────────────────
         (f"Create a new work order for {m0} maintenance", "work_order_create"),
         ("Open a work order for pump inspection", "work_order_create"),
-
         # ── work_order_status ─────────────────────────────────────────────────
         (f"What is the status of {w1}?", "work_order_query"),
-
         # ── production_kpi ────────────────────────────────────────────────────
         ("What is the OEE for production line 1?", "production_kpi"),
         ("Show me the KPIs for this shift", "production_kpi"),
         ("What is the MTBF for our machines?", "production_kpi"),
         ("Show production yield for today", "production_kpi"),
-
         # ── drug_research ─────────────────────────────────────────────────────
         ("Tell me about drug research findings", "drug_research"),
         ("What drug formulations are in research?", "drug_research"),
-
         # ── warehouse_shipping ────────────────────────────────────────────────
         ("List warehouse shipments for today", "warehouse_shipping"),
         ("What is the status of outbound freight?", "warehouse_shipping"),
-
         # ── approval_query ────────────────────────────────────────────────────
         ("Show all pending approvals", "approval_query"),
         ("List approval requests", "approval_query"),
         ("How many approvals are waiting?", "approval_query"),
-
         # ── change_control ────────────────────────────────────────────────────
         ("List all open change controls", "change_control"),
         ("Show change control requests", "change_control_query"),
-
         # ── decision_intelligence ─────────────────────────────────────────────
         ("Help me decide which batch to prioritize", "decision_intelligence"),
-
         # ── audit_log ─────────────────────────────────────────────────────────
         ("Show me the audit log for today", "audit_log"),
         ("What compliance events happened this week?", "audit_log"),
-
         # ── Edge cases ────────────────────────────────────────────────────────
         ("Show me batch records for lot NONEXISTENT-999", "batch_record"),
         ("What is work order FAKE-WO-9999 status?", "work_order_query"),
@@ -157,6 +147,7 @@ CHAOS_QUESTIONS = [
 
 
 # ── Core executor runner ───────────────────────────────────────────────────────
+
 
 async def run_question(
     question: str,
@@ -183,8 +174,7 @@ async def run_question(
             result.routed_intent = expected_intent  # assume correct if non-empty
 
         # Pass if: routed to right intent OR got a real answer (not "no intent" / error)
-        intent_ok = (result.routed_intent == expected_intent or
-                     expected_intent in result.routed_intent)
+        intent_ok = result.routed_intent == expected_intent or expected_intent in result.routed_intent
         has_answer = bool(result.answer) and "No intent" not in result.answer
         result.passed = intent_ok and has_answer
 
@@ -198,14 +188,15 @@ async def run_question(
 
 # ── Test 1: Sequential routing test ───────────────────────────────────────────
 
+
 async def test_sequential_routing(mongo_client):
     """Each question hits the right intent and gets a non-empty answer."""
     ids = _pull_real_ids()
     cases = build_test_cases(ids)
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"TEST 1: SEQUENTIAL ROUTING ({len(cases)} questions)")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     results = []
     for q, intent in cases:
@@ -227,11 +218,12 @@ async def test_sequential_routing(mongo_client):
 
 # ── Test 2: Concurrent chaos ───────────────────────────────────────────────────
 
+
 async def test_concurrent_chaos(mongo_client, concurrency: int = 10):
     """Fire N questions simultaneously — check for race conditions, crashes."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"TEST 2: CONCURRENT CHAOS (concurrency={concurrency})")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     questions = (CHAOS_QUESTIONS * 3)[:concurrency]
     t0 = time.monotonic()
@@ -256,7 +248,7 @@ async def test_concurrent_chaos(mongo_client, concurrency: int = 10):
 
     print(f"\n  Concurrency: {concurrency} | Total time: {total_ms:.0f}ms")
     print(f"  Answered: {answered} | Crashes: {crashes}")
-    print(f"  Throughput: {concurrency / (total_ms/1000):.1f} req/s")
+    print(f"  Throughput: {concurrency / (total_ms / 1000):.1f} req/s")
 
     assert crashes == 0, f"{crashes} requests crashed during concurrency test"
     return results
@@ -264,13 +256,14 @@ async def test_concurrent_chaos(mongo_client, concurrency: int = 10):
 
 # ── Test 3: Direct handler validation ─────────────────────────────────────────
 
+
 async def test_direct_handlers(mongo_client):
     """Call the actual INTENT_REGISTRY handlers directly against real data."""
     from src.monkey_brain.kernel.intents.intent_registry import INTENT_REGISTRY
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("TEST 3: DIRECT HANDLER VALIDATION (real DB queries)")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     ids = _pull_real_ids()
     b0 = ids["batch_ids"][0] if ids["batch_ids"] else "PB-1239A463"
@@ -312,11 +305,12 @@ async def test_direct_handlers(mongo_client):
 
 # ── Test 4: Edge case chaos ────────────────────────────────────────────────────
 
+
 async def test_edge_cases(mongo_client):
     """Adversarial/edge-case inputs that should not crash the system."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("TEST 4: EDGE CASE CHAOS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     edge_cases = [
         # Empty-ish inputs
@@ -331,7 +325,10 @@ async def test_edge_cases(mongo_client):
         # Very long question
         ("Show me " + "batch records for " * 50 + "lot 12345", "batch_record"),
         # Special characters
-        ("What is the status of batch PB-1239A463? <script>alert(1)</script>", "batch_record"),
+        (
+            "What is the status of batch PB-1239A463? <script>alert(1)</script>",
+            "batch_record",
+        ),
         # Unicode
         ("Показать производственные партии", "any"),
         # Mixed case and typos
@@ -346,6 +343,7 @@ async def test_edge_cases(mongo_client):
     for question, _ in edge_cases:
         try:
             from src.monkey_brain.kernel.executor import UnifiedExecutor
+
             executor = UnifiedExecutor()
             result = await executor.execute(question, mongo_client, question_source="query")
             answer = result[0] if result else ""
@@ -361,14 +359,15 @@ async def test_edge_cases(mongo_client):
 
 # ── Test 5: RL Bellman learning accumulation ───────────────────────────────────
 
+
 async def test_bellman_accumulation(mongo_client):
     """Verify Q-table grows and doesn't reset between requests."""
     from src.monkey_brain.kernel.executor import UnifiedExecutor
     from src.monkey_brain.kernel.fix.policy.policy import BellmanPolicy
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("TEST 5: BELLMAN Q-TABLE ACCUMULATION")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     # Reset policy for clean test
     UnifiedExecutor._policy = None
@@ -398,11 +397,12 @@ async def test_bellman_accumulation(mongo_client):
 
     # Verify policy select() doesn't crash with real pipelines
     from src.monkey_brain.kernel.pipeline import Pipeline, PipelineStep
+
     dummy_pipelines = [
         Pipeline(
             pipeline_id=f"test_pipeline_{i}",
             steps=[PipelineStep(capability_name="test", inputs=[], outputs=[])],
-            metadata={"intent": "test"}
+            metadata={"intent": "test"},
         )
         for i in range(3)
     ]
@@ -413,11 +413,12 @@ async def test_bellman_accumulation(mongo_client):
 
 # ── Test 6: Data integrity — count cross-check ────────────────────────────────
 
+
 async def test_data_integrity(mongo_client):
     """Ask count questions and verify answers match actual DB counts."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("TEST 6: DATA INTEGRITY (count cross-check)")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     sync_db = _sync_client()[DB_NAME]
 
@@ -433,8 +434,7 @@ async def test_data_integrity(mongo_client):
         actual_count = sync_db[collection].count_documents(query)
 
         # Try direct handler
-        route = INTENT_REGISTRY.get("work_order_query" if "work order" in question.lower()
-                                     else "batch_record")
+        route = INTENT_REGISTRY.get("work_order_query" if "work order" in question.lower() else "batch_record")
         if not route:
             print(f"  ? No handler for: {question[:50]}")
             continue
@@ -454,13 +454,14 @@ async def test_data_integrity(mongo_client):
 
 # ── Test 7: Simulation path vs query path ─────────────────────────────────────
 
+
 async def test_simulation_vs_query(mongo_client):
     """Verify simulation path (no LLM) and query path return different code paths."""
     from src.monkey_brain.kernel.executor import UnifiedExecutor
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("TEST 7: SIMULATION vs QUERY PATH DIVERGENCE")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     question = "Show me batch records for lot BATCH-001"
     executor = UnifiedExecutor()
@@ -484,11 +485,12 @@ async def test_simulation_vs_query(mongo_client):
 
 # ── Main runner ───────────────────────────────────────────────────────────────
 
+
 async def main():
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("MONKEYBRAIN CHAOS TEST SUITE — LIVE DB")
     print(f"MongoDB: {MONGO_URI} / {DB_NAME}")
-    print("="*70)
+    print("=" * 70)
 
     # Verify connectivity first
     try:
@@ -550,9 +552,9 @@ async def main():
         motor_client.close()
 
     total_ms = (time.monotonic() - t_total) * 1000
-    print(f"\n{'='*70}")
-    print(f"CHAOS TEST SUMMARY ({total_ms/1000:.1f}s total)")
-    print(f"{'='*70}")
+    print(f"\n{'=' * 70}")
+    print(f"CHAOS TEST SUMMARY ({total_ms / 1000:.1f}s total)")
+    print(f"{'=' * 70}")
     for test, result in summary.items():
         print(f"  {test:<20}: {result}")
     print()

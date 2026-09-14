@@ -22,13 +22,18 @@ actor at the bottom actually gets ticked (its cognition state advances)
 despite the tick call never directly referencing anything below the
 Country.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
 from src.monkey_brain.kernel.geography.runtime import GeographicEntityRuntime
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -36,13 +41,17 @@ def _build_deep_chain():
     marketplace = PlanetaryRuntime()
 
     country = marketplace.geo_registry.create(
-        GeographicEntityType.COUNTRY, "Testland", parent_id=marketplace._default_planet.entity_id,
+        GeographicEntityType.COUNTRY,
+        "Testland",
+        parent_id=marketplace._default_planet.entity_id,
     )
     state = marketplace.geo_registry.create(GeographicEntityType.STATE, "Test State", parent_id=country.entity_id)
     county = marketplace.geo_registry.create(GeographicEntityType.COUNTY, "Test County", parent_id=state.entity_id)
     city = marketplace.geo_registry.create(GeographicEntityType.CITY, "Test City", parent_id=county.entity_id)
     street = marketplace.geo_registry.create(GeographicEntityType.STREET, "Test Street", parent_id=city.entity_id)
-    building = marketplace.geo_registry.create(GeographicEntityType.BUILDING, "Test Building", parent_id=street.entity_id)
+    building = marketplace.geo_registry.create(
+        GeographicEntityType.BUILDING, "Test Building", parent_id=street.entity_id
+    )
     space = marketplace.geo_registry.create(GeographicEntityType.SPACE, "Test Space", parent_id=building.entity_id)
 
     deep_society = marketplace.create_society(name="Deep Society", always_active=True)
@@ -50,11 +59,14 @@ def _build_deep_chain():
 
     actor = marketplace.register_actor(
         ActorProfile(identity=ActorIdentity(name="Deep Dan", actor_type=ActorType.HUMAN)),
-        society_id=deep_society.society.society_id, home_space_id=space.entity_id,
+        society_id=deep_society.society.society_id,
+        home_space_id=space.entity_id,
     )
 
     country_runtime = GeographicEntityRuntime(
-        marketplace.geo_registry, country.entity_id, marketplace._societies.get,
+        marketplace.geo_registry,
+        country.entity_id,
+        marketplace._societies.get,
         presence=marketplace.presence,
         actor_ticker=marketplace._tick_present_actor,
         membership_reconciler=marketplace.membership_governor.reconcile,

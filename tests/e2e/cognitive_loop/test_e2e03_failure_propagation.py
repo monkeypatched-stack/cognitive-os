@@ -54,10 +54,15 @@ unattributable shared-log heuristic.
 TEST ISOLATION: uses Raj Sharma, a pre-seeded actor not used by any
 other test in this suite.
 """
+
 from __future__ import annotations
 
 from tests.e2e.cognitive_loop._boundary import (
-    actor_get, find_actor_id, prompt, requires_live_backend, tick_result,
+    actor_get,
+    find_actor_id,
+    prompt,
+    requires_live_backend,
+    tick_result,
 )
 
 QUESTION = (
@@ -75,7 +80,10 @@ def test_e2e03_failure_propagation():
     execution_id = tick["execution_id"]
 
     plans = actor_get(actor_id, "plans")["plans"]
-    matching_plan = next((p for p in plans if p.get("metadata", {}).get("execution_id") == execution_id), None)
+    matching_plan = next(
+        (p for p in plans if p.get("metadata", {}).get("execution_id") == execution_id),
+        None,
+    )
     assert matching_plan is not None, f"no persisted PLAN record tagged with execution_id={execution_id}"
     comparator_outcome = matching_plan.get("metadata", {}).get("comparator_outcome")
     # A rejected plan still produces a real plan/actions/prediction —

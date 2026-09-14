@@ -10,6 +10,7 @@ were considered, and what the consequences are. Writes the ADR to disk under
 docs/adr/ so it's a durable, reviewable artifact rather than only living in
 an LLM response.
 """
+
 from __future__ import annotations
 import json
 import logging
@@ -37,6 +38,7 @@ class ArchitectureDecisionAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
@@ -53,7 +55,10 @@ class ArchitectureDecisionAgent(BaseETASSAgent):
         ask = str(context.get("question") or context.get("ask") or "").strip()
         if not requirements and not ask:
             self._reward(False, 0.0)
-            return self._result(payload={"decision": ""}, observations=["no requirements/ask in context"])
+            return self._result(
+                payload={"decision": ""},
+                observations=["no requirements/ask in context"],
+            )
 
         req_text = "\n".join(f"- {r.get('statement', r)}" if isinstance(r, dict) else f"- {r}" for r in requirements)
         goal = (
@@ -94,6 +99,7 @@ class ArchitectureDecisionAgent(BaseETASSAgent):
         artifacts = []
         try:
             from src.monkey_brain.kernel.execute.runtime.outcome import Artifact
+
             if adr_path:
                 artifacts = [Artifact(kind="adr", name=data.get("title", "ADR"), uri=str(adr_path))]
         except ImportError:

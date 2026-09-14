@@ -163,9 +163,7 @@ class SAPPurchaseOrderAdapter(CapabilityAdapter):
                         }
                     )
 
-                return AdapterResponse.fail(
-                    f"SAP API error {response.status_code}: {response.text}"
-                )
+                return AdapterResponse.fail(f"SAP API error {response.status_code}: {response.text}")
 
         except Exception as exc:
             self.log("error", f"PO creation failed: {exc}")
@@ -259,8 +257,7 @@ class SAPMaterialStockAdapter(CapabilityAdapter):
         try:
             async with self._pool.connection() as client:
                 response = await client.get(
-                    f"/sap/opu/odata/sap/ZSTOCK_SRV/StockSet"
-                    f"(Material='{material_id}',Plant='{plant}')",
+                    f"/sap/opu/odata/sap/ZSTOCK_SRV/StockSet(Material='{material_id}',Plant='{plant}')",
                 )
 
             if response.status_code == 200:
@@ -274,9 +271,7 @@ class SAPMaterialStockAdapter(CapabilityAdapter):
                     }
                 )
 
-            return AdapterResponse.fail(
-                f"SAP stock query failed: {response.status_code}"
-            )
+            return AdapterResponse.fail(f"SAP stock query failed: {response.status_code}")
 
         except Exception as exc:
             return AdapterResponse.fail(str(exc))

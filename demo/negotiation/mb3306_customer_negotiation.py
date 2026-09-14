@@ -10,12 +10,18 @@ and the agreement is persisted as real world state.
 Usage:
     python3 demo/negotiation/mb3306_customer_negotiation.py
 """
+
 from __future__ import annotations
 
 import sys
 
 from _common import ApiError, banner, client, first_result, force_round, kv, section
-from bootstrap_mb3306 import TRACKED_PRODUCT_FLOOR, TRACKED_PRODUCT_NAME, TRACKED_PRODUCT_PRICE, bootstrap_world
+from bootstrap_mb3306 import (
+    TRACKED_PRODUCT_FLOOR,
+    TRACKED_PRODUCT_NAME,
+    TRACKED_PRODUCT_PRICE,
+    bootstrap_world,
+)
 
 
 def main() -> int:
@@ -34,9 +40,12 @@ def main() -> int:
 
             section("Round 1 — Customer asks for a discount")
             steps, actions = force_round(
-                c, customer_id, "Customer", "AskActor",
-                f'You want the {TRACKED_PRODUCT_NAME} (listed at ${TRACKED_PRODUCT_PRICE}) but think you '
-                f'could get a discount if you accept delivery next week instead of today. Ask the '
+                c,
+                customer_id,
+                "Customer",
+                "AskActor",
+                f"You want the {TRACKED_PRODUCT_NAME} (listed at ${TRACKED_PRODUCT_PRICE}) but think you "
+                f"could get a discount if you accept delivery next week instead of today. Ask the "
                 f'Merchant about this. Use parameters {{"target_actor": "Merchant", "question": '
                 f'"Can I receive a discount if I accept delivery next week?"}}.',
             )
@@ -47,9 +56,12 @@ def main() -> int:
 
             section("Round 2 — Merchant negotiates a real price")
             steps, actions = force_round(
-                c, merchant_id, "Merchant", "NegotiatePrice",
-                f'A customer offered to accept delivery next week (instead of today) in exchange for '
-                f'a discount on the {TRACKED_PRODUCT_NAME}, implying they would want to pay around $52.00 '
+                c,
+                merchant_id,
+                "Merchant",
+                "NegotiatePrice",
+                f"A customer offered to accept delivery next week (instead of today) in exchange for "
+                f"a discount on the {TRACKED_PRODUCT_NAME}, implying they would want to pay around $52.00 "
                 f'instead of the full listed price. Use parameters {{"listed_price": {TRACKED_PRODUCT_PRICE}, '
                 f'"min_seller_price": {TRACKED_PRODUCT_FLOOR}, "buyer_target_price": 52.00}}.',
             )
@@ -61,9 +73,12 @@ def main() -> int:
 
             section("Round 3 — Merchant records the agreement")
             if deal and deal.get("agreed"):
-                agreement_fact = f'The real negotiated price is ${deal.get("price")}.'
+                agreement_fact = f"The real negotiated price is ${deal.get('price')}."
                 steps, actions = force_round(
-                    c, merchant_id, "Merchant", "RecordAgreement",
+                    c,
+                    merchant_id,
+                    "Merchant",
+                    "RecordAgreement",
                     f'{agreement_fact} Persist this agreement. Use parameters {{"entity_id": '
                     f'"{product_id}", "agreement": {{"with": "Customer", "terms": '
                     f'"${deal.get("price")} for next-week delivery instead of ${TRACKED_PRODUCT_PRICE} today"}}}}.',
@@ -78,13 +93,17 @@ def main() -> int:
 
             section("Round 4 — Merchant replies to the Customer")
             fact = (
-                f'You negotiated a real price of ${deal.get("price")} for next-week delivery and recorded '
-                f'the agreement.' if (deal and deal.get("agreed")) else
-                "You were unable to reach a deal within the negotiation bounds."
+                f"You negotiated a real price of ${deal.get('price')} for next-week delivery and recorded "
+                f"the agreement."
+                if (deal and deal.get("agreed"))
+                else "You were unable to reach a deal within the negotiation bounds."
             )
             steps, actions = force_round(
-                c, merchant_id, "Merchant", "RespondToInquiry",
-                f'{fact} Reply to the customer with your final answer.',
+                c,
+                merchant_id,
+                "Merchant",
+                "RespondToInquiry",
+                f"{fact} Reply to the customer with your final answer.",
                 extra_context=fact,
             )
             final = first_result("RespondToInquiry", steps, actions)
@@ -94,14 +113,22 @@ def main() -> int:
 
             section("Verification")
             checks = [
-                ("Customer negotiated using natural language (real AskActor exchange)",
-                 bool(ask_result and ask_result.get("answer"))),
-                ("Merchant reasoned about a real bounded price (NegotiatePrice ran)",
-                 bool(deal)),
-                ("Agreement stored as persistent world state (RecordAgreement succeeded)",
-                 bool(record_result and record_result.get("success"))),
-                ("Merchant delivered a real final reply to the customer",
-                 bool(final_answer)),
+                (
+                    "Customer negotiated using natural language (real AskActor exchange)",
+                    bool(ask_result and ask_result.get("answer")),
+                ),
+                (
+                    "Merchant reasoned about a real bounded price (NegotiatePrice ran)",
+                    bool(deal),
+                ),
+                (
+                    "Agreement stored as persistent world state (RecordAgreement succeeded)",
+                    bool(record_result and record_result.get("success")),
+                ),
+                (
+                    "Merchant delivered a real final reply to the customer",
+                    bool(final_answer),
+                ),
             ]
             all_pass = True
             for label, ok in checks:

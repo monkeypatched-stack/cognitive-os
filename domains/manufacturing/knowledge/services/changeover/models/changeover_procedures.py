@@ -14,8 +14,12 @@ class ChangeoverProcedure(BaseModel):
     plant_id: str
     name: str = Field(..., min_length=2, max_length=120)
     changeover_type: ChangeoverType
-    from_product_id: Optional[str] = Field(None, description="None = applies to any source product")
-    to_product_id: Optional[str] = Field(None, description="None = applies to any target product")
+    from_product_id: Optional[str] = Field(
+        None, description="None = applies to any source product"
+    )
+    to_product_id: Optional[str] = Field(
+        None, description="None = applies to any target product"
+    )
     applicable_workstation_ids: list[str] = Field(
         default_factory=list,
         description="Empty list = applies to all workstations",
@@ -51,12 +55,20 @@ class ChangeoverProcedure(BaseModel):
     @computed_field  # type: ignore[misc]
     @property
     def internal_minutes(self) -> int:
-        return sum(t.estimated_minutes for t in self.tasks if t.category == TaskCategory.INTERNAL)
+        return sum(
+            t.estimated_minutes
+            for t in self.tasks
+            if t.category == TaskCategory.INTERNAL
+        )
 
     @computed_field  # type: ignore[misc]
     @property
     def external_minutes(self) -> int:
-        return sum(t.estimated_minutes for t in self.tasks if t.category == TaskCategory.EXTERNAL)
+        return sum(
+            t.estimated_minutes
+            for t in self.tasks
+            if t.category == TaskCategory.EXTERNAL
+        )
 
     @computed_field  # type: ignore[misc]
     @property

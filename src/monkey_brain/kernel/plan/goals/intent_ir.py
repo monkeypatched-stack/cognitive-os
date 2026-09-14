@@ -18,6 +18,7 @@ views for its dict-valued fields) and versioned via `schema_version`, so a
 future planner/runtime split can evolve independently as long as both sides
 agree on SUPPORTED_SCHEMA_VERSIONS.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -95,18 +96,20 @@ class IntentIR:
 
     def _signing_payload(self) -> str:
         """Canonical string over every field except `signature` itself."""
-        return "|".join([
-            self.schema_version,
-            self.intent_ir_id,
-            self.run_id,
-            self.intent_type,
-            f"{self.confidence:.6f}",
-            repr(sorted(self.goal.items())),
-            repr(self.entities),
-            repr(sorted(self.parameters.items())),
-            repr(sorted(self.execution_metadata.items())),
-            f"{self.created_at:.6f}",
-        ])
+        return "|".join(
+            [
+                self.schema_version,
+                self.intent_ir_id,
+                self.run_id,
+                self.intent_type,
+                f"{self.confidence:.6f}",
+                repr(sorted(self.goal.items())),
+                repr(self.entities),
+                repr(sorted(self.parameters.items())),
+                repr(sorted(self.execution_metadata.items())),
+                f"{self.created_at:.6f}",
+            ]
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -170,20 +173,25 @@ def build_intent_ir(
         confidence=float(intent.get("confidence", 0.0)),
         goal=_frozen_mapping(goal_dict),
         entities=tuple(getattr(goal, "entities", None) or ()),
-        parameters=_frozen_mapping({
-            "workload_id": intent.get("workload_id", ""),
-            "group": group,
-        }),
-        execution_metadata=_frozen_mapping({
-            "question": question,
-            "goal_type": goal_dict.get("goal_type", ""),
-        }),
+        parameters=_frozen_mapping(
+            {
+                "workload_id": intent.get("workload_id", ""),
+                "group": group,
+            }
+        ),
+        execution_metadata=_frozen_mapping(
+            {
+                "question": question,
+                "goal_type": goal_dict.get("goal_type", ""),
+            }
+        ),
         created_at=time.time(),
     )
     signature = sign_intent_ir(ir)
     # dataclasses.replace would re-run __init__ fine since frozen just blocks
     # attribute assignment, not construction.
     from dataclasses import replace
+
     return replace(ir, signature=signature)
 
 
@@ -191,7 +199,12 @@ def sign_intent_ir(ir: IntentIR) -> str:
     """Sign the IntentIR using Ed25519 via the identity module."""
     blob = ir._signing_payload().encode("utf-8")
     try:
-        from src.monkey_brain.kernel.identity import get_identity, get_key_manager, sign_bytes
+        from src.monkey_brain.kernel.identity import (
+            get_identity,
+            get_key_manager,
+            sign_bytes,
+        )
+
         identity = get_identity()
         km = get_key_manager()
         key = km.get_or_create(identity.runtime_id)
@@ -231,9 +244,11 @@ def _verify_signature(ir: IntentIR) -> bool:
     # Try Ed25519 verification
     try:
         from src.monkey_brain.kernel.identity import get_key_manager, verify_bytes
+
         km = get_key_manager()
         # We don't know which runtime signed it, so try the local identity
         from src.monkey_brain.kernel.identity import get_identity
+
         identity = get_identity()
         pub_pem = km.get_public_key_pem(identity.runtime_id)
         if verify_bytes(blob, ir.signature, pub_pem):
@@ -296,8 +311,7 @@ def validate_intent_ir(ir: IntentIR) -> list[str]:
 
     if ir.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         errors.append(
-            f"unsupported schema_version {ir.schema_version!r} "
-            f"(supported: {sorted(SUPPORTED_SCHEMA_VERSIONS)})"
+            f"unsupported schema_version {ir.schema_version!r} (supported: {sorted(SUPPORTED_SCHEMA_VERSIONS)})"
         )
         # Field shapes may differ across versions — don't validate further.
         return errors

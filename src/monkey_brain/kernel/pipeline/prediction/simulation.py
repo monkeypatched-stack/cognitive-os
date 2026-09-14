@@ -21,6 +21,7 @@ cloned semantic state" (Step 11.3's own spec) is enforced two ways:
        leak a mutation back to the caller's real objects. Verified
        directly by identity checks (`is not`), not just equality.
 """
+
 from __future__ import annotations
 
 import copy
@@ -29,7 +30,9 @@ from typing import Any
 from uuid import uuid4
 
 from src.monkey_brain.kernel.pipeline.prediction.transitions import (
-    TransitionKind, TransitionPredictionEngine, WorldTransition,
+    TransitionKind,
+    TransitionPredictionEngine,
+    WorldTransition,
 )
 
 SUCCESS_PROBABILITY_THRESHOLD = 0.5
@@ -52,6 +55,7 @@ def clone_state(value: Any) -> Any:
 @dataclass(frozen=True)
 class SimulationState:
     """One point along a simulated plan's trajectory."""
+
     step_index: int = -1
     """-1 for the initial state, before any step has been applied."""
     step_description: str = "initial"
@@ -72,6 +76,7 @@ class SimulationState:
 class SimulationTrajectory:
     """The full step-by-step path from Current State to Predicted State
     for one candidate plan."""
+
     trajectory_id: str = field(default_factory=lambda: uuid4().hex)
     plan: Any = None
     initial_world_snapshot: Any = None
@@ -96,7 +101,14 @@ class SimulationEngine:
     def __init__(self, transition_engine: TransitionPredictionEngine | None = None) -> None:
         self._transition_engine = transition_engine or TransitionPredictionEngine()
 
-    def simulate(self, world_snapshot: Any, belief_state: Any, steps: tuple[Any, ...], *, plan: Any = None) -> SimulationTrajectory:
+    def simulate(
+        self,
+        world_snapshot: Any,
+        belief_state: Any,
+        steps: tuple[Any, ...],
+        *,
+        plan: Any = None,
+    ) -> SimulationTrajectory:
         """Simulates a raw sequence of steps (each duck-typed the same way
         TransitionPredictionEngine treats an action: a `.description` or
         `.name`, or anything str()-able).
@@ -108,6 +120,7 @@ class SimulationEngine:
         can't be poisoned by an unrelated goal's learned failure history
         for the same action name."""
         from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
+
         # Widened (Goal-Key Contamination fix): plan.goal only ever
         # carries the standing goal NAME (llm_planner.py's Plan
         # construction never sets it to anything else), never the
@@ -136,13 +149,15 @@ class SimulationEngine:
             transitions = self._transition_engine.predict_transitions(cloned_world, cloned_belief, step, goal_key)
             chosen = self._transition_engine.most_likely(transitions)
             accumulated = {**accumulated, **chosen.resulting_world_delta}
-            states.append(SimulationState(
-                step_index=i,
-                step_description=self._step_description(step),
-                world_state=dict(accumulated),
-                applied_transition=chosen,
-                depends_on=tuple(getattr(step, "depends_on", ()) or ()),
-            ))
+            states.append(
+                SimulationState(
+                    step_index=i,
+                    step_description=self._step_description(step),
+                    world_state=dict(accumulated),
+                    applied_transition=chosen,
+                    depends_on=tuple(getattr(step, "depends_on", ()) or ()),
+                )
+            )
 
         final_state = states[-1]
         succeeded = self._succeeded(states)
@@ -165,7 +180,9 @@ class SimulationEngine:
         steps = self._extract_steps(plan)
         return self.simulate(world_snapshot, belief_state, steps, plan=plan)
 
-    def simulate_candidates(self, world_snapshot: Any, belief_state: Any, plans: tuple[Any, ...]) -> tuple[SimulationTrajectory, ...]:
+    def simulate_candidates(
+        self, world_snapshot: Any, belief_state: Any, plans: tuple[Any, ...]
+    ) -> tuple[SimulationTrajectory, ...]:
         """Simulates every candidate plan independently -- each gets its
         own cloned state, so simulating one candidate can never influence
         another's trajectory. Step 11.6 (Multi-Scenario Evaluation) is
@@ -189,7 +206,4 @@ class SimulationEngine:
         applied = [s.applied_transition for s in states if s.applied_transition is not None]
         if not applied:
             return True
-        return all(
-            t.kind != TransitionKind.UNKNOWN and t.probability >= SUCCESS_PROBABILITY_THRESHOLD
-            for t in applied
-        )
+        return all(t.kind != TransitionKind.UNKNOWN and t.probability >= SUCCESS_PROBABILITY_THRESHOLD for t in applied)

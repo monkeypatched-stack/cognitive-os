@@ -13,6 +13,7 @@ FakeCapabilityBus below satisfies exactly the same shape ActionExecutor
 already requires of a real bus (discover(name), names()) -- nothing OS-
 specific about it is invented for these tests.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -42,12 +43,17 @@ class ArbitraryParamsCapability:
     Fails once (recoverable), then succeeds on retry using only its own
     original, completely arbitrary parameters -- proving the executor's
     generic retry_after_failure marker is all a capability ever needs."""
+
     name = "ArbitraryAction"
 
     def handle(self, args: dict) -> dict:
         parameters = args.get("parameters", {})
         if parameters.get("retry_after_failure"):
-            return {"success": True, "recovered": True, "saw": parameters.get("anything")}
+            return {
+                "success": True,
+                "recovered": True,
+                "saw": parameters.get("anything"),
+            }
         return {"success": False, "recoverable": True, "error": "arbitrary failure"}
 
 
@@ -55,6 +61,7 @@ class ReserveMachineCapability:
     """TEST B: a fictional manufacturing-shaped domain. Its own recovery
     semantics (excluding the machine that just failed) live entirely on
     this class -- the executor never sees "machine_ref"."""
+
     name = "reserve_machine"
 
     def handle(self, args: dict) -> dict:
@@ -62,22 +69,35 @@ class ReserveMachineCapability:
         if parameters.get("retry_after_failure"):
             original_ref = parameters.get("machine_ref")
             alternative = "machine-B" if original_ref != "machine-B" else "machine-C"
-            return {"success": True, "recovered": True, "machine_ref": alternative,
-                    "duration": parameters.get("duration")}
-        return {"success": False, "recoverable": True, "error": f"{parameters.get('machine_ref')} unavailable"}
+            return {
+                "success": True,
+                "recovered": True,
+                "machine_ref": alternative,
+                "duration": parameters.get("duration"),
+            }
+        return {
+            "success": False,
+            "recoverable": True,
+            "error": f"{parameters.get('machine_ref')} unavailable",
+        }
 
 
 class MoveRobotCapability:
     """TEST C: a fictional robotics-shaped domain. No ProductSelection/
     OrderCreation knowledge exists anywhere in this class or in the
     executor that dispatches to it."""
+
     name = "move_robot"
 
     def handle(self, args: dict) -> dict:
         parameters = args.get("parameters", {})
         if parameters.get("retry_after_failure"):
-            return {"success": True, "recovered": True,
-                     "robot_id": parameters.get("robot_id"), "target": parameters.get("target")}
+            return {
+                "success": True,
+                "recovered": True,
+                "robot_id": parameters.get("robot_id"),
+                "target": parameters.get("target"),
+            }
         return {"success": False, "recoverable": True, "error": "path blocked"}
 
 
@@ -85,6 +105,7 @@ class NoRecoveryHandlingCapability:
     """TEST F: a capability that has never heard of retry_after_failure at
     all -- it always runs its one, plain code path. The generic fallback
     ("re-run unchanged") must still be exactly what happens."""
+
     name = "PlainAction"
 
     def __init__(self):
@@ -92,8 +113,12 @@ class NoRecoveryHandlingCapability:
 
     def handle(self, args: dict) -> dict:
         self.call_count += 1
-        return {"success": False, "recoverable": True, "error": "always fails",
-                "call_count": self.call_count}
+        return {
+            "success": False,
+            "recoverable": True,
+            "error": "always fails",
+            "call_count": self.call_count,
+        }
 
 
 class RecordingCapability:
@@ -102,6 +127,7 @@ class RecordingCapability:
     ORIGINAL parameters through byte-for-byte (plus the one marker key)
     -- proof the OS never inspected, reshaped, or derived anything from
     an arbitrarily/maliciously-shaped "selection" value."""
+
     name = "RecordingAction"
 
     def __init__(self):
@@ -125,7 +151,10 @@ async def test_domain_isolation_a_arbitrary_parameters_recover_generically():
     still works purely through the retry_after_failure marker."""
     cap = ArbitraryParamsCapability()
     executor = ActionExecutor(capability_bus=FakeCapabilityBus([cap]))
-    result = await executor.execute((_action("ArbitraryAction", {"foo": "bar", "alpha": 123, "anything": ["x", "y"]}),), {})
+    result = await executor.execute(
+        (_action("ArbitraryAction", {"foo": "bar", "alpha": 123, "anything": ["x", "y"]}),),
+        {},
+    )
     assert result.goal_achieved is True
     assert result.actions[0].result.get("recovered") is True
     assert result.actions[0].result.get("saw") == ["x", "y"]
@@ -138,7 +167,8 @@ async def test_domain_isolation_b_manufacturing_shaped_domain_recovers():
     cap = ReserveMachineCapability()
     executor = ActionExecutor(capability_bus=FakeCapabilityBus([cap]))
     result = await executor.execute(
-        (_action("reserve_machine", {"machine_ref": "machine-A", "duration": 30}),), {},
+        (_action("reserve_machine", {"machine_ref": "machine-A", "duration": 30}),),
+        {},
     )
     assert result.goal_achieved is True
     assert result.actions[0].result.get("machine_ref") == "machine-B"
@@ -152,7 +182,8 @@ async def test_domain_isolation_c_robotics_shaped_domain_recovers():
     cap = MoveRobotCapability()
     executor = ActionExecutor(capability_bus=FakeCapabilityBus([cap]))
     result = await executor.execute(
-        (_action("move_robot", {"robot_id": "r2d2", "target": "bay-3", "speed": 2.0}),), {},
+        (_action("move_robot", {"robot_id": "r2d2", "target": "bay-3", "speed": 2.0}),),
+        {},
     )
     assert result.goal_achieved is True
     assert result.actions[0].result.get("robot_id") == "r2d2"
@@ -164,7 +195,9 @@ async def test_domain_isolation_d_same_runtime_class_across_three_domains():
     """The literal same ActionExecutor class, constructed three separate
     times with three unrelated fake domains (plus the real grocery
     vertical), needs zero per-domain branching to run any of them."""
-    from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+    from src.monkey_brain.kernel.domains import (
+        grocery,
+    )  # noqa: F401 -- registers the grocery vertical
     from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
     from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
     from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
@@ -174,21 +207,29 @@ async def test_domain_isolation_d_same_runtime_class_across_three_domains():
     milk_id = list_product(kg, store, "merchant_iso", "Milk", price=3.99, quantity=10)["product_id"]
     grocery_executor = build_execution_engine("grocery")
     grocery_result = await grocery_executor.execute(
-        (Action(action_id="g0", capability="ProductSelection", step_index=0,
-                parameters={"selection": [{"id": milk_id, "qty": 1}]}),),
+        (
+            Action(
+                action_id="g0",
+                capability="ProductSelection",
+                step_index=0,
+                parameters={"selection": [{"id": milk_id, "qty": 1}]},
+            ),
+        ),
         {"knowledge_graph": kg, "actor_id": "iso_actor", "question": ""},
     )
     assert grocery_result.goal_achieved is True
 
     machine_executor = ActionExecutor(capability_bus=FakeCapabilityBus([ReserveMachineCapability()]))
     machine_result = await machine_executor.execute(
-        (_action("reserve_machine", {"machine_ref": "machine-A", "duration": 10}),), {},
+        (_action("reserve_machine", {"machine_ref": "machine-A", "duration": 10}),),
+        {},
     )
     assert machine_result.goal_achieved is True
 
     robot_executor = ActionExecutor(capability_bus=FakeCapabilityBus([MoveRobotCapability()]))
     robot_result = await robot_executor.execute(
-        (_action("move_robot", {"robot_id": "wall-e", "target": "dock-1", "speed": 1.0}),), {},
+        (_action("move_robot", {"robot_id": "wall-e", "target": "dock-1", "speed": 1.0}),),
+        {},
     )
     assert robot_result.goal_achieved is True
     # Every one of these ran through the identical ActionExecutor class,
@@ -207,10 +248,12 @@ async def test_domain_isolation_e_two_fake_domains_each_keep_their_own_recovery_
     robot_executor = ActionExecutor(capability_bus=FakeCapabilityBus([MoveRobotCapability()]))
 
     machine_result = await machine_executor.execute(
-        (_action("reserve_machine", {"machine_ref": "machine-B", "duration": 5}),), {},
+        (_action("reserve_machine", {"machine_ref": "machine-B", "duration": 5}),),
+        {},
     )
     robot_result = await robot_executor.execute(
-        (_action("move_robot", {"robot_id": "optimus", "target": "zone-9", "speed": 3.0}),), {},
+        (_action("move_robot", {"robot_id": "optimus", "target": "zone-9", "speed": 3.0}),),
+        {},
     )
 
     assert machine_result.actions[0].result.get("machine_ref") == "machine-C"  # its own real recovery rule
@@ -251,7 +294,10 @@ async def test_domain_isolation_g_parameter_poisoning_is_never_inspected():
     executor_b = ActionExecutor(capability_bus=FakeCapabilityBus([malformed]))
 
     original_params_a = {"selection": [{"id": "prod_1", "qty": 1}]}
-    original_params_b = {"selection": "maliciously shaped value", "nested": {"x": [1, 2, {"y": None}]}}
+    original_params_b = {
+        "selection": "maliciously shaped value",
+        "nested": {"x": [1, 2, {"y": None}]},
+    }
 
     result_a = await executor_a.execute((_action("RecordingAction", dict(original_params_a)),), {})
     result_b = await executor_b.execute((_action("RecordingAction", dict(original_params_b)),), {})

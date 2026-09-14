@@ -15,6 +15,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedMaterialUsedResponse)
 async def list_materials(
     page: int = Query(1, ge=1),
@@ -30,6 +31,7 @@ async def list_materials(
 
 # ── Get by name ───────────────────────────────────────────────────────────────
 
+
 @router.get("/by-name/{name}", response_model=list[MaterialUsedResponse])
 async def list_materials_by_name(
     name: str,
@@ -40,6 +42,7 @@ async def list_materials_by_name(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{material_id}", response_model=MaterialUsedResponse)
 async def get_material(
@@ -58,7 +61,10 @@ async def get_material(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=MaterialUsedResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=MaterialUsedResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_material(
     data: MaterialUsedCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -73,6 +79,7 @@ async def create_material(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{material_id}", response_model=MaterialUsedResponse)
 async def update_material(
@@ -91,6 +98,7 @@ async def update_material(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_material(

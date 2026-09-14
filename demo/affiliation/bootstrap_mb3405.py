@@ -9,6 +9,7 @@ prove BroadcastToAffiliation is scoped to the sender's own Society
 active_actors()), not to every actor anywhere holding a matching
 Affiliation.
 """
+
 from __future__ import annotations
 
 import sys
@@ -16,7 +17,16 @@ from typing import Any
 
 import httpx
 
-from _common import ApiError, affiliate, call, client, create_actor, create_geo, host_society, verify_world
+from _common import (
+    ApiError,
+    affiliate,
+    call,
+    client,
+    create_actor,
+    create_geo,
+    host_society,
+    verify_world,
+)
 
 WAREHOUSE_A_OPS = "warehouse_a_ops"
 
@@ -30,12 +40,22 @@ def build_geography(c: httpx.Client) -> dict[str, str]:
     street = create_geo(c, "street", "Market Street", city)
 
     spaces = {}
-    for key, label in (("warehouse_a", "Warehouse A"), ("distribution_center", "Distribution Center")):
+    for key, label in (
+        ("warehouse_a", "Warehouse A"),
+        ("distribution_center", "Distribution Center"),
+    ):
         building = create_geo(c, "building", f"{label} Building", street)
         space = create_geo(c, "space", f"{label} Floor", building)
         spaces[key] = space
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, **spaces}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        **spaces,
+    }
 
 
 def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
@@ -46,8 +66,18 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
 
         societies = {}
         for key, space_key, name, description in (
-            ("warehouse", "warehouse_a", "Warehouse A Society", "Warehouse A floor operations"),
-            ("distribution", "distribution_center", "Distribution Center Society", "Regional distribution"),
+            (
+                "warehouse",
+                "warehouse_a",
+                "Warehouse A Society",
+                "Warehouse A floor operations",
+            ),
+            (
+                "distribution",
+                "distribution_center",
+                "Distribution Center Society",
+                "Regional distribution",
+            ),
         ):
             society_id = call(c, "POST", "/societies", json={"name": name, "description": description})["society_id"]
             host_society(c, spaces[space_key], society_id)
@@ -59,12 +89,21 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
             "Floor Worker Two": create_actor(c, "Floor Worker Two", societies["warehouse"], ["operate_floor"]),
             "Distribution Worker": create_actor(c, "Distribution Worker", societies["distribution"], ["operate_floor"]),
         }
-        for name in ("Warehouse Manager", "Floor Worker One", "Floor Worker Two", "Distribution Worker"):
+        for name in (
+            "Warehouse Manager",
+            "Floor Worker One",
+            "Floor Worker Two",
+            "Distribution Worker",
+        ):
             affiliate(c, actors[name], WAREHOUSE_A_OPS)
 
         verification = verify_world(c)
-        return {"spaces": spaces, "societies": societies, "actors": actors,
-                "verification": verification}
+        return {
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "verification": verification,
+        }
     finally:
         if owns_client:
             c.close()

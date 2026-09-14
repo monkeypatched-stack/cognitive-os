@@ -91,7 +91,7 @@ class AgentBus:
             produced = self._normalise_produced(raw)
             return AgentResult(
                 agent_name=agent_name,
-                success=produced.get("success", True) if isinstance(produced, dict) else True,
+                success=(produced.get("success", True) if isinstance(produced, dict) else True),
                 produced=produced,
                 latency_ms=elapsed,
                 feedback=feedback,
@@ -113,11 +113,16 @@ class AgentBus:
             return agent
         try:
             from broca.registry import get_registry
+
             found = get_registry().discover(agent_name)
             if found is not None:
                 return found
         except Exception as exc:
-            logger.debug("[agent_bus] BrocaAgentRegistry lookup failed for %r: %s", agent_name, exc)
+            logger.debug(
+                "[agent_bus] BrocaAgentRegistry lookup failed for %r: %s",
+                agent_name,
+                exc,
+            )
         # Third tier: a provider-discovered agent (openclaw/n8n/nanda/ard)
         # that was registered into the ProviderRegistry but never mirrored
         # locally — real only when a registry was actually attached at boot.
@@ -161,6 +166,7 @@ class AgentBus:
         try:
             import inspect
             import re
+
             source = inspect.getsource(type(agent))
             return sorted(set(re.findall(r'_find_capability\(\s*["\']([\w.\-]+)["\']', source)))
         except Exception as exc:

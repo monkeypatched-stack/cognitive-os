@@ -8,6 +8,7 @@ Every successful software engineering workload publishes a pack containing:
 - repair history
 - workflow topology
 """
+
 from __future__ import annotations
 
 import json
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SoftwareEngineeringKnowledgePack:
     """Published knowledge from a completed software engineering workload run."""
+
     spec_id: str = ""
     goal: str = ""
     domain: str = ""
@@ -54,45 +56,55 @@ class SoftwareEngineeringKnowledgePack:
     def to_knowledge_items(self) -> list[KnowledgeItem]:
         items = []
 
-        items.append(KnowledgeItem(
-            id=f"swe-spec-{self.spec_id}",
-            content=f"Specification: {self.goal} (domain={self.domain})",
-            modality=Modality.DOCUMENT,
-            source=f"swe_workload:{self.spec_id}",
-            provenance=self.confidence,
-        ))
+        items.append(
+            KnowledgeItem(
+                id=f"swe-spec-{self.spec_id}",
+                content=f"Specification: {self.goal} (domain={self.domain})",
+                modality=Modality.DOCUMENT,
+                source=f"swe_workload:{self.spec_id}",
+                provenance=self.confidence,
+            )
+        )
         if self.generated_files:
-            items.append(KnowledgeItem(
-                id=f"swe-code-{self.spec_id}",
-                content=f"Generated {len(self.generated_files)} files: {', '.join(list(self.generated_files.keys())[:5])}",
-                modality=Modality.CODE,
-                source=f"codegen:{self.spec_id}",
-                provenance=self.confidence,
-            ))
+            items.append(
+                KnowledgeItem(
+                    id=f"swe-code-{self.spec_id}",
+                    content=f"Generated {len(self.generated_files)} files: {', '.join(list(self.generated_files.keys())[:5])}",
+                    modality=Modality.CODE,
+                    source=f"codegen:{self.spec_id}",
+                    provenance=self.confidence,
+                )
+            )
         if self.governance_findings:
-            items.append(KnowledgeItem(
-                id=f"swe-govern-{self.spec_id}",
-                content=f"Governance: {len(self.governance_findings)} findings, {sum(1 for f in self.governance_findings if f.get('severity') == 'critical')} critical",
-                modality=Modality.DOCUMENT,
-                source=f"governance:{self.spec_id}",
-                provenance=self.confidence,
-            ))
+            items.append(
+                KnowledgeItem(
+                    id=f"swe-govern-{self.spec_id}",
+                    content=f"Governance: {len(self.governance_findings)} findings, {sum(1 for f in self.governance_findings if f.get('severity') == 'critical')} critical",
+                    modality=Modality.DOCUMENT,
+                    source=f"governance:{self.spec_id}",
+                    provenance=self.confidence,
+                )
+            )
         if self.benchmark_results:
-            items.append(KnowledgeItem(
-                id=f"swe-bench-{self.spec_id}",
-                content=f"Benchmark: {json.dumps(self.benchmark_results)[:200]}",
-                modality=Modality.DOCUMENT,
-                source=f"benchmark:{self.spec_id}",
-                provenance=self.confidence,
-            ))
+            items.append(
+                KnowledgeItem(
+                    id=f"swe-bench-{self.spec_id}",
+                    content=f"Benchmark: {json.dumps(self.benchmark_results)[:200]}",
+                    modality=Modality.DOCUMENT,
+                    source=f"benchmark:{self.spec_id}",
+                    provenance=self.confidence,
+                )
+            )
         if self.workflow_topology:
-            items.append(KnowledgeItem(
-                id=f"swe-workflow-{self.spec_id}",
-                content=f"Workflow: {' → '.join(self.workflow_topology)}",
-                modality=Modality.DOCUMENT,
-                source=f"workflow:{self.spec_id}",
-                provenance=self.confidence,
-            ))
+            items.append(
+                KnowledgeItem(
+                    id=f"swe-workflow-{self.spec_id}",
+                    content=f"Workflow: {' → '.join(self.workflow_topology)}",
+                    modality=Modality.DOCUMENT,
+                    source=f"workflow:{self.spec_id}",
+                    provenance=self.confidence,
+                )
+            )
         return items
 
 
@@ -128,7 +140,9 @@ class SoftwareEngineeringKnowledgePublisher:
             confidence=confidence,
         )
         self._published.append(kp)
-        logger.info("Published SWE KP: %s (%d items)", spec_id, len(kp.to_knowledge_items()))
+        logger.info(
+            "Published SWE KP: %s (%d items)", spec_id, len(kp.to_knowledge_items())
+        )
         return kp
 
     def get_published(self) -> list[SoftwareEngineeringKnowledgePack]:
@@ -149,5 +163,6 @@ class SoftwareEngineeringKnowledgePublisher:
             "total_published": len(self._published),
             "domains": list({kp.domain for kp in self._published if kp.domain}),
             "total_items": sum(len(kp.to_knowledge_items()) for kp in self._published),
-            "avg_confidence": sum(kp.confidence for kp in self._published) / max(len(self._published), 1),
+            "avg_confidence": sum(kp.confidence for kp in self._published)
+            / max(len(self._published), 1),
         }

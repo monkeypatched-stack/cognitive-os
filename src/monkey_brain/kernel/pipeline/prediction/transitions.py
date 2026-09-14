@@ -25,6 +25,7 @@ Support for all four required transition kinds:
       action at all -- the engine returns an explicit "we don't know"
       fallback rather than guessing or defaulting to success.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -33,7 +34,9 @@ from enum import Enum
 from typing import Any
 
 from src.monkey_brain.kernel.pipeline.prediction.domain import (
-    Prediction, PredictionConfidence, PredictionOutcome,
+    Prediction,
+    PredictionConfidence,
+    PredictionOutcome,
 )
 
 
@@ -51,6 +54,7 @@ class WorldTransition:
     and how sure we are about that probability estimate itself (confidence
     -- distinct axes, e.g. a transition can be the *only* known outcome
     (probability=1.0) while still being poorly attested (confidence=0.2))."""
+
     action: Any = None
     description: str = ""
     kind: TransitionKind = TransitionKind.UNKNOWN
@@ -69,7 +73,9 @@ class WorldTransition:
         # — str() is a safe, honest fallback for anything else rather
         # than failing to serialize a real learned transition.
         return {
-            "action": self.action if isinstance(self.action, (str, int, float, bool, type(None))) else str(self.action),
+            "action": (
+                self.action if isinstance(self.action, (str, int, float, bool, type(None))) else str(self.action)
+            ),
             "description": self.description,
             "kind": self.kind.value,
             "probability": self.probability,
@@ -110,6 +116,7 @@ class TransitionModel:
     canonicalized (kernel/pipeline/planning/goal_key.py::canonicalize_goal)
     by the caller, matching current_plan_store.py's convention -- this
     module doesn't re-derive it, to keep exactly one normalization."""
+
     known_transitions: dict[tuple[str, str], tuple[WorldTransition, ...]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -120,10 +127,14 @@ class TransitionModel:
         return {
             "known_transitions": [
                 {
-                    "goal_key": goal_key, "action_key": action_key,
+                    "goal_key": goal_key,
+                    "action_key": action_key,
                     "transitions": [t.to_dict() for t in transitions],
                 }
-                for (goal_key, action_key), transitions in self.known_transitions.items()
+                for (
+                    goal_key,
+                    action_key,
+                ), transitions in self.known_transitions.items()
             ],
         }
 
@@ -187,7 +198,7 @@ class TransitionModel:
             new_transition = WorldTransition(
                 action=action_key,
                 description=f"Learned from execution: {'success' if success else 'failure'}",
-                kind=TransitionKind.DETERMINISTIC if observed_prob > 0.9 else TransitionKind.PROBABILISTIC,
+                kind=(TransitionKind.DETERMINISTIC if observed_prob > 0.9 else TransitionKind.PROBABILISTIC),
                 probability=round(observed_prob, 4),
                 resulting_world_delta=world_delta or {},
                 confidence=min(1.0, confidence + learning_rate),
@@ -198,17 +209,21 @@ class TransitionModel:
             for t in existing:
                 old_p = t.probability
                 blended_p = old_p * (1 - learning_rate) + observed_prob * learning_rate
-                blended.append(WorldTransition(
-                    action=action_key,
-                    description=f"Learned: {'success' if success else 'failure'} (blended p={blended_p:.3f})",
-                    kind=TransitionKind.DETERMINISTIC if blended_p > 0.9 else (
-                        TransitionKind.PROBABILISTIC if blended_p > 0.4 else TransitionKind.UNCERTAIN
-                    ),
-                    probability=round(blended_p, 4),
-                    resulting_world_delta=world_delta or t.resulting_world_delta,
-                    confidence=min(1.0, t.confidence + learning_rate * 0.5),
-                    grounding_fact_key=t.grounding_fact_key,
-                ))
+                blended.append(
+                    WorldTransition(
+                        action=action_key,
+                        description=f"Learned: {'success' if success else 'failure'} (blended p={blended_p:.3f})",
+                        kind=(
+                            TransitionKind.DETERMINISTIC
+                            if blended_p > 0.9
+                            else (TransitionKind.PROBABILISTIC if blended_p > 0.4 else TransitionKind.UNCERTAIN)
+                        ),
+                        probability=round(blended_p, 4),
+                        resulting_world_delta=world_delta or t.resulting_world_delta,
+                        confidence=min(1.0, t.confidence + learning_rate * 0.5),
+                        grounding_fact_key=t.grounding_fact_key,
+                    )
+                )
             new_transitions = tuple(blended)
 
         new_known = {**self.known_transitions, key: new_transitions}
@@ -226,7 +241,11 @@ class TransitionPredictionEngine:
     # ── Single-action transitions ───────────────────────────────────────
 
     def predict_transitions(
-        self, world_snapshot: Any, belief_state: Any, action: Any, goal_key: str = "",
+        self,
+        world_snapshot: Any,
+        belief_state: Any,
+        action: Any,
+        goal_key: str = "",
     ) -> tuple[WorldTransition, ...]:
         """All known possible outcomes of one action, grounded and
         classified. Returns a single UNKNOWN transition if nothing is
@@ -245,7 +264,11 @@ class TransitionPredictionEngine:
     # ── Whole-plan future-world folding ─────────────────────────────────
 
     def predict_future_world(
-        self, world_snapshot: Any, belief_state: Any, actions: tuple[Any, ...], goal_key: str = "",
+        self,
+        world_snapshot: Any,
+        belief_state: Any,
+        actions: tuple[Any, ...],
+        goal_key: str = "",
     ) -> dict[str, Any]:
         """Folds each action's most-likely transition into one predicted
         world-state delta -- a read-only summary of "what the world would
@@ -279,13 +302,18 @@ class TransitionPredictionEngine:
             chosen = self.most_likely(transitions)
             predicted_state.update(chosen.resulting_world_delta)
             confidences.append(chosen.confidence)
-            outcomes.append(PredictionOutcome(
-                description=chosen.description or self._action_key(action),
-                success=chosen.kind != TransitionKind.UNKNOWN and chosen.probability >= 0.5,
-                probability=chosen.probability,
-                utility=0.0,
-                metadata={"kind": chosen.kind.value, "action": self._action_key(action)},
-            ))
+            outcomes.append(
+                PredictionOutcome(
+                    description=chosen.description or self._action_key(action),
+                    success=chosen.kind != TransitionKind.UNKNOWN and chosen.probability >= 0.5,
+                    probability=chosen.probability,
+                    utility=0.0,
+                    metadata={
+                        "kind": chosen.kind.value,
+                        "action": self._action_key(action),
+                    },
+                )
+            )
 
         overall_confidence = min(confidences) if confidences else 0.0
 
@@ -297,7 +325,8 @@ class TransitionPredictionEngine:
                 point_estimate=overall_confidence,
                 rationale=(
                     f"minimum per-action transition confidence across {len(outcomes)} action(s)"
-                    if outcomes else "no actions predicted"
+                    if outcomes
+                    else "no actions predicted"
                 ),
             ),
             expected_utility=0.0,
@@ -328,8 +357,12 @@ class TransitionPredictionEngine:
         step still showed probability=1.0 — the Learn -> Predict link was
         completely severed by this mismatch, not by any lack of learning.
         """
-        return str(getattr(action, "action", None) or getattr(action, "description", None)
-                    or getattr(action, "name", None) or action)
+        return str(
+            getattr(action, "action", None)
+            or getattr(action, "description", None)
+            or getattr(action, "name", None)
+            or action
+        )
 
     def _unknown_transition(self, action: Any) -> WorldTransition:
         return WorldTransition(
@@ -349,7 +382,9 @@ class TransitionPredictionEngine:
             confidence=0.0,
         )
 
-    def _ground_in_belief(self, transitions: tuple[WorldTransition, ...], belief_state: Any) -> tuple[WorldTransition, ...]:
+    def _ground_in_belief(
+        self, transitions: tuple[WorldTransition, ...], belief_state: Any
+    ) -> tuple[WorldTransition, ...]:
         """Duck-typed: if belief_state exposes `.facts` (entity/attribute/
         confidence-shaped, matching belief_state.Fact's real shape without
         importing it), a transition tagged with a matching

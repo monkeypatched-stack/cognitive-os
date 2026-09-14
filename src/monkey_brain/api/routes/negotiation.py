@@ -6,6 +6,7 @@ POST /executions/{execution_id}/negotiate           — record agree/reject
                                                         and resume the SAME
                                                         execution
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,7 +19,8 @@ from src.monkey_brain.api.dependencies import require_permission, _audit_auth_fa
 from src.monkey_brain.api.idempotency import idempotent
 from src.monkey_brain.kernel.models.prompt import PromptRequest
 from src.monkey_brain.kernel.pipeline.negotiation_store import (
-    load_pending_negotiation, resolve_pending_negotiation,
+    load_pending_negotiation,
+    resolve_pending_negotiation,
 )
 
 logger = logging.getLogger("agentos.gateway.negotiation")
@@ -48,7 +50,10 @@ async def get_pending_negotiation(
     ProposedTransition the gate evaluated, who must agree, and why."""
     pending = load_pending_negotiation(execution_id)
     if pending is None:
-        raise HTTPException(status_code=404, detail=f"no pending negotiation for execution {execution_id!r}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"no pending negotiation for execution {execution_id!r}",
+        )
     return pending.to_dict()
 
 
@@ -68,9 +73,15 @@ async def negotiate_pending_execution(
     honest abort, never mutating shared state."""
     pending = load_pending_negotiation(execution_id)
     if pending is None:
-        raise HTTPException(status_code=404, detail=f"no pending negotiation for execution {execution_id!r}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"no pending negotiation for execution {execution_id!r}",
+        )
     if not pending.actor_id:
-        raise HTTPException(status_code=500, detail=f"pending negotiation for {execution_id!r} has no actor_id on record")
+        raise HTTPException(
+            status_code=500,
+            detail=f"pending negotiation for {execution_id!r} has no actor_id on record",
+        )
 
     # SECURITY (Doot audit, BYPASS-01's necessary complement): the gate
     # already computed exactly who must agree (pending.counterparties) —
@@ -81,7 +92,10 @@ async def negotiate_pending_execution(
     # consent means the counterparty decides, not whoever calls first.
     if pending.counterparties and user_id not in pending.counterparties:
         await _audit_auth_failure(
-            "perm-execute-prompt", "deny", "not_a_negotiation_counterparty", subject=user_id,
+            "perm-execute-prompt",
+            "deny",
+            "not_a_negotiation_counterparty",
+            subject=user_id,
         )
         raise HTTPException(
             status_code=403,
@@ -101,24 +115,41 @@ async def negotiate_pending_execution(
     # panel groups proposal + decision as one exchange instead of the
     # decision being invisible.
     try:
-        from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
-        pr.context_stream.publish(ContextEvent(
-            event_type=ContextEventType.INTERACTION,
-            actor_id=user_id,
-            description=f"{user_id} {'accepted' if body.accepted else 'rejected'} the proposal from {pending.actor_id}",
-            payload={
-                "from_actor_id": user_id,
-                "to_actor_id": pending.actor_id,
-                "participants": [user_id, pending.actor_id, *pending.counterparties],
-                "thread_id": execution_id,
-                "interaction_id": execution_id,
-                "message": f"{'Accepted' if body.accepted else 'Rejected'}: {pending.reason}" if pending.reason else ("Accepted" if body.accepted else "Rejected"),
-            },
-            provenance="negotiation:decision",
-            correlation_id=execution_id,
-        ))
+        from src.monkey_brain.kernel.society.context_stream import (
+            ContextEvent,
+            ContextEventType,
+        )
+
+        pr.context_stream.publish(
+            ContextEvent(
+                event_type=ContextEventType.INTERACTION,
+                actor_id=user_id,
+                description=f"{user_id} {'accepted' if body.accepted else 'rejected'} the proposal from {pending.actor_id}",
+                payload={
+                    "from_actor_id": user_id,
+                    "to_actor_id": pending.actor_id,
+                    "participants": [
+                        user_id,
+                        pending.actor_id,
+                        *pending.counterparties,
+                    ],
+                    "thread_id": execution_id,
+                    "interaction_id": execution_id,
+                    "message": (
+                        f"{'Accepted' if body.accepted else 'Rejected'}: {pending.reason}"
+                        if pending.reason
+                        else ("Accepted" if body.accepted else "Rejected")
+                    ),
+                },
+                provenance="negotiation:decision",
+                correlation_id=execution_id,
+            )
+        )
     except Exception:
-        logger.warning("[negotiation] failed to publish decision event for execution %s", execution_id)
+        logger.warning(
+            "[negotiation] failed to publish decision event for execution %s",
+            execution_id,
+        )
 
     prompt_request = PromptRequest(
         question=pending.original_question or "Resume after a real negotiation decision.",
@@ -129,10 +160,14 @@ async def negotiate_pending_execution(
     pr.checkpoint_actor_belief(pending.actor_id)
 
     from src.monkey_brain.api.routes.prompt import _actor_query_result
+
     query_result, business_flow = _actor_query_result(prompt_request.question, pending.actor_id, result)
 
     return {
-        "execution_id": execution_id, "accepted": body.accepted,
-        "actor_id": pending.actor_id, "counterparties": pending.counterparties,
-        "query_result": query_result, "business_flow": business_flow,
+        "execution_id": execution_id,
+        "accepted": body.accepted,
+        "actor_id": pending.actor_id,
+        "counterparties": pending.counterparties,
+        "query_result": query_result,
+        "business_flow": business_flow,
     }

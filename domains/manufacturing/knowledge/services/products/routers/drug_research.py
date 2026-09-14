@@ -38,7 +38,9 @@ async def list_drug_research_records(
         if value
     }
     records, total = await crud.get_all(db, page=page, page_size=page_size, query=query)
-    return PaginatedDrugResearchResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedDrugResearchResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/search", response_model=DrugResearchSearchResponse)
@@ -71,7 +73,11 @@ async def product_similarity_canvas(
     return await crud.product_similarity_canvas(db, q, limit=limit)
 
 
-@router.post("/", response_model=DrugFormulationResearchRecord, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=DrugFormulationResearchRecord,
+    status_code=status.HTTP_201_CREATED,
+)
 async def upsert_drug_research_record(
     data: DrugFormulationResearchCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -88,7 +94,10 @@ async def get_drug_research_record(
 ):
     record = await crud.get_by_id(db, research_product_id)
     if not record:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Drug research record '{research_product_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Drug research record '{research_product_id}' not found",
+        )
     return record
 
 
@@ -101,7 +110,10 @@ async def update_drug_research_record(
 ):
     updated = await crud.update(db, research_product_id, data)
     if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Drug research record '{research_product_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Drug research record '{research_product_id}' not found",
+        )
     return updated
 
 
@@ -112,4 +124,7 @@ async def delete_drug_research_record(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, research_product_id):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Drug research record '{research_product_id}' not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Drug research record '{research_product_id}' not found",
+        )

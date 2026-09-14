@@ -39,12 +39,17 @@ this suite.
 TEST ISOLATION: uses Bob Martinez, a pre-seeded actor not used by any
 other test in this suite. One controlled observation (one real tick).
 """
+
 from __future__ import annotations
 
 import time
 
 from tests.e2e.cognitive_loop._boundary import (
-    actor_get, find_actor_id, prompt, requires_live_backend, tick_result,
+    actor_get,
+    find_actor_id,
+    prompt,
+    requires_live_backend,
+    tick_result,
 )
 
 QUESTION = "Buy 2 liters of whole milk."
@@ -101,9 +106,7 @@ def test_e2e05_belief_authority_single_canonical_state():
     # action this tick actually executed) -- not doubled/re-applied ────
     observations_after = after.get("observations", [])
     obs_delta = len(observations_after) - len(observations_before)
-    assert obs_delta > 0, (
-        f"observations did not grow at all for {len(tick['actions'])} real action(s) this tick"
-    )
+    assert obs_delta > 0, f"observations did not grow at all for {len(tick['actions'])} real action(s) this tick"
     # A real tick legitimately records more than one observation per
     # action (grounding/KG lookups, world-state facts, etc. — confirmed
     # live: a single-action tick added 10, not 1) — this suite's earlier
@@ -153,7 +156,8 @@ def test_e2e05_belief_authority_single_canonical_state():
 
     decisions_2 = actor_get(actor_id, "decisions")["decisions"]
     hysteresis_records = [
-        d for d in decisions_2
+        d
+        for d in decisions_2
         if d.get("metadata", {}).get("execution_id") == tick_2["execution_id"]
         and d.get("metadata", {}).get("decision_kind") == "plan_hysteresis"
     ]

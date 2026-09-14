@@ -12,6 +12,7 @@ zero stock), and OrderCreationCapability's MB-3031 auto-backorder wiring
 (a checkout attempt against an out-of-stock item backorders instead of
 failing outright).
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import get_product_detail
@@ -29,21 +30,40 @@ PRODUCT_ID = "p1"
 def _seed(quantity: int = 0) -> KnowledgeGraph:
     kg = KnowledgeGraph()
     kg.add_entity("store_1", EntityType.ORGANIZATION, "Corner Store", {"delivery_fee": 0})
-    kg.add_entity(PRODUCT_ID, EntityType.ASSET, "Milk", {
-        "price": 3.0, "quantity": quantity, "store_id": "store_1", "product": True,
-    })
+    kg.add_entity(
+        PRODUCT_ID,
+        EntityType.ASSET,
+        "Milk",
+        {
+            "price": 3.0,
+            "quantity": quantity,
+            "store_id": "store_1",
+            "product": True,
+        },
+    )
     return kg
 
 
 def _checkout(kg: KnowledgeGraph, actor_id: str) -> dict:
     cap = OrderCreationCapability()
-    return cap.handle({"context": {
-        "knowledge_graph": kg, "actor_id": actor_id,
-        "selected_product": [{
-            "id": PRODUCT_ID, "name": "Milk", "price": 3.0, "qty": 1,
-            "store_id": "store_1", "store_name": "Corner Store",
-        }],
-    }})
+    return cap.handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "actor_id": actor_id,
+                "selected_product": [
+                    {
+                        "id": PRODUCT_ID,
+                        "name": "Milk",
+                        "price": 3.0,
+                        "qty": 1,
+                        "store_id": "store_1",
+                        "store_name": "Corner Store",
+                    }
+                ],
+            }
+        }
+    )
 
 
 def test_mb3032_out_of_stock_product_stays_browsable():

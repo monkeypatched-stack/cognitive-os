@@ -9,7 +9,11 @@ sys.path.insert(0, "/Users/prashunjaveri/Code/monkeypatched")
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from services.common.config import settings
-from services.common.neo4j_mirror import mirror_document, safe_mirror, close_neo4j_mirror_driver
+from services.common.neo4j_mirror import (
+    mirror_document,
+    safe_mirror,
+    close_neo4j_mirror_driver,
+)
 
 NOW = datetime.now(timezone.utc)
 PLANT_ID = "PLANT-TBL-IN-001"
@@ -78,11 +82,26 @@ CAPSULE_WORKSTATIONS = [
 
 
 OPERATORS = [
-    "Priya Sharma", "Rajesh Patel", "Nandita Rao", "Rohan Kulkarni",
-    "Arjun Mehta", "Neha Singh", "Rahul Desai", "Nikita Bansal",
-    "Sonal Iyer", "Vikram Sethi", "Karan Shah", "Vivek Raman",
-    "Pallavi Joshi", "Devansh Kapoor", "Farah Merchant", "Ananya Ghosh",
-    "Imran Qureshi", "Devika Nair", "Manish Trivedi", "Ritika Soni",
+    "Priya Sharma",
+    "Rajesh Patel",
+    "Nandita Rao",
+    "Rohan Kulkarni",
+    "Arjun Mehta",
+    "Neha Singh",
+    "Rahul Desai",
+    "Nikita Bansal",
+    "Sonal Iyer",
+    "Vikram Sethi",
+    "Karan Shah",
+    "Vivek Raman",
+    "Pallavi Joshi",
+    "Devansh Kapoor",
+    "Farah Merchant",
+    "Ananya Ghosh",
+    "Imran Qureshi",
+    "Devika Nair",
+    "Manish Trivedi",
+    "Ritika Soni",
 ]
 
 TABLET_COUNT = len(TABLET_WORKSTATIONS)

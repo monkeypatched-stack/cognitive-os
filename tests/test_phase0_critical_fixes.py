@@ -7,6 +7,7 @@ Tests for:
 4. Layer #15 persistence mechanism
 5. Layer #6 state restoration
 """
+
 import pytest
 import pickle
 import json
@@ -73,7 +74,7 @@ class TestMultiTenantContextFiltering:
             previous_value="A",
             current_value="B",
             source="sensor",
-            tenant_id="org_alpha"
+            tenant_id="org_alpha",
         )
 
         assert event.tenant_id == "org_alpha"
@@ -88,7 +89,7 @@ class TestMultiTenantContextFiltering:
             attribute="position",
             previous_value="A",
             current_value="B",
-            source="sensor"
+            source="sensor",
         )
 
         assert event.tenant_id == "default"
@@ -111,7 +112,10 @@ class TestMultiTenantContextFiltering:
         stream.subscribe(callback_beta, tenant_id="org_beta")
 
         # Publish event for org_alpha only
-        from src.monkey_brain.kernel.compile.context_stream import ContextEvent, EventType
+        from src.monkey_brain.kernel.compile.context_stream import (
+            ContextEvent,
+            EventType,
+        )
 
         event = ContextEvent(
             timestamp=0.0,
@@ -121,7 +125,7 @@ class TestMultiTenantContextFiltering:
             current_value="active",
             source="sensor",
             event_type=EventType.STATE_CHANGE,
-            tenant_id="org_alpha"
+            tenant_id="org_alpha",
         )
 
         stream.publish(event)
@@ -132,7 +136,11 @@ class TestMultiTenantContextFiltering:
 
     def test_global_subscriber_receives_all_events(self):
         """Global subscribers (no tenant_id) receive all events."""
-        from src.monkey_brain.kernel.compile.context_stream import ContextStream, ContextEvent, EventType
+        from src.monkey_brain.kernel.compile.context_stream import (
+            ContextStream,
+            ContextEvent,
+            EventType,
+        )
 
         mock_world = Mock()
         mock_world.nnz = Mock(return_value=0)
@@ -153,7 +161,7 @@ class TestMultiTenantContextFiltering:
                 current_value="new",
                 source="sensor",
                 event_type=EventType.STATE_CHANGE,
-                tenant_id=tenant
+                tenant_id=tenant,
             )
             stream.publish(event)
 
@@ -176,7 +184,7 @@ class TestActorStatePersistence:
             phi_compiled=b"phi_data",
             memory_kv={"key": "value"},
             last_updated=datetime.now().isoformat(),
-            version=5
+            version=5,
         )
 
         assert state.actor_id == "alice"
@@ -186,7 +194,10 @@ class TestActorStatePersistence:
 
     def test_actor_state_store_save(self):
         """ActorStateStore saves state to database."""
-        from src.monkey_brain.persistence.actor_state_store import ActorStateStore, PersistedActorState
+        from src.monkey_brain.persistence.actor_state_store import (
+            ActorStateStore,
+            PersistedActorState,
+        )
 
         # Mock database
         mock_db = Mock()
@@ -204,11 +215,11 @@ class TestActorStatePersistence:
             phi_compiled=b"phi",
             memory_kv={"key": "value"},
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
         # Mock the init_schema to prevent SQL execution
-        with patch.object(store, '_init_schema'):
+        with patch.object(store, "_init_schema"):
             store.save(state)
 
         # Verify SQL was executed
@@ -216,7 +227,10 @@ class TestActorStatePersistence:
 
     def test_actor_state_store_load(self):
         """ActorStateStore loads state from database."""
-        from src.monkey_brain.persistence.actor_state_store import ActorStateStore, PersistedActorState
+        from src.monkey_brain.persistence.actor_state_store import (
+            ActorStateStore,
+            PersistedActorState,
+        )
 
         # Mock database
         mock_db = Mock()
@@ -235,7 +249,7 @@ class TestActorStatePersistence:
             5,  # version
             True,  # is_active
             10,  # cycle_count
-            1234.5  # last_cycle
+            1234.5,  # last_cycle
         )
 
         mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
@@ -243,7 +257,7 @@ class TestActorStatePersistence:
 
         store = ActorStateStore(mock_db)
 
-        with patch.object(store, '_init_schema'):
+        with patch.object(store, "_init_schema"):
             state = store.load("alice", "org_alpha")
 
         assert state is not None
@@ -266,7 +280,7 @@ class TestActorStatePersistence:
 
         store = ActorStateStore(mock_db)
 
-        with patch.object(store, '_init_schema'):
+        with patch.object(store, "_init_schema"):
             state = store.load("nonexistent", "org_alpha")
 
         assert state is None
@@ -277,7 +291,11 @@ class TestMultiTenantIsolation:
 
     def test_tenant_context_prevents_cross_tenant_leakage(self):
         """Tenant context ensures event filtering."""
-        from src.monkey_brain.kernel.compile.context_stream import ContextStream, ContextEvent, EventType
+        from src.monkey_brain.kernel.compile.context_stream import (
+            ContextStream,
+            ContextEvent,
+            EventType,
+        )
 
         mock_world = Mock()
         mock_world.nnz = Mock(return_value=0)
@@ -307,7 +325,7 @@ class TestMultiTenantIsolation:
                 current_value="new",
                 source="sensor",
                 event_type=EventType.STATE_CHANGE,
-                tenant_id="org_alpha"
+                tenant_id="org_alpha",
             )
             stream.publish(event)
 
@@ -321,7 +339,7 @@ class TestMultiTenantIsolation:
                 current_value="new",
                 source="sensor",
                 event_type=EventType.STATE_CHANGE,
-                tenant_id="org_beta"
+                tenant_id="org_beta",
             )
             stream.publish(event)
 
@@ -335,6 +353,7 @@ class TestMultiTenantIsolation:
 # ──────────────────────────────────────────────────────────────────
 # PHASE 0 COMPLETION TESTS
 # ──────────────────────────────────────────────────────────────────
+
 
 class TestPhase0Completion:
     """Verify all Phase 0 critical fixes are in place."""
@@ -355,7 +374,11 @@ class TestPhase0Completion:
 
     def test_context_stream_tenant_filtering(self):
         """ContextStream filters events by tenant."""
-        from src.monkey_brain.kernel.compile.context_stream import ContextStream, ContextEvent, EventType
+        from src.monkey_brain.kernel.compile.context_stream import (
+            ContextStream,
+            ContextEvent,
+            EventType,
+        )
 
         mock_world = Mock()
         mock_world.nnz = Mock(return_value=0)
@@ -374,7 +397,7 @@ class TestPhase0Completion:
             current_value="new",
             source="sensor",
             event_type=EventType.STATE_CHANGE,
-            tenant_id="org_alpha"
+            tenant_id="org_alpha",
         )
 
         stream.publish(event)
@@ -394,15 +417,17 @@ class TestPhase0Completion:
             phi_compiled=b"phi",
             memory_kv={"key": "value"},
             last_updated=datetime.now().isoformat(),
-            version=3
+            version=3,
         )
 
-        serialized = json.dumps({
-            "actor_id": original.actor_id,
-            "tenant_id": original.tenant_id,
-            "version": original.version,
-            "memory_kv": original.memory_kv
-        })
+        serialized = json.dumps(
+            {
+                "actor_id": original.actor_id,
+                "tenant_id": original.tenant_id,
+                "version": original.version,
+                "memory_kv": original.memory_kv,
+            }
+        )
 
         parsed = json.loads(serialized)
         assert parsed["actor_id"] == original.actor_id

@@ -21,10 +21,14 @@ class DomainEvidence:
             question = context.get("question", "")
             reward = outcome.reward
             agent_type = getattr(outcome, "agent_type", "")
-            observations = outcome.result.observations if hasattr(outcome, "result") else []
+            observations = (
+                outcome.result.observations if hasattr(outcome, "result") else []
+            )
             artifact_list = [
                 {"kind": a.kind, "name": a.name, "uri": a.uri}
-                for a in (outcome.result.artifacts if hasattr(outcome, "result") else [])
+                for a in (
+                    outcome.result.artifacts if hasattr(outcome, "result") else []
+                )
             ]
             answer = " ".join(observations)
         else:
@@ -80,17 +84,17 @@ class DomainEvidence:
         artifacts = {}
 
         # Extract file paths
-        file_matches = re.findall(r'(?:src|lib|pkg)/[\w/]+\.py', answer)
+        file_matches = re.findall(r"(?:src|lib|pkg)/[\w/]+\.py", answer)
         if file_matches:
             artifacts["files"] = list(set(file_matches))
 
         # Extract test results
-        test_match = re.findall(r'(\d+)\s*(?:passed|failed|skipped)', answer)
+        test_match = re.findall(r"(\d+)\s*(?:passed|failed|skipped)", answer)
         if test_match:
             artifacts["test_counts"] = test_match
 
         # Extract PR/issue numbers
-        pr_match = re.findall(r'PR[#-]?\d+|issue[#-]?\d+', answer, re.IGNORECASE)
+        pr_match = re.findall(r"PR[#-]?\d+|issue[#-]?\d+", answer, re.IGNORECASE)
         if pr_match:
             artifacts["references"] = list(set(pr_match))
 
@@ -101,7 +105,9 @@ class DomainEvidence:
         flags = []
         q = question.lower()
 
-        if "security" in q and ("vulnerability" in answer.lower() or "cve" in answer.lower()):
+        if "security" in q and (
+            "vulnerability" in answer.lower() or "cve" in answer.lower()
+        ):
             flags.append("security_vulnerability_found")
         if "test" in q and "fail" in answer.lower():
             flags.append("test_failure")

@@ -34,10 +34,15 @@ if not _ENABLED and _is_production():
     )
 
 try:
-    from cerebellum.capabilities.security.mtls_parser import process_request_cert, ca_valid
+    from cerebellum.capabilities.security.mtls_parser import (
+        process_request_cert,
+        ca_valid,
+    )
 except ImportError:
+
     def process_request_cert(headers):  # type: ignore[misc]
         return None
+
     def ca_valid(cert_info, ca_path=""):  # type: ignore[misc]
         return True
 
@@ -56,7 +61,9 @@ class MTLSMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if not ca_valid(cert_info):
-            return JSONResponse({"detail": "Client certificate not trusted"}, status_code=401)
+            return JSONResponse(
+                {"detail": "Client certificate not trusted"}, status_code=401
+            )
 
         request.state.mtls_cert = cert_info
         return await call_next(request)

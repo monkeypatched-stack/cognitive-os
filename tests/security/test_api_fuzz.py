@@ -43,20 +43,29 @@ def _rand_bool():
 
 
 def _fuzz_string():
-    return random.choice([
-        "", " ", "\n", "\t", "\x00", "\r\n",
-        "NULL", "None", "undefined",
-        "<script>alert(1)</script>",
-        "'; DROP TABLE users; --",
-        "../../../etc/passwd",
-        "A" * 10000,
-        "\u0000\u0000\u0000",
-        "🎉🔥💀",
-        "\\n\\r\\t",
-        '{"injection": true}',
-        "[1,2,3]",
-        "null",
-    ])
+    return random.choice(
+        [
+            "",
+            " ",
+            "\n",
+            "\t",
+            "\x00",
+            "\r\n",
+            "NULL",
+            "None",
+            "undefined",
+            "<script>alert(1)</script>",
+            "'; DROP TABLE users; --",
+            "../../../etc/passwd",
+            "A" * 10000,
+            "\u0000\u0000\u0000",
+            "🎉🔥💀",
+            "\\n\\r\\t",
+            '{"injection": true}',
+            "[1,2,3]",
+            "null",
+        ]
+    )
 
 
 def _fuzz_dict():
@@ -74,6 +83,7 @@ class TestFuzzHealthEndpoints:
     def test_health_get_with_query_params(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
@@ -88,6 +98,7 @@ class TestFuzzHealthEndpoints:
     def test_health_with_malformed_headers(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
@@ -109,6 +120,7 @@ class TestFuzzQueryEndpoint:
     def test_fuzz_query_with_random_strings(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
@@ -123,12 +135,16 @@ class TestFuzzQueryEndpoint:
     def test_fuzz_query_with_nested_json(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 for _ in range(20):
-                    payload = {"question": json.dumps(_fuzz_dict()), "nested": _fuzz_dict()}
+                    payload = {
+                        "question": json.dumps(_fuzz_dict()),
+                        "nested": _fuzz_dict(),
+                    }
                     resp = await client.post("/api/v1/agentos/query", json=payload)
                     assert resp.status_code in (200, 404, 422, 401, 403)
 
@@ -137,11 +153,15 @@ class TestFuzzQueryEndpoint:
     def test_fuzz_query_with_huge_payload(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
             async with AsyncClient(transport=transport, base_url="http://test") as client:
-                huge = {"question": "A" * 100000, "data": [_rand_str(1000) for _ in range(100)]}
+                huge = {
+                    "question": "A" * 100000,
+                    "data": [_rand_str(1000) for _ in range(100)],
+                }
                 resp = await client.post("/api/v1/agentos/query", json=huge)
                 assert resp.status_code in (200, 404, 422, 401, 413)
 
@@ -154,6 +174,7 @@ class TestFuzzPromptEndpoint:
     def test_fuzz_prompt_random_payloads(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
@@ -172,6 +193,7 @@ class TestFuzzAgentsEndpoint:
     def test_fuzz_agents_list(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
@@ -184,6 +206,7 @@ class TestFuzzAgentsEndpoint:
     def test_fuzz_agents_with_path_traversal(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
@@ -209,6 +232,7 @@ class TestFuzzCodegenEndpoint:
     def test_fuzz_codegen_random_spec(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
@@ -231,6 +255,7 @@ class TestFuzzContentTypes:
     def test_non_json_body(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():
@@ -248,6 +273,7 @@ class TestFuzzContentTypes:
     def test_form_data_to_json_endpoint(self):
         from httpx import AsyncClient, ASGITransport
         from src.monkey_brain.api.main import app
+
         transport = ASGITransport(app=app)
 
         async def run():

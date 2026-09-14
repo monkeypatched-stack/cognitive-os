@@ -162,7 +162,11 @@ class Learning:
             },
         )
         graph_delta.topological_loss = 1.0 - float(getattr(outcome, "reward", 0.5))
-        self.update(graph_id=graph_id, graph_delta=graph_delta, capability=getattr(outcome, "capability_name", ""))
+        self.update(
+            graph_id=graph_id,
+            graph_delta=graph_delta,
+            capability=getattr(outcome, "capability_name", ""),
+        )
 
     def summary(self) -> dict:
         return {

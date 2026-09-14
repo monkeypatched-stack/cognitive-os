@@ -3,11 +3,14 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
-BatchReleaseStatus = Literal["Draft", "In Review", "Ready For QA Release", "Released", "Rejected", "Blocked"]
+BatchReleaseStatus = Literal[
+    "Draft", "In Review", "Ready For QA Release", "Released", "Rejected", "Blocked"
+]
 BatchReleaseDecision = Literal["Pending", "Released", "Rejected", "Hold"]
 PrerequisiteStatus = Literal["Pending", "Passed", "Failed", "Waived"]
-ExecutedPackageStatus = Literal["Pending", "Executed", "Reviewed", "Approved", "Rejected"]
+ExecutedPackageStatus = Literal[
+    "Pending", "Executed", "Reviewed", "Approved", "Rejected"
+]
 
 
 def utc_now() -> datetime:
@@ -48,11 +51,19 @@ class ExecutedBatchRecordPackage(BaseModel):
         self.reviewed_at = ensure_utc(self.reviewed_at)
         if self.status in {"Executed", "Reviewed", "Approved"}:
             if not self.document_ids:
-                raise ValueError(f"executed {self.package_type} package must include document_ids.")
+                raise ValueError(
+                    f"executed {self.package_type} package must include document_ids."
+                )
             if not self.executed_by or not self.executed_at:
-                raise ValueError(f"executed {self.package_type} package must include executed_by and executed_at.")
-        if self.status in {"Reviewed", "Approved"} and (not self.reviewed_by or not self.reviewed_at):
-            raise ValueError(f"reviewed/approved {self.package_type} package must include reviewed_by and reviewed_at.")
+                raise ValueError(
+                    f"executed {self.package_type} package must include executed_by and executed_at."
+                )
+        if self.status in {"Reviewed", "Approved"} and (
+            not self.reviewed_by or not self.reviewed_at
+        ):
+            raise ValueError(
+                f"reviewed/approved {self.package_type} package must include reviewed_by and reviewed_at."
+            )
         return self
 
 
@@ -108,33 +119,71 @@ class BatchReleaseWorkflow(BaseModel):
 
         if self.status == "Released" or self.release_decision == "Released":
             if not self.qa_reviewer_id:
-                raise ValueError("released batch release workflows must include qa_reviewer_id.")
+                raise ValueError(
+                    "released batch release workflows must include qa_reviewer_id."
+                )
             if not self.released_by or not self.released_at:
-                raise ValueError("released batch release workflows must include released_by and released_at.")
+                raise ValueError(
+                    "released batch release workflows must include released_by and released_at."
+                )
             if not self.signature_ids:
-                raise ValueError("released batch release workflows must include signature_ids.")
+                raise ValueError(
+                    "released batch release workflows must include signature_ids."
+                )
             if not self.bmr_document_ids or not self.bpr_document_ids:
-                raise ValueError("released batch release workflows must include executed BMR and BPR document references.")
-            if not self.executed_bmr_package or self.executed_bmr_package.status not in {"Executed", "Reviewed", "Approved"}:
-                raise ValueError("released batch release workflows must include an executed BMR package.")
-            if not self.executed_bpr_package or self.executed_bpr_package.status not in {"Executed", "Reviewed", "Approved"}:
-                raise ValueError("released batch release workflows must include an executed BPR package.")
+                raise ValueError(
+                    "released batch release workflows must include executed BMR and BPR document references."
+                )
+            if (
+                not self.executed_bmr_package
+                or self.executed_bmr_package.status
+                not in {"Executed", "Reviewed", "Approved"}
+            ):
+                raise ValueError(
+                    "released batch release workflows must include an executed BMR package."
+                )
+            if (
+                not self.executed_bpr_package
+                or self.executed_bpr_package.status
+                not in {"Executed", "Reviewed", "Approved"}
+            ):
+                raise ValueError(
+                    "released batch release workflows must include an executed BPR package."
+                )
             if not self.report_template_ids:
-                raise ValueError("released batch release workflows must include report_template_ids.")
+                raise ValueError(
+                    "released batch release workflows must include report_template_ids."
+                )
             if not self.executed_bmr_package.report_template_ids:
-                raise ValueError("released batch release workflows must bind the executed BMR package to report_template_ids.")
+                raise ValueError(
+                    "released batch release workflows must bind the executed BMR package to report_template_ids."
+                )
             if not self.executed_bpr_package.report_template_ids:
-                raise ValueError("released batch release workflows must bind the executed BPR package to report_template_ids.")
+                raise ValueError(
+                    "released batch release workflows must bind the executed BPR package to report_template_ids."
+                )
             if not self.batch_step_execution_ids:
-                raise ValueError("released batch release workflows must include batch_step_execution_ids.")
+                raise ValueError(
+                    "released batch release workflows must include batch_step_execution_ids."
+                )
             if not self.yield_reconciliation_record_ids:
-                raise ValueError("released batch release workflows must include yield_reconciliation_record_ids.")
-            failed = [item.name for item in self.prerequisites if item.status not in {"Passed", "Waived"}]
+                raise ValueError(
+                    "released batch release workflows must include yield_reconciliation_record_ids."
+                )
+            failed = [
+                item.name
+                for item in self.prerequisites
+                if item.status not in {"Passed", "Waived"}
+            ]
             if failed:
-                raise ValueError(f"released batch release workflows have unresolved prerequisites: {', '.join(failed)}.")
+                raise ValueError(
+                    f"released batch release workflows have unresolved prerequisites: {', '.join(failed)}."
+                )
         if self.status == "Rejected" or self.release_decision == "Rejected":
             if not self.rejection_reason:
-                raise ValueError("rejected batch release workflows must include rejection_reason.")
+                raise ValueError(
+                    "rejected batch release workflows must include rejection_reason."
+                )
         return self
 
 

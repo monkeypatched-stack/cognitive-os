@@ -29,7 +29,11 @@ from typing import Any
 
 import numpy as np
 
-from src.monkey_brain.kernel.plan.embedding._utils import EMBEDDING_DIM, _l2, _bow_project
+from src.monkey_brain.kernel.plan.embedding._utils import (
+    EMBEDDING_DIM,
+    _l2,
+    _bow_project,
+)
 from src.monkey_brain.kernel.plan.embedding.provider import Embedding, EmbeddingEmbedder
 
 logger = logging.getLogger(__name__)
@@ -100,17 +104,17 @@ class CLIPImageEmbedder(EmbeddingEmbedder):
     def _get_fallback(self) -> EmbeddingEmbedder:
         if self._fallback is None:
             from src.monkey_brain.kernel.plan.embedding.text import CLIPTextEmbedder
+
             self._fallback = CLIPTextEmbedder()
         return self._fallback
 
     def _load(self) -> None:
         from transformers import CLIPModel, CLIPProcessor
+
         self._model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         self._processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
         # Same seed as CLIPTextEmbedder — shared latent space
-        self._proj = np.random.default_rng(2025).normal(
-            0, 1.0 / np.sqrt(512), (EMBEDDING_DIM, 512)
-        ).astype(np.float32)
+        self._proj = np.random.default_rng(2025).normal(0, 1.0 / np.sqrt(512), (EMBEDDING_DIM, 512)).astype(np.float32)
 
     def embed(self, item: Any) -> Embedding:
         content = getattr(item, "content", item)
@@ -124,6 +128,7 @@ class CLIPImageEmbedder(EmbeddingEmbedder):
             if self._model is None:
                 self._load()
             import torch
+
             inputs = self._processor(images=pil_image, return_tensors="pt")
             with torch.no_grad():
                 emb = self._model.get_image_features(**inputs)[0].cpu().numpy()
@@ -188,12 +193,12 @@ class PixelHistogramEmbedder(EmbeddingEmbedder):
         # Global channel stats (slots 0-8)
         for c in range(3):
             ch = arr[:, :, c]
-            feat[c * 3]     = float(np.mean(ch))
+            feat[c * 3] = float(np.mean(ch))
             feat[c * 3 + 1] = float(np.std(ch))
             feat[c * 3 + 2] = float(np.median(ch))
 
         # Brightness and saturation proxy (slots 9-10)
-        feat[9]  = float(np.mean(arr))
+        feat[9] = float(np.mean(arr))
         cmax = np.maximum(np.maximum(arr[:, :, 0], arr[:, :, 1]), arr[:, :, 2])
         cmin = np.minimum(np.minimum(arr[:, :, 0], arr[:, :, 1]), arr[:, :, 2])
         feat[10] = float(np.mean(cmax - cmin))

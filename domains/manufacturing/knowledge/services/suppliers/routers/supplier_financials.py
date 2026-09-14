@@ -22,7 +22,9 @@ async def list_supplier_financials(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedSupplierFinancialsResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedSupplierFinancialsResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{supplier_id}", response_model=SupplierFinancialsResponse)
@@ -40,7 +42,9 @@ async def get_supplier_financials(
     return record
 
 
-@router.post("/", response_model=SupplierFinancialsResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=SupplierFinancialsResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_supplier_financials(
     data: SupplierFinancialsCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

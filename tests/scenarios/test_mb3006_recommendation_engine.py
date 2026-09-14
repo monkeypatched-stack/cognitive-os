@@ -17,6 +17,7 @@ place real Orders -> co-purchase signal accumulates across those Orders
 ranked by how often that happened. No separate, hand-maintained
 recommendation dataset that could drift from actual purchases.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import (
@@ -33,10 +34,15 @@ SODA = "prod_soda"
 
 
 def _place_order(kg: KnowledgeGraph, order_id: str, buyer_id: str, product_ids: list[str]) -> None:
-    kg.add_entity(order_id, EntityType.EVENT, "Grocery Order", {
-        "buyer_id": buyer_id,
-        "items": [{"product_id": pid} for pid in product_ids],
-    })
+    kg.add_entity(
+        order_id,
+        EntityType.EVENT,
+        "Grocery Order",
+        {
+            "buyer_id": buyer_id,
+            "items": [{"product_id": pid} for pid in product_ids],
+        },
+    )
 
 
 def _seed_purchase_history() -> KnowledgeGraph:

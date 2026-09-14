@@ -6,6 +6,7 @@ execution — sequential, genuinely-concurrent parallel (timing-verified,
 not just API surface), and failure propagation (downstream steps are
 skipped, not blindly executed against a broken precondition).
 """
+
 from __future__ import annotations
 
 import time
@@ -13,21 +14,36 @@ from dataclasses import replace
 
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionStep, ExecutionPlan, ExecutionContext, ExecutionStatus, ExecutionOutcome,
+    ExecutionStep,
+    ExecutionPlan,
+    ExecutionContext,
+    ExecutionStatus,
+    ExecutionOutcome,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry, ExecutionCapability
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+    ExecutionCapability,
+)
 from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import (
-    ExecutionMode, DependencyViolation, ExecutionSchedule, ExecutionScheduler,
+    ExecutionMode,
+    DependencyViolation,
+    ExecutionSchedule,
+    ExecutionScheduler,
 )
 
 
 def _step(operator_name: str = "Navigate", dependencies: tuple[str, ...] = (), **parameters) -> ExecutionStep:
-    return ExecutionStep(operator=PlanningOperator(name=operator_name), dependencies=dependencies, parameters=parameters)
+    return ExecutionStep(
+        operator=PlanningOperator(name=operator_name),
+        dependencies=dependencies,
+        parameters=parameters,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # schedule() — batching
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestScheduleBatching:
     def test_linear_chain_produces_one_step_per_batch(self):
@@ -73,6 +89,7 @@ class TestScheduleBatching:
 # Dependency violations
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDependencyViolations:
     def test_unknown_dependency_is_a_violation(self):
         step = _step(dependencies=("does-not-exist",))
@@ -99,6 +116,7 @@ class TestDependencyViolations:
 # ═══════════════════════════════════════════════════════════════════════════
 # Deadlock detection
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDeadlockDetection:
     def test_two_step_cycle_is_a_deadlock(self):
@@ -129,6 +147,7 @@ class TestDeadlockDetection:
 # run() — sequential execution
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRunSequential:
     def test_acquire_milk_scenario_all_succeed(self):
         nav1 = _step("Navigate", destination="store")
@@ -155,6 +174,7 @@ class TestRunSequential:
 # run() — genuine parallelism (timing-verified)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class _SlowHandler:
     operator_name = "SlowOp"
     capability = ExecutionCapability(name="slow")
@@ -164,7 +184,11 @@ class _SlowHandler:
 
     def execute(self, step, context):
         time.sleep(0.2)
-        return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.SUCCEEDED, output={"slept": True})
+        return ExecutionOutcome(
+            step_id=step.step_id,
+            status=ExecutionStatus.SUCCEEDED,
+            output={"slept": True},
+        )
 
 
 class TestRunParallel:
@@ -206,6 +230,7 @@ class TestRunParallel:
 # Failure propagation — downstream steps are skipped, not blindly executed
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestFailurePropagation:
     def test_downstream_steps_are_skipped_when_dependency_fails(self):
         a = _step("Navigate")  # missing 'destination' -> validation fails
@@ -237,10 +262,12 @@ class TestFailurePropagation:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_planning_engine_or_cognitive_runtime_coupling(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.execution_runtime.scheduler as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

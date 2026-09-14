@@ -15,11 +15,18 @@ This test isolates the exact mechanism at the SocietyRuntime level (no Redis
 involved) rather than round-tripping a real PlanetaryRuntime through shared
 Redis, to avoid polluting the live server's persisted actor/society state.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.society.runtime import SocietyRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
-from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
+from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+    ContextConstructionEngine,
+)
 
 
 def _engine_of(state) -> object | None:

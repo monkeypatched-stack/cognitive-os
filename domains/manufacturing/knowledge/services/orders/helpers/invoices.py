@@ -5,8 +5,12 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.orders.models.invoices import InvoiceCreate, InvoiceResponse, InvoiceUpdate, utc_now
-
+from services.orders.models.invoices import (
+    InvoiceCreate,
+    InvoiceResponse,
+    InvoiceUpdate,
+    utc_now,
+)
 
 COLLECTION = "invoices"
 
@@ -58,8 +62,12 @@ async def get_by_id(db: AsyncIOMotorDatabase, invoice_id: str) -> Optional[dict]
     return _serialize(await db[COLLECTION].find_one(query))
 
 
-async def get_by_invoice_number(db: AsyncIOMotorDatabase, invoice_no: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"invoice_details.invoice_no": invoice_no}))
+async def get_by_invoice_number(
+    db: AsyncIOMotorDatabase, invoice_no: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"invoice_details.invoice_no": invoice_no})
+    )
 
 
 async def get_by_customer_id(db: AsyncIOMotorDatabase, customer_id: str) -> list[dict]:
@@ -92,7 +100,9 @@ async def create(db: AsyncIOMotorDatabase, data: InvoiceCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, invoice_id: str, data: InvoiceUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, invoice_id: str, data: InvoiceUpdate
+) -> Optional[dict]:
     existing = await get_by_id(db, invoice_id)
     if not existing:
         return None

@@ -18,6 +18,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedProductInventoryResponse)
 async def list_inventory(
     page: int = Query(1, ge=1),
@@ -35,6 +36,7 @@ async def list_inventory(
 
 
 # ── Filtered Queries ──────────────────────────────────────────────────────────
+
 
 @router.get("/alerts/below-reorder", response_model=list[ProductInventoryRecord])
 async def list_below_reorder(
@@ -87,7 +89,10 @@ async def list_by_location(
     return await crud.get_by_location(db, location_id)
 
 
-@router.get("/by-product/{product_id}/location/{location_id}", response_model=ProductInventoryRecord)
+@router.get(
+    "/by-product/{product_id}/location/{location_id}",
+    response_model=ProductInventoryRecord,
+)
 async def get_by_product_and_location(
     product_id: str,
     location_id: str,
@@ -120,6 +125,7 @@ async def get_inventory_summary(
 
 # ── Get One ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/{inventory_id}", response_model=ProductInventoryRecord)
 async def get_inventory(
     inventory_id: str,
@@ -137,13 +143,18 @@ async def get_inventory(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=ProductInventoryRecord, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=ProductInventoryRecord, status_code=status.HTTP_201_CREATED
+)
 async def create_inventory(
     data: ProductInventoryCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-create-inventory")),
 ):
-    existing = await crud.get_by_product_and_location(db, data.product_id, data.location_id)
+    existing = await crud.get_by_product_and_location(
+        db, data.product_id, data.location_id
+    )
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -153,6 +164,7 @@ async def create_inventory(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{inventory_id}", response_model=ProductInventoryRecord)
 async def update_inventory(
@@ -171,6 +183,7 @@ async def update_inventory(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{inventory_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_inventory(

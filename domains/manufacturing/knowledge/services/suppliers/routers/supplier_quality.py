@@ -22,7 +22,9 @@ async def list_supplier_quality(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedSupplierQualityResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedSupplierQualityResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-supplier/{supplier_id}", response_model=list[SupplierQualityResponse])
@@ -60,11 +62,16 @@ async def get_supplier_quality(
 ):
     record = await crud.get_by_id(db, supplier_quality_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier quality '{supplier_quality_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier quality '{supplier_quality_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=SupplierQualityResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=SupplierQualityResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_supplier_quality(
     data: SupplierQualityCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -82,7 +89,10 @@ async def update_supplier_quality(
 ):
     updated = await crud.update(db, supplier_quality_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier quality '{supplier_quality_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier quality '{supplier_quality_id}' not found",
+        )
     return updated
 
 
@@ -93,4 +103,7 @@ async def delete_supplier_quality(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, supplier_quality_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Supplier quality '{supplier_quality_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier quality '{supplier_quality_id}' not found",
+        )

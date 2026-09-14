@@ -39,7 +39,7 @@ from .core import (
     BaseCapability,
     DomainRegistry,
     CognitiveProcessGenerator,
-    MonkeyBrainRuntime
+    MonkeyBrainRuntime,
 )
 
 from .evidence import (
@@ -52,32 +52,30 @@ from .evidence import (
     ManufacturingEvidence,
     ManufacturingEvidenceAdapter,
     RoboticsEvidence,
-    RoboticsEvidenceAdapter
+    RoboticsEvidenceAdapter,
 )
 
 __all__ = [
     # Core components
-    'DomainGoal',
-    'ExecutionOutcome',
-    'BaseAgent',
-    'BaseCapability',
-    'DomainRegistry',
-    'CognitiveProcessGenerator',
-    'MonkeyBrainRuntime',
-    
+    "DomainGoal",
+    "ExecutionOutcome",
+    "BaseAgent",
+    "BaseCapability",
+    "DomainRegistry",
+    "CognitiveProcessGenerator",
+    "MonkeyBrainRuntime",
     # Evidence components
-    'DomainEvidence',
-    'BaseEvidenceAdapter',
-    'EvidenceAdapterRegistry',
-    'EvidencePublisher',
-    
+    "DomainEvidence",
+    "BaseEvidenceAdapter",
+    "EvidenceAdapterRegistry",
+    "EvidencePublisher",
     # Domain-specific evidence
-    'SoftwareEngineeringEvidence',
-    'SoftwareEngineeringEvidenceAdapter',
-    'ManufacturingEvidence',
-    'ManufacturingEvidenceAdapter',
-    'RoboticsEvidence',
-    'RoboticsEvidenceAdapter'
+    "SoftwareEngineeringEvidence",
+    "SoftwareEngineeringEvidenceAdapter",
+    "ManufacturingEvidence",
+    "ManufacturingEvidenceAdapter",
+    "RoboticsEvidence",
+    "RoboticsEvidenceAdapter",
 ]
 
 # Architecture Diagram

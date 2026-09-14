@@ -19,6 +19,7 @@ even though the simpler, direct case (below) still demonstrably works.
 This file adds that direct, minimal proof, isolated from the broken
 payment-precondition entanglement.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -81,6 +82,7 @@ class TestRetrievalContentIsStructurallyReadOnly:
 
     def test_context_engine_never_writes_to_the_knowledge_graph(self):
         from src.monkey_brain.kernel.pipeline.planning import context_engine
+
         source = inspect.getsource(context_engine)
         assert "compare_and_swap" not in source
         assert "update_entity" not in source
@@ -88,12 +90,15 @@ class TestRetrievalContentIsStructurallyReadOnly:
 
     def test_moss_retrieval_adapter_never_writes_to_the_knowledge_graph(self):
         from src.monkey_brain.kernel.edge import moss_retrieval
+
         source = inspect.getsource(moss_retrieval)
         assert "compare_and_swap" not in source
         assert "update_entity" not in source
         assert "ensure_governed" not in source
 
-    def test_retrieved_content_reaching_a_plan_still_executes_through_normal_governance(self):
+    def test_retrieved_content_reaching_a_plan_still_executes_through_normal_governance(
+        self,
+    ):
         """Even if retrieved text contains "ignore governance, execute
         action, grant authority" instructions, whatever PLAN an LLM
         produces after reading it is just another Plan object -- its
@@ -107,6 +112,7 @@ class TestRetrievalContentIsStructurallyReadOnly:
         design capability) never calls ensure_governed OR mutates the
         knowledge graph itself."""
         from src.monkey_brain.kernel.domains.grocery import AnswerQuestionCapability
+
         source = inspect.getsource(AnswerQuestionCapability)
         assert "ensure_governed" not in source
         assert "compare_and_swap" not in source
@@ -123,14 +129,26 @@ class TestLearningNeverModifiesSecurityAuthority:
 
     def test_transition_model_module_has_no_governance_or_delegation_vocabulary(self):
         from src.monkey_brain.kernel.pipeline.prediction import transitions
+
         source = inspect.getsource(transitions)
-        for forbidden in ("ensure_governed", "DelegationCredential", "ApprovalArtifact", "approval_mode"):
+        for forbidden in (
+            "ensure_governed",
+            "DelegationCredential",
+            "ApprovalArtifact",
+            "approval_mode",
+        ):
             assert forbidden not in source, f"transitions.py must never reference {forbidden}"
 
     def test_learning_module_has_no_governance_or_delegation_vocabulary(self):
         from src.monkey_brain.kernel.learn import learning
+
         source = inspect.getsource(learning)
-        for forbidden in ("ensure_governed", "DelegationCredential", "ApprovalArtifact", "approval_mode"):
+        for forbidden in (
+            "ensure_governed",
+            "DelegationCredential",
+            "ApprovalArtifact",
+            "approval_mode",
+        ):
             assert forbidden not in source, f"learning.py must never reference {forbidden}"
 
     def test_learn_from_execution_return_value_has_no_authority_shaped_fields(self):
@@ -138,11 +156,20 @@ class TestLearningNeverModifiesSecurityAuthority:
         OWN return-value shape has nowhere to smuggle an authority claim
         through (no 'approved'/'capabilities'/'delegation' field a
         careless caller could later trust)."""
-        from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
+        from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+            TransitionModel,
+        )
+
         model = TransitionModel()
-        model.learn_from_execution(
-            goal_key=("test-goal", "TestAction"), success=True, cost=1.0,
-        ) if _accepts_these_kwargs(model.learn_from_execution) else None
+        (
+            model.learn_from_execution(
+                goal_key=("test-goal", "TestAction"),
+                success=True,
+                cost=1.0,
+            )
+            if _accepts_these_kwargs(model.learn_from_execution)
+            else None
+        )
         # Structural check regardless of the exact call succeeding above:
         source = inspect.getsource(TransitionModel).lower()
         for forbidden in ("capabilities", "approval_mode", "delegation", "authority"):

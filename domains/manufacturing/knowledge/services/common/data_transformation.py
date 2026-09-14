@@ -13,9 +13,11 @@ from services.common.embeddings import build_embedding
 from services.common.event_reducers import reduce_event_to_state
 from services.common.module_control import require_module_control_allowed
 from services.common.neo4j_mirror import mirror_document, safe_mirror
-from services.common.ontology_registry import load_integration_adapter, load_ontology_registry
+from services.common.ontology_registry import (
+    load_integration_adapter,
+    load_ontology_registry,
+)
 from services.common.config import settings
-
 
 TRANSFORMATION_AUDIT_COLLECTION = "integration_transformation_audits"
 RAW_INTEGRATION_SUBJECT = settings.NATS_INTEGRATIONS_RAW_SUBJECT
@@ -35,7 +37,9 @@ def _value_at_path(payload: dict[str, Any], path: str) -> Any:
     return current
 
 
-def _coerce_mapping_value(raw_payload: dict[str, Any], source: Any, separator: str = "-") -> Any:
+def _coerce_mapping_value(
+    raw_payload: dict[str, Any], source: Any, separator: str = "-"
+) -> Any:
     if isinstance(source, list):
         values = [_value_at_path(raw_payload, item) for item in source]
         return separator.join(str(value) for value in values if value not in (None, ""))
@@ -65,20 +69,28 @@ def _mapping_for_source(adapter: dict[str, Any], source_object: str) -> dict[str
     for mapping in adapter.get("mappings") or []:
         if mapping.get("source_object") == source_object:
             return mapping
-    raise ValueError(f"Adapter {adapter.get('adapter_id')} does not define source object {source_object}.")
+    raise ValueError(
+        f"Adapter {adapter.get('adapter_id')} does not define source object {source_object}."
+    )
 
 
 def _payload_hash(raw_payload: dict[str, Any]) -> str:
-    canonical = json.dumps(raw_payload, sort_keys=True, separators=(",", ":"), default=str)
+    canonical = json.dumps(
+        raw_payload, sort_keys=True, separators=(",", ":"), default=str
+    )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def transform_ingested_payload(adapter_id: str, source_object: str, raw_payload: dict[str, Any]) -> dict[str, Any]:
+def transform_ingested_payload(
+    adapter_id: str, source_object: str, raw_payload: dict[str, Any]
+) -> dict[str, Any]:
     adapter = load_integration_adapter(adapter_id)
     mapping = _mapping_for_source(adapter, source_object)
     ontology = load_ontology_registry()
     if mapping.get("target_entity") not in (ontology.get("entity_types") or {}):
-        raise ValueError(f"Mapping target entity is not in ontology registry: {mapping.get('target_entity')}")
+        raise ValueError(
+            f"Mapping target entity is not in ontology registry: {mapping.get('target_entity')}"
+        )
 
     id_mapping = mapping.get("id") or {}
     separator = str(id_mapping.get("separator") or "-")
@@ -94,7 +106,9 @@ def transform_ingested_payload(adapter_id: str, source_object: str, raw_payload:
     unmapped = {
         key: value
         for key, value in raw_payload.items()
-        if key not in _mapped_source_roots(mapping) and not str(key).startswith("$") and "." not in str(key)
+        if key not in _mapped_source_roots(mapping)
+        and not str(key).startswith("$")
+        and "." not in str(key)
     }
     if unmapped:
         target_document["source_unmapped_fields"] = unmapped
@@ -128,14 +142,20 @@ def transform_ingested_payload(adapter_id: str, source_object: str, raw_payload:
     }
 
 
-async def transform_and_persist_ingested_event(db: AsyncIOMotorDatabase, event: dict[str, Any]) -> dict[str, Any]:
+async def transform_and_persist_ingested_event(
+    db: AsyncIOMotorDatabase, event: dict[str, Any]
+) -> dict[str, Any]:
     adapter_id = str(event.get("adapter_id") or "")
     source_object = str(event.get("source_object") or "")
     raw_payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
     if not adapter_id or not source_object:
-        raise ValueError("Ingested integration event requires adapter_id and source_object.")
+        raise ValueError(
+            "Ingested integration event requires adapter_id and source_object."
+        )
 
-    await require_module_control_allowed(db, module_id="data_layer", integration_id=adapter_id)
+    await require_module_control_allowed(
+        db, module_id="data_layer", integration_id=adapter_id
+    )
     transformed = transform_ingested_payload(adapter_id, source_object, raw_payload)
     document = transformed["document"]
     collection = transformed["target_collection"]
@@ -147,8 +167,12 @@ async def transform_and_persist_ingested_event(db: AsyncIOMotorDatabase, event: 
     existing = await db[collection].find_one({target_id_field: target_id})
     document["created_at"] = existing.get("created_at") if existing else _now()
     document["embedding"] = build_embedding(collection, document)
-    await db[collection].update_one({target_id_field: target_id}, {"$set": document}, upsert=True)
-    await safe_mirror(mirror_document(collection, document, "update" if existing else "create"))
+    await db[collection].update_one(
+        {target_id_field: target_id}, {"$set": document}, upsert=True
+    )
+    await safe_mirror(
+        mirror_document(collection, document, "update" if existing else "create")
+    )
 
     audit = {
         "transformation_id": f"xfm_{uuid4().hex[:12]}",
@@ -172,18 +196,24 @@ async def transform_and_persist_ingested_event(db: AsyncIOMotorDatabase, event: 
         "target_entity": transformed["target_entity"],
         "target_id": str(target_id),
         "transformation_id": audit["transformation_id"],
-        "payload": {key: value for key, value in document.items() if key != "embedding"},
+        "payload": {
+            key: value for key, value in document.items() if key != "embedding"
+        },
         "created_at": _now(),
     }
     try:
-        await nats_store.publish_event(nats_store._event_bytes(envelope), subject=TRANSFORMED_INTEGRATION_SUBJECT)
+        await nats_store.publish_event(
+            nats_store._event_bytes(envelope), subject=TRANSFORMED_INTEGRATION_SUBJECT
+        )
         envelope["published"] = True
         envelope["subject"] = TRANSFORMED_INTEGRATION_SUBJECT
     except Exception as exc:
         envelope["published"] = False
         envelope["publish_error"] = str(exc)
     try:
-        reducer = await reduce_event_to_state(db, envelope, subject=TRANSFORMED_INTEGRATION_SUBJECT)
+        reducer = await reduce_event_to_state(
+            db, envelope, subject=TRANSFORMED_INTEGRATION_SUBJECT
+        )
         envelope["reducer"] = {
             "aggregate_key": reducer["aggregate_key"],
             "state_hash": reducer["state_hash"],

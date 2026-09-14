@@ -11,19 +11,23 @@ the constraint's own `parameters` (e.g. a budget constraint carries its own
 each step's operator). No implicit "current runtime state" is consulted —
 keeping validation a pure function of (constraint, plan).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from typing import Protocol, runtime_checkable
 
 from src.monkey_brain.kernel.pipeline.planning.domain import (
-    Plan, PlanningConstraint, ValidationStatus,
+    Plan,
+    PlanningConstraint,
+    ValidationStatus,
 )
 
 
 @dataclass(frozen=True)
 class ConstraintCheckResult:
     """The outcome of evaluating one PlanningConstraint against one Plan."""
+
     constraint_id: str = ""
     kind: str = ""
     hard: bool = True
@@ -34,6 +38,7 @@ class ConstraintCheckResult:
 @dataclass(frozen=True)
 class ValidationReport:
     """The aggregate result of validating a Plan against all its constraints."""
+
     plan_id: str = ""
     results: tuple[ConstraintCheckResult, ...] = ()
     valid: bool = True
@@ -48,6 +53,7 @@ class ValidationReport:
 @runtime_checkable
 class ConstraintEvaluator(Protocol):
     """Interface every constraint evaluator satisfies."""
+
     kind: str
 
     def evaluate(self, constraint: PlanningConstraint, plan: Plan) -> ConstraintCheckResult: ...
@@ -55,22 +61,32 @@ class ConstraintEvaluator(Protocol):
 
 def _check(constraint: PlanningConstraint, kind: str, satisfied: bool, message: str) -> ConstraintCheckResult:
     return ConstraintCheckResult(
-        constraint_id=constraint.constraint_id, kind=kind,
-        hard=constraint.hard, satisfied=satisfied, message=message,
+        constraint_id=constraint.constraint_id,
+        kind=kind,
+        hard=constraint.hard,
+        satisfied=satisfied,
+        message=message,
     )
 
 
 class BudgetConstraintEvaluator:
     """parameters: {"max_cost": float} — checked against plan.estimated_cost."""
+
     kind = "budget"
 
     def evaluate(self, constraint: PlanningConstraint, plan: Plan) -> ConstraintCheckResult:
         max_cost = constraint.parameters.get("max_cost")
         if max_cost is None:
-            return _check(constraint, self.kind, False, "budget constraint missing 'max_cost' parameter")
+            return _check(
+                constraint,
+                self.kind,
+                False,
+                "budget constraint missing 'max_cost' parameter",
+            )
         satisfied = plan.estimated_cost <= max_cost
         message = (
-            f"estimated_cost {plan.estimated_cost} within budget {max_cost}" if satisfied
+            f"estimated_cost {plan.estimated_cost} within budget {max_cost}"
+            if satisfied
             else f"estimated_cost {plan.estimated_cost} exceeds budget {max_cost}"
         )
         return _check(constraint, self.kind, satisfied, message)
@@ -78,15 +94,22 @@ class BudgetConstraintEvaluator:
 
 class TimeConstraintEvaluator:
     """parameters: {"max_duration": float} — checked against plan.estimated_duration."""
+
     kind = "time"
 
     def evaluate(self, constraint: PlanningConstraint, plan: Plan) -> ConstraintCheckResult:
         max_duration = constraint.parameters.get("max_duration")
         if max_duration is None:
-            return _check(constraint, self.kind, False, "time constraint missing 'max_duration' parameter")
+            return _check(
+                constraint,
+                self.kind,
+                False,
+                "time constraint missing 'max_duration' parameter",
+            )
         satisfied = plan.estimated_duration <= max_duration
         message = (
-            f"estimated_duration {plan.estimated_duration} within limit {max_duration}" if satisfied
+            f"estimated_duration {plan.estimated_duration} within limit {max_duration}"
+            if satisfied
             else f"estimated_duration {plan.estimated_duration} exceeds limit {max_duration}"
         )
         return _check(constraint, self.kind, satisfied, message)
@@ -94,6 +117,7 @@ class TimeConstraintEvaluator:
 
 class PolicyConstraintEvaluator:
     """parameters: {"denied_operators": [str, ...]} — no step may use a denied operator."""
+
     kind = "policy"
 
     def evaluate(self, constraint: PlanningConstraint, plan: Plan) -> ConstraintCheckResult:
@@ -108,6 +132,7 @@ class PolicyConstraintEvaluator:
 class CapabilityConstraintEvaluator:
     """parameters: {"available_capabilities": [str, ...]} — every step operator's
     required_capabilities must be a subset of what's available."""
+
     kind = "capability"
 
     def evaluate(self, constraint: PlanningConstraint, plan: Plan) -> ConstraintCheckResult:
@@ -124,6 +149,7 @@ class CapabilityConstraintEvaluator:
 class InventoryConstraintEvaluator:
     """parameters: {"available_inventory": {item: quantity}} — checked against
     quantities implied by AcquireItem-style operator metadata (item/quantity)."""
+
     kind = "inventory"
 
     def evaluate(self, constraint: PlanningConstraint, plan: Plan) -> ConstraintCheckResult:
@@ -138,8 +164,7 @@ class InventoryConstraintEvaluator:
             needed[item] = needed.get(item, 0) + step.operator.metadata.get("quantity", 1)
 
         shortfalls = {
-            item: qty - available.get(item, 0)
-            for item, qty in needed.items() if qty > available.get(item, 0)
+            item: qty - available.get(item, 0) for item, qty in needed.items() if qty > available.get(item, 0)
         }
         satisfied = not shortfalls
         message = "sufficient inventory for all items" if satisfied else f"insufficient inventory: {shortfalls}"
@@ -149,6 +174,7 @@ class InventoryConstraintEvaluator:
 class SafetyConstraintEvaluator:
     """parameters: {"forbidden_effects": [str, ...]} — no step operator's effects
     may include a forbidden effect."""
+
     kind = "safety"
 
     def evaluate(self, constraint: PlanningConstraint, plan: Plan) -> ConstraintCheckResult:
@@ -164,6 +190,7 @@ class SafetyConstraintEvaluator:
 
 class PermissionsConstraintEvaluator:
     """parameters: {"required_permissions": [...], "granted_permissions": [...]}."""
+
     kind = "permissions"
 
     def evaluate(self, constraint: PlanningConstraint, plan: Plan) -> ConstraintCheckResult:
@@ -176,7 +203,8 @@ class PermissionsConstraintEvaluator:
 
 
 DEFAULT_EVALUATORS: dict[str, ConstraintEvaluator] = {
-    e.kind: e for e in (
+    e.kind: e
+    for e in (
         BudgetConstraintEvaluator(),
         TimeConstraintEvaluator(),
         PolicyConstraintEvaluator(),
@@ -207,10 +235,14 @@ class ConstraintEngine:
         for constraint in plan.constraints:
             evaluator = self._evaluators.get(constraint.kind)
             if evaluator is None:
-                results.append(_check(
-                    constraint, constraint.kind, False,
-                    f"no evaluator registered for constraint kind '{constraint.kind}'",
-                ))
+                results.append(
+                    _check(
+                        constraint,
+                        constraint.kind,
+                        False,
+                        f"no evaluator registered for constraint kind '{constraint.kind}'",
+                    )
+                )
                 continue
             results.append(evaluator.evaluate(constraint, plan))
 

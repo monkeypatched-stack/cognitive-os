@@ -17,6 +17,7 @@ must already know the execution_id it's resuming (mirrors
 OrderCreationCapability's resume_order_id -- the caller states intent
 explicitly, this is never auto-discovered).
 """
+
 from __future__ import annotations
 
 import json
@@ -48,8 +49,10 @@ def _get_client() -> Any:
         return _client
     try:
         import redis
+
         client = redis.from_url(
-            _redis_url(), decode_responses=True,
+            _redis_url(),
+            decode_responses=True,
             socket_connect_timeout=float(os.getenv("REDIS_CONNECT_TIMEOUT_SEC", "5")),
             socket_timeout=float(os.getenv("REDIS_SOCKET_TIMEOUT_SEC", "5")),
         )
@@ -78,8 +81,10 @@ class ExecutionCheckpoint:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "execution_id": self.execution_id, "plan": self.plan,
-            "completed_steps": self.completed_steps, "updated_at": self.updated_at,
+            "execution_id": self.execution_id,
+            "plan": self.plan,
+            "completed_steps": self.completed_steps,
+            "updated_at": self.updated_at,
         }
 
     @staticmethod
@@ -92,7 +97,9 @@ class ExecutionCheckpoint:
         )
 
 
-def save_execution_checkpoint(execution_id: str, plan: dict[str, Any], completed_steps: dict[int, dict[str, Any]]) -> bool:
+def save_execution_checkpoint(
+    execution_id: str, plan: dict[str, Any], completed_steps: dict[int, dict[str, Any]]
+) -> bool:
     """Never raises — a dropped write here just means a crash between now
     and the next successful write repeats one more step on resume than it
     strictly needed to; it never causes anything to be SKIPPED that
@@ -103,7 +110,8 @@ def save_execution_checkpoint(execution_id: str, plan: dict[str, Any], completed
         return False
     try:
         checkpoint = ExecutionCheckpoint(
-            execution_id=execution_id, plan=plan,
+            execution_id=execution_id,
+            plan=plan,
             completed_steps={str(k): v for k, v in completed_steps.items()},
         )
         client.set(f"{_CHECKPOINT_KEY_PREFIX}{execution_id}", json.dumps(checkpoint.to_dict()))

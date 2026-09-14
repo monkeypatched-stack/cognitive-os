@@ -48,9 +48,7 @@ class EventBusAdapter:
 
     def __init__(self, platform_event_bus: Optional[Any] = None) -> None:
         self._platform_bus = platform_event_bus
-        self._subscribers: Dict[
-            str, Dict[str, Callable]
-        ] = {}  # {event_type: {sub_id: cb}}
+        self._subscribers: Dict[str, Dict[str, Callable]] = {}  # {event_type: {sub_id: cb}}
 
     # ------------------------------------------------------------------
     # Core publish / subscribe

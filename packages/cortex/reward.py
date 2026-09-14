@@ -13,7 +13,7 @@ from typing import Any
 @dataclass
 class RewardResult:
     """Result of reward computation."""
-    
+
     total_reward: float = 0.0
     components: dict[str, float] = field(default_factory=dict)
     normalized: float = 0.0  # 0.0 to 1.0
@@ -22,7 +22,7 @@ class RewardResult:
 
 class RewardEngine:
     """Computes rewards from execution outcomes.
-    
+
     Reward signals:
     - Correctness
     - User Feedback
@@ -33,7 +33,7 @@ class RewardEngine:
     - Capability Success
     - Workflow Success
     """
-    
+
     def __init__(self):
         self._weights: dict[str, float] = {
             "correctness": 0.3,
@@ -43,7 +43,7 @@ class RewardEngine:
             "capability_success": 0.1,
             "ground_truth_match": 0.05,
         }
-    
+
     def compute(
         self,
         success: bool,
@@ -56,16 +56,16 @@ class RewardEngine:
     ) -> RewardResult:
         """Compute reward from execution outcomes."""
         components = {}
-        
+
         # Execution success
         components["execution_success"] = 1.0 if success else 0.0
-        
+
         # Latency reward (lower is better, max 100ms)
         if latency_ms > 0:
             components["latency"] = max(0.0, 1.0 - (latency_ms / 1000.0))
         else:
             components["latency"] = 1.0
-        
+
         # User feedback
         if user_feedback:
             feedback_reward = 0.0
@@ -80,7 +80,7 @@ class RewardEngine:
             components["user_feedback"] = max(-1.0, min(1.0, feedback_reward))
         else:
             components["user_feedback"] = 0.5  # Neutral
-        
+
         # Ground truth match
         if ground_truth and answer:
             gt_answer = ground_truth.get("answer", "")
@@ -90,22 +90,22 @@ class RewardEngine:
                 components["ground_truth_match"] = 0.0
         else:
             components["ground_truth_match"] = 0.5  # Neutral
-        
+
         # Capability success
         if capabilities:
             components["capability_success"] = 1.0  # All succeeded if we got here
         else:
             components["capability_success"] = 0.0
-        
+
         # Compute weighted total
         total = 0.0
         for component, value in components.items():
             weight = self._weights.get(component, 0.0)
             total += value * weight
-        
+
         # Normalize to -1.0 to 1.0
         normalized = max(-1.0, min(1.0, total))
-        
+
         return RewardResult(
             total_reward=total,
             components=components,

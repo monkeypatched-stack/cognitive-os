@@ -49,6 +49,7 @@ reason, this degrades to exactly today's behavior: the actor stays
 unscheduled/unresident, reconciliation retries on its normal cadence,
 nothing is fabricated.
 """
+
 from __future__ import annotations
 
 import logging
@@ -66,7 +67,11 @@ KubernetesProvisioner keeps from actor_runtime.py."""
 
 
 def provisioning_enabled() -> bool:
-    return os.getenv("EDGE_PROVISIONING_ENABLED", "false").lower() not in ("false", "0", "no")
+    return os.getenv("EDGE_PROVISIONING_ENABLED", "false").lower() not in (
+        "false",
+        "0",
+        "no",
+    )
 
 
 class EdgeProvisioner:
@@ -83,8 +88,14 @@ class EdgeProvisioner:
         port = os.getenv("EDGE_AGENT_PORT", str(DEFAULT_EDGE_AGENT_PORT))
         return f"http://{device_id}:{port}{path}"
 
-    def provision(self, actor_id: str, *, device_id: str, node_class: str = "edge",
-                  timeout: float = 15.0) -> bool:
+    def provision(
+        self,
+        actor_id: str,
+        *,
+        device_id: str,
+        node_class: str = "edge",
+        timeout: float = 15.0,
+    ) -> bool:
         """Asks device_id's own Edge Agent to start actor_id. Returns
         True only on a real, successful response. Never raises -- every
         failure mode (Agent unreachable, device offline, HTTP error) is
@@ -96,17 +107,35 @@ class EdgeProvisioner:
         try:
             resp = httpx.post(
                 self._agent_url(device_id, f"/actors/{actor_id}/start"),
-                json={"node_class": node_class, "artifact_version": artifact_version, "claim_placement": True},
+                json={
+                    "node_class": node_class,
+                    "artifact_version": artifact_version,
+                    "claim_placement": True,
+                },
                 timeout=timeout,
             )
         except httpx.RequestError as exc:
-            logger.warning("EdgeProvisioner: could not reach Edge Agent on %r for actor_id=%s: %s", device_id, actor_id, exc)
+            logger.warning(
+                "EdgeProvisioner: could not reach Edge Agent on %r for actor_id=%s: %s",
+                device_id,
+                actor_id,
+                exc,
+            )
             return False
         if resp.status_code >= 400:
-            logger.warning("EdgeProvisioner: Edge Agent on %r rejected start for actor_id=%s (%d): %s",
-                          device_id, actor_id, resp.status_code, resp.text)
+            logger.warning(
+                "EdgeProvisioner: Edge Agent on %r rejected start for actor_id=%s (%d): %s",
+                device_id,
+                actor_id,
+                resp.status_code,
+                resp.text,
+            )
             return False
-        logger.info("EdgeProvisioner: provisioned actor_id=%s on device_id=%s", actor_id, device_id)
+        logger.info(
+            "EdgeProvisioner: provisioned actor_id=%s on device_id=%s",
+            actor_id,
+            device_id,
+        )
         return True
 
     def stop(self, actor_id: str, *, device_id: str, timeout: float = 20.0) -> bool:
@@ -115,7 +144,12 @@ class EdgeProvisioner:
         try:
             resp = httpx.post(self._agent_url(device_id, f"/actors/{actor_id}/stop"), timeout=timeout)
         except httpx.RequestError as exc:
-            logger.warning("EdgeProvisioner: could not reach Edge Agent on %r to stop actor_id=%s: %s", device_id, actor_id, exc)
+            logger.warning(
+                "EdgeProvisioner: could not reach Edge Agent on %r to stop actor_id=%s: %s",
+                device_id,
+                actor_id,
+                exc,
+            )
             return False
         return resp.status_code < 400
 
@@ -123,9 +157,17 @@ class EdgeProvisioner:
         import httpx
 
         try:
-            resp = httpx.get(self._agent_url(device_id, f"/actors/{actor_id}/status"), timeout=timeout)
+            resp = httpx.get(
+                self._agent_url(device_id, f"/actors/{actor_id}/status"),
+                timeout=timeout,
+            )
         except httpx.RequestError as exc:
-            logger.debug("EdgeProvisioner: status check failed for actor_id=%s on device_id=%s: %s", actor_id, device_id, exc)
+            logger.debug(
+                "EdgeProvisioner: status check failed for actor_id=%s on device_id=%s: %s",
+                actor_id,
+                device_id,
+                exc,
+            )
             return None
         if resp.status_code >= 400:
             return None

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
+
 class WriteBlogPostAboutItem:
     pass
 
@@ -31,17 +32,15 @@ class WriteBlogPostAboutDeleted:
 
 class IRepository(ABC):
     @abstractmethod
-    async def find_by_id(self, blog_post_id: str) -> Optional[WriteBlogPostAboutItem]:
-        ...
+    async def find_by_id(
+        self, blog_post_id: str
+    ) -> Optional[WriteBlogPostAboutItem]: ...
 
     @abstractmethod
-    async def create(self, blog_post_item: WriteBlogPostAboutItem) -> None:
-        ...
+    async def create(self, blog_post_item: WriteBlogPostAboutItem) -> None: ...
 
     @abstractmethod
-    async def update(self, blog_post_item: WriteBlogPostAboutItem) -> None:
-        ...
+    async def update(self, blog_post_item: WriteBlogPostAboutItem) -> None: ...
 
     @abstractmethod
-    async def delete(self, blog_post_id: str) -> None:
-        ...
+    async def delete(self, blog_post_id: str) -> None: ...

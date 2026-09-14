@@ -1,4 +1,5 @@
 """Unit tests for SimulationLoss — 6-term → 4-term EPA decomposition."""
+
 import pytest
 
 try:
@@ -20,7 +21,6 @@ _WEIGHT_FIELDS = [
 
 @pytest.mark.skipif(SimulationLoss is None, reason="SimulationLoss not importable")
 class TestSimulationLoss:
-
     def _make_loss(self, **kwargs) -> SimulationLoss:
         defaults = {
             "state": 0.1,

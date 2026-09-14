@@ -5,6 +5,7 @@ Watches LLM_BRIDGE_DIR (default /tmp/mb-llm-bridge) for *.request.json files
 and writes a valid multi-step grocery plan to the matching .response.txt file.
 Used for deterministic demo passes when MODEL_BACKEND=dev_bridge.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,9 +15,7 @@ from pathlib import Path
 
 BRIDGE_DIR = Path(os.environ.get("LLM_BRIDGE_DIR", "/tmp/mb-llm-bridge"))
 # Cheapest milk in the seeded world (Trader Joe's 2% Milk)
-MILK_PRODUCT_ID = os.environ.get(
-    "DEMO_MILK_PRODUCT_ID", "product_5cac29e2d0ef4ef0bd31a0352bf26baf"
-)
+MILK_PRODUCT_ID = os.environ.get("DEMO_MILK_PRODUCT_ID", "product_5cac29e2d0ef4ef0bd31a0352bf26baf")
 
 PLAN_TEMPLATE = {
     "steps": [

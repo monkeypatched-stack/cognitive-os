@@ -27,6 +27,7 @@ record. Best-effort: record() itself never raises (see audit.py), and
 this wrapper also never lets an audit-recording failure turn into an
 unrelated 500 on top of whatever the real handler returned.
 """
+
 from __future__ import annotations
 
 import functools
@@ -70,13 +71,20 @@ def audited(action: str):
 
 
 async def _record(
-    action: str, outcome: str, user_id: str, request: Any, started: float, *, error: str = "",
+    action: str,
+    outcome: str,
+    user_id: str,
+    request: Any,
+    started: float,
+    *,
+    error: str = "",
 ) -> None:
     try:
         from src.monkey_brain.kernel.audit import AuditPersistenceError, get_audit_log
 
         try:
             from services.common.trace_context import get_trace_id
+
             trace_id = get_trace_id()
         except Exception:
             trace_id = ""

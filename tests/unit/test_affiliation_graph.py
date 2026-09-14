@@ -11,14 +11,15 @@ the exact surface AffiliationGraph actually calls: `_societies_for`,
 Written, not executed via pytest, per this project's standing preference
 (see feedback_no_test_runs) -- for the user/CI to run.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.affiliations.affiliation import Affiliation
 from src.monkey_brain.kernel.affiliations.graph import AffiliationGraph
 from src.monkey_brain.kernel.affiliations.manager import AffiliationManager
 
-
 # ── Fakes ──────────────────────────────────────────────────────────────────
+
 
 class _FakeActorRuntime:
     def __init__(self, affiliations: AffiliationManager) -> None:
@@ -46,8 +47,13 @@ class _FakeGovernance:
 
 
 class _FakeSocietyRuntime:
-    def __init__(self, society_id: str, actors: dict[str, _FakeActorState],
-                 *, allow_pairs: frozenset[tuple[str, str, str]] = frozenset()) -> None:
+    def __init__(
+        self,
+        society_id: str,
+        actors: dict[str, _FakeActorState],
+        *,
+        allow_pairs: frozenset[tuple[str, str, str]] = frozenset(),
+    ) -> None:
         self.society = _FakeSociety(society_id)
         self._actors = actors
         self.governance = _FakeGovernance(allow_pairs)
@@ -85,8 +91,13 @@ class _FakeMembershipRegistry:
 
 
 class _FakePlanetaryRuntime:
-    def __init__(self, societies: tuple[_FakeSocietyRuntime, ...],
-                 *, delegation_registry=None, membership_registry=None) -> None:
+    def __init__(
+        self,
+        societies: tuple[_FakeSocietyRuntime, ...],
+        *,
+        delegation_registry=None,
+        membership_registry=None,
+    ) -> None:
         self._society_list = societies
         self.delegation_registry = delegation_registry
         self.membership_registry = membership_registry
@@ -105,12 +116,15 @@ def _actor(actor_id: str, *affiliations: Affiliation) -> _FakeActorState:
 def _aff(affiliation_type: str, target_id: str, target_name: str, trust: float = 0.5) -> Affiliation:
     return Affiliation(
         affiliation_id=f"aff:{target_id}:{affiliation_type}",
-        affiliation_type=affiliation_type, target_id=target_id,
-        target_name=target_name, trust_level=trust,
+        affiliation_type=affiliation_type,
+        target_id=target_id,
+        target_name=target_name,
+        trust_level=trust,
     )
 
 
 # ── 1/2: direct + reverse affiliation (the diagnosed bug's fix) ────────────
+
 
 def test_customer_store_one_sided_allows_both_directions():
     """The exact bug scenario: only the customer's side has the affiliation
@@ -144,6 +158,7 @@ def test_roommate_mirrored_both_directions_hits_direct_rule():
 
 # ── 3: bidirectional-by-type, one-sided record ──────────────────────────────
 
+
 def test_friendship_one_sided_allows_reverse_via_bidirectional_type():
     """FRIENDSHIP is a real, registered bidirectional=True type
     (kernel/affiliations/types.py). Only A's side has the record -- B
@@ -174,6 +189,7 @@ def test_friendship_one_sided_allows_reverse_via_bidirectional_type():
 
 # ── 4: shared organization (pre-existing rule, regression coverage) ────────
 
+
 def test_shared_organization_third_party_target():
     a = _actor("a", _aff("employment", "acme", "Acme Corp"))
     b = _actor("b", _aff("employment", "acme", "Acme Corp"))
@@ -186,6 +202,7 @@ def test_shared_organization_third_party_target():
 
 
 # ── 5: shared society, no affiliations at all ───────────────────────────────
+
 
 def test_shared_society_with_no_affiliations():
     a = _actor("a")
@@ -200,6 +217,7 @@ def test_shared_society_with_no_affiliations():
 
 
 # ── employee <-> manager (asymmetric, real SUPERIOR/SUBORDINATE types) ─────
+
 
 def test_employee_manager_asymmetric_relationship():
     """Only the employee's side records the relationship (SUPERIOR,
@@ -222,6 +240,7 @@ def test_employee_manager_asymmetric_relationship():
 
 # ── No relationship at all ───────────────────────────────────────────────────
 
+
 def test_no_relationship_and_no_shared_society_denies():
     a = _actor("a")
     b = _actor("b")
@@ -235,6 +254,7 @@ def test_no_relationship_and_no_shared_society_denies():
 
 
 # ── 6: enterprise (PART_OF/BELONGS_TO chain) ────────────────────────────────
+
 
 def test_enterprise_shared_parent_org_isolated():
     """Different societies (so rule 5 can't fire), both actors PART_OF the
@@ -263,6 +283,7 @@ def test_enterprise_shared_parent_org_isolated():
 
 # ── 7: authorization policy (unit-tested directly -- see note below) ───────
 
+
 def test_authorization_policy_rule_directly():
     """Rule 5 (shared society) is an unconditional allow for ANY
     same-society pair, so it always fires before rule 7 can be reached
@@ -274,7 +295,8 @@ def test_authorization_policy_rule_directly():
     a = _actor("a")
     b = _actor("b")
     society = _FakeSocietyRuntime(
-        "planet", {"a": a, "b": b},
+        "planet",
+        {"a": a, "b": b},
         allow_pairs=frozenset({("a", "actor:b", "communicate")}),
     )
     graph = AffiliationGraph(_FakePlanetaryRuntime((society,)))
@@ -291,6 +313,7 @@ def test_authorization_policy_rule_directly():
 
 # ── 8: delegated authority ──────────────────────────────────────────────────
 
+
 def test_delegated_authority_isolated():
     """Different societies (rules 4/5/6 can't fire), sender holds a valid
     delegation for a membership owned by recipient."""
@@ -299,13 +322,14 @@ def test_delegated_authority_isolated():
     society_a = _FakeSocietyRuntime("society-a", {"a": a})
     society_b = _FakeSocietyRuntime("society-b", {"b": b})
     membership_registry = _FakeMembershipRegistry({"mem-b": _FakeMembership("b")})
-    delegation_registry = _FakeDelegationRegistry((
-        _FakeDelegation("del-1", "mem-b", "a"),
-    ))
-    graph = AffiliationGraph(_FakePlanetaryRuntime(
-        (society_a, society_b),
-        delegation_registry=delegation_registry, membership_registry=membership_registry,
-    ))
+    delegation_registry = _FakeDelegationRegistry((_FakeDelegation("del-1", "mem-b", "a"),))
+    graph = AffiliationGraph(
+        _FakePlanetaryRuntime(
+            (society_a, society_b),
+            delegation_registry=delegation_registry,
+            membership_registry=membership_registry,
+        )
+    )
 
     decision = graph.can_communicate("a", "b")
     assert decision.allowed
@@ -313,6 +337,7 @@ def test_delegated_authority_isolated():
 
 
 # ── 9: inherited organizational relationship (one intermediate hop) ────────
+
 
 def test_inherited_relationship_via_manager_isolated():
     """A -MANAGES-> intermediate, intermediate has a direct affiliation to
@@ -331,6 +356,7 @@ def test_inherited_relationship_via_manager_isolated():
 
 
 # ── Trust ranking happens only after eligibility ────────────────────────────
+
 
 def test_trust_plays_no_role_in_eligibility():
     """A low-trust direct affiliation is still eligible -- can_communicate

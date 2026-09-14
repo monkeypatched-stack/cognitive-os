@@ -13,7 +13,6 @@ from services.workorders.models.equipment_usage_ledger import (
     PaginatedEquipmentUsageLedgerResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -70,7 +69,11 @@ async def get_equipment_usage_ledger_entry(
     return record
 
 
-@router.post("/", response_model=EquipmentUsageLedgerResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=EquipmentUsageLedgerResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_equipment_usage_ledger_entry(
     data: EquipmentUsageLedgerCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

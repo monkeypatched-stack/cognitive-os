@@ -1,4 +1,5 @@
 """Learn phase — record graph transitions into topology-aware learning."""
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ def record_outcome(
 
     try:
         from src.monkey_brain.kernel.learn.learning import Learning
+
         # The helper is _get_learner(). This called _get_learning(), which does not
         # exist — a NameError on EVERY completed execution, swallowed by the debug-level
         # except below. Nothing in this block has ever run: not the graph-topology
@@ -61,13 +63,15 @@ def record_outcome(
             steps = list(getattr(workload, "steps", []) or [])
             action = getattr(steps[0], "capability_name", "") if steps else workload_id
             if action:
-                policy.update(Transition(
-                    state={},
-                    action=action,
-                    next_state={"success": llm_answered},
-                    reward=transition.graph_reward,
-                    done=True,
-                ))
+                policy.update(
+                    Transition(
+                        state={},
+                        action=action,
+                        next_state={"success": llm_answered},
+                        reward=transition.graph_reward,
+                        done=True,
+                    )
+                )
         except Exception as e:
             # Was debug — which is exactly how a hard TypeError stayed invisible.
             logger.warning("Policy update failed for workload=%r: %s", workload_id, e)
@@ -79,6 +83,7 @@ def record_outcome(
     # Telemetry
     try:
         from src.monkey_brain.kernel.learn.telemetry.telemetry import profile_add
+
         profile_add("learn_record", ms=int(exec_ms))
     except Exception:
         logger.debug("record_outcome: suppressed exception", exc_info=True)
@@ -105,7 +110,10 @@ def record_outcome(
 
     logger.debug(
         "[learn] goal=%r workload=%s reward=%.2f exec_ms=%.0f",
-        goal_name, workload_id, reward, exec_ms,
+        goal_name,
+        workload_id,
+        reward,
+        exec_ms,
     )
 
 
@@ -125,7 +133,9 @@ def _build_graph_delta(graph: Any, workload_id: str, reward: float):
         node_id = node.get("id") if isinstance(node, dict) else getattr(node, "id", "")
         state = node.get("state") if isinstance(node, dict) else getattr(node, "state", NodeState.PENDING.value)
         if node_id:
-            node_rewards[node_id] = 1.0 if state == NodeState.COMPLETE.value else (0.0 if state == NodeState.FAILED.value else 0.5)
+            node_rewards[node_id] = (
+                1.0 if state == NodeState.COMPLETE.value else (0.0 if state == NodeState.FAILED.value else 0.5)
+            )
             added_nodes.append(node_id)
 
     return GraphDelta(
@@ -151,10 +161,12 @@ def _get_learner():
     global _learner
     if _learner is None:
         from src.monkey_brain.kernel.learn.learning import Learning
+
         _learner = Learning()
     return _learner
 
 
 def _get_policy():
     from src.monkey_brain.kernel.plan.workload.policy import get_policy
+
     return get_policy()

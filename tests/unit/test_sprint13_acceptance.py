@@ -6,6 +6,7 @@ Verifies the full lifecycle:
   World Updated → Experience Stored → Learning Updated →
   Runtime Metrics → Clean Shutdown
 """
+
 from __future__ import annotations
 
 import os
@@ -19,8 +20,10 @@ os.environ["AGENTOS_AUTH_REQUIRED"] = "false"
 def client():
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -28,17 +31,23 @@ def client():
 class TestSprint13Acceptance:
     def test_full_cognitive_lifecycle(self, client):
         # ── 1. Create societies ──────────────────────────────────────────
-        r = client.post("/api/v1/agentos/societies", json={
-            "name": "Milk Delivery Society",
-            "description": "Coordinates milk delivery",
-        })
+        r = client.post(
+            "/api/v1/agentos/societies",
+            json={
+                "name": "Milk Delivery Society",
+                "description": "Coordinates milk delivery",
+            },
+        )
         assert r.status_code == 200
         s1_id = r.json()["society_id"]
 
-        r = client.post("/api/v1/agentos/societies", json={
-            "name": "Warehouse Society",
-            "description": "Manages warehouse operations",
-        })
+        r = client.post(
+            "/api/v1/agentos/societies",
+            json={
+                "name": "Warehouse Society",
+                "description": "Manages warehouse operations",
+            },
+        )
         assert r.status_code == 200
         s2_id = r.json()["society_id"]
 
@@ -49,31 +58,50 @@ class TestSprint13Acceptance:
             ("Robot-3000", "robot", "navigate_warehouse"),
             ("RetailCo", "enterprise", "manage_inventory"),
         ]:
-            r = client.post("/api/v1/agentos/actors", json={
-                "name": name, "actor_type": atype,
-                "capabilities": [{"name": "delivery"}],
-                "goals": [goal],
-            })
+            r = client.post(
+                "/api/v1/agentos/actors",
+                json={
+                    "name": name,
+                    "actor_type": atype,
+                    "capabilities": [{"name": "delivery"}],
+                    "goals": [goal],
+                },
+            )
             assert r.status_code == 200
             actors.append(r.json()["actor_id"])
 
         # ── 3. Create memberships ────────────────────────────────────────
         for aid in actors[:2]:
-            r = client.post("/api/v1/agentos/memberships", json={
-                "actor_id": aid, "society_id": s1_id, "role": "worker",
-            })
+            r = client.post(
+                "/api/v1/agentos/memberships",
+                json={
+                    "actor_id": aid,
+                    "society_id": s1_id,
+                    "role": "worker",
+                },
+            )
             assert r.status_code == 200
         for aid in actors[2:]:
-            r = client.post("/api/v1/agentos/memberships", json={
-                "actor_id": aid, "society_id": s2_id, "role": "manager",
-            })
+            r = client.post(
+                "/api/v1/agentos/memberships",
+                json={
+                    "actor_id": aid,
+                    "society_id": s2_id,
+                    "role": "manager",
+                },
+            )
             assert r.status_code == 200
 
         # ── 4. Actor ticks — real cognitive loop ──────────────────────────
         for aid in actors:
-            r = client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-                "start": "warehouse", "goal": "customer_door", "reward": 1.0,
-            })
+            r = client.post(
+                f"/api/v1/agentos/actors/{aid}/tick",
+                json={
+                    "start": "warehouse",
+                    "goal": "customer_door",
+                    "reward": 1.0,
+                },
+            )
             assert r.status_code == 200
             d = r.json()
             result = d["result"]
@@ -98,15 +126,18 @@ class TestSprint13Acceptance:
         assert pt["duration_ms"] >= 0
 
         # ── 7. Share experience via /learn/experience ────────────────────
-        r = client.post("/api/v1/agentos/learn/experience", json={
-            "experience": {
-                "actor_id": actors[0],
-                "description": "Delivered milk successfully",
-                "outcome": "success",
-                "confidence": 0.9,
-                "lessons": ["avoid_traffic", "use_back_road"],
-            }
-        })
+        r = client.post(
+            "/api/v1/agentos/learn/experience",
+            json={
+                "experience": {
+                    "actor_id": actors[0],
+                    "description": "Delivered milk successfully",
+                    "outcome": "success",
+                    "confidence": 0.9,
+                    "lessons": ["avoid_traffic", "use_back_road"],
+                }
+            },
+        )
         assert r.status_code == 200
         lr = r.json()
         assert lr["status"] == "ok"

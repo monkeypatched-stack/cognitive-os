@@ -22,7 +22,9 @@ async def list_vehicles(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedVehicleResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedVehicleResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-carrier/{carrier_id}", response_model=list[VehicleResponse])
@@ -34,7 +36,9 @@ async def list_vehicles_by_carrier(
     return await crud.get_by_carrier(db, carrier_id)
 
 
-@router.get("/by-registration-plate/{registration_plate}", response_model=VehicleResponse)
+@router.get(
+    "/by-registration-plate/{registration_plate}", response_model=VehicleResponse
+)
 async def get_vehicle_by_registration_plate(
     registration_plate: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -66,7 +70,9 @@ async def get_vehicle(
 ):
     record = await crud.get_by_id(db, vehicle_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Vehicle '{vehicle_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Vehicle '{vehicle_id}' not found"
+        )
     return record
 
 
@@ -78,7 +84,9 @@ async def create_vehicle(
 ):
     vehicle_id = str(data.id)
     if await crud.get_by_id(db, vehicle_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Vehicle '{vehicle_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"Vehicle '{vehicle_id}' already exists"
+        )
     if await crud.get_by_registration_plate(db, data.registration_plate):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -103,7 +111,9 @@ async def update_vehicle(
             )
     updated = await crud.update(db, vehicle_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Vehicle '{vehicle_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Vehicle '{vehicle_id}' not found"
+        )
     return updated
 
 
@@ -114,4 +124,6 @@ async def delete_vehicle(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, vehicle_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Vehicle '{vehicle_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Vehicle '{vehicle_id}' not found"
+        )

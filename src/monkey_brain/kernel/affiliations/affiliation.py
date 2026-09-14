@@ -10,6 +10,7 @@ class Affiliation:
     Each affiliation references an AffiliationType (by id) which carries
     the semantic metadata: category, cardinality, trust model, lifecycle.
     """
+
     affiliation_id: str
     affiliation_type: str
     target_id: str

@@ -15,6 +15,7 @@ Each EdgeActor maintains:
 
 EdgeActors sync observations to the cloud and receive world updates.
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,9 +61,7 @@ class EdgeActor:
         """
         if legal_actions is None:
             # Fallback: use all known actions
-            legal_actions = list(set(
-                a for (_, a) in self.policy._q.keys()
-            ))
+            legal_actions = list(set(a for (_, a) in self.policy._q.keys()))
         if not legal_actions:
             return ""
         return self.policy.best_action(state, legal_actions)
@@ -85,14 +84,16 @@ class EdgeActor:
         - policy_snapshot: Q-values
         """
         observations = []
-        for (src, dst) in self.belief:
+        for src, dst in self.belief:
             prob = self.belief.feature(src, dst, _PROBABILITY)
-            observations.append({
-                "src": src,
-                "dst": dst,
-                "domain": self.belief.domain_of(src),
-                "probability": prob,
-            })
+            observations.append(
+                {
+                    "src": src,
+                    "dst": dst,
+                    "domain": self.belief.domain_of(src),
+                    "probability": prob,
+                }
+            )
 
         return {
             "actor_id": self.actor_id,
@@ -112,7 +113,8 @@ class EdgeActor:
             dst = trans.get("dst", "")
             if src and dst:
                 self.belief.observe(
-                    src, dst,
+                    src,
+                    dst,
                     domain=trans.get("domain", "cloud_sync"),
                 )
 
@@ -128,9 +130,11 @@ class EdgeActor:
 # Lazy import to avoid circular dependency
 _PROBABILITY = None
 
+
 def _get_probability_feature():
     global _PROBABILITY
     if _PROBABILITY is None:
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         _PROBABILITY = Feature.PROBABILITY
     return _PROBABILITY

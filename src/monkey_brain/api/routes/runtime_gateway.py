@@ -6,6 +6,7 @@ GET /runtime/health       — detailed component health
 GET /runtime/configuration — runtime configuration
 GET /runtime/metrics      — performance metrics
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,8 +17,11 @@ from fastapi import APIRouter, Depends, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    RuntimeResponse, RuntimeStatusResponse, RuntimeHealthResponse,
-    RuntimeConfigurationResponse, RuntimeMetricsResponse,
+    RuntimeResponse,
+    RuntimeStatusResponse,
+    RuntimeHealthResponse,
+    RuntimeConfigurationResponse,
+    RuntimeMetricsResponse,
 )
 
 logger = logging.getLogger("agentos.gateway.runtime")
@@ -65,7 +69,7 @@ async def get_runtime_status(
         cognitive="ready" if cr else "offline",
         simulation="ready" if sr else "offline",
         comparator="ready" if comp else "offline",
-        society="ready" if getattr(request.app.state, "planetary_runtime", None) else "offline",
+        society=("ready" if getattr(request.app.state, "planetary_runtime", None) else "offline"),
     )
 
 
@@ -84,11 +88,16 @@ async def get_runtime_health(
     return RuntimeHealthResponse(overall=overall, components=components)
 
 
-@router.get("/runtime/configuration", response_model=RuntimeConfigurationResponse, tags=["Runtime"])
+@router.get(
+    "/runtime/configuration",
+    response_model=RuntimeConfigurationResponse,
+    tags=["Runtime"],
+)
 async def get_runtime_configuration(
     user_id: str = Depends(require_permission("perm-view-runtime")),
 ) -> RuntimeConfigurationResponse:
     from src.monkey_brain.api.dependencies import auth_required
+
     return RuntimeConfigurationResponse(
         auth_required=auth_required(),
         rate_limit_rps=float(os.getenv("RATE_LIMIT_RPS", "100")),

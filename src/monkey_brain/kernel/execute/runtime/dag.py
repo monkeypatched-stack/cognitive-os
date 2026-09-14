@@ -33,11 +33,13 @@ def build_execution_dag(workload: Any) -> ExecutionDAG:
     steps = getattr(workload, "steps", []) or []
     dag = ExecutionDAG(metadata={"workload_id": getattr(workload, "workload_id", "")})
     for step in steps:
-        dag.nodes.append(DAGNode(
-            node_id=step.step_id,
-            operator_type=step.capability_name,
-            metadata={"inputs": step.inputs, "outputs": step.outputs},
-        ))
+        dag.nodes.append(
+            DAGNode(
+                node_id=step.step_id,
+                operator_type=step.capability_name,
+                metadata={"inputs": step.inputs, "outputs": step.outputs},
+            )
+        )
         for dep_id in getattr(step, "dependencies", []):
             dag.edges.append(DAGEdge(source_node_id=dep_id, target_node_id=step.step_id))
     return dag

@@ -32,13 +32,17 @@ class InventoryItemQuantityBase(BaseModel):
     quantity_allocated: float = Field(default=0, ge=0)
     quantity_reserved: float = Field(default=0, ge=0)
     quantity_available: float | None = Field(default=None, ge=0)
-    unit_of_measure: UnitOfMeasure = Field(..., description="Unit of measure for the quantity")
+    unit_of_measure: UnitOfMeasure = Field(
+        ..., description="Unit of measure for the quantity"
+    )
     updated_by: str | None = None
     measured_at: datetime = Field(default_factory=utc_now)
 
     @model_validator(mode="after")
     def validate_quantity_state(self):
-        expected = max(self.quantity - self.quantity_allocated - self.quantity_reserved, 0)
+        expected = max(
+            self.quantity - self.quantity_allocated - self.quantity_reserved, 0
+        )
         if self.quantity_available is None:
             self.quantity_available = expected
         elif self.quantity_available != expected:

@@ -11,6 +11,7 @@ Handlers never plan: they receive an already-decided ExecutionStep
 (operator + parameters already chosen by the planning stage) and only
 validate its parameters and produce an outcome.
 """
+
 from __future__ import annotations
 
 import time
@@ -18,7 +19,11 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionContext, ExecutionError, ExecutionOutcome, ExecutionStatus, ExecutionStep,
+    ExecutionContext,
+    ExecutionError,
+    ExecutionOutcome,
+    ExecutionStatus,
+    ExecutionStep,
 )
 
 
@@ -30,6 +35,7 @@ class ExecutionCapability:
     is Step 9.5's job. This is just "what a handler says it does," useful for
     discovery (ExecutionRegistry.capabilities()) before that resolution runs.
     """
+
     name: str = ""
     description: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -42,6 +48,7 @@ class ExecutionHandler(Protocol):
     Handles exactly one named operator. Never plans — only validates
     parameters and executes (or simulates) the one operator it owns.
     """
+
     operator_name: str
     capability: ExecutionCapability
 
@@ -65,6 +72,7 @@ class SimulatedHandler:
     _produce_output(); validate() and execute() are shared here so each
     concrete handler only states what makes it different.
     """
+
     operator_name: str = ""
     capability: ExecutionCapability = ExecutionCapability()
     required_parameters: tuple[str, ...] = ()
@@ -73,8 +81,10 @@ class SimulatedHandler:
         missing = [p for p in self.required_parameters if p not in step.parameters]
         if missing:
             return ExecutionError(
-                step_id=step.step_id, code="MISSING_PARAMETERS",
-                message=f"missing required parameter(s): {missing}", retryable=False,
+                step_id=step.step_id,
+                code="MISSING_PARAMETERS",
+                message=f"missing required parameter(s): {missing}",
+                retryable=False,
             )
         return None
 
@@ -83,13 +93,19 @@ class SimulatedHandler:
         error = self.validate(step)
         if error is not None:
             return ExecutionOutcome(
-                step_id=step.step_id, status=ExecutionStatus.FAILED, error=error,
-                started_at=started_at, ended_at=time.time(),
+                step_id=step.step_id,
+                status=ExecutionStatus.FAILED,
+                error=error,
+                started_at=started_at,
+                ended_at=time.time(),
             )
         output = self._produce_output(step)
         return ExecutionOutcome(
-            step_id=step.step_id, status=ExecutionStatus.SUCCEEDED,
-            output=output, started_at=started_at, ended_at=time.time(),
+            step_id=step.step_id,
+            status=ExecutionStatus.SUCCEEDED,
+            output=output,
+            started_at=started_at,
+            ended_at=time.time(),
         )
 
     def _produce_output(self, step: ExecutionStep) -> dict[str, Any]:
@@ -97,6 +113,7 @@ class SimulatedHandler:
 
 
 # ── Sample handlers — one per Step 8.2 operator ─────────────────────────────
+
 
 class NavigateHandler(SimulatedHandler):
     operator_name = "Navigate"
@@ -135,7 +152,10 @@ class WaitHandler(SimulatedHandler):
     required_parameters = ("duration_seconds",)
 
     def _produce_output(self, step: ExecutionStep) -> dict[str, Any]:
-        return {"waited_seconds": step.parameters["duration_seconds"], "simulated": True}
+        return {
+            "waited_seconds": step.parameters["duration_seconds"],
+            "simulated": True,
+        }
 
 
 class NotifyHandler(SimulatedHandler):
@@ -165,8 +185,12 @@ class ReserveResourceHandler(SimulatedHandler):
 
 
 DEFAULT_HANDLERS: tuple[ExecutionHandler, ...] = (
-    NavigateHandler(), AcquireItemHandler(), QueryInventoryHandler(),
-    WaitHandler(), NotifyHandler(), ReserveResourceHandler(),
+    NavigateHandler(),
+    AcquireItemHandler(),
+    QueryInventoryHandler(),
+    WaitHandler(),
+    NotifyHandler(),
+    ReserveResourceHandler(),
 )
 
 
@@ -176,8 +200,7 @@ class ExecutionRegistry:
 
     def __init__(self, handlers: dict[str, ExecutionHandler] | None = None) -> None:
         self._handlers: dict[str, ExecutionHandler] = (
-            dict(handlers) if handlers is not None
-            else {h.operator_name: h for h in DEFAULT_HANDLERS}
+            dict(handlers) if handlers is not None else {h.operator_name: h for h in DEFAULT_HANDLERS}
         )
 
     def register(self, handler: ExecutionHandler) -> None:
@@ -200,23 +223,31 @@ class ExecutionRegistry:
 
         if operator_name is None:
             return ExecutionOutcome(
-                step_id=step.step_id, status=ExecutionStatus.FAILED,
+                step_id=step.step_id,
+                status=ExecutionStatus.FAILED,
                 error=ExecutionError(
-                    step_id=step.step_id, code="NO_OPERATOR",
-                    message="step has no operator to execute", retryable=False,
+                    step_id=step.step_id,
+                    code="NO_OPERATOR",
+                    message="step has no operator to execute",
+                    retryable=False,
                 ),
-                started_at=started_at, ended_at=time.time(),
+                started_at=started_at,
+                ended_at=time.time(),
             )
 
         handler = self._handlers.get(operator_name)
         if handler is None:
             return ExecutionOutcome(
-                step_id=step.step_id, status=ExecutionStatus.FAILED,
+                step_id=step.step_id,
+                status=ExecutionStatus.FAILED,
                 error=ExecutionError(
-                    step_id=step.step_id, code="NO_HANDLER",
-                    message=f"no handler registered for operator '{operator_name}'", retryable=False,
+                    step_id=step.step_id,
+                    code="NO_HANDLER",
+                    message=f"no handler registered for operator '{operator_name}'",
+                    retryable=False,
                 ),
-                started_at=started_at, ended_at=time.time(),
+                started_at=started_at,
+                ended_at=time.time(),
             )
 
         return handler.execute(step, context or ExecutionContext())

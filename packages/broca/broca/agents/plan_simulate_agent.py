@@ -10,6 +10,7 @@ This one hard-codes dry_run=True regardless of what's in context; the
 "executor" capability's own default (dry_run=False) is reserved for the real
 post-simulation execution node.
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,6 +43,8 @@ class PlanSimulateAgent(BaseETASSAgent):
         self._reward(ok, 0.8 if ok else 0.3)
         return self._result(
             payload={**payload, "simulated": True},
-            observations=[f"simulated {len(payload.get('steps', []))} plan steps"
-                          + ("" if ok else " — dry run surfaced failing step(s)")],
+            observations=[
+                f"simulated {len(payload.get('steps', []))} plan steps"
+                + ("" if ok else " — dry run surfaced failing step(s)")
+            ],
         )

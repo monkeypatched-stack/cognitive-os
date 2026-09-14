@@ -9,10 +9,9 @@ def _serialize(doc: dict) -> dict:
     doc.pop("_id", None)
     return doc
 
+
 async def get_all(
-    db: AsyncIOMotorDatabase,
-    page: int = 1,
-    page_size: int = 20
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
 ) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)

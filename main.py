@@ -27,8 +27,6 @@ if _pkg_services.exists() and str(_pkg_services) not in sys.path:
     sys.path.insert(0, str(_pkg_services))
 
 
-
-
 @dataclass(frozen=True)
 class Service:
     name: str
@@ -85,6 +83,7 @@ def _validate_required_env() -> None:
         raise SystemExit(1)
     try:
         from services.common.secrets import validate_hmac_secrets_from_env
+
         validate_hmac_secrets_from_env()
     except Exception as exc:
         print(f"Error: {exc}")

@@ -20,16 +20,22 @@ blocked step from the execution graph entirely (comparator_runtime.py's
 _compare_node_outcomes then correctly reports actual_success=None via
 absence, not a status-field fallback that always resolves to False).
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 from src.monkey_brain.kernel.pipeline.execution import Action
-from src.monkey_brain.kernel.testing.fault_injection import clear_forced_failures, register_forced_failure
+from src.monkey_brain.kernel.testing.fault_injection import (
+    clear_forced_failures,
+    register_forced_failure,
+)
 
 ACTOR_ID = "fault_test_actor"
 
@@ -51,14 +57,17 @@ def _seed_grocery(kg):
 
 def _sel(action_id, step_index, product_id, depends_on=()):
     return Action(
-        action_id=action_id, capability="ProductSelection", step_index=step_index, depends_on=depends_on,
+        action_id=action_id,
+        capability="ProductSelection",
+        step_index=step_index,
+        depends_on=depends_on,
         parameters={"selection": [{"id": product_id, "qty": 1}]},
     )
 
 
 @pytest.mark.asyncio
 async def test_fault001_partial_failure_execution_shape():
-    """"Buy milk, then eggs, then bread. Only continue if the previous
+    """ "Buy milk, then eggs, then bread. Only continue if the previous
     purchase succeeds." Forcing eggs to fail must leave milk genuinely
     succeeded, eggs genuinely (and honestly) failed, and bread never
     executed at all (blocked_by_dependency) — not silently skipped, not
@@ -70,8 +79,9 @@ async def test_fault001_partial_failure_execution_shape():
 
     register_forced_failure(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == eggs_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == eggs_id for s in a.parameters.get("selection", []))
+        ),
         error="Simulated provider outage for eggs",
     )
 
@@ -108,11 +118,19 @@ async def test_fault001_blocked_step_is_not_learned_as_a_failure(monkeypatch):
     import src.monkey_brain.kernel.comparator_runtime as comparator_module
     from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
     from src.monkey_brain.kernel.pipeline.actor import Actor
-    from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
-    from src.monkey_brain.kernel.pipeline.comparison.integration import (
-        _apply_transition_learning, _run_comparison,
+    from src.monkey_brain.kernel.pipeline.belief_state import (
+        BeliefState,
+        Plan,
+        PlanStep,
     )
-    from src.monkey_brain.kernel.pipeline.execution import ActionOutcome, ExecutionResult
+    from src.monkey_brain.kernel.pipeline.comparison.integration import (
+        _apply_transition_learning,
+        _run_comparison,
+    )
+    from src.monkey_brain.kernel.pipeline.execution import (
+        ActionOutcome,
+        ExecutionResult,
+    )
     from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
     from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
 
@@ -126,7 +144,10 @@ async def test_fault001_blocked_step_is_not_learned_as_a_failure(monkeypatch):
             PlanStep(action="Eggs", description="buy eggs", confidence=0.9, depends_on=(0,)),
             PlanStep(action="Bread", description="buy bread", confidence=0.9, depends_on=(1,)),
         ),
-        cost=0.0, confidence=0.9, risk=0.0, planner="llm",
+        cost=0.0,
+        confidence=0.9,
+        risk=0.0,
+        planner="llm",
     )
     actor = Actor(actor_id=ACTOR_ID, tenant_id="acme")
     belief = BeliefState(actor_id=ACTOR_ID, tenant_id="acme")
@@ -139,7 +160,15 @@ async def test_fault001_blocked_step_is_not_learned_as_a_failure(monkeypatch):
     state.metrics = {"execution_id": "fault-001-learning"}
 
     def _predicted(desc):
-        return {"prediction": {"world_snapshot": {}, "predicted_outcomes": [{"description": desc, "success": True, "probability": 0.9}], "expected_utility": 0.5}, "scenario_label": "Baseline", "probability": 0.9}
+        return {
+            "prediction": {
+                "world_snapshot": {},
+                "predicted_outcomes": [{"description": desc, "success": True, "probability": 0.9}],
+                "expected_utility": 0.5,
+            },
+            "scenario_label": "Baseline",
+            "probability": 0.9,
+        }
 
     state.prediction_result = {
         "candidates": [_predicted("buy milk")],
@@ -147,13 +176,30 @@ async def test_fault001_blocked_step_is_not_learned_as_a_failure(monkeypatch):
     }
     state.execution_result = ExecutionResult(
         actions=(
-            ActionOutcome(action_id=f"{ACTOR_ID}_step_0", success=True, result={"selected": True}, latency_ms=1.0),
-            ActionOutcome(action_id=f"{ACTOR_ID}_step_1", success=False, error="Simulated provider outage for eggs",
-                          result={"forced_failure": True, "capability": "ProductSelection"}, latency_ms=1.0),
-            ActionOutcome(action_id=f"{ACTOR_ID}_step_2", success=False, error="blocked: dependency step 1 did not succeed",
-                          result={"blocked_by_dependency": 1}, latency_ms=0.0),
+            ActionOutcome(
+                action_id=f"{ACTOR_ID}_step_0",
+                success=True,
+                result={"selected": True},
+                latency_ms=1.0,
+            ),
+            ActionOutcome(
+                action_id=f"{ACTOR_ID}_step_1",
+                success=False,
+                error="Simulated provider outage for eggs",
+                result={"forced_failure": True, "capability": "ProductSelection"},
+                latency_ms=1.0,
+            ),
+            ActionOutcome(
+                action_id=f"{ACTOR_ID}_step_2",
+                success=False,
+                error="blocked: dependency step 1 did not succeed",
+                result={"blocked_by_dependency": 1},
+                latency_ms=0.0,
+            ),
         ),
-        success_count=1, failure_count=2, goal_achieved=False,
+        success_count=1,
+        failure_count=2,
+        goal_achieved=False,
     )
 
     class FakePolicy:
@@ -180,7 +226,7 @@ async def test_fault001_blocked_step_is_not_learned_as_a_failure(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_fault002_provider_failure_is_represented_honestly_no_fake_recovery():
-    """"Buy milk. If the selected provider fails, find another provider
+    """ "Buy milk. If the selected provider fails, find another provider
     and continue." Forcing the ProductSelection failure must never be
     silently papered over with a fabricated success.
 

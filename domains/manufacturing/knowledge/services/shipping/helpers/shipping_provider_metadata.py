@@ -3,7 +3,10 @@ from typing import Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.shipping.models.shipping_provider_metadata import ShippingProviderMetadataCreate, ShippingProviderMetadataUpdate
+from services.shipping.models.shipping_provider_metadata import (
+    ShippingProviderMetadataCreate,
+    ShippingProviderMetadataUpdate,
+)
 
 COLLECTION = "shipping_provider_metadata"
 
@@ -16,14 +19,18 @@ def _serialize(doc: Optional[dict]) -> Optional[dict]:
     return doc
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
     return [_serialize(d) async for d in cursor], total
 
 
-async def get_by_provider_id(db: AsyncIOMotorDatabase, provider_id: str) -> Optional[dict]:
+async def get_by_provider_id(
+    db: AsyncIOMotorDatabase, provider_id: str
+) -> Optional[dict]:
     return _serialize(await db[COLLECTION].find_one({"provider_id": provider_id}))
 
 
@@ -32,7 +39,9 @@ async def get_by_category(db: AsyncIOMotorDatabase, category: str) -> list[dict]
     return [_serialize(d) async for d in cursor]
 
 
-async def create(db: AsyncIOMotorDatabase, data: ShippingProviderMetadataCreate) -> dict:
+async def create(
+    db: AsyncIOMotorDatabase, data: ShippingProviderMetadataCreate
+) -> dict:
     doc = data.model_dump()
     await db[COLLECTION].insert_one(doc)
     return _serialize(doc)

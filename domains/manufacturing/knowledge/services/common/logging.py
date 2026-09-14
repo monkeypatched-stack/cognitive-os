@@ -14,7 +14,6 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 
-
 _request_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "request_id",
     default="-",
@@ -35,7 +34,9 @@ class RequestContextFilter(logging.Filter):
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "@timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
+            "@timestamp": datetime.fromtimestamp(
+                record.created, timezone.utc
+            ).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

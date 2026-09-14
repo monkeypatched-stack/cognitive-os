@@ -2,6 +2,7 @@
 
 Validates action model, execution engine, executor, and runtime integration.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -9,18 +10,23 @@ import pytest
 from unittest.mock import MagicMock
 
 from src.monkey_brain.kernel.pipeline.contracts import (
-    PipelineRequest, CompiledRequest, RuntimeContext,
+    PipelineRequest,
+    CompiledRequest,
+    RuntimeContext,
 )
 from src.monkey_brain.kernel.pipeline.execution import (
-    Action, ActionOutcome, ExecutionResult, ExecutionEngine,
+    Action,
+    ActionOutcome,
+    ExecutionResult,
+    ExecutionEngine,
 )
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _make_compiled(question: str = "get 2 l of milk") -> CompiledRequest:
     request = PipelineRequest(question=question, actor_id="user-1", tenant_id="acme")
@@ -35,6 +41,7 @@ def _make_compiled(question: str = "get 2 l of milk") -> CompiledRequest:
         execution_context=ctx,
     )
 
+
 def _make_context() -> RuntimeContext:
     world = MagicMock()
     world.states.return_value = ["start", "middle", "end"]
@@ -46,6 +53,7 @@ def _make_context() -> RuntimeContext:
 # ═══════════════════════════════════════════════════════════════════════════
 # Action Model
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestActionModel:
     def test_action_construction(self):
@@ -61,6 +69,7 @@ class TestActionModel:
 
     def test_action_immutable(self):
         from dataclasses import FrozenInstanceError
+
         action = Action(action_id="a1", capability="x")
         with pytest.raises(FrozenInstanceError):
             action.action_id = "a2"
@@ -77,6 +86,7 @@ class TestActionModel:
 
     def test_action_outcome_immutable(self):
         from dataclasses import FrozenInstanceError
+
         outcome = ActionOutcome(action_id="a1", success=True)
         with pytest.raises(FrozenInstanceError):
             outcome.success = False
@@ -113,6 +123,7 @@ class TestActionModel:
 # ═══════════════════════════════════════════════════════════════════════════
 # ActionExecutor
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestActionExecutor:
     """ActionExecutor.execute() is `async def` (kernel/pipeline/action_executor.py) --
@@ -200,6 +211,7 @@ class TestActionExecutor:
 # Runtime Integration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExecutionIntegration:
     @pytest.mark.asyncio
     async def test_execute_plan_produces_actions(self):
@@ -224,6 +236,7 @@ class TestExecutionIntegration:
     @pytest.mark.asyncio
     async def test_custom_execution_engine(self):
         """A custom ExecutionEngine can be injected."""
+
         class MockExecutor:
             # Must be async: _execute_plan (belief_runtime.py) always
             # does `await self._execution_engine.execute(...)`. This test
@@ -235,8 +248,7 @@ class TestExecutionIntegration:
             async def execute(self, actions, context=None, *, execution_graph=None):
                 return ExecutionResult(
                     actions=tuple(
-                        ActionOutcome(action_id=a.action_id, success=True, result={"mock": True})
-                        for a in actions
+                        ActionOutcome(action_id=a.action_id, success=True, result={"mock": True}) for a in actions
                     ),
                     success_count=len(actions),
                     goal_achieved=True,
@@ -276,9 +288,15 @@ class TestExecutionIntegration:
 
         policy = CognitivePolicy()
         policy.configure(
-            observe=noop, believe=noop, plan=noop,
-            execute=capture_execute, observe_outcome=noop, learn=noop,
-            compile_phi=noop, predict=noop, commit=noop,
+            observe=noop,
+            believe=noop,
+            plan=noop,
+            execute=capture_execute,
+            observe_outcome=noop,
+            learn=noop,
+            compile_phi=noop,
+            predict=noop,
+            commit=noop,
         )
 
         rt = CognitiveRuntime(policy=policy)

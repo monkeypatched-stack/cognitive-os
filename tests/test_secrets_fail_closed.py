@@ -71,7 +71,11 @@ class TestSecretLoadingModule:
 
     def test_load_secret_missing_required(self):
         """Test load_secret raises when required secret is missing."""
-        from services.common.secrets import SecretClassification, load_secret, SecretLoadError
+        from services.common.secrets import (
+            SecretClassification,
+            load_secret,
+            SecretLoadError,
+        )
 
         secret = SecretClassification(
             name="MISSING_SECRET",
@@ -107,7 +111,11 @@ class TestSecretLoadingModule:
 
     def test_load_secret_with_validation(self):
         """Test load_secret validates the secret value."""
-        from services.common.secrets import SecretClassification, load_secret, SecretLoadError
+        from services.common.secrets import (
+            SecretClassification,
+            load_secret,
+            SecretLoadError,
+        )
 
         secret = SecretClassification(
             name="VALIDATED_SECRET",
@@ -224,8 +232,7 @@ class TestKeycloakFailClosed:
 
         # Load keycloak.py module spec without executing imports
         keycloak_path = (
-            Path(__file__).parent.parent
-            / "domains/manufacturing/knowledge/services/file/src/core/keycloak.py"
+            Path(__file__).parent.parent / "domains/manufacturing/knowledge/services/file/src/core/keycloak.py"
         )
 
         spec = importlib.util.spec_from_file_location("keycloak_test", keycloak_path)
@@ -259,6 +266,7 @@ class TestSecretValidationRules:
 
     def test_rejects_known_hmac_placeholder(self):
         from services.common.secrets import reject_insecure_hmac_secret
+
         with pytest.raises(ValueError):
             reject_insecure_hmac_secret("REPLACE_ME")
 

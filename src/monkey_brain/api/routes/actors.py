@@ -25,6 +25,7 @@ POST   /actors/{id}/migrate   — Actor Scheduler: deliberate rescheduling
 POST   /actors/apply          — cogctl apply: declarative ActorSpecification (create-or-update)
 POST   /actors/{id}/restart   — cogctl restart: suspend then resume, same actor_id
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -38,34 +39,69 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from src.monkey_brain.api.audit_decorator import audited
-from src.monkey_brain.api.dependencies import require_permission, require_self_or_permission
+from src.monkey_brain.api.dependencies import (
+    require_permission,
+    require_self_or_permission,
+)
 from services.common.opa import require_opa
 from src.monkey_brain.api.gateway_models import (
-    ActorCreateRequest, ActorUpdateRequest, ActorResponse,
-    ActorBeliefsResponse, ActorMemoryResponse, ActorGoalsResponse, ActorAddGoalRequest,
+    ActorCreateRequest,
+    ActorUpdateRequest,
+    ActorResponse,
+    ActorBeliefsResponse,
+    ActorMemoryResponse,
+    ActorGoalsResponse,
+    ActorAddGoalRequest,
     ActorAffiliationsResponse,
-    ActorAffiliationCreateRequest, ActorAffiliationUpdateRequest,
-    ActorIntentResponse, ActorPlansResponse, ActorDecisionsResponse,
-    ActorExecutionHistoryResponse, ActorMemoryCategoryResponse, ActorCognitiveStateResponse,
-    ActorCapabilitiesResponse, ActorStatusResponse,
-    ActorTickRequest, ActorTickResponse,
-    ExperienceRecordRequest, ExperienceRecordResponse,
-    ActorRelationshipCreateRequest, ActorAddressCreateRequest, AskActorRequest, AskActorResponse,
-    ActorChatRequest, ActorChatResponse, ActorChatWebResult,
-    GoalDraft, GoalDraftRequest, GoalDraftResponse,
-    WebSearchChatRequest, WebSearchChatSource, WebSearchChatResponse,
-    ExecutionChatRequest, ExecutionChatResponse, ExecutionChatEvidence,
-    TransactionRequest, TransactionResponse, TransactionStepResponse,
-    ActorMoveRequest, TeamCreateRequest, TeamMemberAddRequest,
+    ActorAffiliationCreateRequest,
+    ActorAffiliationUpdateRequest,
+    ActorIntentResponse,
+    ActorPlansResponse,
+    ActorDecisionsResponse,
+    ActorExecutionHistoryResponse,
+    ActorMemoryCategoryResponse,
+    ActorCognitiveStateResponse,
+    ActorCapabilitiesResponse,
+    ActorStatusResponse,
+    ActorTickRequest,
+    ActorTickResponse,
+    ExperienceRecordRequest,
+    ExperienceRecordResponse,
+    ActorRelationshipCreateRequest,
+    ActorAddressCreateRequest,
+    AskActorRequest,
+    AskActorResponse,
+    ActorChatRequest,
+    ActorChatResponse,
+    ActorChatWebResult,
+    GoalDraft,
+    GoalDraftRequest,
+    GoalDraftResponse,
+    WebSearchChatRequest,
+    WebSearchChatSource,
+    WebSearchChatResponse,
+    ExecutionChatRequest,
+    ExecutionChatResponse,
+    ExecutionChatEvidence,
+    TransactionRequest,
+    TransactionResponse,
+    TransactionStepResponse,
+    ActorMoveRequest,
+    TeamCreateRequest,
+    TeamMemberAddRequest,
     serialize_beliefs,
 )
 from src.monkey_brain.api.idempotency import idempotent
 from src.monkey_brain.kernel.society.domain import (
-    ActorProfile, ActorIdentity, ActorType, ActorCapability,
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+    ActorCapability,
     ActorAddress,
 )
 from src.monkey_brain.kernel.affiliations.relationship_bridge import (
-    make_relationship_affiliation, is_relationship_affiliation,
+    make_relationship_affiliation,
+    is_relationship_affiliation,
     affiliation_to_relationship_dict,
 )
 from src.monkey_brain.kernel.affiliations.affiliation import Affiliation
@@ -159,8 +195,10 @@ def affiliation_to_api_dict(affiliation: Affiliation) -> dict[str, Any]:
 # Runtime Model) — each backs both its own granular route below and the
 # /cognitive-state aggregate, so nothing is computed twice.
 
+
 def _timeline_current(actor_id: str, kind: Any) -> dict[str, Any] | None:
     from src.monkey_brain.kernel.timeline.store import TimelineStore
+
     entry = TimelineStore().current(actor_id, kind)
     return entry.to_dict() if entry is not None else None
 
@@ -169,22 +207,25 @@ def _timeline_history(actor_id: str, kind: Any, limit: int = 20) -> list[dict[st
     """Newest-first, capped — TimelineStore.query() itself returns
     oldest-first (see its own docstring)."""
     from src.monkey_brain.kernel.timeline.store import TimelineStore
+
     entries = TimelineStore().query(actor_id, kind)
     return [e.to_dict() for e in reversed(entries[-limit:])]
 
 
 def _get_intent(actor_id: str) -> dict[str, Any] | None:
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
+
     return _timeline_current(actor_id, TimelineKind.INTENT)
 
 
 def _get_plans(actor_id: str, limit: int = 20) -> list[dict[str, Any]]:
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
+
     return _timeline_history(actor_id, TimelineKind.PLAN, limit)
 
 
 def _latest_meaningful_plan(plans: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """"Current Plan" should be the actor's latest real plan, not
+    """ "Current Plan" should be the actor's latest real plan, not
     whichever PlanRecord happens to be newest — an autonomous tick with
     no explicit goal (goal="", steps=[]) still writes one every cycle
     (see cognitive_actor.py::_record_cognitive_artifacts) and would
@@ -197,7 +238,7 @@ def _latest_meaningful_plan(plans: list[dict[str, Any]]) -> dict[str, Any] | Non
 
 
 def _active_goals(goals: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """"Goals" should be the actor's current standing intentions, not a
+    """ "Goals" should be the actor's current standing intentions, not a
     log of every prompt it was ever given (see the Quality Pass review:
     duplicate near-identical goal phrasings and completed goals were all
     showing up together, forever). goals is already newest-first
@@ -208,6 +249,7 @@ def _active_goals(goals: list[dict[str, Any]]) -> list[dict[str, Any]]:
     full raw log). Also applied at read time so legacy pre-fix duplicate
     records don't need a migration."""
     from src.monkey_brain.kernel.pipeline.belief_state import _normalize_goal_key
+
     seen: set[str] = set()
     active: list[dict[str, Any]] = []
     for g in goals:
@@ -235,6 +277,7 @@ def _goal_executions(plans: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouping by normalized goal name turns already-real data into
     exactly this split, with zero new persistence."""
     from src.monkey_brain.kernel.pipeline.belief_state import _normalize_goal_key
+
     grouped: dict[str, dict[str, Any]] = {}
     order: list[str] = []
     for plan in plans:
@@ -245,15 +288,20 @@ def _goal_executions(plans: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if key not in grouped:
             grouped[key] = {"goal": goal_text, "executions": []}
             order.append(key)
-        grouped[key]["executions"].append({
-            "requested": goal_text, "outcome": plan.get("status", ""),
-            "timestamp": plan.get("start_time", 0), "result": plan.get("result", ""),
-        })
+        grouped[key]["executions"].append(
+            {
+                "requested": goal_text,
+                "outcome": plan.get("status", ""),
+                "timestamp": plan.get("start_time", 0),
+                "result": plan.get("result", ""),
+            }
+        )
     return [grouped[k] for k in order]
 
 
 def _get_decisions(actor_id: str, limit: int = 20) -> list[dict[str, Any]]:
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
+
     return _timeline_history(actor_id, TimelineKind.DECISION, limit)
 
 
@@ -278,7 +326,9 @@ def _get_current_plan(actor_id: str, plans: list[dict[str, Any]]) -> dict[str, A
     cognitive_actor.py's correlated_plan_id) with the real status/
     completed_nodes/result from that specific execution — surface those
     instead of the placeholder."""
-    from src.monkey_brain.kernel.pipeline.planning.current_plan_store import load_current_plan
+    from src.monkey_brain.kernel.pipeline.planning.current_plan_store import (
+        load_current_plan,
+    )
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
 
     # (actor_id, goal_key) is now the Current Plan's real key — display the
@@ -328,7 +378,8 @@ def _get_execution_history(pr: Any, actor_id: str, limit: int = 50) -> list[dict
     found = _find_actor_state(pr, actor_id)
     if found is not None and found[1].actor_runtime is not None:
         memory_entries = [
-            m for m in found[1].actor_runtime.memory_snapshot(500)
+            m
+            for m in found[1].actor_runtime.memory_snapshot(500)
             if isinstance(m, dict) and m.get("type") == "cognitive_tick"
         ]
 
@@ -453,6 +504,7 @@ def _grouped_beliefs(actor_id: str, limit: int = 200) -> list[dict[str, Any]]:
     established for goals. Newest-first input (_timeline_history) means
     the first record seen per subject is already the latest."""
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
+
     grouped: dict[str, dict[str, Any]] = {}
     order: list[str] = []
     for record in _timeline_history(actor_id, TimelineKind.BELIEF, limit):
@@ -467,10 +519,15 @@ def _grouped_beliefs(actor_id: str, limit: int = 200) -> list[dict[str, Any]]:
             value, detail = _readable_belief_value(raw_value), ""
         if subject not in grouped:
             grouped[subject] = {
-                "entry_id": record.get("entry_id", ""), "actor_id": actor_id,
-                "subject": subject, "predicate": "status", "value": value,
-                "confidence": record.get("confidence", 0.0), "source": record.get("source", ""),
-                "start_time": record.get("start_time", 0), "end_time": None,
+                "entry_id": record.get("entry_id", ""),
+                "actor_id": actor_id,
+                "subject": subject,
+                "predicate": "status",
+                "value": value,
+                "confidence": record.get("confidence", 0.0),
+                "source": record.get("source", ""),
+                "start_time": record.get("start_time", 0),
+                "end_time": None,
                 "metadata": {
                     "evidence": _format_belief_evidence(record.get("source", ""), detail),
                     "previous_value": None,
@@ -511,17 +568,25 @@ def _get_semantic_memory(pr: Any, actor_id: str, threshold: float = 0.7) -> list
     for belief in _grouped_beliefs(actor_id, 200):
         if belief["confidence"] < threshold or belief["metadata"]["observation_count"] < 2:
             continue
-        items.append({
-            "subject": belief["subject"],
-            "hypotheses": [{
-                "hypothesis_id": belief["entry_id"], "subject": belief["subject"],
-                "predicate": belief["predicate"], "object_value": belief["value"],
-                "confidence": belief["confidence"], "evidence_count": belief["metadata"]["evidence_count"],
-                "sources": belief["metadata"]["evidence"], "last_updated": belief["start_time"],
-            }],
-            "last_observation_time": belief["start_time"],
-            "staleness": 0.0,
-        })
+        items.append(
+            {
+                "subject": belief["subject"],
+                "hypotheses": [
+                    {
+                        "hypothesis_id": belief["entry_id"],
+                        "subject": belief["subject"],
+                        "predicate": belief["predicate"],
+                        "object_value": belief["value"],
+                        "confidence": belief["confidence"],
+                        "evidence_count": belief["metadata"]["evidence_count"],
+                        "sources": belief["metadata"]["evidence"],
+                        "last_updated": belief["start_time"],
+                    }
+                ],
+                "last_observation_time": belief["start_time"],
+                "staleness": 0.0,
+            }
+        )
     return items
 
 
@@ -548,24 +613,33 @@ def _get_episodic_memory(pr: Any, actor_id: str, limit: int = 50) -> list[dict[s
         for node in nodes
     ]
     for plan in _get_plans(actor_id, limit):
-        if not plan.get("steps") or plan.get("status") not in ("completed", "failed", "partial"):
+        if not plan.get("steps") or plan.get("status") not in (
+            "completed",
+            "failed",
+            "partial",
+        ):
             continue
-        episodes.append({
-            "node_id": plan.get("plan_id", ""),
-            # Cognitive Loop Verification (round 2): PlanRecord.status
-            # now genuinely distinguishes "partial" from "completed"
-            # (cognitive_actor.py) — this was a binary fallback that
-            # collapsed a partial success into "task_failed", contradicting
-            # Execution History for the same tick.
-            "kind": (
-                "task_completed" if plan.get("status") == "completed"
-                else "task_partial" if plan.get("status") == "partial"
-                else "task_failed"
-            ),
-            "text": f"{plan.get('goal', '')} — {plan.get('status', '')}",
-            "timestamp": plan.get("start_time", 0),
-            "metadata": {"result": plan.get("result", ""), "steps": plan.get("step_descriptions", [])},
-        })
+        episodes.append(
+            {
+                "node_id": plan.get("plan_id", ""),
+                # Cognitive Loop Verification (round 2): PlanRecord.status
+                # now genuinely distinguishes "partial" from "completed"
+                # (cognitive_actor.py) — this was a binary fallback that
+                # collapsed a partial success into "task_failed", contradicting
+                # Execution History for the same tick.
+                "kind": (
+                    "task_completed"
+                    if plan.get("status") == "completed"
+                    else ("task_partial" if plan.get("status") == "partial" else "task_failed")
+                ),
+                "text": f"{plan.get('goal', '')} — {plan.get('status', '')}",
+                "timestamp": plan.get("start_time", 0),
+                "metadata": {
+                    "result": plan.get("result", ""),
+                    "steps": plan.get("step_descriptions", []),
+                },
+            }
+        )
     episodes.sort(key=lambda e: e.get("timestamp") or 0, reverse=True)
     return episodes[:limit]
 
@@ -627,26 +701,29 @@ async def list_actors(
                 continue
             seen.add(state.actor_id)
             societies = list(pr.societies_for_actor(state.actor_id))
-            results.append(ActorResponse(
-                actor_id=state.actor_id,
-                name=state.profile.identity.name,
-                actor_type=state.profile.identity.actor_type.value,
-                description=state.profile.identity.description,
-                status=state.status.value,
-                cycle_count=state.cycle_count,
-                is_active=state.is_active,
-                societies=societies,
-                goals=list(state.profile.goals),
-                policies=list(state.profile.policies),
-                trust_level=state.profile.trust_level,
-                ownership=state.profile.ownership,
-            ))
+            results.append(
+                ActorResponse(
+                    actor_id=state.actor_id,
+                    name=state.profile.identity.name,
+                    actor_type=state.profile.identity.actor_type.value,
+                    description=state.profile.identity.description,
+                    status=state.status.value,
+                    cycle_count=state.cycle_count,
+                    is_active=state.is_active,
+                    societies=societies,
+                    goals=list(state.profile.goals),
+                    policies=list(state.profile.policies),
+                    trust_level=state.profile.trust_level,
+                    ownership=state.profile.ownership,
+                )
+            )
     return results
 
 
 @router.get("/actors/registry", tags=["Actors"])
-async def list_actor_registry(request: Request,
-                              user_id: str = Depends(require_permission("perm-view-actors"))) -> list[dict]:
+async def list_actor_registry(
+    request: Request, user_id: str = Depends(require_permission("perm-view-actors"))
+) -> list[dict]:
     """Every Actor this PlanetaryRuntime's durable registry knows about,
     across every society and regardless of which node last wrote each
     record — the Control Plane visibility primitive (Deployment
@@ -661,8 +738,12 @@ async def list_actor_registry(request: Request,
         return []
     return [
         {
-            "actor_id": e.actor_id, "actor_type": e.actor_type, "name": e.name,
-            "society_id": e.society_id, "status": e.status, "node_id": e.node_id,
+            "actor_id": e.actor_id,
+            "actor_type": e.actor_type,
+            "name": e.name,
+            "society_id": e.society_id,
+            "status": e.status,
+            "node_id": e.node_id,
             "updated_at": e.updated_at,
         }
         for e in pr.list_registry()
@@ -781,9 +862,13 @@ async def create_actor(
     # every autonomous/reactive tick, not just under-grounded for display.
     try:
         from src.monkey_brain.kernel.compile.cognitive_actor import CognitiveActor
-        from src.monkey_brain.kernel.domains import grocery as _grocery_vertical  # noqa: F401 -- registers "grocery" on import
+        from src.monkey_brain.kernel.domains import (
+            grocery as _grocery_vertical,
+        )  # noqa: F401 -- registers "grocery" on import
         from src.monkey_brain.kernel.domains.vertical_router import build_runtime_engine
-        from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+        from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+            ContextConstructionEngine,
+        )
 
         actor_id = identity.actor_id
         # Persist the learned TransitionModel: previously this always
@@ -795,8 +880,10 @@ async def create_actor(
         # nothing below this layer (CognitiveActor, the pipeline Actor,
         # CognitiveState) otherwise carries a name at all.
         from src.monkey_brain.kernel.pipeline.prediction.persistence import (
-            load_transition_model, save_actor_meta,
+            load_transition_model,
+            save_actor_meta,
         )
+
         prior_transition_model = load_transition_model(actor_id)
         # No eager Current Plan preload — see kernel/society/runtime.py's
         # identical registration path for why: Current Plans are now
@@ -806,19 +893,28 @@ async def create_actor(
         save_actor_meta(actor_id, body.name)
 
         engine = build_runtime_engine(
-            None, name="grocery", context_stream=pr.context_stream,
+            None,
+            name="grocery",
+            context_stream=pr.context_stream,
             transition_model=prior_transition_model,
             connectivity_check=getattr(pr, "_connectivity_check", None),
             edge_governance=getattr(pr, "_local_governance", None),
         )
         engine._context_engine = ContextConstructionEngine(
-            planetary_runtime=pr, knowledge_graph=pr.knowledge_graph, memory_manager=pr.memory_manager,
+            planetary_runtime=pr,
+            knowledge_graph=pr.knowledge_graph,
+            memory_manager=pr.memory_manager,
         )
-        actor_role = f"{body.name}, whose responsibilities include: {', '.join(body.goals)}" if body.goals else body.name
+        actor_role = (
+            f"{body.name}, whose responsibilities include: {', '.join(body.goals)}" if body.goals else body.name
+        )
         wired_actor = CognitiveActor(
-            entity_id=actor_id, engine=engine, name=body.name,
+            entity_id=actor_id,
+            engine=engine,
+            name=body.name,
             context_factory=lambda question: {
-                "knowledge_graph": pr.knowledge_graph, "actor_id": actor_id,
+                "knowledge_graph": pr.knowledge_graph,
+                "actor_id": actor_id,
                 # Actor Cell Architecture (docs/ACTOR_CELL_ARCHITECTURE.md):
                 # same additive key as kernel/society/runtime.py's own
                 # context_factory — `wired_actor` is resolved at CALL time,
@@ -840,7 +936,8 @@ async def create_actor(
                 # never used to invoke another actor's tick in-process,
                 # which would risk _tick_lock reentrancy/deadlock (see
                 # AskActorCapability's docstring).
-                "planetary_runtime": pr, "actor_role": actor_role,
+                "planetary_runtime": pr,
+                "actor_role": actor_role,
                 "question": question,
             },
         )
@@ -858,10 +955,17 @@ async def create_actor(
             issuer = get_trusted_auth().principal_id or "planetary-runtime"
             credential = mint_actor_cell_identity(actor_id, issuer=issuer)
             state.cell = ActorCell(
-                actor_id=actor_id, identity=credential, actor=wired_actor, runtime_state=state,
+                actor_id=actor_id,
+                identity=credential,
+                actor=wired_actor,
+                runtime_state=state,
             )
         except Exception:
-            logger.debug("create_actor: ActorCell construction skipped for %s (non-fatal)", actor_id, exc_info=True)
+            logger.debug(
+                "create_actor: ActorCell construction skipped for %s (non-fatal)",
+                actor_id,
+                exc_info=True,
+            )
         # Multi-Actor Execution Handoff: the real per-actor NATS inbox
         # subscription (kernel/domains/grocery.py::subscribe_actor_inbox)
         # is wired centrally in PlanetaryRuntime.register_actor() itself
@@ -919,8 +1023,11 @@ async def get_actor(
 
 
 @router.get("/actors/{actor_id}/registry", tags=["Actors"])
-async def get_actor_registry_entry(actor_id: str, request: Request,
-                                   user_id: str = Depends(require_permission("perm-view-actors"))) -> dict:
+async def get_actor_registry_entry(
+    actor_id: str,
+    request: Request,
+    user_id: str = Depends(require_permission("perm-view-actors")),
+) -> dict:
     """Actor Registry lookup (Deployment Architecture, Section 7/8): does
     `actor_id` exist, what lifecycle status was it last recorded in, and
     which node last owned it — without reconstructing the actor's
@@ -935,8 +1042,12 @@ async def get_actor_registry_entry(actor_id: str, request: Request,
     if entry is None:
         raise HTTPException(status_code=404, detail=f"Actor {actor_id} not found in registry")
     return {
-        "actor_id": entry.actor_id, "actor_type": entry.actor_type, "name": entry.name,
-        "society_id": entry.society_id, "status": entry.status, "node_id": entry.node_id,
+        "actor_id": entry.actor_id,
+        "actor_type": entry.actor_type,
+        "name": entry.name,
+        "society_id": entry.society_id,
+        "status": entry.status,
+        "node_id": entry.node_id,
         "updated_at": entry.updated_at,
     }
 
@@ -951,7 +1062,9 @@ class ActorLifecycleRequest(BaseModel):
 @router.post("/actors/{actor_id}/lifecycle", tags=["Actors"])
 @idempotent("actors.set_actor_lifecycle")
 async def set_actor_lifecycle(
-    actor_id: str, body: ActorLifecycleRequest, request: Request,
+    actor_id: str,
+    body: ActorLifecycleRequest,
+    request: Request,
     user_id: str = Depends(require_permission("perm-manage-actors")),
     _agent: dict = Depends(require_opa("agentos/routes/allow", action="lifecycle", resource="actor")),
 ) -> dict:
@@ -978,20 +1091,24 @@ async def set_actor_lifecycle(
         raise HTTPException(
             status_code=400,
             detail=f"invalid desired_state {body.desired_state!r} — must be one of "
-                   f"{[s.value for s in ActorDesiredState]}",
+            f"{[s.value for s in ActorDesiredState]}",
         )
     pr.lifecycle.set_desired_state(actor_id, desired, reason=body.reason)
     result = pr.lifecycle.reconcile(actor_id)
     return {
-        "actor_id": actor_id, "desired_state": desired.value,
-        "action_taken": result.action, "succeeded": result.succeeded,
-        "observed_before": result.observed_before, "reason": result.reason,
+        "actor_id": actor_id,
+        "desired_state": desired.value,
+        "action_taken": result.action,
+        "succeeded": result.succeeded,
+        "observed_before": result.observed_before,
+        "reason": result.reason,
     }
 
 
 @router.get("/actors/{actor_id}/lifecycle", tags=["Actors"])
 async def get_actor_lifecycle(
-    actor_id: str, request: Request,
+    actor_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict:
     """Desired vs. observed state (the Kubernetes `kubectl describe pod`
@@ -1008,9 +1125,13 @@ async def get_actor_lifecycle(
         "actor_id": actor_id,
         "desired_state": desired.value,
         "observed": {
-            "exists": observed.exists, "status": observed.status, "node_id": observed.node_id,
-            "updated_at": observed.updated_at, "is_stale": observed.is_stale,
-            "resident_here": observed.resident_here, "lease_held": observed.lease_held,
+            "exists": observed.exists,
+            "status": observed.status,
+            "node_id": observed.node_id,
+            "updated_at": observed.updated_at,
+            "is_stale": observed.is_stale,
+            "resident_here": observed.resident_here,
+            "lease_held": observed.lease_held,
             "desired_node_id": observed.desired_node_id,
         },
         "history": history,
@@ -1019,7 +1140,8 @@ async def get_actor_lifecycle(
 
 @router.get("/scheduler/nodes", tags=["Scheduler"])
 async def list_scheduler_nodes(
-    request: Request, user_id: str = Depends(require_permission("perm-view-actors")),
+    request: Request,
+    user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict:
     """Every execution node the Actor Scheduler currently knows about
     (health recomputed for heartbeat staleness at read time — the
@@ -1035,7 +1157,9 @@ async def list_scheduler_nodes(
 
 @router.get("/actors/{actor_id}/placement", tags=["Scheduler"])
 async def get_actor_placement(
-    actor_id: str, request: Request, user_id: str = Depends(require_permission("perm-view-actors")),
+    actor_id: str,
+    request: Request,
+    user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict:
     """This actor's current Scheduler placement: desired node
     (what the Scheduler decided) vs. observed node (where the registry
@@ -1066,7 +1190,9 @@ class ActorMigrateRequest(BaseModel):
 @router.post("/actors/{actor_id}/migrate", tags=["Scheduler"])
 @idempotent("actors.migrate_actor")
 async def migrate_actor(
-    actor_id: str, body: ActorMigrateRequest, request: Request,
+    actor_id: str,
+    body: ActorMigrateRequest,
+    request: Request,
     user_id: str = Depends(require_permission("perm-manage-actors")),
     _agent: dict = Depends(require_opa("agentos/routes/allow", action="lifecycle", resource="actor")),
 ) -> dict:
@@ -1081,7 +1207,9 @@ async def migrate_actor(
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     decision = pr.scheduler.migrate_actor(actor_id, target_node_id=body.target_node_id)
     return {
-        "actor_id": actor_id, "scheduled": decision.scheduled, "node_id": decision.node_id,
+        "actor_id": actor_id,
+        "scheduled": decision.scheduled,
+        "node_id": decision.node_id,
         "reason": decision.reason,
     }
 
@@ -1106,6 +1234,7 @@ async def get_actor_societies(
 #    refactor) — governance information for the Context Construction
 #    Engine/Contextual Planner (kernel/pipeline/planning/). ────────────────
 
+
 @router.get("/actors/{actor_id}/active-memberships", tags=["Actors"])
 async def get_active_memberships(
     actor_id: str,
@@ -1117,10 +1246,18 @@ async def get_active_memberships(
         return []
     memberships = pr.membership_registry.memberships_for_actor(actor_id)
     return [
-        {"membership_id": m.membership_id, "society_id": m.society_id, "team_id": m.team_id,
-         "roles": list(m.roles), "status": m.status, "trust_score": m.trust_score,
-         "start_time": m.start_time, "end_time": m.end_time}
-        for m in memberships if m.is_active()
+        {
+            "membership_id": m.membership_id,
+            "society_id": m.society_id,
+            "team_id": m.team_id,
+            "roles": list(m.roles),
+            "status": m.status,
+            "trust_score": m.trust_score,
+            "start_time": m.start_time,
+            "end_time": m.end_time,
+        }
+        for m in memberships
+        if m.is_active()
     ]
 
 
@@ -1137,6 +1274,7 @@ async def get_actor_effective_policies(
     if pr is None:
         return []
     from src.monkey_brain.api.routes.memberships import dataclasses_to_dict
+
     policies = []
     for m in pr.membership_registry.memberships_for_actor(actor_id):
         if not m.is_active():
@@ -1182,11 +1320,16 @@ async def get_actor_planning_context_memberships(
     result = []
     for m in memberships:
         governance = pr.governance_for(m.society_id)
-        result.append({
-            "membership_id": m.membership_id, "society_id": m.society_id, "team_id": m.team_id,
-            "roles": list(m.roles), "trust_score": m.trust_score,
-            "permissions": list(pr.membership_registry.resolve_permissions(m.membership_id, governance=governance)),
-        })
+        result.append(
+            {
+                "membership_id": m.membership_id,
+                "society_id": m.society_id,
+                "team_id": m.team_id,
+                "roles": list(m.roles),
+                "trust_score": m.trust_score,
+                "permissions": list(pr.membership_registry.resolve_permissions(m.membership_id, governance=governance)),
+            }
+        )
     return {"actor_id": actor_id, "memberships": result}
 
 
@@ -1196,6 +1339,7 @@ async def get_actor_planning_context_memberships(
 # overwritten (see kernel/timeline/). ?from=&to= accept epoch seconds or
 # an ISO 8601 timestamp.
 
+
 def _parse_timestamp(value: str | None) -> float | None:
     if not value:
         return None
@@ -1204,6 +1348,7 @@ def _parse_timestamp(value: str | None) -> float | None:
     except ValueError:
         logger.debug("_parse_timestamp: suppressed exception", exc_info=True)
     from datetime import datetime
+
     try:
         return datetime.fromisoformat(value).timestamp()
     except ValueError:
@@ -1221,6 +1366,7 @@ async def get_actor_timeline(
     from_ts = _parse_timestamp(request.query_params.get("from"))
     to_ts = _parse_timestamp(request.query_params.get("to"))
     from src.monkey_brain.kernel.timeline.query import TimelineQueryEngine
+
     entries = TimelineQueryEngine().replay(actor_id, since=from_ts, until=to_ts)
     return [e.to_dict() for e in entries]
 
@@ -1241,8 +1387,11 @@ async def move_actor(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     ok = pr.move_actor(
-        actor_id, body.space_id, activity=body.activity,
-        confidence=body.confidence, source=body.source,
+        actor_id,
+        body.space_id,
+        activity=body.activity,
+        confidence=body.confidence,
+        source=body.source,
     )
     if not ok:
         raise HTTPException(status_code=404, detail=f"space_id {body.space_id} is not a valid Space")
@@ -1306,6 +1455,7 @@ async def get_actor_fraud_status(
         raise HTTPException(status_code=400, detail=f"invalid total: {total_param!r}")
 
     from src.monkey_brain.kernel.domains.finance import assess_transaction_risk
+
     risk = assess_transaction_risk(kg, actor_id, total)
     return {"actor_id": actor_id, **risk}
 
@@ -1320,6 +1470,7 @@ async def get_actor_goal_timeline(
     current-goals route below) — full GoalRecord history."""
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
     from src.monkey_brain.kernel.timeline.store import TimelineStore
+
     from_ts = _parse_timestamp(request.query_params.get("from"))
     to_ts = _parse_timestamp(request.query_params.get("to"))
     return [g.to_dict() for g in TimelineStore().query(actor_id, TimelineKind.GOAL, from_ts, to_ts)]
@@ -1335,6 +1486,7 @@ async def get_actor_belief_timeline(
     current-belief-state route below) — full BeliefRecord history."""
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
     from src.monkey_brain.kernel.timeline.store import TimelineStore
+
     from_ts = _parse_timestamp(request.query_params.get("from"))
     to_ts = _parse_timestamp(request.query_params.get("to"))
     return [b.to_dict() for b in TimelineStore().query(actor_id, TimelineKind.BELIEF, from_ts, to_ts)]
@@ -1348,6 +1500,7 @@ async def get_actor_execution_timeline(
 ) -> list[dict[str, Any]]:
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
     from src.monkey_brain.kernel.timeline.store import TimelineStore
+
     from_ts = _parse_timestamp(request.query_params.get("from"))
     to_ts = _parse_timestamp(request.query_params.get("to"))
     return [e.to_dict() for e in TimelineStore().query(actor_id, TimelineKind.EXECUTION, from_ts, to_ts)]
@@ -1355,6 +1508,7 @@ async def get_actor_execution_timeline(
 
 # ── Cognitive State (Promote Cognitive State to a First-Class Runtime
 # Model) ───────────────────────────────────────────────────────────────
+
 
 @router.get("/actors/{actor_id}/intent", response_model=ActorIntentResponse, tags=["Actors"])
 async def get_actor_intent(
@@ -1381,7 +1535,11 @@ async def get_actor_plans(
     return ActorPlansResponse(actor_id=actor_id, plans=_get_plans(actor_id, limit))
 
 
-@router.get("/actors/{actor_id}/decisions", response_model=ActorDecisionsResponse, tags=["Actors"])
+@router.get(
+    "/actors/{actor_id}/decisions",
+    response_model=ActorDecisionsResponse,
+    tags=["Actors"],
+)
 async def get_actor_decisions(
     actor_id: str,
     request: Request,
@@ -1395,7 +1553,11 @@ async def get_actor_decisions(
     return ActorDecisionsResponse(actor_id=actor_id, decisions=_get_decisions(actor_id, limit))
 
 
-@router.get("/actors/{actor_id}/execution-history", response_model=ActorExecutionHistoryResponse, tags=["Actors"])
+@router.get(
+    "/actors/{actor_id}/execution-history",
+    response_model=ActorExecutionHistoryResponse,
+    tags=["Actors"],
+)
 async def get_actor_execution_history(
     actor_id: str,
     request: Request,
@@ -1410,6 +1572,7 @@ async def get_actor_execution_history(
 
 # ── Planetary Narrative (compose already-real, already-persisted evidence
 # for one tick — never a second source of truth, never LLM-generated) ───
+
 
 def _find_by_execution_id(actor_id: str, kind: Any, execution_id: str) -> dict[str, Any] | None:
     """The one correlation lookup every narrative endpoint below starts
@@ -1427,6 +1590,7 @@ def _resolve_execution(actor_id: str, execution_id: str) -> dict[str, Any]:
     record this execution_id names. 404s the same way for all four
     routes if it's not this actor's."""
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
+
     execution = _find_by_execution_id(actor_id, TimelineKind.EXECUTION, execution_id)
     if execution is None:
         raise HTTPException(
@@ -1438,6 +1602,7 @@ def _resolve_execution(actor_id: str, execution_id: str) -> dict[str, Any]:
 
 def _negotiation_record(actor_id: str, execution_id: str) -> dict[str, Any] | None:
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
+
     for record in _timeline_history(actor_id, TimelineKind.DECISION, limit=200):
         meta = record.get("metadata") or {}
         if meta.get("execution_id") == execution_id and meta.get("decision_kind") == "negotiation":
@@ -1460,6 +1625,7 @@ def _scenario_record(actor_id: str, execution_id: str) -> dict[str, Any] | None:
     decision_kind == "scenario_recommendation"), not a new persistence
     path."""
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
+
     for record in _timeline_history(actor_id, TimelineKind.DECISION, limit=200):
         meta = record.get("metadata") or {}
         if meta.get("execution_id") == execution_id and meta.get("decision_kind") == "scenario_recommendation":
@@ -1469,7 +1635,9 @@ def _scenario_record(actor_id: str, execution_id: str) -> dict[str, Any] | None:
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/conversation", tags=["Actors"])
 async def get_execution_conversation(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_self_or_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """Every message this actor's tick actually exchanged (AskActor/
@@ -1506,14 +1674,18 @@ async def get_execution_conversation(
     _obs.counter("narrative.messages_exchanged", increment=len(messages))
     _obs.gauge("narrative.generation_latency_ms", (_time.monotonic() - started) * 1000)
     return {
-        "actor_id": actor_id, "execution_id": execution_id,
-        "message_count": len(messages), "messages": messages,
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "message_count": len(messages),
+        "messages": messages,
     }
 
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/negotiation", tags=["Actors"])
 async def get_execution_negotiation(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """The real negotiation trace for this execution
@@ -1533,13 +1705,17 @@ async def get_execution_negotiation(
     _obs.gauge("narrative.generation_latency_ms", (_time.monotonic() - started) * 1000)
     if record is None:
         return {
-            "actor_id": actor_id, "execution_id": execution_id,
-            "negotiation_required": False, "reason": _NO_NEGOTIATION_REASON,
+            "actor_id": actor_id,
+            "execution_id": execution_id,
+            "negotiation_required": False,
+            "reason": _NO_NEGOTIATION_REASON,
         }
 
     meta = record.get("metadata") or {}
     return {
-        "actor_id": actor_id, "execution_id": execution_id, "negotiation_required": True,
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "negotiation_required": True,
         "candidate_strategies": meta.get("candidate_strategies") or [],
         "utility_evaluation": record.get("candidates") or [],
         "chosen_strategy": record.get("selected_strategy") or "",
@@ -1554,7 +1730,9 @@ async def get_execution_negotiation(
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/scenarios", tags=["Actors"])
 async def get_execution_scenarios(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """The real Predict-stage scenario recommendation for this execution
@@ -1576,13 +1754,17 @@ async def get_execution_scenarios(
     _obs.gauge("narrative.generation_latency_ms", (_time.monotonic() - started) * 1000)
     if record is None:
         return {
-            "actor_id": actor_id, "execution_id": execution_id,
-            "prediction_available": False, "reason": _NO_SCENARIOS_REASON,
+            "actor_id": actor_id,
+            "execution_id": execution_id,
+            "prediction_available": False,
+            "reason": _NO_SCENARIOS_REASON,
         }
 
     meta = record.get("metadata") or {}
     return {
-        "actor_id": actor_id, "execution_id": execution_id, "prediction_available": True,
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "prediction_available": True,
         "prediction_id": meta.get("prediction_id") or "",
         "recommendation": record.get("selected_strategy") or "",
         "reason": record.get("reason") or "",
@@ -1594,7 +1776,9 @@ async def get_execution_scenarios(
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/audit-timeline", tags=["Actors"])
 async def get_execution_audit_timeline(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """Durable audit trail (Production Hardening — durable auditability):
@@ -1620,15 +1804,20 @@ async def get_execution_audit_timeline(
     _obs.counter("narrative.requests", endpoint="audit_timeline")
     _obs.gauge("narrative.generation_latency_ms", (_time.monotonic() - started) * 1000)
     return {
-        "actor_id": actor_id, "execution_id": execution_id,
-        "goal": execution.get("goal", ""), "outcome": execution.get("outcome", ""),
-        "event_count": len(timeline), "events": timeline,
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "goal": execution.get("goal", ""),
+        "outcome": execution.get("outcome", ""),
+        "event_count": len(timeline),
+        "events": timeline,
     }
 
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/game-theory", tags=["Actors"])
 async def get_execution_game_theory(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """Reshapes the same real negotiation record /negotiation returns —
@@ -1648,17 +1837,18 @@ async def get_execution_game_theory(
 
     if record is None:
         return {
-            "actor_id": actor_id, "execution_id": execution_id,
-            "negotiation_required": False, "reason": _NO_NEGOTIATION_REASON,
-            "strategies": [], "utilities": [], "equilibrium": _NO_NEGOTIATION_REASON,
+            "actor_id": actor_id,
+            "execution_id": execution_id,
+            "negotiation_required": False,
+            "reason": _NO_NEGOTIATION_REASON,
+            "strategies": [],
+            "utilities": [],
+            "equilibrium": _NO_NEGOTIATION_REASON,
         }
 
     meta = record.get("metadata") or {}
     utility_evaluation = record.get("candidates") or []
-    utilities = [
-        {"participant": c.get("name", ""), "utility": c.get("utility", 0.0)}
-        for c in utility_evaluation
-    ]
+    utilities = [{"participant": c.get("name", ""), "utility": c.get("utility", 0.0)} for c in utility_evaluation]
     if meta.get("agreement_recorded"):
         equilibrium_kind = "cooperative_bargaining"
         equilibrium = "Cooperative bargaining: an agreement was reached and recorded."
@@ -1673,23 +1863,32 @@ async def get_execution_game_theory(
         equilibrium = "No equilibrium reached: cooperative negotiation ended without an agreement."
     elif utility_evaluation:
         equilibrium_kind = "highest_utility"
-        equilibrium = "The selected strategy maximized this actor's own expected utility among the candidates evaluated."
+        equilibrium = (
+            "The selected strategy maximized this actor's own expected utility among the candidates evaluated."
+        )
     else:
         equilibrium_kind = "unknown"
-        equilibrium = "A negotiation-flavored decision was recorded but carries no strategy/outcome data to characterize."
+        equilibrium = (
+            "A negotiation-flavored decision was recorded but carries no strategy/outcome data to characterize."
+        )
 
     return {
-        "actor_id": actor_id, "execution_id": execution_id, "negotiation_required": True,
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "negotiation_required": True,
         "strategies": meta.get("candidate_strategies") or [],
         "utilities": utilities,
         "chosen_strategy": record.get("selected_strategy") or "",
-        "equilibrium_kind": equilibrium_kind, "equilibrium": equilibrium,
+        "equilibrium_kind": equilibrium_kind,
+        "equilibrium": equilibrium,
     }
 
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/narrative", tags=["Actors"])
 async def get_execution_narrative(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """The complete planetary narrative for one execution — every section
@@ -1725,31 +1924,53 @@ async def get_execution_narrative(
     actor_name = identity_found[1].profile.identity.name if identity_found else actor_id
 
     what_happened = (
-        f"{actor_name} pursued goal \"{execution.get('goal', '')}\" — outcome: {execution.get('outcome', '')}."
-        + (f" World changes: {'; '.join(world_changes)}." if world_changes else " No persistent world change was recorded.")
+        f'{actor_name} pursued goal "{execution.get("goal", "")}" — outcome: {execution.get("outcome", "")}.'
+        + (
+            f" World changes: {'; '.join(world_changes)}."
+            if world_changes
+            else " No persistent world change was recorded."
+        )
     )
     why = (
         f"Selected strategy: {scenario_decision.get('selected_strategy', '')}. {scenario_decision.get('reason', '')}"
-        if scenario_decision else "No scenario/candidate-future evaluation was recorded for this execution."
+        if scenario_decision
+        else "No scenario/candidate-future evaluation was recorded for this execution."
     )
     who_did_what = {
         "actor": actor_name,
         "capabilities_used": execution.get("capabilities_used") or [],
-        "colleagues_involved": negotiation.get("colleagues_involved", []) if negotiation.get("negotiation_required") else [],
+        "colleagues_involved": (
+            negotiation.get("colleagues_involved", []) if negotiation.get("negotiation_required") else []
+        ),
     }
     pipeline_stages_run = [
-        "Observe", "Believe", "Intent", "Goal", "Plan", "Predict", "Decide",
-        "Execute", "Observe Result", "Compare", "Learn", "Compile Φ", "Commit",
+        "Observe",
+        "Believe",
+        "Intent",
+        "Goal",
+        "Plan",
+        "Predict",
+        "Decide",
+        "Execute",
+        "Observe Result",
+        "Compare",
+        "Learn",
+        "Compile Φ",
+        "Commit",
     ]
 
     _obs.counter("narrative.requests", endpoint="narrative")
-    _obs.gauge("narrative.actors_participating", float(1 + len(who_did_what["colleagues_involved"])))
+    _obs.gauge(
+        "narrative.actors_participating",
+        float(1 + len(who_did_what["colleagues_involved"])),
+    )
     _obs.counter("narrative.world_mutations_explained", increment=len(world_changes))
     latency_ms = (_time.monotonic() - started) * 1000
     _obs.gauge("narrative.generation_latency_ms", latency_ms)
 
     return {
-        "actor_id": actor_id, "execution_id": execution_id,
+        "actor_id": actor_id,
+        "execution_id": execution_id,
         "what_happened": what_happened,
         "why": why,
         "who_did_what": who_did_what,
@@ -1779,13 +2000,17 @@ async def get_execution_narrative(
 # ── Context Grounding (what the planner actually knew, and where it came
 # from — kernel/pipeline/planning/context_snapshot_store.py) ────────────
 
+
 def _resolve_snapshot(actor_id: str, execution_id: str) -> Any:
     """Every grounding route below starts here. Real, scoped to this
     actor — a snapshot that exists but belongs to a different actor 404s
     the same as one that doesn't exist at all, since execution_id alone
     isn't guaranteed globally unique across actors in principle (it is in
     practice, uuid4, but this endpoint shouldn't rely on that)."""
-    from src.monkey_brain.kernel.pipeline.planning.context_snapshot_store import load_context_snapshot
+    from src.monkey_brain.kernel.pipeline.planning.context_snapshot_store import (
+        load_context_snapshot,
+    )
+
     snapshot = load_context_snapshot(execution_id)
     if snapshot is None or snapshot.actor_id != actor_id:
         raise HTTPException(
@@ -1797,7 +2022,9 @@ def _resolve_snapshot(actor_id: str, execution_id: str) -> Any:
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/planning-context", tags=["Actors"])
 async def get_execution_planning_context(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """The complete real PlanningContext this tick's plan was grounded
@@ -1811,7 +2038,9 @@ async def get_execution_planning_context(
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/grounding", tags=["Actors"])
 async def get_execution_grounding(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """The same snapshot, regrouped under the spec's named grounding
@@ -1819,19 +2048,31 @@ async def get_execution_grounding(
     object."""
     snapshot = _resolve_snapshot(actor_id, execution_id)
     return {
-        "actor_id": actor_id, "execution_id": execution_id,
+        "actor_id": actor_id,
+        "execution_id": execution_id,
         "summary": snapshot.summary,
-        "knowledge_graph": {"entities": snapshot.knowledge, "relationships": snapshot.relationships},
+        "knowledge_graph": {
+            "entities": snapshot.knowledge,
+            "relationships": snapshot.relationships,
+        },
         "context_stream": snapshot.context_events,
-        "semantic_memory": {"experiences": snapshot.experiences, "conversations": snapshot.conversations},
-        "world_state": {"locations": snapshot.relevant_locations, "objects": snapshot.relevant_objects},
+        "semantic_memory": {
+            "experiences": snapshot.experiences,
+            "conversations": snapshot.conversations,
+        },
+        "world_state": {
+            "locations": snapshot.relevant_locations,
+            "objects": snapshot.relevant_objects,
+        },
         "available_capabilities": snapshot.available_capabilities,
     }
 
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/context-stream", tags=["Actors"])
 async def get_execution_context_stream(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """Every real ContextEvent that grounded this tick's planning — the
@@ -1839,23 +2080,36 @@ async def get_execution_context_stream(
     never queried ContextStream); see ContextConstructionEngine.
     _retrieve_context_stream()."""
     snapshot = _resolve_snapshot(actor_id, execution_id)
-    return {"actor_id": actor_id, "execution_id": execution_id, "events": snapshot.context_events}
+    return {
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "events": snapshot.context_events,
+    }
 
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/knowledge-graph", tags=["Actors"])
 async def get_execution_knowledge_graph(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """The real KG entities/relationships the planner retrieved and
     reasoned over for this tick (relevant_knowledge/relevant_relationships)."""
     snapshot = _resolve_snapshot(actor_id, execution_id)
-    return {"actor_id": actor_id, "execution_id": execution_id, "entities": snapshot.knowledge, "relationships": snapshot.relationships}
+    return {
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "entities": snapshot.knowledge,
+        "relationships": snapshot.relationships,
+    }
 
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/semantic-memory", tags=["Actors"])
 async def get_execution_semantic_memory(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_self_or_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """Two real memory sources, named for what they actually are (this
@@ -1869,12 +2123,17 @@ async def get_execution_semantic_memory(
     not scoped to one execution)."""
     snapshot = _resolve_snapshot(actor_id, execution_id)
     durable_beliefs = [
-        b for b in _grouped_beliefs(actor_id, 200)
+        b
+        for b in _grouped_beliefs(actor_id, 200)
         if int((b.get("metadata") or {}).get("observation_count", 0) or 0) >= 2
     ]
     return {
-        "actor_id": actor_id, "execution_id": execution_id,
-        "retrieved_this_execution": {"experiences": snapshot.experiences, "conversations": snapshot.conversations},
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "retrieved_this_execution": {
+            "experiences": snapshot.experiences,
+            "conversations": snapshot.conversations,
+        },
         "durable_beliefs": durable_beliefs,
     }
 
@@ -1887,6 +2146,7 @@ def _format_execution_chat_context(context: dict[str, Any]) -> str:
     verbatim, so a citation the frontend renders as a clickable chip
     always points at something that was genuinely fed in, never a
     fabricated reference."""
+
     def fmt_items(items: Any) -> list[str]:
         lines = []
         for it in items or []:
@@ -1931,14 +2191,21 @@ def _format_execution_chat_context(context: dict[str, Any]) -> str:
     objects = context.get("relevant_objects") or []
     if locations or objects:
         sections.append(
-            "WORLD STATE:\nLocations: " + (", ".join(locations) or "none")
-            + "\nObjects: " + (", ".join(objects) or "none")
+            "WORLD STATE:\nLocations: "
+            + (", ".join(locations) or "none")
+            + "\nObjects: "
+            + (", ".join(objects) or "none")
         )
-    affiliations = [a for a in (context.get("affiliation_chain") or context.get("affiliations") or []) if isinstance(a, dict)]
+    affiliations = [
+        a for a in (context.get("affiliation_chain") or context.get("affiliations") or []) if isinstance(a, dict)
+    ]
     if affiliations:
         lines = [
-            f"- [ref={a.get('id', '')}] {a.get('name', '')} ({a.get('entityType', '')})"
-            if "name" in a else f"- {a.get('society_name', a.get('society_id', ''))}"
+            (
+                f"- [ref={a.get('id', '')}] {a.get('name', '')} ({a.get('entityType', '')})"
+                if "name" in a
+                else f"- {a.get('society_name', a.get('society_id', ''))}"
+            )
             for a in affiliations
         ]
         sections.append(f"AFFILIATIONS ({len(lines)}):\n" + "\n".join(lines))
@@ -1947,21 +2214,38 @@ def _format_execution_chat_context(context: dict[str, Any]) -> str:
         added, removed = diff.get("added") or {}, diff.get("removed") or {}
         parts = [
             f"{key}: +{len(added.get(key) or [])}/-{len(removed.get(key) or [])}"
-            for key in ("knowledge", "relationships", "context_events", "experiences", "conversations", "executions")
+            for key in (
+                "knowledge",
+                "relationships",
+                "context_events",
+                "experiences",
+                "conversations",
+                "executions",
+            )
             if (added.get(key) or removed.get(key))
         ]
         if parts:
             sections.append("CONTEXT DIFF vs previous planning cycle:\n" + ", ".join(parts))
     causal = [c for c in (context.get("causal_chain") or []) if isinstance(c, dict)]
     if causal:
-        sections.append("CAUSAL CHAIN (world change -> execution):\n" + "\n".join(f"- {c.get('label', '')}: {c.get('detail', '')}" for c in causal))
+        sections.append(
+            "CAUSAL CHAIN (world change -> execution):\n"
+            + "\n".join(f"- {c.get('label', '')}: {c.get('detail', '')}" for c in causal)
+        )
     return "\n\n".join(sections) if sections else "(no grounding data was retrieved for this execution)"
 
 
-@router.post("/actors/{actor_id}/executions/{execution_id}/chat", response_model=ExecutionChatResponse, tags=["Actors"])
+@router.post(
+    "/actors/{actor_id}/executions/{execution_id}/chat",
+    response_model=ExecutionChatResponse,
+    tags=["Actors"],
+)
 @idempotent("actors.execution_chat")
 async def execution_chat(
-    actor_id: str, execution_id: str, body: ExecutionChatRequest, request: Request,
+    actor_id: str,
+    execution_id: str,
+    body: ExecutionChatRequest,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> ExecutionChatResponse:
     """The Execution Debugger's copilot. One real LLM call
@@ -1977,15 +2261,23 @@ async def execution_chat(
     import json as _json
 
     context_text = _format_execution_chat_context(body.context)
-    history_text = "\n".join(f"{m.role}: {m.content}" for m in body.history[-8:]) if body.history else "(no prior messages this session)"
-    selected_text = f"\nThe operator currently has this selected in the debugger: {body.selected_context}\n" if body.selected_context else ""
+    history_text = (
+        "\n".join(f"{m.role}: {m.content}" for m in body.history[-8:])
+        if body.history
+        else "(no prior messages this session)"
+    )
+    selected_text = (
+        f"\nThe operator currently has this selected in the debugger: {body.selected_context}\n"
+        if body.selected_context
+        else ""
+    )
 
     system = (
         "You are the CognitiveOS Execution Debugger's assistant — a forensic copilot "
         "explaining ONE specific execution to an operator.\n\n"
         "RULE: if the operator's message is just a greeting or short remark with no "
-        "real question in it (examples: \"hi\", \"hello\", \"thanks\", \"are you "
-        "there\") — reply with ONE short, natural sentence back (e.g. a greeting), "
+        'real question in it (examples: "hi", "hello", "thanks", "are you '
+        'there") — reply with ONE short, natural sentence back (e.g. a greeting), '
         "nothing else. Do not mention the execution, do not pull in grounding facts, "
         "do not explain that it was a greeting — just reply naturally, the same way "
         "any assistant would.\n\n"
@@ -2020,7 +2312,7 @@ async def execution_chat(
     marker = raw.rfind("EVIDENCE:")
     if marker != -1:
         answer = raw[:marker].strip()
-        tail = raw[marker + len("EVIDENCE:"):].strip().strip("`").strip()
+        tail = raw[marker + len("EVIDENCE:") :].strip().strip("`").strip()
         if tail.lower().startswith("json"):
             tail = tail[4:].strip()
         try:
@@ -2028,7 +2320,13 @@ async def execution_chat(
             if isinstance(parsed, list):
                 for e in parsed:
                     if isinstance(e, dict) and e.get("type") and e.get("label"):
-                        evidence.append(ExecutionChatEvidence(type=str(e["type"]), label=str(e["label"]), ref=str(e.get("ref", ""))))
+                        evidence.append(
+                            ExecutionChatEvidence(
+                                type=str(e["type"]),
+                                label=str(e["label"]),
+                                ref=str(e.get("ref", "")),
+                            )
+                        )
         except (ValueError, TypeError):
             pass  # model didn't follow the EVIDENCE: convention exactly — degrade to answer-only, don't crash
     if not answer:
@@ -2051,22 +2349,39 @@ async def execution_chat(
         try:
             timestamp = time.time()
             pr.memory_manager.record_experience(
-                actor_id, kind="conversation", text=body.question,
-                metadata={"timestamp": timestamp, "speaker": "operator", "execution_id": execution_id},
+                actor_id,
+                kind="conversation",
+                text=body.question,
+                metadata={
+                    "timestamp": timestamp,
+                    "speaker": "operator",
+                    "execution_id": execution_id,
+                },
             )
             pr.memory_manager.record_experience(
-                actor_id, kind="conversation", text=answer,
-                metadata={"timestamp": timestamp, "speaker": "CognitiveOS Assistant", "execution_id": execution_id},
+                actor_id,
+                kind="conversation",
+                text=answer,
+                metadata={
+                    "timestamp": timestamp,
+                    "speaker": "CognitiveOS Assistant",
+                    "execution_id": execution_id,
+                },
             )
         except Exception:
-            logger.exception("execution_chat: record_experience(kind=conversation) failed for actor %s — the answer above already succeeded", actor_id)
+            logger.exception(
+                "execution_chat: record_experience(kind=conversation) failed for actor %s — the answer above already succeeded",
+                actor_id,
+            )
 
     return ExecutionChatResponse(answer=answer, evidence=evidence)
 
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/external-events", tags=["Actors"])
 async def get_execution_external_events(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """Real, operator-reported world perturbations (POST /planet/
@@ -2075,12 +2390,19 @@ async def get_execution_external_events(
     when none were ever reported in this actor's context window."""
     snapshot = _resolve_snapshot(actor_id, execution_id)
     external = [e for e in snapshot.context_events if e.get("item_type") == "external_perturbation"]
-    return {"actor_id": actor_id, "execution_id": execution_id, "event_count": len(external), "events": external}
+    return {
+        "actor_id": actor_id,
+        "execution_id": execution_id,
+        "event_count": len(external),
+        "events": external,
+    }
 
 
 @router.get("/actors/{actor_id}/executions/{execution_id}/context-diff", tags=["Actors"])
 async def get_execution_context_diff(
-    actor_id: str, execution_id: str, request: Request,
+    actor_id: str,
+    execution_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """What changed in the planner's grounding since this actor's
@@ -2089,13 +2411,16 @@ async def get_execution_context_diff(
     not recomputed here."""
     snapshot = _resolve_snapshot(actor_id, execution_id)
     return {
-        "actor_id": actor_id, "execution_id": execution_id,
+        "actor_id": actor_id,
+        "execution_id": execution_id,
         "diff": snapshot.diff_from_previous or {"is_first_context": True, "added": {}, "removed": {}},
     }
 
 
 @router.get(
-    "/actors/{actor_id}/memory/semantic", response_model=ActorMemoryCategoryResponse, tags=["Actors"],
+    "/actors/{actor_id}/memory/semantic",
+    response_model=ActorMemoryCategoryResponse,
+    tags=["Actors"],
 )
 async def get_actor_semantic_memory(
     actor_id: str,
@@ -2106,12 +2431,16 @@ async def get_actor_semantic_memory(
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     return ActorMemoryCategoryResponse(
-        actor_id=actor_id, category="semantic", items=_get_semantic_memory(pr, actor_id),
+        actor_id=actor_id,
+        category="semantic",
+        items=_get_semantic_memory(pr, actor_id),
     )
 
 
 @router.get(
-    "/actors/{actor_id}/memory/episodic", response_model=ActorMemoryCategoryResponse, tags=["Actors"],
+    "/actors/{actor_id}/memory/episodic",
+    response_model=ActorMemoryCategoryResponse,
+    tags=["Actors"],
 )
 async def get_actor_episodic_memory(
     actor_id: str,
@@ -2123,12 +2452,16 @@ async def get_actor_episodic_memory(
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     limit = int(request.query_params.get("limit", "50"))
     return ActorMemoryCategoryResponse(
-        actor_id=actor_id, category="episodic", items=_get_episodic_memory(pr, actor_id, limit),
+        actor_id=actor_id,
+        category="episodic",
+        items=_get_episodic_memory(pr, actor_id, limit),
     )
 
 
 @router.get(
-    "/actors/{actor_id}/memory/conversation", response_model=ActorMemoryCategoryResponse, tags=["Actors"],
+    "/actors/{actor_id}/memory/conversation",
+    response_model=ActorMemoryCategoryResponse,
+    tags=["Actors"],
 )
 async def get_actor_conversation_memory(
     actor_id: str,
@@ -2140,11 +2473,17 @@ async def get_actor_conversation_memory(
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     limit = int(request.query_params.get("limit", "50"))
     return ActorMemoryCategoryResponse(
-        actor_id=actor_id, category="conversation", items=_get_conversation_memory(pr, actor_id, limit),
+        actor_id=actor_id,
+        category="conversation",
+        items=_get_conversation_memory(pr, actor_id, limit),
     )
 
 
-@router.get("/actors/{actor_id}/cognitive-state", response_model=ActorCognitiveStateResponse, tags=["Actors"])
+@router.get(
+    "/actors/{actor_id}/cognitive-state",
+    response_model=ActorCognitiveStateResponse,
+    tags=["Actors"],
+)
 async def get_actor_cognitive_state(
     actor_id: str,
     request: Request,
@@ -2177,15 +2516,19 @@ async def get_actor_cognitive_state(
     affiliations = state.actor_runtime.affiliations if state.actor_runtime is not None else None
     affiliations_out = [
         {
-            "affiliation_id": a.affiliation_id, "affiliation_type": a.affiliation_type,
-            "target_id": a.target_id, "target_name": a.target_name,
-            "trust_level": a.trust_level, "category": a.category,
+            "affiliation_id": a.affiliation_id,
+            "affiliation_type": a.affiliation_type,
+            "target_id": a.target_id,
+            "target_name": a.target_name,
+            "trust_level": a.trust_level,
+            "category": a.category,
         }
         for a in (affiliations.all() if affiliations is not None else [])
     ]
     current_society = {"society_id": sr.society.society_id, "name": sr.society.name} if sr is not None else None
 
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
+
     goals = _timeline_history(actor_id, TimelineKind.GOAL, 20)
     beliefs = _grouped_beliefs(actor_id, 200)
 
@@ -2223,6 +2566,7 @@ async def get_actor_activity_timeline(
 ) -> list[dict[str, Any]]:
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
     from src.monkey_brain.kernel.timeline.store import TimelineStore
+
     from_ts = _parse_timestamp(request.query_params.get("from"))
     to_ts = _parse_timestamp(request.query_params.get("to"))
     return [a.to_dict() for a in TimelineStore().query(actor_id, TimelineKind.ACTIVITY, from_ts, to_ts)]
@@ -2240,6 +2584,7 @@ async def get_actor_membership_timeline(
     SocietyMembershipRegistry.history_for_actor)."""
     from src.monkey_brain.kernel.timeline.entry import TimelineKind
     from src.monkey_brain.kernel.timeline.store import TimelineStore
+
     from_ts = _parse_timestamp(request.query_params.get("from"))
     to_ts = _parse_timestamp(request.query_params.get("to"))
     return [m.to_dict() for m in TimelineStore().query(actor_id, TimelineKind.MEMBERSHIP, from_ts, to_ts)]
@@ -2274,21 +2619,28 @@ async def create_delegation(
         raise HTTPException(status_code=400, detail="body.hours must be positive")
 
     import time
-    from src.monkey_brain.kernel.knowledge_graph_neo4j import Neo4jBackedKnowledgeGraph, resolve_household_id
+    from src.monkey_brain.kernel.knowledge_graph_neo4j import (
+        Neo4jBackedKnowledgeGraph,
+        resolve_household_id,
+    )
     from src.monkey_brain.kernel.domains.domain_security import grant_delegation
 
     delegator_kg = Neo4jBackedKnowledgeGraph(person_id=actor_id, household_id=resolve_household_id(actor_id))
     delegation_id = grant_delegation(delegator_kg, actor_id, delegate_id, expires_at=time.time() + hours * 3600)
     return {
-        "success": True, "delegation_id": delegation_id,
-        "delegator_id": actor_id, "delegate_id": delegate_id, "expires_in_hours": hours,
+        "success": True,
+        "delegation_id": delegation_id,
+        "delegator_id": actor_id,
+        "delegate_id": delegate_id,
+        "expires_in_hours": hours,
     }
 
 
 @router.delete("/actors/{actor_id}/delegations/{delegate_id}", tags=["Actors"])
 @idempotent("actors.revoke_delegation_route")
 async def revoke_delegation_route(
-    actor_id: str, delegate_id: str,
+    actor_id: str,
+    delegate_id: str,
     user_id: str = Depends(require_self_or_permission("perm-manage-actors")),
 ) -> dict[str, Any]:
     """Real, immediate revocation — kernel/domains/domain_security.py::
@@ -2296,13 +2648,19 @@ async def revoke_delegation_route(
     above writes into. A later check_delegation call sees this
     immediately (kg.refresh()), not just at the end of whatever request
     happened to already be in flight."""
-    from src.monkey_brain.kernel.knowledge_graph_neo4j import Neo4jBackedKnowledgeGraph, resolve_household_id
+    from src.monkey_brain.kernel.knowledge_graph_neo4j import (
+        Neo4jBackedKnowledgeGraph,
+        resolve_household_id,
+    )
     from src.monkey_brain.kernel.domains.domain_security import revoke_delegation
 
     delegator_kg = Neo4jBackedKnowledgeGraph(person_id=actor_id, household_id=resolve_household_id(actor_id))
     revoked = revoke_delegation(delegator_kg, actor_id, delegate_id)
     if not revoked:
-        raise HTTPException(status_code=404, detail=f"no active delegation from {actor_id!r} to {delegate_id!r}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"no active delegation from {actor_id!r} to {delegate_id!r}",
+        )
     return {"success": True, "delegator_id": actor_id, "delegate_id": delegate_id}
 
 
@@ -2521,7 +2879,11 @@ async def add_actor_goal(
     return ActorGoalsResponse(actor_id=actor_id, goals=existing_goals)
 
 
-@router.get("/actors/{actor_id}/affiliations", response_model=ActorAffiliationsResponse, tags=["Actors"])
+@router.get(
+    "/actors/{actor_id}/affiliations",
+    response_model=ActorAffiliationsResponse,
+    tags=["Actors"],
+)
 async def get_actor_affiliations(
     actor_id: str,
     request: Request,
@@ -2572,10 +2934,14 @@ def _walk_affiliation_chain(pr: Any, start_actor_id: str, max_depth: int = 5) ->
     if found is None:
         return []
     _, start_state = found
-    chain: list[dict[str, Any]] = [{
-        "id": start_actor_id, "name": start_state.profile.identity.name,
-        "entityType": start_state.profile.identity.actor_type, "edgeLabel": None,
-    }]
+    chain: list[dict[str, Any]] = [
+        {
+            "id": start_actor_id,
+            "name": start_state.profile.identity.name,
+            "entityType": start_state.profile.identity.actor_type,
+            "edgeLabel": None,
+        }
+    ]
     visited = {start_actor_id}
     current_kind, current_id = "actor", start_actor_id
 
@@ -2594,10 +2960,14 @@ def _walk_affiliation_chain(pr: Any, start_actor_id: str, max_depth: int = 5) ->
             target_found = _find_actor_state(pr, edge.target_id)
             if target_found is not None:
                 _, target_state = target_found
-                chain.append({
-                    "id": edge.target_id, "name": target_state.profile.identity.name,
-                    "entityType": target_state.profile.identity.actor_type, "edgeLabel": edge.affiliation_type,
-                })
+                chain.append(
+                    {
+                        "id": edge.target_id,
+                        "name": target_state.profile.identity.name,
+                        "entityType": target_state.profile.identity.actor_type,
+                        "edgeLabel": edge.affiliation_type,
+                    }
+                )
                 visited.add(edge.target_id)
                 current_kind, current_id = "actor", edge.target_id
                 continue
@@ -2607,18 +2977,30 @@ def _walk_affiliation_chain(pr: Any, start_actor_id: str, max_depth: int = 5) ->
                 # A real edge whose target is neither a known actor nor a
                 # known society — still a genuine terminal node (its real
                 # name/type from the affiliation edge itself), not fabricated.
-                chain.append({"id": edge.target_id, "name": edge.target_name, "entityType": edge.category or "organization", "edgeLabel": edge.affiliation_type})
+                chain.append(
+                    {
+                        "id": edge.target_id,
+                        "name": edge.target_name,
+                        "entityType": edge.category or "organization",
+                        "edgeLabel": edge.affiliation_type,
+                    }
+                )
                 visited.add(edge.target_id)
                 break
-            chain.append({
-                "id": edge.target_id, "name": sr.society.name if sr is not None else edge.target_name,
-                "entityType": "society", "edgeLabel": edge.affiliation_type,
-            })
+            chain.append(
+                {
+                    "id": edge.target_id,
+                    "name": sr.society.name if sr is not None else edge.target_name,
+                    "entityType": "society",
+                    "edgeLabel": edge.affiliation_type,
+                }
+            )
             visited.add(edge.target_id)
             current_kind, current_id = "society", edge.target_id
         else:  # current_kind == "society"
             members = [
-                m for m in pr.membership_registry.memberships_for_society(current_id)
+                m
+                for m in pr.membership_registry.memberships_for_society(current_id)
                 if m.status == "active" and m.actor_id not in visited
             ]
             if not members:
@@ -2632,10 +3014,14 @@ def _walk_affiliation_chain(pr: Any, start_actor_id: str, max_depth: int = 5) ->
             if member_found is None:
                 break
             _, member_state = member_found
-            chain.append({
-                "id": member.actor_id, "name": member_state.profile.identity.name,
-                "entityType": member_state.profile.identity.actor_type, "edgeLabel": "co-member",
-            })
+            chain.append(
+                {
+                    "id": member.actor_id,
+                    "name": member_state.profile.identity.name,
+                    "entityType": member_state.profile.identity.actor_type,
+                    "edgeLabel": "co-member",
+                }
+            )
             visited.add(member.actor_id)
             current_kind, current_id = "actor", member.actor_id
 
@@ -2644,7 +3030,9 @@ def _walk_affiliation_chain(pr: Any, start_actor_id: str, max_depth: int = 5) ->
 
 @router.get("/actors/{actor_id}/affiliation-chain", tags=["Actors"])
 async def get_actor_affiliation_chain(
-    actor_id: str, request: Request, max_depth: int = 5,
+    actor_id: str,
+    request: Request,
+    max_depth: int = 5,
     user_id: str = Depends(require_permission("perm-view-actors")),
 ) -> dict[str, Any]:
     """A real, traversed chain through this actor's affiliation graph —
@@ -2676,7 +3064,10 @@ async def create_actor_affiliation(
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     found = _find_actor_state(pr, actor_id)
     if found is None or found[1].actor_runtime is None or found[1].actor_runtime.affiliations is None:
-        raise HTTPException(status_code=404, detail=f"Actor {actor_id} not found or has no affiliation store")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Actor {actor_id} not found or has no affiliation store",
+        )
     target = _find_actor_state(pr, body.target_id)
     target_name = body.target_name or (target[1].profile.identity.name if target else body.target_id)
     affiliation = Affiliation(
@@ -2758,7 +3149,10 @@ async def ask_actor(
     `question` — there is no hidden relay inside the runtime, the caller
     (a demo script, another actor's own next turn) does that."""
     from src.monkey_brain.kernel.domains.grocery import AnswerQuestionCapability
-    from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+    from src.monkey_brain.kernel.society.context_stream import (
+        ContextEvent,
+        ContextEventType,
+    )
     from src.monkey_brain.common.correlation import new_correlation_id
 
     pr = _get_planetary_runtime(request)
@@ -2783,28 +3177,40 @@ async def ask_actor(
             raise HTTPException(status_code=403, detail=decision.reason)
         causation_id = decision.decision_id
 
-    result = await AnswerQuestionCapability().handle({"context": {
-        "knowledge_graph": pr.knowledge_graph, "actor_id": actor_id,
-        "actor_role": actor_role, "question": body.question,
-        "planetary_runtime": pr,
-    }})
+    result = await AnswerQuestionCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": pr.knowledge_graph,
+                "actor_id": actor_id,
+                "actor_role": actor_role,
+                "question": body.question,
+                "planetary_runtime": pr,
+            }
+        }
+    )
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "no answer produced"))
 
     timestamp = time.time()
-    pr.context_stream.publish(ContextEvent(
-        event_type=ContextEventType.INTERACTION,
-        actor_id=actor_id,
-        description=f"{body.from_actor_name or body.from_actor_id or 'someone'} asked {name}: {body.question}",
-        payload={
-            "from_actor_id": body.from_actor_id, "from_actor_name": body.from_actor_name,
-            "to_actor_id": actor_id, "to_actor_name": name,
-            "society_id": sr.society.society_id, "society_name": sr.society.name,
-            "question": body.question, "answer": result["answer"],
-        },
-        correlation_id=correlation_id,
-        causation_id=causation_id,
-    ))
+    pr.context_stream.publish(
+        ContextEvent(
+            event_type=ContextEventType.INTERACTION,
+            actor_id=actor_id,
+            description=f"{body.from_actor_name or body.from_actor_id or 'someone'} asked {name}: {body.question}",
+            payload={
+                "from_actor_id": body.from_actor_id,
+                "from_actor_name": body.from_actor_name,
+                "to_actor_id": actor_id,
+                "to_actor_name": name,
+                "society_id": sr.society.society_id,
+                "society_name": sr.society.name,
+                "question": body.question,
+                "answer": result["answer"],
+            },
+            correlation_id=correlation_id,
+            causation_id=causation_id,
+        )
+    )
 
     # Real gap this closes: nothing anywhere in the kernel ever wrote a
     # kind="conversation" memory node (grepped the whole tree — the only
@@ -2821,21 +3227,40 @@ async def ask_actor(
             continue
         try:
             pr.memory_manager.record_experience(
-                participant_id, kind="conversation", text=body.question,
-                metadata={"timestamp": timestamp, "speaker": asker_name, "correlation_id": correlation_id},
+                participant_id,
+                kind="conversation",
+                text=body.question,
+                metadata={
+                    "timestamp": timestamp,
+                    "speaker": asker_name,
+                    "correlation_id": correlation_id,
+                },
             )
             pr.memory_manager.record_experience(
-                participant_id, kind="conversation", text=result["answer"],
-                metadata={"timestamp": timestamp, "speaker": name, "correlation_id": correlation_id},
+                participant_id,
+                kind="conversation",
+                text=result["answer"],
+                metadata={
+                    "timestamp": timestamp,
+                    "speaker": name,
+                    "correlation_id": correlation_id,
+                },
             )
         except Exception:
-            logger.exception("record_experience(kind=conversation) failed for participant %s — the ask/answer above already succeeded", participant_id)
+            logger.exception(
+                "record_experience(kind=conversation) failed for participant %s — the ask/answer above already succeeded",
+                participant_id,
+            )
 
     return AskActorResponse(
-        question=body.question, answer=result["answer"],
-        actor_id=actor_id, actor_name=name,
-        society_id=sr.society.society_id, society_name=sr.society.name,
-        from_actor_id=body.from_actor_id, from_actor_name=body.from_actor_name,
+        question=body.question,
+        answer=result["answer"],
+        actor_id=actor_id,
+        actor_name=name,
+        society_id=sr.society.society_id,
+        society_name=sr.society.name,
+        from_actor_id=body.from_actor_id,
+        from_actor_name=body.from_actor_name,
         timestamp=timestamp,
         correlation_id=correlation_id,
         causation_id=causation_id,
@@ -2917,12 +3342,18 @@ async def actor_chat(
     answer = (await get_backend().complete(prompt, system=system)).strip()
 
     return ActorChatResponse(
-        answer=answer, source=source, facts_used=facts,
+        answer=answer,
+        source=source,
+        facts_used=facts,
         web_results=[ActorChatWebResult(title=r["title"], url=r["url"]) for r in web_results],
     )
 
 
-@router.post("/actors/{actor_id}/web-search-chat", response_model=WebSearchChatResponse, tags=["Actors"])
+@router.post(
+    "/actors/{actor_id}/web-search-chat",
+    response_model=WebSearchChatResponse,
+    tags=["Actors"],
+)
 @idempotent("actors.web_search_chat")
 async def web_search_chat(
     actor_id: str,
@@ -2954,15 +3385,30 @@ async def web_search_chat(
         try:
             timestamp = time.time()
             pr.memory_manager.record_experience(
-                actor_id, kind="conversation", text=query,
-                metadata={"timestamp": timestamp, "speaker": "operator", "source": "web_search"},
+                actor_id,
+                kind="conversation",
+                text=query,
+                metadata={
+                    "timestamp": timestamp,
+                    "speaker": "operator",
+                    "source": "web_search",
+                },
             )
             pr.memory_manager.record_experience(
-                actor_id, kind="conversation", text=reply,
-                metadata={"timestamp": timestamp, "speaker": "CognitiveOS Assistant", "source": "web_search"},
+                actor_id,
+                kind="conversation",
+                text=reply,
+                metadata={
+                    "timestamp": timestamp,
+                    "speaker": "CognitiveOS Assistant",
+                    "source": "web_search",
+                },
             )
         except Exception:
-            logger.exception("web_search_chat: record_experience(kind=conversation) failed for actor %s — the answer above already succeeded", actor_id)
+            logger.exception(
+                "web_search_chat: record_experience(kind=conversation) failed for actor %s — the answer above already succeeded",
+                actor_id,
+            )
 
     query = body.query.strip()
     web_results = await tavily_search(query)
@@ -2978,7 +3424,7 @@ async def web_search_chat(
         "results, never your own prior knowledge, since the whole point of this mode "
         "is fresh, current information. Be concise (1-3 sentences). No markdown."
     )
-    prompt = f"Search results:\n{grounding_text}\n\nQuery: \"{query}\"\n\nYour answer:"
+    prompt = f'Search results:\n{grounding_text}\n\nQuery: "{query}"\n\nYour answer:'
     answer = (await get_backend().complete(prompt, system=system)).strip()
     _record_conversation(answer)
 
@@ -3028,7 +3474,7 @@ async def draft_actor_goal(
         'this exact shape, no other text: {"draft": {"objective": "...", "actor": "...", '
         '"constraints": ["..."], "preferences": ["..."], "success_conditions": ["..."]}, '
         '"update_summary": "one short line describing what just changed, e.g. '
-        '\'Constraint added: Budget ≤ $10\' or \'Objective set: Purchase 2L of milk\'"}.'
+        "'Constraint added: Budget ≤ $10' or 'Objective set: Purchase 2L of milk'\"}."
     )
     prompt = (
         f"CURRENT DRAFT:\n{current.model_dump_json()}\n\n"
@@ -3051,7 +3497,11 @@ async def draft_actor_goal(
     return GoalDraftResponse(draft=draft, update_summary=update_summary)
 
 
-@router.post("/actors/{actor_id}/transactions", response_model=TransactionResponse, tags=["Actors"])
+@router.post(
+    "/actors/{actor_id}/transactions",
+    response_model=TransactionResponse,
+    tags=["Actors"],
+)
 @idempotent("actors.execute_transaction")
 async def execute_transaction(
     actor_id: str,
@@ -3082,27 +3532,37 @@ async def execute_transaction(
 
     steps = [
         TransactionStepResponse(
-            step_number=step.step_number, target_actor_id=step.target_actor_id,
+            step_number=step.step_number,
+            target_actor_id=step.target_actor_id,
             message=step.message,
             trace=dataclasses.asdict(step.trace) if step.trace is not None else None,
-            next_action=step.next_action, next_action_reason=step.next_action_reason,
+            next_action=step.next_action,
+            next_action_reason=step.next_action_reason,
             strategic_context=step.strategic_context,
             timestamp=step.timestamp,
         )
         for step in result.steps
     ]
     return TransactionResponse(
-        transaction_id=result.transaction_id, originating_actor_id=result.originating_actor_id,
-        objective=result.objective, status=result.status.value, steps=steps,
+        transaction_id=result.transaction_id,
+        originating_actor_id=result.originating_actor_id,
+        objective=result.objective,
+        status=result.status.value,
+        steps=steps,
         societies_involved=list(result.societies_involved),
         affiliates_contacted=list(result.affiliates_contacted),
-        duration_ms=result.duration_ms, final_outcome=result.final_outcome,
+        duration_ms=result.duration_ms,
+        final_outcome=result.final_outcome,
         timestamp=result.timestamp,
         stream_url=f"/ws/transactions/{result.transaction_id}",
     )
 
 
-@router.get("/actors/{actor_id}/capabilities", response_model=ActorCapabilitiesResponse, tags=["Actors"])
+@router.get(
+    "/actors/{actor_id}/capabilities",
+    response_model=ActorCapabilitiesResponse,
+    tags=["Actors"],
+)
 async def get_actor_capabilities(
     actor_id: str,
     request: Request,
@@ -3177,11 +3637,17 @@ async def tick_actor(
             result_dict = {}
             if isinstance(result, TickResultProtocol):
                 if result.plan is not None:
-                    plan_data = result.plan if isinstance(result.plan, dict) else {"steps": getattr(result.plan, "steps", [])}
+                    plan_data = (
+                        result.plan if isinstance(result.plan, dict) else {"steps": getattr(result.plan, "steps", [])}
+                    )
                     result_dict["plan"] = plan_data
                 if result.actions:
                     result_dict["actions"] = [
-                        {"action_id": a.get("action_id", ""), "success": a.get("success", False), "error": a.get("error", "")}
+                        {
+                            "action_id": a.get("action_id", ""),
+                            "success": a.get("success", False),
+                            "error": a.get("error", ""),
+                        }
                         for a in (result.actions or [])
                     ]
                 if result.belief_updated:
@@ -3204,6 +3670,7 @@ async def tick_actor(
             )
         except Exception as e:
             import traceback
+
             logger.error("Tick failed: %s\n%s", e, traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Tick failed: {e}")
 
@@ -3319,7 +3786,9 @@ async def plan_actor(
 
 
 @router.post(
-    "/actors/{actor_id}/experiences", response_model=ExperienceRecordResponse, tags=["Actors"],
+    "/actors/{actor_id}/experiences",
+    response_model=ExperienceRecordResponse,
+    tags=["Actors"],
 )
 @idempotent("actors.record_actor_experience")
 async def record_actor_experience(
@@ -3347,7 +3816,11 @@ async def record_actor_experience(
     # planner; run it off-thread here for the same reason.
     metadata = {**body.metadata, "visibility": body.visibility}
     node = await asyncio.to_thread(
-        pr.memory_manager.record_experience, actor_id, body.kind, body.text, metadata,
+        pr.memory_manager.record_experience,
+        actor_id,
+        body.kind,
+        body.text,
+        metadata,
     )
     return ExperienceRecordResponse(actor_id=actor_id, node_id=node.node_id)
 
@@ -3372,7 +3845,9 @@ async def search_shared_experiences(
     if not query:
         raise HTTPException(status_code=400, detail="query is required")
 
-    from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+    from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+        ContextConstructionEngine,
+    )
 
     engine = ContextConstructionEngine(planetary_runtime=pr, memory_manager=pr.memory_manager)
     # search_episodic embeds the query via a blocking sentence-transformers
@@ -3380,8 +3855,10 @@ async def search_shared_experiences(
     nodes = await asyncio.to_thread(engine.search_shared_experiences, actor_id, query, 5)
     return [
         {
-            "node_id": node.node_id, "actor_id": node.payload.get("actor_id", ""),
-            "kind": node.payload.get("kind", ""), "text": node.payload.get("text", ""),
+            "node_id": node.node_id,
+            "actor_id": node.payload.get("actor_id", ""),
+            "kind": node.payload.get("kind", ""),
+            "text": node.payload.get("text", ""),
             "retrieval_score": node.payload.get("_retrieval_score", 0.0),
         }
         for node in nodes
@@ -3412,9 +3889,17 @@ async def run_actor_tick(actor_id: str, pr: Any, state: Any) -> dict[str, Any]:
         return {
             "actor_id": actor_id,
             "goal": state.profile.goals[0] if state.profile.goals else "",
-            "goal_achieved": getattr(result, "outcome", {}).get("goal_achieved", False) if isinstance(getattr(result, "outcome", None), dict) else False,
+            "goal_achieved": (
+                getattr(result, "outcome", {}).get("goal_achieved", False)
+                if isinstance(getattr(result, "outcome", None), dict)
+                else False
+            ),
             "actions": [
-                {"action_id": a.get("action_id", ""), "success": a.get("success", False), "error": a.get("error", "")}
+                {
+                    "action_id": a.get("action_id", ""),
+                    "success": a.get("success", False),
+                    "error": a.get("error", ""),
+                }
                 for a in (getattr(result, "actions", None) or [])
             ],
             "belief_updated": getattr(result, "belief_updated", False),
@@ -3512,6 +3997,7 @@ async def execute_actor(
 
 # ── Actor Relationships CRUD ────────────────────────────────────────────
 
+
 @router.get("/actors/{actor_id}/relationships", tags=["Actors"])
 async def get_actor_relationships(
     actor_id: str,
@@ -3563,24 +4049,34 @@ async def create_actor_relationship(
     target_found = _find_actor_state(pr, body.target_actor_id)
     target_name = target_found[1].profile.identity.name if target_found else body.target_actor_id
 
-    source_affiliations.add(make_relationship_affiliation(
-        source_id=body.source_actor_id, source_name=source_name,
-        target_id=body.target_actor_id, target_name=target_name,
-        relationship_type=body.relationship_type,
-        strength=body.strength, metadata=body.metadata,
-        owner_id=body.source_actor_id,
-    ))
+    source_affiliations.add(
+        make_relationship_affiliation(
+            source_id=body.source_actor_id,
+            source_name=source_name,
+            target_id=body.target_actor_id,
+            target_name=target_name,
+            relationship_type=body.relationship_type,
+            strength=body.strength,
+            metadata=body.metadata,
+            owner_id=body.source_actor_id,
+        )
+    )
 
     if target_found is not None:
         target_affiliations = getattr(target_found[1].actor, "affiliations", None)
         if target_affiliations is not None:
-            target_affiliations.add(make_relationship_affiliation(
-                source_id=body.source_actor_id, source_name=source_name,
-                target_id=body.target_actor_id, target_name=target_name,
-                relationship_type=body.relationship_type,
-                strength=body.strength, metadata=body.metadata,
-                owner_id=body.target_actor_id,
-            ))
+            target_affiliations.add(
+                make_relationship_affiliation(
+                    source_id=body.source_actor_id,
+                    source_name=source_name,
+                    target_id=body.target_actor_id,
+                    target_name=target_name,
+                    relationship_type=body.relationship_type,
+                    strength=body.strength,
+                    metadata=body.metadata,
+                    owner_id=body.target_actor_id,
+                )
+            )
 
     pr._save_actors()
     return {
@@ -3629,6 +4125,7 @@ async def delete_actor_relationship(
 
 # ── Actor Addresses (Communication Channels) CRUD ──────────────────────
 
+
 @router.get("/actors/{actor_id}/addresses", tags=["Actors"])
 async def get_actor_addresses(
     actor_id: str,
@@ -3671,6 +4168,7 @@ async def create_actor_address(
         metadata=body.metadata,
     )
     import dataclasses
+
     sr._society = dataclasses.replace(
         sr._society,
         addresses=sr.society.addresses + (addr,),
@@ -3697,6 +4195,7 @@ async def create_actor_address(
     if kg is not None:
         from src.monkey_brain.kernel.knowledge_graph import EntityType
         from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
+
         # Real, live-confirmed bug: kg.add_entity() asserts
         # assert_state_mutation_allowed() (security_boundary.py), which
         # fails closed with SecurityBoundaryDenied (surfaced as an
@@ -3708,9 +4207,13 @@ async def create_actor_address(
         # is the correct, existing (if previously never-called) escape
         # hatch for exactly this: a trusted, non-agent-initiated
         # management write.
-        with privileged_infrastructure(reason="POST /actors/{id}/addresses: operator-set delivery address, not an agent action"):
+        with privileged_infrastructure(
+            reason="POST /actors/{id}/addresses: operator-set delivery address, not an agent action"
+        ):
             kg.add_entity(
-                f"address_{addr.address_id}", EntityType.ADDRESS, f"{actor_id} address",
+                f"address_{addr.address_id}",
+                EntityType.ADDRESS,
+                f"{actor_id} address",
                 attributes={
                     "full_address": body.value,
                     "is_primary": body.is_primary,
@@ -3741,6 +4244,7 @@ async def delete_actor_address(
     addrs = [a for a in sr.society.addresses if a.address_id != address_id]
     if len(addrs) < len(sr.society.addresses):
         import dataclasses
+
         sr._society = dataclasses.replace(sr._society, addresses=tuple(addrs))
         pr._save_societies()
         return {"status": "deleted", "address_id": address_id}
@@ -3750,6 +4254,7 @@ async def delete_actor_address(
 # ── Teams (Runtime Encapsulation Refactor follow-up) ────────────────────
 # Planet -> Country -> City -> Society -> Team -> Actor. Team is a
 # containment object owned by SocietyRuntime — no tick()/cycle() of its own.
+
 
 @router.post("/actors/teams", tags=["Actors"])
 @idempotent("actors.create_team")
@@ -3795,7 +4300,10 @@ async def add_team_member(
 
     team = sr.add_actor_to_team(team_id, body.actor_id)
     if team is None:
-        raise HTTPException(status_code=404, detail=f"Actor {body.actor_id} not found in this team's society")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Actor {body.actor_id} not found in this team's society",
+        )
     return team.to_dict()
 
 
@@ -3827,6 +4335,7 @@ async def tick_team(
 
 # ── cogctl / declarative control (Final Architectural Convergence, Phase 6) ─
 
+
 @router.post("/actors/apply", tags=["Actors"])
 @idempotent("actors.apply_actor_specification")
 async def apply_actor_specification(
@@ -3852,10 +4361,20 @@ async def apply_actor_specification(
     brings the Actor to READY, on that node's own reconciliation loop,
     not synchronously inside this request.
     """
-    from src.monkey_brain.kernel.society.actor_specification import ActorSpecification, ActorSpecificationError
+    from src.monkey_brain.kernel.society.actor_specification import (
+        ActorSpecification,
+        ActorSpecificationError,
+    )
     from src.monkey_brain.kernel.society.actor_lifecycle import ActorDesiredState
-    from src.monkey_brain.kernel.society.actor_scheduler import ActorPlacementRequirements, NodeClass
-    from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+    from src.monkey_brain.kernel.society.actor_scheduler import (
+        ActorPlacementRequirements,
+        NodeClass,
+    )
+    from src.monkey_brain.kernel.society.domain import (
+        ActorProfile,
+        ActorIdentity,
+        ActorType,
+    )
 
     pr = _get_planetary_runtime(request)
     if pr is None:
@@ -3877,14 +4396,18 @@ async def apply_actor_specification(
         # never be passed through literally or every such Actor would be
         # registered with an empty actor_id instead of a real one.
         identity_kwargs: dict[str, Any] = {
-            "name": spec.name or spec.actor_id, "actor_type": ActorType.AI_AGENT,
+            "name": spec.name or spec.actor_id,
+            "actor_type": ActorType.AI_AGENT,
         }
         if spec.actor_id:
             identity_kwargs["actor_id"] = spec.actor_id
-        state = pr.register_actor(ActorProfile(
-            identity=ActorIdentity(**identity_kwargs),
-            goals=spec.goals, objective=spec.objective,
-        ))
+        state = pr.register_actor(
+            ActorProfile(
+                identity=ActorIdentity(**identity_kwargs),
+                goals=spec.goals,
+                objective=spec.objective,
+            )
+        )
         actor_id = state.actor_id
         created = True
 
@@ -3897,30 +4420,37 @@ async def apply_actor_specification(
             raise HTTPException(
                 status_code=422,
                 detail=f"spec.placement.{field_name} {value!r} is not a recognized node class "
-                       f"({[c.value for c in NodeClass]})",
+                f"({[c.value for c in NodeClass]})",
             )
 
     required_node_class = _resolve_node_class(spec.node_class, "node_class")
     preferred_node_class = _resolve_node_class(spec.preferred_node_class, "preferred_node_class")
 
-    pr.set_actor_placement_requirements(actor_id, ActorPlacementRequirements(
-        required_capabilities=spec.required_capabilities,
-        required_node_class=required_node_class,
-        preferred_node_class=preferred_node_class,
-        preferred_region=spec.preferred_region,
-    ))
+    pr.set_actor_placement_requirements(
+        actor_id,
+        ActorPlacementRequirements(
+            required_capabilities=spec.required_capabilities,
+            required_node_class=required_node_class,
+            preferred_node_class=preferred_node_class,
+            preferred_region=spec.preferred_region,
+        ),
+    )
     if spec.claim_node:
         pr.scheduler.migrate_actor(actor_id, target_node_id=spec.claim_node)
     pr.set_actor_desired_state(actor_id, ActorDesiredState.RUNNING, reason="cogctl apply")
 
     observed = pr.observe_actor(actor_id)
     return {
-        "actor_id": actor_id, "created": created,
+        "actor_id": actor_id,
+        "created": created,
         "spec": spec.to_dict(),
         "desired_state": ActorDesiredState.RUNNING.value,
         "observed": {
-            "exists": observed.exists, "status": observed.status, "node_id": observed.node_id,
-            "resident_here": observed.resident_here, "desired_node_id": observed.desired_node_id,
+            "exists": observed.exists,
+            "status": observed.status,
+            "node_id": observed.node_id,
+            "resident_here": observed.resident_here,
+            "desired_node_id": observed.desired_node_id,
         },
     }
 
@@ -3928,7 +4458,8 @@ async def apply_actor_specification(
 @router.post("/actors/{actor_id}/restart", tags=["Actors"])
 @idempotent("actors.restart_actor")
 async def restart_actor(
-    actor_id: str, request: Request,
+    actor_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-manage-actors")),
     _agent: dict = Depends(require_opa("agentos/routes/allow", action="lifecycle", resource="actor")),
 ) -> dict[str, Any]:
@@ -3952,6 +4483,12 @@ async def restart_actor(
 
     return {
         "actor_id": actor_id,
-        "suspend": {"action": suspend_result.action, "succeeded": suspend_result.succeeded},
-        "resume": {"action": resume_result.action, "succeeded": resume_result.succeeded},
+        "suspend": {
+            "action": suspend_result.action,
+            "succeeded": suspend_result.succeeded,
+        },
+        "resume": {
+            "action": resume_result.action,
+            "succeeded": resume_result.succeeded,
+        },
     }

@@ -63,7 +63,9 @@ async def get_purchase_order(
     return record
 
 
-@router.post("/", response_model=PurchaseOrderResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=PurchaseOrderResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_purchase_order(
     data: PurchaseOrderCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

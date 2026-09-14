@@ -3,6 +3,7 @@
 Verifies the platform recovers automatically from component failures.
 This is NOT about testing happy paths — it's about proving resilience.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,8 +22,10 @@ os.environ["RATE_LIMIT_BURST"] = "200000"
 def client():
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -31,29 +34,44 @@ def client():
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _create_actor(client, name, goal):
-    r = client.post("/api/v1/agentos/actors", json={
-        "name": name, "actor_type": "robot", "goals": [goal],
-    })
+    r = client.post(
+        "/api/v1/agentos/actors",
+        json={
+            "name": name,
+            "actor_type": "robot",
+            "goals": [goal],
+        },
+    )
     assert r.status_code == 200
     return r.json()["actor_id"]
 
 
 def _tick_actor(client, aid):
-    return client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-        "start": "a", "goal": "b", "reward": 1.0,
-    })
+    return client.post(
+        f"/api/v1/agentos/actors/{aid}/tick",
+        json={
+            "start": "a",
+            "goal": "b",
+            "reward": 1.0,
+        },
+    )
 
 
 def _share_experience(client, aid):
-    return client.post("/api/v1/agentos/learn/experience", json={
-        "experience": {"actor_id": aid, "outcome": "success", "confidence": 0.8},
-    })
+    return client.post(
+        "/api/v1/agentos/learn/experience",
+        json={
+            "experience": {"actor_id": aid, "outcome": "success", "confidence": 0.8},
+        },
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. Kill Actors
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestChaosKillActors:
     """Randomly kill actors during operation."""
@@ -134,6 +152,7 @@ class TestChaosKillActors:
 # 2. Kill Societies
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestChaosKillSocieties:
     """Randomly kill societies during operation."""
 
@@ -192,6 +211,7 @@ class TestChaosKillSocieties:
 # 3. Database Disconnection
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestChaosDatabaseDisconnection:
     """Simulate database disconnection and verify recovery."""
 
@@ -202,8 +222,10 @@ class TestChaosDatabaseDisconnection:
         # Get the runtime's persistence manager
         # The kernel boots with persistence; we can simulate a disconnect
         # by mocking the MongoDB adapter's client
-        with patch("src.monkey_brain.persistence.mongodb_adapter.MongoDBAdapter.disconnect",
-                    new_callable=AsyncMock) as mock_disconnect:
+        with patch(
+            "src.monkey_brain.persistence.mongodb_adapter.MongoDBAdapter.disconnect",
+            new_callable=AsyncMock,
+        ) as mock_disconnect:
             mock_disconnect.return_value = None
 
             # Tick should still work (cognitive loop doesn't require MongoDB)
@@ -235,6 +257,7 @@ class TestChaosDatabaseDisconnection:
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. LLM Provider Failure
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestChaosLLMProviderFailure:
     """Simulate LLM provider failures."""
@@ -279,6 +302,7 @@ class TestChaosLLMProviderFailure:
 # ═══════════════════════════════════════════════════════════════════════════
 # 5. Combined Chaos
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestChaosCombined:
     """Multiple failure modes simultaneously."""
@@ -353,6 +377,7 @@ class TestChaosCombined:
 # ═══════════════════════════════════════════════════════════════════════════
 # 6. Recovery Verification
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestChaosRecovery:
     """Verify full recovery after chaos."""

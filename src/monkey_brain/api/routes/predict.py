@@ -22,7 +22,10 @@ from fastapi.responses import JSONResponse
 from src.monkey_brain.kernel.models.plan import PlanResponse
 from src.monkey_brain.runtime.routers import get_mongo_client
 from src.monkey_brain.api.dependencies import (
-    require_permission, sanitize_and_check_governance, record_request_audit, RequestRejected,
+    require_permission,
+    sanitize_and_check_governance,
+    record_request_audit,
+    RequestRejected,
 )
 from src.monkey_brain.kernel.execute.models import ExecutionMode
 from src.monkey_brain.kernel.plan.goals.intent_ir import (
@@ -31,11 +34,16 @@ from src.monkey_brain.kernel.plan.goals.intent_ir import (
 )
 from src.monkey_brain.kernel.simulation_runtime import SimulationRuntime
 from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
-from src.monkey_brain.api.helpers.run_helpers import get_cognitive_runtime, get_simulation_runtime, get_comparator_runtime
+from src.monkey_brain.api.helpers.run_helpers import (
+    get_cognitive_runtime,
+    get_simulation_runtime,
+    get_comparator_runtime,
+)
 from src.introspection.lemon import get_lemon
 from src.monkey_brain.kernel.models import (
     SimulateResponse,
-    TransitionValuesResponse, BellmanCycleResponse,
+    TransitionValuesResponse,
+    BellmanCycleResponse,
 )
 from src.monkey_brain.api.gateway_models import CompareResponseGateway
 from src.monkey_brain.kernel.models.graph import canonical_graph_envelope
@@ -81,8 +89,10 @@ def _require_target(run_id: str, payload_target: str, expected: str) -> None:
     if actual != expected:
         raise HTTPException(
             status_code=400,
-            detail=(f"Plan for run_id {run_id!r} was compiled with target={actual!r} — "
-                    f"/{expected} requires a prior /plan?target={expected} call"),
+            detail=(
+                f"Plan for run_id {run_id!r} was compiled with target={actual!r} — "
+                f"/{expected} requires a prior /plan?target={expected} call"
+            ),
         )
 
 
@@ -94,7 +104,11 @@ def _reject_ir_http(e: IntentIRRejected) -> None:
     """
     if e.kind == "malformed":
         raise HTTPException(status_code=400, detail=f"Malformed intent_ir: {e.detail}")
-    raise HTTPException(status_code=400, detail={"error": "intent_ir validation failed", "detail": e.detail})
+    raise HTTPException(
+        status_code=400,
+        detail={"error": "intent_ir validation failed", "detail": e.detail},
+    )
+
 
 # Where the simulation actually runs (the solvers are not in this route — it only
 # delegates). Tracing "where are the solvers, and whose are they":
@@ -115,7 +129,7 @@ def _reject_ir_http(e: IntentIRRejected) -> None:
 @router.post("/simulate", response_model=SimulateResponse)
 @idempotent("predict.run_simulation")
 async def run_simulation(
-    payload:      PlanResponse,
+    payload: PlanResponse,
     mongo_client=Depends(get_mongo_client),
     user_id: str = Depends(require_permission("perm-execute-simulate")),
     runtime: SimulationRuntime = Depends(get_simulation_runtime),
@@ -137,7 +151,10 @@ async def run_simulation(
     lemon = get_lemon()
 
     if not payload.intent_ir:
-        raise HTTPException(status_code=400, detail="Missing intent_ir — /simulate requires a prior /plan?target=simulate call")
+        raise HTTPException(
+            status_code=400,
+            detail="Missing intent_ir — /simulate requires a prior /plan?target=simulate call",
+        )
     # Decode + validate shared with /execute, /compare, /execute/stream (was the #TODO
     # here): decode_and_validate_ir owns the sequence; _reject_ir_http renders it.
     try:
@@ -149,16 +166,27 @@ async def run_simulation(
     _require_target(ir.run_id, payload.target, "simulate")
 
     intent = ir.intent_type
-    logger.info("run=%r [simulate] intent=%r question=%r", ir.run_id, intent, payload.question[:80])
+    logger.info(
+        "run=%r [simulate] intent=%r question=%r",
+        ir.run_id,
+        intent,
+        payload.question[:80],
+    )
 
     if lemon:
-        lemon.start_trace(name="api.simulate", trace_id=ir.run_id, mode=ExecutionMode.SIMULATION.value, user=user_id, run_id=ir.run_id, intent=intent)
+        lemon.start_trace(
+            name="api.simulate",
+            trace_id=ir.run_id,
+            mode=ExecutionMode.SIMULATION.value,
+            user=user_id,
+            run_id=ir.run_id,
+            intent=intent,
+        )
         lemon.counter("api.simulate.request", intent=intent)
 
     t0 = time.monotonic()
     try:
-
-        # SimulationRuntime.run() does the actual work: it recovers the planner graph by run_id, builds a SimulationPipeline, 
+        # SimulationRuntime.run() does the actual work: it recovers the planner graph by run_id, builds a SimulationPipeline,
         # and calls pipeline.simulate(ir). The pipeline runs ALL solvers concurrently (_run_all_solvers), builds consensus, and annotates the simulation graph. The solvers include LLMReasoning, KnowledgeBased, RuleBased, and up to 8 adapters. The simulation uses SimulationPipeline's OWN solvers, NOT the cognitive runtime's. They are independent (SimulationRuntime is a separate booted runtime). The only overlap is that the LLMReasoningSolver internally reuses GraphGeneratorAgent — but that is the solver's own business, not shared execution machinery.
         result = await runtime.run(ir, mongo_client)
         elapsed_ms = (time.monotonic() - t0) * 1000
@@ -206,36 +234,48 @@ async def run_simulation(
         graph_envelope = _envelope(simulation_graph)
 
         from src.monkey_brain.kernel.plan.goals.run_store import get_run_store
+
         get_run_store().store_graph(ir.run_id, graph_envelope, target="simulate")
 
         # Audit: record simulation completion
         try:
             from src.monkey_brain.kernel.audit import get_audit_log
+
             get_audit_log().record(
-                runtime_id=user_id, event_type="simulate", action="simulate_completed",
-                actor=user_id, details={"run_id": ir.run_id, "grounding_score": grounding_score,
-                                         "elapsed_ms": round(elapsed_ms, 2)},
+                runtime_id=user_id,
+                event_type="simulate",
+                action="simulate_completed",
+                actor=user_id,
+                details={
+                    "run_id": ir.run_id,
+                    "grounding_score": grounding_score,
+                    "elapsed_ms": round(elapsed_ms, 2),
+                },
             )
         except Exception as exc:
-            logger.warning("run=%r [simulate] audit record (simulate_completed) failed: %s", ir.run_id, exc)
+            logger.warning(
+                "run=%r [simulate] audit record (simulate_completed) failed: %s",
+                ir.run_id,
+                exc,
+            )
 
         return SimulateResponse(
-            run_id              = ir.run_id,
-            target              = "simulate",
-            question            = payload.question,
+            run_id=ir.run_id,
+            target="simulate",
+            question=payload.question,
             # `or {}` — the result can carry execution_graph=None, and
             # .get("execution_graph", {}) keeps the None, crashing on .get below.
-            workload_id         = (result.get("execution_graph") or {}).get("graph_id", ""),
-            steps               = (result.get("execution_graph") or {}).get("nodes", []),
-            answer              = simulation_graph.get("metadata", {}).get("summary", {}).get("answer", result.get("answer", "")),
-            grounding_confidence = grounding_score,
-            grounding_score     = grounding_score,
-            low_grounding       = low_grounding,
-            needs_correction    = needs_correction,
-            simulation_id       = result.get("simulation_id", ""),
-            user_id             = user_id,
-            elapsed_ms          = elapsed_ms,
-            metadata            = {
+            workload_id=(result.get("execution_graph") or {}).get("graph_id", ""),
+            steps=(result.get("execution_graph") or {}).get("nodes", []),
+            answer=simulation_graph.get("metadata", {}).get("summary", {}).get("answer", result.get("answer", "")),
+            grounding_confidence=grounding_score,
+            grounding_score=grounding_score,
+            low_grounding=low_grounding,
+            needs_correction=needs_correction,
+            simulation_id=result.get("simulation_id", ""),
+            user_id=user_id,
+            elapsed_ms=elapsed_ms,
+            metadata={
                 **graph_metadata,
                 "simulation_id": result.get("simulation_id", ""),
                 "simulation_graph": simulation_graph,
@@ -243,18 +283,18 @@ async def run_simulation(
                 "grounding_score": grounding_score,
                 "feasibility_verdict": result.get("feasibility_verdict", "unknown"),
             },
-            intent              = result.get("intent"),
-            context             = result.get("context"),
-            graph               = graph_envelope,
-            graph_id            = graph_envelope["graph_id"],
-            graph_type          = graph_envelope["graph_type"],
-            timestamp           = graph_envelope["timestamp"],
-            nodes               = graph_envelope["nodes"],
-            edges               = graph_envelope["edges"],
-            execution_order     = graph_envelope["execution_order"],
-            annotations         = graph_envelope["annotations"],
-            state               = graph_envelope["state"],
-            intent_ir           = result.get("intent_ir"),
+            intent=result.get("intent"),
+            context=result.get("context"),
+            graph=graph_envelope,
+            graph_id=graph_envelope["graph_id"],
+            graph_type=graph_envelope["graph_type"],
+            timestamp=graph_envelope["timestamp"],
+            nodes=graph_envelope["nodes"],
+            edges=graph_envelope["edges"],
+            execution_order=graph_envelope["execution_order"],
+            annotations=graph_envelope["annotations"],
+            state=graph_envelope["state"],
+            intent_ir=result.get("intent_ir"),
         )
     except Exception as e:
         # Bare re-raise gave the client an unstructured "Internal Server Error"
@@ -279,7 +319,7 @@ async def run_simulation(
 @router.post("/compare", response_model=CompareResponseGateway)
 @idempotent("predict.compare_sim_vs_query")
 async def compare_sim_vs_query(
-    payload:      PlanResponse,
+    payload: PlanResponse,
     mongo_client=Depends(get_mongo_client),
     # /compare does BOTH halves: it simulates AND it executes the workload for real
     # (execute_cognitive_workload in ExecutionMode.EXECUTE, live agents, real side
@@ -319,7 +359,10 @@ async def compare_sim_vs_query(
     record_request_audit(user_id, "compare", "compare_requested", {"question": payload.question[:200]})
 
     if not payload.intent_ir:
-        raise HTTPException(status_code=400, detail="Missing intent_ir — /compare requires a prior /plan?target=compare call")
+        raise HTTPException(
+            status_code=400,
+            detail="Missing intent_ir — /compare requires a prior /plan?target=compare call",
+        )
     try:
         ir = decode_and_validate_ir(payload.intent_ir)
     except IntentIRRejected as e:
@@ -328,12 +371,30 @@ async def compare_sim_vs_query(
     _require_target(ir.run_id, payload.target, "compare")
 
     if lemon:
-        lemon.start_trace(name="api.compare", trace_id=ir.run_id, mode=ExecutionMode.SIMULATION.value, user=user_id, run_id=ir.run_id)
+        lemon.start_trace(
+            name="api.compare",
+            trace_id=ir.run_id,
+            mode=ExecutionMode.SIMULATION.value,
+            user=user_id,
+            run_id=ir.run_id,
+        )
         lemon.counter("api.compare.request")
 
     pipeline_start = time.monotonic()
     try:
-        result = await asyncio.wait_for(_compare_pipeline(ir, payload, sim_runtime, cog_runtime, runtime, mongo_client, lemon, user_id), timeout=COMPARE_TOTAL_TIMEOUT)
+        result = await asyncio.wait_for(
+            _compare_pipeline(
+                ir,
+                payload,
+                sim_runtime,
+                cog_runtime,
+                runtime,
+                mongo_client,
+                lemon,
+                user_id,
+            ),
+            timeout=COMPARE_TOTAL_TIMEOUT,
+        )
         # _compare_pipeline already returns a well-formed CompareResponseGateway
         # (status/loss/details) on success — this was previously discarded,
         # so the route fell through and implicitly returned None, which
@@ -343,7 +404,12 @@ async def compare_sim_vs_query(
         return result
     except asyncio.TimeoutError:
         elapsed = time.monotonic() - pipeline_start
-        logger.error("run=%r [compare] TOTAL timeout after %.1fs (limit %.1fs)", ir.run_id, elapsed, COMPARE_TOTAL_TIMEOUT)
+        logger.error(
+            "run=%r [compare] TOTAL timeout after %.1fs (limit %.1fs)",
+            ir.run_id,
+            elapsed,
+            COMPARE_TOTAL_TIMEOUT,
+        )
         if lemon:
             lemon.counter("api.compare.total_timeout")
         return JSONResponse(
@@ -362,7 +428,8 @@ async def compare_sim_vs_query(
         return JSONResponse(
             status_code=500,
             content={
-                "error": "Comparison failed", "detail": "An internal error occurred during comparison",
+                "error": "Comparison failed",
+                "detail": "An internal error occurred during comparison",
                 "run_id": ir.run_id,
             },
         )
@@ -371,9 +438,11 @@ async def compare_sim_vs_query(
 async def _compare_pipeline(ir, payload, sim_runtime, cog_runtime, runtime, mongo_client, lemon, user_id):
     """Inner compare pipeline — simulation + execution + diff."""
     from src.monkey_brain.kernel.plan.goals.run_store import get_run_store
+
     stored_graph = get_run_store().get_graph(ir.run_id)
     if stored_graph is None:
         from src.monkey_brain.persistence.plan_store import get_plan_store
+
         stored_graph = get_plan_store().load_local(ir.run_id)
     if not (stored_graph and stored_graph.get("nodes")):
         if lemon:
@@ -381,17 +450,20 @@ async def _compare_pipeline(ir, payload, sim_runtime, cog_runtime, runtime, mong
         raise ValueError("Missing planner execution graph — compare requires the ExecutionGraph stored by run_id")
 
     from src.monkey_brain.api.routes.execute import _graph_to_plan_steps
+
     plan_steps = _graph_to_plan_steps(stored_graph)
 
     logger.info("run=%r [compare] starting simulation + execution in parallel...", ir.run_id)
     pipeline_start = time.monotonic()
 
     sim_task = asyncio.ensure_future(sim_runtime.run(ir, mongo_client))
-    exec_task = asyncio.ensure_future(cog_runtime.execute_cognitive_workload(
-        cog_runtime.build_execution_runtime(ir, ExecutionMode.EXECUTE, user_id=user_id),
-        mongo_client,
-        plan_steps=plan_steps,
-    ))
+    exec_task = asyncio.ensure_future(
+        cog_runtime.execute_cognitive_workload(
+            cog_runtime.build_execution_runtime(ir, ExecutionMode.EXECUTE, user_id=user_id),
+            mongo_client,
+            plan_steps=plan_steps,
+        )
+    )
 
     sim_result, exec_result = await asyncio.gather(sim_task, exec_task)
 
@@ -433,7 +505,12 @@ async def _compare_pipeline(ir, payload, sim_runtime, cog_runtime, runtime, mong
     result = await runtime.compare(sim_result.get("simulation_graph", {}), execution_result)
     result = result.to_dict() if hasattr(result, "to_dict") else result
     total_elapsed = time.monotonic() - pipeline_start
-    logger.info("run=%r [compare] done in %.1fs (sim+exec: %.1fs)", ir.run_id, total_elapsed, pipeline_elapsed)
+    logger.info(
+        "run=%r [compare] done in %.1fs (sim+exec: %.1fs)",
+        ir.run_id,
+        total_elapsed,
+        pipeline_elapsed,
+    )
     result = result.to_dict() if hasattr(result, "to_dict") else result
     logger.info("run=%r [compare] question=%r", ir.run_id, payload.question[:60])
 
@@ -475,6 +552,7 @@ async def learn(
     # Governance check
     try:
         from src.monkey_brain.kernel.governance import get_governance_engine
+
         gov = get_governance_engine()
         gov_result = await gov.evaluate(user_id, "learn", {"batch_size": batch_size, "epochs": epochs})
         if not gov_result.get("allowed"):
@@ -491,9 +569,13 @@ async def learn(
     # Audit
     try:
         from src.monkey_brain.kernel.audit import get_audit_log
+
         get_audit_log().record(
-            runtime_id=user_id, event_type="learn", action="learn_requested",
-            actor=user_id, details={"batch_size": batch_size, "epochs": epochs},
+            runtime_id=user_id,
+            event_type="learn",
+            action="learn_requested",
+            actor=user_id,
+            details={"batch_size": batch_size, "epochs": epochs},
         )
     except Exception as exc:
         logger.warning("Audit recording failed for learn request: %s", exc)
@@ -578,7 +660,11 @@ async def learn(
 
                 # Wall-clock timeout check
                 if time.monotonic() - t0 > LEARN_TIMEOUT_SECONDS:
-                    logger.warning("Learn loop timed out after %.1fs at iteration %d", LEARN_TIMEOUT_SECONDS, iteration)
+                    logger.warning(
+                        "Learn loop timed out after %.1fs at iteration %d",
+                        LEARN_TIMEOUT_SECONDS,
+                        iteration,
+                    )
                     converged = True
                     break
 
@@ -622,16 +708,14 @@ async def learn(
                             continue
                         entry = node_states.get(str(node.get("id", "")), {})
                         status = str(
-                            node.get("state")
-                            or (entry.get("status") if isinstance(entry, dict) else "")
-                            or ""
+                            node.get("state") or (entry.get("status") if isinstance(entry, dict) else "") or ""
                         )
                         if status == "complete":
                             agent_reward = 1.0
                         elif status in ("failed", "unimplemented"):
                             agent_reward = 0.0
                         else:
-                            agent_reward = run_reward   # no per-node outcome — use run quality
+                            agent_reward = run_reward  # no per-node outcome — use run quality
                         gm.q_table.update_with_replay(agent, agent_reward)
 
                     gm._last_loss = effective_actor_loss
@@ -658,9 +742,9 @@ async def learn(
                     "epoch": epoch,
                     "iteration": iteration,
                     "perplexity": round(perplexity, 4),
-                    "topology_loss": round(topo_loss, 4) if topo_loss is not None else None,
-                    "topology_loss_cmp": round(topology_loss, 4) if topology_loss is not None else None,
-                    "epistemic_loss_cmp": round(epistemic_loss_cmp, 4) if epistemic_loss_cmp is not None else None,
+                    "topology_loss": (round(topo_loss, 4) if topo_loss is not None else None),
+                    "topology_loss_cmp": (round(topology_loss, 4) if topology_loss is not None else None),
+                    "epistemic_loss_cmp": (round(epistemic_loss_cmp, 4) if epistemic_loss_cmp is not None else None),
                     "world_loss": round(effective_world_loss, 4),
                     "policy_loss": round(effective_policy_loss, 4),
                     "actor_loss": round(effective_actor_loss, 4),
@@ -715,11 +799,18 @@ async def learn(
         # Audit: record learning completion
         try:
             from src.monkey_brain.kernel.audit import get_audit_log
+
             get_audit_log().record(
-                runtime_id=user_id, event_type="learn", action="learn_completed",
-                actor=user_id, details={"iterations": len(results), "converged": converged,
-                                         "final_perplexity": results[-1]["perplexity"] if results else 0,
-                                         "elapsed_ms": round(elapsed_ms, 2)},
+                runtime_id=user_id,
+                event_type="learn",
+                action="learn_completed",
+                actor=user_id,
+                details={
+                    "iterations": len(results),
+                    "converged": converged,
+                    "final_perplexity": results[-1]["perplexity"] if results else 0,
+                    "elapsed_ms": round(elapsed_ms, 2),
+                },
             )
         except Exception as exc:
             logger.warning("Audit recording failed for learn completion: %s", exc)
@@ -753,7 +844,7 @@ async def learn(
         # every other runtime endpoint reports failure with a non-200 status.
         logger.error("Learning loop failed: %s", e)
         # Save Q-table on exception to preserve partial learning progress.
-        if 'gm' in locals():
+        if "gm" in locals():
             for _save_attempt in range(3):
                 try:
                     gm.save()
@@ -762,7 +853,11 @@ async def learn(
                     if _save_attempt == 2:
                         logger.error("Failed to save Q-table after 3 attempts: %s", save_exc)
                     else:
-                        logger.warning("Q-table save attempt %d failed, retrying: %s", _save_attempt + 1, save_exc)
+                        logger.warning(
+                            "Q-table save attempt %d failed, retrying: %s",
+                            _save_attempt + 1,
+                            save_exc,
+                        )
                         time.sleep(0.1 * (_save_attempt + 1))
         if lemon:
             lemon.counter("api.learn.error")
@@ -780,11 +875,11 @@ async def learn(
 
 @router.get("/transitions", response_model=TransitionValuesResponse)
 async def list_transition_values(
-    action:       str | None = None,
+    action: str | None = None,
     # `limit` is passed straight to a Mongo .limit(): unbounded, it let a caller
     # ask for the entire transitions collection in one request, and a negative
     # value reaches pymongo with its own (quite different) meaning. Bound it.
-    limit:        int = Query(default=100, ge=1, le=1000),
+    limit: int = Query(default=100, ge=1, le=1000),
     mongo_client=Depends(get_mongo_client),
     user_id: str = Depends(require_permission("perm-view-transitions")),
 ):
@@ -797,7 +892,7 @@ async def list_transition_values(
 @router.post("/test-bellman-cycle", response_model=BellmanCycleResponse)
 @idempotent("predict.test_bellman_cycle")
 async def test_bellman_cycle(
-    question:     str = "How many machines are in the system?",
+    question: str = "How many machines are in the system?",
     mongo_client=Depends(get_mongo_client),
     user_id: str = Depends(require_permission("perm-execute-simulate")),
 ):
@@ -808,6 +903,7 @@ async def test_bellman_cycle(
     # Input validation — this reaches the simulator and a Mongo query.
     try:
         from src.monkey_brain.kernel.security import sanitize_input
+
         question = sanitize_input(question)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"invalid_input: {e}")
@@ -827,12 +923,18 @@ async def test_bellman_cycle(
     sim_result = await simulate(normalized, context=ctx)
     predicted_state = sim_result.get("state_after") or sim_result.get("state_before") or {}
 
-    query_answer  = await fetch_query_answer(question, mongo_client)
-    loss_result   = compare_predicted_vs_actual(predicted_state, query_answer, question)
+    query_answer = await fetch_query_answer(question, mongo_client)
+    loss_result = compare_predicted_vs_actual(predicted_state, query_answer, question)
     workload_name = resolve_workload_name(sim_result, goal_obj)
 
     transition_stored = await store_bellman_transition(
-        db, sim_result, question, predicted_state, query_answer, loss_result, workload_name
+        db,
+        sim_result,
+        question,
+        predicted_state,
+        query_answer,
+        loss_result,
+        workload_name,
     )
 
     bellman_values: dict[str, Any] = {}
@@ -846,17 +948,17 @@ async def test_bellman_cycle(
         logger.warning("[test-bellman-cycle] get_transition_values failed: %s", e)
 
     return BellmanCycleResponse(
-        question             = question,
-        workload_name        = workload_name,
-        simulate             = {
-            "simulation_id":      sim_result.get("simulation_id"),
-            "grounding_score":    sim_result.get("grounding_score"),
+        question=question,
+        workload_name=workload_name,
+        simulate={
+            "simulation_id": sim_result.get("simulation_id"),
+            "grounding_score": sim_result.get("grounding_score"),
             "feasibility_verdict": sim_result.get("feasibility_verdict"),
-            "layers_activated":   sim_result.get("layers_activated"),
-            "entity_count":       len(predicted_state.get("entities", {})),
+            "layers_activated": sim_result.get("layers_activated"),
+            "entity_count": len(predicted_state.get("entities", {})),
         },
-        query_answer_preview = query_answer[:500],
-        loss                 = loss_result,
-        transition           = {"stored": transition_stored, "workload_name": workload_name},
-        bellman_values       = bellman_values,
+        query_answer_preview=query_answer[:500],
+        loss=loss_result,
+        transition={"stored": transition_stored, "workload_name": workload_name},
+        bellman_values=bellman_values,
     )

@@ -9,6 +9,7 @@ Replace via register() in EmbeddingRegistry:
     registry.register("document", E5Provider())    # drop-in for SBERTEmbedder
     registry.register("image", CLIPImageEmbedder()) # pixel-level encoding
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,7 +17,11 @@ from typing import Any
 
 import numpy as np
 
-from src.monkey_brain.kernel.plan.embedding._utils import EMBEDDING_DIM, _l2, _bow_project
+from src.monkey_brain.kernel.plan.embedding._utils import (
+    EMBEDDING_DIM,
+    _l2,
+    _bow_project,
+)
 from src.monkey_brain.kernel.plan.embedding.provider import Embedding, EmbeddingEmbedder
 
 logger = logging.getLogger(__name__)
@@ -72,22 +77,21 @@ class SBERTEmbedder(EmbeddingEmbedder):
 
     def _load(self) -> None:
         from sentence_transformers import SentenceTransformer
+
         self._model = SentenceTransformer("all-MiniLM-L6-v2")
-        d = (self._model.get_embedding_dimension()
-             if hasattr(self._model, "get_embedding_dimension")
-             else self._model.get_sentence_embedding_dimension())
-        self._proj = np.random.default_rng(2024).normal(
-            0, 1.0 / np.sqrt(d), (EMBEDDING_DIM, d)
-        ).astype(np.float32)
+        d = (
+            self._model.get_embedding_dimension()
+            if hasattr(self._model, "get_embedding_dimension")
+            else self._model.get_sentence_embedding_dimension()
+        )
+        self._proj = np.random.default_rng(2024).normal(0, 1.0 / np.sqrt(d), (EMBEDDING_DIM, d)).astype(np.float32)
 
     def embed(self, item: Any) -> Embedding:
         content = str(getattr(item, "content", item) or "")
         try:
             if self._model is None:
                 self._load()
-            raw = self._model.encode(
-                content[:2048], convert_to_numpy=True, show_progress_bar=False
-            )
+            raw = self._model.encode(content[:2048], convert_to_numpy=True, show_progress_bar=False)
             meta = np.zeros(EMBEDDING_DIM, dtype=np.float32)
             meta[0] = float(getattr(item, "provenance", 0.5))
             meta[1] = float(getattr(item, "freshness", 0.5))
@@ -135,11 +139,10 @@ class CLIPTextEmbedder(EmbeddingEmbedder):
 
     def _load(self) -> None:
         from transformers import CLIPModel, CLIPTokenizer
+
         self._model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         self._tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-        self._proj = np.random.default_rng(2025).normal(
-            0, 1.0 / np.sqrt(512), (EMBEDDING_DIM, 512)
-        ).astype(np.float32)
+        self._proj = np.random.default_rng(2025).normal(0, 1.0 / np.sqrt(512), (EMBEDDING_DIM, 512)).astype(np.float32)
 
     def embed(self, item: Any) -> Embedding:
         content = str(getattr(item, "content", item) or "")
@@ -147,9 +150,13 @@ class CLIPTextEmbedder(EmbeddingEmbedder):
             if self._model is None:
                 self._load()
             import torch
+
             inputs = self._tokenizer(
-                content[:200], return_tensors="pt", truncation=True,
-                max_length=77, padding=True,
+                content[:200],
+                return_tensors="pt",
+                truncation=True,
+                max_length=77,
+                padding=True,
             )
             with torch.no_grad():
                 emb = self._model.get_text_features(**inputs)[0].cpu().numpy()

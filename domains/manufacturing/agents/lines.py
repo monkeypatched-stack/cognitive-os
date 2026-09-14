@@ -42,7 +42,9 @@ async def line_catalog() -> dict[str, dict[str, Any]]:
     for collection in ("instruments", "pharmaceutical_equipment", "workstations"):
         try:
             for line_id in await _data.distinct(collection, "line_id"):
-                catalog.setdefault(str(line_id), {"line_id": str(line_id), "aliases": set()})
+                catalog.setdefault(
+                    str(line_id), {"line_id": str(line_id), "aliases": set()}
+                )
         except _data.CollectionAbsent:
             continue
 
@@ -51,7 +53,7 @@ async def line_catalog() -> dict[str, dict[str, Any]]:
             if token and token not in _STOPWORDS:
                 entry["aliases"].add(token)
                 if token.isdigit():
-                    entry["aliases"].add(str(int(token)))   # "001" also answers to "1"
+                    entry["aliases"].add(str(int(token)))  # "001" also answers to "1"
 
     # Drop any alias shared by more than one line — including the numeric ones. Both lines
     # here are -001, so "line 1" is genuinely ambiguous and must be reported as such rather
@@ -83,8 +85,12 @@ async def resolve_line(question: str) -> dict[str, Any]:
     sources = [_data.cite("instruments", len(known))]
 
     if not known:
-        return {"success": False, "error": "no production lines exist in the data",
-                "known_lines": [], "sources": []}
+        return {
+            "success": False,
+            "error": "no production lines exist in the data",
+            "known_lines": [],
+            "sources": [],
+        }
 
     text = question.lower()
     words = [w for w in re.split(r"\W+", text) if w]
@@ -98,17 +104,23 @@ async def resolve_line(question: str) -> dict[str, Any]:
         for alias in entry["aliases"]:
             # "tablet" resolves LINE-TAB-001 and "capsule" resolves LINE-CAP-001 by prefix —
             # the id abbreviates the word. Guarded at 3 chars so short tokens can't run wild.
-            if any(w == alias or (len(alias) >= 3 and w.startswith(alias)) for w in words):
+            if any(
+                w == alias or (len(alias) >= 3 and w.startswith(alias)) for w in words
+            ):
                 matched.add(line_id)
                 break
 
     # "line 3" must match a line whose own number is 3, or nothing at all. Never a line that
     # merely contains a 3 somewhere. This is the exact point at which the fabrication started.
     if numbers:
-        by_number = {lid for lid, e in catalog.items()
-                     if numbers & {a for a in e["aliases"] if a.isdigit()}}
-        shared_number = any(numbers & {a for a in e["shared"] if a.isdigit()}
-                            for e in catalog.values())
+        by_number = {
+            lid
+            for lid, e in catalog.items()
+            if numbers & {a for a in e["aliases"] if a.isdigit()}
+        }
+        shared_number = any(
+            numbers & {a for a in e["shared"] if a.isdigit()} for e in catalog.values()
+        )
         if by_number:
             matched = (matched & by_number) or by_number
         elif shared_number:
@@ -120,14 +132,19 @@ async def resolve_line(question: str) -> dict[str, Any]:
 
     if len(matched) == 1:
         line_id = matched.pop()
-        return {"success": True, "line_id": line_id, "known_lines": known, "sources": sources}
+        return {
+            "success": True,
+            "line_id": line_id,
+            "known_lines": known,
+            "sources": sources,
+        }
 
     if not matched:
         asked = f"line {sorted(numbers)[0]}" if numbers else "that line"
         return {
             "success": False,
             "error": f"no line matching {asked} exists — the lines in the data are: "
-                     f"{', '.join(known)}",
+            f"{', '.join(known)}",
             "known_lines": known,
             "sources": sources,
         }
@@ -146,8 +163,10 @@ class LineResolverAgent(DataBackedAgentMixin, BaseDDDAgent):
     """Resolves a spoken line reference to a line_id that exists in the data."""
 
     agent_type = "line_resolver"
-    description = ("Resolves a natural-language production line reference (e.g. 'the tablet "
-                   "line', 'line 1') to a canonical line_id, or reports that no such line exists")
+    description = (
+        "Resolves a natural-language production line reference (e.g. 'the tablet "
+        "line', 'line 1') to a canonical line_id, or reports that no such line exists"
+    )
     ddd_layer = "entity"
     readonly = True
 

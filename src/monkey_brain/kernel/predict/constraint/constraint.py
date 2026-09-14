@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from src.monkey_brain.kernel.predict.constraint.base import ISolver, SolverClass, SolverResult
+from src.monkey_brain.kernel.predict.constraint.base import (
+    ISolver,
+    SolverClass,
+    SolverResult,
+)
 
 
 class ConstraintSolver(ISolver):
     """Constraint satisfaction solver using backtracking."""
+
     name = "constraint"
     solver_class = SolverClass.CONSTRAINT
 
@@ -21,7 +26,8 @@ class ConstraintSolver(ISolver):
         feasible = self._backtrack(variables, constraints, assignment)
 
         return SolverResult(
-            solver_name=self.name, solver_class=self.solver_class,
+            solver_name=self.name,
+            solver_class=self.solver_class,
             solution={"feasible": feasible, "assignments": dict(assignment)},
             confidence=0.9 if feasible else 0.8,
             proof=f"Constraint solver: {'feasible' if feasible else 'infeasible'} with {len(constraints)} constraints",
@@ -34,7 +40,7 @@ class ConstraintSolver(ISolver):
         for var, domain in variables.items():
             if var in assignment:
                 continue
-            for value in (domain if isinstance(domain, list) else [domain]):
+            for value in domain if isinstance(domain, list) else [domain]:
                 assignment[var] = value
                 if self._backtrack(variables, constraints, assignment):
                     return True

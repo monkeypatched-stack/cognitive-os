@@ -2,6 +2,7 @@
 root app callback in __init__.py) behind a session stored at
 ~/.monkeybrain/session.json.
 """
+
 from __future__ import annotations
 
 import getpass
@@ -16,7 +17,11 @@ from repl.theme import print_error, print_success
 def _fetch_identity(base: str, access_token: str) -> dict:
     """GET /api/v1/me with the given token. Returns {} on any failure."""
     try:
-        r = httpx.get(f"{base}/api/v1/me", headers={"Authorization": f"Bearer {access_token}"}, timeout=10)
+        r = httpx.get(
+            f"{base}/api/v1/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
         return r.json() if r.status_code == 200 else {}
     except Exception:
         return {}
@@ -25,7 +30,12 @@ def _fetch_identity(base: str, access_token: str) -> dict:
 def login_cmd(
     email: str = typer.Option("", "--email", "-e", help="Email address (prompted if omitted and no --api-key)"),
     password: str = typer.Option("", "--password", "-p", help="Password (prompted if omitted and no --api-key)"),
-    api_key: str = typer.Option("", "--api-key", "-k", help="Log in directly with a previously issued API key (access token), skipping email/password"),
+    api_key: str = typer.Option(
+        "",
+        "--api-key",
+        "-k",
+        help="Log in directly with a previously issued API key (access token), skipping email/password",
+    ),
     auth_url: str = typer.Option("", "--auth-url", help="Auth service URL (or AUTH_SERVICE_URL)"),
     json_output: bool = typer.Option(False, "--json", help="Raw JSON output"),
 ):
@@ -37,9 +47,16 @@ def login_cmd(
         if not identity:
             print_error("Invalid or expired API key.")
             raise typer.Exit(1)
-        _save_session({"access_token": api_key, "refresh_token": "", "email": identity.get("email", "")})
+        _save_session(
+            {
+                "access_token": api_key,
+                "refresh_token": "",
+                "email": identity.get("email", ""),
+            }
+        )
         if json_output:
             import json as _json
+
             typer.echo(_json.dumps(identity, indent=2))
         else:
             print_success(f"Logged in as {identity.get('email', '?')} (via API key)")
@@ -51,7 +68,11 @@ def login_cmd(
         password = getpass.getpass("  Password: ")
 
     try:
-        r = httpx.post(f"{base}/api/v1/auth/login", json={"email": email, "password": password}, timeout=15)
+        r = httpx.post(
+            f"{base}/api/v1/auth/login",
+            json={"email": email, "password": password},
+            timeout=15,
+        )
     except httpx.ConnectError:
         print_error(f"Cannot connect to auth service at {base}. Is it running?")
         raise typer.Exit(1)
@@ -79,14 +100,17 @@ def login_cmd(
         print_error(f"Login succeeded but no access_token was returned: {data}")
         raise typer.Exit(1)
 
-    _save_session({
-        "access_token": access_token,
-        "refresh_token": data.get("refresh_token", ""),
-        "email": email,
-    })
+    _save_session(
+        {
+            "access_token": access_token,
+            "refresh_token": data.get("refresh_token", ""),
+            "email": email,
+        }
+    )
 
     if json_output:
         import json as _json
+
         typer.echo(_json.dumps(data, indent=2))
     else:
         print_success(f"Logged in as {email}")
@@ -129,6 +153,7 @@ def api_key_cmd(
 
     if json_output:
         import json as _json
+
         typer.echo(_json.dumps({"api_key": token, "email": session.get("email", "")}, indent=2))
     else:
         typer.echo(token)

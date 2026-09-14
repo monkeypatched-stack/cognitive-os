@@ -16,6 +16,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedMachinePartResponse)
 async def list_parts(
     page: int = Query(1, ge=1),
@@ -30,6 +31,7 @@ async def list_parts(
 
 
 # ── Get by machine ────────────────────────────────────────────────────────────
+
 
 @router.get("/by-machine/{machine_id}", response_model=list[MachinePartResponse])
 async def list_parts_by_machine(
@@ -49,11 +51,15 @@ async def list_parts_by_equipment(
     print(equipment_id)
     return await crud.get_by_equipment(db, equipment_id)
 
+
 # ── Get low stock ─────────────────────────────────────────────────────────────
+
 
 @router.get("/low-stock", response_model=list[MachinePartResponse])
 async def list_low_stock(
-    machine: Optional[str] = Query(None, description="Optionally scope to a specific machine"),
+    machine: Optional[str] = Query(
+        None, description="Optionally scope to a specific machine"
+    ),
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
@@ -61,6 +67,7 @@ async def list_low_stock(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{part_id}", response_model=MachinePartResponse)
 async def get_part(
@@ -79,7 +86,10 @@ async def get_part(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=MachinePartResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=MachinePartResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_part(
     data: MachinePartCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -94,6 +104,7 @@ async def create_part(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{part_id}", response_model=MachinePartResponse)
 async def update_part(
@@ -113,6 +124,7 @@ async def update_part(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 @router.delete("/{part_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_part(
     part_id: str,
@@ -124,7 +136,6 @@ async def delete_part(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"MachinePart '{part_id}' not found",
         )
-    
 
 
 # TODO_ENDPOINT: GET /api/v1/parts/{part_id}/history — order and usage history for a specific part

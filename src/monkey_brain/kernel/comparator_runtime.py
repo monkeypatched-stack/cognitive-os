@@ -15,6 +15,7 @@ Key principle:
     Learner OPTIMIZES.
     These are different responsibilities.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,6 +43,7 @@ class ComparatorOutcome(str, Enum):
     docstring for the exact, documented precedence rules. Missing
     evidence never reads as SUCCESS (INCONCLUSIVE is the only outcome
     when actual state can't be established)."""
+
     SUCCESS = "success"
     PARTIAL_SUCCESS = "partial_success"
     FAILURE = "failure"
@@ -64,11 +66,11 @@ class ComparisonResult:
     confidence_diff: float = 0.0
     comparison_score: float = 0.0
     # Hierarchical loss structure (explicit loss calculation contract)
-    topology_loss: float = 0.0    # structural correctness of world representation
-    epistemic_loss: float = 0.0   # correctness of knowledge about the world
-    world_loss: float = 0.0       # topology_loss + epistemic_loss (computed)
-    policy_loss: float = 0.0      # action quality (Bellman TD, reward prediction)
-    actor_loss: float = 0.0       # world_loss + policy_loss (computed)
+    topology_loss: float = 0.0  # structural correctness of world representation
+    epistemic_loss: float = 0.0  # correctness of knowledge about the world
+    world_loss: float = 0.0  # topology_loss + epistemic_loss (computed)
+    policy_loss: float = 0.0  # action quality (Bellman TD, reward prediction)
+    actor_loss: float = 0.0  # world_loss + policy_loss (computed)
     # Comparator-hardening pass additions -- all additive, no existing
     # field's meaning or value changes.
     node_diffs: dict[str, Any] = field(default_factory=dict)
@@ -197,7 +199,11 @@ class ComparatorRuntime:
         """Compare two completed artifacts without side effects."""
         simulation_graph = self._normalize_graph(simulation_graph)
         execution_result = self._normalize_graph(execution_result)
-        if simulation_graph.get("graph_id") and execution_result.get("graph_id") and simulation_graph["graph_id"] != execution_result["graph_id"]:
+        if (
+            simulation_graph.get("graph_id")
+            and execution_result.get("graph_id")
+            and simulation_graph["graph_id"] != execution_result["graph_id"]
+        ):
             logger.warning(
                 "ComparatorRuntime received mismatched graph_ids: %s != %s",
                 simulation_graph["graph_id"],
@@ -265,10 +271,10 @@ class ComparatorRuntime:
         #   - incorrect graph topology
         #   - missing nodes/edges
         #   - incorrect reachability
-        topology_loss = round(1.0 - (
-            (graph_diff["score"] * 0.5)
-            + (execution_order_diff["score"] * 0.5)
-        ), 4)
+        topology_loss = round(
+            1.0 - ((graph_diff["score"] * 0.5) + (execution_order_diff["score"] * 0.5)),
+            4,
+        )
 
         # epistemic_loss: correctness of knowledge about the world
         #   - belief error (predicted vs observed state)
@@ -281,12 +287,16 @@ class ComparatorRuntime:
         # term contributed 0 instead of its 0.2 weight), fabricating loss on flawless runs and
         # flooring world_loss at 0.2 (which then depressed /learn's reward). Weights sum to 1.0,
         # so a perfect match is now exactly 0.0.
-        epistemic_loss = round(1.0 - (
-            (state_diff["score"] * 0.4)
-            + (operation_diff["score"] * 0.2)
-            + (event_diff["score"] * 0.2)
-            + ((1.0 - confidence_diff) * 0.2)
-        ), 4)
+        epistemic_loss = round(
+            1.0
+            - (
+                (state_diff["score"] * 0.4)
+                + (operation_diff["score"] * 0.2)
+                + (event_diff["score"] * 0.2)
+                + ((1.0 - confidence_diff) * 0.2)
+            ),
+            4,
+        )
 
         # world_loss = topology_loss + epistemic_loss
         # The world model is responsible for representing reality correctly.
@@ -306,18 +316,18 @@ class ComparatorRuntime:
 
         # Extract provenance information
         execution_id = (
-            simulation_graph.get("graph_id") or 
-            execution_result.get("graph_id") or 
-            simulation_graph.get("metadata", {}).get("run_id") or 
-            execution_result.get("metadata", {}).get("run_id") or 
-            ""
+            simulation_graph.get("graph_id")
+            or execution_result.get("graph_id")
+            or simulation_graph.get("metadata", {}).get("run_id")
+            or execution_result.get("metadata", {}).get("run_id")
+            or ""
         )
         timestamp = (
-            simulation_graph.get("timestamp") or 
-            execution_result.get("timestamp") or 
-            simulation_graph.get("metadata", {}).get("timestamp") or 
-            execution_result.get("metadata", {}).get("timestamp") or 
-            0.0
+            simulation_graph.get("timestamp")
+            or execution_result.get("timestamp")
+            or simulation_graph.get("metadata", {}).get("timestamp")
+            or execution_result.get("metadata", {}).get("timestamp")
+            or 0.0
         )
 
         # Compute node-level diffs and outcome classification
@@ -352,7 +362,10 @@ class ComparatorRuntime:
             if execution_id:
                 if execution_id not in self._comparisons:
                     self._comparisons_order.append(execution_id)
-                self._comparisons[execution_id] = {"result": result_dict, "at": self.last_comparison_at}
+                self._comparisons[execution_id] = {
+                    "result": result_dict,
+                    "at": self.last_comparison_at,
+                }
                 while len(self._comparisons_order) > self._MAX_SCOPED_COMPARISONS:
                     evict = self._comparisons_order.pop(0)
                     self._comparisons.pop(evict, None)
@@ -406,7 +419,9 @@ class ComparatorRuntime:
         metadata = dict(source.get("metadata", {}))
         normalized["nodes"] = [self._normalize_node(node) for node in normalized.get("nodes", [])]
         normalized["edges"] = [self._normalize_edge(edge) for edge in normalized.get("edges", [])]
-        execution_order = self._normalize_execution_order(normalized.get("execution_order", metadata.get("execution_order", [])))
+        execution_order = self._normalize_execution_order(
+            normalized.get("execution_order", metadata.get("execution_order", []))
+        )
         normalized["execution_order"] = execution_order
         metadata["execution_order"] = execution_order
 
@@ -459,7 +474,13 @@ class ComparatorRuntime:
         denom = max(abs(expected), abs(observed), 1.0)
         return round(min(abs(expected - observed) / denom, 1.0), 4)
 
-    def _set_similarity_score(self, left: set[Any], right: set[Any], left_edges: set[Any] | None = None, right_edges: set[Any] | None = None) -> float:
+    def _set_similarity_score(
+        self,
+        left: set[Any],
+        right: set[Any],
+        left_edges: set[Any] | None = None,
+        right_edges: set[Any] | None = None,
+    ) -> float:
         if left_edges is not None and right_edges is not None:
             left = set(left) | set(left_edges)
             right = set(right) | set(right_edges)
@@ -565,7 +586,9 @@ class ComparatorRuntime:
             return json.dumps(value, sort_keys=True, default=str)
         return str(value)
 
-    def _compare_node_outcomes(self, simulation_graph: dict[str, Any], execution_result: dict[str, Any]) -> dict[str, Any]:
+    def _compare_node_outcomes(
+        self, simulation_graph: dict[str, Any], execution_result: dict[str, Any]
+    ) -> dict[str, Any]:
         """Compare per-node expected vs actual success.
 
         Returns a dict mapping node_id -> {
@@ -596,7 +619,7 @@ class ComparatorRuntime:
 
         sim_nodes = simulation_graph.get("nodes", [])
         exec_nodes = execution_result.get("nodes", [])
-        
+
         # Build node success maps
         sim_node_map = {}
         for node in sim_nodes:
@@ -619,7 +642,7 @@ class ComparatorRuntime:
                     status = node.get("status", "").lower()
                     expected_success = status in ("completed", "success", "succeeded")
                 sim_node_map[str(node_id)] = expected_success
-        
+
         exec_node_map = {}
         for node in exec_nodes:
             node_id = node.get("id") or node.get("name") or node.get("label")
@@ -631,30 +654,35 @@ class ComparatorRuntime:
                     status = node.get("status", "").lower()
                     actual_success = status in ("completed", "success", "succeeded")
                 exec_node_map[str(node_id)] = actual_success
-        
+
         # Build comparison for all nodes present in either graph
         all_node_ids = set(sim_node_map.keys()) | set(exec_node_map.keys())
-        
+
         for node_id in all_node_ids:
             expected_success = sim_node_map.get(node_id, None)
             actual_success = exec_node_map.get(node_id, None)
-            
+
             # Match is True only when both sides have the same boolean value
             # If either side is None (node missing), match is False
             if expected_success is None or actual_success is None:
                 match = False
             else:
                 match = expected_success == actual_success
-            
+
             node_diffs[node_id] = {
                 "expected_success": expected_success,
                 "actual_success": actual_success,
-                "match": match
+                "match": match,
             }
-        
+
         return node_diffs
 
-    def _classify_outcome(self, node_diffs: dict[str, Any], simulation_graph: dict[str, Any], execution_result: dict[str, Any]) -> str:
+    def _classify_outcome(
+        self,
+        node_diffs: dict[str, Any],
+        simulation_graph: dict[str, Any],
+        execution_result: dict[str, Any],
+    ) -> str:
         """Classify the overall comparison outcome based on node-level diffs.
 
         Precedence rules (first match wins):
@@ -689,15 +717,15 @@ class ComparatorRuntime:
 
         if not node_diffs:
             return ComparatorOutcome.NO_CHANGE.value
-        
+
         # Extract actual success values from node_diffs
         actual_successes = [diff.get("actual_success") for diff in node_diffs.values()]
         expected_successes = [diff.get("expected_success") for diff in node_diffs.values()]
-        
+
         # Filter out None values (nodes that weren't present in one graph)
         actual_successes_filtered = [s for s in actual_successes if s is not None]
         expected_successes_filtered = [s for s in expected_successes if s is not None]
-        
+
         if not actual_successes_filtered:
             # No actual execution evidence
             return ComparatorOutcome.INCONCLUSIVE.value
@@ -723,28 +751,28 @@ class ComparatorRuntime:
         any_actual_failure = any(s is False for s in actual_successes_filtered)
         all_actual_success = all(s is True for s in actual_successes_filtered)
         all_actual_failure = all(s is False for s in actual_successes_filtered)
-        
+
         # Check for any expected failures
         all_expected_success = all(s is True for s in expected_successes_filtered)
         all_expected_failure = all(s is False for s in expected_successes_filtered)
-        
+
         # Check for complete failure (all expected nodes failed and were expected to fail)
         if all_expected_failure and all_actual_failure:
             return ComparatorOutcome.FAILURE.value
-        
+
         # Check for unexpected failure (expected success but got failure)
         if all_expected_success and all_actual_failure:
             return ComparatorOutcome.UNEXPECTED_FAILURE.value
-        
+
         # Check for unexpected success (expected failure but got success)
         if all_expected_failure and all_actual_success:
             return ComparatorOutcome.UNEXPECTED_SUCCESS.value
-        
+
         # Check for partial success (mixed outcomes - some succeeded, some failed)
         # This handles the case where there are multiple nodes with mixed outcomes
         if any_actual_failure and not all_actual_failure and len(actual_successes_filtered) > 1:
             return ComparatorOutcome.PARTIAL_SUCCESS.value
-        
+
         # Check for complete success -- only a CLEAN success (every
         # predicted node ran, under the same id, with the same result) is
         # SUCCESS; everything actually succeeded but the node identities
@@ -794,6 +822,7 @@ def get_comparator_runtime() -> ComparatorRuntime:
     non-request contexts (e.g. tests, background tasks).
     """
     from src.monkey_brain.kernel.kernel import Kernel
+
     kernel = Kernel._instance
     try:
         runtime = kernel.runtime_selector.select("comparator") if kernel is not None else None

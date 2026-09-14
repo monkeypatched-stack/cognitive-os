@@ -12,7 +12,6 @@ from services.taxonomy.models.family import (
 from services.taxonomy.helpers import family as crud
 from services.common.auth import require_permission
 
-
 router = APIRouter()
 
 
@@ -29,14 +28,17 @@ async def list_families(
     _: dict = Depends(require_permission("perm-view-families")),
 ):
     families, total = await crud.get_all(db, page=page, page_size=page_size, tag=tag)
-    return PaginatedFamilyResponse(total=total, page=page, page_size=page_size, results=families)
+    return PaginatedFamilyResponse(
+        total=total, page=page, page_size=page_size, results=families
+    )
 
 
 @router.get("/{family_id}", response_model=FamilyResponse)
 async def get_family(
-    family_id: str, 
+    family_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-view-families")),):
+    _: dict = Depends(require_permission("perm-view-families")),
+):
     family = await crud.get_by_id(db, family_id)
     if not family:
         raise HTTPException(404, detail=f"Family '{family_id}' not found")
@@ -45,9 +47,10 @@ async def get_family(
 
 @router.post("/", response_model=FamilyResponse, status_code=status.HTTP_201_CREATED)
 async def create_family(
-    data: FamilyCreate, 
+    data: FamilyCreate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-create-families"))):
+    _: dict = Depends(require_permission("perm-create-families")),
+):
     if await crud.get_by_id(db, data.id):
         raise HTTPException(409, detail=f"Family '{data.id}' already exists")
     return await crud.create(db, data)
@@ -55,8 +58,8 @@ async def create_family(
 
 @router.patch("/{family_id}", response_model=FamilyResponse)
 async def update_family(
-    family_id: str, 
-    data: FamilyUpdate, 
+    family_id: str,
+    data: FamilyUpdate,
     db: AsyncIOMotorDatabase = Depends(get_db),
     _: dict = Depends(require_permission("perm-update-families")),
 ):
@@ -68,10 +71,12 @@ async def update_family(
 
 @router.delete("/{family_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_family(
-    family_id: str, 
+    family_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-delete-families"))):
+    _: dict = Depends(require_permission("perm-delete-families")),
+):
     if not await crud.delete(db, family_id):
         raise HTTPException(404, detail=f"Family '{family_id}' not found")
-    
+
+
 # TODO_ENDPOINT: GET /api/v1/families/by-equipment/{equipment_id} — get family by equipment ID

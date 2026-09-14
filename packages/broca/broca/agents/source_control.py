@@ -1,12 +1,17 @@
 """SourceControlAgent — git operations, returns typed AgentResult with commit artifact."""
+
 from __future__ import annotations
-import asyncio, logging, subprocess
+import asyncio
+import logging
+import os
+import subprocess
 from pathlib import Path
 from typing import Any
 from ._base import BaseETASSAgent
 
 logger = logging.getLogger("broca.agents.source_control")
-import os; _REPO = Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4])))
+
+_REPO = Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4])))
 
 
 class SourceControlAgent(BaseETASSAgent):
@@ -38,7 +43,7 @@ class SourceControlAgent(BaseETASSAgent):
                     observations=["nothing to commit — working tree clean"],
                 )
             msg = context.get("commit_message", f"feat: ETASS-generated {chart_name} v{version}")
-            out = await loop.run_in_executor(None, lambda: self._sh(["git", "commit", "-m", msg]))
+            await loop.run_in_executor(None, lambda: self._sh(["git", "commit", "-m", msg]))
             self._reward(True)
             artifacts = [Artifact(kind="commit", name=msg, uri=branch)] if Artifact else []
             return self._result(

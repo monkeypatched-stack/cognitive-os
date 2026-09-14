@@ -21,6 +21,7 @@ This is a genuinely different question from tests/unit/test_geography.py
 concurrently without serializing) -- this proves the SAME actor_id never
 gets two concurrent cognitive executions.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,7 +29,11 @@ import asyncio
 import pytest
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 
 
 class _FakeRedis:
@@ -87,7 +92,8 @@ class TestConcurrentTicksOnTheSameActorAreSerialized:
         monkeypatch.setattr(registry_state.actor_runtime._cognitive_os, "tick", _slow_tick)
 
         results = await asyncio.gather(
-            sr.tick_one_actor(actor_id), sr.tick_one_actor(actor_id),
+            sr.tick_one_actor(actor_id),
+            sr.tick_one_actor(actor_id),
         )
 
         assert len(entered) == 1, "only one of two simultaneous ticks for the same actor may reach cognition"
@@ -140,11 +146,20 @@ class TestConcurrentTicksOnTheSameActorAreSerialized:
             await asyncio.sleep(0.05)
             return "ok"
 
-        monkeypatch.setattr(sr.get_actor(state_a.actor_id).actor_runtime._cognitive_os, "tick", _slow_tick)
-        monkeypatch.setattr(sr.get_actor(state_b.actor_id).actor_runtime._cognitive_os, "tick", _slow_tick)
+        monkeypatch.setattr(
+            sr.get_actor(state_a.actor_id).actor_runtime._cognitive_os,
+            "tick",
+            _slow_tick,
+        )
+        monkeypatch.setattr(
+            sr.get_actor(state_b.actor_id).actor_runtime._cognitive_os,
+            "tick",
+            _slow_tick,
+        )
 
         results = await asyncio.gather(
-            sr.tick_one_actor(state_a.actor_id), sr.tick_one_actor(state_b.actor_id),
+            sr.tick_one_actor(state_a.actor_id),
+            sr.tick_one_actor(state_b.actor_id),
         )
 
         assert len(entered) == 2

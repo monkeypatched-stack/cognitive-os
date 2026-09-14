@@ -7,6 +7,7 @@ UNREACHABLE_NODE    → mark SKIPPED so the execute phase bypasses the node
 CRITICAL_PATH_SLOW  → same as FAILED_NODE (critical path gets priority budget)
 CYCLE_DETECTED      → break the cycle by removing the back-edge to the deepest node
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,14 +66,19 @@ class DAGRepairer:
 
         logger.debug(
             "[fix] %d issues addressed — injected=%d skipped=%d cycles_broken=%d",
-            result.issues_addressed, result.nodes_injected,
-            result.nodes_skipped, result.cycles_broken,
+            result.issues_addressed,
+            result.nodes_injected,
+            result.nodes_skipped,
+            result.cycles_broken,
         )
         return result
 
     def _self_healing(self, graph: Any, failed_node: Any) -> dict | None:
         try:
-            from src.monkey_brain.kernel.fix.self_healing.workload import SelfHealingPolicy
+            from src.monkey_brain.kernel.fix.self_healing.workload import (
+                SelfHealingPolicy,
+            )
+
             policy = SelfHealingPolicy()
             return policy.on_failure(graph, failed_node)
         except Exception as e:
@@ -90,6 +96,7 @@ class DAGRepairer:
                     in_deg[nid] += 1
 
         from collections import deque
+
         queue: deque[str] = deque(nid for nid, d in in_deg.items() if d == 0)
         visited: set[str] = set()
         while queue:
@@ -104,14 +111,9 @@ class DAGRepairer:
         # Nodes not visited are part of a cycle — remove their incoming dep edges
         broken = 0
         for nid in step_ids - visited:
-            graph._edges = [
-                e for e in graph._edges
-                if not (e.dst == nid and e.rel == "depends_on")
-            ]
+            graph._edges = [e for e in graph._edges if not (e.dst == nid and e.rel == "depends_on")]
             if nid in graph._radj:
-                graph._radj[nid] = [
-                    e for e in graph._radj[nid] if e.rel != "depends_on"
-                ]
+                graph._radj[nid] = [e for e in graph._radj[nid] if e.rel != "depends_on"]
             broken += 1
             logger.warning("[fix] broke cycle at node %s", nid)
 
@@ -141,9 +143,7 @@ class LossDrivenRepair:
         issues = request.issues
         loss = request.composite_loss
 
-        if loss < self.loss_threshold and not any(
-            i.kind in ("failed_node", "cycle_detected") for i in issues
-        ):
+        if loss < self.loss_threshold and not any(i.kind in ("failed_node", "cycle_detected") for i in issues):
             logger.debug("[fix] loss=%.3f below threshold — skipping repair", loss)
             return RepairResult()
         return self._repairer.repair(graph, issues)

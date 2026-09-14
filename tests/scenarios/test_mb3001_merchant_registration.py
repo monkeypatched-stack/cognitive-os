@@ -17,9 +17,14 @@ merchant gets the identical world-invariant guarantees a customer does
 (Society hosted at a Space, Presence initialized) even though this
 scenario doesn't assert those explicitly.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 MERCHANT_NAME = "Bob's Store"

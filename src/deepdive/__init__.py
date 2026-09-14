@@ -13,8 +13,16 @@ from __future__ import annotations
 from src.deepdive.aggregation import Aggregation
 from src.deepdive.elasticsearch_adapter import ElasticsearchAdapter
 from src.deepdive.fleet_analytics import FleetAnalytics, NodeMetrics, FleetMetrics
-from src.deepdive.knowledge_aggregator import KnowledgeAggregator, KnowledgeEntry, AggregatedKnowledge
-from src.deepdive.digital_twin_aggregator import DigitalTwinAggregator, TwinSnapshot, AggregatedTwin
+from src.deepdive.knowledge_aggregator import (
+    KnowledgeAggregator,
+    KnowledgeEntry,
+    AggregatedKnowledge,
+)
+from src.deepdive.digital_twin_aggregator import (
+    DigitalTwinAggregator,
+    TwinSnapshot,
+    AggregatedTwin,
+)
 
 __all__ = [
     "Aggregation",

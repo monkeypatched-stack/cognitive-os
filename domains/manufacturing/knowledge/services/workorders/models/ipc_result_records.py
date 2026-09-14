@@ -3,8 +3,9 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
-IpcResultStatus = Literal["Pending", "Pass", "Fail", "Retest Required", "Not Applicable"]
+IpcResultStatus = Literal[
+    "Pending", "Pass", "Fail", "Retest Required", "Not Applicable"
+]
 IpcReviewStatus = Literal["Pending", "Reviewed", "Approved", "Rejected"]
 
 
@@ -40,8 +41,14 @@ class IpcMeasuredResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_value(self) -> "IpcMeasuredResult":
-        if self.result not in {"Pending", "Not Applicable"} and self.measured_value is None and not self.text_value:
-            raise ValueError("non-pending IPC measured results must include measured_value or text_value.")
+        if (
+            self.result not in {"Pending", "Not Applicable"}
+            and self.measured_value is None
+            and not self.text_value
+        ):
+            raise ValueError(
+                "non-pending IPC measured results must include measured_value or text_value."
+            )
         return self
 
 
@@ -97,22 +104,40 @@ class IpcResultRecord(BaseModel):
         self.created_at = ensure_utc(self.created_at) or utc_now()
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
         if self.sampled_at and self.tested_at and self.tested_at < self.sampled_at:
-            raise ValueError("tested_at cannot be before sampled_at for IPC result records.")
+            raise ValueError(
+                "tested_at cannot be before sampled_at for IPC result records."
+            )
         if self.status in {"Pass", "Fail", "Retest Required"}:
             if not self.limits_snapshot:
-                raise ValueError("completed IPC result records must include limits_snapshot.")
+                raise ValueError(
+                    "completed IPC result records must include limits_snapshot."
+                )
             if not self.measured_results:
-                raise ValueError("completed IPC result records must include measured_results.")
+                raise ValueError(
+                    "completed IPC result records must include measured_results."
+                )
             if not self.evidence_document_ids:
-                raise ValueError("completed IPC result records must include evidence_document_ids.")
+                raise ValueError(
+                    "completed IPC result records must include evidence_document_ids."
+                )
             if not self.signature_ids:
-                raise ValueError("completed IPC result records must include signature_ids.")
+                raise ValueError(
+                    "completed IPC result records must include signature_ids."
+                )
         if self.status == "Fail" and not self.deviation_id:
             raise ValueError("failed IPC result records must include deviation_id.")
-        if self.review_status in {"Reviewed", "Approved"} and (not self.reviewed_by or not self.reviewed_at):
-            raise ValueError("reviewed/approved IPC result records must include reviewed_by and reviewed_at.")
-        if self.review_status == "Approved" and (not self.approved_by or not self.approved_at):
-            raise ValueError("approved IPC result records must include approved_by and approved_at.")
+        if self.review_status in {"Reviewed", "Approved"} and (
+            not self.reviewed_by or not self.reviewed_at
+        ):
+            raise ValueError(
+                "reviewed/approved IPC result records must include reviewed_by and reviewed_at."
+            )
+        if self.review_status == "Approved" and (
+            not self.approved_by or not self.approved_at
+        ):
+            raise ValueError(
+                "approved IPC result records must include approved_by and approved_at."
+            )
         return self
 
 

@@ -6,6 +6,7 @@ Verifies that:
 3. Comparator emits world_loss and policy_loss independently
 4. The two learners are independently testable
 """
+
 from __future__ import annotations
 
 import pytest
@@ -25,6 +26,7 @@ class TestWorldLearner:
 
         wl.observe_transition("s1", "s2")
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         freq = tensor.feature("s1", "s2", Feature.FREQUENCY)
         assert freq == 1.0
 
@@ -36,6 +38,7 @@ class TestWorldLearner:
         wl.observe_transition("s1", "s2")
         wl.observe_transition("s1", "s3")
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         assert tensor.feature("s1", "s2", Feature.FREQUENCY) == 2.0
         assert tensor.feature("s1", "s3", Feature.FREQUENCY) == 1.0
 
@@ -50,6 +53,7 @@ class TestWorldLearner:
         wl.observe_transition("s1", "s2")
 
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         assert tensor.feature("s1", "s1", Feature.Q_VALUE) == 0.9
 
     def test_batch_observe(self):
@@ -64,6 +68,7 @@ class TestWorldLearner:
         count = wl.batch_observe(transitions)
         assert count == 3
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         assert tensor.feature("s1", "s2", Feature.FREQUENCY) == 1.0
 
     def test_summary(self):
@@ -82,6 +87,7 @@ class TestWorldLearner:
         wl.observe_transition("s1", "s2")
         wl.observe_transition("s1", "s3")
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         prob = tensor.feature("s1", "s2", Feature.PROBABILITY)
         assert abs(prob - 2.0 / 3.0) < 1e-6
 
@@ -157,6 +163,7 @@ class TestPolicyLearner:
         # Create a transition in tensor
         tensor.observe("s1", "s2")
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         freq_before = tensor.feature("s1", "s2", Feature.FREQUENCY)
 
         pl.update("s1", "a1", reward=0.8)
@@ -274,6 +281,7 @@ class TestLearnerIndependence:
 
         # World tensor has frequencies, no Q-values
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         assert tensor.feature("s1", "s2", Feature.FREQUENCY) == 1.0
 
         # Policy store has Q-values, no frequencies
@@ -286,6 +294,7 @@ class TestLearnerIndependence:
 
     def test_both_learners_can_run_in_parallel(self):
         import threading
+
         tensor = SparseTransitionTensor()
         store = PolicyStore()
         wl = WorldLearner(tensor)
@@ -295,7 +304,7 @@ class TestLearnerIndependence:
         def world_worker():
             try:
                 for i in range(50):
-                    wl.observe_transition(f"s{i}", f"s{i+1}")
+                    wl.observe_transition(f"s{i}", f"s{i + 1}")
             except Exception as e:
                 errors.append(e)
 

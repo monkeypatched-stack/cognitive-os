@@ -9,7 +9,10 @@ from urllib.parse import urlencode
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.common.config import settings
-from services.pm.models.calibrations import CalibrationRecordCreate, CalibrationRecordUpdate
+from services.pm.models.calibrations import (
+    CalibrationRecordCreate,
+    CalibrationRecordUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +115,7 @@ def _record_to_line(data: dict, ts_ns: int) -> str:
 
 # ── Read ──────────────────────────────────────────────────────────────────────
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -151,6 +155,7 @@ async def get_by_work_order(db: AsyncIOMotorDatabase, work_order_id: str) -> lis
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
+
 async def create(db: AsyncIOMotorDatabase, data: CalibrationRecordCreate) -> dict:
     record = data.model_dump()
     record["created_at"] = datetime.now(timezone.utc).isoformat()
@@ -162,6 +167,7 @@ async def create(db: AsyncIOMotorDatabase, data: CalibrationRecordCreate) -> dic
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 async def update(
     db: AsyncIOMotorDatabase,
@@ -182,6 +188,7 @@ async def update(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 async def delete(db: AsyncIOMotorDatabase, record_id: str) -> bool:
     # InfluxDB doesn't support delete-by-field; mark as deleted via status update

@@ -1,5 +1,6 @@
 """Signed policy snapshot issuance/verification/caching
 (kernel/edge/policy_cache.py)."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -32,8 +33,14 @@ def cache(store):
 
 def _issue(**overrides):
     defaults = dict(
-        principal="spiffe://cognitiveos/agent/priya", action="capability.grocery.purchase",
-        resource="order-123", policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE", "policy_rule": "default_allow"},
+        principal="spiffe://cognitiveos/agent/priya",
+        action="capability.grocery.purchase",
+        resource="order-123",
+        policy_decision={
+            "allowed": True,
+            "approval_mode": "AUTO_APPROVE",
+            "policy_rule": "default_allow",
+        },
     )
     defaults.update(overrides)
     return issue_policy_snapshot(**defaults)
@@ -46,7 +53,12 @@ class TestSnapshotConstruction:
 
     def test_invalid_approval_mode_rejected(self):
         with pytest.raises(PolicySnapshotError):
-            SignedPolicySnapshot(principal="p", action="a", approval_mode="MAYBE", expires_at=time.time() + 10)
+            SignedPolicySnapshot(
+                principal="p",
+                action="a",
+                approval_mode="MAYBE",
+                expires_at=time.time() + 10,
+            )
 
     def test_not_time_bounded_rejected(self):
         with pytest.raises(PolicySnapshotError):
@@ -86,7 +98,9 @@ class TestExpiredPolicyRejected:
         cache.store_snapshot(snap)
         time.sleep(0.02)
         got, freshness, reason = cache.get_valid(
-            principal=snap.principal, action=snap.action, resource=snap.resource,
+            principal=snap.principal,
+            action=snap.action,
+            resource=snap.resource,
             authenticated_principal=snap.principal,
         )
         assert got is None
@@ -117,7 +131,9 @@ class TestStalePolicyFreshnessSemantics:
         snap = _issue(ttl_seconds=300)
         cache.store_snapshot(snap)
         got, freshness, _ = cache.get_valid(
-            principal=snap.principal, action=snap.action, resource=snap.resource,
+            principal=snap.principal,
+            action=snap.action,
+            resource=snap.resource,
             authenticated_principal=snap.principal,
         )
         assert got is not None
@@ -131,7 +147,9 @@ class TestStalePolicyFreshnessSemantics:
         cache.store_snapshot(snap)
         time.sleep(0.02)
         got, freshness, _ = cache.get_valid(
-            principal=snap.principal, action=snap.action, resource=snap.resource,
+            principal=snap.principal,
+            action=snap.action,
+            resource=snap.resource,
             authenticated_principal=snap.principal,
         )
         assert got is None
@@ -143,15 +161,21 @@ class TestRevokedAuthorityDoesNotSilentlyContinue:
         snap = _issue(authority_epoch=1)
         cache.store_snapshot(snap)
         got, freshness, reason = cache.get_valid(
-            principal=snap.principal, action=snap.action, resource=snap.resource,
-            authenticated_principal=snap.principal, current_authority_epoch=2,
+            principal=snap.principal,
+            action=snap.action,
+            resource=snap.resource,
+            authenticated_principal=snap.principal,
+            current_authority_epoch=2,
         )
         assert got is None
         assert freshness == Freshness.STALE_MUST_REFRESH
 
     def test_no_cached_snapshot_at_all_is_unknown_not_denied(self, cache):
         got, freshness, reason = cache.get_valid(
-            principal="p1", action="capability.X", resource="r1", authenticated_principal="p1",
+            principal="p1",
+            action="capability.X",
+            resource="r1",
+            authenticated_principal="p1",
         )
         assert got is None
         assert freshness == Freshness.UNKNOWN

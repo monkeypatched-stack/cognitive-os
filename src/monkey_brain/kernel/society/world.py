@@ -19,6 +19,7 @@ Serialization contract:
     SharedWorld provides to_dict() for full snapshot serialization
     and from_dict(d) for reconstruction.
 """
+
 from __future__ import annotations
 
 import time
@@ -27,10 +28,10 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # World Entity Types
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class WorldEntityType(Enum):
     ENTITY = "entity"
@@ -68,9 +69,11 @@ def _ts(t: float) -> float:
 # Core World Types
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass(frozen=True)
 class WorldEntity:
     """An entity in the shared semantic world."""
+
     entity_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     entity_type: WorldEntityType = WorldEntityType.ENTITY
@@ -110,7 +113,7 @@ class WorldEntity:
         return cls(
             entity_id=d.get("entity_id", uuid4().hex),
             name=d.get("name", ""),
-            entity_type=WorldEntityType(d["entity_type"]) if "entity_type" in d else WorldEntityType.ENTITY,
+            entity_type=(WorldEntityType(d["entity_type"]) if "entity_type" in d else WorldEntityType.ENTITY),
             attributes=dict(d.get("attributes", {})),
             state=dict(d.get("state", {})),
             confidence=d.get("confidence", 1.0),
@@ -125,6 +128,7 @@ class WorldEntity:
 @dataclass(frozen=True)
 class WorldRelationship:
     """A typed relationship between two world entities."""
+
     relationship_id: str = field(default_factory=lambda: uuid4().hex)
     source_id: str = ""
     target_id: str = ""
@@ -152,7 +156,7 @@ class WorldRelationship:
             relationship_id=d.get("relationship_id", uuid4().hex),
             source_id=d.get("source_id", ""),
             target_id=d.get("target_id", ""),
-            kind=RelationshipKind(d["kind"]) if "kind" in d else RelationshipKind.RELATED_TO,
+            kind=(RelationshipKind(d["kind"]) if "kind" in d else RelationshipKind.RELATED_TO),
             attributes=dict(d.get("attributes", {})),
             confidence=d.get("confidence", 1.0),
             version=d.get("version", 0),
@@ -163,6 +167,7 @@ class WorldRelationship:
 @dataclass(frozen=True)
 class WorldEvent:
     """An event that occurred in the shared world."""
+
     event_id: str = field(default_factory=lambda: uuid4().hex)
     event_type: EventType = EventType.STATE_CHANGE
     entity_id: str = ""
@@ -188,7 +193,7 @@ class WorldEvent:
     def from_dict(cls, d: dict[str, Any]) -> WorldEvent:
         return cls(
             event_id=d.get("event_id", uuid4().hex),
-            event_type=EventType(d["event_type"]) if "event_type" in d else EventType.STATE_CHANGE,
+            event_type=(EventType(d["event_type"]) if "event_type" in d else EventType.STATE_CHANGE),
             entity_id=d.get("entity_id", ""),
             description=d.get("description", ""),
             attributes=dict(d.get("attributes", {})),
@@ -201,6 +206,7 @@ class WorldEvent:
 @dataclass(frozen=True)
 class WorldResource:
     """A resource in the shared world (food, energy, money, time, etc.)."""
+
     resource_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     resource_type: str = ""
@@ -242,6 +248,7 @@ class WorldResource:
 @dataclass(frozen=True)
 class WorldCapability:
     """A capability available in the world (not tied to a specific actor)."""
+
     capability_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -274,6 +281,7 @@ class WorldCapability:
 @dataclass(frozen=True)
 class WorldLocation:
     """A location in the shared world."""
+
     location_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     address: str = ""
@@ -309,6 +317,7 @@ class WorldLocation:
 @dataclass(frozen=True)
 class WorldPolicy:
     """A governance policy in the shared world."""
+
     policy_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -345,6 +354,7 @@ class WorldPolicy:
 @dataclass(frozen=True)
 class WorldVersion:
     """A snapshot of the world at a point in time for versioning."""
+
     version_id: str = field(default_factory=lambda: uuid4().hex)
     version: int = 0
     timestamp: float = field(default_factory=time.time)
@@ -377,6 +387,7 @@ class WorldVersion:
 # ═══════════════════════════════════════════════════════════════════════════
 # SharedWorld
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class SharedWorld:
     """The shared semantic world that all actors observe.
@@ -429,22 +440,28 @@ class SharedWorld:
         return self._entities.get(entity_id)
 
     def update_entity(
-        self, entity_id: str, state: dict[str, Any] | None = None,
-        owner_society_id: str | None = None, **attributes: Any,
+        self,
+        entity_id: str,
+        state: dict[str, Any] | None = None,
+        owner_society_id: str | None = None,
+        **attributes: Any,
     ) -> WorldEntity | None:
         self._require_write("shared_world.update_entity")
         old = self._entities.get(entity_id)
         if old is None:
             return None
         updated = WorldEntity(
-            entity_id=old.entity_id, name=old.name,
+            entity_id=old.entity_id,
+            name=old.name,
             entity_type=old.entity_type,
             attributes={**old.attributes, **attributes},
             state={**old.state, **(state or {})},
             confidence=old.confidence,
-            provenance=old.provenance, version=old.version + 1,
-            created_at=old.created_at, updated_at=time.time(),
-            owner_society_id=old.owner_society_id if owner_society_id is None else owner_society_id,
+            provenance=old.provenance,
+            version=old.version + 1,
+            created_at=old.created_at,
+            updated_at=time.time(),
+            owner_society_id=(old.owner_society_id if owner_society_id is None else owner_society_id),
         )
         self._entities[entity_id] = updated
         self._bump_version()
@@ -483,10 +500,7 @@ class SharedWorld:
         return tuple(self._relationships.values())
 
     def relationships_for(self, entity_id: str) -> tuple[WorldRelationship, ...]:
-        return tuple(
-            r for r in self._relationships.values()
-            if r.source_id == entity_id or r.target_id == entity_id
-        )
+        return tuple(r for r in self._relationships.values() if r.source_id == entity_id or r.target_id == entity_id)
 
     # ── Event operations ─────────────────────────────────────────────────
 
@@ -494,7 +508,7 @@ class SharedWorld:
         self._require_write("shared_world.record_event")
         self._events.append(event)
         if len(self._events) > self._max_events:
-            self._events = self._events[-self._max_events:]
+            self._events = self._events[-self._max_events :]
         self._bump_version()
 
     def remove_event(self, event_id: str) -> bool:
@@ -576,9 +590,15 @@ class SharedWorld:
         self._capabilities[capability.capability_id] = capability
         self._bump_version()
 
-    def record_capability(self, *, capability_id: str = "", name: str = "",
-                          description: str = "", requirements: tuple[str, ...] = (),
-                          confidence: float = 1.0) -> WorldCapability:
+    def record_capability(
+        self,
+        *,
+        capability_id: str = "",
+        name: str = "",
+        description: str = "",
+        requirements: tuple[str, ...] = (),
+        confidence: float = 1.0,
+    ) -> WorldCapability:
         """Register (or re-register) a named capability as a versioned
         world fact. CognitiveOS Constitution: "knowledge, policies and
         capabilities are versioned infrastructure" -- WorldCapability.version
@@ -589,8 +609,11 @@ class SharedWorld:
         times a capability's world-facing description has changed."""
         existing = self._capabilities.get(capability_id) if capability_id else None
         capability = WorldCapability(
-            capability_id=capability_id or uuid4().hex, name=name, description=description,
-            requirements=requirements, confidence=confidence,
+            capability_id=capability_id or uuid4().hex,
+            name=name,
+            description=description,
+            requirements=requirements,
+            confidence=confidence,
             version=(existing.version + 1) if existing is not None else 0,
         )
         self.add_capability(capability)
@@ -645,9 +668,16 @@ class SharedWorld:
         self._policies[policy.policy_id] = policy
         self._bump_version()
 
-    def record_policy(self, *, policy_id: str = "", name: str = "", description: str = "",
-                      rules: tuple[str, ...] = (), scope: str = "",
-                      confidence: float = 1.0) -> WorldPolicy:
+    def record_policy(
+        self,
+        *,
+        policy_id: str = "",
+        name: str = "",
+        description: str = "",
+        rules: tuple[str, ...] = (),
+        scope: str = "",
+        confidence: float = 1.0,
+    ) -> WorldPolicy:
         """Register (or re-register) a named policy as a versioned world
         fact -- same bridging purpose as record_capability() above, for
         SocietyGovernanceEngine.add_policy() (society/governance.py) and
@@ -655,8 +685,12 @@ class SharedWorld:
         policy_id bumps version rather than resetting it."""
         existing = self._policies.get(policy_id) if policy_id else None
         policy = WorldPolicy(
-            policy_id=policy_id or uuid4().hex, name=name, description=description,
-            rules=rules, scope=scope, confidence=confidence,
+            policy_id=policy_id or uuid4().hex,
+            name=name,
+            description=description,
+            rules=rules,
+            scope=scope,
+            confidence=confidence,
             version=(existing.version + 1) if existing is not None else 0,
         )
         self.add_policy(policy)
@@ -667,8 +701,7 @@ class SharedWorld:
 
     # ── Query ────────────────────────────────────────────────────────────
 
-    def query(self, *, entity_type: WorldEntityType | None = None,
-              name_contains: str = "") -> tuple[WorldEntity, ...]:
+    def query(self, *, entity_type: WorldEntityType | None = None, name_contains: str = "") -> tuple[WorldEntity, ...]:
         results = self._entities.values()
         if entity_type is not None:
             results = [e for e in results if e.entity_type == entity_type]
@@ -723,6 +756,7 @@ class SharedWorld:
         """
         self._require_write("shared_world.perturb")
         import random
+
         perturbations: list[dict[str, Any]] = []
 
         for entity in self._entities.values():
@@ -730,26 +764,38 @@ class SharedWorld:
                 if isinstance(value, (int, float)) and random.random() < 0.4:
                     noise = random.gauss(0, magnitude * abs(value) if value != 0 else magnitude)
                     new_value = round(type(value)(value + noise), 4)
-                    perturbations.append({
-                        "entity": entity.name, "attribute": key,
-                        "old": value, "new": new_value,
-                    })
+                    perturbations.append(
+                        {
+                            "entity": entity.name,
+                            "attribute": key,
+                            "old": value,
+                            "new": new_value,
+                        }
+                    )
                     updated = WorldEntity(
-                        entity_id=entity.entity_id, name=entity.name,
+                        entity_id=entity.entity_id,
+                        name=entity.name,
                         entity_type=entity.entity_type,
                         attributes={**entity.attributes, key: new_value},
                         state=entity.state,
                         confidence=max(0.1, entity.confidence - random.uniform(0, 0.05)),
                         provenance=entity.provenance,
                         version=entity.version + 1,
-                        created_at=entity.created_at, updated_at=time.time(),
+                        created_at=entity.created_at,
+                        updated_at=time.time(),
                         owner_society_id=entity.owner_society_id,
                     )
                     self._entities[entity.entity_id] = updated
 
         if random.random() < event_chance:
-            event_types = ['supply_disruption', 'demand_shift', 'equipment_failure',
-                           'quality_issue', 'price_change', 'capacity_change']
+            event_types = [
+                "supply_disruption",
+                "demand_shift",
+                "equipment_failure",
+                "quality_issue",
+                "price_change",
+                "capacity_change",
+            ]
             etype = random.choice(event_types)
             event = WorldEvent(
                 event_type=EventType.STATE_CHANGE,
@@ -768,5 +814,8 @@ class SharedWorld:
         self._version_history.append(self.snapshot())
 
     def _require_write(self, operation: str) -> None:
-        from src.monkey_brain.kernel.security_boundary import assert_state_mutation_allowed
+        from src.monkey_brain.kernel.security_boundary import (
+            assert_state_mutation_allowed,
+        )
+
         assert_state_mutation_allowed(operation)

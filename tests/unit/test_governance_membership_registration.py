@@ -9,13 +9,18 @@ Covers: permanent memberships, temporary memberships, registration (the
 Actor Registration Invariant), movement, membership transitions,
 validation failures, and effective membership computation.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -34,17 +39,15 @@ def _build_chain(pr: PlanetaryRuntime, *space_names: str) -> list:
     city = pr.create_geographic_entity(GeographicEntityType.CITY, "Ci", county.entity_id)
     street = pr.create_geographic_entity(GeographicEntityType.STREET, "Sr", city.entity_id)
     building = pr.create_geographic_entity(GeographicEntityType.BUILDING, "Bu", street.entity_id)
-    return [
-        pr.create_geographic_entity(GeographicEntityType.SPACE, name, building.entity_id)
-        for name in space_names
-    ]
+    return [pr.create_geographic_entity(GeographicEntityType.SPACE, name, building.entity_id) for name in space_names]
 
 
 # ── Permanent memberships ───────────────────────────────────────────────
 
+
 def test_permanent_membership_is_explicitly_stored_and_persists_across_movement():
     pr = PlanetaryRuntime()
-    (space_a, space_b) = _build_chain(pr, "A", "B")
+    space_a, space_b = _build_chain(pr, "A", "B")
     alice = _register(pr, home_space_id=space_a.entity_id)
 
     other = pr.create_society(name="Guild")
@@ -74,9 +77,10 @@ def test_temporary_membership_never_modifies_permanent_membership():
 
 # ── Temporary memberships ───────────────────────────────────────────────
 
+
 def test_temporary_membership_granted_on_entering_associated_space():
     pr = PlanetaryRuntime()
-    (home_space, other_space) = _build_chain(pr, "Home", "Other")
+    home_space, other_space = _build_chain(pr, "Home", "Other")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     other = pr.create_society(name="Neighbors")
@@ -103,7 +107,7 @@ def test_temporary_membership_not_granted_when_already_permanent():
 
 def test_temporary_membership_revoked_immediately_on_leaving_space():
     pr = PlanetaryRuntime()
-    (home_space, hosted_space, elsewhere) = _build_chain(pr, "Home", "Hosted", "Elsewhere")
+    home_space, hosted_space, elsewhere = _build_chain(pr, "Home", "Hosted", "Elsewhere")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     other = pr.create_society(name="Visited")
@@ -117,6 +121,7 @@ def test_temporary_membership_revoked_immediately_on_leaving_space():
 
 
 # ── Registration (Actor Registration Invariant) ─────────────────────────
+
 
 def test_register_actor_with_no_home_space_uses_default_bootstrap_space():
     pr = PlanetaryRuntime()
@@ -193,9 +198,10 @@ def test_register_actor_guarantees_home_society_has_a_space_on_success():
 
 # ── Movement ─────────────────────────────────────────────────────────────
 
+
 def test_movement_updates_presence_timeline():
     pr = PlanetaryRuntime()
-    (space_a, space_b) = _build_chain(pr, "A", "B")
+    space_a, space_b = _build_chain(pr, "A", "B")
     alice = _register(pr, home_space_id=space_a.entity_id)
 
     assert pr.presence.current(alice.actor_id).space_id == space_a.entity_id
@@ -205,7 +211,7 @@ def test_movement_updates_presence_timeline():
 
 def test_movement_publishes_membership_lifecycle_events_to_context_stream():
     pr = PlanetaryRuntime()
-    (home_space, hosted_space) = _build_chain(pr, "Home", "Hosted")
+    home_space, hosted_space = _build_chain(pr, "Home", "Hosted")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     other = pr.create_society(name="Hosted Society")
@@ -220,9 +226,10 @@ def test_movement_publishes_membership_lifecycle_events_to_context_stream():
 
 # ── Membership transitions ──────────────────────────────────────────────
 
+
 def test_moving_between_two_societies_revokes_old_and_grants_new():
     pr = PlanetaryRuntime()
-    (home_space, space_x, space_y) = _build_chain(pr, "Home", "X", "Y")
+    home_space, space_x, space_y = _build_chain(pr, "Home", "X", "Y")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     soc_x = pr.create_society(name="Society X")
@@ -241,7 +248,7 @@ def test_moving_between_two_societies_revokes_old_and_grants_new():
 
 def test_moving_to_space_with_no_society_grants_nothing():
     pr = PlanetaryRuntime()
-    (home_space, empty_space) = _build_chain(pr, "Home", "Empty")
+    home_space, empty_space = _build_chain(pr, "Home", "Empty")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     pr.move_actor(alice.actor_id, empty_space.entity_id)
@@ -249,6 +256,7 @@ def test_moving_to_space_with_no_society_grants_nothing():
 
 
 # ── Validation failures ──────────────────────────────────────────────────
+
 
 def test_validate_society_has_space_raises_for_unhosted_society():
     pr = PlanetaryRuntime()
@@ -283,9 +291,10 @@ def test_validate_society_has_space_passes_for_hosted_society_with_a_space():
 
 # ── Effective membership computation ─────────────────────────────────────
 
+
 def test_effective_societies_is_union_of_permanent_and_temporary_preserving_distinction():
     pr = PlanetaryRuntime()
-    (home_space, hosted_space) = _build_chain(pr, "Home", "Hosted")
+    home_space, hosted_space = _build_chain(pr, "Home", "Hosted")
     alice = _register(pr, home_space_id=home_space.entity_id)
     home_society_id = pr.society.society_id
 
@@ -317,9 +326,10 @@ def test_effective_societies_is_union_of_permanent_and_temporary_preserving_dist
 # in that Society's SocietyRuntime (active_actors(), observation
 # visibility) — not only an entry in effective_societies().
 
+
 def test_entering_a_hosting_space_makes_actor_a_coordination_participant():
     pr = PlanetaryRuntime()
-    (home_space, visited_space) = _build_chain(pr, "Home", "Visited")
+    home_space, visited_space = _build_chain(pr, "Home", "Visited")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     visited = pr.create_society(name="Visited Society")
@@ -337,7 +347,7 @@ def test_entering_a_hosting_space_makes_actor_a_coordination_participant():
 
 def test_leaving_a_hosting_space_removes_coordination_participation():
     pr = PlanetaryRuntime()
-    (home_space, visited_space) = _build_chain(pr, "Home", "Visited")
+    home_space, visited_space = _build_chain(pr, "Home", "Visited")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     visited = pr.create_society(name="Visited Society")
@@ -353,15 +363,18 @@ def test_temporary_participation_grants_observation_visibility():
     from src.monkey_brain.kernel.society.world import WorldEntity, WorldEntityType
 
     pr = PlanetaryRuntime()
-    (home_space, visited_space) = _build_chain(pr, "Home", "Visited")
+    home_space, visited_space = _build_chain(pr, "Home", "Visited")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     visited = pr.create_society(name="Visited Society")
     pr.host_society(visited_space.entity_id, visited.society.society_id)
-    pr.add_world_entity(WorldEntity(
-        name="Visited Asset", entity_type=WorldEntityType.ENTITY,
-        owner_society_id=visited.society.society_id,
-    ))
+    pr.add_world_entity(
+        WorldEntity(
+            name="Visited Asset",
+            entity_type=WorldEntityType.ENTITY,
+            owner_society_id=visited.society.society_id,
+        )
+    )
 
     assert pr._effective_is_member(alice.actor_id, visited.society.society_id) is False
     pr.move_actor(alice.actor_id, visited_space.entity_id)
@@ -371,7 +384,7 @@ def test_temporary_participation_grants_observation_visibility():
 @pytest.mark.asyncio
 async def test_dual_participation_never_double_ticks_cognition():
     pr = PlanetaryRuntime()
-    (home_space, visited_space) = _build_chain(pr, "Home", "Visited")
+    home_space, visited_space = _build_chain(pr, "Home", "Visited")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     visited = pr.create_society(name="Visited Society")
@@ -398,7 +411,7 @@ def test_temporary_revoked_by_supersession_keeps_participant_if_now_permanent():
     permanent membership — that must not evict the Actor from the
     Society's coordination, since it's now there legitimately anyway."""
     pr = PlanetaryRuntime()
-    (home_space, visited_space) = _build_chain(pr, "Home", "Visited")
+    home_space, visited_space = _build_chain(pr, "Home", "Visited")
     alice = _register(pr, home_space_id=home_space.entity_id)
 
     visited = pr.create_society(name="Visited Society")

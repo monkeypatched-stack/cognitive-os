@@ -7,7 +7,6 @@ from typing import Any
 from fastapi import HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-
 POLICY_COLLECTION = "module_control_policy"
 MODULE_AUDIT_COLLECTION = "module_control_audit"
 
@@ -164,7 +163,11 @@ DEFAULT_MODULES = {
 INTEGRATION_CATALOG = (
     {"id": "sap_erp", "name": "SAP", "category": "ERP / MES"},
     {"id": "oracle_erp", "name": "Oracle", "category": "ERP / SCM"},
-    {"id": "microsoft_dynamics_365", "name": "Microsoft Dynamics 365", "category": "ERP / CRM"},
+    {
+        "id": "microsoft_dynamics_365",
+        "name": "Microsoft Dynamics 365",
+        "category": "ERP / CRM",
+    },
     {"id": "salesforce", "name": "Salesforce", "category": "CRM"},
     {"id": "servicenow", "name": "ServiceNow", "category": "ITSM / Workflow"},
     {"id": "workday", "name": "Workday", "category": "HRIS / Finance"},
@@ -175,7 +178,11 @@ INTEGRATION_CATALOG = (
     {"id": "ifs", "name": "IFS", "category": "EAM / ERP"},
     {"id": "siemens_teamcenter", "name": "Siemens Teamcenter", "category": "PLM"},
     {"id": "siemens_opcenter", "name": "Siemens Opcenter", "category": "MES"},
-    {"id": "rockwell_factorytalk", "name": "Rockwell FactoryTalk", "category": "SCADA / MES"},
+    {
+        "id": "rockwell_factorytalk",
+        "name": "Rockwell FactoryTalk",
+        "category": "SCADA / MES",
+    },
     {"id": "ptc_thingworx", "name": "PTC ThingWorx", "category": "IIoT"},
     {"id": "aveva_pi", "name": "AVEVA PI", "category": "Historian"},
     {"id": "ignition", "name": "Ignition", "category": "SCADA"},
@@ -244,6 +251,7 @@ def default_integration_catalog() -> list[dict[str, Any]]:
         for integration in INTEGRATION_CATALOG
     ]
 
+
 DEFAULT_LIMITS = {
     "max_nodes": 10000,
     "max_users": 1000,
@@ -271,7 +279,9 @@ def default_module_control_policy() -> dict[str, Any]:
         "module_catalog": dict(MODULE_CATALOG),
         "limits": dict(DEFAULT_LIMITS),
         "endpoint_module_prefixes": dict(ENDPOINT_MODULE_PREFIXES),
-        "limit_collections": {key: list(value) for key, value in LIMIT_COLLECTIONS.items()},
+        "limit_collections": {
+            key: list(value) for key, value in LIMIT_COLLECTIONS.items()
+        },
         "created_at": now,
         "updated_at": now,
         "updated_by": "system",
@@ -294,14 +304,26 @@ async def get_module_control_policy(db: AsyncIOMotorDatabase) -> dict[str, Any]:
         merged = default_module_control_policy()
         merged.update(_serialize(policy))
         merged["modules"] = {**DEFAULT_MODULES, **(policy.get("modules") or {})}
-        merged["integrations"] = {**DEFAULT_INTEGRATIONS, **(policy.get("integrations") or {})}
+        merged["integrations"] = {
+            **DEFAULT_INTEGRATIONS,
+            **(policy.get("integrations") or {}),
+        }
         merged["integration_catalog"] = list(
             policy.get("integration_catalog") or default_integration_catalog()
         )
-        merged["module_catalog"] = {**MODULE_CATALOG, **(policy.get("module_catalog") or {})}
+        merged["module_catalog"] = {
+            **MODULE_CATALOG,
+            **(policy.get("module_catalog") or {}),
+        }
         merged["limits"] = {**DEFAULT_LIMITS, **(policy.get("limits") or {})}
-        merged["endpoint_module_prefixes"] = {**ENDPOINT_MODULE_PREFIXES, **(policy.get("endpoint_module_prefixes") or {})}
-        merged["limit_collections"] = {**LIMIT_COLLECTIONS, **(policy.get("limit_collections") or {})}
+        merged["endpoint_module_prefixes"] = {
+            **ENDPOINT_MODULE_PREFIXES,
+            **(policy.get("endpoint_module_prefixes") or {}),
+        }
+        merged["limit_collections"] = {
+            **LIMIT_COLLECTIONS,
+            **(policy.get("limit_collections") or {}),
+        }
         return merged
     policy = default_module_control_policy()
     await db[POLICY_COLLECTION].insert_one(policy)
@@ -316,15 +338,26 @@ async def save_module_control_policy(
 ) -> dict[str, Any]:
     policy = await get_module_control_policy(db)
     next_policy = dict(policy)
-    for key in ("modules", "integrations", "module_catalog", "limits", "endpoint_module_prefixes", "limit_collections"):
+    for key in (
+        "modules",
+        "integrations",
+        "module_catalog",
+        "limits",
+        "endpoint_module_prefixes",
+        "limit_collections",
+    ):
         if key in patch and isinstance(patch[key], dict):
             next_policy[key] = {**(next_policy.get(key) or {}), **patch[key]}
-    if "integration_catalog" in patch and isinstance(patch["integration_catalog"], list):
+    if "integration_catalog" in patch and isinstance(
+        patch["integration_catalog"], list
+    ):
         next_policy["integration_catalog"] = list(patch["integration_catalog"])
     next_policy["version"] = int(next_policy.get("version") or 1) + 1
     next_policy["updated_at"] = utc_now()
     next_policy["updated_by"] = actor
-    await db[POLICY_COLLECTION].replace_one({"policy_id": "singleton"}, next_policy, upsert=True)
+    await db[POLICY_COLLECTION].replace_one(
+        {"policy_id": "singleton"}, next_policy, upsert=True
+    )
     await db[MODULE_AUDIT_COLLECTION].insert_one(
         {
             "event_type": "module-control-policy-updated",
@@ -340,7 +373,11 @@ async def save_module_control_policy(
 def module_for_path(path: str, policy: dict[str, Any]) -> str | None:
     prefixes = policy.get("endpoint_module_prefixes") or {}
     matches = sorted(
-        ((prefix, module_id) for prefix, module_id in prefixes.items() if path.startswith(prefix)),
+        (
+            (prefix, module_id)
+            for prefix, module_id in prefixes.items()
+            if path.startswith(prefix)
+        ),
         key=lambda item: len(item[0]),
         reverse=True,
     )
@@ -369,19 +406,38 @@ async def evaluate_module_control(
     if integration_id:
         enabled = bool((policy.get("integrations") or {}).get(integration_id, False))
         allowed = allowed and enabled
-        decisions.append({"kind": "integration", "id": integration_id, "allowed": enabled})
+        decisions.append(
+            {"kind": "integration", "id": integration_id, "allowed": enabled}
+        )
 
     if limit_key:
         limit = int((policy.get("limits") or {}).get(limit_key, 0) or 0)
-        collections = [collection] if collection else list((policy.get("limit_collections") or {}).get(limit_key) or [])
+        collections = (
+            [collection]
+            if collection
+            else list((policy.get("limit_collections") or {}).get(limit_key) or [])
+        )
         current = 0
         for name in collections:
             current += await db[name].count_documents({})
         within_limit = limit <= 0 or current < limit
         allowed = allowed and within_limit
-        decisions.append({"kind": "limit", "id": limit_key, "allowed": within_limit, "current": current, "limit": limit})
+        decisions.append(
+            {
+                "kind": "limit",
+                "id": limit_key,
+                "allowed": within_limit,
+                "current": current,
+                "limit": limit,
+            }
+        )
 
-    return {"allowed": allowed, "module": resolved_module, "decisions": decisions, "policy_version": policy.get("version")}
+    return {
+        "allowed": allowed,
+        "module": resolved_module,
+        "decisions": decisions,
+        "policy_version": policy.get("version"),
+    }
 
 
 async def require_module_control_allowed(
@@ -402,13 +458,24 @@ async def require_module_control_allowed(
         collection=collection,
     )
     if not evaluation["allowed"]:
-        raise HTTPException(status_code=status.HTTP_423_LOCKED, detail={"message": "Blocked by module control policy", **evaluation})
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail={"message": "Blocked by module control policy", **evaluation},
+        )
     return evaluation
 
 
-def module_control_dependency(module_id: str | None = None, limit_key: str | None = None, collection: str | None = None):
+def module_control_dependency(
+    module_id: str | None = None,
+    limit_key: str | None = None,
+    collection: str | None = None,
+):
     async def _dependency(request: Request):
-        db = request.app.state.database if hasattr(request.app.state, "database") else None
+        db = (
+            request.app.state.database
+            if hasattr(request.app.state, "database")
+            else None
+        )
         if db is None:
             return None
         return await require_module_control_allowed(

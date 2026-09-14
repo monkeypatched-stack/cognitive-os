@@ -3,6 +3,7 @@
 These Protocols break the circular import between kernel and runtime.
 Runtime imports these Protocols instead of importing from kernel directly.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, Any, runtime_checkable
@@ -11,12 +12,12 @@ from typing import Protocol, Any, runtime_checkable
 @runtime_checkable
 class ICapabilityProtocol(Protocol):
     """Protocol for capabilities that can be executed."""
-    
+
     @property
     def name(self) -> str:
         """Capability name."""
         ...
-    
+
     async def execute(self, state: dict[str, Any]) -> Any:
         """Execute the capability with given state."""
         ...
@@ -25,17 +26,17 @@ class ICapabilityProtocol(Protocol):
 @runtime_checkable
 class WorkloadProtocol(Protocol):
     """Protocol for workloads that contain execution steps."""
-    
+
     @property
     def workload_id(self) -> str:
         """Unique workload identifier."""
         ...
-    
+
     @property
     def steps(self) -> list[Any]:
         """List of workload steps."""
         ...
-    
+
     def step_names(self) -> list[str]:
         """Get names of all steps."""
         ...
@@ -44,17 +45,17 @@ class WorkloadProtocol(Protocol):
 @runtime_checkable
 class ExecutionStateProtocol(Protocol):
     """Protocol for execution state that tracks question and intent."""
-    
+
     @property
     def question(self) -> str:
         """The original question."""
         ...
-    
+
     @property
     def intent(self) -> str:
         """The classified intent."""
         ...
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         ...
@@ -63,17 +64,17 @@ class ExecutionStateProtocol(Protocol):
 @runtime_checkable
 class AgentResultProtocol(Protocol):
     """Protocol for results returned by agent execution."""
-    
+
     @property
     def reward(self) -> float:
         """RL reward signal."""
         ...
-    
+
     @property
     def payload(self) -> dict[str, Any]:
         """Result payload."""
         ...
-    
+
     @property
     def success(self) -> bool:
         """Whether execution succeeded."""
@@ -83,17 +84,17 @@ class AgentResultProtocol(Protocol):
 @runtime_checkable
 class ExecutionOutcomeProtocol(Protocol):
     """Protocol for execution outcomes published to subscribers."""
-    
+
     @property
     def goal(self) -> str:
         """The goal being executed."""
         ...
-    
+
     @property
     def workflow_id(self) -> str:
         """Workflow identifier."""
         ...
-    
+
     @property
     def result(self) -> Any:
         """The execution result."""
@@ -103,7 +104,7 @@ class ExecutionOutcomeProtocol(Protocol):
 @runtime_checkable
 class OutcomeSubscriberProtocol(Protocol):
     """Protocol for subscribers that receive execution outcomes."""
-    
+
     async def on_outcome(self, outcome: Any) -> None:
         """Handle an execution outcome."""
         ...
@@ -112,17 +113,17 @@ class OutcomeSubscriberProtocol(Protocol):
 @runtime_checkable
 class WorkloadStepProtocol(Protocol):
     """Protocol for workload steps that have metadata and capability names."""
-    
+
     @property
     def step_id(self) -> str:
         """Step identifier."""
         ...
-    
+
     @property
     def capability_name(self) -> str:
         """Capability name for this step."""
         ...
-    
+
     @property
     def metadata(self) -> dict[str, Any] | None:
         """Step metadata (may be None)."""

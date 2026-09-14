@@ -5,6 +5,7 @@ Space" chain __init__ creates before real geography (e.g. seed_world.py's
 hierarchies. Never triggered automatically — __init__'s own bootstrap
 timing/trigger condition is untouched by this feature.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
@@ -23,7 +24,11 @@ def _create_real_earth_chain(pr):
     earth = pr._geo_registry.create(GeographicEntityType.PLANET, "Earth")
     usa = pr._geo_registry.create(GeographicEntityType.COUNTRY, "USA", parent_id=earth.entity_id)
     california = pr._geo_registry.create(GeographicEntityType.STATE, "California", parent_id=usa.entity_id)
-    santa_clara = pr._geo_registry.create(GeographicEntityType.COUNTY, "Santa Clara County", parent_id=california.entity_id)
+    santa_clara = pr._geo_registry.create(
+        GeographicEntityType.COUNTY,
+        "Santa Clara County",
+        parent_id=california.entity_id,
+    )
     sunnyvale = pr._geo_registry.create(GeographicEntityType.CITY, "Sunnyvale", parent_id=santa_clara.entity_id)
     return earth, sunnyvale
 
@@ -48,7 +53,10 @@ def test_reconcile_migrates_society_onto_real_canonical_root():
 
     assert result.performed is True
     assert result.canonical_root_id == earth.entity_id
-    assert set(result.migrated_society_ids) == {bootstrap_society_id, club.society.society_id}
+    assert set(result.migrated_society_ids) == {
+        bootstrap_society_id,
+        club.society.society_id,
+    }
 
     bootstrap_entity = pr.entity_for_society(bootstrap_society_id)
     club_entity = pr.entity_for_society(club.society.society_id)

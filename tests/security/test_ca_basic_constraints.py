@@ -3,10 +3,15 @@
 Regression guard for the leaf-as-CA forgery: a holder of a valid leaf cert (and its key)
 must not be able to mint certificates for other identities that verify to the trusted root.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.identity import KeyManager
-from src.monkey_brain.kernel.ca import CertificateAuthority, Certificate, verify_certificate_chain
+from src.monkey_brain.kernel.ca import (
+    CertificateAuthority,
+    Certificate,
+    verify_certificate_chain,
+)
 from src.monkey_brain.kernel.identity import sign_bytes
 
 
@@ -20,9 +25,12 @@ def test_leaf_cannot_forge_a_cert_for_another_identity(tmp_path):
     assert mallory_leaf.is_ca is False
 
     # She forges a cert for "org:ceo" signed with HER key, chained under her leaf.
-    forged = Certificate(runtime_id="org:ceo",
-                         public_key_pem=km.get_public_key_pem("org:mallory"),
-                         subject="org:ceo", issuer="org:mallory")
+    forged = Certificate(
+        runtime_id="org:ceo",
+        public_key_pem=km.get_public_key_pem("org:mallory"),
+        subject="org:ceo",
+        issuer="org:mallory",
+    )
     forged.signature = sign_bytes(forged.signing_body(), mallory_key)
     forged.chain = [mallory_leaf.to_dict()] + list(mallory_leaf.chain)
 

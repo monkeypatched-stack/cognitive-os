@@ -5,6 +5,7 @@ architecture validator's size limits — the original single 9109-line file is
 gone, but the public contract is unchanged: `INTENT_EXAMPLES` still exposes
 the same dict[str, list[str]], importable from this same module path.
 """
+
 from __future__ import annotations
 
 from . import (

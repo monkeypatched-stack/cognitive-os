@@ -65,7 +65,11 @@ class CalendarBookingUpdate(BaseModel):
         self.start_at = ensure_utc(self.start_at)
         self.end_at = ensure_utc(self.end_at)
         self.updated_at = ensure_utc(self.updated_at)
-        if self.start_at is not None and self.end_at is not None and self.end_at <= self.start_at:
+        if (
+            self.start_at is not None
+            and self.end_at is not None
+            and self.end_at <= self.start_at
+        ):
             raise ValueError("end_at must be after start_at")
         return self
 

@@ -14,6 +14,7 @@ Px4RosExecutionAdapter always has.
 Run as: python -m src.monkey_brain.kernel.edge.ros_bridge_server
 (or via uvicorn directly — see docker/Dockerfile.ros-bridge's CMD).
 """
+
 from __future__ import annotations
 
 import logging

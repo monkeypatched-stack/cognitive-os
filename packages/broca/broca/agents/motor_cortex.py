@@ -1,12 +1,16 @@
 """MotorCortexAgent — code generation, returns typed AgentResult with file artifacts."""
+
 from __future__ import annotations
-import asyncio, logging, sys
+import asyncio
+import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any
 from ._base import BaseETASSAgent
 
 logger = logging.getLogger("broca.agents.motor_cortex")
-import os
+
 _REPO = Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4])))
 _GEN_DIR = Path(os.environ.get("MONKEYBRAIN_GEN_DIR", str(_REPO.parent / "generated" / _REPO.name)))
 
@@ -31,7 +35,8 @@ class MotorCortexAgent(BaseETASSAgent):
             service = context.get("service", "")
             logger.info(
                 "[motor_cortex] serve notification for %s (pid=%s) — no codegen triggered",
-                service, context.get("pid", ""),
+                service,
+                context.get("pid", ""),
             )
             self._reward(True, 0.5)
             return self._result(payload={"acknowledged": True, "service": service})
@@ -40,6 +45,7 @@ class MotorCortexAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
@@ -47,7 +53,10 @@ class MotorCortexAgent(BaseETASSAgent):
                 self._reward(files > 0, 0.6)
                 return self._result(
                     payload={"files_generated": files},
-                    metrics={"files_generated": float(files), "charts_processed": float(output.get("charts_processed", 0))},
+                    metrics={
+                        "files_generated": float(files),
+                        "charts_processed": float(output.get("charts_processed", 0)),
+                    },
                 )
             except Exception as e:
                 logger.warning("[motor_cortex] capability failed: %s — direct SittingFace", e)
@@ -61,12 +70,17 @@ class MotorCortexAgent(BaseETASSAgent):
         try:
             from sittingface.somatic_compiler import SomaticCompiler
             from sittingface.codegen_agent import CodeGenAgent
+
             compiler = SomaticCompiler()
             prompts = compiler.compile_prompts()
             agent = CodeGenAgent(output_dir=_GEN_DIR)
             prompt_dicts = [
-                {"chart": p.chart_name, "preamble": p.preamble,
-                 "steps": p.cot_steps, "constraints": p.constraints}
+                {
+                    "chart": p.chart_name,
+                    "preamble": p.preamble,
+                    "steps": p.cot_steps,
+                    "constraints": p.constraints,
+                }
                 for p in prompts
             ]
             loop = asyncio.get_event_loop()
@@ -76,6 +90,7 @@ class MotorCortexAgent(BaseETASSAgent):
 
             try:
                 from src.monkey_brain.kernel.execute.runtime.outcome import Artifact
+
                 artifacts = [Artifact(kind="file", name=str(f), uri=str(f)) for f in all_files]
             except ImportError:
                 artifacts = []
@@ -83,7 +98,10 @@ class MotorCortexAgent(BaseETASSAgent):
             return self._result(
                 payload={"files_generated": len(all_files), "charts": len(reports)},
                 artifacts=artifacts,
-                metrics={"files_generated": float(len(all_files)), "charts_processed": float(len(reports))},
+                metrics={
+                    "files_generated": float(len(all_files)),
+                    "charts_processed": float(len(reports)),
+                },
             )
         except Exception as e:
             logger.error("[motor_cortex] SittingFace failed: %s", e)

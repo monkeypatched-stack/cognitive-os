@@ -112,7 +112,9 @@ COMPLIANCE_EXCLUDED_COLLECTIONS = {
 AUDIT_VALUE_MAX_JSON_CHARS = 200_000
 AUDIT_SAMPLE_ITEMS = 5
 
-_current_user: ContextVar[dict[str, Any] | None] = ContextVar("part11_current_user", default=None)
+_current_user: ContextVar[dict[str, Any] | None] = ContextVar(
+    "part11_current_user", default=None
+)
 
 
 def utc_now() -> datetime:
@@ -139,7 +141,9 @@ def json_default(value: Any) -> str:
         return str(value)
     if isinstance(value, datetime):
         utc_value = value.astimezone(timezone.utc)
-        mongo_precision = utc_value.replace(microsecond=(utc_value.microsecond // 1000) * 1000)
+        mongo_precision = utc_value.replace(
+            microsecond=(utc_value.microsecond // 1000) * 1000
+        )
         return mongo_precision.isoformat()
     return str(value)
 
@@ -149,7 +153,10 @@ def redact_sensitive(value: Any) -> Any:
         redacted = {}
         for key, item in value.items():
             lowered = str(key).lower()
-            if any(token in lowered for token in ("password", "secret", "token", "authorization", "api_key")):
+            if any(
+                token in lowered
+                for token in ("password", "secret", "token", "authorization", "api_key")
+            ):
                 redacted[key] = "[REDACTED]"
             else:
                 redacted[key] = redact_sensitive(item)
@@ -160,7 +167,12 @@ def redact_sensitive(value: Any) -> Any:
 
 
 def stable_json(value: Any) -> str:
-    return json.dumps(redact_sensitive(value), sort_keys=True, default=json_default, separators=(",", ":"))
+    return json.dumps(
+        redact_sensitive(value),
+        sort_keys=True,
+        default=json_default,
+        separators=(",", ":"),
+    )
 
 
 def sha256_hex(value: Any) -> str:
@@ -171,14 +183,18 @@ def _json_size(value: Any) -> int:
     return len(stable_json(value))
 
 
-def _compact_audit_value(value: Any, *, max_chars: int = AUDIT_VALUE_MAX_JSON_CHARS) -> Any:
+def _compact_audit_value(
+    value: Any, *, max_chars: int = AUDIT_VALUE_MAX_JSON_CHARS
+) -> Any:
     redacted = redact_sensitive(value)
     if redacted is None or _json_size(redacted) <= max_chars:
         return redacted
 
     if isinstance(redacted, list):
         sample = [
-            _compact_audit_value(item, max_chars=max(max_chars // max(AUDIT_SAMPLE_ITEMS, 1), 1))
+            _compact_audit_value(
+                item, max_chars=max(max_chars // max(AUDIT_SAMPLE_ITEMS, 1), 1)
+            )
             for item in redacted[:AUDIT_SAMPLE_ITEMS]
         ]
         return {
@@ -201,12 +217,27 @@ def _compact_audit_value(value: Any, *, max_chars: int = AUDIT_VALUE_MAX_JSON_CH
                 summary[f"{key}_count"] = len(item)
             elif isinstance(item, dict):
                 summary[f"{key}_key_count"] = len(item)
-            elif key in {"id", "_id", "layout_id", "page_id", "workflow_id", "owner_id", "record_id"}:
+            elif key in {
+                "id",
+                "_id",
+                "layout_id",
+                "page_id",
+                "workflow_id",
+                "owner_id",
+                "record_id",
+            }:
                 summary[key] = item
 
         samples = {}
         for key, item in redacted.items():
-            if key in {"nodes", "edges", "links", "connections", "visual_nodes", "node_snapshots"} and isinstance(item, list):
+            if key in {
+                "nodes",
+                "edges",
+                "links",
+                "connections",
+                "visual_nodes",
+                "node_snapshots",
+            } and isinstance(item, list):
                 samples[key] = [
                     _compact_audit_value(sample_item, max_chars=max(max_chars // 20, 1))
                     for sample_item in item[:AUDIT_SAMPLE_ITEMS]
@@ -261,7 +292,13 @@ def extract_change_reason(update: Any) -> str | None:
         if isinstance(value, dict):
             candidates.append(value)
     for candidate in candidates:
-        for key in ("change_reason", "reason_for_change", "reason", "reason_code", "rejected_reason"):
+        for key in (
+            "change_reason",
+            "reason_for_change",
+            "reason",
+            "reason_code",
+            "rejected_reason",
+        ):
             value = candidate.get(key)
             if value:
                 return str(value)
@@ -332,12 +369,26 @@ def document_record_id(document: Any, fallback: Any = None) -> str | None:
     return None
 
 
-def compliance_record_envelope(collection: str, record: dict[str, Any] | None = None, *, action: str | None = None) -> dict[str, Any]:
+def compliance_record_envelope(
+    collection: str, record: dict[str, Any] | None = None, *, action: str | None = None
+) -> dict[str, Any]:
     now = utc_now()
     record_id = document_record_id(record) if isinstance(record, dict) else None
-    existing = record.get("compliance") if isinstance(record, dict) and isinstance(record.get("compliance"), dict) else {}
-    signatures = existing.get("signatures") if isinstance(existing.get("signatures"), list) else []
-    change_controls = existing.get("change_controls") if isinstance(existing.get("change_controls"), list) else []
+    existing = (
+        record.get("compliance")
+        if isinstance(record, dict) and isinstance(record.get("compliance"), dict)
+        else {}
+    )
+    signatures = (
+        existing.get("signatures")
+        if isinstance(existing.get("signatures"), list)
+        else []
+    )
+    change_controls = (
+        existing.get("change_controls")
+        if isinstance(existing.get("change_controls"), list)
+        else []
+    )
     envelope = {
         **existing,
         "standard": "21 CFR Part 11",
@@ -356,18 +407,26 @@ def compliance_record_envelope(collection: str, record: dict[str, Any] | None = 
     return envelope
 
 
-def attach_entity_compliance_metadata(collection: str, document: Any, *, action: str | None = None) -> Any:
+def attach_entity_compliance_metadata(
+    collection: str, document: Any, *, action: str | None = None
+) -> Any:
     if collection in COMPLIANCE_EXCLUDED_COLLECTIONS or not isinstance(document, dict):
         return document
-    document["compliance"] = compliance_record_envelope(collection, document, action=action)
+    document["compliance"] = compliance_record_envelope(
+        collection, document, action=action
+    )
     return document
 
 
-def attach_entity_compliance_update(collection: str, update: Any, *, action: str | None = None) -> Any:
+def attach_entity_compliance_update(
+    collection: str, update: Any, *, action: str | None = None
+) -> Any:
     if collection in COMPLIANCE_EXCLUDED_COLLECTIONS or not isinstance(update, dict):
         return update
     if not any(str(key).startswith("$") for key in update):
-        return attach_entity_compliance_metadata(collection, dict(update), action=action)
+        return attach_entity_compliance_metadata(
+            collection, dict(update), action=action
+        )
     now = utc_now()
     next_update = dict(update)
     set_fields = dict(next_update.get("$set") or {})
@@ -390,11 +449,32 @@ def attach_entity_compliance_update(collection: str, update: Any, *, action: str
     return next_update
 
 
-def entity_compliance_reference(record: dict[str, Any], *, reference_type: str) -> dict[str, Any]:
+def entity_compliance_reference(
+    record: dict[str, Any], *, reference_type: str
+) -> dict[str, Any]:
     if reference_type == "signature":
-        keys = ("signature_id", "action", "meaning", "user_id", "email", "role", "signed_at", "signature_hash", "record_hash")
+        keys = (
+            "signature_id",
+            "action",
+            "meaning",
+            "user_id",
+            "email",
+            "role",
+            "signed_at",
+            "signature_hash",
+            "record_hash",
+        )
     elif reference_type == "change_control":
-        keys = ("change_control_id", "change_control_number", "title", "change_type", "status", "risk_score", "created_at", "created_by")
+        keys = (
+            "change_control_id",
+            "change_control_number",
+            "title",
+            "change_type",
+            "status",
+            "risk_score",
+            "created_at",
+            "created_by",
+        )
     else:
         keys = tuple(record.keys())
     return {key: record.get(key) for key in keys if record.get(key) is not None}
@@ -432,10 +512,14 @@ async def append_record_version(
     await raw_db[VERSION_COLLECTION].insert_one(version)
 
 
-async def enforce_retention(raw_db, *, collection: str, record: dict[str, Any] | None) -> None:
+async def enforce_retention(
+    raw_db, *, collection: str, record: dict[str, Any] | None
+) -> None:
     if not record:
         return
-    policy = await raw_db[RETENTION_COLLECTION].find_one({"collection": collection, "enabled": True})
+    policy = await raw_db[RETENTION_COLLECTION].find_one(
+        {"collection": collection, "enabled": True}
+    )
     if not policy:
         return
 
@@ -449,8 +533,12 @@ async def enforce_retention(raw_db, *, collection: str, record: dict[str, Any] |
     if isinstance(retain_until, datetime):
         if retain_until.tzinfo is None:
             retain_until = retain_until.replace(tzinfo=timezone.utc)
-        if retain_until > now and not policy.get("allow_delete_before_retention_expiry", False):
-            raise PermissionError(f"Record is retained until {retain_until.isoformat()}")
+        if retain_until > now and not policy.get(
+            "allow_delete_before_retention_expiry", False
+        ):
+            raise PermissionError(
+                f"Record is retained until {retain_until.isoformat()}"
+            )
 
     minimum_days = int(policy.get("minimum_retention_days") or 0)
     created_at = record.get("created_at")
@@ -458,8 +546,12 @@ async def enforce_retention(raw_db, *, collection: str, record: dict[str, Any] |
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.utc)
         elapsed_days = (now - created_at).days
-        if elapsed_days < minimum_days and not policy.get("allow_delete_before_retention_expiry", False):
-            raise PermissionError(f"Record retention policy requires {minimum_days} days before deletion")
+        if elapsed_days < minimum_days and not policy.get(
+            "allow_delete_before_retention_expiry", False
+        ):
+            raise PermissionError(
+                f"Record retention policy requires {minimum_days} days before deletion"
+            )
 
 
 async def append_audit_entry(
@@ -500,7 +592,9 @@ async def append_audit_entry(
         "previous_hash": previous_hash,
         "change_reason": extract_change_reason(update) or extract_change_reason(after),
     }
-    entry["entry_hash"] = sha256_hex({key: value for key, value in entry.items() if key != "entry_hash"})
+    entry["entry_hash"] = sha256_hex(
+        {key: value for key, value in entry.items() if key != "entry_hash"}
+    )
     await audit_collection.insert_one(entry)
     queue_event = json.loads(
         stable_json(
@@ -539,7 +633,10 @@ async def append_audit_entry(
             upsert=True,
         )
     except Exception as exc:
-        log.exception("Failed to publish Part 11 audit entry to NATS audit queue audit_id=%s", entry["audit_id"])
+        log.exception(
+            "Failed to publish Part 11 audit entry to NATS audit queue audit_id=%s",
+            entry["audit_id"],
+        )
         await raw_db[AUDIT_OUTBOX_COLLECTION].update_one(
             {"audit_id": entry["audit_id"]},
             {

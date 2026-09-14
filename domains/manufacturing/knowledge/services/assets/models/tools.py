@@ -3,7 +3,6 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
 ToolCategory = Literal[
     "Hand-Tool",
     "Power-Tool",
@@ -83,7 +82,9 @@ class ToolBase(BaseModel):
     def validate_dates(self) -> "ToolBase":
         if self.last_calibration_date and self.next_calibration_date:
             if self.next_calibration_date < self.last_calibration_date:
-                raise ValueError("next_calibration_date cannot be before last_calibration_date")
+                raise ValueError(
+                    "next_calibration_date cannot be before last_calibration_date"
+                )
         if self.last_service_date and self.next_service_date:
             if self.next_service_date < self.last_service_date:
                 raise ValueError("next_service_date cannot be before last_service_date")
@@ -114,7 +115,9 @@ class ToolRecord(ToolBase):
         self.created_at = ensure_utc(self.created_at)
         self.updated_at = ensure_utc(self.updated_at)
         self.checked_out_quantity = min(self.checked_out_quantity, self.total_quantity)
-        self.available_quantity = max(self.total_quantity - self.checked_out_quantity, 0)
+        self.available_quantity = max(
+            self.total_quantity - self.checked_out_quantity, 0
+        )
         self.is_overdue_return = (
             self.due_return_date is not None
             and self.due_return_date < today

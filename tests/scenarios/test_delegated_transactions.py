@@ -30,16 +30,27 @@ in-process fallback) remains correct -- not a substitute for the fact
 that the modification itself was a pure additive `if/else` with the
 pre-existing behavior moved verbatim under the `else`.
 """
+
 from __future__ import annotations
 
 import time
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
-from src.monkey_brain.kernel.domains.grocery import AskActorCapability, DelegateTaskCapability, _run_delegated_tasks
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.domains.grocery import (
+    AskActorCapability,
+    DelegateTaskCapability,
+    _run_delegated_tasks,
+)
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -48,7 +59,8 @@ def _register(pr, name, society_id=None):
     if society_id is not None:
         kwargs["society_id"] = society_id
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)),
+        **kwargs,
     )
 
 
@@ -70,14 +82,24 @@ async def test_delegate001_real_single_task_delegation():
     _register(pr, "Bob Delegate", society_id=club.society.society_id)
     _, product_id = _seed_product(pr)
 
-    result = await DelegateTaskCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {
-            "target_actor": "Bob Delegate",
-            "tasks": [{"capability": "ProductSelection",
-                       "parameters": {"selection": [{"id": product_id, "qty": 1}]}}],
-        },
-    })
+    result = await DelegateTaskCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {
+                "target_actor": "Bob Delegate",
+                "tasks": [
+                    {
+                        "capability": "ProductSelection",
+                        "parameters": {"selection": [{"id": product_id, "qty": 1}]},
+                    }
+                ],
+            },
+        }
+    )
 
     assert result["success"] is True
     assert result["success_count"] == 1
@@ -101,17 +123,29 @@ async def test_delegate002_real_multistep_chain_with_real_world_mutation():
     _register(pr, "Bob Delegate2", society_id=club.society.society_id)
     kg, product_id = _seed_product(pr, quantity=5)
 
-    result = await DelegateTaskCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {
-            "target_actor": "Bob Delegate2",
-            "tasks": [
-                {"capability": "ProductSelection",
-                 "parameters": {"selection": [{"id": product_id, "qty": 1}]}},
-                {"capability": "OrderCreation", "parameters": {}, "depends_on": [0]},
-            ],
-        },
-    })
+    result = await DelegateTaskCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {
+                "target_actor": "Bob Delegate2",
+                "tasks": [
+                    {
+                        "capability": "ProductSelection",
+                        "parameters": {"selection": [{"id": product_id, "qty": 1}]},
+                    },
+                    {
+                        "capability": "OrderCreation",
+                        "parameters": {},
+                        "depends_on": [0],
+                    },
+                ],
+            },
+        }
+    )
 
     assert result["success"] is True
     assert result["success_count"] == 2
@@ -141,19 +175,33 @@ async def test_delegate003_honest_failure_unknown_capability_and_empty_tasks():
     alice = _register(pr, "Alice Delegate3", society_id=club.society.society_id)
     bob = _register(pr, "Bob Delegate3", society_id=club.society.society_id)
 
-    result = await DelegateTaskCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {"target_actor": "Bob Delegate3",
-                        "tasks": [{"capability": "NotARealCapability", "parameters": {}}]},
-    })
+    result = await DelegateTaskCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {
+                "target_actor": "Bob Delegate3",
+                "tasks": [{"capability": "NotARealCapability", "parameters": {}}],
+            },
+        }
+    )
     assert result["success"] is False
     assert result["failure_count"] == 1
     assert "Capability not found" in result["actions"][0]["error"]
 
-    result2 = await DelegateTaskCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {"target_actor": "Bob Delegate3", "tasks": []},
-    })
+    result2 = await DelegateTaskCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {"target_actor": "Bob Delegate3", "tasks": []},
+        }
+    )
     assert result2["success"] is False
     assert "requires parameters.target_actor and parameters.tasks" in result2["error"]
 
@@ -181,20 +229,34 @@ async def test_delegate005_a_genuine_delegated_failure_is_marked_recoverable():
 
     bad_tasks = [{"capability": "NotARealCapability", "parameters": {}}]
 
-    first = await DelegateTaskCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {"target_actor": "Bob Delegate5", "tasks": bad_tasks},
-    })
+    first = await DelegateTaskCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {"target_actor": "Bob Delegate5", "tasks": bad_tasks},
+        }
+    )
     assert first["success"] is False
     assert first["recoverable"] is True
 
-    retried = await DelegateTaskCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {
-            "target_actor": "Bob Delegate5", "tasks": bad_tasks,
-            "retry_after_failure": True, "excluded_ids": [bob.actor_id],
-        },
-    })
+    retried = await DelegateTaskCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {
+                "target_actor": "Bob Delegate5",
+                "tasks": bad_tasks,
+                "retry_after_failure": True,
+                "excluded_ids": [bob.actor_id],
+            },
+        }
+    )
     assert retried["success"] is False
     assert retried["recoverable"] is False
 
@@ -214,20 +276,28 @@ def test_delegate006_alternative_selection_prefers_goal_overlap_and_excludes_cor
     _find_alternative_delegate actually guarantees (goal-overlap
     preference, correct exclusion) are checked."""
     import uuid
-    from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+    from src.monkey_brain.kernel.society.domain import (
+        ActorIdentity,
+        ActorProfile,
+        ActorType,
+    )
 
     pr = PlanetaryRuntime()
     club = pr.create_society("Delegate Test 006", society_type="community")
     unique_goal = f"procurement_{uuid.uuid4().hex}"
 
     original = pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name="Bob Delegate6", actor_type=ActorType.HUMAN),
-                     goals=(unique_goal,)),
+        ActorProfile(
+            identity=ActorIdentity(name="Bob Delegate6", actor_type=ActorType.HUMAN),
+            goals=(unique_goal,),
+        ),
         society_id=club.society.society_id,
     )
     matching = pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name="Erin Delegate6", actor_type=ActorType.HUMAN),
-                     goals=(unique_goal,)),
+        ActorProfile(
+            identity=ActorIdentity(name="Erin Delegate6", actor_type=ActorType.HUMAN),
+            goals=(unique_goal,),
+        ),
         society_id=club.society.society_id,
     )
     alice = _register(pr, "Alice Delegate6", society_id=club.society.society_id)
@@ -240,7 +310,10 @@ def test_delegate006_alternative_selection_prefers_goal_overlap_and_excludes_cor
     _sr, original_state, _ambiguity_error = DelegateTaskCapability._find_actor_by_id_or_name(pr, "Bob Delegate6")
 
     _sr, found = DelegateTaskCapability._find_alternative_delegate(
-        pr, original_state, {original.actor_id}, alice.actor_id,
+        pr,
+        original_state,
+        {original.actor_id},
+        alice.actor_id,
     )
     assert found is not None
     assert found.actor_id == matching.actor_id
@@ -248,9 +321,15 @@ def test_delegate006_alternative_selection_prefers_goal_overlap_and_excludes_cor
     # Explicitly excluding the one real goal-overlapping match too must
     # never fall back to selecting it anyway.
     _sr, excluded_too = DelegateTaskCapability._find_alternative_delegate(
-        pr, original_state, {original.actor_id, matching.actor_id}, alice.actor_id,
+        pr,
+        original_state,
+        {original.actor_id, matching.actor_id},
+        alice.actor_id,
     )
-    assert excluded_too is None or excluded_too.actor_id not in {original.actor_id, matching.actor_id}
+    assert excluded_too is None or excluded_too.actor_id not in {
+        original.actor_id,
+        matching.actor_id,
+    }
 
 
 @pytest.mark.asyncio
@@ -263,7 +342,9 @@ async def test_delegate004_existing_question_payload_shape_still_works(monkeypat
     network-free -- every other real step (target resolution, the real
     communication-permission check, AnswerQuestionCapability's own fact-
     gathering, the in-process fallback branch) runs unmodified."""
-    from src.monkey_brain.kernel.execute.provider import model_backend as model_backend_module
+    from src.monkey_brain.kernel.execute.provider import (
+        model_backend as model_backend_module,
+    )
 
     class _FakeBackend:
         async def complete(self, prompt: str, system: str = "") -> str:
@@ -276,9 +357,18 @@ async def test_delegate004_existing_question_payload_shape_still_works(monkeypat
     alice = _register(pr, "Alice Delegate4", society_id=club.society.society_id)
     _register(pr, "Bob Delegate4", society_id=club.society.society_id)
 
-    result = await AskActorCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {"target_actor": "Bob Delegate4", "question": "what is your role?"},
-    })
+    result = await AskActorCapability().handle(
+        {
+            "context": {
+                "planetary_runtime": pr,
+                "actor_id": alice.actor_id,
+                "actor_role": "Alice",
+            },
+            "parameters": {
+                "target_actor": "Bob Delegate4",
+                "question": "what is your role?",
+            },
+        }
+    )
     assert result["success"] is True
     assert result["answer"] == "I'm doing my usual work here."

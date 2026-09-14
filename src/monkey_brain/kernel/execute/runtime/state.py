@@ -23,6 +23,7 @@ from uuid import uuid4
 
 class ExecutionPhase(str, Enum):
     """Current phase of execution."""
+
     INITIALIZED = "initialized"
     ENTITY_RESOLUTION = "entity_resolution"
     HIERARCHY_RESOLUTION = "hierarchy_resolution"
@@ -43,7 +44,7 @@ def _safe_phase(value: str) -> ExecutionPhase:
 @dataclass
 class ExecutionState:
     """Unified execution state that gets incrementally augmented by capabilities."""
-    
+
     # Core execution context
     question: str = ""
     intent: str = ""
@@ -51,116 +52,118 @@ class ExecutionState:
     execution_id: str = field(default_factory=lambda: str(uuid4()))
     spiffe_id: str = field(default_factory=lambda: os.getenv("SPIFFE_ID", ""))
     trace_id: str = ""  # ExecutionContext.trace_id, threaded through so Runtime.execute()
-                        # can carry it into every ExecutionOutcome it publishes
+    # can carry it into every ExecutionOutcome it publishes
     phase: ExecutionPhase = ExecutionPhase.INITIALIZED
-    
+
     # Entity resolution results
     entities: list[dict[str, Any]] = field(default_factory=list)
     resolved_entities: dict[str, dict[str, Any]] = field(default_factory=dict)  # entity_type -> entity
-    
-    # Hierarchy resolution results  
+
+    # Hierarchy resolution results
     hierarchy: dict[str, Any] = field(default_factory=dict)
     relationships: list[dict[str, Any]] = field(default_factory=list)
-    
+
     # Knowledge retrieval results
     graph_entities: list[dict[str, Any]] = field(default_factory=list)
     documents: list[dict[str, Any]] = field(default_factory=list)
     web_results: list[dict[str, Any]] = field(default_factory=list)
-    
+
     # Execution metadata
     execution_stats: dict[str, Any] = field(default_factory=dict)
     observations: list[dict[str, Any]] = field(default_factory=list)
     policy_updates: list[dict[str, Any]] = field(default_factory=list)
-    
+
     # Capability execution history
     capability_history: list[str] = field(default_factory=list)
     execution_trace: list[dict[str, Any]] = field(default_factory=list)
-    
+
     # Current answer state
     current_answer: str = ""
     answer_quality: float = 0.0
     confidence: float = 0.0
-    
+
     # Error handling
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-    
+
     def add_entity(self, entity_type: str, entity: dict[str, Any]) -> None:
         """Add a resolved entity to the state."""
         self.entities.append(entity)
         self.resolved_entities[entity_type] = entity
-        
+
     def add_hierarchy(self, hierarchy_data: dict[str, Any]) -> None:
         """Add hierarchy information to the state."""
         self.hierarchy.update(hierarchy_data)
-        
+
     def add_relationship(self, relationship: dict[str, Any]) -> None:
         """Add a relationship to the state."""
         self.relationships.append(relationship)
-        
+
     def add_graph_entities(self, entities: list[dict[str, Any]]) -> None:
         """Add graph entities to the state."""
         self.graph_entities.extend(entities)
-        
+
     def add_documents(self, documents: list[dict[str, Any]]) -> None:
         """Add documents to the state."""
         self.documents.extend(documents)
-        
+
     def add_web_results(self, results: list[dict[str, Any]]) -> None:
         """Add web search results to the state."""
         self.web_results.extend(results)
-        
+
     def record_capability_execution(self, capability_name: str, result: dict[str, Any]) -> None:
         """Record that a capability was executed."""
         self.capability_history.append(capability_name)
-        self.execution_trace.append({
-            "capability": capability_name,
-            "result": result,
-            "timestamp": result.get("timestamp", "")
-        })
-        
+        self.execution_trace.append(
+            {
+                "capability": capability_name,
+                "result": result,
+                "timestamp": result.get("timestamp", ""),
+            }
+        )
+
     def add_observation(self, observation: dict[str, Any]) -> None:
         """Add an observation for policy learning."""
         self.observations.append(observation)
-        
+
     def add_policy_update(self, policy_update: dict[str, Any]) -> None:
         """Add a policy update for Bellman optimization."""
         self.policy_updates.append(policy_update)
-        
+
     def set_answer(self, answer: str, quality: float = 0.0, confidence: float = 0.0) -> None:
         """Set the current answer state."""
         self.current_answer = answer
         self.answer_quality = quality
         self.confidence = confidence
-        
+
     def add_error(self, error: str) -> None:
         """Add an error to the state."""
         self.errors.append(error)
-        
+
     def add_warning(self, warning: str) -> None:
         """Add a warning to the state."""
         self.warnings.append(warning)
-        
+
     def is_complete(self) -> bool:
         """Check if execution is complete."""
         return self.phase == ExecutionPhase.COMPLETED or self.phase == ExecutionPhase.FAILED
-        
+
     def has_errors(self) -> bool:
         """Check if there are any errors."""
         return len(self.errors) > 0
-        
+
     def get_entity(self, entity_type: str) -> Optional[dict[str, Any]]:
         """Get a resolved entity by type."""
         return self.resolved_entities.get(entity_type)
-    
+
     def has_data(self, key: str) -> bool:
         """Check if state contains specific data."""
         return key in self.execution_stats
-    
+
     def get_data(self, key: str) -> Any:
         """Get data from execution stats."""
         return self.execution_stats.get(key)
-        
+
     def to_dict(self) -> dict[str, Any]:
         """Convert state to dictionary for serialization."""
         return {
@@ -187,9 +190,9 @@ class ExecutionState:
             "answer_quality": self.answer_quality,
             "confidence": self.confidence,
             "errors": self.errors,
-            "warnings": self.warnings
+            "warnings": self.warnings,
         }
-        
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExecutionState:
         """Create state from dictionary."""
@@ -202,7 +205,7 @@ class ExecutionState:
             trace_id=data.get("trace_id", ""),
             phase=_safe_phase(data.get("phase", ExecutionPhase.INITIALIZED.value)),
         )
-        
+
         # Restore all the collected data
         state.entities = data.get("entities", [])
         state.resolved_entities = data.get("resolved_entities", {})
@@ -221,7 +224,7 @@ class ExecutionState:
         state.confidence = data.get("confidence", 0.0)
         state.errors = data.get("errors", [])
         state.warnings = data.get("warnings", [])
-        
+
         return state
 
 
@@ -232,6 +235,7 @@ class CapabilityResult:
     Adds execution-state tracking and policy learning data on top of the base
     icapability.CapabilityResult(success, output, error, latency_ms).
     """
+
     # Base fields (compatible with icapability.CapabilityResult)
     success: bool = True
     output: dict = field(default_factory=dict)
@@ -242,16 +246,16 @@ class CapabilityResult:
     updated_state: ExecutionState | None = None
     capability_name: str = ""
     timestamp: str = ""
-    
+
     # Extended: policy learning data
     observations: list[dict[str, Any]] = field(default_factory=list)
     transition_reward: float = 0.0
     execution_cost: float = 0.0
     confidence: float = 0.0
-    
+
     # Extended: execution details
     execution_metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         result = {
@@ -270,7 +274,7 @@ class CapabilityResult:
         if self.updated_state is not None:
             result["updated_state"] = self.updated_state.to_dict()
         return result
-        
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CapabilityResult":
         """Create from dictionary."""
@@ -284,5 +288,5 @@ class CapabilityResult:
             transition_reward=data.get("transition_reward", 0.0),
             execution_cost=data.get("execution_cost", 0.0),
             confidence=data.get("confidence", 0.0),
-            execution_metadata=data.get("execution_metadata", {})
+            execution_metadata=data.get("execution_metadata", {}),
         )

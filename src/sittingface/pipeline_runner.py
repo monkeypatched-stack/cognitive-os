@@ -30,16 +30,22 @@ class PipelineRunner:
         )
 
         import os
+
         repo_root = Path(os.environ.get("SITTINGFACE_REPO_ROOT", str(Path(__file__).parents[2])))
         src_root = repo_root / "src"
-        gen_root = Path(os.environ.get("SITTINGFACE_GENERATED_DIR", str(repo_root.parent / "generated" / repo_root.name)))
+        gen_root = Path(
+            os.environ.get(
+                "SITTINGFACE_GENERATED_DIR",
+                str(repo_root.parent / "generated" / repo_root.name),
+            )
+        )
         charts_dir = repo_root / "somatic" / "charts"
 
         while self.iteration < self.max_iterations:
             self.iteration += 1
-            logger.info(f"\n{'='*60}")
+            logger.info(f"\n{'=' * 60}")
             logger.info(f"ITERATION {self.iteration}")
-            logger.info(f"{'='*60}")
+            logger.info(f"{'=' * 60}")
 
             result = {"iteration": self.iteration, "steps": []}
 
@@ -87,10 +93,10 @@ class PipelineRunner:
 
             # Step 5: If diff = 0, we're done
             if diff_result["diff_files"] == 0 and diff_result["only_in_gen"] == 0:
-                logger.info(f"\n{'='*60}")
+                logger.info(f"\n{'=' * 60}")
                 logger.info(f"SUCCESS: src/ matches generated/ exactly!")
                 logger.info(f"Completed in {self.iteration} iteration(s)")
-                logger.info(f"{'='*60}")
+                logger.info(f"{'=' * 60}")
                 result["status"] = "success"
                 self.results.append(result)
                 return result
@@ -105,6 +111,7 @@ class PipelineRunner:
             # Step 7: Commit to git
             logger.info("Step 6: Committing to git...")
             from sittingface.history import SomaticHistory
+
             h = SomaticHistory(repo_root)
             h.init()
             commit = h.commit(
@@ -119,6 +126,7 @@ class PipelineRunner:
             logger.info("Step 7: Creating embeddings and persisting to Elasticsearch...")
             try:
                 from src.monkey_brain.kernel.semantic_memory import SemanticMemory
+
                 sm = SemanticMemory()
                 sm.initialize()
                 if sm._embeddings.available:
@@ -127,7 +135,11 @@ class PipelineRunner:
                             inv.get("statement", "") for inv in chart.values.get("invariants", [])
                         )
                         asyncio.get_event_loop().run_until_complete(
-                            sm.store(f"chart:{chart.name}", text, {"type": "chart", "name": chart.name})
+                            sm.store(
+                                f"chart:{chart.name}",
+                                text,
+                                {"type": "chart", "name": chart.name},
+                            )
                         )
                     result["steps"].append({"step": "embeddings", "charts_indexed": len(compiler.charts)})
                     logger.info(f"  Indexed {len(compiler.charts)} charts to Elasticsearch")

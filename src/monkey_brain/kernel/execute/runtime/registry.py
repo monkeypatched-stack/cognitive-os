@@ -53,7 +53,7 @@ def clear_workloads():
 # Initialize with some default workloads
 def _init_default_workloads():
     """Initialize default workloads."""
-    
+
     async def default_workload_executor(context: dict) -> dict:
         """Default workload executor using workload runtime.
 
@@ -61,9 +61,10 @@ def _init_default_workloads():
         steps directly via the capability bus. Otherwise fall back to the
         workload runtime.
         """
-        bellman_workload = context.get('bellman_workload')
-        if bellman_workload is not None and hasattr(bellman_workload, 'steps') and bellman_workload.steps:
+        bellman_workload = context.get("bellman_workload")
+        if bellman_workload is not None and hasattr(bellman_workload, "steps") and bellman_workload.steps:
             from src.monkey_brain.kernel.execute.cerebellum.bus import CapabilityBus
+
             bus = CapabilityBus()
             accumulated: dict = {}
             for step in bellman_workload.steps:
@@ -78,8 +79,8 @@ def _init_default_workloads():
                 "llm_answered": accumulated.get("llm_answered", True),
             }
 
-        goal = context.get('goal', {})
-        workload_name = goal.get('name', 'unknown') + '_workload'
+        goal = context.get("goal", {})
+        workload_name = goal.get("name", "unknown") + "_workload"
         logger.warning(
             "No Bellman workload in context for goal %r — no fallback runtime available. "
             "Ensure policy.generate_and_select() populates context['bellman_workload'] before calling this executor.",
@@ -91,11 +92,15 @@ def _init_default_workloads():
             "graph_paths": [],
             "llm_answered": False,
         }
-    
+
     # Register default workloads for common goal types
     for goal_type in [
-        'batch_record', 'work_order_query', 'approval_query',
-        'drug_research', 'production_kpi', 'warehouse_shipping'
+        "batch_record",
+        "work_order_query",
+        "approval_query",
+        "drug_research",
+        "production_kpi",
+        "warehouse_shipping",
     ]:
         register_workload(f"{goal_type}_workload", default_workload_executor)
 
@@ -104,6 +109,7 @@ def _init_default_workloads():
         from src.monkey_brain.kernel.plan.intents.predicates.sittingface_workload import (
             sittingface_workload_question_answer,
         )
+
         mongo_client = context.get("mongo_client")
         question = context.get("question", "")
         result = await sittingface_workload_question_answer(mongo_client, question)
@@ -115,7 +121,12 @@ def _init_default_workloads():
                 "graph_paths": graph_paths,
                 "llm_answered": llm_answered,
             }
-        return {"answer": str(result), "semantic_hits": [], "graph_paths": [], "llm_answered": False}
+        return {
+            "answer": str(result),
+            "semantic_hits": [],
+            "graph_paths": [],
+            "llm_answered": False,
+        }
 
     register_workload("sittingface_workload_workload", sittingface_workload_executor)
 
@@ -124,6 +135,7 @@ def _init_default_workloads():
         from src.monkey_brain.kernel.plan.intents.predicates.self_healing_workload import (
             self_healing_workload_question_answer,
         )
+
         mongo_client = context.get("mongo_client")
         question = context.get("question", "")
         result = await self_healing_workload_question_answer(mongo_client, question)
@@ -135,7 +147,12 @@ def _init_default_workloads():
                 "graph_paths": graph_paths,
                 "llm_answered": llm_answered,
             }
-        return {"answer": str(result), "semantic_hits": [], "graph_paths": [], "llm_answered": False}
+        return {
+            "answer": str(result),
+            "semantic_hits": [],
+            "graph_paths": [],
+            "llm_answered": False,
+        }
 
     register_workload("self_healing_workload_workload", self_healing_workload_executor)
 

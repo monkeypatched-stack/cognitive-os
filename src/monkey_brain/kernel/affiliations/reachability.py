@@ -15,6 +15,7 @@ re-deriving their own version:
     instead of the exact actor_id or full name, scoped to who the asker
     can ACTUALLY reach (not a global, ambiguous name search).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -63,9 +64,7 @@ def reachable_colleagues(pr: Any, actor_id: str) -> tuple[dict[str, Any], ...]:
             other_id = a.target_id
             if not other_id or other_id == actor_id or other_id in seen:
                 continue
-            target_is_live_actor = any(
-                other_sr.get_actor(other_id) is not None for other_sr in pr.all_societies()
-            )
+            target_is_live_actor = any(other_sr.get_actor(other_id) is not None for other_sr in pr.all_societies())
             if not target_is_live_actor:
                 continue  # target_id doesn't resolve to a real, live actor
             seen[other_id] = {

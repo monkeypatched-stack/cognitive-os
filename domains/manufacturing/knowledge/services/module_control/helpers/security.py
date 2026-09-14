@@ -11,7 +11,6 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.common.config import settings
 from services.common.module_control import hash_secret, utc_now
 
-
 CHALLENGE_COLLECTION = "module_control_activation_challenges"
 SESSION_COLLECTION = "module_control_activation_sessions"
 
@@ -25,7 +24,9 @@ def _configured_password_hash() -> str:
 def _actor_id(actor: dict[str, Any] | None) -> str:
     if not actor:
         return "anonymous"
-    return str(actor.get("user_id") or actor.get("sub") or actor.get("email") or "unknown-user")
+    return str(
+        actor.get("user_id") or actor.get("sub") or actor.get("email") or "unknown-user"
+    )
 
 
 def _expired(value) -> bool:
@@ -36,9 +37,13 @@ def _expired(value) -> bool:
     return value < utc_now()
 
 
-async def create_activation_challenge(db: AsyncIOMotorDatabase, *, actor: dict[str, Any] | None = None) -> dict[str, Any]:
+async def create_activation_challenge(
+    db: AsyncIOMotorDatabase, *, actor: dict[str, Any] | None = None
+) -> dict[str, Any]:
     code = f"{secrets.randbelow(1_000_000):06d}"
-    expires_at = utc_now() + timedelta(seconds=max(settings.MODULE_CONTROL_OTP_TTL_SECONDS, 30))
+    expires_at = utc_now() + timedelta(
+        seconds=max(settings.MODULE_CONTROL_OTP_TTL_SECONDS, 30)
+    )
     challenge = {
         "challenge_id": f"mc_otp_{uuid4().hex[:16]}",
         "otp_hash": hash_secret(code),
@@ -51,7 +56,11 @@ async def create_activation_challenge(db: AsyncIOMotorDatabase, *, actor: dict[s
     response = {
         "challenge_id": challenge["challenge_id"],
         "expires_at": expires_at.isoformat(),
-        "delivery_mode": "development_echo" if settings.MODULE_CONTROL_ECHO_OTP else "external_delivery_required",
+        "delivery_mode": (
+            "development_echo"
+            if settings.MODULE_CONTROL_ECHO_OTP
+            else "external_delivery_required"
+        ),
     }
     if settings.MODULE_CONTROL_ECHO_OTP:
         response["otp_code"] = code
@@ -68,15 +77,29 @@ async def verify_activation(
 ) -> dict[str, Any]:
     challenge = await db[CHALLENGE_COLLECTION].find_one({"challenge_id": challenge_id})
     if not challenge or challenge.get("used") or _expired(challenge.get("expires_at")):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Activation challenge is invalid or expired.")
-    if not secrets.compare_digest(str(challenge.get("otp_hash")), hash_secret(otp_code)):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid activation OTP.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Activation challenge is invalid or expired.",
+        )
+    if not secrets.compare_digest(
+        str(challenge.get("otp_hash")), hash_secret(otp_code)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid activation OTP."
+        )
     if not secrets.compare_digest(_configured_password_hash(), hash_secret(password)):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid activation password.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid activation password.",
+        )
 
     raw_token = f"mc_session_{secrets.token_urlsafe(32)}"
-    expires_at = utc_now() + timedelta(seconds=max(settings.MODULE_CONTROL_SESSION_TTL_SECONDS, 60))
-    await db[CHALLENGE_COLLECTION].update_one({"challenge_id": challenge_id}, {"$set": {"used": True, "used_at": utc_now()}})
+    expires_at = utc_now() + timedelta(
+        seconds=max(settings.MODULE_CONTROL_SESSION_TTL_SECONDS, 60)
+    )
+    await db[CHALLENGE_COLLECTION].update_one(
+        {"challenge_id": challenge_id}, {"$set": {"used": True, "used_at": utc_now()}}
+    )
     await db[SESSION_COLLECTION].insert_one(
         {
             "token_hash": hash_secret(raw_token),
@@ -90,15 +113,27 @@ async def verify_activation(
 
 
 async def require_activation_session(
-    x_module_control_session: str = Header(default="", alias="X-Module-Control-Session"),
+    x_module_control_session: str = Header(
+        default="", alias="X-Module-Control-Session"
+    ),
 ) -> str:
     if not x_module_control_session:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Module control activation token required.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Module control activation token required.",
+        )
     return x_module_control_session
 
 
-async def validate_activation_session(db: AsyncIOMotorDatabase, token: str) -> dict[str, Any]:
-    session = await db[SESSION_COLLECTION].find_one({"token_hash": hash_secret(token), "revoked": False})
+async def validate_activation_session(
+    db: AsyncIOMotorDatabase, token: str
+) -> dict[str, Any]:
+    session = await db[SESSION_COLLECTION].find_one(
+        {"token_hash": hash_secret(token), "revoked": False}
+    )
     if not session or _expired(session.get("expires_at")):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Module control activation token is invalid or expired.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Module control activation token is invalid or expired.",
+        )
     return session

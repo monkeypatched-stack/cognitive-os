@@ -2,7 +2,17 @@ from pathlib import Path
 from urllib.parse import quote, urlparse, urlunparse, parse_qsl, urlencode
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse, RedirectResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -13,11 +23,19 @@ from services.common.approval_chains import (
     resolve_named_approval_chain,
     write_approval_chain_to_source,
 )
-from services.common.compliance import CHANGE_CONTROL_COLLECTION, compliance_readiness, sha256_hex, utc_now
+from services.common.compliance import (
+    CHANGE_CONTROL_COLLECTION,
+    compliance_readiness,
+    sha256_hex,
+    utc_now,
+)
 from services.common.db import get_database
 from services.documents.helpers import document_metadata as crud
 from services.documents.helpers import document_workflows as workflow_crud
-from services.documents.models.document_workflows import DocumentWorkflowCreate, DocumentWorkflowStep
+from services.documents.models.document_workflows import (
+    DocumentWorkflowCreate,
+    DocumentWorkflowStep,
+)
 from services.documents.models.document_metadata import (
     DocumentMetadataCreate,
     DocumentMetadataResponse,
@@ -31,20 +49,35 @@ from services.documents.models.document_metadata import (
 router = APIRouter()
 
 
-DOCUMENT_UPLOAD_CHANGE_STATUSES = ["Open", "Draft", "Submitted", "Under Review", "Approved", "Implementation", "Verification"]
+DOCUMENT_UPLOAD_CHANGE_STATUSES = [
+    "Open",
+    "Draft",
+    "Submitted",
+    "Under Review",
+    "Approved",
+    "Implementation",
+    "Verification",
+]
 
 
 def _current_user_id(current_user: dict | None) -> str:
     if not isinstance(current_user, dict):
         return "system"
-    return str(current_user.get("user_id") or current_user.get("sub") or current_user.get("email") or "system")
+    return str(
+        current_user.get("user_id")
+        or current_user.get("sub")
+        or current_user.get("email")
+        or "system"
+    )
 
 
 def _change_control_number(now, sequence: int) -> str:
     return f"SX-CHG-{now:%Y}-{sequence:04d}"
 
 
-async def _ensure_document_upload_change_control_and_workflow(db: AsyncIOMotorDatabase, document: dict, current_user: dict | None) -> None:
+async def _ensure_document_upload_change_control_and_workflow(
+    db: AsyncIOMotorDatabase, document: dict, current_user: dict | None
+) -> None:
     document_id = str(document.get("document_id") or "")
     if not document_id:
         return
@@ -108,7 +141,8 @@ async def _ensure_document_upload_change_control_and_workflow(db: AsyncIOMotorDa
             "change_type": "Minor",
             "reason": "Uploaded document requires controlled review and approval before release.",
             "justification": "Document upload must enter change control and approval workflow for Part 11 traceability.",
-            "initiating_facility": document.get("document_department") or document.get("document_project"),
+            "initiating_facility": document.get("document_department")
+            or document.get("document_project"),
             "affected_entity_class": "Document",
             "affected_entities": [
                 {
@@ -141,13 +175,26 @@ async def _ensure_document_upload_change_control_and_workflow(db: AsyncIOMotorDa
             "validation_required": False,
             "revalidation_required": False,
             "requalification_required": False,
-            "sop_revision_required": document.get("document_type") in {"Report", "Other"},
+            "sop_revision_required": document.get("document_type")
+            in {"Report", "Other"},
             "retraining_required": False,
             "regulatory_notification_required": False,
             "stability_study_required": False,
             "implementation_tasks": [
-                {"task_id": f"task-{uuid4().hex}", "title": "Review uploaded document", "owner_role": "Reviewer", "status": "Pending", "evidence_required": False},
-                {"task_id": f"task-{uuid4().hex}", "title": "Approve document for controlled use", "owner_role": "Approver", "status": "Pending", "evidence_required": True},
+                {
+                    "task_id": f"task-{uuid4().hex}",
+                    "title": "Review uploaded document",
+                    "owner_role": "Reviewer",
+                    "status": "Pending",
+                    "evidence_required": False,
+                },
+                {
+                    "task_id": f"task-{uuid4().hex}",
+                    "title": "Approve document for controlled use",
+                    "owner_role": "Approver",
+                    "status": "Pending",
+                    "evidence_required": True,
+                },
             ],
             "training_records": [],
             "approval_chain": [],
@@ -156,9 +203,17 @@ async def _ensure_document_upload_change_control_and_workflow(db: AsyncIOMotorDa
             "approval_chain_resolved": False,
             "approval_chain_resolved_at": None,
             "electronic_signatures": [],
-            "effectiveness_check": {"required": False, "window_days": 0, "status": "Not Required"},
+            "effectiveness_check": {
+                "required": False,
+                "window_days": 0,
+                "status": "Not Required",
+            },
             "graph_relationships": [
-                {"type": "AFFECTS", "target_collection": crud.COLLECTION, "target_id": document_id},
+                {
+                    "type": "AFFECTS",
+                    "target_collection": crud.COLLECTION,
+                    "target_id": document_id,
+                },
             ],
             "status": "Open",
             "initiating_date": now,
@@ -184,7 +239,11 @@ async def _ensure_document_upload_change_control_and_workflow(db: AsyncIOMotorDa
                 "approval_chain_resolved": True,
                 "approval_chain_resolved_at": now,
                 "graph_relationships": [
-                    {"type": "AFFECTS", "target_collection": crud.COLLECTION, "target_id": document_id},
+                    {
+                        "type": "AFFECTS",
+                        "target_collection": crud.COLLECTION,
+                        "target_id": document_id,
+                    },
                     *approval_graph_relationships(change_chain, change_basis),
                 ],
             }
@@ -201,7 +260,10 @@ async def _ensure_document_upload_change_control_and_workflow(db: AsyncIOMotorDa
         )
 
     existing_workflows = await workflow_crud.get_by_document_id(db, document_id)
-    has_upload_workflow = any((workflow.get("metadata") or {}).get("trigger") == "document_upload" for workflow in existing_workflows)
+    has_upload_workflow = any(
+        (workflow.get("metadata") or {}).get("trigger") == "document_upload"
+        for workflow in existing_workflows
+    )
     if not has_upload_workflow:
         workflow = DocumentWorkflowCreate(
             document_id=document_id,
@@ -210,8 +272,16 @@ async def _ensure_document_upload_change_control_and_workflow(db: AsyncIOMotorDa
             status="In-Review",
             initiated_by=user_id,
             owner_id=document.get("document_owner") or user_id,
-            reviewer_ids=[step["assigned_user_id"] for step in document_chain if step["assigned_user_id"]],
-            approver_ids=[step["assigned_user_id"] for step in document_chain if step["assigned_user_id"]],
+            reviewer_ids=[
+                step["assigned_user_id"]
+                for step in document_chain
+                if step["assigned_user_id"]
+            ],
+            approver_ids=[
+                step["assigned_user_id"]
+                for step in document_chain
+                if step["assigned_user_id"]
+            ],
             steps=[
                 DocumentWorkflowStep(
                     step_name=step.get("stage") or step.get("step") or "Approval",
@@ -224,7 +294,11 @@ async def _ensure_document_upload_change_control_and_workflow(db: AsyncIOMotorDa
             ],
             due_at=document.get("document_due_date"),
             notes="Automatically started from document upload.",
-            metadata={"trigger": "document_upload", "change_control_required": True, "approval_assignment_basis": document_basis},
+            metadata={
+                "trigger": "document_upload",
+                "change_control_required": True,
+                "approval_assignment_basis": document_basis,
+            },
         )
         await workflow_crud.create(db, workflow)
 
@@ -286,7 +360,9 @@ def _local_file_response(record: dict, as_attachment: bool) -> FileResponse:
     if not local_path and isinstance(document_url, str):
         parsed_url = urlparse(document_url)
         if parsed_url.scheme in ("", "file"):
-            local_path = parsed_url.path if parsed_url.scheme == "file" else document_url
+            local_path = (
+                parsed_url.path if parsed_url.scheme == "file" else document_url
+            )
     if not local_path:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -307,12 +383,21 @@ def _local_file_response(record: dict, as_attachment: bool) -> FileResponse:
 
 def _attachment_url(document_url: str, record: dict) -> str:
     parsed = urlparse(document_url)
-    filename = record.get("file_name") or Path(parsed.path).name or record.get("document_id") or "document"
+    filename = (
+        record.get("file_name")
+        or Path(parsed.path).name
+        or record.get("document_id")
+        or "document"
+    )
     safe_name = Path(str(filename)).name.replace('"', "")
     query = dict(parse_qsl(parsed.query, keep_blank_values=True))
     query.setdefault("download", "true")
-    query.setdefault("response-content-disposition", f"attachment; filename=\"{safe_name}\"")
-    return urlunparse(parsed._replace(query=urlencode(query, doseq=True, quote_via=quote)))
+    query.setdefault(
+        "response-content-disposition", f'attachment; filename="{safe_name}"'
+    )
+    return urlunparse(
+        parsed._replace(query=urlencode(query, doseq=True, quote_via=quote))
+    )
 
 
 def _remote_or_local_file_response(record: dict, *, as_attachment: bool):
@@ -321,20 +406,30 @@ def _remote_or_local_file_response(record: dict, *, as_attachment: bool):
         s3_url = crud.generate_s3_view_url(record, as_attachment=as_attachment)
         if s3_url:
             return RedirectResponse(s3_url)
-    if isinstance(document_url, str) and document_url.startswith(("http://", "https://")):
-        return RedirectResponse(_attachment_url(document_url, record) if as_attachment else document_url)
+    if isinstance(document_url, str) and document_url.startswith(
+        ("http://", "https://")
+    ):
+        return RedirectResponse(
+            _attachment_url(document_url, record) if as_attachment else document_url
+        )
     return _local_file_response(record, as_attachment=as_attachment)
 
 
 def _view_url_for_record(record: dict, request: Request, expires_in: int) -> str:
     document_url = record.get("document_url")
-    if isinstance(document_url, str) and document_url.startswith(("http://", "https://")):
+    if isinstance(document_url, str) and document_url.startswith(
+        ("http://", "https://")
+    ):
         return document_url
     if record.get("storage_backend") == "s3" or record.get("s3_key"):
-        s3_url = crud.generate_s3_view_url(record, expires_in=expires_in, as_attachment=False)
+        s3_url = crud.generate_s3_view_url(
+            record, expires_in=expires_in, as_attachment=False
+        )
         if s3_url:
             return s3_url
-    return str(request.url_for("public_view_document_file", document_id=record["document_id"]))
+    return str(
+        request.url_for("public_view_document_file", document_id=record["document_id"])
+    )
 
 
 @router.get("/", response_model=PaginatedDocumentMetadataResponse)
@@ -371,7 +466,10 @@ async def list_document_metadata_by_owner(
     return await crud.get_by_owner(db, document_owner)
 
 
-@router.get("/by-department/{document_department}", response_model=list[DocumentMetadataResponse])
+@router.get(
+    "/by-department/{document_department}",
+    response_model=list[DocumentMetadataResponse],
+)
 async def list_document_metadata_by_department(
     document_department: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -380,7 +478,9 @@ async def list_document_metadata_by_department(
     return await crud.get_by_department(db, document_department)
 
 
-@router.get("/by-project/{document_project}", response_model=list[DocumentMetadataResponse])
+@router.get(
+    "/by-project/{document_project}", response_model=list[DocumentMetadataResponse]
+)
 async def list_document_metadata_by_project(
     document_project: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -398,7 +498,9 @@ async def list_document_metadata_by_tag(
     return await crud.get_by_tag(db, tag)
 
 
-@router.get("/by-status/{document_status}", response_model=list[DocumentMetadataResponse])
+@router.get(
+    "/by-status/{document_status}", response_model=list[DocumentMetadataResponse]
+)
 async def list_document_metadata_by_status(
     document_status: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -620,8 +722,15 @@ async def create_document_metadata(
             detail=f"Document metadata '{data.document_id}' already exists",
         )
     record = await crud.create(db, data)
-    if record.get("storage_backend") or record.get("file_name") or record.get("s3_key") or record.get("local_path"):
-        await _ensure_document_upload_change_control_and_workflow(db, record, current_user)
+    if (
+        record.get("storage_backend")
+        or record.get("file_name")
+        or record.get("s3_key")
+        or record.get("local_path")
+    ):
+        await _ensure_document_upload_change_control_and_workflow(
+            db, record, current_user
+        )
     return record
 
 

@@ -18,6 +18,7 @@ Compilation contract (do not violate):
       Compilation records the known projection contract per capability in
       ``runtime_projections`` so graphs expose the binding without executing.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -148,8 +149,7 @@ def compile_plan(
         for i, step in enumerate(steps):
             if resolved_capabilities.get(step.action) is None:
                 violations.append(
-                    f"step {i} ({step.action!r}): capability not resolvable "
-                    f"against the wired capability bus"
+                    f"step {i} ({step.action!r}): capability not resolvable against the wired capability bus"
                 )
 
     # 3. depends_on range check.
@@ -158,8 +158,7 @@ def compile_plan(
         for dep in step.depends_on:
             if dep < 0 or dep >= n:
                 violations.append(
-                    f"step {i} ({step.action!r}): depends_on references "
-                    f"out-of-range index {dep} (plan has {n} steps)"
+                    f"step {i} ({step.action!r}): depends_on references out-of-range index {dep} (plan has {n} steps)"
                 )
                 range_violation_indices.add(i)
 
@@ -184,8 +183,7 @@ def compile_plan(
                     )
                 elif binding.from_step == i:
                     violations.append(
-                        f"step {i} ({step.action!r}): input binding "
-                        f"{binding.name!r} cannot reference itself"
+                        f"step {i} ({step.action!r}): input binding {binding.name!r} cannot reference itself"
                     )
             binding_specs.append((outputs, inputs))
 
@@ -214,7 +212,8 @@ def compile_plan(
             capability=step.action,
             resolved_capability_name=(
                 resolved_capabilities.get(step.action, step.action)
-                if resolved_capabilities is not None else step.action
+                if resolved_capabilities is not None
+                else step.action
             ),
             description=step.description,
             parameters=MappingProxyType(dict(step.parameters)),
@@ -228,7 +227,8 @@ def compile_plan(
             confidence=float(getattr(step, "confidence", 0.0) or 0.0),
             runtime_projections=_runtime_projections_for(
                 resolved_capabilities.get(step.action, step.action)
-                if resolved_capabilities is not None else step.action
+                if resolved_capabilities is not None
+                else step.action
             ),
         )
         for i, step in enumerate(steps)
@@ -252,7 +252,11 @@ def compile_plan(
 
 def build_execution_graph(compiled: CompiledPlanGraph) -> "ExecutionGraph":
     """Materialize a canonical ExecutionGraph from a CompiledPlanGraph."""
-    from src.monkey_brain.kernel.execute.graph import ExecutionGraph, GraphEdge, GraphNode
+    from src.monkey_brain.kernel.execute.graph import (
+        ExecutionGraph,
+        GraphEdge,
+        GraphNode,
+    )
 
     graph = ExecutionGraph(id=f"graph-{compiled.plan_id}")
     graph.metadata = {
@@ -280,9 +284,7 @@ def build_execution_graph(compiled: CompiledPlanGraph) -> "ExecutionGraph":
             "preconditions": list(node.preconditions),
             "expected_outcome": node.expected_outcome,
             "required_permission": node.required_permission,
-            "output_bindings": [
-                {"name": b.name, "value": b.value} for b in node.output_bindings
-            ],
+            "output_bindings": [{"name": b.name, "value": b.value} for b in node.output_bindings],
             "input_bindings": [
                 {
                     "name": b.name,
@@ -293,54 +295,63 @@ def build_execution_graph(compiled: CompiledPlanGraph) -> "ExecutionGraph":
                 for b in node.input_bindings
             ],
             "runtime_projections": [
-                {"result_key": p.result_key, "context_key": p.context_key}
-                for p in node.runtime_projections
+                {"result_key": p.result_key, "context_key": p.context_key} for p in node.runtime_projections
             ],
         }
         if node.agent:
             props["agent"] = node.agent
-        graph.add_node(GraphNode(
-            id=node.node_id,
-            type="step",
-            label=node.capability,
-            props=props,
-        ))
+        graph.add_node(
+            GraphNode(
+                id=node.node_id,
+                type="step",
+                label=node.capability,
+                props=props,
+            )
+        )
 
         cap_id = f"capability:{node.resolved_capability_name}"
         if cap_id not in capability_nodes:
-            graph.add_node(GraphNode(
-                id=cap_id,
-                type="capability",
-                label=node.resolved_capability_name,
-                props={"name": node.resolved_capability_name},
-            ))
+            graph.add_node(
+                GraphNode(
+                    id=cap_id,
+                    type="capability",
+                    label=node.resolved_capability_name,
+                    props={"name": node.resolved_capability_name},
+                )
+            )
             capability_nodes.add(cap_id)
         graph.add_edge(GraphEdge(src=node.node_id, dst=cap_id, rel="uses"))
 
         if node.agent:
             agent_id = f"agent:{node.agent}"
             if agent_id not in graph._nodes:
-                graph.add_node(GraphNode(
-                    id=agent_id,
-                    type="agent",
-                    label=node.agent,
-                    props={"agent": node.agent},
-                ))
+                graph.add_node(
+                    GraphNode(
+                        id=agent_id,
+                        type="agent",
+                        label=node.agent,
+                        props={"agent": node.agent},
+                    )
+                )
             graph.add_edge(GraphEdge(src=agent_id, dst=cap_id, rel="provides"))
 
     for node in compiled.nodes:
         for dep_idx in node.depends_on:
-            graph.add_edge(GraphEdge(
-                src=f"{compiled.plan_id}:{dep_idx}",
-                dst=node.node_id,
-                rel="depends_on",
-            ))
+            graph.add_edge(
+                GraphEdge(
+                    src=f"{compiled.plan_id}:{dep_idx}",
+                    dst=node.node_id,
+                    rel="depends_on",
+                )
+            )
         for binding in node.input_bindings:
-            graph.add_edge(GraphEdge(
-                src=f"{compiled.plan_id}:{binding.from_step}",
-                dst=node.node_id,
-                rel="binds",
-            ))
+            graph.add_edge(
+                GraphEdge(
+                    src=f"{compiled.plan_id}:{binding.from_step}",
+                    dst=node.node_id,
+                    rel="binds",
+                )
+            )
 
     _add_runtime_projection_edges(graph, compiled)
 
@@ -364,17 +375,17 @@ def _add_runtime_projection_edges(graph: "ExecutionGraph", compiled: CompiledPla
                 continue
             for projection in producer.runtime_projections:
                 if any(
-                    e.src == producer.node_id
-                    and e.dst == consumer.node_id
-                    and e.rel == "projects_to"
+                    e.src == producer.node_id and e.dst == consumer.node_id and e.rel == "projects_to"
                     for e in graph._edges
                 ):
                     continue
-                graph.add_edge(GraphEdge(
-                    src=producer.node_id,
-                    dst=consumer.node_id,
-                    rel="projects_to",
-                ))
+                graph.add_edge(
+                    GraphEdge(
+                        src=producer.node_id,
+                        dst=consumer.node_id,
+                        rel="projects_to",
+                    )
+                )
 
 
 def graphs_equivalent(left: "ExecutionGraph", right: "ExecutionGraph") -> bool:
@@ -403,7 +414,9 @@ def _goal_id_from_plan(plan: Any) -> str:
     return ""
 
 
-def _extract_bindings(parameters: Mapping[str, Any] | dict[str, Any]) -> tuple[tuple[OutputBinding, ...], tuple[InputBinding, ...]]:
+def _extract_bindings(
+    parameters: Mapping[str, Any] | dict[str, Any],
+) -> tuple[tuple[OutputBinding, ...], tuple[InputBinding, ...]]:
     raw = parameters.get("_bindings", {}) if parameters else {}
     if not isinstance(raw, Mapping):
         return (), ()
@@ -416,11 +429,13 @@ def _extract_bindings(parameters: Mapping[str, Any] | dict[str, Any]) -> tuple[t
     for name, spec in sorted((raw.get("inputs") or {}).items(), key=lambda item: str(item[0])):
         if not isinstance(spec, Mapping):
             continue
-        inputs.append(InputBinding(
-            name=str(name),
-            from_step=int(spec.get("from_step", -1)),
-            from_output=str(spec.get("from_output", "") or ""),
-        ))
+        inputs.append(
+            InputBinding(
+                name=str(name),
+                from_step=int(spec.get("from_step", -1)),
+                from_output=str(spec.get("from_output", "") or ""),
+            )
+        )
     return tuple(outputs), tuple(inputs)
 
 
@@ -494,9 +509,7 @@ def _content_hash(
                 "required_permission": node.required_permission,
                 "agent": node.agent,
                 "confidence": node.confidence,
-                "output_bindings": [
-                    {"name": b.name, "value": b.value} for b in node.output_bindings
-                ],
+                "output_bindings": [{"name": b.name, "value": b.value} for b in node.output_bindings],
                 "input_bindings": [
                     {
                         "name": b.name,
@@ -506,8 +519,7 @@ def _content_hash(
                     for b in node.input_bindings
                 ],
                 "runtime_projections": [
-                    {"result_key": p.result_key, "context_key": p.context_key}
-                    for p in node.runtime_projections
+                    {"result_key": p.result_key, "context_key": p.context_key} for p in node.runtime_projections
                 ],
             }
             for node in nodes
@@ -576,15 +588,15 @@ def broca_dict_to_plan(
         parameters = dict(props.get("parameters", props))
         if agent_name:
             parameters.setdefault("_agent", agent_name)
-        dep_indices = tuple(
-            sorted(id_to_index[dep] for dep in deps.get(node_id, []) if dep in id_to_index)
+        dep_indices = tuple(sorted(id_to_index[dep] for dep in deps.get(node_id, []) if dep in id_to_index))
+        steps.append(
+            PlanStep(
+                action=capability,
+                description=str(node.get("label") or node.get("name") or capability),
+                parameters=parameters,
+                depends_on=dep_indices,
+            )
         )
-        steps.append(PlanStep(
-            action=capability,
-            description=str(node.get("label") or node.get("name") or capability),
-            parameters=parameters,
-            depends_on=dep_indices,
-        ))
 
     return Plan(
         goal=resolved_goal,
@@ -614,7 +626,9 @@ def compile_broca_graph(
     )
 
 
-def execution_graph_to_plan_steps(execution_graph: "ExecutionGraph") -> list[dict[str, Any]]:
+def execution_graph_to_plan_steps(
+    execution_graph: "ExecutionGraph",
+) -> list[dict[str, Any]]:
     """Convert a compiled ExecutionGraph into GoalExecutor-compatible step dicts."""
     step_nodes = execution_graph.get_step_nodes()
     by_id = {n.id: n for n in step_nodes}
@@ -634,15 +648,17 @@ def execution_graph_to_plan_steps(execution_graph: "ExecutionGraph") -> list[dic
     steps: list[dict[str, Any]] = []
     for node in ordered_nodes:
         props = dict(node.props or {})
-        steps.append({
-            "step_id": node.id,
-            "name": node.label,
-            "capability_name": props.get("capability", node.label),
-            "agent": props.get("agent", ""),
-            "step_type": "agent",
-            "dependencies": list(deps.get(node.id, [])),
-            "metadata": props,
-        })
+        steps.append(
+            {
+                "step_id": node.id,
+                "name": node.label,
+                "capability_name": props.get("capability", node.label),
+                "agent": props.get("agent", ""),
+                "step_type": "agent",
+                "dependencies": list(deps.get(node.id, [])),
+                "metadata": props,
+            }
+        )
     return steps
 
 
@@ -677,23 +693,27 @@ def build_actions_from_compiled(
                 error=f"Permission denied: missing {node.required_permission}",
             )
             continue
-        actions.append(Action(
-            action_id=action_id,
-            capability=node.capability,
-            parameters={"description": node.description, **dict(node.parameters)},
-            preconditions=node.preconditions,
-            expected_outcome=node.expected_outcome,
-            confidence=node.confidence,
-            source_step=node.capability,
-            correlation_id=execution_id,
-            causation_id=plan_id,
-            step_index=node.step_index,
-            depends_on=node.depends_on,
-        ))
+        actions.append(
+            Action(
+                action_id=action_id,
+                capability=node.capability,
+                parameters={"description": node.description, **dict(node.parameters)},
+                preconditions=node.preconditions,
+                expected_outcome=node.expected_outcome,
+                confidence=node.confidence,
+                source_step=node.capability,
+                correlation_id=execution_id,
+                causation_id=plan_id,
+                step_index=node.step_index,
+                depends_on=node.depends_on,
+            )
+        )
     return tuple(actions), denied
 
 
-def _runtime_projections_for(capability_name: str) -> tuple[RuntimeContextProjection, ...]:
+def _runtime_projections_for(
+    capability_name: str,
+) -> tuple[RuntimeContextProjection, ...]:
     return RUNTIME_CONTEXT_PROJECTIONS.get(capability_name, ())
 
 

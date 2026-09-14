@@ -18,8 +18,13 @@ def _known_influx_event_measurements() -> list[str]:
         settings.NATS_EVENTS_SUBJECT,
         settings.INFLUXDB_EVENTS_MEASUREMENT,
     ]
-    prefix = str(settings.INFLUXDB_EVENT_TYPE_MEASUREMENT_PREFIX or "events").strip() or "events"
-    for event_type in configured_event_type_slugs(settings.INFLUXDB_EVENT_TYPE_MEASUREMENTS):
+    prefix = (
+        str(settings.INFLUXDB_EVENT_TYPE_MEASUREMENT_PREFIX or "events").strip()
+        or "events"
+    )
+    for event_type in configured_event_type_slugs(
+        settings.INFLUXDB_EVENT_TYPE_MEASUREMENTS
+    ):
         measurements.append(f"{prefix}_{measurement_suffix(event_type)}")
         measurements.append(f"{settings.NATS_EVENT_TYPE_SUBJECT_PREFIX}.{event_type}")
     return list(dict.fromkeys(measurements))
@@ -27,11 +32,7 @@ def _known_influx_event_measurements() -> list[str]:
 
 def _is_missing_influx_events_table(status_code: int, detail: str) -> bool:
     normalized = detail.lower()
-    return (
-        status_code == 400
-        and "table" in normalized
-        and "not found" in normalized
-    )
+    return status_code == 400 and "table" in normalized and "not found" in normalized
 
 
 def _clean_filter(value: Optional[str]) -> Optional[str]:
@@ -75,7 +76,9 @@ def _clean_category_filter(value: Optional[str]) -> Optional[str]:
         "CalibrationLog": "Calibration Log",
         "calibration log": "Calibration Log",
     }
-    return aliases.get(value, aliases.get(value.replace(" ", "").replace("-", "").lower(), value))
+    return aliases.get(
+        value, aliases.get(value.replace(" ", "").replace("-", "").lower(), value)
+    )
 
 
 def _event_scope(event: dict) -> Optional[str]:
@@ -90,7 +93,12 @@ def _event_scope(event: dict) -> Optional[str]:
         return "workstation"
     if _clean_entity_id(event.get("warehouse_id")):
         return "warehouse"
-    if str(event.get("type") or "").strip().lower() in {"scan rfid", "rfid scan", "nfc scan", "scan nfc"}:
+    if str(event.get("type") or "").strip().lower() in {
+        "scan rfid",
+        "rfid scan",
+        "nfc scan",
+        "scan nfc",
+    }:
         return "machine"
     return None
 
@@ -118,11 +126,22 @@ def _query_influx_measurement(measurement: str) -> list[dict]:
         detail = exc.read().decode("utf-8", errors="replace")
         if _is_missing_influx_events_table(exc.code, detail):
             return []
-        raise RuntimeError(f"InfluxDB query failed with status {exc.code}: {detail}") from exc
+        raise RuntimeError(
+            f"InfluxDB query failed with status {exc.code}: {detail}"
+        ) from exc
     except URLError as exc:
-        raise RuntimeError(f"Unable to connect to InfluxDB at {settings.INFLUXDB_URL}: {exc}") from exc
-    except (ConnectionResetError, TimeoutError, socket.timeout, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"InfluxDB query failed for measurement '{measurement}': {exc}") from exc
+        raise RuntimeError(
+            f"Unable to connect to InfluxDB at {settings.INFLUXDB_URL}: {exc}"
+        ) from exc
+    except (
+        ConnectionResetError,
+        TimeoutError,
+        socket.timeout,
+        json.JSONDecodeError,
+    ) as exc:
+        raise RuntimeError(
+            f"InfluxDB query failed for measurement '{measurement}': {exc}"
+        ) from exc
 
 
 def _query_influx_events() -> list[dict]:
@@ -138,9 +157,7 @@ def _query_influx_events() -> list[dict]:
 def _payloads_from_influx() -> list[dict]:
     rows = _query_influx_events()
     payloads = [
-        payload
-        for row in rows
-        if (payload := _payload_from_row(row)) is not None
+        payload for row in rows if (payload := _payload_from_row(row)) is not None
     ]
     return _dedupe_payloads_by_id(payloads)
 
@@ -158,7 +175,9 @@ def _dedupe_payloads_by_id(payloads: list[dict]) -> list[dict]:
             event_id = str(event_id)
             if event_id in seen_indexes:
                 existing_index = seen_indexes[event_id]
-                if _payload_quality_score(payload) > _payload_quality_score(deduped[existing_index]):
+                if _payload_quality_score(payload) > _payload_quality_score(
+                    deduped[existing_index]
+                ):
                     deduped[existing_index] = payload
                 continue
             seen_indexes[event_id] = len(deduped)
@@ -359,6 +378,7 @@ async def get_event_by_id(event_id: str) -> Optional[dict]:
             continue
         return _event_from_payload(payload)
     return None
+
 
 async def get_events_by_machine_id(
     machine_id: str,

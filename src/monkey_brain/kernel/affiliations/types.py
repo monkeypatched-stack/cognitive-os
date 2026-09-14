@@ -8,21 +8,23 @@ Instead of fixed enum values, each affiliation type is a rich object describing:
     - trust model (how trust propagates)
     - lifecycle (creation, maintenance, dissolution rules)
 """
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
 
 class Cardinality(str, Enum):
-    ONE_TO_ONE = "one_to_one"       # marriage, guardianship
-    ONE_TO_MANY = "one_to_many"     # employer→employees
-    MANY_TO_ONE = "many_to_one"     # employee→employer
-    MANY_TO_MANY = "many_to_many"   # friends, community members
+    ONE_TO_ONE = "one_to_one"  # marriage, guardianship
+    ONE_TO_MANY = "one_to_many"  # employer→employees
+    MANY_TO_ONE = "many_to_one"  # employee→employer
+    MANY_TO_MANY = "many_to_many"  # friends, community members
 
 
 @dataclass(frozen=True)
 class TrustModel:
     """How trust behaves for this relationship type."""
+
     initial_trust: float = 0.5
     growth_rate: float = 0.05
     decay_rate: float = -0.08
@@ -33,6 +35,7 @@ class TrustModel:
 @dataclass(frozen=True)
 class LifecycleRules:
     """How this relationship is created, maintained, and dissolved."""
+
     requires_mutual_consent: bool = False
     auto_expire: bool = False
     duration_limit_days: int | None = None  # None = indefinite
@@ -50,6 +53,7 @@ class AffiliationType:
     - permission defaults (what this relationship grants)
     - governance rules (who can create/modify/dissolve)
     """
+
     id: str
     category: str
     cardinality: Cardinality = Cardinality.MANY_TO_ONE
@@ -65,18 +69,19 @@ class AffiliationType:
 # ════════════════════════════════════════════════════════════════
 
 FAMILY = AffiliationType(
-    id="family", category="personal",
+    id="family",
+    category="personal",
     cardinality=Cardinality.ONE_TO_MANY,
     bidirectional=True,
     default_permissions=("emotional_support", "financial_dependents", "caregiving"),
-    trust_model=TrustModel(initial_trust=0.9, growth_rate=0.02, decay_rate=-0.10,
-                           decay_on_breach=-0.20),
+    trust_model=TrustModel(initial_trust=0.9, growth_rate=0.02, decay_rate=-0.10, decay_on_breach=-0.20),
     lifecycle=LifecycleRules(requires_mutual_consent=False),
     description="Origin (parents, siblings) or Creation (children) family bonds",
 )
 
 FRIENDSHIP = AffiliationType(
-    id="friendship", category="personal",
+    id="friendship",
+    category="personal",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=True,
     default_permissions=("social", "emotional_support", "recommendation"),
@@ -86,7 +91,8 @@ FRIENDSHIP = AffiliationType(
 )
 
 ROOMMATE = AffiliationType(
-    id="roommate", category="personal",
+    id="roommate",
+    category="personal",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=True,
     default_permissions=("shared_space", "shared_pantry", "social"),
@@ -96,23 +102,23 @@ ROOMMATE = AffiliationType(
 )
 
 MARRIAGE = AffiliationType(
-    id="marriage", category="personal",
+    id="marriage",
+    category="personal",
     cardinality=Cardinality.ONE_TO_ONE,
     bidirectional=True,
     default_permissions=("financial", "legal", "medical", "emotional_support"),
-    trust_model=TrustModel(initial_trust=1.0, growth_rate=0.02, decay_rate=-0.15,
-                           decay_on_breach=-0.30),
+    trust_model=TrustModel(initial_trust=1.0, growth_rate=0.02, decay_rate=-0.15, decay_on_breach=-0.30),
     lifecycle=LifecycleRules(requires_mutual_consent=True, dissolution_requires_action=True),
     description="Legal and emotional partnership",
 )
 
 GUARDIANSHIP = AffiliationType(
-    id="guardianship", category="personal",
+    id="guardianship",
+    category="personal",
     cardinality=Cardinality.ONE_TO_ONE,
     bidirectional=False,
     default_permissions=("caregiving", "legal", "financial_dependents", "education"),
-    trust_model=TrustModel(initial_trust=0.95, growth_rate=0.02, decay_rate=-0.10,
-                           decay_on_breach=-0.25),
+    trust_model=TrustModel(initial_trust=0.95, growth_rate=0.02, decay_rate=-0.10, decay_on_breach=-0.25),
     lifecycle=LifecycleRules(requires_mutual_consent=False, duration_limit_days=6570),
     description="Legal responsibility for a minor or incapacitated person",
 )
@@ -124,7 +130,8 @@ GUARDIANSHIP = AffiliationType(
 # directed record — the reverse role (e.g. Priya's MOTHER_OF Arjun) is a
 # distinct, not automatically mirrored, statement.
 SON_OF = AffiliationType(
-    id="son_of", category="personal",
+    id="son_of",
+    category="personal",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("emotional_support",),
@@ -134,7 +141,8 @@ SON_OF = AffiliationType(
 )
 
 DAUGHTER_OF = AffiliationType(
-    id="daughter_of", category="personal",
+    id="daughter_of",
+    category="personal",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("emotional_support",),
@@ -144,15 +152,16 @@ DAUGHTER_OF = AffiliationType(
 )
 
 SIBLING_OF = AffiliationType(
-    id="sibling_of", category="personal",
+    id="sibling_of",
+    category="personal",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=True,
     default_permissions=("emotional_support",),
     trust_model=TrustModel(initial_trust=0.85, growth_rate=0.02, decay_rate=-0.10),
     lifecycle=LifecycleRules(requires_mutual_consent=False),
     description="Source and target share a parent — recorded once, per the "
-                "world's unidirectional-edge convention, even though the "
-                "relationship itself is inherently mutual",
+    "world's unidirectional-edge convention, even though the "
+    "relationship itself is inherently mutual",
 )
 
 # ════════════════════════════════════════════════════════════════
@@ -160,18 +169,24 @@ SIBLING_OF = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 EMPLOYMENT = AffiliationType(
-    id="employment", category="organizational",
+    id="employment",
+    category="organizational",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
-    default_permissions=("career_planning", "calendar", "work_scheduling", "compensation"),
-    trust_model=TrustModel(initial_trust=0.7, growth_rate=0.03, decay_rate=-0.08,
-                           decay_on_breach=-0.15),
+    default_permissions=(
+        "career_planning",
+        "calendar",
+        "work_scheduling",
+        "compensation",
+    ),
+    trust_model=TrustModel(initial_trust=0.7, growth_rate=0.03, decay_rate=-0.08, decay_on_breach=-0.15),
     lifecycle=LifecycleRules(duration_limit_days=None),
     description="Formal employment relationship",
 )
 
 CONTRACTOR = AffiliationType(
-    id="contractor", category="organizational",
+    id="contractor",
+    category="organizational",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("project_access", "compensation", "work_scheduling"),
@@ -181,7 +196,8 @@ CONTRACTOR = AffiliationType(
 )
 
 VOLUNTEER = AffiliationType(
-    id="volunteer", category="organizational",
+    id="volunteer",
+    category="organizational",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("project_access", "community"),
@@ -191,18 +207,19 @@ VOLUNTEER = AffiliationType(
 )
 
 BOARD_MEMBER = AffiliationType(
-    id="board_member", category="organizational",
+    id="board_member",
+    category="organizational",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("governance", "strategy", "financial_oversight"),
-    trust_model=TrustModel(initial_trust=0.8, growth_rate=0.03, decay_rate=-0.10,
-                           decay_on_breach=-0.20),
+    trust_model=TrustModel(initial_trust=0.8, growth_rate=0.03, decay_rate=-0.10, decay_on_breach=-0.20),
     lifecycle=LifecycleRules(duration_limit_days=1825),
     description="Board of directors membership",
 )
 
 SHAREHOLDER = AffiliationType(
-    id="shareholder", category="organizational",
+    id="shareholder",
+    category="organizational",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("financial_oversight", "voting"),
@@ -215,7 +232,8 @@ SHAREHOLDER = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 CUSTOMER = AffiliationType(
-    id="customer", category="commercial",
+    id="customer",
+    category="commercial",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("purchasing", "support"),
@@ -224,17 +242,18 @@ CUSTOMER = AffiliationType(
 )
 
 SUPPLIER = AffiliationType(
-    id="supplier", category="commercial",
+    id="supplier",
+    category="commercial",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("procurement", "quality", "delivery"),
-    trust_model=TrustModel(initial_trust=0.6, growth_rate=0.03, decay_rate=-0.12,
-                           decay_on_breach=-0.18),
+    trust_model=TrustModel(initial_trust=0.6, growth_rate=0.03, decay_rate=-0.12, decay_on_breach=-0.18),
     description="Provider of goods or services",
 )
 
 PARTNER = AffiliationType(
-    id="partner", category="commercial",
+    id="partner",
+    category="commercial",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=True,
     default_permissions=("strategic", "joint_venture", "cross_promotion"),
@@ -243,7 +262,8 @@ PARTNER = AffiliationType(
 )
 
 VENDOR = AffiliationType(
-    id="vendor", category="commercial",
+    id="vendor",
+    category="commercial",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("procurement", "delivery"),
@@ -252,7 +272,8 @@ VENDOR = AffiliationType(
 )
 
 FRANCHISE = AffiliationType(
-    id="franchise", category="commercial",
+    id="franchise",
+    category="commercial",
     cardinality=Cardinality.ONE_TO_MANY,
     bidirectional=True,
     default_permissions=("brand_use", "operational_guidelines", "training"),
@@ -266,7 +287,8 @@ FRANCHISE = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 CITIZEN = AffiliationType(
-    id="citizen", category="government",
+    id="citizen",
+    category="government",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("legal", "protection", "voting"),
@@ -275,7 +297,8 @@ CITIZEN = AffiliationType(
 )
 
 RESIDENT = AffiliationType(
-    id="resident", category="government",
+    id="resident",
+    category="government",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("local_services", "legal"),
@@ -284,7 +307,8 @@ RESIDENT = AffiliationType(
 )
 
 TAXPAYER = AffiliationType(
-    id="taxpayer", category="government",
+    id="taxpayer",
+    category="government",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("fiscal", "representation"),
@@ -293,7 +317,8 @@ TAXPAYER = AffiliationType(
 )
 
 VOTER = AffiliationType(
-    id="voter", category="government",
+    id="voter",
+    category="government",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("electoral", "participation"),
@@ -302,12 +327,12 @@ VOTER = AffiliationType(
 )
 
 PUBLIC_OFFICIAL = AffiliationType(
-    id="public_official", category="government",
+    id="public_official",
+    category="government",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("governance", "policy", "public_service"),
-    trust_model=TrustModel(initial_trust=0.5, growth_rate=0.03, decay_rate=-0.10,
-                           decay_on_breach=-0.20),
+    trust_model=TrustModel(initial_trust=0.5, growth_rate=0.03, decay_rate=-0.10, decay_on_breach=-0.20),
     description="Elected or appointed government official",
 )
 
@@ -316,7 +341,8 @@ PUBLIC_OFFICIAL = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 STUDENT = AffiliationType(
-    id="student", category="education",
+    id="student",
+    category="education",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("learning", "facilities", "library"),
@@ -326,7 +352,8 @@ STUDENT = AffiliationType(
 )
 
 TEACHER = AffiliationType(
-    id="teacher", category="education",
+    id="teacher",
+    category="education",
     cardinality=Cardinality.ONE_TO_MANY,
     bidirectional=True,
     default_permissions=("teaching", "mentoring", "grading"),
@@ -335,7 +362,8 @@ TEACHER = AffiliationType(
 )
 
 ALUMNI = AffiliationType(
-    id="alumni", category="education",
+    id="alumni",
+    category="education",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("networking", "facilities"),
@@ -344,7 +372,8 @@ ALUMNI = AffiliationType(
 )
 
 RESEARCHER = AffiliationType(
-    id="researcher", category="education",
+    id="researcher",
+    category="education",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("research", "publications", "funding"),
@@ -357,37 +386,38 @@ RESEARCHER = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 PATIENT = AffiliationType(
-    id="patient", category="healthcare",
+    id="patient",
+    category="healthcare",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("medical", "emergency"),
-    trust_model=TrustModel(initial_trust=0.7, growth_rate=0.02, decay_rate=-0.15,
-                           decay_on_breach=-0.25),
+    trust_model=TrustModel(initial_trust=0.7, growth_rate=0.02, decay_rate=-0.15, decay_on_breach=-0.25),
     description="Person receiving healthcare services",
 )
 
 DOCTOR = AffiliationType(
-    id="doctor", category="healthcare",
+    id="doctor",
+    category="healthcare",
     cardinality=Cardinality.ONE_TO_MANY,
     bidirectional=True,
     default_permissions=("medical", "prescriptions", "diagnosis"),
-    trust_model=TrustModel(initial_trust=0.8, growth_rate=0.02, decay_rate=-0.10,
-                           decay_on_breach=-0.20),
+    trust_model=TrustModel(initial_trust=0.8, growth_rate=0.02, decay_rate=-0.10, decay_on_breach=-0.20),
     description="Healthcare provider",
 )
 
 CAREGIVER = AffiliationType(
-    id="caregiver", category="healthcare",
+    id="caregiver",
+    category="healthcare",
     cardinality=Cardinality.ONE_TO_ONE,
     bidirectional=False,
     default_permissions=("caregiving", "medical_decisions", "emergency"),
-    trust_model=TrustModel(initial_trust=0.9, growth_rate=0.03, decay_rate=-0.10,
-                           decay_on_breach=-0.20),
+    trust_model=TrustModel(initial_trust=0.9, growth_rate=0.03, decay_rate=-0.10, decay_on_breach=-0.20),
     description="Person providing care to another",
 )
 
 INSURED = AffiliationType(
-    id="insured", category="healthcare",
+    id="insured",
+    category="healthcare",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("coverage", "claims"),
@@ -400,7 +430,8 @@ INSURED = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 AI_AGENT = AffiliationType(
-    id="ai_agent", category="digital",
+    id="ai_agent",
+    category="digital",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("task_execution", "data_access", "messaging"),
@@ -409,7 +440,8 @@ AI_AGENT = AffiliationType(
 )
 
 ROBOT = AffiliationType(
-    id="robot", category="digital",
+    id="robot",
+    category="digital",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=True,
     default_permissions=("physical_tasks", "sensor_data"),
@@ -418,7 +450,8 @@ ROBOT = AffiliationType(
 )
 
 DEVICE = AffiliationType(
-    id="device", category="digital",
+    id="device",
+    category="digital",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("telemetry", "control"),
@@ -427,7 +460,8 @@ DEVICE = AffiliationType(
 )
 
 SERVICE_ACCOUNT = AffiliationType(
-    id="service_account", category="digital",
+    id="service_account",
+    category="digital",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("api_access", "data_read", "data_write"),
@@ -445,7 +479,8 @@ SERVICE_ACCOUNT = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 PEER = AffiliationType(
-    id="peer", category="coordination",
+    id="peer",
+    category="coordination",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=True,
     default_permissions=("coordinate",),
@@ -454,7 +489,8 @@ PEER = AffiliationType(
 )
 
 SUPERIOR = AffiliationType(
-    id="superior", category="coordination",
+    id="superior",
+    category="coordination",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("direct", "escalate"),
@@ -463,7 +499,8 @@ SUPERIOR = AffiliationType(
 )
 
 SUBORDINATE = AffiliationType(
-    id="subordinate", category="coordination",
+    id="subordinate",
+    category="coordination",
     cardinality=Cardinality.ONE_TO_MANY,
     bidirectional=False,
     default_permissions=("report",),
@@ -472,7 +509,8 @@ SUBORDINATE = AffiliationType(
 )
 
 COLLABORATOR = AffiliationType(
-    id="collaborator", category="coordination",
+    id="collaborator",
+    category="coordination",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=True,
     default_permissions=("coordinate", "share_context"),
@@ -481,17 +519,18 @@ COLLABORATOR = AffiliationType(
 )
 
 REGULATOR = AffiliationType(
-    id="regulator", category="coordination",
+    id="regulator",
+    category="coordination",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("audit", "enforce"),
-    trust_model=TrustModel(initial_trust=0.5, growth_rate=0.02, decay_rate=-0.12,
-                           decay_on_breach=-0.20),
+    trust_model=TrustModel(initial_trust=0.5, growth_rate=0.02, decay_rate=-0.12, decay_on_breach=-0.20),
     description="Target exercises regulatory oversight over the source",
 )
 
 DEPENDENT = AffiliationType(
-    id="dependent", category="coordination",
+    id="dependent",
+    category="coordination",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=(),
@@ -500,7 +539,8 @@ DEPENDENT = AffiliationType(
 )
 
 TRUSTED = AffiliationType(
-    id="trusted", category="coordination",
+    id="trusted",
+    category="coordination",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=False,
     default_permissions=("coordinate",),
@@ -509,7 +549,8 @@ TRUSTED = AffiliationType(
 )
 
 UNTRUSTED = AffiliationType(
-    id="untrusted", category="coordination",
+    id="untrusted",
+    category="coordination",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=False,
     default_permissions=(),
@@ -531,75 +572,77 @@ UNTRUSTED = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 MEMBER_OF = AffiliationType(
-    id="member_of", category="structural",
+    id="member_of",
+    category="structural",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("participate", "receive_broadcasts"),
     trust_model=TrustModel(initial_trust=0.5, growth_rate=0.03, decay_rate=-0.08),
     description="Source is a member of the target society/organization "
-                 "(mirrors kernel/society/membership.py::Membership as an "
-                 "affiliation edge — see relationship_bridge.py)",
+    "(mirrors kernel/society/membership.py::Membership as an "
+    "affiliation edge — see relationship_bridge.py)",
 )
 
 AFFILIATED_WITH = AffiliationType(
-    id="affiliated_with", category="structural",
+    id="affiliated_with",
+    category="structural",
     cardinality=Cardinality.MANY_TO_MANY,
     bidirectional=True,
     default_permissions=("associate",),
     trust_model=TrustModel(initial_trust=0.4, growth_rate=0.04, decay_rate=-0.08),
-    description="Generic, loosely-coupled affiliation not covered by a "
-                 "more specific relationship type",
+    description="Generic, loosely-coupled affiliation not covered by a more specific relationship type",
 )
 
 BELONGS_TO = AffiliationType(
-    id="belongs_to", category="structural",
+    id="belongs_to",
+    category="structural",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("participate",),
     trust_model=TrustModel(initial_trust=0.5, growth_rate=0.03, decay_rate=-0.08),
-    description="Source is structurally owned/contained by the target "
-                 "(e.g. a team belonging to a department)",
+    description="Source is structurally owned/contained by the target (e.g. a team belonging to a department)",
 )
 
 EMPLOYED_BY = AffiliationType(
-    id="employed_by", category="structural",
+    id="employed_by",
+    category="structural",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("work_scheduling", "compensation"),
     trust_model=TrustModel(initial_trust=0.7, growth_rate=0.03, decay_rate=-0.08),
     description="Employee-side direction of the employment relationship "
-                 "(see EMPLOYMENT above for the fuller employer-side model)",
+    "(see EMPLOYMENT above for the fuller employer-side model)",
 )
 
 PART_OF = AffiliationType(
-    id="part_of", category="structural",
+    id="part_of",
+    category="structural",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=(),
     trust_model=TrustModel(initial_trust=0.5, growth_rate=0.02, decay_rate=-0.08),
-    description="Source is a structural subdivision of the target "
-                 "(e.g. a society that is part of an enterprise)",
+    description="Source is a structural subdivision of the target (e.g. a society that is part of an enterprise)",
 )
 
 REPRESENTS = AffiliationType(
-    id="represents", category="structural",
+    id="represents",
+    category="structural",
     cardinality=Cardinality.MANY_TO_ONE,
     bidirectional=False,
     default_permissions=("act_on_behalf_of", "negotiate"),
-    trust_model=TrustModel(initial_trust=0.7, growth_rate=0.03, decay_rate=-0.12,
-                           decay_on_breach=-0.25),
-    description="Source acts as delegated representative/agent for the "
-                 "target in negotiations and coordination",
+    trust_model=TrustModel(initial_trust=0.7, growth_rate=0.03, decay_rate=-0.12, decay_on_breach=-0.25),
+    description="Source acts as delegated representative/agent for the target in negotiations and coordination",
 )
 
 MANAGES = AffiliationType(
-    id="manages", category="structural",
+    id="manages",
+    category="structural",
     cardinality=Cardinality.ONE_TO_MANY,
     bidirectional=False,
     default_permissions=("direct", "evaluate", "escalate"),
     trust_model=TrustModel(initial_trust=0.5, growth_rate=0.03, decay_rate=-0.10),
     description="Source holds direct managerial authority over the target "
-                 "(the structural counterpart to SUPERIOR above)",
+    "(the structural counterpart to SUPERIOR above)",
 )
 
 
@@ -608,18 +651,58 @@ MANAGES = AffiliationType(
 # ════════════════════════════════════════════════════════════════
 
 ALL_TYPES: dict[str, AffiliationType] = {
-    t.id: t for t in [
-        FAMILY, FRIENDSHIP, ROOMMATE, MARRIAGE, GUARDIANSHIP, SON_OF, DAUGHTER_OF, SIBLING_OF,
-        EMPLOYMENT, CONTRACTOR, VOLUNTEER, BOARD_MEMBER, SHAREHOLDER,
-        CUSTOMER, SUPPLIER, PARTNER, VENDOR, FRANCHISE,
-        CITIZEN, RESIDENT, TAXPAYER, VOTER, PUBLIC_OFFICIAL,
-        STUDENT, TEACHER, ALUMNI, RESEARCHER,
-        PATIENT, DOCTOR, CAREGIVER, INSURED,
-        AI_AGENT, ROBOT, DEVICE, SERVICE_ACCOUNT,
-        PEER, SUPERIOR, SUBORDINATE, COLLABORATOR, REGULATOR, DEPENDENT,
-        TRUSTED, UNTRUSTED,
-        MEMBER_OF, AFFILIATED_WITH, BELONGS_TO, EMPLOYED_BY, PART_OF,
-        REPRESENTS, MANAGES,
+    t.id: t
+    for t in [
+        FAMILY,
+        FRIENDSHIP,
+        ROOMMATE,
+        MARRIAGE,
+        GUARDIANSHIP,
+        SON_OF,
+        DAUGHTER_OF,
+        SIBLING_OF,
+        EMPLOYMENT,
+        CONTRACTOR,
+        VOLUNTEER,
+        BOARD_MEMBER,
+        SHAREHOLDER,
+        CUSTOMER,
+        SUPPLIER,
+        PARTNER,
+        VENDOR,
+        FRANCHISE,
+        CITIZEN,
+        RESIDENT,
+        TAXPAYER,
+        VOTER,
+        PUBLIC_OFFICIAL,
+        STUDENT,
+        TEACHER,
+        ALUMNI,
+        RESEARCHER,
+        PATIENT,
+        DOCTOR,
+        CAREGIVER,
+        INSURED,
+        AI_AGENT,
+        ROBOT,
+        DEVICE,
+        SERVICE_ACCOUNT,
+        PEER,
+        SUPERIOR,
+        SUBORDINATE,
+        COLLABORATOR,
+        REGULATOR,
+        DEPENDENT,
+        TRUSTED,
+        UNTRUSTED,
+        MEMBER_OF,
+        AFFILIATED_WITH,
+        BELONGS_TO,
+        EMPLOYED_BY,
+        PART_OF,
+        REPRESENTS,
+        MANAGES,
     ]
 }
 

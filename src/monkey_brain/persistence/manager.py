@@ -49,14 +49,14 @@ class PersistenceManager:
     def set_lemon(self, lemon: Any) -> None:
         """Wire in Lemon so all state changes are observed."""
         self._lemon = lemon
-    
+
     def register_adapter(self, adapter: IStoreAdapter) -> None:
         """Register a store adapter."""
         self._adapters[adapter.name] = adapter
-    
+
     def get_adapter(self, name: str) -> IStoreAdapter | None:
         return self._adapters.get(name)
-    
+
     async def connect_all(self) -> None:
         """Connect to all registered stores."""
         for adapter in self._adapters.values():
@@ -65,7 +65,7 @@ class PersistenceManager:
                 logger.info(f"Connected to {adapter.name}")
             except Exception as e:
                 logger.warning(f"Failed to connect to {adapter.name}: {e}")
-    
+
     async def disconnect_all(self) -> None:
         """Disconnect from all stores."""
         for adapter in self._adapters.values():
@@ -73,10 +73,11 @@ class PersistenceManager:
                 await adapter.disconnect()
             except Exception as e:
                 logger.debug("Adapter disconnect failed: %s", e)
-    
+
     async def persist(self, event: PersistenceEvent) -> dict[str, Any]:
         """Persist an event to the appropriate store and observe via Lemon."""
         import copy
+
         event = copy.deepcopy(event)
         self._event_log.append(event)
 
@@ -93,7 +94,7 @@ class PersistenceManager:
             result = {"status": "error", "error": str(e)}
 
         return result
-    
+
     async def apply_mutation(self, mutation: StateMutation) -> dict[str, Any]:
         """Apply a state mutation with persistence."""
         results = []
@@ -101,7 +102,7 @@ class PersistenceManager:
             result = await self.persist(event)
             results.append(result)
         return {"mutations": len(results), "results": results}
-    
+
     async def health(self) -> dict[str, Any]:
         """Check health of all stores."""
         health = {}
@@ -111,7 +112,7 @@ class PersistenceManager:
             except Exception as e:
                 health[name] = {"status": "error", "error": str(e)}
         return health
-    
+
     def _select_adapter(self, event: PersistenceEvent) -> IStoreAdapter | None:
         """Select appropriate adapter based on event type."""
         # Entity events → MongoDB
@@ -149,8 +150,10 @@ class PersistenceManager:
             adapter = self._adapters.get("influxdb")
             if adapter is None:
                 import logging as _log
+
                 _log.getLogger(__name__).warning(
-                    "No InfluxDB adapter registered — metric event %s dropped", event.entity_id,
+                    "No InfluxDB adapter registered — metric event %s dropped",
+                    event.entity_id,
                 )
             return adapter
 
@@ -161,8 +164,8 @@ class PersistenceManager:
         """Forward state-change events to Lemon for observability."""
         if self._lemon is None:
             return
-        data      = event.data or {}
-        agent_id  = data.get("agent_id", "monkeybrain")
+        data = event.data or {}
+        agent_id = data.get("agent_id", "monkeybrain")
         entity_id = event.entity_id or agent_id
 
         try:
@@ -170,7 +173,7 @@ class PersistenceManager:
 
             if et == EventType.EPISTEMIC_STATE_UPDATED:
                 component = data.get("component", "world")
-                state     = data.get("state", {})
+                state = data.get("state", {})
                 self._lemon.observe_world_model(
                     simulation_id=entity_id,
                     entity=f"epistemic.{component}",
@@ -242,7 +245,7 @@ class PersistenceManager:
 
             elif et == EventType.SIMULATION_LOSS_RECORDED:
                 loss = data.get("loss", {})
-                l_e  = loss.get("L_E", loss.get("l_epa", 0.0))
+                l_e = loss.get("L_E", loss.get("l_epa", 0.0))
                 round_num = data.get("round", 0)
                 self._lemon.observe_world_model(
                     simulation_id=f"{entity_id}.round_{round_num}",
@@ -263,7 +266,7 @@ class PersistenceManager:
 
         except Exception as exc:
             logger.debug(f"Lemon observe failed (non-fatal): {exc}")
-    
+
     def summary(self) -> dict:
         return {
             "adapters": list(self._adapters.keys()),

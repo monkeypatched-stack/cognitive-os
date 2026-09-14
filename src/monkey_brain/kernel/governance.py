@@ -15,6 +15,7 @@ never meant to be interchangeable — do not import one where the other is
 expected. This module is not merged, renamed, or otherwise modified as part
 of that audit; it is production-critical and explicitly left unchanged.
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,12 +52,13 @@ class RuntimeCharter:
     Defines identity, owner, type, jurisdiction, constitution,
     policies, capabilities, and trust relationships.
     """
+
     runtime_id: str = ""
     owner: str = ""
     runtime_type: RuntimeType = RuntimeType.PERSONAL
     jurisdiction: Jurisdiction = Jurisdiction.GLOBAL
-    constitution: list[str] = field(default_factory=list)      # fundamental rules
-    policies: dict[str, Any] = field(default_factory=dict)     # governance policies
+    constitution: list[str] = field(default_factory=list)  # fundamental rules
+    policies: dict[str, Any] = field(default_factory=dict)  # governance policies
     capabilities: list[str] = field(default_factory=list)
     trust_relationships: list[str] = field(default_factory=list)  # runtime_ids
     created_at: float = field(default_factory=time.time)
@@ -106,25 +108,29 @@ class GovernanceEngine:
 
     def _record_and_return_decision(self, runtime_id: str, action: str, decision: dict[str, Any]) -> dict[str, Any]:
         """Helper: record policy decision to audit log and in-memory decisions, then return.
-        
+
         This ensures all policy decisions are persisted durably, even early-return error paths.
         """
-        self._decisions.append({
-            "runtime_id": runtime_id, "action": action, **decision,
-            "timestamp": time.time(),
-        })
+        self._decisions.append(
+            {
+                "runtime_id": runtime_id,
+                "action": action,
+                **decision,
+                "timestamp": time.time(),
+            }
+        )
         if len(self._decisions) > self._max_decisions:
-            self._decisions = self._decisions[-self._max_decisions:]
-        
+            self._decisions = self._decisions[-self._max_decisions :]
+
         # Persist to durable audit log (Task 2: enforce gap fix)
         try:
             get_audit_log().record_policy_decision(runtime_id, action, decision)
         except Exception as exc:
             # Log but don't fail — audit persistence failure shouldn't block policy evaluation
             logger.error("Failed to persist policy decision to audit log: %s", exc)
-        
+
         return decision
-    
+
     def get_charter(self, runtime_id: str) -> RuntimeCharter | None:
         return self._charters.get(runtime_id)
 
@@ -133,6 +139,7 @@ class GovernanceEngine:
         the real signal for "is governance in use," not whether anyone
         has called the dead register_charter() API."""
         import os
+
         return bool(os.getenv("OPA_URL", "").strip())
 
     async def evaluate(self, runtime_id: str, action: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -164,8 +171,14 @@ class GovernanceEngine:
         unless COGNITIVEOS_ALLOW_INSECURE_DEV_MODE is set. default_allow is
         False: unknown ≠ allow.
         """
-        from src.monkey_brain.kernel.production_gates import insecure_dev_mode, require_opa
-        from src.monkey_brain.kernel.trusted_auth import get_trusted_auth, strip_untrusted_security_signals
+        from src.monkey_brain.kernel.production_gates import (
+            insecure_dev_mode,
+            require_opa,
+        )
+        from src.monkey_brain.kernel.trusted_auth import (
+            get_trusted_auth,
+            strip_untrusted_security_signals,
+        )
 
         trusted = get_trusted_auth().to_opa_auth()
         ctx = strip_untrusted_security_signals(dict(context or {}))
@@ -176,7 +189,12 @@ class GovernanceEngine:
             decision = {
                 "allowed": False,
                 "reason": "opa_required_but_not_configured",
-                "violations": [{"rule": "opa_required_but_not_configured", "type": "production_gate"}],
+                "violations": [
+                    {
+                        "rule": "opa_required_but_not_configured",
+                        "type": "production_gate",
+                    }
+                ],
                 "approval_mode": "DENY",
                 "approval_source": "POLICY_AUTOMATIC",
                 "risk_level": "CRITICAL",
@@ -188,7 +206,10 @@ class GovernanceEngine:
             from services.common.opa import evaluate_full
         except Exception as exc:
             if insecure_dev_mode() and not require_opa():
-                logger.warning("Governance: OPA client unavailable, allowing (insecure-dev): %s", exc)
+                logger.warning(
+                    "Governance: OPA client unavailable, allowing (insecure-dev): %s",
+                    exc,
+                )
                 decision = {
                     "allowed": True,
                     "reason": "opa_client_unavailable",
@@ -213,12 +234,20 @@ class GovernanceEngine:
             }
             return self._record_and_return_decision(runtime_id, action, decision)
 
-        input_data = {"runtime_id": runtime_id, "action": action, "context": ctx, "auth": trusted}
+        input_data = {
+            "runtime_id": runtime_id,
+            "action": action,
+            "context": ctx,
+            "auth": trusted,
+        }
         try:
             result = await evaluate_full("agentos/governance", input_data, default_allow=False)
         except Exception as exc:
             if insecure_dev_mode() and not require_opa():
-                logger.warning("Governance: OPA evaluation failed, allowing (insecure-dev): %s", exc)
+                logger.warning(
+                    "Governance: OPA evaluation failed, allowing (insecure-dev): %s",
+                    exc,
+                )
                 decision = {
                     "allowed": True,
                     "reason": "opa_evaluation_failed",
@@ -292,6 +321,7 @@ class GovernanceEngine:
         if runtime_id:
             decisions = [d for d in decisions if d["runtime_id"] == runtime_id]
         return decisions[-limit:]
+
 
 _default_engine: GovernanceEngine | None = None
 

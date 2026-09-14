@@ -135,9 +135,12 @@ class TestLLMQueryClassification:
             # Well-formed JSON
             ('{"type": "action", "confidence": 0.95, "reasoning": "Test"}', True),
             # JSON with extra text
-            ('The query is: {"type": "retrieval", "confidence": 0.88, "reasoning": "Info"}. Got it!', True),
+            (
+                'The query is: {"type": "retrieval", "confidence": 0.88, "reasoning": "Info"}. Got it!',
+                True,
+            ),
             # Invalid JSON
-            ('The query type is action with confidence 0.9', False),
+            ("The query type is action with confidence 0.9", False),
         ]
 
         for response, should_work in parse_test_cases:
@@ -173,10 +176,7 @@ class TestLLMClassificationWithRouter:
         router = HybridRouter(llm_provider=mock_llm)
 
         # Process query
-        response = await router.process(
-            question="Get me 2 liters of milk",
-            actor_id="user_123"
-        )
+        response = await router.process(question="Get me 2 liters of milk", actor_id="user_123")
 
         # Verify LLM was used for classification
         assert response.routing_decision.matched_patterns == ["llm"]
@@ -219,9 +219,9 @@ def test_llm_classification_checklist():
 
 
 if __name__ == "__main__":
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("LLM QUERY CLASSIFICATION TESTS")
-    print("="*70)
+    print("=" * 70)
 
     print("\nClassification Tests:")
     print("-" * 70)
@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
     test_llm_classification_checklist()
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("RUN WITH PYTEST FOR ASYNC TESTS")
-    print("="*70)
+    print("=" * 70)
     print("pytest tests/test_llm_query_classification.py -v\n")

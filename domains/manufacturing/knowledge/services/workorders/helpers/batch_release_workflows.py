@@ -10,7 +10,6 @@ from services.workorders.models.batch_release_workflows import (
     BatchReleaseWorkflowUpdate,
 )
 
-
 COLLECTION = "batch_release_workflows"
 
 
@@ -40,7 +39,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -70,14 +71,20 @@ async def _attach_to_batch_record(db: AsyncIOMotorDatabase, record: dict) -> Non
         {
             "$set": {
                 "metadata.batch_release_workflow": release_snapshot,
-                "metadata.bmr_package.execution_status": (record.get("executed_bmr_package") or {}).get("status"),
-                "metadata.bpr_package.execution_status": (record.get("executed_bpr_package") or {}).get("status"),
+                "metadata.bmr_package.execution_status": (
+                    record.get("executed_bmr_package") or {}
+                ).get("status"),
+                "metadata.bpr_package.execution_status": (
+                    record.get("executed_bpr_package") or {}
+                ).get("status"),
             },
             "$addToSet": {
                 "metadata.batch_record_package.batch_release_workflow_ids": workflow_id,
                 "metadata.bmr_package.batch_release_workflow_ids": workflow_id,
                 "metadata.bpr_package.batch_release_workflow_ids": workflow_id,
-                "evidence_document_ids": {"$each": record.get("evidence_document_ids") or []},
+                "evidence_document_ids": {
+                    "$each": record.get("evidence_document_ids") or []
+                },
             },
         },
     )
@@ -113,8 +120,12 @@ async def get_all(
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, batch_release_workflow_id: str) -> Optional[dict]:
-    doc = await db[COLLECTION].find_one({"batch_release_workflow_id": batch_release_workflow_id})
+async def get_by_id(
+    db: AsyncIOMotorDatabase, batch_release_workflow_id: str
+) -> Optional[dict]:
+    doc = await db[COLLECTION].find_one(
+        {"batch_release_workflow_id": batch_release_workflow_id}
+    )
     return _serialize(doc) if doc else None
 
 
@@ -134,7 +145,9 @@ async def update(
     if not fields:
         return await get_by_id(db, batch_release_workflow_id)
 
-    existing = await db[COLLECTION].find_one({"batch_release_workflow_id": batch_release_workflow_id})
+    existing = await db[COLLECTION].find_one(
+        {"batch_release_workflow_id": batch_release_workflow_id}
+    )
     if not existing:
         return None
     merged = _serialize(existing)
@@ -154,5 +167,7 @@ async def update(
 
 
 async def delete(db: AsyncIOMotorDatabase, batch_release_workflow_id: str) -> bool:
-    result = await db[COLLECTION].delete_one({"batch_release_workflow_id": batch_release_workflow_id})
+    result = await db[COLLECTION].delete_one(
+        {"batch_release_workflow_id": batch_release_workflow_id}
+    )
     return result.deleted_count == 1

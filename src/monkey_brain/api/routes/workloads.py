@@ -5,6 +5,7 @@ GET  /workloads/templates   — list available workload templates
 GET  /workloads/{id}        — get a composed workload by ID
 POST /workloads/validate    — validate a workload's dependency graph
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,22 +74,24 @@ async def compose_workload(
             lemon.counter("api.workloads.compose.success")
             lemon.gauge("api.workloads.compose.steps", len(workload.steps))
 
-        return JSONResponse({
-            "workload_id": workload.workload_id,
-            "steps": [
-                {
-                    "step_id": s.step_id,
-                    "capability_name": s.capability_name,
-                    "inputs": s.inputs,
-                    "outputs": s.outputs,
-                    "dependencies": s.dependencies,
-                }
-                for s in workload.steps
-            ],
-            "step_count": len(workload.steps),
-            "dag": dag.summary(),
-            "metadata": workload.metadata,
-        })
+        return JSONResponse(
+            {
+                "workload_id": workload.workload_id,
+                "steps": [
+                    {
+                        "step_id": s.step_id,
+                        "capability_name": s.capability_name,
+                        "inputs": s.inputs,
+                        "outputs": s.outputs,
+                        "dependencies": s.dependencies,
+                    }
+                    for s in workload.steps
+                ],
+                "step_count": len(workload.steps),
+                "dag": dag.summary(),
+                "metadata": workload.metadata,
+            }
+        )
 
     except DAGValidationError as exc:
         if lemon:
@@ -131,7 +134,10 @@ async def validate_workload(
     """Validate a workload's dependency graph without creating it."""
     from src.monkey_brain.kernel.plan.workload.composer import WorkloadComposer
 
-    from src.monkey_brain.kernel.plan.workload.dag import WorkloadDAG, DAGValidationError
+    from src.monkey_brain.kernel.plan.workload.dag import (
+        WorkloadDAG,
+        DAGValidationError,
+    )
 
     composer = WorkloadComposer()
     try:
@@ -149,17 +155,19 @@ async def validate_workload(
 
     try:
         dag = WorkloadDAG.from_steps(workload.steps)
-        return JSONResponse({
-            "valid": True,
-            "errors": [],
-            "step_count": len(workload.steps),
-            "dag": dag.summary(),
-        })
+        return JSONResponse(
+            {
+                "valid": True,
+                "errors": [],
+                "step_count": len(workload.steps),
+                "dag": dag.summary(),
+            }
+        )
     except DAGValidationError as exc:
-        return JSONResponse({
-            "valid": False,
-            "errors": exc.errors,
-            "step_count": len(workload.steps),
-        })
-
-
+        return JSONResponse(
+            {
+                "valid": False,
+                "errors": exc.errors,
+                "step_count": len(workload.steps),
+            }
+        )

@@ -9,6 +9,7 @@ are the bars the review flagged.
 
 Run:  python3 -m pytest tests/planetary/test_planetary_scale.py -q -s
 """
+
 from __future__ import annotations
 
 import time
@@ -31,6 +32,7 @@ N_BELLMAN = 20000
 
 # ── the 7-tier hierarchy ─────────────────────────────────────────────────────────
 
+
 def build_hierarchy(net: TrustNetwork) -> dict[str, list[str]]:
     """Create runtimes at every tier and connect them with delegating relationships,
     each tier reporting up to the one above (National delegates to Regional, …)."""
@@ -43,8 +45,15 @@ def build_hierarchy(net: TrustNetwork) -> dict[str, list[str]]:
         "community": ["oss-proj", "family-smith", "school-12"],
         "personal": [f"person-{i}" for i in range(50)],
     }
-    order = ["global", "international", "national", "regional",
-             "enterprise", "community", "personal"]
+    order = [
+        "global",
+        "international",
+        "national",
+        "regional",
+        "enterprise",
+        "community",
+        "personal",
+    ]
     # connect each tier down to a parent in the tier above (delegation edges)
     for upper, lower in zip(order, order[1:]):
         parents = tiers[upper]
@@ -56,6 +65,7 @@ def build_hierarchy(net: TrustNetwork) -> dict[str, list[str]]:
 
 # ── scale: world tensor ──────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="module")
 def big_world() -> SparseTransitionTensor:
     w = SparseTransitionTensor()
@@ -65,12 +75,18 @@ def big_world() -> SparseTransitionTensor:
         i = next(rng) % N_STATES
         j = next(rng) % N_STATES
         d = f"domain-{i % 40}"
-        trans.append({"src": f"s{i}", "dst": f"s{j}", "domain": d,
-                      "reward": (next(rng) % 100) / 100.0})
+        trans.append(
+            {
+                "src": f"s{i}",
+                "dst": f"s{j}",
+                "domain": d,
+                "reward": (next(rng) % 100) / 100.0,
+            }
+        )
     t0 = time.perf_counter()
     w.batch_update(trans, source="planetary-seed")
     dt = time.perf_counter() - t0
-    print(f"\n[world] built {w.nnz()} transitions over {len(w.states())} states in {dt*1000:.0f} ms")
+    print(f"\n[world] built {w.nnz()} transitions over {len(w.states())} states in {dt * 1000:.0f} ms")
     return w
 
 
@@ -85,11 +101,11 @@ def test_bellman_throughput(big_world):
     (`_max_out_q`) collapses to a crawl — this asserts a real throughput floor."""
     edges = list(big_world)[:N_BELLMAN]
     t0 = time.perf_counter()
-    for (s, d) in edges:
+    for s, d in edges:
         big_world.bellman_update(s, d, reward=0.5)
     dt = time.perf_counter() - t0
     ups = len(edges) / dt
-    print(f"[bellman] {len(edges)} updates in {dt*1000:.0f} ms → {ups:,.0f} updates/s")
+    print(f"[bellman] {len(edges)} updates in {dt * 1000:.0f} ms → {ups:,.0f} updates/s")
     assert ups > 20000, f"Bellman too slow ({ups:,.0f}/s) — O(nnz) scan in the hot path"
 
 
@@ -133,6 +149,7 @@ def test_remove_does_not_leak_state_index():
 
 # ── planetary trust: delegation across tiers ─────────────────────────────────────
 
+
 def test_hierarchical_delegated_trust():
     """A National runtime trusts a Regional one, which trusts an Enterprise. Authority
     must be delegable transitively along the reporting chain (the pyramid), with a bounded
@@ -142,8 +159,9 @@ def test_hierarchical_delegated_trust():
     # earth →(int'l)→ national →(regional)→ enterprise: no direct earth→enterprise edge
     assert net.edge("earth", "acme") is None
     # but authority should be reachable along the delegation chain
-    assert net.permits_via("earth", "acme", Relationship.ORGANIZATION), \
+    assert net.permits_via("earth", "acme", Relationship.ORGANIZATION), (
         "delegated authority must flow down the hierarchy"
+    )
 
 
 def test_merge_queue_backpressure():
@@ -164,6 +182,7 @@ def test_merge_queue_backpressure():
 
 
 # ── tiny deterministic PRNG (no numpy dependency in the hot loop) ────────────────
+
 
 def _lcg(seed: int):
     x = seed

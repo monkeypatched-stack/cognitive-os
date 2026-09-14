@@ -21,6 +21,7 @@ Every function here fails soft (log-only) — an audit-emission failure
 must never break the request it's describing, matching TimelineStore's
 own backend-level fail-soft convention.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,18 +56,29 @@ def record_plan_event(
     mutating one row in place.
     """
     from src.monkey_brain.kernel.compile import _obs
+
     try:
         TimelineStore().record(
             TimelineKind.PLAN,
-            plan_id=plan_id, actor_id=actor_id, goal=goal,
-            steps=tuple(steps), step_descriptions=tuple(step_descriptions),
-            status=status, result=result,
-            correlation_id=execution_id, source="audit_trail",
+            plan_id=plan_id,
+            actor_id=actor_id,
+            goal=goal,
+            steps=tuple(steps),
+            step_descriptions=tuple(step_descriptions),
+            status=status,
+            result=result,
+            correlation_id=execution_id,
+            source="audit_trail",
             metadata=dict(metadata or {}),
         )
         _obs.counter("audit.events.total", event_type=TimelineKind.PLAN.value, status="success")
     except Exception:
-        logger.warning("record_plan_event(%s, plan_id=%r) failed (non-fatal)", status, plan_id, exc_info=True)
+        logger.warning(
+            "record_plan_event(%s, plan_id=%r) failed (non-fatal)",
+            status,
+            plan_id,
+            exc_info=True,
+        )
         _obs.counter("audit.events.total", event_type=TimelineKind.PLAN.value, status="error")
         _obs.counter("audit.write_errors.total")
 
@@ -84,22 +96,39 @@ def record_decision_event(
     decisions that aren't plan-lifecycle-shaped, e.g.
     selected_strategy="idempotency_replay"/"idempotency_conflict"."""
     from src.monkey_brain.kernel.compile import _obs
+
     try:
         TimelineStore().record(
             TimelineKind.DECISION,
-            actor_id=actor_id, selected_strategy=selected_strategy, reason=reason,
-            evidence=tuple(evidence), correlation_id=execution_id, source="audit_trail",
+            actor_id=actor_id,
+            selected_strategy=selected_strategy,
+            reason=reason,
+            evidence=tuple(evidence),
+            correlation_id=execution_id,
+            source="audit_trail",
             metadata=dict(metadata or {}),
         )
-        _obs.counter("audit.events.total", event_type=TimelineKind.DECISION.value, status="success")
+        _obs.counter(
+            "audit.events.total",
+            event_type=TimelineKind.DECISION.value,
+            status="success",
+        )
     except Exception:
-        logger.warning("record_decision_event(%s) failed (non-fatal)", selected_strategy, exc_info=True)
+        logger.warning(
+            "record_decision_event(%s) failed (non-fatal)",
+            selected_strategy,
+            exc_info=True,
+        )
         _obs.counter("audit.events.total", event_type=TimelineKind.DECISION.value, status="error")
         _obs.counter("audit.write_errors.total")
 
 
-def query_audit_timeline(actor_id: str, execution_id: str,
-                          since: float | None = None, until: float | None = None) -> list[dict[str, Any]]:
+def query_audit_timeline(
+    actor_id: str,
+    execution_id: str,
+    since: float | None = None,
+    until: float | None = None,
+) -> list[dict[str, Any]]:
     """Every PLAN/EXECUTION/DECISION entry for this actor whose
     correlation_id matches execution_id, merged chronologically — the
     durable reconstruction of "what happened during this execution" the

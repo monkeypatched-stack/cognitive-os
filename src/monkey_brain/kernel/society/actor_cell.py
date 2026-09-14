@@ -31,6 +31,7 @@ Actor Cell completeness (the task's own checklist):
     +-- Actor-specific Capability State -> stateless shared capability instances (verified, ACTOR_CELL_ARCHITECTURE.md Section B)
     +-- ROS Adapter Binding         -> ActorCell.ros_adapter
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

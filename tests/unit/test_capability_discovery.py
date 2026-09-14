@@ -1,13 +1,18 @@
 """Tests for Capability Discovery — agents declare required capabilities, resolved dynamically."""
+
 import sys
 import os
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from src.monkey_brain.kernel.execute.agent_mesh import ExecutionPool, AgentSpec, AgentRole
+from src.monkey_brain.kernel.execute.agent_mesh import (
+    ExecutionPool,
+    AgentSpec,
+    AgentRole,
+)
 from src.knowledge.pack import KnowledgePack
 from src.monkey_brain.kernel.execute.capabilities.bus import CapabilityBus
 
@@ -63,9 +68,14 @@ def test_backward_compat_no_required():
 
 
 if __name__ == "__main__":
-    ok = 0; f = []
-    for name, fn in sorted((k, v) for k, v in globals().items() if k.startswith('test_') and callable(v)):
-        try: fn(); ok += 1
-        except Exception as e: f.append(f"{name}: {e}")
-    print(f"\nCapabilityDiscovery: {ok}/{ok+len(f)} passed")
-    for e in f: print(f"  FAIL: {e}")
+    ok = 0
+    f = []
+    for name, fn in sorted((k, v) for k, v in globals().items() if k.startswith("test_") and callable(v)):
+        try:
+            fn()
+            ok += 1
+        except Exception as e:
+            f.append(f"{name}: {e}")
+    print(f"\nCapabilityDiscovery: {ok}/{ok + len(f)} passed")
+    for e in f:
+        print(f"  FAIL: {e}")

@@ -11,7 +11,10 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from services.process_definitions.models.process_definition_common import ConditionOperator, Severity
+from services.process_definitions.models.process_definition_common import (
+    ConditionOperator,
+    Severity,
+)
 
 
 def utc_now() -> datetime:
@@ -30,18 +33,19 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 # PreCheckCondition
 # ---------------------------------------------------------------------------
 
+
 class PreCheckCondition(BaseModel):
-    id:                str                = Field(..., min_length=1)
-    name:              str                = Field(..., min_length=1)
-    description:       str                = Field(...)
-    operator:          ConditionOperator  = Field(...)
-    expected_value:    Optional[str]      = None
-    is_mandatory:      bool               = True
-    severity:          Severity           = Field(default=Severity.HIGH)
-    check_command:     Optional[str]      = None
-    remediation_hint:  Optional[str]      = None
-    created_at:        datetime           = Field(default_factory=utc_now)
-    updated_at:        datetime           = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    description: str = Field(...)
+    operator: ConditionOperator = Field(...)
+    expected_value: Optional[str] = None
+    is_mandatory: bool = True
+    severity: Severity = Field(default=Severity.HIGH)
+    check_command: Optional[str] = None
+    remediation_hint: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -57,15 +61,15 @@ class PreCheckConditionCreate(PreCheckCondition):
 
 
 class PreCheckConditionUpdate(BaseModel):
-    name:              Optional[str]               = None
-    description:       Optional[str]               = None
-    operator:          Optional[ConditionOperator] = None
-    expected_value:    Optional[str]               = None
-    is_mandatory:      Optional[bool]              = None
-    severity:          Optional[Severity]          = None
-    check_command:     Optional[str]               = None
-    remediation_hint:  Optional[str]               = None
-    updated_at:        datetime                    = Field(default_factory=utc_now)
+    name: Optional[str] = None
+    description: Optional[str] = None
+    operator: Optional[ConditionOperator] = None
+    expected_value: Optional[str] = None
+    is_mandatory: Optional[bool] = None
+    severity: Optional[Severity] = None
+    check_command: Optional[str] = None
+    remediation_hint: Optional[str] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class PreCheckConditionResponse(PreCheckCondition):
@@ -77,15 +81,16 @@ class PreCheckConditionResponse(PreCheckCondition):
 # ProcessPrechecks
 # ---------------------------------------------------------------------------
 
+
 class ProcessPrechecks(BaseModel):
-    id:                           str                      = Field(..., min_length=1)
-    process_definition_id:                  str                      = Field(..., min_length=1)
-    description:                  Optional[str]            = None
-    conditions:                   List[PreCheckCondition]  = Field(default_factory=list)
-    all_must_pass:                bool                     = True
-    timeout_seconds:              Optional[int]            = None
-    created_at:                   datetime                 = Field(default_factory=utc_now)
-    updated_at:                   datetime                 = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    process_definition_id: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    conditions: List[PreCheckCondition] = Field(default_factory=list)
+    all_must_pass: bool = True
+    timeout_seconds: Optional[int] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -101,11 +106,11 @@ class ProcessPrechecksCreate(ProcessPrechecks):
 
 
 class ProcessPrechecksUpdate(BaseModel):
-    description:      Optional[str]                     = None
-    conditions:       Optional[List[PreCheckCondition]] = None
-    all_must_pass:    Optional[bool]                    = None
-    timeout_seconds:  Optional[int]                     = None
-    updated_at:       datetime                          = Field(default_factory=utc_now)
+    description: Optional[str] = None
+    conditions: Optional[List[PreCheckCondition]] = None
+    all_must_pass: Optional[bool] = None
+    timeout_seconds: Optional[int] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ProcessPrechecksResponse(ProcessPrechecks):
@@ -117,16 +122,17 @@ class ProcessPrechecksResponse(ProcessPrechecks):
 # ProcessStepPrechecks
 # ---------------------------------------------------------------------------
 
+
 class ProcessStepPrechecks(BaseModel):
-    id:               str                      = Field(..., min_length=1)
-    process_definition_id:      str                      = Field(..., min_length=1)
-    process_step_id: str                      = Field(..., min_length=1)
-    description:      Optional[str]            = None
-    conditions:       List[PreCheckCondition]  = Field(default_factory=list)
-    all_must_pass:    bool                     = True
-    timeout_seconds:  Optional[int]            = None
-    created_at:       datetime                 = Field(default_factory=utc_now)
-    updated_at:       datetime                 = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    process_definition_id: str = Field(..., min_length=1)
+    process_step_id: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    conditions: List[PreCheckCondition] = Field(default_factory=list)
+    all_must_pass: bool = True
+    timeout_seconds: Optional[int] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -142,11 +148,11 @@ class ProcessStepPrechecksCreate(ProcessStepPrechecks):
 
 
 class ProcessStepPrechecksUpdate(BaseModel):
-    description:      Optional[str]                     = None
-    conditions:       Optional[List[PreCheckCondition]] = None
-    all_must_pass:    Optional[bool]                    = None
-    timeout_seconds:  Optional[int]                     = None
-    updated_at:       datetime                          = Field(default_factory=utc_now)
+    description: Optional[str] = None
+    conditions: Optional[List[PreCheckCondition]] = None
+    all_must_pass: Optional[bool] = None
+    timeout_seconds: Optional[int] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ProcessStepPrechecksResponse(ProcessStepPrechecks):
@@ -155,14 +161,14 @@ class ProcessStepPrechecksResponse(ProcessStepPrechecks):
 
 
 class PaginatedProcessPrechecksResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[ProcessPrechecksResponse]
+    results: list[ProcessPrechecksResponse]
 
 
 class PaginatedProcessStepPrechecksResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[ProcessStepPrechecksResponse]
+    results: list[ProcessStepPrechecksResponse]

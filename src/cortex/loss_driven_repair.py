@@ -44,12 +44,12 @@ logger = logging.getLogger("agentos.repair")
 
 # Which solver targets each dominant loss component
 _LOSS_TO_SOLVER: dict[str, str] = {
-    "state":      "jepa",
-    "action":     "model_checker",
+    "state": "jepa",
+    "action": "model_checker",
     "affordance": "graph",
     "constraint": "sat_smt",
-    "goal":       "heuristic",
-    "knowledge":  "retrieval",
+    "goal": "heuristic",
+    "knowledge": "retrieval",
 }
 
 # Repair prompt templates — targeted at the dominant loss term
@@ -94,29 +94,32 @@ _REPAIR_TEMPLATES: dict[str, str] = {
 # Data types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RepairIteration:
     """One step in the loss-driven repair loop."""
+
     iteration: int
-    dominant_term: str         # which SimulationLoss component drove this repair
-    solver_selected: str       # solver chosen to address the dominant term
-    repair_prompt: str         # the targeted repair instruction sent to LLM
+    dominant_term: str  # which SimulationLoss component drove this repair
+    solver_selected: str  # solver chosen to address the dominant term
+    repair_prompt: str  # the targeted repair instruction sent to LLM
     loss_before: dict[str, float]
     loss_after: dict[str, float]
-    delta: float               # loss_before.total - loss_after.total (positive = improving)
+    delta: float  # loss_before.total - loss_after.total (positive = improving)
     converging: bool
 
 
 @dataclass
 class RepairResult:
     """Full result of the loss-driven repair loop."""
+
     converged: bool
     iterations: list[RepairIteration]
     loss_initial: float
     loss_final: float
     final_prompt: str
-    dominant_term_history: list[str]   # which term drove each iteration
-    stagnated: bool = False            # true if loop stopped due to no improvement
+    dominant_term_history: list[str]  # which term drove each iteration
+    stagnated: bool = False  # true if loop stopped due to no improvement
 
     @property
     def total_delta(self) -> float:
@@ -157,11 +160,12 @@ class RepairResult:
 # Dominant loss term identification
 # ---------------------------------------------------------------------------
 
+
 def identify_dominant(loss_components: dict[str, float]) -> str:
     """Return the name of the highest non-total loss component."""
     candidates = {k: v for k, v in loss_components.items() if k != "total" and v > 0}
     if not candidates:
-        return "constraint"   # safe fallback
+        return "constraint"  # safe fallback
     return max(candidates, key=candidates.get)  # type: ignore[arg-type]
 
 
@@ -175,6 +179,7 @@ def build_repair_prompt(dominant_term: str, loss_val: float, base_prompt: str) -
 # ---------------------------------------------------------------------------
 # LossDrivenRepairLoop
 # ---------------------------------------------------------------------------
+
 
 class LossDrivenRepairLoop:
     """Iteratively optimises a design against SimulationLoss until convergence.
@@ -238,8 +243,13 @@ class LossDrivenRepairLoop:
             solver = _LOSS_TO_SOLVER.get(dominant, "heuristic")
             dominant_history.append(dominant)
 
-            logger.info("[repair] iter %d — dominant=%s, solver=%s, loss=%.4f",
-                        i, dominant, solver, total)
+            logger.info(
+                "[repair] iter %d — dominant=%s, solver=%s, loss=%.4f",
+                i,
+                dominant,
+                solver,
+                total,
+            )
 
             # Build targeted repair prompt
             repair_prompt = build_repair_prompt(dominant, current_loss.get(dominant, total), current_prompt)
@@ -253,21 +263,23 @@ class LossDrivenRepairLoop:
                 new_loss = adv.simulation_loss.to_dict()
             except (asyncio.TimeoutError, Exception) as exc:
                 logger.warning("[repair] iter %d failed: %s", i, exc)
-                new_loss = current_loss   # no change
+                new_loss = current_loss  # no change
 
             new_total = new_loss.get("total", total)
             delta = round(total - new_total, 4)
 
-            iterations.append(RepairIteration(
-                iteration=i,
-                dominant_term=dominant,
-                solver_selected=solver,
-                repair_prompt=repair_prompt,
-                loss_before=current_loss,
-                loss_after=new_loss,
-                delta=delta,
-                converging=(delta > 0),
-            ))
+            iterations.append(
+                RepairIteration(
+                    iteration=i,
+                    dominant_term=dominant,
+                    solver_selected=solver,
+                    repair_prompt=repair_prompt,
+                    loss_before=current_loss,
+                    loss_after=new_loss,
+                    delta=delta,
+                    converging=(delta > 0),
+                )
+            )
 
             # Stagnation check
             if delta < self.stagnation_epsilon and i > 2:
@@ -302,6 +314,7 @@ class LossDrivenRepairLoop:
 
     def to_repair_telemetry(self, result: RepairResult) -> "RepairTelemetry":
         from cortex.engineering_report import RepairTelemetry
+
         return RepairTelemetry(
             iterations=len(result.iterations),
             files_patched=sum(1 for it in result.iterations if it.delta > 0),

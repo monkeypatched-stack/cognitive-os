@@ -10,7 +10,6 @@ from services.auth.helpers.influx_store import write_websocket_event
 from services.common.config import settings
 from services.events.routers.count_events import COUNT_EVENT_PATHS
 
-
 TEST_EVENTS = [
     {
         "id": "TEST-EVT-001",
@@ -180,12 +179,16 @@ def _event_envelope(payload: dict) -> dict:
 
 async def seed_events() -> None:
     for event in TEST_EVENTS:
-        await write_websocket_event(_event_envelope(event), settings.NATS_EVENTS_SUBJECT)
+        await write_websocket_event(
+            _event_envelope(event), settings.NATS_EVENTS_SUBJECT
+        )
         print(f"Seeded event {event['id']} scope={event['scope']}")
 
     for index, path in enumerate(COUNT_EVENT_PATHS):
         event = _count_event_payload(path, index)
-        await write_websocket_event(_event_envelope(event), settings.NATS_EVENTS_SUBJECT)
+        await write_websocket_event(
+            _event_envelope(event), settings.NATS_EVENTS_SUBJECT
+        )
         print(
             "Seeded count event "
             f"{event['id']} path={event['count_event_path']} scope={event['scope']}"

@@ -3,6 +3,7 @@ from fastapi import Depends, Header, HTTPException, status, Request
 from .keycloak import anti_replay_guard
 from .keycloak import verify_jwt
 
+
 async def require_mtls(request: Request):
     print("x-ssl-client-verify =", request.headers.get("x-ssl-client-verify"))
     print("x-ssl-client-dn =", request.headers.get("x-ssl-client-dn"))

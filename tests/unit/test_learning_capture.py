@@ -9,13 +9,18 @@ does mean every cycle, not just ones using the new pipelines. Also
 validates experience_to_dict()'s serialization of arbitrary goal/plan/
 execution values.
 """
+
 from __future__ import annotations
 
 import json
 
 import pytest
 
-from src.monkey_brain.kernel.pipeline.contracts import PipelineRequest, CompiledRequest, RuntimeContext
+from src.monkey_brain.kernel.pipeline.contracts import (
+    PipelineRequest,
+    CompiledRequest,
+    RuntimeContext,
+)
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
@@ -24,12 +29,15 @@ from src.monkey_brain.kernel.pipeline.planning import IntegratedPlanningEngine
 from src.monkey_brain.kernel.pipeline.execution_runtime import IntegratedExecutionEngine
 from src.monkey_brain.kernel.pipeline.learning.domain import LearningExperience
 from src.monkey_brain.kernel.pipeline.learning.capture import (
-    ExperienceBuilder, capture_experience, experience_to_dict,
+    ExperienceBuilder,
+    capture_experience,
+    experience_to_dict,
 )
 
 
 def _make_compiled(question: str = "get 2 l of milk", goal_name: str = "acquire_milk") -> CompiledRequest:
     import unittest.mock as mock
+
     request = PipelineRequest(question=question, actor_id="user-1", tenant_id="acme")
     ctx = mock.MagicMock()
     ctx.run_id = "run-001"
@@ -45,6 +53,7 @@ def _make_compiled(question: str = "get 2 l of milk", goal_name: str = "acquire_
 
 def _make_context() -> RuntimeContext:
     import unittest.mock as mock
+
     world = mock.MagicMock()
     world.states.return_value = ["start", "middle", "end"]
     world.domains.return_value = ["task"]
@@ -56,7 +65,12 @@ async def _run_cycle(runtime: CognitiveRuntime, goal_name: str = "acquire_milk")
     compiled = _make_compiled(goal_name=goal_name)
     context = _make_context()
     actor = Actor(actor_id="user-1", tenant_id="acme")
-    state = CognitiveState(compiled=compiled, context=context, actor=actor, belief=BeliefState(actor_id="user-1", tenant_id="acme"))
+    state = CognitiveState(
+        compiled=compiled,
+        context=context,
+        actor=actor,
+        belief=BeliefState(actor_id="user-1", tenant_id="acme"),
+    )
     actor.start_reasoning()
     return await runtime._policy.execute(state)
 
@@ -64,6 +78,7 @@ async def _run_cycle(runtime: CognitiveRuntime, goal_name: str = "acquire_milk")
 # ═══════════════════════════════════════════════════════════════════════════
 # Capture against the default (untouched) pipeline
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestCaptureDefaultPipeline:
     @pytest.mark.asyncio
@@ -133,13 +148,17 @@ class TestCaptureDefaultPipeline:
 # Capture against the rich pipeline — "every cognitive cycle," not just default
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCaptureRichPipeline:
     @pytest.mark.asyncio
     async def test_captures_planning_domain_plan_object(self):
         """goal/plan/execution must accept whatever the actual cycle
         produced — here, real planning.domain.Plan / execution.py
         ExecutionResult objects, not just belief_state's simpler shapes."""
-        rt = CognitiveRuntime(planning_engine=IntegratedPlanningEngine(), execution_engine=IntegratedExecutionEngine())
+        rt = CognitiveRuntime(
+            planning_engine=IntegratedPlanningEngine(),
+            execution_engine=IntegratedExecutionEngine(),
+        )
         state = await _run_cycle(rt)
 
         experience = capture_experience(state)
@@ -152,7 +171,10 @@ class TestCaptureRichPipeline:
         """The Step 9.7 parameter-loss limitation (Navigate missing
         'destination') must show up transcribed in the captured outcome,
         not hidden or smoothed over — capture is pure transcription."""
-        rt = CognitiveRuntime(planning_engine=IntegratedPlanningEngine(), execution_engine=IntegratedExecutionEngine())
+        rt = CognitiveRuntime(
+            planning_engine=IntegratedPlanningEngine(),
+            execution_engine=IntegratedExecutionEngine(),
+        )
         state = await _run_cycle(rt)
 
         experience = capture_experience(state)
@@ -163,6 +185,7 @@ class TestCaptureRichPipeline:
 # ═══════════════════════════════════════════════════════════════════════════
 # ExperienceBuilder — configurability
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExperienceBuilderConfiguration:
     @pytest.mark.asyncio
@@ -191,13 +214,17 @@ class TestExperienceBuilderConfiguration:
 # Serialization
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExperienceSerialization:
     @pytest.mark.asyncio
     async def test_json_serializable_with_rich_dataclass_fields(self):
         """The hard case: goal/plan/execution hold real nested dataclasses
         (planning.domain.Plan containing PlanStep containing PlanningOperator,
         etc.) — must serialize without raising."""
-        rt = CognitiveRuntime(planning_engine=IntegratedPlanningEngine(), execution_engine=IntegratedExecutionEngine())
+        rt = CognitiveRuntime(
+            planning_engine=IntegratedPlanningEngine(),
+            execution_engine=IntegratedExecutionEngine(),
+        )
         state = await _run_cycle(rt)
         experience = capture_experience(state)
 
@@ -228,8 +255,21 @@ class TestExperienceSerialization:
     def test_all_top_level_fields_present(self):
         experience = LearningExperience()
         d = experience_to_dict(experience)
-        for key in ("experience_id", "goal", "plan", "execution", "observations", "outcome",
-                    "reward", "confidence", "timestamp", "provenance", "events", "signals", "metadata"):
+        for key in (
+            "experience_id",
+            "goal",
+            "plan",
+            "execution",
+            "observations",
+            "outcome",
+            "reward",
+            "confidence",
+            "timestamp",
+            "provenance",
+            "events",
+            "signals",
+            "metadata",
+        ):
             assert key in d
 
 
@@ -237,10 +277,12 @@ class TestExperienceSerialization:
 # Immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestImmutability:
     @pytest.mark.asyncio
     async def test_captured_experience_is_frozen(self):
         from dataclasses import FrozenInstanceError
+
         rt = CognitiveRuntime()
         state = await _run_cycle(rt)
         experience = capture_experience(state)

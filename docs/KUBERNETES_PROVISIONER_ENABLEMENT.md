@@ -90,9 +90,7 @@ def provision(self, actor_id: str, *, node_class: str = "cloud",
 from src.monkey_brain.kernel.society import kubernetes_provisioner as _k8s_provisioner
 
 if _k8s_provisioner.provisioning_enabled() and _k8s_provisioner.should_provision(decision.reason):
-    provisioned = self._planetary.kubernetes_provisioner.provision(
-        actor_id, node_class=node_class_value
-    )
+    provisioned = self._planetary.kubernetes_provisioner.provision(actor_id, node_class=node_class_value)
     if provisioned:
         self._planetary._enqueue_reconciliation(actor_id)  # Wake fast path
 ```

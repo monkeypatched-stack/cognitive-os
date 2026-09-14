@@ -7,6 +7,7 @@ Every knowledge node in the Cognitive Knowledge Framework exposes:
 No distinction between PDF, SOP, Image, CAD, Source Code, Video —
 they're different modalities of knowledge sharing one interface.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -30,18 +31,20 @@ class KnowledgeRelation(StrEnum):
 @dataclass
 class KnowledgeEdge:
     """A typed relation between two knowledge nodes."""
+
     source_id: str = ""
     target_id: str = ""
     relation: KnowledgeRelation = KnowledgeRelation.SUPPORTS
-    weight: float = 1.0            # strength of the relation
-    evidence: str = ""             # what supports this edge
+    weight: float = 1.0  # strength of the relation
+    evidence: str = ""  # what supports this edge
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 @dataclass
 class Evidence:
     """Evidence produced by a solver or observation that updates confidence."""
-    source: str = ""               # "simulation", "observation", "solver:graph", etc.
+
+    source: str = ""  # "simulation", "observation", "solver:graph", etc.
     modality: Modality = Modality.SIMULATION
     content: Any = None
     confidence_delta: float = 0.0  # how much this evidence changes confidence
@@ -119,8 +122,12 @@ class IKnowledge(ABC):
 class ConcreteKnowledge(IKnowledge):
     """Concrete implementation of IKnowledge backed by a KnowledgeItem."""
 
-    def __init__(self, item: KnowledgeItem, ontology: str = "general",
-                 dependencies: list[str] | None = None):
+    def __init__(
+        self,
+        item: KnowledgeItem,
+        ontology: str = "general",
+        dependencies: list[str] | None = None,
+    ):
         self._item = item
         self._ontology = ontology
         self._dependencies = dependencies or []

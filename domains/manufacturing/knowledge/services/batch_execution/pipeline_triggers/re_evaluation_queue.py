@@ -71,9 +71,9 @@ class ReEvaluationRequest:
             "reason": self.reason.value,
             "priority": self.priority.value,
             "created_at": self.created_at.isoformat(),
-            "scheduled_for": self.scheduled_for.isoformat()
-            if self.scheduled_for
-            else None,
+            "scheduled_for": (
+                self.scheduled_for.isoformat() if self.scheduled_for else None
+            ),
             "attempted_count": self.attempted_count,
             "max_attempts": self.max_attempts,
             "is_processed": self.is_processed,

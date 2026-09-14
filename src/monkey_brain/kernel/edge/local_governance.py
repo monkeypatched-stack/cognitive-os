@@ -24,6 +24,7 @@ valid, because satisfying it requires contacting whatever human-approval
 mechanism (ApprovalArtifact) the control plane owns -- an edge node has
 no authority to manufacture that decision itself.
 """
+
 from __future__ import annotations
 
 import logging
@@ -42,6 +43,7 @@ logger = logging.getLogger("agentos.edge.local_governance")
 class GovernanceOrigin(Enum):
     """Section 13's observability vocabulary for where a decision
     actually came from."""
+
     LOCAL = "LOCAL"
     CENTRAL = "CENTRAL"
     ESCALATED = "ESCALATED"
@@ -68,16 +70,47 @@ class LocalGovernanceOutcome:
             raise ValueError("a governance outcome cannot both allow and escalate")
 
 
-def _deny_local(reason: str, *, decision_state: EdgeDecisionState = EdgeDecisionState.LOCAL_DENY, **kwargs: Any) -> LocalGovernanceOutcome:
-    return LocalGovernanceOutcome(allowed=False, escalate=False, reason=reason, origin=GovernanceOrigin.LOCAL, decision_state=decision_state, **kwargs)
+def _deny_local(
+    reason: str,
+    *,
+    decision_state: EdgeDecisionState = EdgeDecisionState.LOCAL_DENY,
+    **kwargs: Any,
+) -> LocalGovernanceOutcome:
+    return LocalGovernanceOutcome(
+        allowed=False,
+        escalate=False,
+        reason=reason,
+        origin=GovernanceOrigin.LOCAL,
+        decision_state=decision_state,
+        **kwargs,
+    )
 
 
-def _escalate(reason: str, *, decision_state: EdgeDecisionState = EdgeDecisionState.ESCALATE_AUTHORITY, **kwargs: Any) -> LocalGovernanceOutcome:
-    return LocalGovernanceOutcome(allowed=False, escalate=True, reason=reason, origin=GovernanceOrigin.ESCALATED, decision_state=decision_state, **kwargs)
+def _escalate(
+    reason: str,
+    *,
+    decision_state: EdgeDecisionState = EdgeDecisionState.ESCALATE_AUTHORITY,
+    **kwargs: Any,
+) -> LocalGovernanceOutcome:
+    return LocalGovernanceOutcome(
+        allowed=False,
+        escalate=True,
+        reason=reason,
+        origin=GovernanceOrigin.ESCALATED,
+        decision_state=decision_state,
+        **kwargs,
+    )
 
 
 def _allow_local(reason: str, **kwargs: Any) -> LocalGovernanceOutcome:
-    return LocalGovernanceOutcome(allowed=True, escalate=False, reason=reason, origin=GovernanceOrigin.LOCAL, decision_state=EdgeDecisionState.LOCAL_ALLOW, **kwargs)
+    return LocalGovernanceOutcome(
+        allowed=True,
+        escalate=False,
+        reason=reason,
+        origin=GovernanceOrigin.LOCAL,
+        decision_state=EdgeDecisionState.LOCAL_ALLOW,
+        **kwargs,
+    )
 
 
 class LocalGovernanceEvaluator:
@@ -90,7 +123,9 @@ class LocalGovernanceEvaluator:
     competing, always-on authorization system."""
 
     def __init__(
-        self, policy_cache: EdgePolicyCache, *,
+        self,
+        policy_cache: EdgePolicyCache,
+        *,
         current_authority_epoch_fn: Callable[[], int] | None = None,
     ) -> None:
         self._policy_cache = policy_cache
@@ -100,8 +135,14 @@ class LocalGovernanceEvaluator:
         self._current_authority_epoch_fn = current_authority_epoch_fn or (lambda: 0)
 
     def evaluate(
-        self, *, principal: str, action: str, resource: str, authenticated_principal: str,
-        audience: str = "", delegation_chain: tuple[Any, ...] = (),
+        self,
+        *,
+        principal: str,
+        action: str,
+        resource: str,
+        authenticated_principal: str,
+        audience: str = "",
+        delegation_chain: tuple[Any, ...] = (),
         now: float | None = None,
     ) -> LocalGovernanceOutcome:
         """`delegation_chain` (kernel/delegation.py::DelegationCredential
@@ -115,7 +156,9 @@ class LocalGovernanceEvaluator:
 
         if delegation_chain:
             delegation_result = self._verify_delegation(
-                delegation_chain, authenticated_delegate=authenticated_principal, now=now,
+                delegation_chain,
+                authenticated_delegate=authenticated_principal,
+                now=now,
             )
             if not delegation_result.authorized:
                 return _deny_local(
@@ -123,13 +166,17 @@ class LocalGovernanceEvaluator:
                 )
 
         snapshot, freshness, reason = self._policy_cache.get_valid(
-            principal=principal, action=action, resource=resource,
-            authenticated_principal=authenticated_principal, audience=audience,
+            principal=principal,
+            action=action,
+            resource=resource,
+            authenticated_principal=authenticated_principal,
+            audience=audience,
             current_authority_epoch=current_epoch,
         )
         if snapshot is None:
             return _escalate(
-                f"no locally-valid authority for this request: {reason}", authority_epoch=current_epoch,
+                f"no locally-valid authority for this request: {reason}",
+                authority_epoch=current_epoch,
                 decision_state=EdgeDecisionState.ESCALATE_POLICY,
             )
 
@@ -139,7 +186,8 @@ class LocalGovernanceEvaluator:
             # made stale-but-usable into an ALLOW by any local reasoning.
             return _deny_local(
                 "cached authority denies this operation",
-                policy_rule=snapshot.policy_rule, authority_epoch=snapshot.authority_epoch,
+                policy_rule=snapshot.policy_rule,
+                authority_epoch=snapshot.authority_epoch,
                 snapshot_id=snapshot.snapshot_id,
             )
 
@@ -147,7 +195,8 @@ class LocalGovernanceEvaluator:
             # Never locally satisfiable -- see module docstring.
             return _escalate(
                 "cached authority requires human approval, which cannot be obtained locally",
-                policy_rule=snapshot.policy_rule, authority_epoch=snapshot.authority_epoch,
+                policy_rule=snapshot.policy_rule,
+                authority_epoch=snapshot.authority_epoch,
                 snapshot_id=snapshot.snapshot_id,
                 decision_state=EdgeDecisionState.LOCAL_HUMAN_APPROVAL_REQUIRED,
             )
@@ -162,22 +211,27 @@ class LocalGovernanceEvaluator:
             # ever widens that window for a specific action class.
             return _escalate(
                 "cached authority is stale-but-usable, not fresh enough for a local authority decision",
-                policy_rule=snapshot.policy_rule, authority_epoch=snapshot.authority_epoch,
+                policy_rule=snapshot.policy_rule,
+                authority_epoch=snapshot.authority_epoch,
                 snapshot_id=snapshot.snapshot_id,
                 decision_state=EdgeDecisionState.ESCALATE_FRESHNESS,
             )
 
         return _allow_local(
             "cached, verified, fresh AUTO_APPROVE authority",
-            policy_rule=snapshot.policy_rule, authority_epoch=snapshot.authority_epoch,
+            policy_rule=snapshot.policy_rule,
+            authority_epoch=snapshot.authority_epoch,
             snapshot_id=snapshot.snapshot_id,
         )
 
     @staticmethod
     def _verify_delegation(delegation_chain: tuple[Any, ...], *, authenticated_delegate: str, now: float):
         from src.monkey_brain.kernel.delegation import verify_delegation_chain
+
         return verify_delegation_chain(
-            chain=delegation_chain, authenticated_delegate=authenticated_delegate, now=now,
+            chain=delegation_chain,
+            authenticated_delegate=authenticated_delegate,
+            now=now,
         )
 
 

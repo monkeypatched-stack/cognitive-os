@@ -33,6 +33,7 @@ coverage against the Systems Validation spec's Sections 12-13:
      only proves certain capability NAMES can never be delegated at
      all -- a different, narrower guarantee).
 """
+
 from __future__ import annotations
 
 import time
@@ -40,17 +41,22 @@ import time
 import pytest
 
 from src.monkey_brain.kernel.delegation import (
-    DelegationScope, get_delegation_store, issue_delegation,
-    reset_delegation_store_for_tests, verify_delegation_chain,
+    DelegationScope,
+    get_delegation_store,
+    issue_delegation,
+    reset_delegation_store_for_tests,
+    verify_delegation_chain,
 )
 from src.monkey_brain.kernel.edge.delegation_cache import (
-    VerifiedDelegationCache, _MAX_CACHE_TTL_SECONDS,
+    VerifiedDelegationCache,
+    _MAX_CACHE_TTL_SECONDS,
 )
 
 
 @pytest.fixture(autouse=True)
 def _reset():
     from src.monkey_brain.kernel.audit import get_audit_log
+
     get_audit_log().set_store(None)
     reset_delegation_store_for_tests()
     yield
@@ -59,9 +65,13 @@ def _reset():
 
 def _issue(issuer, delegate, capabilities=("grocery.purchase",), parent=None, ttl=3600):
     return issue_delegation(
-        issuer=issuer, delegate=delegate, capabilities=capabilities,
+        issuer=issuer,
+        delegate=delegate,
+        capabilities=capabilities,
         scope=DelegationScope(resources=("order-1",), actions=("create",)),
-        constraints={"max_amount": 100}, ttl_seconds=ttl, parent=parent,
+        constraints={"max_amount": 100},
+        ttl_seconds=ttl,
+        parent=parent,
     )
 
 
@@ -85,9 +95,13 @@ class TestExistingPortableDelegationCoverageIsReal:
         # own pattern in test_portable_delegation.py).
         with pytest.raises(DelegationDeniedError):
             issue_delegation(
-                issuer="B", delegate="C", capabilities=("grocery.purchase", "bank.transfer"),
+                issuer="B",
+                delegate="C",
+                capabilities=("grocery.purchase", "bank.transfer"),
                 scope=DelegationScope(resources=("order-1",), actions=("create",)),
-                constraints={"max_amount": 100}, ttl_seconds=50, parent=parent,
+                constraints={"max_amount": 100},
+                ttl_seconds=50,
+                parent=parent,
             )
 
         # A forcibly-constructed credential that outlives its parent is
@@ -100,12 +114,22 @@ class TestExistingPortableDelegationCoverageIsReal:
         from src.monkey_brain.kernel.identity import get_key_manager, sign_bytes
 
         forged = dataclasses.replace(
-            parent, issuer="B", delegate="C", parent_delegation_id=parent.delegation_id,
-            expires_at=parent.expires_at + 999_999, delegation_depth=1, proof="",
+            parent,
+            issuer="B",
+            delegate="C",
+            parent_delegation_id=parent.delegation_id,
+            expires_at=parent.expires_at + 999_999,
+            delegation_depth=1,
+            proof="",
         )
         km = get_key_manager()
         forged = forged.with_proof(sign_bytes(forged.signing_bytes(), km.get_or_create("B")))
-        result = validate_delegation(child=forged, parent=parent, authenticated_issuer="B", authenticated_delegate="C")
+        result = validate_delegation(
+            child=forged,
+            parent=parent,
+            authenticated_issuer="B",
+            authenticated_delegate="C",
+        )
         assert result.authorized is False
         assert "outlive" in result.failure_reason
 
@@ -113,9 +137,13 @@ class TestExistingPortableDelegationCoverageIsReal:
         store = get_delegation_store()
         d1 = _issue("A", "B")
         d2 = issue_delegation(
-            issuer="B", delegate="C", capabilities=("grocery.purchase",),
+            issuer="B",
+            delegate="C",
+            capabilities=("grocery.purchase",),
             scope=DelegationScope(resources=("order-1",), actions=("create",)),
-            constraints={"max_amount": 100}, ttl_seconds=100, parent=d1,
+            constraints={"max_amount": 100},
+            ttl_seconds=100,
+            parent=d1,
         )
         store.register(d1)
         store.register(d2)
@@ -156,7 +184,12 @@ class TestEdgeCacheRevocationIsBoundedNotImmediate:
         # entry is untouched.
         store.revoke(d.delegation_id, reason="validation-suite: prove the exposure window")
 
-        still_cached = cache.verify(chain=(d,), authenticated_delegate="B", is_revoked=store.is_revoked, now=t0 + 1.0)
+        still_cached = cache.verify(
+            chain=(d,),
+            authenticated_delegate="B",
+            is_revoked=store.is_revoked,
+            now=t0 + 1.0,
+        )
         assert still_cached.authorized is True, (
             "this IS the finding, not a desired behavior: a revoked delegation remains "
             "usable from the edge cache until the TTL bound below elapses"
@@ -170,16 +203,21 @@ class TestEdgeCacheRevocationIsBoundedNotImmediate:
         # passes into verify() -- advance it directly rather than a real
         # 30-second sleep.
         import dataclasses as _dc
+
         for k, entry in list(cache._cache._entries.items()):
             cache._cache._entries[k] = _dc.replace(entry, expires_at=0.0)
         after_ttl = cache.verify(
-            chain=(d,), authenticated_delegate="B", is_revoked=store.is_revoked,
+            chain=(d,),
+            authenticated_delegate="B",
+            is_revoked=store.is_revoked,
             now=t0 + _MAX_CACHE_TTL_SECONDS + 1.0,
         )
         assert after_ttl.authorized is False
         assert "revoked" in after_ttl.failure_reason
 
-    def test_explicit_invalidate_delegation_would_close_the_window_if_it_were_ever_called(self):
+    def test_explicit_invalidate_delegation_would_close_the_window_if_it_were_ever_called(
+        self,
+    ):
         """Proves the hook itself works correctly in isolation -- the gap
         is specifically that nothing calls it, not that it's broken."""
         cache = VerifiedDelegationCache()
@@ -192,7 +230,12 @@ class TestEdgeCacheRevocationIsBoundedNotImmediate:
         store.revoke(d.delegation_id, reason="validation-suite")
         cache.invalidate_delegation(d.delegation_id)  # what NO production caller currently does
 
-        immediately_after = cache.verify(chain=(d,), authenticated_delegate="B", is_revoked=store.is_revoked, now=t0 + 1.0)
+        immediately_after = cache.verify(
+            chain=(d,),
+            authenticated_delegate="B",
+            is_revoked=store.is_revoked,
+            now=t0 + 1.0,
+        )
         assert immediately_after.authorized is False
 
 
@@ -207,27 +250,42 @@ class TestDelegationDoesNotSubstituteForApproval:
     the POLICY marks HUMAN_APPROVAL_REQUIRED is denied without an
     actual approval)."""
 
-    def test_valid_delegation_alone_does_not_satisfy_a_human_approval_required_policy(self):
+    def test_valid_delegation_alone_does_not_satisfy_a_human_approval_required_policy(
+        self,
+    ):
         from src.monkey_brain.kernel.edge.decision_state import EdgeDecisionState
         from src.monkey_brain.kernel.edge.local_governance import (
-            GovernanceOrigin, LocalGovernanceEvaluator,
+            GovernanceOrigin,
+            LocalGovernanceEvaluator,
         )
-        from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache, issue_policy_snapshot
+        from src.monkey_brain.kernel.edge.policy_cache import (
+            EdgePolicyCache,
+            issue_policy_snapshot,
+        )
         from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
 
         store = EdgeLocalStore(db_path=":memory:") if _accepts_memory_path() else EdgeLocalStore()
         cache = EdgePolicyCache(store)
         snapshot = issue_policy_snapshot(
-            principal="agent:B", action="capability.bank.transfer", resource="acct-1",
-            policy_decision={"allowed": False, "approval_mode": "HUMAN_APPROVAL_REQUIRED", "policy_rule": "high_value_requires_approval"},
+            principal="agent:B",
+            action="capability.bank.transfer",
+            resource="acct-1",
+            policy_decision={
+                "allowed": False,
+                "approval_mode": "HUMAN_APPROVAL_REQUIRED",
+                "policy_rule": "high_value_requires_approval",
+            },
         )
         cache.store_snapshot(snapshot)
         evaluator = LocalGovernanceEvaluator(cache)
 
         d = _issue("A", "agent:B", capabilities=("bank.transfer",))  # a REAL, valid, unrevoked, unexpired delegation
         outcome = evaluator.evaluate(
-            principal="agent:B", action="capability.bank.transfer", resource="acct-1",
-            authenticated_principal="agent:B", delegation_chain=(d,),
+            principal="agent:B",
+            action="capability.bank.transfer",
+            resource="acct-1",
+            authenticated_principal="agent:B",
+            delegation_chain=(d,),
         )
         # Escalates (cannot be locally satisfied), never a local ALLOW --
         # a real, valid delegation for this exact capability is present
@@ -249,6 +307,7 @@ class TestDelegationDoesNotSubstituteForApproval:
         import inspect
 
         from src.monkey_brain.kernel.delegation import verify_delegation_chain as vdc
+
         params = set(inspect.signature(vdc).parameters)
         assert "approval" not in params and "approved" not in params and "human_approval" not in params
 
@@ -261,9 +320,13 @@ class TestDelegationDoesNotSubstituteForApproval:
             # delegation issuance/verification has no approval input to
             # short-circuit through.
             issue_delegation(
-                issuer="B", delegate="C", capabilities=("bank.transfer",),
+                issuer="B",
+                delegate="C",
+                capabilities=("bank.transfer",),
                 scope=DelegationScope(resources=("acct-1",), actions=("create",)),
-                constraints={}, ttl_seconds=100, parent=d,
+                constraints={},
+                ttl_seconds=100,
+                parent=d,
             )
 
 
@@ -271,4 +334,5 @@ def _accepts_memory_path() -> bool:
     import inspect
 
     from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
+
     return "db_path" in inspect.signature(EdgeLocalStore.__init__).parameters

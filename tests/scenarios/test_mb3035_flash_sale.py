@@ -14,11 +14,16 @@ verifying MB-3031's auto-backorder means every request succeeds
 honestly — exactly the flash sale's capacity reserved, the rest
 correctly backordered, never a hard failure and never an oversell.
 """
+
 from __future__ import annotations
 
 import threading
 
-from src.monkey_brain.kernel.domains.commerce import create_promotion, list_product, onboard_merchant
+from src.monkey_brain.kernel.domains.commerce import (
+    create_promotion,
+    list_product,
+    onboard_merchant,
+)
 from src.monkey_brain.kernel.domains.grocery import OrderCreationCapability, try_reserve
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 
@@ -67,13 +72,24 @@ def test_mb3035_checkout_spike_reserves_exact_capacity_and_backorders_the_rest()
     cap = OrderCreationCapability()
 
     def place(i: int) -> tuple[bool, bool]:
-        result = cap.handle({"context": {
-            "knowledge_graph": kg, "actor_id": f"actor_{i}",
-            "selected_product": [{
-                "id": product_id, "name": "Hot Item", "price": 10.0, "qty": 1,
-                "store_id": store_id, "store_name": "Bob's Store",
-            }],
-        }})
+        result = cap.handle(
+            {
+                "context": {
+                    "knowledge_graph": kg,
+                    "actor_id": f"actor_{i}",
+                    "selected_product": [
+                        {
+                            "id": product_id,
+                            "name": "Hot Item",
+                            "price": 10.0,
+                            "qty": 1,
+                            "store_id": store_id,
+                            "store_name": "Bob's Store",
+                        }
+                    ],
+                }
+            }
+        )
         reserved = len(result.get("backordered", [])) == 0
         return result["success"], reserved
 

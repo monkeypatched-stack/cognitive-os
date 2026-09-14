@@ -27,6 +27,7 @@ retries does not arise today. Each event still carries a unique
 `event_id` (Section 13) for forward-compatible correlation/dedup if a
 future caller ever does retry.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,11 +38,19 @@ from typing import Any
 
 DEFAULT_EVENT_LOG = Path(__file__).resolve().parent / "approvals" / "audit.jsonl"
 
-EVENT_TYPES = frozenset({
-    "approval_created", "approval_rejected", "approval_expired", "approval_revoked",
-    "approval_superseded", "approval_validation_failed", "scope_change_requested",
-    "implementation_blocked_by_approval", "approval_authorized",
-})
+EVENT_TYPES = frozenset(
+    {
+        "approval_created",
+        "approval_rejected",
+        "approval_expired",
+        "approval_revoked",
+        "approval_superseded",
+        "approval_validation_failed",
+        "scope_change_requested",
+        "implementation_blocked_by_approval",
+        "approval_authorized",
+    }
+)
 
 
 class GovernanceAuditError(Exception):
@@ -80,7 +89,9 @@ def record_governance_event(
     return event_id
 
 
-def read_governance_events(path: Path | str = DEFAULT_EVENT_LOG) -> list[dict[str, Any]]:
+def read_governance_events(
+    path: Path | str = DEFAULT_EVENT_LOG,
+) -> list[dict[str, Any]]:
     log_path = Path(path)
     if not log_path.exists():
         return []

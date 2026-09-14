@@ -17,6 +17,7 @@ Usage:
     login.set_password("secure_password_123")
     login.generate_otp()
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -36,8 +37,10 @@ logger = logging.getLogger("agentos.login_info")
 # Enums
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class AuthMethod(str, Enum):
     """Authentication methods."""
+
     PASSWORD = "password"
     OTP = "otp"
     SSO = "sso"
@@ -48,6 +51,7 @@ class AuthMethod(str, Enum):
 
 class AccountStatus(str, Enum):
     """Account status."""
+
     ACTIVE = "active"
     UNVERIFIED = "unverified"
     SUSPENDED = "suspended"
@@ -57,6 +61,7 @@ class AccountStatus(str, Enum):
 
 class OTPStatus(str, Enum):
     """OTP status."""
+
     PENDING = "pending"
     VERIFIED = "verified"
     EXPIRED = "expired"
@@ -67,9 +72,11 @@ class OTPStatus(str, Enum):
 # Data Classes
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class PasswordInfo:
     """Password metadata."""
+
     password_hash: str = ""
     salt: str = ""
     created_at: float = field(default_factory=time.time)
@@ -114,6 +121,7 @@ class PasswordInfo:
 @dataclass
 class OTPInfo:
     """OTP (One-Time Password) metadata."""
+
     code: str = ""
     status: OTPStatus = OTPStatus.PENDING
     method: AuthMethod = AuthMethod.OTP
@@ -132,9 +140,7 @@ class OTPInfo:
     @property
     def is_valid(self) -> bool:
         """Check if OTP is valid and not expired."""
-        return (self.status == OTPStatus.PENDING and
-                not self.is_expired and
-                self.attempts < self.max_attempts)
+        return self.status == OTPStatus.PENDING and not self.is_expired and self.attempts < self.max_attempts
 
     def verify(self, code: str) -> bool:
         """Verify OTP code."""
@@ -183,6 +189,7 @@ class OTPInfo:
 @dataclass
 class SessionInfo:
     """Session metadata."""
+
     session_id: str = ""
     created_at: float = field(default_factory=time.time)
     expires_at: float = 0.0
@@ -242,6 +249,7 @@ class LoginInfo:
         last_login: Last successful login timestamp
         metadata: Additional custom fields
     """
+
     email: str = ""
     email_verified: bool = False
     mobile: str = ""
@@ -280,7 +288,7 @@ class LoginInfo:
             password_hash=password_hash,
             salt=salt,
             strength=self._calculate_strength(password),
-            expires_at=time.time() + (expires_in_days * 86400) if expires_in_days else None,
+            expires_at=(time.time() + (expires_in_days * 86400) if expires_in_days else None),
         )
 
         # Enable password auth method
@@ -310,22 +318,17 @@ class LoginInfo:
 
     def _hash_password(self, password: str, salt: str) -> str:
         """Hash password with salt."""
-        return hashlib.pbkdf2_hmac(
-            'sha256',
-            password.encode('utf-8'),
-            salt.encode('utf-8'),
-            100000
-        ).hex()
+        return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000).hex()
 
     def _validate_password_strength(self, password: str) -> bool:
         """Validate password meets minimum requirements."""
         if len(password) < 8:
             return False
-        if not re.search(r'[A-Z]', password):
+        if not re.search(r"[A-Z]", password):
             return False
-        if not re.search(r'[a-z]', password):
+        if not re.search(r"[a-z]", password):
             return False
-        if not re.search(r'[0-9]', password):
+        if not re.search(r"[0-9]", password):
             return False
         return True
 
@@ -338,11 +341,11 @@ class LoginInfo:
             strength += 10
         if len(password) >= 16:
             strength += 10
-        if re.search(r'[A-Z]', password):
+        if re.search(r"[A-Z]", password):
             strength += 15
-        if re.search(r'[a-z]', password):
+        if re.search(r"[a-z]", password):
             strength += 15
-        if re.search(r'[0-9]', password):
+        if re.search(r"[0-9]", password):
             strength += 15
         if re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
             strength += 15
@@ -350,9 +353,13 @@ class LoginInfo:
 
     # ── OTP Operations ──────────────────────────────────────────
 
-    def generate_otp(self, method: AuthMethod = AuthMethod.OTP,
-                     length: int = 6, expiry_seconds: int = 300,
-                     destination: str = "") -> str:
+    def generate_otp(
+        self,
+        method: AuthMethod = AuthMethod.OTP,
+        length: int = 6,
+        expiry_seconds: int = 300,
+        destination: str = "",
+    ) -> str:
         """Generate OTP for verification.
 
         Args:
@@ -365,7 +372,7 @@ class LoginInfo:
         Returns:
             Generated OTP code
         """
-        code = ''.join([str(secrets.randbelow(10)) for _ in range(length)])
+        code = "".join([str(secrets.randbelow(10)) for _ in range(length)])
 
         # Determine destination
         if not destination:
@@ -417,9 +424,14 @@ class LoginInfo:
 
     # ── Session Operations ──────────────────────────────────────
 
-    def create_session(self, ip_address: str = "", user_agent: str = "",
-                       device_type: str = "", location: str = "",
-                       expires_in_hours: int = 24) -> SessionInfo:
+    def create_session(
+        self,
+        ip_address: str = "",
+        user_agent: str = "",
+        device_type: str = "",
+        location: str = "",
+        expires_in_hours: int = 24,
+    ) -> SessionInfo:
         """Create a new session.
 
         Args:
@@ -503,9 +515,7 @@ class LoginInfo:
     @property
     def is_authenticated(self) -> bool:
         """Check if account is fully authenticated."""
-        return (self.status == AccountStatus.ACTIVE and
-                self.email_verified and
-                self.password.is_valid)
+        return self.status == AccountStatus.ACTIVE and self.email_verified and self.password.is_valid
 
     @property
     def has_2fa(self) -> bool:

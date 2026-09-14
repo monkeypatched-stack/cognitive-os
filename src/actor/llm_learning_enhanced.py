@@ -22,7 +22,7 @@ class LLMEnhancedLearning:
         self,
         actor_id: str,
         comparison_result: Dict[str, Any],
-        current_policy: Dict[str, Any]
+        current_policy: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Analyze learning from comparison and suggest policy improvements
 
@@ -72,26 +72,30 @@ Respond with JSON:
   ]
 }""",
                 messages=[
-                    {"role": "user", "content": f"""
+                    {
+                        "role": "user",
+                        "content": f"""
 Actor: {actor_id}
 Trajectory Prediction Error: {trajectory_error:.3f}
 Reward Prediction Error: {reward_error:.3f}
-Model Accuracy: {'Good' if model_accurate else 'Needs improvement'}
+Model Accuracy: {"Good" if model_accurate else "Needs improvement"}
 
 Current Policy:
 {str(current_policy)}
 
-Based on these errors, what should the actor learn and how should it improve?"""}
-                ]
+Based on these errors, what should the actor learn and how should it improve?""",
+                    }
+                ],
             )
 
             # Parse LLM response
             import json
+
             response_text = response.content[0].text
 
             # Extract JSON from response
-            start_idx = response_text.find('{')
-            end_idx = response_text.rfind('}') + 1
+            start_idx = response_text.find("{")
+            end_idx = response_text.rfind("}") + 1
             if start_idx >= 0 and end_idx > start_idx:
                 json_str = response_text[start_idx:end_idx]
                 parsed = json.loads(json_str)
@@ -103,7 +107,7 @@ Based on these errors, what should the actor learn and how should it improve?"""
                     "insights": parsed.get("learning_insights", ""),
                     "confidence": parsed.get("confidence_level", 0.5),
                     "alternatives": parsed.get("recommended_strategies", []),
-                    "llm_generated": True
+                    "llm_generated": True,
                 }
 
                 # Cache and track
@@ -120,50 +124,48 @@ Based on these errors, what should the actor learn and how should it improve?"""
             print(f"LLM learning analysis failed: {e}. Using default analysis.")
             return self._default_analysis(actor_id, comparison_result)
 
-    def _default_analysis(
-        self,
-        actor_id: str,
-        comparison_result: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _default_analysis(self, actor_id: str, comparison_result: Dict[str, Any]) -> Dict[str, Any]:
         """Fallback analysis without LLM"""
         trajectory_error = comparison_result.get("trajectory_error", 0)
         reward_error = comparison_result.get("reward_error", 0)
 
         improvements = []
         if trajectory_error > 0.2:
-            improvements.append({
-                "improvement": "Improve state transition model",
-                "rationale": "Trajectory prediction error is high",
-                "expected_impact": "Better planning accuracy",
-                "implementation": "Increase training data, refine features"
-            })
+            improvements.append(
+                {
+                    "improvement": "Improve state transition model",
+                    "rationale": "Trajectory prediction error is high",
+                    "expected_impact": "Better planning accuracy",
+                    "implementation": "Increase training data, refine features",
+                }
+            )
 
         if reward_error > 0.1:
-            improvements.append({
-                "improvement": "Recalibrate reward estimation",
-                "rationale": "Reward prediction is inaccurate",
-                "expected_impact": "Better value judgments",
-                "implementation": "Recollect reward examples, adjust weights"
-            })
+            improvements.append(
+                {
+                    "improvement": "Recalibrate reward estimation",
+                    "rationale": "Reward prediction is inaccurate",
+                    "expected_impact": "Better value judgments",
+                    "implementation": "Recollect reward examples, adjust weights",
+                }
+            )
 
         return {
             "actor_id": actor_id,
             "policy_improvements": improvements,
             "insights": f"Trajectory error: {trajectory_error:.3f}, Reward error: {reward_error:.3f}",
             "confidence": 0.6,
-            "llm_generated": False
+            "llm_generated": False,
         }
 
     async def recommend_value_adjustments(
-        self,
-        actor_id: str,
-        prediction_errors: List[float],
-        actual_rewards: List[float]
+        self, actor_id: str, prediction_errors: List[float], actual_rewards: List[float]
     ) -> Dict[str, Any]:
         """Recommend specific value function adjustments using LLM"""
         try:
             # Calculate error statistics
             import statistics
+
             avg_error = statistics.mean(prediction_errors) if prediction_errors else 0
             max_error = max(prediction_errors) if prediction_errors else 0
             avg_actual = statistics.mean(actual_rewards) if actual_rewards else 0
@@ -174,7 +176,9 @@ Based on these errors, what should the actor learn and how should it improve?"""
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=1000,
                 messages=[
-                    {"role": "user", "content": f"""
+                    {
+                        "role": "user",
+                        "content": f"""
 Given these value prediction errors:
 - Average error: {avg_error:.3f}
 - Max error: {max_error:.3f}
@@ -186,14 +190,16 @@ Respond with JSON: {{
   "learning_rate": recommended_lr,
   "regularization": regularization_strength,
   "prioritized_states": ["states to focus on"]
-}}"""}
-                ]
+}}""",
+                    }
+                ],
             )
 
             response_text = response.content[0].text
             import json
-            start_idx = response_text.find('{')
-            end_idx = response_text.rfind('}') + 1
+
+            start_idx = response_text.find("{")
+            end_idx = response_text.rfind("}") + 1
             if start_idx >= 0 and end_idx > start_idx:
                 json_str = response_text[start_idx:end_idx]
                 return json.loads(json_str)
@@ -210,16 +216,16 @@ Respond with JSON: {{
             "weight_adjustments": {"default": 0.01},
             "learning_rate": 0.001,
             "regularization": 0.01,
-            "prioritized_states": ["high_error_states"]
+            "prioritized_states": ["high_error_states"],
         }
 
     def get_learning_summary(self) -> Dict[str, Any]:
         """Get summary of learning so far"""
         return {
             "total_improvements_suggested": len(self.learning_history),
-            "recent_improvements": self.learning_history[-5:] if self.learning_history else [],
+            "recent_improvements": (self.learning_history[-5:] if self.learning_history else []),
             "cache_size": len(self.insights_cache),
-            "llm_available": self.client is not None
+            "llm_available": self.client is not None,
         }
 
     def clear_cache(self):

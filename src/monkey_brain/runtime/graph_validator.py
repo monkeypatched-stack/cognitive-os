@@ -10,6 +10,7 @@ Every execution graph must satisfy:
 
 Reject invalid graphs before execution.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,6 +21,7 @@ logger = logging.getLogger("agentos.graph_validator")
 
 class GraphValidationError(Exception):
     """Raised when an execution graph fails validation."""
+
     pass
 
 

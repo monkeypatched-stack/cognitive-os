@@ -23,6 +23,7 @@ bearer_scheme = HTTPBearer()
 
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedCorrectiveActionsResponse)
 async def list_corrective_actions(
     page: int = Query(1, ge=1),
@@ -42,7 +43,11 @@ async def list_corrective_actions(
 
 # ── Filtered reads ────────────────────────────────────────────────────────────
 
-@router.get("/by-process_definition/{process_definition_id}", response_model=list[CorrectiveActionsResponse])
+
+@router.get(
+    "/by-process_definition/{process_definition_id}",
+    response_model=list[CorrectiveActionsResponse],
+)
 async def list_corrective_actions_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -70,6 +75,7 @@ async def get_corrective_actions_by_step(
 
 # ── Single record ─────────────────────────────────────────────────────────────
 
+
 @router.get("/{corrective_actions_id}", response_model=CorrectiveActionsResponse)
 async def get_corrective_actions(
     corrective_actions_id: str,
@@ -88,7 +94,10 @@ async def get_corrective_actions(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=CorrectiveActionsResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=CorrectiveActionsResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_corrective_actions(
     data: CorrectiveActionsCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -104,6 +113,7 @@ async def create_corrective_actions(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{corrective_actions_id}", response_model=CorrectiveActionsResponse)
 async def update_corrective_actions(
@@ -124,7 +134,11 @@ async def update_corrective_actions(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
-@router.delete("/by-process_definition/{process_definition_id}", status_code=status.HTTP_204_NO_CONTENT)
+
+@router.delete(
+    "/by-process_definition/{process_definition_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_corrective_actions_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -172,7 +186,11 @@ async def delete_corrective_actions(
 
 # ── Filtered reads ────────────────────────────────────────────────────────────
 
-@router.get("/{corrective_actions_id}/actions/by-type/{action_type}", response_model=list[CorrectiveActionResponse])
+
+@router.get(
+    "/{corrective_actions_id}/actions/by-type/{action_type}",
+    response_model=list[CorrectiveActionResponse],
+)
 async def list_actions_by_type(
     corrective_actions_id: str,
     action_type: str,
@@ -183,7 +201,10 @@ async def list_actions_by_type(
     return await crud.get_actions_by_type(db, corrective_actions_id, action_type)
 
 
-@router.get("/{corrective_actions_id}/actions/by-postcheck/{postcheck_id}", response_model=list[CorrectiveActionResponse])
+@router.get(
+    "/{corrective_actions_id}/actions/by-postcheck/{postcheck_id}",
+    response_model=list[CorrectiveActionResponse],
+)
 async def list_actions_by_postcheck(
     corrective_actions_id: str,
     postcheck_id: str,
@@ -196,7 +217,11 @@ async def list_actions_by_postcheck(
 
 # ── Single action ─────────────────────────────────────────────────────────────
 
-@router.get("/{corrective_actions_id}/actions/{action_id}", response_model=CorrectiveActionResponse)
+
+@router.get(
+    "/{corrective_actions_id}/actions/{action_id}",
+    response_model=CorrectiveActionResponse,
+)
 async def get_action(
     corrective_actions_id: str,
     action_id: str,
@@ -215,7 +240,12 @@ async def get_action(
 
 # ── Add action ────────────────────────────────────────────────────────────────
 
-@router.post("/{corrective_actions_id}/actions", response_model=CorrectiveActionsResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/{corrective_actions_id}/actions",
+    response_model=CorrectiveActionsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_action(
     corrective_actions_id: str,
     data: CorrectiveActionCreate,
@@ -234,7 +264,11 @@ async def add_action(
 
 # ── Update action ─────────────────────────────────────────────────────────────
 
-@router.patch("/{corrective_actions_id}/actions/{action_id}", response_model=CorrectiveActionsResponse)
+
+@router.patch(
+    "/{corrective_actions_id}/actions/{action_id}",
+    response_model=CorrectiveActionsResponse,
+)
 async def update_action(
     corrective_actions_id: str,
     action_id: str,
@@ -254,7 +288,11 @@ async def update_action(
 
 # ── Postcheck link / unlink ───────────────────────────────────────────────────
 
-@router.post("/{corrective_actions_id}/actions/{action_id}/postchecks/{postcheck_id}", response_model=CorrectiveActionsResponse)
+
+@router.post(
+    "/{corrective_actions_id}/actions/{action_id}/postchecks/{postcheck_id}",
+    response_model=CorrectiveActionsResponse,
+)
 async def link_postcheck(
     corrective_actions_id: str,
     action_id: str,
@@ -263,7 +301,9 @@ async def link_postcheck(
     _: dict = Depends(require_permission("perm-update-corrective-actions")),
 ):
     """Add a PostCheckCondition ID to an action's applies_to_postchecks array."""
-    updated = await crud.link_postcheck(db, corrective_actions_id, action_id, postcheck_id)
+    updated = await crud.link_postcheck(
+        db, corrective_actions_id, action_id, postcheck_id
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -272,7 +312,10 @@ async def link_postcheck(
     return updated
 
 
-@router.delete("/{corrective_actions_id}/actions/{action_id}/postchecks/{postcheck_id}", response_model=CorrectiveActionsResponse)
+@router.delete(
+    "/{corrective_actions_id}/actions/{action_id}/postchecks/{postcheck_id}",
+    response_model=CorrectiveActionsResponse,
+)
 async def unlink_postcheck(
     corrective_actions_id: str,
     action_id: str,
@@ -281,7 +324,9 @@ async def unlink_postcheck(
     _: dict = Depends(require_permission("perm-update-corrective-actions")),
 ):
     """Remove a PostCheckCondition ID from an action's applies_to_postchecks array."""
-    updated = await crud.unlink_postcheck(db, corrective_actions_id, action_id, postcheck_id)
+    updated = await crud.unlink_postcheck(
+        db, corrective_actions_id, action_id, postcheck_id
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -292,7 +337,11 @@ async def unlink_postcheck(
 
 # ── Remove action ─────────────────────────────────────────────────────────────
 
-@router.delete("/{corrective_actions_id}/actions/{action_id}", response_model=CorrectiveActionsResponse)
+
+@router.delete(
+    "/{corrective_actions_id}/actions/{action_id}",
+    response_model=CorrectiveActionsResponse,
+)
 async def remove_action(
     corrective_actions_id: str,
     action_id: str,

@@ -10,7 +10,6 @@ from services.common.logging import configure_service_logging, install_request_l
 from services.common.tracing import install_route_tracing
 from services.supply_allocation.routers.allocation import router as allocation_router
 
-
 logger = configure_service_logging("supply_allocation")
 
 
@@ -38,7 +37,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(allocation_router, prefix="/api/v1/supply-allocation", tags=["Supply Allocation"])
+app.include_router(
+    allocation_router, prefix="/api/v1/supply-allocation", tags=["Supply Allocation"]
+)
 
 
 @app.get("/health", tags=["Health"])

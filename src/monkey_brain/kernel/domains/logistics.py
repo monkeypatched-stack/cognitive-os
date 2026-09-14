@@ -13,6 +13,7 @@ Sections:
   - Pickup timing (human vs. autonomous-cart picking)
   - Fulfillment verification (shelf-scan) & address formatting
 """
+
 from __future__ import annotations
 
 import datetime
@@ -28,23 +29,25 @@ class LogisticsCapability(DomainCapability):
     name = "logistics"
 
     def __init__(self):
-        super().__init__({
-            "estimate_delivery": predict_delivery_delay,
-            "assign_carrier": select_delivery_riders,
-            "estimate_pickup": estimate_pickup_minutes,
-            "assign_picker": assign_picker,
-            "pack_order": pack_order,
-            "create_shipment": create_shipment,
-            "get_shipment": get_shipment,
-            "mark_shipment_in_transit": mark_shipment_in_transit,
-            "mark_shipment_delivered": mark_shipment_delivered,
-            "track_order": track_order,
-            "confirm_receipt": confirm_receipt,
-            "create_partial_shipments": create_partial_shipments,
-            "mark_shipment_lost": mark_shipment_lost,
-            "issue_replacement_shipment": issue_replacement_shipment,
-            "report_shipment_delay": report_shipment_delay,
-        })
+        super().__init__(
+            {
+                "estimate_delivery": predict_delivery_delay,
+                "assign_carrier": select_delivery_riders,
+                "estimate_pickup": estimate_pickup_minutes,
+                "assign_picker": assign_picker,
+                "pack_order": pack_order,
+                "create_shipment": create_shipment,
+                "get_shipment": get_shipment,
+                "mark_shipment_in_transit": mark_shipment_in_transit,
+                "mark_shipment_delivered": mark_shipment_delivered,
+                "track_order": track_order,
+                "confirm_receipt": confirm_receipt,
+                "create_partial_shipments": create_partial_shipments,
+                "mark_shipment_lost": mark_shipment_lost,
+                "issue_replacement_shipment": issue_replacement_shipment,
+                "report_shipment_delay": report_shipment_delay,
+            }
+        )
 
 
 # ── Deadlines ─────────────────────────────────────────────────────────
@@ -54,7 +57,9 @@ _DEADLINE_PHRASES = {
     "lunch": (12, 30),
     "breakfast": (8, 0),
 }
-_DEADLINE_TIME_RE = re.compile(r"\b(?:by|before)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", re.IGNORECASE)
+_DEADLINE_TIME_RE = re.compile(
+    r"\b(?:by|before)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", re.IGNORECASE
+)
 
 
 def parse_deadline_minutes(question: str, now: float | None = None) -> float | None:
@@ -98,6 +103,7 @@ def parse_deadline_minutes(question: str, now: float | None = None) -> float | N
 
 # ── Schedule conflicts ────────────────────────────────────────────────
 
+
 def find_schedule_conflict(kg, window_start: float, window_end: float) -> dict | None:
     """Whether the actor has a real calendar commitment overlapping
     [window_start, window_end] (a planned delivery/pickup window), or
@@ -120,6 +126,7 @@ def find_schedule_conflict(kg, window_start: float, window_end: float) -> dict |
     checkout can actually do today.
     """
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     # Performance certification (GS-6000): entities_by_type(EVENT), not a
     # full kg.entities scan -- this used to walk every entity in the whole
     # graph (catalog products, accounts, everything) just to find calendar
@@ -132,11 +139,16 @@ def find_schedule_conflict(kg, window_start: float, window_end: float) -> dict |
         if start is None or end is None:
             continue
         if start < window_end and end > window_start:
-            return {"title": e.attributes.get("title", "a scheduled commitment"), "start": start, "end": end}
+            return {
+                "title": e.attributes.get("title", "a scheduled commitment"),
+                "start": start,
+                "end": end,
+            }
     return None
 
 
 # ── Delivery prediction & rider assignment ───────────────────────────
+
 
 def predict_delivery_delay(store, base_minutes_per_mile: float = 3.0) -> float:
     """GS-1302: predicted delivery time in minutes for a store — distance is
@@ -149,13 +161,19 @@ def predict_delivery_delay(store, base_minutes_per_mile: float = 3.0) -> float:
     seeded before this level keeps behaving exactly as it did under plain
     distance ranking.
     """
-    distance = store.attributes.get("distance_miles", float("inf")) if store else float("inf")
+    distance = (
+        store.attributes.get("distance_miles", float("inf")) if store else float("inf")
+    )
     traffic_factor = store.attributes.get("traffic_factor", 1.0) if store else 1.0
     return distance * base_minutes_per_mile * traffic_factor
 
 
-def select_delivery_riders(persons: list, products: list, item_optimization: str,
-                            deadline_minutes: float | None) -> dict:
+def select_delivery_riders(
+    persons: list,
+    products: list,
+    item_optimization: str,
+    deadline_minutes: float | None,
+) -> dict:
     """Level 27: real multi-factor rider assignment over the ACTUAL rider
     pool and cart, not a single unconditional pick.
 
@@ -180,21 +198,37 @@ def select_delivery_riders(persons: list, products: list, item_optimization: str
     Level 8 already had.
     """
     needs_cold_chain = any(p.get("cold_chain") is True for p in products)
-    eligible = [p for p in persons if not needs_cold_chain or p.attributes.get("refrigerated") is True]
+    eligible = [
+        p
+        for p in persons
+        if not needs_cold_chain or p.attributes.get("refrigerated") is True
+    ]
     if not eligible:
-        reason = "no refrigerated courier available for this order's cold-chain items" if needs_cold_chain else "no riders available"
+        reason = (
+            "no refrigerated courier available for this order's cold-chain items"
+            if needs_cold_chain
+            else "no riders available"
+        )
         return {"success": False, "error": reason}
 
     deadline_met = None
     if item_optimization == "time" and deadline_minutes is None:
-        ranked = sorted(eligible, key=lambda p: p.attributes.get("estimated_minutes", 30))
+        ranked = sorted(
+            eligible, key=lambda p: p.attributes.get("estimated_minutes", 30)
+        )
     elif deadline_minutes is not None:
-        within = [p for p in eligible if p.attributes.get("estimated_minutes", 30) <= deadline_minutes]
+        within = [
+            p
+            for p in eligible
+            if p.attributes.get("estimated_minutes", 30) <= deadline_minutes
+        ]
         if within:
             ranked = sorted(within, key=lambda p: -p.attributes.get("rating", 0))
             deadline_met = True
         else:
-            ranked = sorted(eligible, key=lambda p: p.attributes.get("estimated_minutes", 30))
+            ranked = sorted(
+                eligible, key=lambda p: p.attributes.get("estimated_minutes", 30)
+            )
             deadline_met = False
     else:
         ranked = sorted(eligible, key=lambda p: -p.attributes.get("rating", 0))
@@ -214,10 +248,17 @@ def select_delivery_riders(persons: list, products: list, item_optimization: str
         remaining -= take
 
     if remaining > 0:
-        return {"success": False,
-                "error": f"no combination of available riders can carry the full order "
-                         f"({total_qty - remaining:.0f}/{total_qty:.0f} units coverable)"}
-    return {"success": True, "assignments": assignments, "deadline_met": deadline_met, "cold_chain": needs_cold_chain}
+        return {
+            "success": False,
+            "error": f"no combination of available riders can carry the full order "
+            f"({total_qty - remaining:.0f}/{total_qty:.0f} units coverable)",
+        }
+    return {
+        "success": True,
+        "assignments": assignments,
+        "deadline_met": deadline_met,
+        "cold_chain": needs_cold_chain,
+    }
 
 
 def onboard_rider(kg, name: str, **rider_attrs) -> dict:
@@ -307,8 +348,14 @@ def estimate_pickup_minutes(store) -> tuple[float, str]:
     if store is None:
         return _DEFAULT_HUMAN_PICK_MINUTES, "human picker"
     if store.attributes.get("has_autonomous_cart"):
-        return store.attributes.get("robot_pick_minutes", _DEFAULT_ROBOT_PICK_MINUTES), "autonomous cart"
-    return store.attributes.get("human_pick_minutes", _DEFAULT_HUMAN_PICK_MINUTES), "human picker"
+        return (
+            store.attributes.get("robot_pick_minutes", _DEFAULT_ROBOT_PICK_MINUTES),
+            "autonomous cart",
+        )
+    return (
+        store.attributes.get("human_pick_minutes", _DEFAULT_HUMAN_PICK_MINUTES),
+        "human picker",
+    )
 
 
 def assign_picker(kg, store_id: str) -> dict:
@@ -346,25 +393,38 @@ def assign_picker(kg, store_id: str) -> dict:
             "picker_type": "autonomous_cart",
             "picker_id": store.attributes.get("cart_id", f"{store_id}-cart"),
             "picker_name": "Autonomous Picking Cart",
-            "estimated_minutes": store.attributes.get("robot_pick_minutes", _DEFAULT_ROBOT_PICK_MINUTES),
+            "estimated_minutes": store.attributes.get(
+                "robot_pick_minutes", _DEFAULT_ROBOT_PICK_MINUTES
+            ),
         }
 
     candidates = [
-        e for e in kg.entities_by_type(EntityType.PERSON)
+        e
+        for e in kg.entities_by_type(EntityType.PERSON)
         if e.attributes.get("role") == "picker"
         and e.attributes.get("store_id") == store_id
         and e.attributes.get("status") == "available"
     ]
     if not candidates:
-        return {"success": False, "error": f"no available picker for store {store_id!r}"}
+        return {
+            "success": False,
+            "error": f"no available picker for store {store_id!r}",
+        }
 
-    chosen = min(candidates, key=lambda e: e.attributes.get("pick_rate_minutes", _DEFAULT_HUMAN_PICK_MINUTES))
+    chosen = min(
+        candidates,
+        key=lambda e: e.attributes.get(
+            "pick_rate_minutes", _DEFAULT_HUMAN_PICK_MINUTES
+        ),
+    )
     return {
         "success": True,
         "picker_type": "human",
         "picker_id": chosen.entity_id,
         "picker_name": chosen.name,
-        "estimated_minutes": chosen.attributes.get("pick_rate_minutes", _DEFAULT_HUMAN_PICK_MINUTES),
+        "estimated_minutes": chosen.attributes.get(
+            "pick_rate_minutes", _DEFAULT_HUMAN_PICK_MINUTES
+        ),
     }
 
 
@@ -400,15 +460,21 @@ def pack_order(products: list[dict], box_capacity: int = _DEFAULT_BOX_CAPACITY) 
             while remaining > 0:
                 space = box_capacity - current_qty
                 if space <= 0:
-                    boxes.append({"box_type": box_type, "items": current_box, "qty": current_qty})
+                    boxes.append(
+                        {"box_type": box_type, "items": current_box, "qty": current_qty}
+                    )
                     current_box, current_qty = [], 0
                     space = box_capacity
                 take = min(space, remaining)
-                current_box.append({"product_id": item.get("id"), "name": name, "qty": take})
+                current_box.append(
+                    {"product_id": item.get("id"), "name": name, "qty": take}
+                )
                 current_qty += take
                 remaining -= take
         if current_box:
-            boxes.append({"box_type": box_type, "items": current_box, "qty": current_qty})
+            boxes.append(
+                {"box_type": box_type, "items": current_box, "qty": current_qty}
+            )
         return boxes
 
     packages = _pack(cold_chain_items, "insulated") + _pack(standard_items, "standard")
@@ -428,8 +494,14 @@ step at a time (created -> in_transit -> delivered), never skip ahead
 or move backward."""
 
 
-def create_shipment(kg, order_id: str, packages: list[dict], rider_id: str | None = None,
-                     carrier: str | None = None, now: float | None = None) -> dict:
+def create_shipment(
+    kg,
+    order_id: str,
+    packages: list[dict],
+    rider_id: str | None = None,
+    carrier: str | None = None,
+    now: float | None = None,
+) -> dict:
     """MB-3019 Shipping: persist a real, trackable Shipment record — the
     next stage of the same Pick (MB-3017) -> Pack (MB-3018) -> Ship
     pipeline. Neither assign_picker() nor pack_order() persists anything
@@ -448,17 +520,22 @@ def create_shipment(kg, order_id: str, packages: list[dict], rider_id: str | Non
     now = now if now is not None else time.time()
     shipment_id = f"shipment_{uuid.uuid4().hex}"
     tracking_number = f"TRK-{uuid.uuid4().hex[:10].upper()}"
-    kg.add_entity(shipment_id, EntityType.OTHER, f"Shipment: {order_id}", {
-        "shipment": True,
-        "order_id": order_id,
-        "packages": packages,
-        "rider_id": rider_id,
-        "carrier": carrier,
-        "tracking_number": tracking_number,
-        "status": "created",
-        "created_at": now,
-        "history": [{"status": "created", "at": now}],
-    })
+    kg.add_entity(
+        shipment_id,
+        EntityType.OTHER,
+        f"Shipment: {order_id}",
+        {
+            "shipment": True,
+            "order_id": order_id,
+            "packages": packages,
+            "rider_id": rider_id,
+            "carrier": carrier,
+            "tracking_number": tracking_number,
+            "status": "created",
+            "created_at": now,
+            "history": [{"status": "created", "at": now}],
+        },
+    )
     return {
         "success": True,
         "shipment_id": shipment_id,
@@ -483,8 +560,9 @@ def get_shipment(kg, shipment_id: str) -> dict:
     }
 
 
-def _advance_shipment_status(kg, shipment_id: str, from_status: str, to_status: str,
-                              now: float | None = None) -> dict:
+def _advance_shipment_status(
+    kg, shipment_id: str, from_status: str, to_status: str, now: float | None = None
+) -> dict:
     """Shared transition guard for the strict created -> in_transit ->
     delivered lifecycle: refuses to skip a step, move backward, or
     re-apply the same transition twice, always with an honest error
@@ -500,7 +578,7 @@ def _advance_shipment_status(kg, shipment_id: str, from_status: str, to_status: 
         return {
             "success": False,
             "error": f"shipment {shipment_id!r} is {current!r}, cannot move to {to_status!r} "
-                     f"(must be {from_status!r} first)",
+            f"(must be {from_status!r} first)",
             "status": current,
         }
 
@@ -541,7 +619,9 @@ def mark_shipment_delivered(kg, shipment_id: str, now: float | None = None) -> d
     if order_id and kg.get_entity(order_id) is not None:
         overall = track_order(kg, order_id)
         if overall["success"] and overall["status"] == "delivered":
-            kg.update_entity(order_id, attributes={"status": "delivered", "delivered_at": now})
+            kg.update_entity(
+                order_id, attributes={"status": "delivered", "delivered_at": now}
+            )
             order_delivered = True
     result["order_id"] = order_id
     result["order_delivered"] = order_delivered
@@ -571,7 +651,8 @@ def track_order(kg, order_id: str) -> dict:
     """
     kg.refresh()
     shipments = [
-        e for e in kg.entities
+        e
+        for e in kg.entities
         if e.attributes.get("shipment") and e.attributes.get("order_id") == order_id
     ]
     if not shipments:
@@ -597,7 +678,9 @@ def track_order(kg, order_id: str) -> dict:
     }
 
 
-def confirm_receipt(kg, order_id: str, actor_id: str | None = None, now: float | None = None) -> dict:
+def confirm_receipt(
+    kg, order_id: str, actor_id: str | None = None, now: float | None = None
+) -> dict:
     """MB-3022 Delivery Confirmation: the customer's own sign-off that
     closes an order's lifecycle — system delivery (MB-3021's
     mark_shipment_delivered) alone doesn't finish the transaction, the
@@ -622,16 +705,30 @@ def confirm_receipt(kg, order_id: str, actor_id: str | None = None, now: float |
             "status": current,
         }
 
-    kg.update_entity(order_id, attributes={
+    kg.update_entity(
+        order_id,
+        attributes={
+            "status": "completed",
+            "completed_at": now,
+            "confirmed_by": actor_id,
+        },
+    )
+    return {
+        "success": True,
+        "order_id": order_id,
         "status": "completed",
-        "completed_at": now,
         "confirmed_by": actor_id,
-    })
-    return {"success": True, "order_id": order_id, "status": "completed", "confirmed_by": actor_id}
+    }
 
 
-def create_partial_shipments(kg, order_id: str, actor_id: str, products: list[dict],
-                              box_capacity: int = _DEFAULT_BOX_CAPACITY, now: float | None = None) -> dict:
+def create_partial_shipments(
+    kg,
+    order_id: str,
+    actor_id: str,
+    products: list[dict],
+    box_capacity: int = _DEFAULT_BOX_CAPACITY,
+    now: float | None = None,
+) -> dict:
     """MB-3030 Partial Shipment: splits an order into multiple
     independent shipments when not everything can ship together —
     whatever's actually available ships NOW, packed via pack_order()
@@ -656,7 +753,8 @@ def create_partial_shipments(kg, order_id: str, actor_id: str, products: list[di
     pending_backordered_ids = {
         e.attributes.get("product_id")
         for e in kg.entities_by_type(EntityType.OTHER)
-        if e.attributes.get("backorder") and e.attributes.get("actor_id") == actor_id
+        if e.attributes.get("backorder")
+        and e.attributes.get("actor_id") == actor_id
         and e.attributes.get("status") == "pending"
     }
 
@@ -678,7 +776,9 @@ def create_partial_shipments(kg, order_id: str, actor_id: str, products: list[di
     }
 
 
-def mark_shipment_lost(kg, shipment_id: str, reported_by: str | None = None, now: float | None = None) -> dict:
+def mark_shipment_lost(
+    kg, shipment_id: str, reported_by: str | None = None, now: float | None = None
+) -> dict:
     """MB-3043 Lost Package: the carrier reports a shipment lost — only
     ever from "in_transit" (a package can't be lost before it's even
     shipped, and once "delivered" it's not lost, it's a delivery
@@ -695,7 +795,9 @@ def mark_shipment_lost(kg, shipment_id: str, reported_by: str | None = None, now
     return result
 
 
-def issue_replacement_shipment(kg, lost_shipment_id: str, now: float | None = None) -> dict:
+def issue_replacement_shipment(
+    kg, lost_shipment_id: str, now: float | None = None
+) -> dict:
     """MB-3044 Replacement Shipment: issues a brand-new shipment
     covering the SAME order and packages as a lost one (MB-3043) — the
     recovery path once mark_shipment_lost() actually confirms a
@@ -715,23 +817,38 @@ def issue_replacement_shipment(kg, lost_shipment_id: str, now: float | None = No
         return {
             "success": False,
             "error": f"shipment {lost_shipment_id!r} is {lost.attributes.get('status')!r}, "
-                     f"not 'lost' — nothing to replace",
+            f"not 'lost' — nothing to replace",
         }
 
     replacement = create_shipment(
-        kg, lost.attributes.get("order_id"), lost.attributes.get("packages", []),
-        rider_id=lost.attributes.get("rider_id"), carrier=lost.attributes.get("carrier"), now=now,
+        kg,
+        lost.attributes.get("order_id"),
+        lost.attributes.get("packages", []),
+        rider_id=lost.attributes.get("rider_id"),
+        carrier=lost.attributes.get("carrier"),
+        now=now,
     )
     if not replacement["success"]:
         return replacement
 
-    kg.update_entity(replacement["shipment_id"], attributes={"replaces_shipment_id": lost_shipment_id})
-    kg.update_entity(lost_shipment_id, attributes={"replaced_by_shipment_id": replacement["shipment_id"]})
+    kg.update_entity(
+        replacement["shipment_id"],
+        attributes={"replaces_shipment_id": lost_shipment_id},
+    )
+    kg.update_entity(
+        lost_shipment_id,
+        attributes={"replaced_by_shipment_id": replacement["shipment_id"]},
+    )
     return {**replacement, "replaces_shipment_id": lost_shipment_id}
 
 
-def report_shipment_delay(kg, shipment_id: str, reason: str, new_eta: float | None = None,
-                           now: float | None = None) -> dict:
+def report_shipment_delay(
+    kg,
+    shipment_id: str,
+    reason: str,
+    new_eta: float | None = None,
+    now: float | None = None,
+) -> dict:
     """MB-3045 Carrier Delay: records a real delay on a shipment
     already in transit (e.g. weather) — doesn't change its status
     (still genuinely "in_transit", just running late), only appends a
@@ -748,7 +865,7 @@ def report_shipment_delay(kg, shipment_id: str, reason: str, new_eta: float | No
         return {
             "success": False,
             "error": f"shipment {shipment_id!r} is {shipment.attributes.get('status')!r}, "
-                     f"cannot report a delay (must be 'in_transit')",
+            f"cannot report a delay (must be 'in_transit')",
         }
 
     delays = list(shipment.attributes.get("delays", []))
@@ -757,10 +874,16 @@ def report_shipment_delay(kg, shipment_id: str, reason: str, new_eta: float | No
     if new_eta is not None:
         updates["estimated_arrival"] = new_eta
     kg.update_entity(shipment_id, attributes=updates)
-    return {"success": True, "shipment_id": shipment_id, "delay_count": len(delays), "new_eta": new_eta}
+    return {
+        "success": True,
+        "shipment_id": shipment_id,
+        "delay_count": len(delays),
+        "new_eta": new_eta,
+    }
 
 
 # ── Fulfillment verification & address formatting ────────────────────
+
 
 def robot_shelf_scan(kg, product_id: str, physical_count: int) -> dict:
     """Level 28 (GS-2801): records a real shelf-scanning robot's physical
@@ -778,8 +901,11 @@ def robot_shelf_scan(kg, product_id: str, physical_count: int) -> dict:
     reported = product.attributes.get("quantity", 0)
     kg.update_entity(product_id, attributes={"verified_quantity": physical_count})
     return {
-        "scanned": True, "product_id": product_id, "reported_quantity": reported,
-        "scanned_quantity": physical_count, "discrepancy_found": physical_count != reported,
+        "scanned": True,
+        "product_id": product_id,
+        "reported_quantity": reported,
+        "scanned_quantity": physical_count,
+        "discrepancy_found": physical_count != reported,
     }
 
 
@@ -788,6 +914,11 @@ def _format_address(entity) -> str:
     attrs = entity.attributes
     if attrs.get("full_address"):
         return attrs["full_address"]
-    parts = [attrs.get("street", ""), attrs.get("city", ""), attrs.get("state", ""), attrs.get("zip_code", "")]
+    parts = [
+        attrs.get("street", ""),
+        attrs.get("city", ""),
+        attrs.get("state", ""),
+        attrs.get("zip_code", ""),
+    ]
     formatted = ", ".join(p for p in parts if p)
     return formatted or entity.name

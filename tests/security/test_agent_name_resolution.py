@@ -29,28 +29,41 @@ from src.monkey_brain.runtime.agent_resolver import (
 
 # a slice of the real registry
 REGISTERED = [
-    "nanda", "data_routing", "cognitive_data_routing", "storage", "store", "state",
-    "message", "security", "planner", "policy", "static_analysis", "calibration_due",
+    "nanda",
+    "data_routing",
+    "cognitive_data_routing",
+    "storage",
+    "store",
+    "state",
+    "message",
+    "security",
+    "planner",
+    "policy",
+    "static_analysis",
+    "calibration_due",
 ]
 
 
-@pytest.mark.parametrize("name,expected", [
-    ("StorageAgent",      "storage"),        # was 'stor'
-    ("MessageAgent",      "message"),        # was 'mess'
-    ("DataAgent",         "data"),           # was 'd'  → matched 65 agents
-    ("StateAgent",        "state"),          # was 's'
-    ("NotificationAgent", "notification"),   # was 'notificatio'
-    ("EventAgent",        "event"),          # was 'ev'
-    ("SecurityAgent",     "security"),       # was already correct
-    ("LineResolverAgent", "line_resolver"),
-])
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("StorageAgent", "storage"),  # was 'stor'
+        ("MessageAgent", "message"),  # was 'mess'
+        ("DataAgent", "data"),  # was 'd'  → matched 65 agents
+        ("StateAgent", "state"),  # was 's'
+        ("NotificationAgent", "notification"),  # was 'notificatio'
+        ("EventAgent", "event"),  # was 'ev'
+        ("SecurityAgent", "security"),  # was already correct
+        ("LineResolverAgent", "line_resolver"),
+    ],
+)
 def test_the_agent_suffix_is_stripped_as_a_suffix_not_a_character_set(name, expected):
     assert _strip_agent_suffix(_snake_case(name)) == expected
 
 
 def test_snake_case_handles_punctuation_and_acronyms():
     assert _snake_case("Line-Resolver Agent") == "line_resolver_agent"
-    assert _snake_case("NANDAAgent") == "nandaagent"      # no lower→upper boundary to split on
+    assert _snake_case("NANDAAgent") == "nandaagent"  # no lower→upper boundary to split on
     assert _snake_case("") == ""
 
 
@@ -59,6 +72,7 @@ def test_the_agent_named_agent_does_not_strip_to_nothing():
 
 
 # ------------------------------------------------------------------ fuzzy matching
+
 
 def test_data_no_longer_binds_nanda():
     """The exact regression: core 'd' substring-matched 'nanda' and bound it."""
@@ -112,8 +126,10 @@ def test_no_match_is_none_not_a_crash():
 
 # ------------------------------------------------------------------ against the real registry
 
+
 def test_real_registry_resolves_common_names_to_themselves():
     from broca.registry import get_registry, register_etass_agents
+
     register_etass_agents()
     types = get_registry().agent_types()
     assert len(types) > 100, "the registry should not be empty"
@@ -125,8 +141,10 @@ def test_real_registry_resolves_common_names_to_themselves():
 
 def test_security_agent_is_refused_rather_than_bound_to_one_of_four():
     """The registry has security_scan, security_audit, security_identity and
-    cognitive_security. The old substring match bound the FIRST one. A scan is not an audit."""
+    cognitive_security. The old substring match bound the FIRST one. A scan is not an audit.
+    """
     from broca.registry import get_registry, register_etass_agents
+
     register_etass_agents()
     types = get_registry().agent_types()
     assert "security" not in types
@@ -135,6 +153,7 @@ def test_security_agent_is_refused_rather_than_bound_to_one_of_four():
 
 def test_no_registered_agent_is_reachable_from_a_one_character_key():
     from broca.registry import get_registry, register_etass_agents
+
     register_etass_agents()
     types = get_registry().agent_types()
     for ch in "abcdefghijklmnopqrstuvwxyz":

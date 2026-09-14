@@ -7,6 +7,7 @@ compare_predicted_vs_actual() — the same functions ComparatorRuntime.run()
 already calls — so the SDLC graph gets a "comparator" capability node
 without duplicating that logic.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,7 +39,10 @@ class ComparatorAgent(BaseETASSAgent):
             )
         except ImportError as e:
             self._reward(False, 0.0)
-            return self._result(payload={"loss": None, "error": repr(e)}, observations=[f"import failed: {e}"])
+            return self._result(
+                payload={"loss": None, "error": repr(e)},
+                observations=[f"import failed: {e}"],
+            )
 
         mongo_client = context.get("mongo_client")
 
@@ -49,11 +53,18 @@ class ComparatorAgent(BaseETASSAgent):
             loss_result = compare_predicted_vs_actual(predicted_state, query_answer, question)
         except Exception as e:
             self._reward(False, 0.2)
-            return self._result(payload={"loss": None, "error": str(e)}, observations=[f"comparison failed: {e}"])
+            return self._result(
+                payload={"loss": None, "error": str(e)},
+                observations=[f"comparison failed: {e}"],
+            )
 
         loss = loss_result.get("loss", 1.0)
         self._reward(loss < 0.5, 0.5)
         return self._result(
-            payload={"loss": loss, "loss_detail": loss_result, "query_answer": query_answer},
+            payload={
+                "loss": loss,
+                "loss_detail": loss_result,
+                "query_answer": query_answer,
+            },
             observations=[f"epistemic loss: {loss:.3f}"],
         )

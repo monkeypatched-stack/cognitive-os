@@ -4,7 +4,11 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from services.inventory.models.inventory_enums import AdjustmentStatus, AdjustmentType, ReferenceType
+from services.inventory.models.inventory_enums import (
+    AdjustmentStatus,
+    AdjustmentType,
+    ReferenceType,
+)
 from services.products.models.product_common import utc_now
 
 

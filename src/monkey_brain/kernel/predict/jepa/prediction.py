@@ -8,6 +8,7 @@ This type is returned by JEPAPredictor.predict() and consumed by PredictEngine
 during Solver Mesh aggregation.  It contributes to PredictedEPAState, which is
 the reference state for EPA loss computation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -28,11 +29,12 @@ class JEPAPrediction:
                               latent_signal_W, _B, _K, _A, _G, _M
     trained                — whether the JEPA model has seen any training steps
     """
+
     predicted_world_state: dict[str, float] = field(default_factory=dict)
     predicted_beliefs: dict[str, float] = field(default_factory=dict)
     predicted_actions: set[str] = field(default_factory=set)
     predicted_goal_progress: float = 0.0
-    prediction_confidence: float = 0.25   # starts low; grows with training
+    prediction_confidence: float = 0.25  # starts low; grows with training
     latent_embedding: list[float] = field(default_factory=list)
     component_signals: dict[str, float] = field(default_factory=dict)
     trained: bool = False

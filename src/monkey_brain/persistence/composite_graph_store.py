@@ -6,6 +6,7 @@ Combines:
 
 This replaces the Neo4j-backed GraphStore while maintaining the same interface.
 """
+
 from __future__ import annotations
 
 import logging

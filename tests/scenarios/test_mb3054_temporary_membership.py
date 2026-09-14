@@ -23,10 +23,15 @@ auto-created Society is hosted at by default becomes a valid, ambiguous
 home-space candidate otherwise, which would make the driver start out
 already warehouse-adjacent instead of cleanly outside it.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -40,19 +45,36 @@ def _build_marketplace():
     default_space_id = marketplace.default_bootstrap_space_id
     building = marketplace.geo_registry.parent_of(default_space_id)
     warehouse_space = marketplace.geo_registry.create(
-        GeographicEntityType.SPACE, "Warehouse Floor", parent_id=building.entity_id,
+        GeographicEntityType.SPACE,
+        "Warehouse Floor",
+        parent_id=building.entity_id,
     )
     marketplace.host_society(warehouse_space.entity_id, warehouse_id)
 
     driver = marketplace.register_actor(
         ActorProfile(identity=ActorIdentity(name="Rider Rae", actor_type=ActorType.HUMAN)),
-        society_id=logistics_id, home_space_id=default_space_id,
+        society_id=logistics_id,
+        home_space_id=default_space_id,
     )
-    return marketplace, driver, logistics_id, warehouse_id, default_space_id, warehouse_space.entity_id
+    return (
+        marketplace,
+        driver,
+        logistics_id,
+        warehouse_id,
+        default_space_id,
+        warehouse_space.entity_id,
+    )
 
 
 def test_mb3054_driver_has_no_warehouse_membership_before_entering():
-    marketplace, driver, logistics_id, warehouse_id, _default_space, _warehouse_space = _build_marketplace()
+    (
+        marketplace,
+        driver,
+        logistics_id,
+        warehouse_id,
+        _default_space,
+        _warehouse_space,
+    ) = _build_marketplace()
 
     effective = marketplace.effective_societies(driver.actor_id)
 
@@ -72,7 +94,14 @@ def test_mb3054_entering_the_warehouse_grants_temporary_membership():
 
 
 def test_mb3054_driver_becomes_a_real_coordination_participant_while_present():
-    marketplace, driver, _logistics_id, warehouse_id, _default_space, warehouse_space = _build_marketplace()
+    (
+        marketplace,
+        driver,
+        _logistics_id,
+        warehouse_id,
+        _default_space,
+        warehouse_space,
+    ) = _build_marketplace()
 
     marketplace.move_actor(driver.actor_id, warehouse_space, activity="delivering")
 

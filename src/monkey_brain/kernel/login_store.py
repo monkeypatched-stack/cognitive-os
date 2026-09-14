@@ -14,6 +14,7 @@ in the REST layer ever called. This module is the missing persistence
 layer that lets that real implementation actually be used statefully
 across requests.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ _SENTINEL = object()
 def _make_redis_client() -> Any:
     try:
         import redis as _redis
+
         url = os.getenv("REDIS_URL", "").strip()
         if not url:
             url = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}/0"
@@ -62,6 +64,7 @@ class LoginStore:
         if self._redis is not None:
             try:
                 import json
+
                 raw = self._redis.hget(_LOGIN_HASH_KEY, actor_id)
                 if raw:
                     info = LoginInfo.from_dict(json.loads(raw))
@@ -76,6 +79,7 @@ class LoginStore:
         if self._redis is not None:
             try:
                 import json
+
                 self._redis.hset(_LOGIN_HASH_KEY, actor_id, json.dumps(info.to_dict()))
             except Exception as exc:
                 logger.warning("LoginStore save failed for %r: %s", actor_id, exc)

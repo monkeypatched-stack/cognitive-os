@@ -11,6 +11,7 @@ Reasoning comes from the foundation model.
 
 The LLM must never invent world state.
 """
+
 from __future__ import annotations
 
 import json
@@ -32,9 +33,11 @@ class ResponsibilityType(str, Enum):
 
 # ── Knowledge Layer ────────────────────────────────────────────────────────────
 
+
 @dataclass
 class KnowledgeItem:
     """A single piece of knowledge from a Knowledge Pack."""
+
     id: str
     content: str
     source: str = ""
@@ -72,6 +75,7 @@ class YamlKnowledgeStore:
         """Load knowledge packs from disk."""
         try:
             import yaml
+
             kp_dir = Path(__file__).parents[3] / "somatic" / "knowledge_packs"
             if not kp_dir.exists():
                 return
@@ -83,14 +87,16 @@ class YamlKnowledgeStore:
                     pack_name = data.get("pack", {}).get("name", kp_file.stem)
                     items = []
                     for item in data.get("items", []):
-                        items.append(KnowledgeItem(
-                            id=item.get("id", ""),
-                            content=item.get("content", ""),
-                            source=pack_name,
-                            modality=item.get("modality", "document"),
-                            provenance=item.get("provenance", 0.0),
-                            freshness=item.get("freshness", 1.0),
-                        ))
+                        items.append(
+                            KnowledgeItem(
+                                id=item.get("id", ""),
+                                content=item.get("content", ""),
+                                source=pack_name,
+                                modality=item.get("modality", "document"),
+                                provenance=item.get("provenance", 0.0),
+                                freshness=item.get("freshness", 1.0),
+                            )
+                        )
                     self._packs[pack_name] = items
                 except Exception as e:
                     logger.debug("[knowledge] Failed to load %s: %s", kp_file, e)
@@ -121,9 +127,11 @@ class YamlKnowledgeStore:
 
 # ── World State Layer ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class WorldStateEntry:
     """A single entry in world state."""
+
     key: str
     value: Any
     updated_at: float = field(default_factory=time.time)
@@ -171,7 +179,11 @@ class WorldStateStore:
                 self._cache[cache_key] = entry
                 return entry.value
             except Exception:
-                logger.debug("World state file %s unreadable/corrupt, treating as absent", path, exc_info=True)
+                logger.debug(
+                    "World state file %s unreadable/corrupt, treating as absent",
+                    path,
+                    exc_info=True,
+                )
         return None
 
     def set(self, key: str, value: Any, agent: str = "", source: str = "") -> None:
@@ -190,14 +202,16 @@ class WorldStateStore:
     def list_keys(self, agent: str = "") -> list[str]:
         """List all world state keys."""
         prefix = f"{agent}:" if agent else ""
-        return [k[len(prefix):] for k in self._cache if k.startswith(prefix)]
+        return [k[len(prefix) :] for k in self._cache if k.startswith(prefix)]
 
 
 # ── Reasoning Layer ────────────────────────────────────────────────────────────
 
+
 @runtime_checkable
 class Reasoner(Protocol):
     """Interface for reasoning engines."""
+
     async def reason(self, question: str, context: dict[str, Any]) -> str: ...
 
 
@@ -218,7 +232,10 @@ class LLMReasoner:
 
         try:
             prompt = self._build_prompt(question, context)
-            response = await self._llm.generate(prompt, system="You are a helpful assistant. Base your reasoning on provided context.")
+            response = await self._llm.generate(
+                prompt,
+                system="You are a helpful assistant. Base your reasoning on provided context.",
+            )
             return response
         except Exception as e:
             logger.error("[reasoning] LLM reasoning failed: %s", e)
@@ -238,6 +255,7 @@ class LLMReasoner:
 
 
 # ── Responsibility Manager ─────────────────────────────────────────────────────
+
 
 class ResponsibilityManager:
     """Manages separation of Knowledge, World State, and Reasoning."""
@@ -278,10 +296,13 @@ class ResponsibilityManager:
         context = self.resolve(question)
 
         # Reasoning with context
-        reasoning = await self.reasoner.reason(question, {
-            "knowledge": context["knowledge_context"],
-            "state": context["state_context"],
-        })
+        reasoning = await self.reasoner.reason(
+            question,
+            {
+                "knowledge": context["knowledge_context"],
+                "state": context["state_context"],
+            },
+        )
 
         return {
             "answer": reasoning,

@@ -67,13 +67,17 @@ class InventoryAllocationBase(BaseModel):
             if self.requested_quantity is None:
                 raise ValueError("requested_quantity is required for quantity requests")
             if self.requested_count is not None:
-                raise ValueError("requested_count must not be set for quantity requests")
+                raise ValueError(
+                    "requested_count must not be set for quantity requests"
+                )
 
         if self.request_type == AllocationRequestType.COUNT:
             if self.requested_count is None:
                 raise ValueError("requested_count is required for count requests")
             if self.requested_quantity is not None:
-                raise ValueError("requested_quantity must not be set for count requests")
+                raise ValueError(
+                    "requested_quantity must not be set for count requests"
+                )
 
         return self
 

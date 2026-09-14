@@ -18,6 +18,7 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedEquipmentResponse)
 async def list_equipment(
     page: int = Query(1, ge=1),
@@ -25,12 +26,17 @@ async def list_equipment(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     equipment, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedEquipmentResponse(total=total, page=page, page_size=page_size, results=equipment)
+    return PaginatedEquipmentResponse(
+        total=total, page=page, page_size=page_size, results=equipment
+    )
 
 
 # ── Get by location ───────────────────────────────────────────────────────────
 
-@router.get("/by-location/{location}", response_model=list[PharmaceuticalEquipmentResponse])
+
+@router.get(
+    "/by-location/{location}", response_model=list[PharmaceuticalEquipmentResponse]
+)
 async def list_equipment_by_location(
     location: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -40,7 +46,10 @@ async def list_equipment_by_location(
 
 # ── Get by status ─────────────────────────────────────────────────────────────
 
-@router.get("/by-status/{status_value}", response_model=list[PharmaceuticalEquipmentResponse])
+
+@router.get(
+    "/by-status/{status_value}", response_model=list[PharmaceuticalEquipmentResponse]
+)
 async def list_equipment_by_status(
     status_value: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -48,7 +57,10 @@ async def list_equipment_by_status(
     return await crud.get_by_status(db, status_value)
 
 
-@router.get("/by-workstation/{workstation_id}", response_model=list[PharmaceuticalEquipmentResponse])
+@router.get(
+    "/by-workstation/{workstation_id}",
+    response_model=list[PharmaceuticalEquipmentResponse],
+)
 async def list_equipment_by_workstation(
     workstation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -56,7 +68,9 @@ async def list_equipment_by_workstation(
     return await crud.get_by_workstation_id(db, workstation_id)
 
 
-@router.get("/by-plant/{plant_id}", response_model=list[PharmaceuticalEquipmentResponse])
+@router.get(
+    "/by-plant/{plant_id}", response_model=list[PharmaceuticalEquipmentResponse]
+)
 async def list_equipment_by_plant(
     plant_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -66,7 +80,10 @@ async def list_equipment_by_plant(
 
 # ── Get by category ───────────────────────────────────────────────────────────
 
-@router.get("/by-category/{category}", response_model=list[PharmaceuticalEquipmentResponse])
+
+@router.get(
+    "/by-category/{category}", response_model=list[PharmaceuticalEquipmentResponse]
+)
 async def list_equipment_by_category(
     category: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -76,7 +93,10 @@ async def list_equipment_by_category(
 
 # ── Get by assigned to ────────────────────────────────────────────────────────
 
-@router.get("/by-assigned/{assigned_to}", response_model=list[PharmaceuticalEquipmentResponse])
+
+@router.get(
+    "/by-assigned/{assigned_to}", response_model=list[PharmaceuticalEquipmentResponse]
+)
 async def list_equipment_by_assigned(
     assigned_to: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -85,6 +105,7 @@ async def list_equipment_by_assigned(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{equipment_id}", response_model=PharmaceuticalEquipmentResponse)
 async def get_equipment(
@@ -102,7 +123,12 @@ async def get_equipment(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=PharmaceuticalEquipmentResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/",
+    response_model=PharmaceuticalEquipmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_equipment(
     data: PharmaceuticalEquipmentCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -116,6 +142,7 @@ async def create_equipment(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{equipment_id}", response_model=PharmaceuticalEquipmentResponse)
 async def update_equipment(
@@ -134,6 +161,7 @@ async def update_equipment(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 @router.delete("/{equipment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_equipment(
     equipment_id: str,
@@ -144,6 +172,7 @@ async def delete_equipment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Equipment '{equipment_id}' not found",
         )
+
 
 # TODO_ENDPOINT: GET /api/v1/equipment/{equipment_id}/maintenance — list maintenance records for equipment
 # TODO_ENDPOINT: GET /api/v1/equipment/{equipment_id}/calibrations — list calibration records for equipment

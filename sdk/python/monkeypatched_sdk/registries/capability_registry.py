@@ -56,7 +56,12 @@ class CapabilityRegistry:
             priority=priority,
             metadata=metadata,
         )
-        logger.info("Adapter %s registered capability '%s' (backend=%s)", adapter_id, capability, backend)
+        logger.info(
+            "Adapter %s registered capability '%s' (backend=%s)",
+            adapter_id,
+            capability,
+            backend,
+        )
 
     def unregister(self, adapter_id: str, capability: str | None = None) -> None:
         keys = [k for k in self._adapters if k.startswith(f"{adapter_id}:")]
@@ -76,9 +81,11 @@ class CapabilityRegistry:
     def summary(self) -> dict[str, Any]:
         caps: dict[str, list] = {}
         for a in self._adapters.values():
-            caps.setdefault(a.capability, []).append({
-                "adapter_id": a.adapter_id,
-                "backend": a.backend,
-                "priority": a.priority,
-            })
+            caps.setdefault(a.capability, []).append(
+                {
+                    "adapter_id": a.adapter_id,
+                    "backend": a.backend,
+                    "priority": a.priority,
+                }
+            )
         return {"capabilities": caps}

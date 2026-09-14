@@ -7,24 +7,60 @@ from datetime import datetime, timezone
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-sys.path.insert(0, '/Users/prashunjaveri/Code/monkeypatched')
+sys.path.insert(0, "/Users/prashunjaveri/Code/monkeypatched")
 
 from services.common.config import settings
 from services.common.embeddings import build_embedding
 
 MACHINE_SOP_TEMPLATES = [
-    {"title": "Installation Qualification (IQ)", "prefix": "IQ", "description": "Verifies that equipment is installed correctly per manufacturer specifications."},
-    {"title": "Operational Qualification (OQ)", "prefix": "OQ", "description": "Verifies that equipment operates within specified limits under normal conditions."},
-    {"title": "Performance Qualification (PQ)", "prefix": "PQ", "description": "Verifies that equipment consistently performs as intended under real production conditions."},
-    {"title": "Maintenance SOP", "prefix": "MAINT", "description": "Preventive and corrective maintenance procedures for the machine."},
-    {"title": "Cleaning SOP", "prefix": "CLEAN", "description": "Cleaning and sanitization procedures to prevent cross-contamination."},
+    {
+        "title": "Installation Qualification (IQ)",
+        "prefix": "IQ",
+        "description": "Verifies that equipment is installed correctly per manufacturer specifications.",
+    },
+    {
+        "title": "Operational Qualification (OQ)",
+        "prefix": "OQ",
+        "description": "Verifies that equipment operates within specified limits under normal conditions.",
+    },
+    {
+        "title": "Performance Qualification (PQ)",
+        "prefix": "PQ",
+        "description": "Verifies that equipment consistently performs as intended under real production conditions.",
+    },
+    {
+        "title": "Maintenance SOP",
+        "prefix": "MAINT",
+        "description": "Preventive and corrective maintenance procedures for the machine.",
+    },
+    {
+        "title": "Cleaning SOP",
+        "prefix": "CLEAN",
+        "description": "Cleaning and sanitization procedures to prevent cross-contamination.",
+    },
 ]
 
 EQUIPMENT_SOP_TEMPLATES = [
-    {"title": "Installation SOP", "prefix": "INSTALL", "description": "Installation and setup procedures for the equipment."},
-    {"title": "Maintenance SOP", "prefix": "MAINT", "description": "Preventive and corrective maintenance procedures for the equipment."},
-    {"title": "Cleaning SOP", "prefix": "CLEAN", "description": "Cleaning and sanitization procedures for the equipment."},
-    {"title": "Calibration SOP", "prefix": "CALIB", "description": "Calibration procedures and frequency requirements for the equipment."},
+    {
+        "title": "Installation SOP",
+        "prefix": "INSTALL",
+        "description": "Installation and setup procedures for the equipment.",
+    },
+    {
+        "title": "Maintenance SOP",
+        "prefix": "MAINT",
+        "description": "Preventive and corrective maintenance procedures for the equipment.",
+    },
+    {
+        "title": "Cleaning SOP",
+        "prefix": "CLEAN",
+        "description": "Cleaning and sanitization procedures for the equipment.",
+    },
+    {
+        "title": "Calibration SOP",
+        "prefix": "CALIB",
+        "description": "Calibration procedures and frequency requirements for the equipment.",
+    },
 ]
 
 

@@ -36,6 +36,7 @@ class GoalSource(str, Enum):
 @dataclass
 class BaseGoal:
     """Base intent — the classification of what the user wants."""
+
     name: str
     description: str = ""
     required_inputs: list[str] = field(default_factory=list)

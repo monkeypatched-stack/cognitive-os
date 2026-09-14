@@ -39,7 +39,9 @@ class DeliveryNoteItem(BaseModel):
     quantity_delivered: Annotated[Decimal, Field(ge=0)]
     unit_of_measure: str = Field(..., max_length=20)
     unit_weight_kg: Optional[Annotated[float, Field(ge=0)]] = None
-    pallet_label: Optional[str] = Field(None, max_length=50, description="Reference to Pallet.pallet_label")
+    pallet_label: Optional[str] = Field(
+        None, max_length=50, description="Reference to Pallet.pallet_label"
+    )
     notes: Optional[str] = None
 
     @computed_field  # type: ignore[misc]
@@ -52,7 +54,9 @@ class DeliveryNote(BaseModel):
     """Delivery Note (also called Dispatch Note / Consignment Note)."""
 
     id: UUID = Field(default_factory=uuid4)
-    delivery_note_number: str = Field(..., min_length=1, max_length=50, description="Unique DN reference")
+    delivery_note_number: str = Field(
+        ..., min_length=1, max_length=50, description="Unique DN reference"
+    )
     issue_date: date = Field(default_factory=date.today)
     expected_delivery_date: Optional[date] = None
     actual_delivery_date: Optional[date] = None
@@ -70,7 +74,9 @@ class DeliveryNote(BaseModel):
     carrier_id: Optional[UUID] = None
     vehicle_id: Optional[UUID] = None
     tracking_number: Optional[str] = Field(None, max_length=100)
-    pro_number: Optional[str] = Field(None, max_length=50, description="PRO / waybill number")
+    pro_number: Optional[str] = Field(
+        None, max_length=50, description="PRO / waybill number"
+    )
     items: list[DeliveryNoteItem] = Field(default_factory=list, min_length=1)
     pallet_ids: list[UUID] = Field(default_factory=list)
     total_pallets: Optional[int] = Field(None, ge=0)
@@ -81,7 +87,9 @@ class DeliveryNote(BaseModel):
     hazardous_goods: bool = False
     special_instructions: Optional[str] = None
     received_by: Optional[str] = Field(None, max_length=150)
-    signature_reference: Optional[str] = Field(None, max_length=255, description="URL or document ref")
+    signature_reference: Optional[str] = Field(
+        None, max_length=255, description="URL or document ref"
+    )
     pod_timestamp: Optional[datetime] = None
     discrepancy_notes: Optional[str] = None
     created_by: Optional[str] = Field(None, max_length=100)

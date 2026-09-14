@@ -3,6 +3,7 @@
 Manages database connections for persistence layer.
 Singleton pattern ensures single pool across application.
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,15 +66,16 @@ class DBPool:
         """Establish MongoDB connection."""
         try:
             from pymongo import MongoClient
+
             self._client = MongoClient(
                 self.connection_string,
                 connectTimeoutMS=5000,
                 serverSelectionTimeoutMS=5000,
                 maxPoolSize=20,
-                minPoolSize=1
+                minPoolSize=1,
             )
             # Verify connection
-            self._client.admin.command('ping')
+            self._client.admin.command("ping")
             self._db = self._client.get_database()
             logger.info("[db_pool] Connected to MongoDB: %s", self.connection_string)
         except ImportError:

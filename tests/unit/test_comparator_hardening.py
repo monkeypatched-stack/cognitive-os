@@ -14,6 +14,7 @@ These tests verify the ComparatorRuntime meets the hardening requirements:
 11. Observation provenance
 12. Inconclusive result when actual state cannot be established
 """
+
 from __future__ import annotations
 
 import pytest
@@ -34,7 +35,7 @@ def comparator_runtime():
 
 class TestPerfectSuccess:
     """Test 1: Perfect success scenario."""
-    
+
     @pytest.mark.asyncio
     async def test_perfect_success(self, comparator_runtime):
         """When all expected nodes succeed, outcome should be SUCCESS."""
@@ -58,7 +59,7 @@ class TestPerfectSuccess:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-1",
             "timestamp": 1234567890.0,
@@ -75,9 +76,9 @@ class TestPerfectSuccess:
             "reward": 1.0,
             "confidence": 0.95,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.outcome == ComparatorOutcome.SUCCESS
         assert result.epistemic_loss == 0.0
         assert result.world_loss == 0.0
@@ -90,7 +91,7 @@ class TestPerfectSuccess:
 
 class TestCompleteFailure:
     """Test 2: Complete failure scenario."""
-    
+
     @pytest.mark.asyncio
     async def test_complete_failure(self, comparator_runtime):
         """When all expected nodes fail and were expected to fail, outcome should be FAILURE."""
@@ -113,7 +114,7 @@ class TestCompleteFailure:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-2",
             "timestamp": 1234567890.0,
@@ -129,9 +130,9 @@ class TestCompleteFailure:
             "reward": 0.0,
             "confidence": 0.1,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.outcome == ComparatorOutcome.FAILURE
         assert result.epistemic_loss >= 0.0
         assert len(result.node_diffs) == 2
@@ -143,7 +144,7 @@ class TestCompleteFailure:
 
 class TestPartialFailure:
     """Test 3: Partial failure scenario."""
-    
+
     @pytest.mark.asyncio
     async def test_partial_failure(self, comparator_runtime):
         """When some nodes succeed and others fail, outcome should be PARTIAL_SUCCESS."""
@@ -166,7 +167,7 @@ class TestPartialFailure:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-3",
             "timestamp": 1234567890.0,
@@ -182,9 +183,9 @@ class TestPartialFailure:
             "reward": 0.5,
             "confidence": 0.5,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.outcome == ComparatorOutcome.PARTIAL_SUCCESS
         assert result.node_diffs["milk_node"]["match"] is True
         assert result.node_diffs["milk_node"]["expected_success"] is True
@@ -196,7 +197,7 @@ class TestPartialFailure:
 
 class TestUnexpectedOutcome:
     """Test 4: Unexpected outcome scenarios."""
-    
+
     @pytest.mark.asyncio
     async def test_unexpected_success(self, comparator_runtime):
         """When expected failure but actual success, outcome should be UNEXPECTED_SUCCESS."""
@@ -218,7 +219,7 @@ class TestUnexpectedOutcome:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-4",
             "timestamp": 1234567890.0,
@@ -233,11 +234,11 @@ class TestUnexpectedOutcome:
             "reward": 1.0,
             "confidence": 0.9,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.outcome == ComparatorOutcome.UNEXPECTED_SUCCESS
-    
+
     @pytest.mark.asyncio
     async def test_unexpected_failure(self, comparator_runtime):
         """When expected success but actual failure, outcome should be UNEXPECTED_FAILURE."""
@@ -259,7 +260,7 @@ class TestUnexpectedOutcome:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-5",
             "timestamp": 1234567890.0,
@@ -274,16 +275,16 @@ class TestUnexpectedOutcome:
             "reward": 0.0,
             "confidence": 0.1,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         # Single node expected to succeed but failed = unexpected failure
         assert result.outcome == ComparatorOutcome.UNEXPECTED_FAILURE
 
 
 class TestMissingObservation:
     """Test 5: Missing observation scenario."""
-    
+
     @pytest.mark.asyncio
     async def test_missing_observation(self, comparator_runtime):
         """When execution result is missing or empty, outcome should be INCONCLUSIVE."""
@@ -305,7 +306,7 @@ class TestMissingObservation:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-6",
             "timestamp": 1234567890.0,
@@ -318,15 +319,15 @@ class TestMissingObservation:
             "reward": 0.0,
             "confidence": 0.0,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.outcome == ComparatorOutcome.INCONCLUSIVE
 
 
 class TestMultiStepPartialExecution:
     """Test 6: Multi-step partial execution scenario."""
-    
+
     @pytest.mark.asyncio
     async def test_multi_step_partial_execution(self, comparator_runtime):
         """Test A → B → C where B fails, C not executed."""
@@ -350,7 +351,7 @@ class TestMultiStepPartialExecution:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-7",
             "timestamp": 1234567890.0,
@@ -367,9 +368,9 @@ class TestMultiStepPartialExecution:
             "reward": 0.3,
             "confidence": 0.3,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.outcome == ComparatorOutcome.PARTIAL_SUCCESS
         assert result.node_diffs["A"]["match"] is True
         assert result.node_diffs["A"]["expected_success"] is True
@@ -384,7 +385,7 @@ class TestMultiStepPartialExecution:
 
 class TestNodeLevelDiff:
     """Test 7: Node-level diff preservation."""
-    
+
     @pytest.mark.asyncio
     async def test_node_level_diff(self, comparator_runtime):
         """Verify node-level differences are preserved, not collapsed."""
@@ -408,7 +409,7 @@ class TestNodeLevelDiff:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-8",
             "timestamp": 1234567890.0,
@@ -425,15 +426,15 @@ class TestNodeLevelDiff:
             "reward": 0.6,
             "confidence": 0.6,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         # Verify node-level diffs are preserved
         assert len(result.node_diffs) == 3
         assert result.node_diffs["node1"]["match"] is True
         assert result.node_diffs["node2"]["match"] is False
         assert result.node_diffs["node3"]["match"] is True
-        
+
         # Verify the failing node is specifically identified
         assert result.node_diffs["node2"]["expected_success"] is True
         assert result.node_diffs["node2"]["actual_success"] is False
@@ -441,7 +442,7 @@ class TestNodeLevelDiff:
 
 class TestDeterministicComparison:
     """Test 8: Deterministic comparison behavior."""
-    
+
     @pytest.mark.asyncio
     async def test_deterministic_comparison(self, comparator_runtime):
         """Given identical inputs, comparator output must be deterministic."""
@@ -464,7 +465,7 @@ class TestDeterministicComparison:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-9",
             "timestamp": 1234567890.0,
@@ -480,13 +481,13 @@ class TestDeterministicComparison:
             "reward": 0.5,
             "confidence": 0.7,
         }
-        
+
         # Run comparison multiple times
         results = []
         for _ in range(5):
             result = await comparator_runtime.compare(simulation_graph, execution_result)
             results.append(result)
-        
+
         # Verify all results are identical
         first_result = results[0]
         for result in results[1:]:
@@ -499,7 +500,7 @@ class TestDeterministicComparison:
 
 class TestEpistemicLoss:
     """Test 9: Epistemic loss calculation."""
-    
+
     @pytest.mark.asyncio
     async def test_perfect_prediction_zero_loss(self, comparator_runtime):
         """Perfect prediction/execution should have minimal/zero epistemic loss."""
@@ -519,7 +520,7 @@ class TestEpistemicLoss:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-10",
             "timestamp": 1234567890.0,
@@ -532,11 +533,11 @@ class TestEpistemicLoss:
             "reward": 1.0,
             "confidence": 1.0,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.epistemic_loss == 0.0
-    
+
     @pytest.mark.asyncio
     async def test_large_divergence_high_loss(self, comparator_runtime):
         """Large expected-vs-actual divergence should increase epistemic loss."""
@@ -556,7 +557,7 @@ class TestEpistemicLoss:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-11",
             "timestamp": 1234567890.0,
@@ -569,15 +570,15 @@ class TestEpistemicLoss:
             "reward": 0.0,
             "confidence": 0.0,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.epistemic_loss > 0.0
 
 
 class TestNoLearningSideEffects:
     """Test 10: Comparator produces no learning side effects."""
-    
+
     @pytest.mark.asyncio
     async def test_no_learning_side_effects(self, comparator_runtime):
         """Comparator must not mutate learning state."""
@@ -585,12 +586,12 @@ class TestNoLearningSideEffects:
         mock_transition_model = MagicMock()
         mock_q_table = MagicMock()
         mock_beliefs = MagicMock()
-        
+
         # Store original state
         original_transition_model_state = str(mock_transition_model)
         original_q_table_state = str(mock_q_table)
         original_beliefs_state = str(mock_beliefs)
-        
+
         simulation_graph = {
             "graph_id": "test-exec-12",
             "timestamp": 1234567890.0,
@@ -607,7 +608,7 @@ class TestNoLearningSideEffects:
                 }
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-12",
             "timestamp": 1234567890.0,
@@ -620,15 +621,15 @@ class TestNoLearningSideEffects:
             "reward": 1.0,
             "confidence": 0.95,
         }
-        
+
         # Run comparison
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         # Verify learning state was not mutated
         assert str(mock_transition_model) == original_transition_model_state
         assert str(mock_q_table) == original_q_table_state
         assert str(mock_beliefs) == original_beliefs_state
-        
+
         # Verify comparator only produced a result, no side effects
         assert isinstance(result, ComparisonResult)
         assert result.outcome == ComparatorOutcome.SUCCESS
@@ -644,36 +645,79 @@ class TestNoLearningSideEffects:
         _execution_to_graph), not hand-built ComparatorRuntime dicts."""
         import src.monkey_brain.kernel.comparator_runtime as comparator_module
         from src.monkey_brain.kernel.pipeline.comparison.integration import (
-            _run_comparison, _apply_transition_learning,
+            _run_comparison,
+            _apply_transition_learning,
         )
-        from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
+        from src.monkey_brain.kernel.pipeline.belief_state import (
+            BeliefState,
+            Plan,
+            PlanStep,
+        )
         from src.monkey_brain.kernel.pipeline.actor import Actor
         from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
-        from src.monkey_brain.kernel.pipeline.execution import ExecutionResult, ActionOutcome
-        from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
+        from src.monkey_brain.kernel.pipeline.execution import (
+            ExecutionResult,
+            ActionOutcome,
+        )
+        from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+            TransitionModel,
+        )
 
         monkeypatch.setattr(comparator_module, "get_comparator_runtime", lambda: ComparatorRuntime())
 
-        plan = Plan(goal="buy milk", steps=(PlanStep(action="BuyMilk", description="buy milk", confidence=0.9),),
-                    cost=0.0, confidence=0.9, risk=0.0, planner="llm")
+        plan = Plan(
+            goal="buy milk",
+            steps=(PlanStep(action="BuyMilk", description="buy milk", confidence=0.9),),
+            cost=0.0,
+            confidence=0.9,
+            risk=0.0,
+            planner="llm",
+        )
         actor = Actor(actor_id="arjun", tenant_id="acme")
         belief = BeliefState(actor_id="arjun", tenant_id="acme")
         belief.plan = plan
         state = CognitiveState(actor=actor, belief=belief)
         state.metrics = {"execution_id": "exec-no-side-effects-1"}
         state.prediction_result = {
-            "candidates": [{"prediction": {"world_snapshot": {"has_milk": True},
-                                            "predicted_outcomes": [{"description": "buy milk", "success": True, "probability": 0.9}],
-                                            "expected_utility": 0.8},
-                            "scenario_label": "Baseline", "probability": 0.9}],
-            "selected": {"prediction": {"world_snapshot": {"has_milk": True},
-                                         "predicted_outcomes": [{"description": "buy milk", "success": True, "probability": 0.9}],
-                                         "expected_utility": 0.8},
-                         "scenario_label": "Baseline", "probability": 0.9},
+            "candidates": [
+                {
+                    "prediction": {
+                        "world_snapshot": {"has_milk": True},
+                        "predicted_outcomes": [
+                            {
+                                "description": "buy milk",
+                                "success": True,
+                                "probability": 0.9,
+                            }
+                        ],
+                        "expected_utility": 0.8,
+                    },
+                    "scenario_label": "Baseline",
+                    "probability": 0.9,
+                }
+            ],
+            "selected": {
+                "prediction": {
+                    "world_snapshot": {"has_milk": True},
+                    "predicted_outcomes": [{"description": "buy milk", "success": True, "probability": 0.9}],
+                    "expected_utility": 0.8,
+                },
+                "scenario_label": "Baseline",
+                "probability": 0.9,
+            },
         }
         state.execution_result = ExecutionResult(
-            actions=(ActionOutcome(action_id="arjun_step_0", success=True, result={"has_milk": True}, latency_ms=1.0),),
-            success_count=1, failure_count=0, goal_achieved=True,
+            actions=(
+                ActionOutcome(
+                    action_id="arjun_step_0",
+                    success=True,
+                    result={"has_milk": True},
+                    latency_ms=1.0,
+                ),
+            ),
+            success_count=1,
+            failure_count=0,
+            goal_achieved=True,
         )
 
         class FakePolicy:
@@ -700,7 +744,7 @@ class TestNoLearningSideEffects:
 
 class TestObservationProvenance:
     """Test 11: Observation provenance tracking."""
-    
+
     @pytest.mark.asyncio
     async def test_observation_provenance(self, comparator_runtime):
         """Every comparison result must be traceable to execution_id and timestamp."""
@@ -718,10 +762,10 @@ class TestObservationProvenance:
                     "events": [],
                     "predicted_reward": 1.0,
                     "grounding_score": 0.95,
-                }
+                },
             },
         }
-        
+
         execution_result = {
             "graph_id": "test-exec-13",
             "timestamp": 1234567890.0,
@@ -734,9 +778,9 @@ class TestObservationProvenance:
             "reward": 1.0,
             "confidence": 0.95,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         # Verify provenance is captured
         assert result.execution_id == "test-exec-13"
         assert result.timestamp == 1234567890.0
@@ -750,28 +794,69 @@ class TestObservationProvenance:
         every actor-tick ComparisonResult had empty provenance (not
         fabricated, just silently dropped at the adapter boundary)."""
         import src.monkey_brain.kernel.comparator_runtime as comparator_module
-        from src.monkey_brain.kernel.pipeline.comparison.integration import _run_comparison
-        from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
+        from src.monkey_brain.kernel.pipeline.comparison.integration import (
+            _run_comparison,
+        )
+        from src.monkey_brain.kernel.pipeline.belief_state import (
+            BeliefState,
+            Plan,
+            PlanStep,
+        )
         from src.monkey_brain.kernel.pipeline.actor import Actor
         from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
-        from src.monkey_brain.kernel.pipeline.execution import ExecutionResult, ActionOutcome
+        from src.monkey_brain.kernel.pipeline.execution import (
+            ExecutionResult,
+            ActionOutcome,
+        )
 
         monkeypatch.setattr(comparator_module, "get_comparator_runtime", lambda: ComparatorRuntime())
 
-        plan = Plan(goal="buy milk", steps=(PlanStep(action="BuyMilk", description="buy milk", confidence=0.9),),
-                    cost=0.0, confidence=0.9, risk=0.0, planner="llm")
+        plan = Plan(
+            goal="buy milk",
+            steps=(PlanStep(action="BuyMilk", description="buy milk", confidence=0.9),),
+            cost=0.0,
+            confidence=0.9,
+            risk=0.0,
+            planner="llm",
+        )
         actor = Actor(actor_id="arjun", tenant_id="acme")
         belief = BeliefState(actor_id="arjun", tenant_id="acme")
         belief.plan = plan
         state = CognitiveState(actor=actor, belief=belief)
         state.metrics = {"execution_id": "exec-provenance-1"}
         state.prediction_result = {
-            "candidates": [{"prediction": {"world_snapshot": {}, "predicted_outcomes": [{"description": "buy milk", "success": True, "probability": 0.9}], "expected_utility": 0.8}, "scenario_label": "Baseline", "probability": 0.9}],
-            "selected": {"prediction": {"world_snapshot": {}, "predicted_outcomes": [{"description": "buy milk", "success": True, "probability": 0.9}], "expected_utility": 0.8}, "scenario_label": "Baseline", "probability": 0.9},
+            "candidates": [
+                {
+                    "prediction": {
+                        "world_snapshot": {},
+                        "predicted_outcomes": [
+                            {
+                                "description": "buy milk",
+                                "success": True,
+                                "probability": 0.9,
+                            }
+                        ],
+                        "expected_utility": 0.8,
+                    },
+                    "scenario_label": "Baseline",
+                    "probability": 0.9,
+                }
+            ],
+            "selected": {
+                "prediction": {
+                    "world_snapshot": {},
+                    "predicted_outcomes": [{"description": "buy milk", "success": True, "probability": 0.9}],
+                    "expected_utility": 0.8,
+                },
+                "scenario_label": "Baseline",
+                "probability": 0.9,
+            },
         }
         state.execution_result = ExecutionResult(
             actions=(ActionOutcome(action_id="arjun_step_0", success=True, result={}, latency_ms=1.0),),
-            success_count=1, failure_count=0, goal_achieved=True,
+            success_count=1,
+            failure_count=0,
+            goal_achieved=True,
         )
 
         result_state = await _run_comparison(state, None)
@@ -782,7 +867,7 @@ class TestObservationProvenance:
 
 class TestInconclusiveResult:
     """Test 12: Inconclusive result when actual state cannot be established."""
-    
+
     @pytest.mark.asyncio
     async def test_inconclusive_when_no_actual_state(self, comparator_runtime):
         """When actual state cannot be verified, return INCONCLUSIVE."""
@@ -802,7 +887,7 @@ class TestInconclusiveResult:
                 }
             },
         }
-        
+
         # Execution result with no actual state information
         execution_result = {
             "graph_id": "test-exec-14",
@@ -816,15 +901,15 @@ class TestInconclusiveResult:
             "reward": 0.0,
             "confidence": 0.0,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         assert result.outcome == ComparatorOutcome.INCONCLUSIVE
 
 
 class TestExecutionSuccessVsWorldSuccess:
     """Test: Execution success ≠ World success distinction."""
-    
+
     @pytest.mark.asyncio
     async def test_execution_success_not_world_success(self, comparator_runtime):
         """Capability returned successfully ≠ Expected world state was achieved."""
@@ -844,7 +929,7 @@ class TestExecutionSuccessVsWorldSuccess:
                 }
             },
         }
-        
+
         # HTTP request returned 200 (execution success)
         # But milk was not actually purchased (world state not achieved)
         execution_result = {
@@ -859,9 +944,9 @@ class TestExecutionSuccessVsWorldSuccess:
             "reward": 0.0,
             "confidence": 0.5,
         }
-        
+
         result = await comparator_runtime.compare(simulation_graph, execution_result)
-        
+
         # The comparator should detect the state mismatch
         assert result.state_diff["score"] < 1.0
         assert result.epistemic_loss > 0.0

@@ -7,6 +7,7 @@ against it — health check, then any configured smoke-test requests — so
 failures here reflect actual runtime integration problems (wrong port,
 missing env var, DB connection failure) that unit tests can't catch.
 """
+
 from __future__ import annotations
 import asyncio
 import logging
@@ -22,7 +23,9 @@ _HEALTH_RETRY_SECONDS = 15.0
 
 class IntegrationTestAgent(BaseETASSAgent):
     agent_type = "integration_test"
-    description = "Exercises a running service over real HTTP against its actual dependencies, not an isolated pytest run"
+    description = (
+        "Exercises a running service over real HTTP against its actual dependencies, not an isolated pytest run"
+    )
 
     async def handle(self, context: dict[str, Any]):
         return await self._run(context, self._impl)
@@ -32,6 +35,7 @@ class IntegrationTestAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
@@ -51,7 +55,10 @@ class IntegrationTestAgent(BaseETASSAgent):
             import httpx
         except ImportError:
             self._reward(True, 0.5)
-            return self._result(payload={"passed": True, "skipped": True}, observations=["httpx not installed"])
+            return self._result(
+                payload={"passed": True, "skipped": True},
+                observations=["httpx not installed"],
+            )
 
         healthy = await self._wait_for_health(base_url, httpx)
         if not healthy:
@@ -71,7 +78,14 @@ class IntegrationTestAgent(BaseETASSAgent):
                 try:
                     resp = await client.request(method, f"{base_url}{path}", json=check.get("body"))
                     ok = resp.status_code == expect
-                    results.append({"path": path, "status": resp.status_code, "expected": expect, "ok": ok})
+                    results.append(
+                        {
+                            "path": path,
+                            "status": resp.status_code,
+                            "expected": expect,
+                            "ok": ok,
+                        }
+                    )
                     all_ok = all_ok and ok
                 except Exception as e:
                     results.append({"path": path, "error": str(e), "ok": False})

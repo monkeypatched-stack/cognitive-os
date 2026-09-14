@@ -7,6 +7,7 @@ This is the output of Stage 1 (Intent Compiler) and the input to Stage 2
 - Constraints (budget, quantity, preferences)
 - Relationships between entities
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from typing import Any
 @dataclass
 class GoalNode:
     """A single goal in a goal tree, with priority, beneficiary, and conditionals."""
+
     id: str  # unique identifier (e.g. "goal_1")
     text: str  # goal text (e.g. "Buy whole milk")
     priority: str  # "high", "medium", "low"
@@ -55,6 +57,7 @@ class GoalIR:
     The Intent Compiler transforms raw NL into this IR, which the
     Graph Synthesizer then uses to generate candidate execution graphs.
     """
+
     intent_type: str  # e.g. "purchase", "build", "query", "coordinate"
     domain: str  # e.g. "shopping", "software", "research"
     goal: str  # original natural language goal
@@ -93,12 +96,17 @@ class GoalIR:
 @dataclass
 class EntityIR:
     """An entity extracted from the user's intent."""
+
     name: str  # e.g. "whole milk", "frozen pizza"
     entity_type: str  # e.g. "product", "person", "service"
     attributes: dict[str, Any] = field(default_factory=dict)  # e.g. {"quantity": "2 liters"}
 
     def to_dict(self) -> dict[str, Any]:
-        return {"name": self.name, "type": self.entity_type, "attributes": self.attributes}
+        return {
+            "name": self.name,
+            "type": self.entity_type,
+            "attributes": self.attributes,
+        }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> EntityIR:
@@ -112,12 +120,17 @@ class EntityIR:
 @dataclass
 class ConstraintIR:
     """A constraint that must be satisfied."""
+
     constraint_type: str  # e.g. "budget", "preference", "time", "quantity"
     description: str  # human-readable description
     parameters: dict[str, Any] = field(default_factory=dict)  # e.g. {"limit": 50, "currency": "USD"}
 
     def to_dict(self) -> dict[str, Any]:
-        return {"type": self.constraint_type, "description": self.description, "parameters": self.parameters}
+        return {
+            "type": self.constraint_type,
+            "description": self.description,
+            "parameters": self.parameters,
+        }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> ConstraintIR:
@@ -131,12 +144,17 @@ class ConstraintIR:
 @dataclass
 class RelationshipIR:
     """A relationship between entities."""
+
     source: str  # entity name
     target: str  # entity name
     relationship_type: str  # e.g. "requires", "coordinates", "shares"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"source": self.source, "target": self.target, "type": self.relationship_type}
+        return {
+            "source": self.source,
+            "target": self.target,
+            "type": self.relationship_type,
+        }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> RelationshipIR:

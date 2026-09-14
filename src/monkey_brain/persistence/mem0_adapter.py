@@ -101,6 +101,7 @@ class Mem0Adapter(IStoreAdapter):
     async def connect(self) -> None:
         try:
             from mem0 import Memory
+
             init = (lambda: Memory.from_config(self._config)) if self._config else Memory
             self._mem0 = await asyncio.wait_for(asyncio.to_thread(init), timeout=_MEM0_CALL_TIMEOUT_SEC)
             logger.info("mem0 adapter connected")
@@ -125,9 +126,9 @@ class Mem0Adapter(IStoreAdapter):
             return {"status": "no_mem0", "event_id": getattr(event, "event_id", "?")}
 
         event_type = event.event_type
-        data       = event.data or {}
-        agent_id   = data.get("agent_id") or event.entity_id or "monkeybrain"
-        entity_id  = event.entity_id
+        data = event.data or {}
+        agent_id = data.get("agent_id") or event.entity_id or "monkeybrain"
+        entity_id = event.entity_id
 
         # ── Delete path ────────────────────────────────────────────────────────
         if event_type in _DELETE_EVENT_TYPES:
@@ -150,11 +151,11 @@ class Mem0Adapter(IStoreAdapter):
         )
         messages = [{"role": "system", "content": payload}]
         metadata = {
-            "event_type":   str(event_type),
-            "entity_type":  event.entity_type,
-            "entity_id":    entity_id,
-            "event_id":     event.event_id,
-            "source":       event.source or "monkeybrain",
+            "event_type": str(event_type),
+            "entity_type": event.entity_type,
+            "entity_id": entity_id,
+            "event_id": event.event_id,
+            "source": event.source or "monkeybrain",
         }
 
         try:
@@ -256,19 +257,26 @@ class Mem0Resource:
         return self._adapter
 
     async def initialize(self):
-        from src.monkey_brain.kernel.resource_manager import ResourceHealth, ResourceState, ErrorCategory
+        from src.monkey_brain.kernel.resource_manager import (
+            ResourceHealth,
+            ResourceState,
+            ErrorCategory,
+        )
+
         try:
             await self._adapter.connect()
             if self._adapter.is_connected():
                 return ResourceHealth(name="mem0", state=ResourceState.READY)
             return ResourceHealth(
-                name="mem0", state=ResourceState.UNAVAILABLE,
+                name="mem0",
+                state=ResourceState.UNAVAILABLE,
                 reason="mem0ai not installed or connect failed",
                 category=ErrorCategory.DEPENDENCY_MISSING,
             )
         except ImportError:
             return ResourceHealth(
-                name="mem0", state=ResourceState.DISABLED,
+                name="mem0",
+                state=ResourceState.DISABLED,
                 reason="mem0ai not installed",
                 category=ErrorCategory.DEPENDENCY_MISSING,
             )
@@ -281,17 +289,26 @@ class Mem0Resource:
             else:
                 category = ErrorCategory.INTERNAL
             return ResourceHealth(
-                name="mem0", state=ResourceState.UNAVAILABLE,
-                reason=str(exc)[:200], category=category,
+                name="mem0",
+                state=ResourceState.UNAVAILABLE,
+                reason=str(exc)[:200],
+                category=category,
             )
 
     async def health(self):
-        from src.monkey_brain.kernel.resource_manager import ResourceHealth, ResourceState, ErrorCategory
+        from src.monkey_brain.kernel.resource_manager import (
+            ResourceHealth,
+            ResourceState,
+            ErrorCategory,
+        )
+
         if self._adapter.is_connected():
             return ResourceHealth(name="mem0", state=ResourceState.READY)
         return ResourceHealth(
-            name="mem0", state=ResourceState.UNAVAILABLE,
-            reason="not connected", category=ErrorCategory.OPTIONAL_MISSING,
+            name="mem0",
+            state=ResourceState.UNAVAILABLE,
+            reason="not connected",
+            category=ErrorCategory.OPTIONAL_MISSING,
         )
 
     async def shutdown(self) -> None:

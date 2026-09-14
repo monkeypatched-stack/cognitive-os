@@ -10,6 +10,7 @@ Architecture:
         ↓ found?
     Register locally → next time found locally
 """
+
 from __future__ import annotations
 
 import json
@@ -90,6 +91,7 @@ class Provider:
         started = _time.monotonic()
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
                 resp = await client.get(self.url)
             self.last_latency_ms = round((_time.monotonic() - started) * 1000, 1)
@@ -120,7 +122,10 @@ class Provider:
         Returns: {"answer": str, "success": bool, ...}
         Override in subclasses for provider-specific execution.
         """
-        return {"answer": f"Provider {self.name} does not support execution", "success": False}
+        return {
+            "answer": f"Provider {self.name} does not support execution",
+            "success": False,
+        }
 
     def register_agent(self, agent_info: dict) -> None:
         agent_name = agent_info.get("name", "")
@@ -155,6 +160,7 @@ class OpenClawProvider(Provider):
         if self.url:
             return await super().check_health()
         import time as _time
+
         self.last_health_check_at = _time.time()
         cli_ok = _openclaw_cli_available()
         self.last_health_status = "healthy" if cli_ok else "unhealthy"
@@ -167,6 +173,7 @@ class OpenClawProvider(Provider):
         if self.url:
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=5) as client:
                     resp = await client.get(f"{self.url}/agents", params={"q": query})
                     if resp.status_code == 200:
@@ -184,8 +191,12 @@ class OpenClawProvider(Provider):
         """Discover agents via openclaw CLI."""
         try:
             import asyncio
+
             proc = await asyncio.create_subprocess_exec(
-                "openclaw", "agents", "list", "--json",
+                "openclaw",
+                "agents",
+                "list",
+                "--json",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -222,6 +233,7 @@ class OpenClawProvider(Provider):
         if not agent_dir:
             return ""
         import pathlib
+
         # Check for BOOTSTRAP.md or similar
         for fname in ("BOOTSTRAP.md", "README.md", "agent.json", "config.json"):
             fpath = pathlib.Path(agent_dir) / fname
@@ -237,7 +249,6 @@ class OpenClawProvider(Provider):
                     logger.debug("_read_agent_description: suppressed exception", exc_info=True)
         return ""
 
-
     async def execute(self, agent_name: str, state: dict) -> dict:
         """Execute an OpenClaw agent via API or CLI."""
         question = state.get("question", "")
@@ -246,6 +257,7 @@ class OpenClawProvider(Provider):
         if self.url:
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=30) as client:
                     resp = await client.post(
                         f"{self.url}/agents/{agent_name}/execute",
@@ -265,8 +277,14 @@ class OpenClawProvider(Provider):
         # Fallback to CLI
         try:
             import asyncio
+
             proc = await asyncio.create_subprocess_exec(
-                "openclaw", "agents", "run", agent_name, "--question", question,
+                "openclaw",
+                "agents",
+                "run",
+                agent_name,
+                "--question",
+                question,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -281,13 +299,17 @@ class OpenClawProvider(Provider):
         except Exception as e:
             logger.debug("[openclaw] CLI execution failed: %s", e)
 
-        return {"answer": f"OpenClaw agent {agent_name} execution failed", "success": False}
+        return {
+            "answer": f"OpenClaw agent {agent_name} execution failed",
+            "success": False,
+        }
 
 
 def _openclaw_cli_available() -> bool:
     """Check if openclaw CLI is installed."""
     try:
         import shutil
+
         return shutil.which("openclaw") is not None
     except Exception:
         return False
@@ -309,6 +331,7 @@ class N8nProvider(Provider):
         if self.url and api_key:
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=5) as client:
                     resp = await client.get(
                         f"{self.url}/api/v1/workflows",
@@ -317,8 +340,14 @@ class N8nProvider(Provider):
                     if resp.status_code == 200:
                         workflows = resp.json().get("data", [])
                         agents = [
-                            {"name": wf.get("name", ""), "description": wf.get("description", ""), "provider": "n8n", "workflow_id": wf.get("id")}
-                            for wf in workflows if wf.get("active")
+                            {
+                                "name": wf.get("name", ""),
+                                "description": wf.get("description", ""),
+                                "provider": "n8n",
+                                "workflow_id": wf.get("id"),
+                            }
+                            for wf in workflows
+                            if wf.get("active")
                         ]
                         for agent in agents:
                             self.register_agent(agent)
@@ -332,25 +361,27 @@ class N8nProvider(Provider):
     def _discover_from_db(self) -> list[dict]:
         """Read active workflows directly from n8n SQLite database."""
         import pathlib
+
         db_path = pathlib.Path.home() / ".n8n" / "database.sqlite"
         if not db_path.exists():
             return []
         try:
             import sqlite3
+
             conn = sqlite3.connect(str(db_path))
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                "SELECT id, name, active FROM workflow_entity WHERE active = 1"
-            )
+            cursor = conn.execute("SELECT id, name, active FROM workflow_entity WHERE active = 1")
             agents = []
             for row in cursor:
                 name = row["name"]
-                agents.append({
-                    "name": name,
-                    "description": f"n8n workflow: {name}",
-                    "provider": "n8n",
-                    "workflow_id": row["id"],
-                })
+                agents.append(
+                    {
+                        "name": name,
+                        "description": f"n8n workflow: {name}",
+                        "provider": "n8n",
+                        "workflow_id": row["id"],
+                    }
+                )
                 self.register_agent(agents[-1])
             conn.close()
             return agents
@@ -374,6 +405,7 @@ class N8nProvider(Provider):
             api_key = os.environ.get("N8N_API_KEY", "")
             try:
                 import httpx
+
                 async with httpx.AsyncClient(timeout=30) as client:
                     resp = await client.post(
                         f"{self.url}/webhook/{webhook_path}",
@@ -400,7 +432,10 @@ class N8nProvider(Provider):
             except Exception as e:
                 logger.debug("[n8n] API execution failed: %s", e)
 
-        return {"answer": f"n8n workflow {agent_name} execution failed", "success": False}
+        return {
+            "answer": f"n8n workflow {agent_name} execution failed",
+            "success": False,
+        }
 
 
 class NandaProvider(Provider):
@@ -416,6 +451,7 @@ class NandaProvider(Provider):
 
         try:
             from cerebellum.capabilities.agent.nanda import NANDACapability
+
             nanda = NANDACapability()
             if nanda._available:
                 result = await nanda.execute({"operation": "discover", "domain": query})
@@ -434,14 +470,17 @@ class NandaProvider(Provider):
 
         try:
             from cerebellum.capabilities.agent.nanda import NANDACapability
+
             nanda = NANDACapability()
             if nanda._available:
-                result = await nanda.execute({
-                    "operation": "execute",
-                    "agent_id": agent_name,
-                    "question": question,
-                    "state": state,
-                })
+                result = await nanda.execute(
+                    {
+                        "operation": "execute",
+                        "agent_id": agent_name,
+                        "question": question,
+                        "state": state,
+                    }
+                )
                 return {
                     "answer": result.get("answer", result.get("response", "")),
                     "success": result.get("success", True),
@@ -451,7 +490,10 @@ class NandaProvider(Provider):
         except Exception as e:
             logger.debug("[nanda] execution failed: %s", e)
 
-        return {"answer": f"NANDA agent {agent_name} execution failed", "success": False}
+        return {
+            "answer": f"NANDA agent {agent_name} execution failed",
+            "success": False,
+        }
 
 
 class ARDProvider(Provider):
@@ -476,6 +518,7 @@ class ARDProvider(Provider):
 
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
                     f"{self.url}/search",
@@ -521,10 +564,14 @@ class ARDProvider(Provider):
         agent_type = agent_info.get("type", "") if agent_info else ""
 
         if not agent_url:
-            return {"answer": f"ARD agent {agent_name} has no endpoint URL", "success": False}
+            return {
+                "answer": f"ARD agent {agent_name} has no endpoint URL",
+                "success": False,
+            }
 
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=30) as client:
                 # MCP server execution
                 if "mcp" in agent_type.lower():
@@ -557,7 +604,11 @@ class ARDProvider(Provider):
                     json={"question": question, "state": state},
                 )
                 if resp.status_code == 200:
-                    result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"answer": resp.text}
+                    result = (
+                        resp.json()
+                        if resp.headers.get("content-type", "").startswith("application/json")
+                        else {"answer": resp.text}
+                    )
                     return {
                         "answer": result.get("answer", result.get("output", resp.text[:500])),
                         "success": True,
@@ -582,19 +633,32 @@ class ProviderRegistry:
 
     def register_provider(self, provider: Provider) -> None:
         self._providers[provider.name] = provider
-        logger.info("[provider_registry] Registered provider: %s (available=%s)", provider.name, provider.available)
+        logger.info(
+            "[provider_registry] Registered provider: %s (available=%s)",
+            provider.name,
+            provider.available,
+        )
 
     def get_provider(self, name: str) -> Provider | None:
         return self._providers.get(name)
 
     def list_providers(self) -> list[dict]:
-        return [{
-            "name": p.name, "url": p.url, "available": p.available, "agents": len(p.list_agents()),
-            "created_at": p.created_at,
-            "health_status": p.last_health_status, "health_checked_at": p.last_health_check_at,
-            "latency_ms": p.last_latency_ms, "health_error": p.last_health_error,
-            "trust_score": round(p.trust_score, 3), "trust_outcomes": p._outcome_count,
-        } for p in self._providers.values()]
+        return [
+            {
+                "name": p.name,
+                "url": p.url,
+                "available": p.available,
+                "agents": len(p.list_agents()),
+                "created_at": p.created_at,
+                "health_status": p.last_health_status,
+                "health_checked_at": p.last_health_check_at,
+                "latency_ms": p.last_latency_ms,
+                "health_error": p.last_health_error,
+                "trust_score": round(p.trust_score, 3),
+                "trust_outcomes": p._outcome_count,
+            }
+            for p in self._providers.values()
+        ]
 
     def find_provider_for_agent(self, agent_name: str) -> Provider | None:
         """Which provider owns this agent, or None. Backs
@@ -658,9 +722,17 @@ class ProviderRegistry:
                     provider.record_outcome(bool(result.get("success", False)))
                     return result
                 except Exception as e:
-                    logger.error("[provider_registry] %s execution failed for %s: %s", provider.name, agent_name, e)
+                    logger.error(
+                        "[provider_registry] %s execution failed for %s: %s",
+                        provider.name,
+                        agent_name,
+                        e,
+                    )
                     provider.record_outcome(False)
-                    return {"answer": f"Provider {provider.name} execution failed: {e}", "success": False}
+                    return {
+                        "answer": f"Provider {provider.name} execution failed: {e}",
+                        "success": False,
+                    }
         return {"answer": f"No provider found for agent {agent_name}", "success": False}
 
     def register_discovered_agent(self, agent_info: dict) -> None:

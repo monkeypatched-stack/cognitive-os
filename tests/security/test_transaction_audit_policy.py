@@ -4,11 +4,16 @@ Insecure-dev is unset. These tests remain valid if Mongo, Redis, or
 class names change, as long as the governed commitment API still
 enforces the invariants.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.audit import AuditPersistenceError, MemoryDurableAuditStore, get_audit_log
+from src.monkey_brain.kernel.audit import (
+    AuditPersistenceError,
+    MemoryDurableAuditStore,
+    get_audit_log,
+)
 from src.monkey_brain.kernel.security_boundary import (
     SecurityBoundaryDenied,
     pipeline_stages,
@@ -37,7 +42,10 @@ def _secure(monkeypatch):
 
 
 def _durable_audit():
-    from src.monkey_brain.api.idempotency import IdempotencyStore, _InMemoryIdempotencyBackend
+    from src.monkey_brain.api.idempotency import (
+        IdempotencyStore,
+        _InMemoryIdempotencyBackend,
+    )
 
     IdempotencyStore._instance = None
     store = IdempotencyStore.__new__(IdempotencyStore)
@@ -49,10 +57,15 @@ def _durable_audit():
 
 
 def _principal():
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id="alice",
-        principal_type="human", mfa_status="satisfied",
-    ))
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id="alice",
+            principal_type="human",
+            mfa_status="satisfied",
+        )
+    )
 
 
 async def _allow(*a, **k):
@@ -82,10 +95,15 @@ class TestPolicyNoUnauthorizedEffect:
     @pytest.mark.asyncio
     async def test_missing_mfa_denies_effect(self, opa_allow):
         _durable_audit()
-        bind_trusted_auth(TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id="alice",
-            principal_type="human", mfa_status="not_satisfied",
-        ))
+        bind_trusted_auth(
+            TrustedAuthEvidence(
+                authenticated=True,
+                token_valid=True,
+                principal_id="alice",
+                principal_type="human",
+                mfa_status="not_satisfied",
+            )
+        )
         effects = []
 
         async def effect():
@@ -153,7 +171,11 @@ class TestPolicyNoUnauthorizedEffect:
                 action="orders.create",
                 resource="o",
                 mutate=effect,
-                extra={"authorized": True, "mfa_status": "satisfied", "opa_allow": True},
+                extra={
+                    "authorized": True,
+                    "mfa_status": "satisfied",
+                    "opa_allow": True,
+                },
             )
         assert effects == []
 
@@ -224,6 +246,7 @@ class TestPolicyUnknownVsFailed:
         with pytest.raises(RuntimeError):
             await run_governed_mutation(action="orders.payment", resource="pay", mutate=effect)
         from src.monkey_brain.kernel.security_operation import get_operation_ledger
+
         op = list(get_operation_ledger()._ops.values())[0]
         assert op.state is SecurityOperationState.FAILED
         assert op.state is not SecurityOperationState.UNKNOWN
@@ -239,6 +262,7 @@ class TestPolicyUnknownVsFailed:
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(action="orders.payment", resource="pay", mutate=effect)
         from src.monkey_brain.kernel.security_operation import get_operation_ledger
+
         op = list(get_operation_ledger()._ops.values())[0]
         assert op.state is SecurityOperationState.RECONCILIATION_REQUIRED
         assert op.state is not SecurityOperationState.FAILED
@@ -283,18 +307,27 @@ class TestPolicyIdempotencyAndCrash:
             return "ok"
 
         await run_governed_mutation(
-            action="orders.create", resource="o", mutate=effect, operation_id="op-same",
+            action="orders.create",
+            resource="o",
+            mutate=effect,
+            operation_id="op-same",
         )
         with pytest.raises(SecurityBoundaryDenied) as exc:
             await run_governed_mutation(
-                action="orders.create", resource="o", mutate=effect, operation_id="op-same",
+                action="orders.create",
+                resource="o",
+                mutate=effect,
+                operation_id="op-same",
             )
         assert exc.value.stage == "IDEMPOTENCY"
         assert effects == ["ran"]
 
     @pytest.mark.asyncio
     async def test_idempotency_unavailable_denies_effect(self, opa_allow):
-        from src.monkey_brain.api.idempotency import IdempotencyStore, _UnavailableIdempotencyBackend
+        from src.monkey_brain.api.idempotency import (
+            IdempotencyStore,
+            _UnavailableIdempotencyBackend,
+        )
 
         IdempotencyStore._instance = None
         store = IdempotencyStore.__new__(IdempotencyStore)
@@ -316,12 +349,16 @@ class TestPolicyIdempotencyAndCrash:
     @pytest.mark.asyncio
     async def test_durable_intent_without_result_is_not_success(self, opa_allow):
         store = _durable_audit()
-        store.append("alice", "audit.execute", {
-            "action": "orders.create.intent",
-            "outcome": "pending",
-            "correlation_id": "op-pre-effect",
-            "details": {"stage": "AUDIT_INTENT", "operation_id": "op-pre-effect"},
-        })
+        store.append(
+            "alice",
+            "audit.execute",
+            {
+                "action": "orders.create.intent",
+                "outcome": "pending",
+                "correlation_id": "op-pre-effect",
+                "details": {"stage": "AUDIT_INTENT", "operation_id": "op-pre-effect"},
+            },
+        )
         reset_operation_ledger_for_tests()
         recovered = reconstruct_operations_from_audit(store.find())
         assert recovered["op-pre-effect"] is SecurityOperationState.EXECUTING
@@ -336,7 +373,10 @@ class TestPolicyIdempotencyAndCrash:
             return "ok"
 
         await run_governed_mutation(
-            action="orders.create", resource="o", mutate=effect, operation_id="op-ok",
+            action="orders.create",
+            resource="o",
+            mutate=effect,
+            operation_id="op-ok",
         )
         reset_operation_ledger_for_tests()
         recovered = reconstruct_operations_from_audit(store.find())
@@ -352,11 +392,15 @@ class TestPolicyAgentsCannotResolve:
             reconcile_operation,
         )
 
-        get_operation_ledger().create(SecurityOperation(
-            operation_id="op-u", action="orders.payment", resource="pay",
-            state=SecurityOperationState.UNKNOWN,
-            transaction_class=TransactionClass.CLASS_B_EXTERNAL,
-        ))
+        get_operation_ledger().create(
+            SecurityOperation(
+                operation_id="op-u",
+                action="orders.payment",
+                resource="pay",
+                state=SecurityOperationState.UNKNOWN,
+                transaction_class=TransactionClass.CLASS_B_EXTERNAL,
+            )
+        )
         with pytest.raises(PermissionError):
             reconcile_operation("op-u", confirmed="succeeded")
         assert get_operation_ledger().get("op-u").state is SecurityOperationState.UNKNOWN

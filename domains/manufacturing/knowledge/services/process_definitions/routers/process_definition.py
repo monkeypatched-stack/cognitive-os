@@ -16,7 +16,9 @@ from services.common.auth import permission_ids
 from services.common.n8n_auth import n8n_webhook_auth_headers
 from services.auth.helpers import nats_store
 from services.auth.helpers.tokens import decode_access_token
-from services.auth.helpers.graph_store import delete_canvas_node as delete_neo4j_canvas_node
+from services.auth.helpers.graph_store import (
+    delete_canvas_node as delete_neo4j_canvas_node,
+)
 from services.process_definitions.utils import validate_outbound_url
 from services.process_definitions.models.process_definition import (
     PaginatedProcessDefinitionCanvasLayoutResponse,
@@ -49,9 +51,16 @@ from services.process_definitions.models.process_node_catalog import (
     ProcessNodeCatalogResponse,
 )
 from services.process_definitions.helpers import process_definition as crud
-from services.process_definitions.helpers.process_node_catalog import get_catalog_item, get_node_catalog
-from services.process_definitions.node_services.executor import execute_canvas_node_service
-from services.process_definitions.node_services.flow_simulator import simulate_canvas_flow
+from services.process_definitions.helpers.process_node_catalog import (
+    get_catalog_item,
+    get_node_catalog,
+)
+from services.process_definitions.node_services.executor import (
+    execute_canvas_node_service,
+)
+from services.process_definitions.node_services.flow_simulator import (
+    simulate_canvas_flow,
+)
 from services.common.auth import get_current_user, require_permission  # consolidated
 
 router = APIRouter()
@@ -103,8 +112,16 @@ async def _publish_canvas_webhook_nats_event(
 
 def _webhook_settings_from_node(node: dict) -> dict:
     metadata = node.get("metadata") if isinstance(node.get("metadata"), dict) else {}
-    provider = str(node.get("automationProvider") or metadata.get("automationProvider") or "webhook").lower()
-    direction = str(node.get("automationDirection") or metadata.get("automationDirection") or "outgoing").lower()
+    provider = str(
+        node.get("automationProvider")
+        or metadata.get("automationProvider")
+        or "webhook"
+    ).lower()
+    direction = str(
+        node.get("automationDirection")
+        or metadata.get("automationDirection")
+        or "outgoing"
+    ).lower()
     url = str(
         node.get("webhookUrl")
         or node.get("webhook_url")
@@ -114,9 +131,23 @@ def _webhook_settings_from_node(node: dict) -> dict:
         or metadata.get("n8nWebhookUrl")
         or ""
     ).strip()
-    method = str(node.get("webhookMethod") or node.get("n8nMethod") or metadata.get("webhookMethod") or metadata.get("n8nMethod") or "POST").upper()
-    secret = str(node.get("webhookSecret") or metadata.get("webhookSecret") or "").strip()
-    return {"provider": provider, "direction": direction, "url": url, "method": method, "secret": secret}
+    method = str(
+        node.get("webhookMethod")
+        or node.get("n8nMethod")
+        or metadata.get("webhookMethod")
+        or metadata.get("n8nMethod")
+        or "POST"
+    ).upper()
+    secret = str(
+        node.get("webhookSecret") or metadata.get("webhookSecret") or ""
+    ).strip()
+    return {
+        "provider": provider,
+        "direction": direction,
+        "url": url,
+        "method": method,
+        "secret": secret,
+    }
 
 
 async def _request_json_or_body(request: Request) -> dict:
@@ -130,14 +161,12 @@ async def _request_json_or_body(request: Request) -> dict:
 
 def _node_type_from_record(node: dict) -> str | None:
     metadata = node.get("metadata") if isinstance(node.get("metadata"), dict) else {}
-    return (
-        node.get("node_type")
-        or metadata.get("nodeType")
-        or metadata.get("type")
-    )
+    return node.get("node_type") or metadata.get("nodeType") or metadata.get("type")
 
 
-def _backend_call_from_node(node: dict, override: ProcessDefinitionCanvasBackendCall | None = None) -> ProcessDefinitionCanvasBackendCall | None:
+def _backend_call_from_node(
+    node: dict, override: ProcessDefinitionCanvasBackendCall | None = None
+) -> ProcessDefinitionCanvasBackendCall | None:
     if override is not None:
         return override
     metadata = node.get("metadata") if isinstance(node.get("metadata"), dict) else {}
@@ -154,10 +183,20 @@ def _backend_call_from_node(node: dict, override: ProcessDefinitionCanvasBackend
         backend["method"] = config["method"]
     headers = dict(backend.get("headers") or {})
     if isinstance(config.get("headers"), dict):
-        headers.update({str(key): str(value) for key, value in config["headers"].items() if value is not None})
-    if config.get("client_key") and "x-client-key" not in {key.lower(): value for key, value in headers.items()}:
+        headers.update(
+            {
+                str(key): str(value)
+                for key, value in config["headers"].items()
+                if value is not None
+            }
+        )
+    if config.get("client_key") and "x-client-key" not in {
+        key.lower(): value for key, value in headers.items()
+    }:
         headers["x-client-key"] = str(config["client_key"])
-    if config.get("client_secret") and "x-client-secret" not in {key.lower(): value for key, value in headers.items()}:
+    if config.get("client_secret") and "x-client-secret" not in {
+        key.lower(): value for key, value in headers.items()
+    }:
         headers["x-client-secret"] = str(config["client_secret"])
     backend["headers"] = headers
     if not backend.get("service"):
@@ -170,45 +209,182 @@ def _backend_call_from_node(node: dict, override: ProcessDefinitionCanvasBackend
 def _process_definition_endpoint_catalog() -> list[ProcessDefinitionEndpointInfo]:
     base = "/api/v1/process-definitions"
     return [
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/endpoints", description="List process_definition backend endpoints."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/", description="List process definitions."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/by-owner/{{owner}}", description="List process definitions by owner."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/by-status/{{status_value}}", description="List process definitions by status."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/by-tag/{{tag}}", description="List process definitions by tag."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/{{process_definition_id}}", description="Get one process_definition."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/", description="Create a process_definition."),
-        ProcessDefinitionEndpointInfo(method="PATCH", path=f"{base}/{{process_definition_id}}", description="Update a process_definition."),
-        ProcessDefinitionEndpointInfo(method="PATCH", path=f"{base}/{{process_definition_id}}/status/{{status_value}}", description="Update process_definition status."),
-        ProcessDefinitionEndpointInfo(method="DELETE", path=f"{base}/{{process_definition_id}}", description="Delete a process_definition."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/canvas/node-catalog", description="List supported canvas node types."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/canvas/node-catalog/{{identifier}}", description="Get one canvas node type by label, type, or key."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/canvas", description="List process_definition canvas layouts."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/canvas/by-process_definition/{{process_definition_id}}", description="List canvas layouts by process_definition."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/canvas/by-page/{{page_id}}", description="List canvas layouts by page."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas", description="Create a process_definition canvas layout."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/canvas/{{layout_id}}", description="Get a process_definition canvas layout."),
-        ProcessDefinitionEndpointInfo(method="PATCH", path=f"{base}/canvas/{{layout_id}}", description="Update a process_definition canvas layout."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas/{{layout_id}}/simulate", description="Simulate a full canvas flow and return a node-level trace."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas/{{layout_id}}/nodes/drop", description="Add a typed backend-capable node to a canvas."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/execute", description="Execute a canvas node backend action."),
-        ProcessDefinitionEndpointInfo(method="GET", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/properties", description="Get canvas node properties."),
-        ProcessDefinitionEndpointInfo(method="PATCH", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/properties", description="Update canvas node properties."),
-        ProcessDefinitionEndpointInfo(method="PUT", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/metadata", description="Replace canvas node metadata."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/hyperlinks", description="Add a canvas node hyperlink."),
-        ProcessDefinitionEndpointInfo(method="DELETE", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/hyperlinks/{{index}}", description="Remove a canvas node hyperlink."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/attachments", description="Add a canvas node attachment."),
-        ProcessDefinitionEndpointInfo(method="DELETE", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/attachments/{{index}}", description="Remove a canvas node attachment."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/webhook/incoming", description="Receive an incoming webhook for a canvas node."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/webhook/dispatch", description="Dispatch a canvas node webhook/http call."),
-        ProcessDefinitionEndpointInfo(method="POST", path=f"{base}/canvas/{{layout_id}}/clear", description="Clear canvas nodes and edges."),
-        ProcessDefinitionEndpointInfo(method="DELETE", path=f"{base}/canvas/{{layout_id}}/board", description="Clear canvas nodes and edges."),
-        ProcessDefinitionEndpointInfo(method="DELETE", path=f"{base}/canvas/{{layout_id}}/nodes", description="Clear canvas nodes and edges."),
-        ProcessDefinitionEndpointInfo(method="DELETE", path=f"{base}/canvas/nodes/{{canvas_node_id}}", description="Delete a canvas node from layouts and graph mirror."),
-        ProcessDefinitionEndpointInfo(method="DELETE", path=f"{base}/canvas/{{layout_id}}", description="Delete a canvas layout."),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/endpoints",
+            description="List process_definition backend endpoints.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET", path=f"{base}/", description="List process definitions."
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/by-owner/{{owner}}",
+            description="List process definitions by owner.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/by-status/{{status_value}}",
+            description="List process definitions by status.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/by-tag/{{tag}}",
+            description="List process definitions by tag.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/{{process_definition_id}}",
+            description="Get one process_definition.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST", path=f"{base}/", description="Create a process_definition."
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="PATCH",
+            path=f"{base}/{{process_definition_id}}",
+            description="Update a process_definition.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="PATCH",
+            path=f"{base}/{{process_definition_id}}/status/{{status_value}}",
+            description="Update process_definition status.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="DELETE",
+            path=f"{base}/{{process_definition_id}}",
+            description="Delete a process_definition.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/canvas/node-catalog",
+            description="List supported canvas node types.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/canvas/node-catalog/{{identifier}}",
+            description="Get one canvas node type by label, type, or key.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/canvas",
+            description="List process_definition canvas layouts.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/canvas/by-process_definition/{{process_definition_id}}",
+            description="List canvas layouts by process_definition.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/canvas/by-page/{{page_id}}",
+            description="List canvas layouts by page.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas",
+            description="Create a process_definition canvas layout.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/canvas/{{layout_id}}",
+            description="Get a process_definition canvas layout.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="PATCH",
+            path=f"{base}/canvas/{{layout_id}}",
+            description="Update a process_definition canvas layout.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas/{{layout_id}}/simulate",
+            description="Simulate a full canvas flow and return a node-level trace.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas/{{layout_id}}/nodes/drop",
+            description="Add a typed backend-capable node to a canvas.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/execute",
+            description="Execute a canvas node backend action.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="GET",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/properties",
+            description="Get canvas node properties.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="PATCH",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/properties",
+            description="Update canvas node properties.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="PUT",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/metadata",
+            description="Replace canvas node metadata.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/hyperlinks",
+            description="Add a canvas node hyperlink.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="DELETE",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/hyperlinks/{{index}}",
+            description="Remove a canvas node hyperlink.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/attachments",
+            description="Add a canvas node attachment.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="DELETE",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/attachments/{{index}}",
+            description="Remove a canvas node attachment.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/webhook/incoming",
+            description="Receive an incoming webhook for a canvas node.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas/{{layout_id}}/nodes/{{canvas_node_id}}/webhook/dispatch",
+            description="Dispatch a canvas node webhook/http call.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="POST",
+            path=f"{base}/canvas/{{layout_id}}/clear",
+            description="Clear canvas nodes and edges.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="DELETE",
+            path=f"{base}/canvas/{{layout_id}}/board",
+            description="Clear canvas nodes and edges.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="DELETE",
+            path=f"{base}/canvas/{{layout_id}}/nodes",
+            description="Clear canvas nodes and edges.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="DELETE",
+            path=f"{base}/canvas/nodes/{{canvas_node_id}}",
+            description="Delete a canvas node from layouts and graph mirror.",
+        ),
+        ProcessDefinitionEndpointInfo(
+            method="DELETE",
+            path=f"{base}/canvas/{{layout_id}}",
+            description="Delete a canvas layout.",
+        ),
     ]
 
 
 # ── Auth helpers ──────────────────────────────────────────────────────────────
+
 
 @router.get("/endpoints", response_model=list[ProcessDefinitionEndpointInfo])
 async def list_process_definition_endpoints(
@@ -226,10 +402,16 @@ async def list_process_definitions(
 ):
     """Return a paginated list of all process definitions."""
     process_definitions, total = await crud.get_all(db, page=page, page_size=page_size)
-    return {"total": total, "page": page, "page_size": page_size, "results": process_definitions}
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "results": process_definitions,
+    }
 
 
 # ── Filtered list endpoints ───────────────────────────────────────────────────
+
 
 @router.get("/by-owner/{owner}", response_model=list[ProcessDefinitionResponse])
 async def list_process_definitions_by_owner(
@@ -241,7 +423,9 @@ async def list_process_definitions_by_owner(
     return await crud.get_by_owner(db, owner)
 
 
-@router.get("/by-status/{status_value}", response_model=PaginatedProcessDefinitionResponse)
+@router.get(
+    "/by-status/{status_value}", response_model=PaginatedProcessDefinitionResponse
+)
 async def list_process_definitions_by_status(
     status_value: str,
     page: int = Query(1, ge=1),
@@ -250,7 +434,9 @@ async def list_process_definitions_by_status(
     _: dict = Depends(require_permission("perm-view-process-definitions")),
 ):
     """Return a paginated list of process definitions filtered by lifecycle status."""
-    process_definitions, total = await crud.get_by_status(db, status_value, page=page, page_size=page_size)
+    process_definitions, total = await crud.get_by_status(
+        db, status_value, page=page, page_size=page_size
+    )
     return PaginatedProcessDefinitionResponse(
         total=total,
         page=page,
@@ -270,6 +456,7 @@ async def list_process_definitions_by_tag(
 
 
 # ── Canvas layouts ────────────────────────────────────────────────────────────
+
 
 @router.get("/canvas/node-catalog", response_model=ProcessNodeCatalogResponse)
 async def get_canvas_node_catalog(
@@ -303,14 +490,12 @@ async def get_canvas_layout(
     )
     try:
         async with driver.session() as session:
-            nodes_result = await session.run(
-                """
+            nodes_result = await session.run("""
                 MATCH (n)
                 WHERE n:Plant OR n:Line OR n:Stage OR n:Workstation OR n:Machine
                    OR n:Equipment OR n:Device OR n:Worker OR n:Role OR n:SOP
                 RETURN labels(n) AS labels, properties(n) AS props
-                """
-            )
+                """)
             nodes = []
             async for record in nodes_result:
                 labels = record["labels"]
@@ -318,16 +503,17 @@ async def get_canvas_layout(
                 label = labels[0] if labels else "Unknown"
                 entity_id = props.get("entity_id") or props.get("id")
                 name = props.get("name") or props.get("title") or entity_id
-                nodes.append({
-                    "node_id": f"{label.lower()}s:{entity_id}",
-                    "entity_id": entity_id,
-                    "collection": f"{label.lower()}s",
-                    "name": name,
-                    "properties": props,
-                })
+                nodes.append(
+                    {
+                        "node_id": f"{label.lower()}s:{entity_id}",
+                        "entity_id": entity_id,
+                        "collection": f"{label.lower()}s",
+                        "name": name,
+                        "properties": props,
+                    }
+                )
 
-            edges_result = await session.run(
-                """
+            edges_result = await session.run("""
                 MATCH (a)-[r]->(b)
                 WHERE (a:Plant OR a:Line OR a:Stage OR a:Workstation OR a:Machine
                        OR a:Equipment OR a:Device OR a:Worker OR a:Role OR a:SOP)
@@ -336,8 +522,7 @@ async def get_canvas_layout(
                 RETURN labels(a) AS sl, properties(a) AS sp,
                        type(r) AS rel,
                        labels(b) AS tl, properties(b) AS tp
-                """
-            )
+                """)
             edges = []
             async for record in edges_result:
                 sl = record["sl"][0] if record["sl"] else "Unknown"
@@ -349,13 +534,15 @@ async def get_canvas_layout(
                 s_node = f"{sl.lower()}s:{s_id}"
                 t_node = f"{tl.lower()}s:{t_id}"
                 rel = record["rel"]
-                edges.append({
-                    "edge_id": f"{s_node}->{t_node}:{rel}",
-                    "source_node_id": s_node,
-                    "target_node_id": t_node,
-                    "relationship_type": rel,
-                    "label": rel.replace("_", " ").title(),
-                })
+                edges.append(
+                    {
+                        "edge_id": f"{s_node}->{t_node}:{rel}",
+                        "source_node_id": s_node,
+                        "target_node_id": t_node,
+                        "relationship_type": rel,
+                        "label": rel.replace("_", " ").title(),
+                    }
+                )
 
             return {
                 "layout_id": layout_id,
@@ -390,7 +577,9 @@ async def simulate_canvas_layout_flow(
             persist_trace=data.persist_trace,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
     return ProcessDefinitionCanvasFlowSimulationResponse(**result)
 
 
@@ -428,7 +617,9 @@ async def execute_canvas_node(
         provider="process_definition-node",
         direction="execution",
         payload=event_payload,
-        status="queued" if backend and not backend.url and not data.dry_run else "executed",
+        status=(
+            "queued" if backend and not backend.url and not data.dry_run else "executed"
+        ),
     )
 
     status_code = None
@@ -455,7 +646,15 @@ async def execute_canvas_node(
         elif node_type in {"mqtt in", "websocket in", "tcp in", "udp in"}:
             event.status = "registered" if ok else "failed"
         else:
-            event.status = response_body.get("status", "executed") if isinstance(response_body, dict) else "sent" if ok and backend and backend.url else "executed" if ok else "failed"
+            event.status = (
+                response_body.get("status", "executed")
+                if isinstance(response_body, dict)
+                else (
+                    "sent"
+                    if ok and backend and backend.url
+                    else "executed" if ok else "failed"
+                )
+            )
         event.status_code = status_code
         event.response_body = response_body
         event.error = error
@@ -499,9 +698,16 @@ async def receive_canvas_node_webhook_event(
         )
     webhook_settings = _webhook_settings_from_node(node)
     configured_secret = webhook_settings["secret"]
-    supplied_secret = request.headers.get("x-canvas-webhook-secret") or request.query_params.get("secret") or ""
+    supplied_secret = (
+        request.headers.get("x-canvas-webhook-secret")
+        or request.query_params.get("secret")
+        or ""
+    )
     if configured_secret and supplied_secret != configured_secret:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid canvas webhook secret")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid canvas webhook secret",
+        )
     payload = await _request_json_or_body(request)
     event = ProcessDefinitionCanvasWebhookEvent(
         event_id=str(uuid4()),
@@ -517,7 +723,9 @@ async def receive_canvas_node_webhook_event(
         event=event,
         node=node,
     )
-    properties = await crud.record_canvas_node_webhook_event(db, layout_id, canvas_node_id, event)
+    properties = await crud.record_canvas_node_webhook_event(
+        db, layout_id, canvas_node_id, event
+    )
     if properties is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -546,9 +754,15 @@ async def dispatch_canvas_node_webhook_event(
     webhook_settings = _webhook_settings_from_node(node)
     url = (data.url or webhook_settings["url"]).strip()
     if not url:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No webhook URL configured for this canvas node")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No webhook URL configured for this canvas node",
+        )
     if not validate_outbound_url(url):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="URL is not allowed (SSRF protection)")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="URL is not allowed (SSRF protection)",
+        )
     method = (data.method or webhook_settings["method"] or "POST").upper()
     connected = await crud.get_connected_canvas_nodes(db, layout_id, canvas_node_id)
     payload = data.payload or {}
@@ -606,7 +820,9 @@ async def dispatch_canvas_node_webhook_event(
             event=event,
             node=node,
         )
-        return ProcessDefinitionCanvasWebhookDispatchResponse(ok=False, error=str(exc), event=event)
+        return ProcessDefinitionCanvasWebhookDispatchResponse(
+            ok=False, error=str(exc), event=event
+        )
 
 
 @router.get(
@@ -639,7 +855,9 @@ async def update_canvas_node_properties(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-process-definitions")),
 ):
-    properties = await crud.update_canvas_node_properties(db, layout_id, canvas_node_id, data)
+    properties = await crud.update_canvas_node_properties(
+        db, layout_id, canvas_node_id, data
+    )
     if properties is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -659,7 +877,9 @@ async def replace_canvas_node_metadata(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-process-definitions")),
 ):
-    properties = await crud.replace_canvas_node_metadata(db, layout_id, canvas_node_id, metadata)
+    properties = await crud.replace_canvas_node_metadata(
+        db, layout_id, canvas_node_id, metadata
+    )
     if properties is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -680,7 +900,9 @@ async def add_canvas_node_hyperlink(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-process-definitions")),
 ):
-    properties = await crud.add_canvas_node_hyperlink(db, layout_id, canvas_node_id, hyperlink)
+    properties = await crud.add_canvas_node_hyperlink(
+        db, layout_id, canvas_node_id, hyperlink
+    )
     if properties is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -700,7 +922,9 @@ async def remove_canvas_node_hyperlink(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-process-definitions")),
 ):
-    properties = await crud.remove_canvas_node_list_item(db, layout_id, canvas_node_id, "hyperlinks", index)
+    properties = await crud.remove_canvas_node_list_item(
+        db, layout_id, canvas_node_id, "hyperlinks", index
+    )
     if properties is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -721,7 +945,9 @@ async def add_canvas_node_attachment(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-process-definitions")),
 ):
-    properties = await crud.add_canvas_node_attachment(db, layout_id, canvas_node_id, attachment)
+    properties = await crud.add_canvas_node_attachment(
+        db, layout_id, canvas_node_id, attachment
+    )
     if properties is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -741,7 +967,9 @@ async def remove_canvas_node_attachment(
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-update-process-definitions")),
 ):
-    properties = await crud.remove_canvas_node_list_item(db, layout_id, canvas_node_id, "attachments", index)
+    properties = await crud.remove_canvas_node_list_item(
+        db, layout_id, canvas_node_id, "attachments", index
+    )
     if properties is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -802,6 +1030,7 @@ async def delete_canvas_node(
 
 # ── Single record ─────────────────────────────────────────────────────────────
 
+
 @router.get("/{process_definition_id}", response_model=ProcessDefinitionResponse)
 async def get_process_definition(
     process_definition_id: str,
@@ -820,7 +1049,10 @@ async def get_process_definition(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=ProcessDefinitionResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=ProcessDefinitionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_process_definition(
     data: ProcessDefinitionCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -837,6 +1069,7 @@ async def create_process_definition(
 
 # ── Update ────────────────────────────────────────────────────────────────────
 
+
 @router.patch("/{process_definition_id}", response_model=ProcessDefinitionResponse)
 async def update_process_definition(
     process_definition_id: str,
@@ -848,7 +1081,9 @@ async def update_process_definition(
     try:
         updated = await crud.update(db, process_definition_id, data)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -857,7 +1092,9 @@ async def update_process_definition(
     return updated
 
 
-@router.post("/{process_definition_id}/submit", response_model=ProcessDefinitionResponse)
+@router.post(
+    "/{process_definition_id}/submit", response_model=ProcessDefinitionResponse
+)
 async def submit_process_definition_for_review(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -872,7 +1109,9 @@ async def submit_process_definition_for_review(
     return updated
 
 
-@router.post("/{process_definition_id}/approve", response_model=ProcessDefinitionResponse)
+@router.post(
+    "/{process_definition_id}/approve", response_model=ProcessDefinitionResponse
+)
 async def approve_process_definition(
     process_definition_id: str,
     approved_by: str | None = Query(None),
@@ -880,8 +1119,15 @@ async def approve_process_definition(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-update-process-definitions")),
 ):
-    approver = approved_by or current_user.get("sub") or current_user.get("user_id") or current_user.get("username")
-    updated = await crud.approve(db, process_definition_id, approved_by=approver, make_effective=make_effective)
+    approver = (
+        approved_by
+        or current_user.get("sub")
+        or current_user.get("user_id")
+        or current_user.get("username")
+    )
+    updated = await crud.approve(
+        db, process_definition_id, approved_by=approver, make_effective=make_effective
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -890,7 +1136,9 @@ async def approve_process_definition(
     return updated
 
 
-@router.post("/{process_definition_id}/retire", response_model=ProcessDefinitionResponse)
+@router.post(
+    "/{process_definition_id}/retire", response_model=ProcessDefinitionResponse
+)
 async def retire_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -905,7 +1153,11 @@ async def retire_process_definition(
     return updated
 
 
-@router.post("/{process_definition_id}/new-revision", response_model=ProcessDefinitionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{process_definition_id}/new-revision",
+    response_model=ProcessDefinitionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_process_definition_revision(
     process_definition_id: str,
     new_process_definition_id: str = Query(...),
@@ -918,7 +1170,9 @@ async def create_process_definition_revision(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"ProcessDefinition '{new_process_definition_id}' already exists",
         )
-    created = await crud.create_new_revision(db, process_definition_id, new_process_definition_id, revision)
+    created = await crud.create_new_revision(
+        db, process_definition_id, new_process_definition_id, revision
+    )
     if not created:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -935,7 +1189,9 @@ async def backfill_recipe_routes_as_process_definitions(
     return await crud.backfill_recipe_routes(db)
 
 
-@router.patch("/{process_definition_id}/status", response_model=ProcessDefinitionResponse)
+@router.patch(
+    "/{process_definition_id}/status", response_model=ProcessDefinitionResponse
+)
 async def update_process_definition_status(
     process_definition_id: str,
     status_value: str = Query(..., alias="value"),
@@ -953,6 +1209,7 @@ async def update_process_definition_status(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{process_definition_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_process_definition(

@@ -36,8 +36,10 @@ logger = logging.getLogger(__name__)
 # Domain models
 # ---------------------------------------------------------------------------
 
+
 class TrustDomain:
     """A trusted external mesh domain that may exchange tokens with this mesh."""
+
     def __init__(
         self,
         domain_id: str,
@@ -66,6 +68,7 @@ class TrustDomain:
 # Policy Control Plane
 # ---------------------------------------------------------------------------
 
+
 class PolicyControlPlane:
     """Central policy authority for the mesh.
 
@@ -73,8 +76,8 @@ class PolicyControlPlane:
     invalidation; optionally refreshes OPA bundle on schedule.
     """
 
-    _COLLECTION_ROLES  = "roles"
-    _COLLECTION_TRUST  = "pcp_trust_domains"
+    _COLLECTION_ROLES = "roles"
+    _COLLECTION_TRUST = "pcp_trust_domains"
     _COLLECTION_BUNDLES = "pcp_opa_bundles"
     _NATS_POLICY_SUBJECT = "indus.policy.invalidate"
 
@@ -96,13 +99,16 @@ class PolicyControlPlane:
                 self._bundle_refresh_loop(interval)
             )
             logger.info("PCP: OPA bundle refresh started (interval=%ds)", interval)
-            
+
         # Sync role-permission policies into the cingulate PolicyRegistry (governance authority)
         try:
             from src.cingulate.governance.policy_registry import get_policy_registry
+
             registry = get_policy_registry()
             synced = await registry.sync_from_pcp(db=self._db)
-            logger.info("PCP: synced %d role policies into cingulate PolicyRegistry", synced)
+            logger.info(
+                "PCP: synced %d role policies into cingulate PolicyRegistry", synced
+            )
         except Exception as exc:
             logger.debug("PCP: cingulate registry sync skipped: %s", exc)
         logger.info("PCP: started")
@@ -127,6 +133,7 @@ class PolicyControlPlane:
             return []
         try:
             from services.auth.helpers.rbac import resolve_permissions
+
             return await resolve_permissions(self._db, role_ids)
         except Exception as exc:
             logger.warning("PCP: permission resolution failed: %s", exc)
@@ -144,7 +151,9 @@ class PolicyControlPlane:
             roles.append(doc)
         return roles
 
-    async def publish_role_change(self, role_id: str, change_type: str = "updated") -> None:
+    async def publish_role_change(
+        self, role_id: str, change_type: str = "updated"
+    ) -> None:
         """Broadcast a role-change event so all mesh nodes can invalidate caches."""
         event = {
             "event_type": "policy.role.changed",
@@ -179,18 +188,22 @@ class PolicyControlPlane:
             return None
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=10.0) as client:
                 r = await client.get(f"{opa_url}/v1/status")
                 if r.status_code == 200:
                     bundles = r.json().get("result", {}).get("bundles", {})
                     bundle_status = bundles.get(bundle_name)
                     if bundle_status is None:
-                        bundle_status = await self._fallback_policies_status(client, opa_url)
+                        bundle_status = await self._fallback_policies_status(
+                            client, opa_url
+                        )
                         if bundle_status is None:
                             logger.warning(
                                 "PCP: OPA has no bundle named %r configured and no policies "
                                 "loaded at all (known bundles: %s)",
-                                bundle_name, list(bundles),
+                                bundle_name,
+                                list(bundles),
                             )
                             return None
                     bundle_data = {
@@ -240,16 +253,24 @@ class PolicyControlPlane:
             return False
         try:
             import httpx
+
             url = f"{opa_url}/v1/policies/{policy_path.replace('/', '_')}"
             async with httpx.AsyncClient(timeout=5.0) as client:
-                r = await client.put(url, content=policy_rego.encode(), headers={"Content-Type": "text/plain"})
+                r = await client.put(
+                    url,
+                    content=policy_rego.encode(),
+                    headers={"Content-Type": "text/plain"},
+                )
                 if r.status_code in (200, 201):
                     logger.info("PCP: policy pushed to OPA: %s", policy_path)
-                    await self._nats_publish(self._NATS_POLICY_SUBJECT, {
-                        "event_type": "policy.bundle.updated",
-                        "policy_path": policy_path,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    })
+                    await self._nats_publish(
+                        self._NATS_POLICY_SUBJECT,
+                        {
+                            "event_type": "policy.bundle.updated",
+                            "policy_path": policy_path,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        },
+                    )
                     return True
                 logger.warning("PCP: OPA policy push returned %d", r.status_code)
         except Exception as exc:
@@ -265,18 +286,24 @@ class PolicyControlPlane:
         if self._db is None:
             logger.warning("PCP: no database; trust domain registration skipped")
             return
-        doc = {**domain.to_dict(), "registered_at": datetime.now(timezone.utc).isoformat()}
+        doc = {
+            **domain.to_dict(),
+            "registered_at": datetime.now(timezone.utc).isoformat(),
+        }
         await self._db[self._COLLECTION_TRUST].update_one(
             {"domain_id": domain.domain_id},
             {"$set": doc},
             upsert=True,
         )
         self._trust_cache[domain.domain_id] = domain
-        await self._nats_publish(self._NATS_POLICY_SUBJECT, {
-            "event_type": "policy.trust.registered",
-            "domain_id": domain.domain_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        await self._nats_publish(
+            self._NATS_POLICY_SUBJECT,
+            {
+                "event_type": "policy.trust.registered",
+                "domain_id": domain.domain_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
         logger.info("PCP: trust domain registered: %s", domain.domain_id)
 
     async def get_trust_domain(self, domain_id: str) -> TrustDomain | None:
@@ -285,7 +312,9 @@ class PolicyControlPlane:
             return self._trust_cache[domain_id]
         if self._db is None:
             return None
-        doc = await self._db[self._COLLECTION_TRUST].find_one({"domain_id": domain_id}, {"_id": 0})
+        doc = await self._db[self._COLLECTION_TRUST].find_one(
+            {"domain_id": domain_id}, {"_id": 0}
+        )
         if doc:
             td = TrustDomain(
                 domain_id=doc["domain_id"],
@@ -317,18 +346,23 @@ class PolicyControlPlane:
             return
         try:
             import nats
+
             self._nats = await nats.connect(nats_url)
             # Redacted: a NATS URL conventionally embeds credentials (nats://user:pass@host).
             from services.common.db import _redact_url
+
             logger.info("PCP: connected to NATS at %s", _redact_url(nats_url))
         except Exception as exc:
-            logger.warning("PCP: NATS connection failed (policy events will be skipped): %s", exc)
+            logger.warning(
+                "PCP: NATS connection failed (policy events will be skipped): %s", exc
+            )
 
     async def _nats_publish(self, subject: str, payload: dict) -> None:
         if not self._nats:
             return
         try:
             import json
+
             await self._nats.publish(subject, json.dumps(payload).encode())
         except Exception as exc:
             logger.debug("PCP: NATS publish failed (non-fatal): %s", exc)

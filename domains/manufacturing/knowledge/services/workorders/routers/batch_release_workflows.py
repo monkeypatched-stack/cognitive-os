@@ -11,7 +11,6 @@ from services.workorders.models.batch_release_workflows import (
     PaginatedBatchReleaseWorkflowResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -35,7 +34,9 @@ async def list_batch_release_workflows(
         status=status_filter,
         release_decision=release_decision,
     )
-    return PaginatedBatchReleaseWorkflowResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedBatchReleaseWorkflowResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{batch_release_workflow_id}", response_model=BatchReleaseWorkflowResponse)
@@ -46,24 +47,36 @@ async def get_batch_release_workflow(
 ):
     record = await crud.get_by_id(db, batch_release_workflow_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Batch release workflow '{batch_release_workflow_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Batch release workflow '{batch_release_workflow_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=BatchReleaseWorkflowResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=BatchReleaseWorkflowResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_batch_release_workflow(
     data: BatchReleaseWorkflowCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-tasks")),
 ):
     if await crud.get_by_id(db, data.batch_release_workflow_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Batch release workflow '{data.batch_release_workflow_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Batch release workflow '{data.batch_release_workflow_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
 
 
-@router.patch("/{batch_release_workflow_id}", response_model=BatchReleaseWorkflowResponse)
+@router.patch(
+    "/{batch_release_workflow_id}", response_model=BatchReleaseWorkflowResponse
+)
 async def update_batch_release_workflow(
     batch_release_workflow_id: str,
     data: BatchReleaseWorkflowUpdate,
@@ -72,7 +85,10 @@ async def update_batch_release_workflow(
 ):
     updated = await crud.update(db, batch_release_workflow_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Batch release workflow '{batch_release_workflow_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Batch release workflow '{batch_release_workflow_id}' not found",
+        )
     return updated
 
 
@@ -83,4 +99,7 @@ async def delete_batch_release_workflow(
     _: dict = Depends(require_permission("perm-delete-tasks")),
 ):
     if not await crud.delete(db, batch_release_workflow_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Batch release workflow '{batch_release_workflow_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Batch release workflow '{batch_release_workflow_id}' not found",
+        )

@@ -33,6 +33,7 @@ transaction is HELD for review (fraud_review=True, with the real
 risk_assessment attached) — never silently approved, and reported
 distinctly from an ordinary decline.
 """
+
 from __future__ import annotations
 
 import time
@@ -52,36 +53,78 @@ CREDIT_ACCOUNT_ID = "acct_alice_credit"
 
 def _seed_world() -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity(STORE_ID, EntityType.ORGANIZATION, "Key Food", {
-        "address": "200 W 23rd St, New York, NY", "delivery_fee": 4.99,
-    })
-    kg.add_entity("prod_milk", EntityType.ASSET, "Milk", {
-        "price": 3.99, "quantity": 100, "store_id": STORE_ID,
-    })
-    kg.add_entity(CREDIT_ACCOUNT_ID, EntityType.ACCOUNT, "Alice Credit Card", {
-        "account_type": "credit", "credit_limit": 100_000.0,
-        "balance": 0.0, "owner": ACTOR_ID,
-    })
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {
-        "type": "payment_processor", "priority": 0,
-    })
+    kg.add_entity(
+        STORE_ID,
+        EntityType.ORGANIZATION,
+        "Key Food",
+        {
+            "address": "200 W 23rd St, New York, NY",
+            "delivery_fee": 4.99,
+        },
+    )
+    kg.add_entity(
+        "prod_milk",
+        EntityType.ASSET,
+        "Milk",
+        {
+            "price": 3.99,
+            "quantity": 100,
+            "store_id": STORE_ID,
+        },
+    )
+    kg.add_entity(
+        CREDIT_ACCOUNT_ID,
+        EntityType.ACCOUNT,
+        "Alice Credit Card",
+        {
+            "account_type": "credit",
+            "credit_limit": 100_000.0,
+            "balance": 0.0,
+            "owner": ACTOR_ID,
+        },
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {
+            "type": "payment_processor",
+            "priority": 0,
+        },
+    )
     return kg
 
 
 def _cart() -> list[dict]:
-    return [{"id": "prod_milk", "name": "Milk", "price": 3.99, "qty": 2,
-             "store_id": STORE_ID, "store_name": "Key Food"}]
+    return [
+        {
+            "id": "prod_milk",
+            "name": "Milk",
+            "price": 3.99,
+            "qty": 2,
+            "store_id": STORE_ID,
+            "store_name": "Key Food",
+        }
+    ]
 
 
 def _seed_order_history(kg: KnowledgeGraph, actor_id: str, count: int, total: float, when: float) -> None:
     for i in range(count):
-        kg.add_entity(f"ord_hist_{actor_id}_{i}", EntityType.EVENT, "Grocery Order", {
-            "order_id": f"ord_hist_{actor_id}_{i}", "buyer_id": actor_id,
-            "total": total, "created_at": when,
-        })
+        kg.add_entity(
+            f"ord_hist_{actor_id}_{i}",
+            EntityType.EVENT,
+            "Grocery Order",
+            {
+                "order_id": f"ord_hist_{actor_id}_{i}",
+                "buyer_id": actor_id,
+                "total": total,
+                "created_at": when,
+            },
+        )
 
 
 # ── assess_transaction_risk() itself ─────────────────────────────────────
+
 
 def test_mb3014_first_ever_order_is_not_flagged():
     kg = _seed_world()
@@ -127,6 +170,7 @@ def test_mb3014_unrelated_actor_history_does_not_affect_assessment():
 
 # ── the fraud workflow, wired into real checkout ─────────────────────────
 
+
 def test_mb3014_high_risk_transaction_held_at_confirmation_and_payment():
     kg = _seed_world()
     now = time.time()
@@ -135,14 +179,23 @@ def test_mb3014_high_risk_transaction_held_at_confirmation_and_payment():
     # to 10 in a later pass -- see module docstring.
     _seed_order_history(kg, ACTOR_ID, count=10, total=20.0, when=now - 60)
 
-    order = OrderCreationCapability().handle({"context": {
-        "knowledge_graph": kg, "selected_product": _cart(), "actor_id": ACTOR_ID,
-        "question": "deliver my order",
-    }})
+    order = OrderCreationCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "selected_product": _cart(),
+                "actor_id": ACTOR_ID,
+                "question": "deliver my order",
+            }
+        }
+    )
     assert order["success"] is True
     context = {
-        "knowledge_graph": kg, "total": order["total"], "order": order,
-        "actor_id": ACTOR_ID, "selected_product": _cart(),
+        "knowledge_graph": kg,
+        "total": order["total"],
+        "order": order,
+        "actor_id": ACTOR_ID,
+        "selected_product": _cart(),
     }
 
     confirmation = PaymentConfirmationCapability().handle({"context": context})
@@ -165,13 +218,22 @@ def test_mb3014_high_risk_transaction_held_at_confirmation_and_payment():
 def test_mb3014_normal_transaction_is_not_held():
     kg = _seed_world()
 
-    order = OrderCreationCapability().handle({"context": {
-        "knowledge_graph": kg, "selected_product": _cart(), "actor_id": ACTOR_ID,
-        "question": "deliver my order",
-    }})
+    order = OrderCreationCapability().handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "selected_product": _cart(),
+                "actor_id": ACTOR_ID,
+                "question": "deliver my order",
+            }
+        }
+    )
     context = {
-        "knowledge_graph": kg, "total": order["total"], "order": order,
-        "actor_id": ACTOR_ID, "selected_product": _cart(),
+        "knowledge_graph": kg,
+        "total": order["total"],
+        "order": order,
+        "actor_id": ACTOR_ID,
+        "selected_product": _cart(),
     }
 
     confirmation = PaymentConfirmationCapability().handle({"context": context})

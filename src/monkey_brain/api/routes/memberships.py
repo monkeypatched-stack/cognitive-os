@@ -25,6 +25,7 @@ Delegation:
 Lifecycle:
     POST /memberships/{id}/activate|suspend|resume|terminate
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,9 +35,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    MembershipCreateRequest, MembershipUpdateRequest, MembershipResponse,
-    RoleAssignRequest, TrustUpdateRequest, TrustResponse, ReputationResponse,
-    DelegationCreateRequest, DelegationResponse,
+    MembershipCreateRequest,
+    MembershipUpdateRequest,
+    MembershipResponse,
+    RoleAssignRequest,
+    TrustUpdateRequest,
+    TrustResponse,
+    ReputationResponse,
+    DelegationCreateRequest,
+    DelegationResponse,
 )
 from src.monkey_brain.api.idempotency import idempotent
 
@@ -67,9 +74,16 @@ def _require_pr(request: Request) -> Any:
 
 def _to_response(m: Any) -> MembershipResponse:
     return MembershipResponse(
-        membership_id=m.membership_id, actor_id=m.actor_id, society_id=m.society_id,
-        team_id=m.team_id, roles=list(m.roles), status=m.status, start_time=m.start_time,
-        end_time=m.end_time, permissions=list(m.permissions), trust_score=m.trust_score,
+        membership_id=m.membership_id,
+        actor_id=m.actor_id,
+        society_id=m.society_id,
+        team_id=m.team_id,
+        roles=list(m.roles),
+        status=m.status,
+        start_time=m.start_time,
+        end_time=m.end_time,
+        permissions=list(m.permissions),
+        trust_score=m.trust_score,
         metadata=dict(m.metadata),
     )
 
@@ -96,6 +110,7 @@ def _find_membership_or_404(pr: Any, membership_id: str) -> Any:
 
 # ── Core CRUD ─────────────────────────────────────────────────────────────
 
+
 @router.post("/memberships", response_model=MembershipResponse, tags=["Memberships"])
 @idempotent("memberships.create_membership")
 async def create_membership(
@@ -110,7 +125,12 @@ async def create_membership(
 
     if sr.get_actor(body.actor_id) is None and pr.societies_for_actor(body.actor_id) == ():
         # Brand-new actor: this membership becomes its home registration.
-        from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+        from src.monkey_brain.kernel.society.domain import (
+            ActorProfile,
+            ActorIdentity,
+            ActorType,
+        )
+
         profile = ActorProfile(
             identity=ActorIdentity(
                 actor_id=body.actor_id,
@@ -128,8 +148,11 @@ async def create_membership(
         # register_actor() already creates the Membership (role="member") —
         # apply the requested role/permissions/team_id on top if different.
         m = pr.membership_registry.get_membership(
-            next(mm.membership_id for mm in pr.membership_registry.memberships_for_actor(body.actor_id)
-                 if mm.society_id == body.society_id)
+            next(
+                mm.membership_id
+                for mm in pr.membership_registry.memberships_for_actor(body.actor_id)
+                if mm.society_id == body.society_id
+            )
         )
         if body.role and body.role not in m.roles:
             m = pr.membership_registry.assign_role(m.membership_id, body.role)
@@ -141,9 +164,13 @@ async def create_membership(
             )
         ok = pr.join_society(body.actor_id, body.society_id, role=body.role or "member")
         if not ok:
-            raise HTTPException(status_code=404, detail="Actor has no home registration and society join failed")
-        m = next(mm for mm in pr.membership_registry.memberships_for_actor(body.actor_id)
-                 if mm.society_id == body.society_id)
+            raise HTTPException(
+                status_code=404,
+                detail="Actor has no home registration and society join failed",
+            )
+        m = next(
+            mm for mm in pr.membership_registry.memberships_for_actor(body.actor_id) if mm.society_id == body.society_id
+        )
     return _to_response(m)
 
 
@@ -158,7 +185,11 @@ async def list_memberships(
     return [_to_response(m) for m in pr.membership_registry.active_memberships()]
 
 
-@router.patch("/memberships/{membership_id}", response_model=MembershipResponse, tags=["Memberships"])
+@router.patch(
+    "/memberships/{membership_id}",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.update_membership")
 async def update_membership(
     membership_id: str,
@@ -169,10 +200,14 @@ async def update_membership(
     pr = _get_planetary_runtime(request)
     m = _find_membership_or_404(pr, membership_id)
     if body.metadata is not None or body.team_id is not None:
-        m = pr.membership_registry.record_event(
-            membership_id, "updated",
-            **({"team_id": body.team_id} if body.team_id is not None else {}),
-        ) or m
+        m = (
+            pr.membership_registry.record_event(
+                membership_id,
+                "updated",
+                **({"team_id": body.team_id} if body.team_id is not None else {}),
+            )
+            or m
+        )
     return _to_response(m)
 
 
@@ -191,7 +226,12 @@ async def delete_membership(
 
 # ── Discovery ─────────────────────────────────────────────────────────────
 
-@router.get("/memberships/actor/{actor_id}", response_model=list[MembershipResponse], tags=["Memberships"])
+
+@router.get(
+    "/memberships/actor/{actor_id}",
+    response_model=list[MembershipResponse],
+    tags=["Memberships"],
+)
 async def get_actor_memberships(
     actor_id: str,
     request: Request,
@@ -203,7 +243,11 @@ async def get_actor_memberships(
     return [_to_response(m) for m in pr.membership_registry.memberships_for_actor(actor_id)]
 
 
-@router.get("/memberships/society/{society_id}", response_model=list[MembershipResponse], tags=["Memberships"])
+@router.get(
+    "/memberships/society/{society_id}",
+    response_model=list[MembershipResponse],
+    tags=["Memberships"],
+)
 async def get_society_memberships(
     society_id: str,
     request: Request,
@@ -215,7 +259,11 @@ async def get_society_memberships(
     return [_to_response(m) for m in pr.membership_registry.memberships_for_society(society_id)]
 
 
-@router.get("/memberships/team/{team_id}", response_model=list[MembershipResponse], tags=["Memberships"])
+@router.get(
+    "/memberships/team/{team_id}",
+    response_model=list[MembershipResponse],
+    tags=["Memberships"],
+)
 async def get_team_memberships(
     team_id: str,
     request: Request,
@@ -227,7 +275,11 @@ async def get_team_memberships(
     return [_to_response(m) for m in pr.membership_registry.memberships_for_team(team_id)]
 
 
-@router.get("/memberships/role/{role}", response_model=list[MembershipResponse], tags=["Memberships"])
+@router.get(
+    "/memberships/role/{role}",
+    response_model=list[MembershipResponse],
+    tags=["Memberships"],
+)
 async def get_memberships_by_role(
     role: str,
     request: Request,
@@ -263,7 +315,11 @@ async def get_membership_history(
     return [r.to_dict() for r in sorted(history, key=lambda r: r.start_time)]
 
 
-@router.get("/memberships/{membership_id}", response_model=MembershipResponse, tags=["Memberships"])
+@router.get(
+    "/memberships/{membership_id}",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 async def get_membership(
     membership_id: str,
     request: Request,
@@ -278,6 +334,7 @@ async def get_membership(
 
 # ── Role management ───────────────────────────────────────────────────────
 
+
 @router.get("/memberships/{membership_id}/roles", tags=["Memberships"])
 async def list_roles(
     membership_id: str,
@@ -288,7 +345,11 @@ async def list_roles(
     return list(_find_membership_or_404(pr, membership_id).roles)
 
 
-@router.post("/memberships/{membership_id}/roles", response_model=MembershipResponse, tags=["Memberships"])
+@router.post(
+    "/memberships/{membership_id}/roles",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.assign_role")
 async def assign_role(
     membership_id: str,
@@ -302,7 +363,11 @@ async def assign_role(
     return _to_response(m)
 
 
-@router.delete("/memberships/{membership_id}/roles/{role}", response_model=MembershipResponse, tags=["Memberships"])
+@router.delete(
+    "/memberships/{membership_id}/roles/{role}",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.remove_role")
 async def remove_role(
     membership_id: str,
@@ -317,6 +382,7 @@ async def remove_role(
 
 
 # ── Policy resolution ───────────────────────────────────────────────────
+
 
 @router.get("/memberships/{membership_id}/policies", tags=["Memberships"])
 async def get_effective_policies(
@@ -372,7 +438,12 @@ async def get_effective_constraints(
 
 # ── Trust ─────────────────────────────────────────────────────────────────
 
-@router.get("/memberships/{membership_id}/trust", response_model=TrustResponse, tags=["Memberships"])
+
+@router.get(
+    "/memberships/{membership_id}/trust",
+    response_model=TrustResponse,
+    tags=["Memberships"],
+)
 async def get_trust(
     membership_id: str,
     request: Request,
@@ -383,13 +454,18 @@ async def get_trust(
     governance = pr.governance_for(m.society_id)
     record = governance.get_trust(m.actor_id) if governance is not None else None
     return TrustResponse(
-        actor_id=m.actor_id, trust_score=record.trust_score if record else m.trust_score,
+        actor_id=m.actor_id,
+        trust_score=record.trust_score if record else m.trust_score,
         evidence_count=record.evidence_count if record else 0,
         factors=dict(record.factors) if record else {},
     )
 
 
-@router.patch("/memberships/{membership_id}/trust", response_model=MembershipResponse, tags=["Memberships"])
+@router.patch(
+    "/memberships/{membership_id}/trust",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.update_trust")
 async def update_trust(
     membership_id: str,
@@ -400,11 +476,17 @@ async def update_trust(
     pr = _get_planetary_runtime(request)
     m = _find_membership_or_404(pr, membership_id)
     governance = pr.governance_for(m.society_id)
-    updated = pr.membership_registry.update_trust(membership_id, body.trust_score, governance=governance, factors=body.factors)
+    updated = pr.membership_registry.update_trust(
+        membership_id, body.trust_score, governance=governance, factors=body.factors
+    )
     return _to_response(updated)
 
 
-@router.get("/memberships/{membership_id}/reputation", response_model=ReputationResponse, tags=["Memberships"])
+@router.get(
+    "/memberships/{membership_id}/reputation",
+    response_model=ReputationResponse,
+    tags=["Memberships"],
+)
 async def get_reputation(
     membership_id: str,
     request: Request,
@@ -414,16 +496,24 @@ async def get_reputation(
     m = _find_membership_or_404(pr, membership_id)
     governance = pr.governance_for(m.society_id)
     record = governance.get_trust(m.actor_id) if governance is not None else None
-    audit_count = len([a for a in getattr(governance, "_audit_log", []) if a.actor_id == m.actor_id]) if governance else 0
+    audit_count = (
+        len([a for a in getattr(governance, "_audit_log", []) if a.actor_id == m.actor_id]) if governance else 0
+    )
     return ReputationResponse(
-        actor_id=m.actor_id, evidence_count=record.evidence_count if record else 0,
+        actor_id=m.actor_id,
+        evidence_count=record.evidence_count if record else 0,
         audit_entries=audit_count,
     )
 
 
 # ── Delegation ────────────────────────────────────────────────────────────
 
-@router.post("/memberships/{membership_id}/delegations", response_model=DelegationResponse, tags=["Memberships"])
+
+@router.post(
+    "/memberships/{membership_id}/delegations",
+    response_model=DelegationResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.create_delegation")
 async def create_delegation(
     membership_id: str,
@@ -434,13 +524,21 @@ async def create_delegation(
     pr = _get_planetary_runtime(request)
     _find_membership_or_404(pr, membership_id)
     delegation = pr.delegation_registry.grant(
-        membership_id, body.delegate_actor_id, tuple(body.permissions),
-        valid_until=body.valid_until, constraints=body.constraints, reason=body.reason,
+        membership_id,
+        body.delegate_actor_id,
+        tuple(body.permissions),
+        valid_until=body.valid_until,
+        constraints=body.constraints,
+        reason=body.reason,
     )
     return _delegation_to_response(delegation)
 
 
-@router.get("/memberships/{membership_id}/delegations", response_model=list[DelegationResponse], tags=["Memberships"])
+@router.get(
+    "/memberships/{membership_id}/delegations",
+    response_model=list[DelegationResponse],
+    tags=["Memberships"],
+)
 async def list_delegations(
     membership_id: str,
     request: Request,
@@ -461,11 +559,15 @@ async def revoke_delegation(
     pr = _get_planetary_runtime(request)
     ok = pr.delegation_registry.revoke(delegation_id) if pr is not None else False
     if not ok:
-        raise HTTPException(status_code=404, detail=f"Delegation {delegation_id} not found or already revoked")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Delegation {delegation_id} not found or already revoked",
+        )
     return {"status": "revoked", "delegation_id": delegation_id}
 
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────
+
 
 async def _set_status(request: Request, membership_id: str, status: str) -> MembershipResponse:
     pr = _get_planetary_runtime(request)
@@ -479,37 +581,57 @@ async def _set_status(request: Request, membership_id: str, status: str) -> Memb
     return _to_response(m)
 
 
-@router.post("/memberships/{membership_id}/activate", response_model=MembershipResponse, tags=["Memberships"])
+@router.post(
+    "/memberships/{membership_id}/activate",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.activate_membership")
 async def activate_membership(
-    membership_id: str, request: Request,
+    membership_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-manage-memberships")),
 ) -> MembershipResponse:
     return await _set_status(request, membership_id, "active")
 
 
-@router.post("/memberships/{membership_id}/suspend", response_model=MembershipResponse, tags=["Memberships"])
+@router.post(
+    "/memberships/{membership_id}/suspend",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.suspend_membership")
 async def suspend_membership(
-    membership_id: str, request: Request,
+    membership_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-manage-memberships")),
 ) -> MembershipResponse:
     return await _set_status(request, membership_id, "suspended")
 
 
-@router.post("/memberships/{membership_id}/resume", response_model=MembershipResponse, tags=["Memberships"])
+@router.post(
+    "/memberships/{membership_id}/resume",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.resume_membership")
 async def resume_membership(
-    membership_id: str, request: Request,
+    membership_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-manage-memberships")),
 ) -> MembershipResponse:
     return await _set_status(request, membership_id, "active")
 
 
-@router.post("/memberships/{membership_id}/terminate", response_model=MembershipResponse, tags=["Memberships"])
+@router.post(
+    "/memberships/{membership_id}/terminate",
+    response_model=MembershipResponse,
+    tags=["Memberships"],
+)
 @idempotent("memberships.terminate_membership")
 async def terminate_membership(
-    membership_id: str, request: Request,
+    membership_id: str,
+    request: Request,
     user_id: str = Depends(require_permission("perm-manage-memberships")),
 ) -> MembershipResponse:
     return await _set_status(request, membership_id, "terminated")
@@ -517,6 +639,7 @@ async def terminate_membership(
 
 def dataclasses_to_dict(obj: Any) -> dict[str, Any]:
     import dataclasses
+
     if dataclasses.is_dataclass(obj):
         d = dataclasses.asdict(obj)
         for k, v in d.items():

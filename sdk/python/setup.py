@@ -16,7 +16,7 @@ setup(
     name="monkeypatched-sdk",
     version="1.0.0",
     description="Adapter SDK for connecting external systems to the Monkeypatched platform",
-    long_description=open("../../README.md").read() if __import__("pathlib").Path("../../README.md").exists() else "",
+    long_description=(open("../../README.md").read() if __import__("pathlib").Path("../../README.md").exists() else ""),
     author="Monkeypatched",
     python_requires=">=3.10",
     packages=find_packages(exclude=["examples*", "tests*"]),

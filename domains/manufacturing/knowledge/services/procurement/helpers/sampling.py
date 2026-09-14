@@ -104,7 +104,9 @@ def _normalize_aql(value: object) -> str:
     return "II"
 
 
-def _normalize_plan_version(value: object, plan_code: str, created_at: object = None) -> dict:
+def _normalize_plan_version(
+    value: object, plan_code: str, created_at: object = None
+) -> dict:
     version = dict(value) if isinstance(value, dict) else {}
     version.setdefault("version_number", str(version.get("version") or "1.0"))
     version.setdefault("effective_date", created_at or utc_now())
@@ -156,18 +158,32 @@ def _normalize_sampling_plan_record(doc: Optional[dict]) -> Optional[dict]:
         return None
 
     record = _serialize(doc)
-    plan_id = str(record.get("plan_id") or record.get("id") or record.get("plan_code") or "SAMPLING-PLAN")
+    plan_id = str(
+        record.get("plan_id")
+        or record.get("id")
+        or record.get("plan_code")
+        or "SAMPLING-PLAN"
+    )
     plan_code = str(record.get("plan_code") or plan_id)
     record["plan_id"] = plan_id
     record["plan_code"] = plan_code
     record.setdefault("name", record.get("description") or f"{plan_code} Sampling Plan")
-    record["risk_classification"] = _normalize_risk(record.get("risk_classification") or record.get("risk"))
-    record["sampling_method"] = _normalize_sampling_method(record.get("sampling_method") or record.get("method"))
+    record["risk_classification"] = _normalize_risk(
+        record.get("risk_classification") or record.get("risk")
+    )
+    record["sampling_method"] = _normalize_sampling_method(
+        record.get("sampling_method") or record.get("method")
+    )
 
     if record["sampling_method"] == "AQL Standard":
         record["aql_level"] = _normalize_aql(record.get("aql_level"))
     elif record["sampling_method"] == "Fixed Quantity":
-        record["fixed_sample_qty"] = int(record.get("fixed_sample_qty") or record.get("sample_qty") or record.get("min_sample_qty") or 1)
+        record["fixed_sample_qty"] = int(
+            record.get("fixed_sample_qty")
+            or record.get("sample_qty")
+            or record.get("min_sample_qty")
+            or 1
+        )
     elif record["sampling_method"] == "Percentage Based":
         record["percentage"] = float(record.get("percentage") or 1)
     elif record["sampling_method"] == "Skip Lot":
@@ -189,18 +205,35 @@ def _normalize_sample_record(doc: Optional[dict]) -> Optional[dict]:
         return None
 
     record = _serialize(doc)
-    sample_id = str(record.get("sample_id") or record.get("id") or record.get("sample_code") or "SAMPLE")
+    sample_id = str(
+        record.get("sample_id")
+        or record.get("id")
+        or record.get("sample_code")
+        or "SAMPLE"
+    )
     record["sample_id"] = sample_id
     record["sample_code"] = str(record.get("sample_code") or sample_id)
     record["gr_id"] = str(record["gr_id"]) if record.get("gr_id") is not None else None
-    record["gr_line_id"] = str(record["gr_line_id"]) if record.get("gr_line_id") is not None else None
-    record["sampling_plan_id"] = (
-        str(record["sampling_plan_id"]) if record.get("sampling_plan_id") is not None else None
+    record["gr_line_id"] = (
+        str(record["gr_line_id"]) if record.get("gr_line_id") is not None else None
     )
-    record["sample_type"] = _normalize_sample_type(record.get("sample_type") or record.get("type"))
+    record["sampling_plan_id"] = (
+        str(record["sampling_plan_id"])
+        if record.get("sampling_plan_id") is not None
+        else None
+    )
+    record["sample_type"] = _normalize_sample_type(
+        record.get("sample_type") or record.get("type")
+    )
     record["status"] = _normalize_sample_status(record.get("status"))
-    record["chain_of_custody"] = record.get("chain_of_custody") if isinstance(record.get("chain_of_custody"), list) else []
-    record["attachments"] = record.get("attachments") if isinstance(record.get("attachments"), list) else []
+    record["chain_of_custody"] = (
+        record.get("chain_of_custody")
+        if isinstance(record.get("chain_of_custody"), list)
+        else []
+    )
+    record["attachments"] = (
+        record.get("attachments") if isinstance(record.get("attachments"), list) else []
+    )
     return SampleResponse.model_validate(record).model_dump()
 
 
@@ -212,14 +245,29 @@ def _normalize_resampling_record(doc: Optional[dict]) -> Optional[dict]:
     resample_id = str(record.get("resample_id") or record.get("id") or "RESAMPLE")
     record["resample_id"] = resample_id
     record["original_sample_id"] = (
-        str(record["original_sample_id"]) if record.get("original_sample_id") is not None else None
+        str(record["original_sample_id"])
+        if record.get("original_sample_id") is not None
+        else None
     )
-    record["new_sample_id"] = str(record["new_sample_id"]) if record.get("new_sample_id") is not None else None
-    record["reason_code"] = str(record.get("reason_code") or record.get("reason") or "Resampling")
-    record["reason_detail"] = str(record.get("reason_detail") or record.get("reason") or "Resampling requested")
+    record["new_sample_id"] = (
+        str(record["new_sample_id"])
+        if record.get("new_sample_id") is not None
+        else None
+    )
+    record["reason_code"] = str(
+        record.get("reason_code") or record.get("reason") or "Resampling"
+    )
+    record["reason_detail"] = str(
+        record.get("reason_detail") or record.get("reason") or "Resampling requested"
+    )
     record["requested_by"] = str(record.get("requested_by") or "System")
     record["approved_by"] = str(record.get("approved_by") or "System")
-    record["approved_at"] = record.get("approved_at") or record.get("updated_at") or record.get("created_at") or utc_now()
+    record["approved_at"] = (
+        record.get("approved_at")
+        or record.get("updated_at")
+        or record.get("created_at")
+        or utc_now()
+    )
     return ResamplingRecordResponse.model_validate(record).model_dump()
 
 
@@ -230,29 +278,48 @@ async def get_all_sampling_plans(
 ) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[SAMPLING_PLANS_COLLECTION].count_documents(query)
-    cursor = db[SAMPLING_PLANS_COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
+    cursor = (
+        db[SAMPLING_PLANS_COLLECTION]
+        .find(query)
+        .skip((page - 1) * page_size)
+        .limit(page_size)
+    )
     return [_normalize_sampling_plan_record(doc) async for doc in cursor], total
 
 
-async def get_sampling_plan_by_id(db: AsyncIOMotorDatabase, plan_id: str) -> Optional[dict]:
-    return _normalize_sampling_plan_record(await db[SAMPLING_PLANS_COLLECTION].find_one({"plan_id": plan_id}))
+async def get_sampling_plan_by_id(
+    db: AsyncIOMotorDatabase, plan_id: str
+) -> Optional[dict]:
+    return _normalize_sampling_plan_record(
+        await db[SAMPLING_PLANS_COLLECTION].find_one({"plan_id": plan_id})
+    )
 
 
-async def get_sampling_plan_by_code(db: AsyncIOMotorDatabase, plan_code: str) -> Optional[dict]:
-    return _normalize_sampling_plan_record(await db[SAMPLING_PLANS_COLLECTION].find_one({"plan_code": plan_code}))
+async def get_sampling_plan_by_code(
+    db: AsyncIOMotorDatabase, plan_code: str
+) -> Optional[dict]:
+    return _normalize_sampling_plan_record(
+        await db[SAMPLING_PLANS_COLLECTION].find_one({"plan_code": plan_code})
+    )
 
 
-async def get_sampling_plans_by_material(db: AsyncIOMotorDatabase, material_code: str) -> list[dict]:
+async def get_sampling_plans_by_material(
+    db: AsyncIOMotorDatabase, material_code: str
+) -> list[dict]:
     cursor = db[SAMPLING_PLANS_COLLECTION].find({"material_code": material_code})
     return [_normalize_sampling_plan_record(doc) async for doc in cursor]
 
 
-async def get_sampling_plans_by_supplier(db: AsyncIOMotorDatabase, supplier_id: str) -> list[dict]:
+async def get_sampling_plans_by_supplier(
+    db: AsyncIOMotorDatabase, supplier_id: str
+) -> list[dict]:
     cursor = db[SAMPLING_PLANS_COLLECTION].find({"supplier_id": supplier_id})
     return [_normalize_sampling_plan_record(doc) async for doc in cursor]
 
 
-async def create_sampling_plan(db: AsyncIOMotorDatabase, data: SamplingPlanCreate) -> dict:
+async def create_sampling_plan(
+    db: AsyncIOMotorDatabase, data: SamplingPlanCreate
+) -> dict:
     doc = _prepare(data.model_dump())
     await db[SAMPLING_PLANS_COLLECTION].insert_one(doc)
     return _normalize_sampling_plan_record(doc)
@@ -286,16 +353,24 @@ async def get_all_samples(
 ) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[SAMPLES_COLLECTION].count_documents(query)
-    cursor = db[SAMPLES_COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
+    cursor = (
+        db[SAMPLES_COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
+    )
     return [_normalize_sample_record(doc) async for doc in cursor], total
 
 
 async def get_sample_by_id(db: AsyncIOMotorDatabase, sample_id: str) -> Optional[dict]:
-    return _normalize_sample_record(await db[SAMPLES_COLLECTION].find_one({"sample_id": sample_id}))
+    return _normalize_sample_record(
+        await db[SAMPLES_COLLECTION].find_one({"sample_id": sample_id})
+    )
 
 
-async def get_sample_by_code(db: AsyncIOMotorDatabase, sample_code: str) -> Optional[dict]:
-    return _normalize_sample_record(await db[SAMPLES_COLLECTION].find_one({"sample_code": sample_code}))
+async def get_sample_by_code(
+    db: AsyncIOMotorDatabase, sample_code: str
+) -> Optional[dict]:
+    return _normalize_sample_record(
+        await db[SAMPLES_COLLECTION].find_one({"sample_code": sample_code})
+    )
 
 
 async def get_samples_by_gr_id(db: AsyncIOMotorDatabase, gr_id: str) -> list[dict]:
@@ -355,7 +430,12 @@ async def get_all_resampling_records(
 ) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[RESAMPLING_RECORDS_COLLECTION].count_documents(query)
-    cursor = db[RESAMPLING_RECORDS_COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
+    cursor = (
+        db[RESAMPLING_RECORDS_COLLECTION]
+        .find(query)
+        .skip((page - 1) * page_size)
+        .limit(page_size)
+    )
     return [_normalize_resampling_record(doc) async for doc in cursor], total
 
 
@@ -363,14 +443,18 @@ async def get_resampling_record_by_id(
     db: AsyncIOMotorDatabase,
     resample_id: str,
 ) -> Optional[dict]:
-    return _normalize_resampling_record(await db[RESAMPLING_RECORDS_COLLECTION].find_one({"resample_id": resample_id}))
+    return _normalize_resampling_record(
+        await db[RESAMPLING_RECORDS_COLLECTION].find_one({"resample_id": resample_id})
+    )
 
 
 async def get_resampling_records_by_original_sample(
     db: AsyncIOMotorDatabase,
     original_sample_id: str,
 ) -> list[dict]:
-    cursor = db[RESAMPLING_RECORDS_COLLECTION].find({"original_sample_id": original_sample_id})
+    cursor = db[RESAMPLING_RECORDS_COLLECTION].find(
+        {"original_sample_id": original_sample_id}
+    )
     return [_normalize_resampling_record(doc) async for doc in cursor]
 
 
@@ -400,5 +484,7 @@ async def update_resampling_record(
 
 
 async def delete_resampling_record(db: AsyncIOMotorDatabase, resample_id: str) -> bool:
-    result = await db[RESAMPLING_RECORDS_COLLECTION].delete_one({"resample_id": resample_id})
+    result = await db[RESAMPLING_RECORDS_COLLECTION].delete_one(
+        {"resample_id": resample_id}
+    )
     return result.deleted_count == 1

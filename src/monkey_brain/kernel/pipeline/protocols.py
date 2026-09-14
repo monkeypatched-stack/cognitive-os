@@ -11,6 +11,7 @@ Dependency direction:
 Protocols never import runtime implementations.
 Runtime implementations satisfy protocols without importing them.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, Any, runtime_checkable
@@ -181,11 +182,9 @@ class ActorStateStoreProtocol(Protocol):
         """Returns a PersistedActorState, or None if not found."""
         ...
 
-    def delete(self, actor_id: str, tenant_id: str) -> bool:
-        ...
+    def delete(self, actor_id: str, tenant_id: str) -> bool: ...
 
-    def list_actors(self, tenant_id: str, active_only: bool = True) -> list[str]:
-        ...
+    def list_actors(self, tenant_id: str, active_only: bool = True) -> list[str]: ...
 
 
 @runtime_checkable
@@ -230,5 +229,4 @@ class ExecutionAdapterProtocol(Protocol):
     run_ros_action_if_governed's own docstring, which is the enforcement
     point, not this Protocol."""
 
-    async def invoke(self, *, capability: str, parameters: dict) -> dict:
-        ...
+    async def invoke(self, *, capability: str, parameters: dict) -> dict: ...

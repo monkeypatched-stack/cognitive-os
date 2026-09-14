@@ -7,6 +7,7 @@ inert unless AGENTOS_OPA_ENFORCE is enabled, and fail-closed when it is.
 These are sync tests that drive the async staticmethod via asyncio.run, so they
 don't depend on pytest-asyncio configuration.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -72,6 +73,7 @@ def test_fail_closed_when_enabled_and_opa_denies(monkeypatch):
 
 def test_allows_when_policy_permits(monkeypatch):
     """Enforcement on + policy allows => permitted (returns None)."""
+
     async def _fake_evaluate(policy_path, input_data, *, default_allow=True):
         assert policy_path == "agentos/execute/allow"
         assert input_data["action"] == "create"
@@ -81,11 +83,20 @@ def test_allows_when_policy_permits(monkeypatch):
         assert default_allow is False  # fail-closed under enforcement
         return True
 
-    from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trusted_auth
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id="user-1",
-        principal_type="human", mfa_status="satisfied",
-    ))
+    from src.monkey_brain.kernel.trusted_auth import (
+        TrustedAuthEvidence,
+        bind_trusted_auth,
+    )
+
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id="user-1",
+            principal_type="human",
+            mfa_status="satisfied",
+        )
+    )
     _install_fake_opa(monkeypatch, _fake_evaluate)
     monkeypatch.setenv("AGENTOS_OPA_ENFORCE", "true")
     assert _authorize(_goal(), _ctx()) is None
@@ -93,6 +104,7 @@ def test_allows_when_policy_permits(monkeypatch):
 
 def test_denies_when_policy_refuses(monkeypatch):
     """Enforcement on + policy denies => refused with a policy reason."""
+
     async def _fake_evaluate(policy_path, input_data, *, default_allow=True):
         return False
 

@@ -3,7 +3,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
 ReportTemplateType = Literal["MBMR", "BMR", "BPR", "Yield", "IPC", "Log"]
 ReportTemplateStatus = Literal["Draft", "In Review", "Approved", "Effective", "Retired"]
 ReportOutputFormat = Literal["PDF", "HTML", "CSV", "JSON"]
@@ -73,12 +72,18 @@ class ReportTemplate(BaseModel):
         if not self.sections:
             raise ValueError("report templates must include at least one section.")
         if not self.source_collections:
-            self.source_collections = sorted({section.source_collection for section in self.sections})
+            self.source_collections = sorted(
+                {section.source_collection for section in self.sections}
+            )
         if self.status in {"Approved", "Effective"}:
             if not self.approved_by or not self.approved_at:
-                raise ValueError("approved/effective report templates must include approved_by and approved_at.")
+                raise ValueError(
+                    "approved/effective report templates must include approved_by and approved_at."
+                )
             if self.part11_signature_required and not self.signature_ids:
-                raise ValueError("approved/effective Part 11 report templates must include signature_ids.")
+                raise ValueError(
+                    "approved/effective Part 11 report templates must include signature_ids."
+                )
         if self.status == "Effective" and not self.effective_at:
             self.effective_at = self.approved_at or utc_now()
         return self

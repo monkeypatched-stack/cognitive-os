@@ -10,6 +10,7 @@ a cheap way to emit it through the existing async telemetry path
 replaces AuditLog (this is a performance/observability record, not a
 governance or audit record).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
@@ -66,8 +67,10 @@ class TickTraceRecorder:
 
     def finish(self, total_latency_ms: float) -> TickTrace:
         trace = TickTrace(
-            tick_id=self._tick_id, actor_id=self._actor_id,
-            stage_latency_ms=dict(self._stage_latency_ms), total_latency_ms=total_latency_ms,
+            tick_id=self._tick_id,
+            actor_id=self._actor_id,
+            stage_latency_ms=dict(self._stage_latency_ms),
+            total_latency_ms=total_latency_ms,
             **self._fields,
         )
         if self._telemetry is not None:

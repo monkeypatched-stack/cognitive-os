@@ -3,7 +3,6 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
 RFIDTagStatus = Literal["Active", "Inactive", "Lost", "Damaged"]
 RFIDAssignedType = Literal["User", "Equipment", "Asset"]
 

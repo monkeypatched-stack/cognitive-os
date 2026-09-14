@@ -18,6 +18,7 @@ Agents:
   SpecStashAgent     — soma stash push/pop
   SpecMergeAgent     — soma merge with conflict detection
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,19 +32,22 @@ from ._base import BaseETASSAgent
 
 logger = logging.getLogger("broca.agents.soma")
 
+
 # Resolve soma binary: project venv → running interpreter's Scripts/bin → PATH
 def _find_soma_bin() -> str:
     import sys as _sys
+
     candidates = [
-        Path(__file__).parents[4] / ".venv" / "bin" / "soma",       # project root .venv (unix)
+        Path(__file__).parents[4] / ".venv" / "bin" / "soma",  # project root .venv (unix)
         Path(__file__).parents[4] / ".venv" / "Scripts" / "soma.exe",  # project root .venv (windows)
-        Path(_sys.executable).parent / "soma",                        # active interpreter bin dir
+        Path(_sys.executable).parent / "soma",  # active interpreter bin dir
         Path(_sys.executable).parent / "soma.exe",
     ]
     for c in candidates:
         if c.exists():
             return str(c)
     return "soma"
+
 
 _SOMA_BIN = _find_soma_bin()
 
@@ -56,6 +60,7 @@ def _spec_repo() -> Path:
     if config_file.exists():
         try:
             import json
+
             cfg = json.loads(config_file.read_text())
             if cfg.get("spec_repo"):
                 return Path(cfg["spec_repo"]).expanduser().resolve()
@@ -101,6 +106,7 @@ def _outcome(code: int, stdout: str, stderr: str, command: str) -> dict[str, Any
 # Universal passthrough
 # ---------------------------------------------------------------------------
 
+
 class SomaGitAgent(BaseETASSAgent):
     agent_type = "soma_git"
     description = "Universal soma/git command executor against the configured spec repo"
@@ -126,6 +132,7 @@ class SomaGitAgent(BaseETASSAgent):
 # Specific workflow agents
 # ---------------------------------------------------------------------------
 
+
 class SpecStatusAgent(BaseETASSAgent):
     agent_type = "spec_status"
     description = "soma status — returns structured working-tree summary for the spec repo"
@@ -138,9 +145,9 @@ class SpecStatusAgent(BaseETASSAgent):
         code, stdout, stderr = await _soma_async("status", "--short", spec_repo=spec_repo)
 
         lines = stdout.strip().splitlines()
-        modified = [l[3:] for l in lines if l.startswith(" M") or l.startswith("M ")]
-        untracked = [l[3:] for l in lines if l.startswith("??")]
-        staged = [l[3:] for l in lines if l[0] in ("A", "M", "D", "R") and not l.startswith("??")]
+        modified = [line[3:] for line in lines if line.startswith(" M") or line.startswith("M ")]
+        untracked = [line[3:] for line in lines if line.startswith("??")]
+        staged = [line[3:] for line in lines if line[0] in ("A", "M", "D", "R") and not line.startswith("??")]
 
         clean = not lines
         self._reward(True)
@@ -180,7 +187,9 @@ class SpecCheckoutAgent(BaseETASSAgent):
                 "exit_code": code,
                 "output": (stdout or stderr).strip(),
             },
-            observations=[f"{'created and ' if create else ''}checked out branch: {branch}" if success else stderr.strip()],
+            observations=[
+                (f"{'created and ' if create else ''}checked out branch: {branch}" if success else stderr.strip())
+            ],
         )
 
 
@@ -225,7 +234,7 @@ class SpecCommitAgent(BaseETASSAgent):
 
         # Check if there is anything staged
         code, status_out, _ = await _soma_async("status", "--short", spec_repo=spec_repo)
-        staged_lines = [l for l in status_out.splitlines() if l and l[0] not in (" ", "?")]
+        staged_lines = [line for line in status_out.splitlines() if line and line[0] not in (" ", "?")]
         if not staged_lines:
             self._reward(True, 0.8)
             return self._result(
@@ -284,9 +293,7 @@ class SpecPushAgent(BaseETASSAgent):
             # Determine current branch
             _, br_out, _ = await _soma_async("rev-parse", "--abbrev-ref", "HEAD", spec_repo=spec_repo)
             current = br_out.strip() or "main"
-            code, stdout, stderr = await _soma_async(
-                "push", "--set-upstream", remote, current, spec_repo=spec_repo
-            )
+            code, stdout, stderr = await _soma_async("push", "--set-upstream", remote, current, spec_repo=spec_repo)
 
         success = code == 0
         self._reward(success)
@@ -398,7 +405,11 @@ class SpecSyncAgent(BaseETASSAgent):
         if code != 0 and "no upstream" in err.lower():
             _, br_out, _ = await _soma_async("rev-parse", "--abbrev-ref", "HEAD", spec_repo=spec_repo)
             code, out, err = await _soma_async(
-                "push", "--set-upstream", "origin", br_out.strip() or "main", spec_repo=spec_repo
+                "push",
+                "--set-upstream",
+                "origin",
+                br_out.strip() or "main",
+                spec_repo=spec_repo,
             )
         steps.append({"step": "push", "success": code == 0, "output": (out or err).strip()[:200]})
 
@@ -410,7 +421,7 @@ class SpecSyncAgent(BaseETASSAgent):
                 "message": message,
                 "steps": steps,
             },
-            observations=[f"synced: {message}" if success else f"partial sync — check steps"],
+            observations=[f"synced: {message}" if success else "partial sync — check steps"],
         )
 
 
@@ -422,7 +433,7 @@ class SpecBranchAgent(BaseETASSAgent):
         return await self._run(context, self._impl)
 
     async def _impl(self, context: dict) -> Any:
-        action = context.get("action", "list")   # list | create | delete
+        action = context.get("action", "list")  # list | create | delete
         branch = context.get("branch", "")
         spec_repo = context.get("spec_repo", "")
 
@@ -430,7 +441,10 @@ class SpecBranchAgent(BaseETASSAgent):
             code, out, err = await _soma_async("branch", "-a", spec_repo=spec_repo)
             branches = [b.strip().lstrip("* ") for b in out.splitlines() if b.strip()]
             self._reward(code == 0)
-            return self._result(payload={"branches": branches}, observations=[f"{len(branches)} branches"])
+            return self._result(
+                payload={"branches": branches},
+                observations=[f"{len(branches)} branches"],
+            )
 
         if action == "create":
             code, out, err = await _soma_async("checkout", "-b", branch, spec_repo=spec_repo)
@@ -443,7 +457,12 @@ class SpecBranchAgent(BaseETASSAgent):
         success = code == 0
         self._reward(success)
         return self._result(
-            payload={"action": action, "branch": branch, "success": success, "output": (out or err).strip()},
+            payload={
+                "action": action,
+                "branch": branch,
+                "success": success,
+                "output": (out or err).strip(),
+            },
             observations=[(out or err).strip()[:200]],
         )
 
@@ -457,7 +476,7 @@ class SpecDiffAgent(BaseETASSAgent):
 
     async def _impl(self, context: dict) -> Any:
         spec_repo = context.get("spec_repo", "")
-        ref = context.get("ref", "HEAD")   # compare against this ref
+        ref = context.get("ref", "HEAD")  # compare against this ref
         files = context.get("files", [])
 
         args = ["--stat", ref, "--"] + files if files else ["--stat", ref]
@@ -486,7 +505,7 @@ class SpecStashAgent(BaseETASSAgent):
         return await self._run(context, self._impl)
 
     async def _impl(self, context: dict) -> Any:
-        action = context.get("action", "push")   # push | pop | list | drop
+        action = context.get("action", "push")  # push | pop | list | drop
         message = context.get("message", "")
         spec_repo = context.get("spec_repo", "")
 
@@ -505,7 +524,11 @@ class SpecStashAgent(BaseETASSAgent):
         success = code == 0
         self._reward(success)
         return self._result(
-            payload={"action": action, "success": success, "output": (out or err).strip()},
+            payload={
+                "action": action,
+                "success": success,
+                "output": (out or err).strip(),
+            },
             observations=[(out or err).strip()[:200]],
         )
 
@@ -527,6 +550,7 @@ class SpecRepoInitAgent(BaseETASSAgent):
       github_private: bool — make the repo private (default: False)
       github_description: str
     """
+
     agent_type = "spec_repo_init"
     description = "soma repo create — init local git repo, optionally create on GitHub, wire remote"
 
@@ -555,14 +579,15 @@ class SpecRepoInitAgent(BaseETASSAgent):
             else:
                 self._reward(False, 0.4)
                 return self._result(
-                    payload={"error": "GitHub repo creation failed", "github": github_result},
+                    payload={
+                        "error": "GitHub repo creation failed",
+                        "github": github_result,
+                    },
                     observations=[github_result.get("error", "unknown error")],
                 )
 
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, lambda: self._create_repo(
-            path, initial_branch, remote, set_active
-        ))
+        result = await loop.run_in_executor(None, lambda: self._create_repo(path, initial_branch, remote, set_active))
         if github_result:
             result["github"] = github_result
         success = result["success"]
@@ -574,21 +599,27 @@ class SpecRepoInitAgent(BaseETASSAgent):
 
     async def _github_create_repo(self, context: dict, path: str) -> dict:
         import os as _os
-        from cerebellum.capabilities.source_control.source_control import GitHubCapability
+        from cerebellum.capabilities.source_control.source_control import (
+            GitHubCapability,
+        )
+
         cap = GitHubCapability(token=_os.environ.get("GITHUB_TOKEN", ""))
         repo_name = context.get("github_name", "") or Path(path).expanduser().resolve().name
-        return await cap.execute({
-            "operation": "create_repo",
-            "name": repo_name,
-            "org": context.get("github_org", ""),
-            "private": context.get("github_private", False),
-            "description": context.get("github_description", "MonkeyBrain spec repository"),
-            "auto_init": False,  # we init locally and push
-            "default_branch": context.get("initial_branch", "main"),
-        })
+        return await cap.execute(
+            {
+                "operation": "create_repo",
+                "name": repo_name,
+                "org": context.get("github_org", ""),
+                "private": context.get("github_private", False),
+                "description": context.get("github_description", "MonkeyBrain spec repository"),
+                "auto_init": False,  # we init locally and push
+                "default_branch": context.get("initial_branch", "main"),
+            }
+        )
 
     def _create_repo(self, path: str, initial_branch: str, remote: str, set_active: bool) -> dict:
         import json as _json
+
         repo_path = Path(path).expanduser()
         if not repo_path.is_absolute():
             repo_path = Path.cwd() / repo_path
@@ -602,11 +633,17 @@ class SpecRepoInitAgent(BaseETASSAgent):
             # git init
             r = subprocess.run(
                 ["git", "init", "--initial-branch", initial_branch],
-                cwd=repo_path, capture_output=True, text=True
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
             )
             if r.returncode != 0:
                 subprocess.run(["git", "init"], cwd=repo_path, capture_output=True)
-                subprocess.run(["git", "checkout", "-b", initial_branch], cwd=repo_path, capture_output=True)
+                subprocess.run(
+                    ["git", "checkout", "-b", initial_branch],
+                    cwd=repo_path,
+                    capture_output=True,
+                )
             steps.append({"step": "git_init", "success": True})
 
             # Scaffold
@@ -615,7 +652,9 @@ class SpecRepoInitAgent(BaseETASSAgent):
             subprocess.run(["git", "add", "."], cwd=repo_path, capture_output=True)
             r = subprocess.run(
                 ["git", "commit", "-m", "chore: initial spec repo"],
-                cwd=repo_path, capture_output=True, text=True
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
             )
             steps.append({"step": "initial_commit", "success": r.returncode == 0})
 
@@ -623,16 +662,26 @@ class SpecRepoInitAgent(BaseETASSAgent):
         if remote:
             r = subprocess.run(
                 ["git", "remote", "add", "origin", remote],
-                cwd=repo_path, capture_output=True, text=True
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
             )
             added = r.returncode == 0 or "already exists" in r.stderr
             steps.append({"step": "add_remote", "success": added, "remote": remote})
 
             r = subprocess.run(
                 ["git", "push", "--set-upstream", "origin", initial_branch],
-                cwd=repo_path, capture_output=True, text=True
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
             )
-            steps.append({"step": "push", "success": r.returncode == 0, "output": (r.stdout or r.stderr).strip()[:200]})
+            steps.append(
+                {
+                    "step": "push",
+                    "success": r.returncode == 0,
+                    "output": (r.stdout or r.stderr).strip()[:200],
+                }
+            )
 
         # Save as active spec repo
         if set_active:
@@ -668,7 +717,7 @@ class SpecMergeAgent(BaseETASSAgent):
 
     async def _impl(self, context: dict) -> Any:
         branch = context.get("branch", "main")
-        strategy = context.get("strategy", "--no-ff")   # --ff-only | --no-ff | --squash
+        strategy = context.get("strategy", "--no-ff")  # --ff-only | --no-ff | --squash
         spec_repo = context.get("spec_repo", "")
 
         code, out, err = await _soma_async("merge", strategy, branch, spec_repo=spec_repo)

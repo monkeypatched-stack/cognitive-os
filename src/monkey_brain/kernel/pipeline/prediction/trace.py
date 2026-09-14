@@ -21,6 +21,7 @@ PredictionResult plus optional SimulationTrajectories and RiskAssessments --
 the same "already computed, just structured" pattern every prior trace
 module established.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -30,17 +31,21 @@ from typing import Any
 from uuid import uuid4
 
 from src.monkey_brain.kernel.pipeline.prediction.domain import (
-    PredictionCandidate, PredictionResult,
+    PredictionCandidate,
+    PredictionResult,
 )
 from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationTrajectory
 from src.monkey_brain.kernel.pipeline.prediction.risk import RiskAssessment
-from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualBranch
+from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+    CounterfactualBranch,
+)
 
 
 @dataclass(frozen=True)
 class ScenarioTraceEntry:
     """One explored scenario's full trace: label, probability, assumptions,
     outcomes, risk factors, rejection status."""
+
     label: str = ""
     probability: float = 0.0
     assumptions: tuple[str, ...] = ()
@@ -55,6 +60,7 @@ class ScenarioTraceEntry:
 class PredictionTrace:
     """The complete, structured record of one prediction cycle. Designed
     for debugging, visualization, benchmarking, and governance audit."""
+
     trace_id: str = field(default_factory=lambda: uuid4().hex)
     scenario_entries: tuple[ScenarioTraceEntry, ...] = ()
     assumptions_explored: tuple[str, ...] = ()
@@ -139,9 +145,7 @@ def build_prediction_trace(
         for assumption in candidate.prediction.assumptions:
             all_assumptions.add(assumption)
         if candidate.rejected:
-            rejected_futures.append(
-                f"{candidate.scenario_label}: {candidate.rejection_reason}"
-            )
+            rejected_futures.append(f"{candidate.scenario_label}: {candidate.rejection_reason}")
 
     selected_label = result.selected.scenario_label if result.selected else "(none)"
     confidence_rationale = ""
@@ -215,5 +219,8 @@ def predict_with_trace(
     IntegratedExecutionEngine.execute_with_trace() (Step 9.7/9.8)
     naming and shape."""
     return build_prediction_trace(
-        result, trajectories=trajectories, assessments=assessments, branches=branches,
+        result,
+        trajectories=trajectories,
+        assessments=assessments,
+        branches=branches,
     )

@@ -3,6 +3,7 @@
 Real-world grocery data with multiple stores, products, prices, and delivery options.
 Tests the cognitive architecture with realistic constraints.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,6 @@ from src.monkey_brain.kernel.policy.store import PolicyStore
 from src.monkey_brain.kernel.learn.world_learner import WorldLearner
 from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Real-World Grocery Data
 # ═══════════════════════════════════════════════════════════════════════════
@@ -26,9 +26,24 @@ GROCERY_CATALOG = {
         "name": "Whole Milk",
         "unit": "liter",
         "options": [
-            {"store": "instacart", "brand": "Organic Valley", "price": 4.99, "delivery": "2h"},
-            {"store": "amazon_fresh", "brand": "Horizon", "price": 5.49, "delivery": "1h"},
-            {"store": "walmart_plus", "brand": "Great Value", "price": 3.99, "delivery": "3h"},
+            {
+                "store": "instacart",
+                "brand": "Organic Valley",
+                "price": 4.99,
+                "delivery": "2h",
+            },
+            {
+                "store": "amazon_fresh",
+                "brand": "Horizon",
+                "price": 5.49,
+                "delivery": "1h",
+            },
+            {
+                "store": "walmart_plus",
+                "brand": "Great Value",
+                "price": 3.99,
+                "delivery": "3h",
+            },
         ],
         "substitutes": ["2pct_milk", "oat_milk", "almond_milk"],
     },
@@ -36,9 +51,24 @@ GROCERY_CATALOG = {
         "name": "Bread",
         "unit": "loaf",
         "options": [
-            {"store": "instacart", "brand": "Dave's Killer", "price": 5.99, "delivery": "2h"},
-            {"store": "amazon_fresh", "brand": "Sara Lee", "price": 3.49, "delivery": "1h"},
-            {"store": "walmart_plus", "brand": "Wonder", "price": 2.99, "delivery": "3h"},
+            {
+                "store": "instacart",
+                "brand": "Dave's Killer",
+                "price": 5.99,
+                "delivery": "2h",
+            },
+            {
+                "store": "amazon_fresh",
+                "brand": "Sara Lee",
+                "price": 3.49,
+                "delivery": "1h",
+            },
+            {
+                "store": "walmart_plus",
+                "brand": "Wonder",
+                "price": 2.99,
+                "delivery": "3h",
+            },
         ],
         "substitutes": ["gluten_free_bread", "bagels"],
     },
@@ -46,18 +76,48 @@ GROCERY_CATALOG = {
         "name": "Eggs",
         "unit": "dozen",
         "options": [
-            {"store": "instacart", "brand": "Vital Farms", "price": 6.99, "delivery": "2h"},
-            {"store": "amazon_fresh", "brand": "Land O'Lakes", "price": 4.99, "delivery": "1h"},
-            {"store": "walmart_plus", "brand": "Great Value", "price": 3.49, "delivery": "3h"},
+            {
+                "store": "instacart",
+                "brand": "Vital Farms",
+                "price": 6.99,
+                "delivery": "2h",
+            },
+            {
+                "store": "amazon_fresh",
+                "brand": "Land O'Lakes",
+                "price": 4.99,
+                "delivery": "1h",
+            },
+            {
+                "store": "walmart_plus",
+                "brand": "Great Value",
+                "price": 3.49,
+                "delivery": "3h",
+            },
         ],
         "substitutes": ["egg_beaters", "tofu"],
     },
 }
 
 DELIVERY_PROVIDERS = {
-    "instacart": {"name": "Instacart", "min_order": 35.00, "delivery_fee": 3.99, "reliability": 0.92},
-    "amazon_fresh": {"name": "Amazon Fresh", "min_order": 0.00, "delivery_fee": 0.00, "reliability": 0.95},
-    "walmart_plus": {"name": "Walmart+", "min_order": 35.00, "delivery_fee": 0.00, "reliability": 0.88},
+    "instacart": {
+        "name": "Instacart",
+        "min_order": 35.00,
+        "delivery_fee": 3.99,
+        "reliability": 0.92,
+    },
+    "amazon_fresh": {
+        "name": "Amazon Fresh",
+        "min_order": 0.00,
+        "delivery_fee": 0.00,
+        "reliability": 0.95,
+    },
+    "walmart_plus": {
+        "name": "Walmart+",
+        "min_order": 35.00,
+        "delivery_fee": 0.00,
+        "reliability": 0.88,
+    },
 }
 
 
@@ -123,6 +183,7 @@ def create_realistic_world() -> SparseTransitionTensor:
 def _create_arch(world: SparseTransitionTensor):
     from monkey_brain.kernel.cognitive_engine import CognitiveArchitecture
     from src.monkey_brain.kernel.learn.world_learner import WorldLearner
+
     arch = CognitiveArchitecture()
     arch._world = world
     arch._world_learner = WorldLearner(world)
@@ -132,9 +193,17 @@ def _create_arch(world: SparseTransitionTensor):
 def _register_caps(arch) -> None:
     caps = [
         ("discover_providers", ["need_groceries"], ["providers_available"]),
-        ("search_product", ["providers_available"], ["product_found", "product_out_of_stock"]),
+        (
+            "search_product",
+            ["providers_available"],
+            ["product_found", "product_out_of_stock"],
+        ),
         ("compare_prices", ["product_found"], ["best_option_selected"]),
-        ("check_substitutes", ["product_out_of_stock"], ["substitute_available", "no_substitutes"]),
+        (
+            "check_substitutes",
+            ["product_out_of_stock"],
+            ["substitute_available", "no_substitutes"],
+        ),
         ("select_substitute", ["substitute_available"], ["best_option_selected"]),
         ("add_to_cart", ["best_option_selected"], ["cart_updated"]),
         ("check_budget", ["cart_updated"], ["budget_ok", "budget_exceeded"]),
@@ -154,6 +223,7 @@ def _register_caps(arch) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 # Tests
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRealisticProviderDiscovery:
     def test_discover_providers(self):
@@ -236,10 +306,20 @@ class TestTimeAndPriorityConstraints:
         """Parent priority=Critical should override Teen priority=Low."""
         wallet = 20.00
         items = [
-            {"name": "milk", "price": 15.00, "buyer": "parent", "priority": "critical",
-             "reason": "milk for infant"},
-            {"name": "pizza", "price": 15.00, "buyer": "teen", "priority": "low",
-             "reason": "wants pizza"},
+            {
+                "name": "milk",
+                "price": 15.00,
+                "buyer": "parent",
+                "priority": "critical",
+                "reason": "milk for infant",
+            },
+            {
+                "name": "pizza",
+                "price": 15.00,
+                "buyer": "teen",
+                "priority": "low",
+                "reason": "wants pizza",
+            },
         ]
 
         # Total exceeds budget
@@ -270,8 +350,7 @@ class TestTimeAndPriorityConstraints:
 
         # Only Amazon Fresh can deliver BEFORE teen leaves (strict < not <=)
         viable_providers = {
-            name: hours for name, hours in delivery_hours.items()
-            if current_time + hours < available_until
+            name: hours for name, hours in delivery_hours.items() if current_time + hours < available_until
         }
 
         assert "amazon_fresh" in viable_providers  # 1 hour = 17:00 < 18:00
@@ -285,10 +364,20 @@ class TestTimeAndPriorityConstraints:
         available_until = 18
 
         items = [
-            {"name": "milk", "price": 15.00, "priority": "critical",
-             "delivery_hours": 1, "reason": "milk for infant"},
-            {"name": "pizza", "price": 15.00, "priority": "low",
-             "delivery_hours": 3, "reason": "wants pizza"},
+            {
+                "name": "milk",
+                "price": 15.00,
+                "priority": "critical",
+                "delivery_hours": 1,
+                "reason": "milk for infant",
+            },
+            {
+                "name": "pizza",
+                "price": 15.00,
+                "priority": "low",
+                "delivery_hours": 3,
+                "reason": "wants pizza",
+            },
         ]
 
         # Filter by time constraint
@@ -346,22 +435,35 @@ class TestRealisticLearning:
 class TestRealisticComparator:
     def test_comparator_succeeds(self):
         import asyncio
+
         cmp = ComparatorRuntime()
         sim = {
-            "graph_id": "sim1", "nodes": [{"id": "n1"}], "edges": [],
+            "graph_id": "sim1",
+            "nodes": [{"id": "n1"}],
+            "edges": [],
             "execution_order": [["n1"]],
-            "metadata": {"summary": {
-                "predicted_state": {"milk": 2.0, "status": "delivered"},
-                "predicted_reward": 0.95, "grounding_score": 0.9,
-                "operations": ["checkout"], "events": ["delivered"], "artifacts": ["receipt"],
-            }}
+            "metadata": {
+                "summary": {
+                    "predicted_state": {"milk": 2.0, "status": "delivered"},
+                    "predicted_reward": 0.95,
+                    "grounding_score": 0.9,
+                    "operations": ["checkout"],
+                    "events": ["delivered"],
+                    "artifacts": ["receipt"],
+                }
+            },
         }
         exe = {
-            "graph_id": "sim1", "nodes": [{"id": "n1"}], "edges": [],
+            "graph_id": "sim1",
+            "nodes": [{"id": "n1"}],
+            "edges": [],
             "execution_order": [["n1"]],
             "state": {"milk": 2.0, "status": "delivered"},
-            "operations": ["checkout"], "events": ["delivered"], "artifacts": ["receipt"],
-            "reward": 0.95, "confidence": 0.9,
+            "operations": ["checkout"],
+            "events": ["delivered"],
+            "artifacts": ["receipt"],
+            "reward": 0.95,
+            "confidence": 0.9,
         }
         result = asyncio.run(cmp.compare(sim, exe))
         d = result.to_dict()
@@ -655,9 +757,15 @@ class TestTemporalReasoning:
         """Items have delivery windows that affect scheduling."""
         # Delivery windows
         windows = {
-            "milk": {"window": (13, 14), "freshness_hours": 4},   # 1-2 PM, 4hr freshness
-            "eggs": {"window": (16, 18), "freshness_hours": 24},  # 4-6 PM, 24hr freshness
-            "bread": {"window": (10, 12), "freshness_hours": 12}, # 10-12 AM, 12hr freshness
+            "milk": {"window": (13, 14), "freshness_hours": 4},  # 1-2 PM, 4hr freshness
+            "eggs": {
+                "window": (16, 18),
+                "freshness_hours": 24,
+            },  # 4-6 PM, 24hr freshness
+            "bread": {
+                "window": (10, 12),
+                "freshness_hours": 12,
+            },  # 10-12 AM, 12hr freshness
         }
 
         current_time = 9  # 9 AM
@@ -917,7 +1025,11 @@ class TestHumanApproval:
 
     def test_approval_workflow(self):
         """Complete approval workflow: propose, approve, execute."""
-        proposed = {"original": "Whole Milk", "substitute": "Oat Milk", "requires_approval": True}
+        proposed = {
+            "original": "Whole Milk",
+            "substitute": "Oat Milk",
+            "requires_approval": True,
+        }
 
         user_decision = "approve"
         executed = user_decision == "approve"
@@ -1139,16 +1251,28 @@ class TestActualPlanning:
         assert "discover_providers" in successors
 
         # Plan is sequence of states reachable from initial state
-        plan = ["need_groceries", "discover_providers", "providers_available",
-                "search_product", "product_found", "compare_prices",
-                "best_option_selected", "add_to_cart", "cart_updated",
-                "checkout", "order_placed", "process_payment",
-                "payment_success", "track_delivery", "out_for_delivery"]
+        plan = [
+            "need_groceries",
+            "discover_providers",
+            "providers_available",
+            "search_product",
+            "product_found",
+            "compare_prices",
+            "best_option_selected",
+            "add_to_cart",
+            "cart_updated",
+            "checkout",
+            "order_placed",
+            "process_payment",
+            "payment_success",
+            "track_delivery",
+            "out_for_delivery",
+        ]
 
         # Each step must be reachable from previous
         for i in range(len(plan) - 1):
             successors = {dst for dst, dom in world.successors(plan[i])}
-            assert plan[i + 1] in successors, f"{plan[i+1]} not reachable from {plan[i]}"
+            assert plan[i + 1] in successors, f"{plan[i + 1]} not reachable from {plan[i]}"
 
     def test_plan_uses_action_operators(self):
         """Plan is constructed using registered action operators."""
@@ -1158,8 +1282,15 @@ class TestActualPlanning:
 
         # Register actions
         ops = {}
-        for name in ["discover_providers", "search_product", "compare_prices",
-                       "add_to_cart", "checkout", "process_payment", "track_delivery"]:
+        for name in [
+            "discover_providers",
+            "search_product",
+            "compare_prices",
+            "add_to_cart",
+            "checkout",
+            "process_payment",
+            "track_delivery",
+        ]:
             ops[name] = arch.register_action(name)
 
         # Connect actions to world transitions
@@ -1172,8 +1303,15 @@ class TestActualPlanning:
         ops["track_delivery"].enable("payment_success", "track_delivery")
 
         # Plan is sequence of actions
-        plan_actions = ["discover_providers", "search_product", "compare_prices",
-                        "add_to_cart", "checkout", "process_payment", "track_delivery"]
+        plan_actions = [
+            "discover_providers",
+            "search_product",
+            "compare_prices",
+            "add_to_cart",
+            "checkout",
+            "process_payment",
+            "track_delivery",
+        ]
 
         # Each action must be registered
         for action in plan_actions:
@@ -1185,12 +1323,17 @@ class TestActualPlanning:
 
         # Get all valid transitions
         valid_transitions = set()
-        for (src, dst) in world:
+        for src, dst in world:
             valid_transitions.add((src, dst))
 
         # Plan steps must be valid transitions
-        plan = ["need_groceries", "discover_providers", "providers_available",
-                "search_product", "product_found"]
+        plan = [
+            "need_groceries",
+            "discover_providers",
+            "providers_available",
+            "search_product",
+            "product_found",
+        ]
 
         for i in range(len(plan) - 1):
             assert (plan[i], plan[i + 1]) in valid_transitions
@@ -1214,13 +1357,15 @@ class TestActualPlanning:
         plan = {
             "states": ["need_groceries", "discover_providers", "search_product"],
             "actions": ["discover_providers", "search_product"],
-            "transitions": [("need_groceries", "discover_providers"),
-                           ("discover_providers", "providers_available"),
-                           ("providers_available", "search_product")],
+            "transitions": [
+                ("need_groceries", "discover_providers"),
+                ("discover_providers", "providers_available"),
+                ("providers_available", "search_product"),
+            ],
             "metadata": {
                 "goal": "acquire_milk",
                 "constraints": {"budget": 20.00},
-            }
+            },
         }
 
         assert len(plan["states"]) == 3

@@ -20,6 +20,7 @@ observed from execution traces. `to_operator()` projects any slice into a Compil
 (CSR) for propagation — reusing the compiler, keeping learning and execution one primitive:
 sparse tensor update + sparse tensor traversal.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,7 +34,10 @@ from typing import Iterable, Iterator, Mapping
 
 from src.monkey_brain.kernel.compile import _obs
 from src.monkey_brain.kernel.compile.compiler import GraphCompiler
-from src.monkey_brain.kernel.compile.types import CompiledOperator, SemanticGraphSnapshot
+from src.monkey_brain.kernel.compile.types import (
+    CompiledOperator,
+    SemanticGraphSnapshot,
+)
 
 logger = logging.getLogger("agentos.compile.tensor")
 
@@ -57,15 +61,16 @@ def _synchronized(method):
 class Feature(IntEnum):
     """The f axis. Derived features (PROBABILITY, means) are computed on read;
     learned/observed accumulators are stored."""
-    PROBABILITY = 0   # derived: freq(i,j) / Σ_k freq(i,k)
-    Q_VALUE     = 1   # learned via Bellman
-    REWARD      = 2   # mean observed reward
-    LATENCY     = 3   # mean latency (ms)
-    COST        = 4   # mean cost
-    CONFIDENCE  = 5   # mean confidence
-    UNCERTAINTY = 6   # 1 / (1 + freq)  — shrinks as evidence accumulates
-    FREQUENCY   = 7   # observation count
-    RECENCY     = 8   # last-updated timestamp
+
+    PROBABILITY = 0  # derived: freq(i,j) / Σ_k freq(i,k)
+    Q_VALUE = 1  # learned via Bellman
+    REWARD = 2  # mean observed reward
+    LATENCY = 3  # mean latency (ms)
+    COST = 4  # mean cost
+    CONFIDENCE = 5  # mean confidence
+    UNCERTAINTY = 6  # 1 / (1 + freq)  — shrinks as evidence accumulates
+    FREQUENCY = 7  # observation count
+    RECENCY = 8  # last-updated timestamp
 
 
 NUM_FEATURES = len(Feature)
@@ -73,11 +78,20 @@ NUM_FEATURES = len(Feature)
 
 class _Cell:
     """Sparse entry W[·, i, j, :] — accumulators; derived features computed on read."""
-    __slots__ = ("freq", "q", "reward_sum", "latency_sum", "cost_sum", "conf_sum", "last_ts")
+
+    __slots__ = (
+        "freq",
+        "q",
+        "reward_sum",
+        "latency_sum",
+        "cost_sum",
+        "conf_sum",
+        "last_ts",
+    )
 
     def __init__(self) -> None:
         self.freq = 0
-        self.q = 0.5              # neutral prior (matches QTable)
+        self.q = 0.5  # neutral prior (matches QTable)
         self.reward_sum = 0.0
         self.latency_sum = 0.0
         self.cost_sum = 0.0
@@ -88,8 +102,12 @@ class _Cell:
 class SparseTransitionTensor:
     """W[d, i, j, f] — a sparse, feature-valued, multi-domain transition tensor."""
 
-    def __init__(self, learning_rate: float = 0.1, discount: float = 0.95,
-                 max_cells: int = 1_000_000) -> None:
+    def __init__(
+        self,
+        learning_rate: float = 0.1,
+        discount: float = 0.95,
+        max_cells: int = 1_000_000,
+    ) -> None:
         self._lr = learning_rate
         self._discount = discount
         self._max_cells = max_cells
@@ -97,17 +115,17 @@ class SparseTransitionTensor:
         self._state_name: list[str] = []
         self._state_domain: list[str] = []
         self._domains: set[str] = set()
-        self._cells: dict[tuple[int, int], _Cell] = {}          # (i,j) -> accumulators
-        self._out: dict[int, dict[int, _Cell]] = {}             # i -> {j: cell}  outgoing adjacency
-        self._in: dict[int, dict[int, _Cell]] = {}              # j -> {i: cell}  incoming adjacency
-        self._ref: dict[int, int] = {}                          # state idx -> #cells touching it
-        self._free: list[int] = []                              # freed index slots (reuse pool)
-        self._out_freq: dict[int, int] = {}                     # Σ_k freq(i,k) for probability
-        self._revision: int = 0                                 # bumps on each batch update
-        self._dirty: set[tuple[int, int]] = set()               # recently modified cells (for incremental ops)
-        self._eviction_count: int = 0                           # total cells evicted
-        self._compiler: GraphCompiler | None = None             # reused across to_operator() calls
-        self._built: bool = False                                # one-time build step completed
+        self._cells: dict[tuple[int, int], _Cell] = {}  # (i,j) -> accumulators
+        self._out: dict[int, dict[int, _Cell]] = {}  # i -> {j: cell}  outgoing adjacency
+        self._in: dict[int, dict[int, _Cell]] = {}  # j -> {i: cell}  incoming adjacency
+        self._ref: dict[int, int] = {}  # state idx -> #cells touching it
+        self._free: list[int] = []  # freed index slots (reuse pool)
+        self._out_freq: dict[int, int] = {}  # Σ_k freq(i,k) for probability
+        self._revision: int = 0  # bumps on each batch update
+        self._dirty: set[tuple[int, int]] = set()  # recently modified cells (for incremental ops)
+        self._eviction_count: int = 0  # total cells evicted
+        self._compiler: GraphCompiler | None = None  # reused across to_operator() calls
+        self._built: bool = False  # one-time build step completed
         # Reentrant so the structural rewrites (compact/evict) exclude concurrent
         # reads/writes. Without it, TensorCompactor's daemon thread could remap every
         # index (compact()) while an actor mid-feature() has already resolved a now-stale
@@ -142,7 +160,7 @@ class SparseTransitionTensor:
     def intern(self, state: str, domain: str = "default") -> int:
         idx = self._state_index.get(state)
         if idx is None:
-            if self._free:                                      # reuse a freed slot
+            if self._free:  # reuse a freed slot
                 idx = self._free.pop()
                 self._state_name[idx] = state
                 self._state_domain[idx] = domain
@@ -254,7 +272,12 @@ class SparseTransitionTensor:
 
         self._eviction_count += evicted
         if evicted:
-            logger.info("[tensor] evicted %d cells (total=%d, nnz=%d)", evicted, self._eviction_count, len(self._cells))
+            logger.info(
+                "[tensor] evicted %d cells (total=%d, nnz=%d)",
+                evicted,
+                self._eviction_count,
+                len(self._cells),
+            )
         return evicted
 
     @_synchronized
@@ -296,12 +319,8 @@ class SparseTransitionTensor:
         # the denominator D in the operator M = D⁻¹W — was dividing by whatever
         # unrelated state used to hold that index, or by nothing at all (→ 0.0). A
         # compaction silently zeroed the transition matrix the planner propagates over.
-        self._out_freq = {
-            remap[i]: total for i, total in self._out_freq.items() if i in remap
-        }
-        self._dirty = {
-            (remap[i], remap[j]) for (i, j) in self._dirty if i in remap and j in remap
-        }
+        self._out_freq = {remap[i]: total for i, total in self._out_freq.items() if i in remap}
+        self._dirty = {(remap[i], remap[j]) for (i, j) in self._dirty if i in remap and j in remap}
 
         # Count i and j separately, exactly as _new_cell credits them — a self-loop
         # holds two references. Counting each cell once undercounted every self-loop
@@ -309,14 +328,19 @@ class SparseTransitionTensor:
         # so a later remove()/evict() could drive the refcount to zero and free a state
         # that still had live cells pointing at it.
         new_ref: dict[int, int] = {}
-        for (a, b) in new_cells:
+        for a, b in new_cells:
             new_ref[a] = new_ref.get(a, 0) + 1
             new_ref[b] = new_ref.get(b, 0) + 1
         self._ref = new_ref
 
         compacted = old_count - len(new_names)
         if compacted:
-            logger.info("[tensor] compacted %d states (old=%d, new=%d)", compacted, old_count, len(new_names))
+            logger.info(
+                "[tensor] compacted %d states (old=%d, new=%d)",
+                compacted,
+                old_count,
+                len(new_names),
+            )
         return compacted
 
     @property
@@ -328,9 +352,18 @@ class SparseTransitionTensor:
 
     @_synchronized
     def observe(
-        self, src: str, dst: str, *, domain: str = "default", dst_domain: str | None = None,
-        reward: float = 0.0, latency_ms: float = 0.0, cost: float = 0.0,
-        confidence: float = 0.0, ts: float | None = None, weight: float = 1.0,
+        self,
+        src: str,
+        dst: str,
+        *,
+        domain: str = "default",
+        dst_domain: str | None = None,
+        reward: float = 0.0,
+        latency_ms: float = 0.0,
+        cost: float = 0.0,
+        confidence: float = 0.0,
+        ts: float | None = None,
+        weight: float = 1.0,
     ) -> None:
         """Record one observed transition src→dst with optional trust weighting.
 
@@ -357,8 +390,15 @@ class SparseTransitionTensor:
         self._out_freq[i] = self._out_freq.get(i, 0) + weight  # Weighted out-degree
 
     @_synchronized
-    def bellman_update(self, src: str, dst: str, reward: float, *, next_best_q: float | None = None,
-                       domain: str = "default") -> float:
+    def bellman_update(
+        self,
+        src: str,
+        dst: str,
+        reward: float,
+        *,
+        next_best_q: float | None = None,
+        domain: str = "default",
+    ) -> float:
         """Sparse Bellman update of W[·, i, j, Q]. Touches one cell — the traversed
         transition. Q ← Q + α(r + γ·maxₖ Q(j→k) − Q)."""
         i = self.intern(src, domain)
@@ -397,16 +437,24 @@ class SparseTransitionTensor:
         count = 0
         for t in transitions:
             self.observe(
-                t["src"], t["dst"], domain=t.get("domain", "default"), dst_domain=t.get("dst_domain"),
-                reward=t.get("reward", 0.0), latency_ms=t.get("latency_ms", 0.0),
-                cost=t.get("cost", 0.0), confidence=t.get("confidence", 0.0),
+                t["src"],
+                t["dst"],
+                domain=t.get("domain", "default"),
+                dst_domain=t.get("dst_domain"),
+                reward=t.get("reward", 0.0),
+                latency_ms=t.get("latency_ms", 0.0),
+                cost=t.get("cost", 0.0),
+                confidence=t.get("confidence", 0.0),
             )
             count += 1
         self._revision += 1
         logger.info(
             "[tensor] batch update: +%d transitions%s → revision %d (states=%d, nnz=%d)",
-            count, f" from {source}" if source else "", self._revision,
-            len(self._state_name), len(self._cells),
+            count,
+            f" from {source}" if source else "",
+            self._revision,
+            len(self._state_name),
+            len(self._cells),
         )
         _obs.counter("world.batch_update")
         _obs.gauge("world.revision", float(self._revision))
@@ -427,13 +475,24 @@ class SparseTransitionTensor:
         live = [i for i in range(len(self._state_name)) if self._state_name[i] is not None]
         remap = {old: new for new, old in enumerate(live)}
         return {
-            "lr": self._lr, "discount": self._discount, "revision": self._revision,
-            "states": [{"name": self._state_name[i], "domain": self._state_domain[i]}
-                       for i in live],
-            "cells": [{"i": remap[i], "j": remap[j], "freq": c.freq, "q": c.q,
-                       "reward_sum": c.reward_sum, "latency_sum": c.latency_sum,
-                       "cost_sum": c.cost_sum, "conf_sum": c.conf_sum, "last_ts": c.last_ts}
-                      for (i, j), c in self._cells.items()],
+            "lr": self._lr,
+            "discount": self._discount,
+            "revision": self._revision,
+            "states": [{"name": self._state_name[i], "domain": self._state_domain[i]} for i in live],
+            "cells": [
+                {
+                    "i": remap[i],
+                    "j": remap[j],
+                    "freq": c.freq,
+                    "q": c.q,
+                    "reward_sum": c.reward_sum,
+                    "latency_sum": c.latency_sum,
+                    "cost_sum": c.cost_sum,
+                    "conf_sum": c.conf_sum,
+                    "last_ts": c.last_ts,
+                }
+                for (i, j), c in self._cells.items()
+            ],
         }
 
     def load_dict(self, d: Mapping) -> None:
@@ -443,9 +502,13 @@ class SparseTransitionTensor:
         for c in d.get("cells", []):
             i, j = c["i"], c["j"]
             cell = _Cell()
-            cell.freq = c["freq"]; cell.q = c["q"]; cell.reward_sum = c["reward_sum"]
-            cell.latency_sum = c["latency_sum"]; cell.cost_sum = c["cost_sum"]
-            cell.conf_sum = c["conf_sum"]; cell.last_ts = c["last_ts"]
+            cell.freq = c["freq"]
+            cell.q = c["q"]
+            cell.reward_sum = c["reward_sum"]
+            cell.latency_sum = c["latency_sum"]
+            cell.cost_sum = c["cost_sum"]
+            cell.conf_sum = c["conf_sum"]
+            cell.last_ts = c["last_ts"]
             self._cells[(i, j)] = cell
             self._out.setdefault(i, {})[j] = cell
             # _in was never rebuilt on load, so a tensor restored from disk had an
@@ -473,13 +536,23 @@ class SparseTransitionTensor:
         finally:
             if tmp.exists():
                 tmp.unlink()
-        logger.info("[tensor] saved world (rev %d, %d transitions) → %s", self._revision, len(self._cells), p)
+        logger.info(
+            "[tensor] saved world (rev %d, %d transitions) → %s",
+            self._revision,
+            len(self._cells),
+            p,
+        )
 
     def load(self, path: str | Path) -> None:
         p = Path(path)
         if p.exists():
             self.load_dict(json.loads(p.read_text()))
-            logger.info("[tensor] loaded world (rev %d, %d transitions) ← %s", self._revision, len(self._cells), p)
+            logger.info(
+                "[tensor] loaded world (rev %d, %d transitions) ← %s",
+                self._revision,
+                len(self._cells),
+                p,
+            )
 
     # ── the f axis: W[·, i, j, f] ────────────────────────────────────────────────
 
@@ -529,26 +602,29 @@ class SparseTransitionTensor:
         but never actually applied — first-domain-wins) stayed listed forever. A "which
         domains does the world know about" query must reflect what is actually there.
         """
-        return sorted({
-            self._state_domain[i]
-            for i in range(len(self._state_name))
-            if self._state_name[i] is not None
-        })
+        return sorted({self._state_domain[i] for i in range(len(self._state_name)) if self._state_name[i] is not None})
 
     def states(self, domain: str | None = None) -> list[str]:
         if domain is None:
             return [n for n in self._state_name if n is not None]
-        return [self._state_name[i] for i in range(len(self._state_name))
-                if self._state_name[i] is not None and self._state_domain[i] == domain]
+        return [
+            self._state_name[i]
+            for i in range(len(self._state_name))
+            if self._state_name[i] is not None and self._state_domain[i] == domain
+        ]
 
     @_synchronized
-    def slice(self, domain: str | None = None, f: Feature = Feature.PROBABILITY,
-              intra_only: bool = True) -> dict[tuple[str, str], float]:
+    def slice(
+        self,
+        domain: str | None = None,
+        f: Feature = Feature.PROBABILITY,
+        intra_only: bool = True,
+    ) -> dict[tuple[str, str], float]:
         """A transition-matrix view W[d,:,:,f]. `domain=None` returns the whole world
         (all states, incl. cross-domain off-diagonals). `intra_only` keeps a domain's
         block on the diagonal."""
         out: dict[tuple[str, str], float] = {}
-        for (i, j) in self._cells:
+        for i, j in self._cells:
             di, dj = self._state_domain[i], self._state_domain[j]
             if domain is not None:
                 if di != domain:
@@ -584,15 +660,26 @@ class SparseTransitionTensor:
     def cross_domain_edges(self) -> list[tuple[str, str, str, str]]:
         """Off-diagonal entries: (src, src_domain, dst, dst_domain) where domains differ."""
         edges = []
-        for (i, j) in self._cells:
+        for i, j in self._cells:
             if self._state_domain[i] != self._state_domain[j]:
-                edges.append((self._state_name[i], self._state_domain[i],
-                              self._state_name[j], self._state_domain[j]))
+                edges.append(
+                    (
+                        self._state_name[i],
+                        self._state_domain[i],
+                        self._state_name[j],
+                        self._state_domain[j],
+                    )
+                )
         return edges
 
     @_synchronized
-    def to_operator(self, domain: str | None = None, f: Feature = Feature.PROBABILITY,
-                    compiler: GraphCompiler | None = None, intra_only: bool = True) -> CompiledOperator:
+    def to_operator(
+        self,
+        domain: str | None = None,
+        f: Feature = Feature.PROBABILITY,
+        compiler: GraphCompiler | None = None,
+        intra_only: bool = True,
+    ) -> CompiledOperator:
         """Project a slice into a CompiledOperator (CSR) for propagation. domain=None
         compiles the whole world model as one giant sparse operator (cross-domain edges
         included)."""
@@ -625,16 +712,16 @@ class SparseTransitionTensor:
     def summary(self) -> dict:
         live = len(self._state_index)
         return {
-            "domains": len(self.domains()),   # live domains, not the never-pruned _domains set
+            "domains": len(self.domains()),  # live domains, not the never-pruned _domains set
             "states": live,
             "transitions": len(self._cells),
             "cross_domain": len(self.cross_domain_edges()),
             "features": NUM_FEATURES,
-            "density": len(self._cells) / max(live ** 2, 1),
+            "density": len(self._cells) / max(live**2, 1),
         }
 
     def __iter__(self) -> Iterator[tuple[str, str]]:
-        for (i, j) in self._cells:
+        for i, j in self._cells:
             yield self._state_name[i], self._state_name[j]
 
     @_synchronized

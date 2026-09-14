@@ -13,7 +13,7 @@ from .cingulate_integration import CingulateEvidenceReview
 
 __all__ = [
     "EvidenceCollector",
-    "EvidenceAggregator", 
+    "EvidenceAggregator",
     "EvidencePackage",
-    "CingulateEvidenceReview"
+    "CingulateEvidenceReview",
 ]

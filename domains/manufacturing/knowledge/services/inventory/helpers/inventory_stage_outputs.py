@@ -57,7 +57,9 @@ async def get_by_stage_output_id(
     db: AsyncIOMotorDatabase,
     stage_output_id: str,
 ) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"stage_output_id": stage_output_id}))
+    return _serialize(
+        await db[COLLECTION].find_one({"stage_output_id": stage_output_id})
+    )
 
 
 async def get_by_product_id(db: AsyncIOMotorDatabase, product_id: str) -> list[dict]:

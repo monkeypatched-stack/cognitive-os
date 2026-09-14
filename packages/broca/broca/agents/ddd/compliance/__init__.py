@@ -3,6 +3,7 @@
 Each agent validates a specific regulatory standard against context signals.
 All agents are auto-registered into the Broca registry on import.
 """
+
 from broca.agents.ddd.compliance._base_compliance import BaseComplianceAgent
 from broca.agents.ddd.compliance.gdpr import GDPRAgent
 from broca.agents.ddd.compliance.iso27001 import ISO27001Agent

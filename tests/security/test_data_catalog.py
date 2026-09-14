@@ -24,15 +24,28 @@ def test_the_catalog_is_an_allowlist_not_the_whole_database():
     for collection in data_catalog.DOMAIN_COLLECTIONS:
         assert isinstance(collection, str)
     # the credential store is not domain data
-    for secret in ("agentos_api_keys", "agentos_api_key_email_otps", "users",
-                   "part11_login_events", "roles", "permissions", "sessions"):
-        assert secret not in data_catalog.DOMAIN_COLLECTIONS, \
+    for secret in (
+        "agentos_api_keys",
+        "agentos_api_key_email_otps",
+        "users",
+        "part11_login_events",
+        "roles",
+        "permissions",
+        "sessions",
+    ):
+        assert secret not in data_catalog.DOMAIN_COLLECTIONS, (
             f"{secret} would be described, field by field, inside an LLM prompt"
+        )
 
 
 def test_the_domain_collections_are_the_ones_agents_reason_about():
-    for expected in ("instruments", "pharmaceutical_equipment", "calibration_records",
-                     "plant_locations", "workstations"):
+    for expected in (
+        "instruments",
+        "pharmaceutical_equipment",
+        "calibration_records",
+        "plant_locations",
+        "workstations",
+    ):
         assert expected in data_catalog.DOMAIN_COLLECTIONS
 
 
@@ -47,8 +60,7 @@ def test_no_data_means_forbid_guessing_not_encourage_it(monkeypatch):
 
 
 def test_the_fragment_carries_the_schema_and_the_rules(monkeypatch):
-    summary = ("Database `demo` (MongoDB).\n- instruments (41 documents)\n"
-               "    line_id values: LINE-TAB-001, LINE-CAP-001")
+    summary = "Database `demo` (MongoDB).\n- instruments (41 documents)\n    line_id values: LINE-TAB-001, LINE-CAP-001"
     monkeypatch.setattr(data_catalog, "schema_summary", _async_return(summary))
     fragment = asyncio.run(data_catalog.prompt_fragment())
 
@@ -61,8 +73,10 @@ def test_the_fragment_carries_the_schema_and_the_rules(monkeypatch):
 def test_introspection_failure_is_not_fatal(monkeypatch):
     """A database that cannot be reached must degrade to 'I know nothing', never raise into
     the resolver."""
+
     def boom():
         raise RuntimeError("mongo down")
+
     monkeypatch.setattr(data_catalog, "_introspect", boom)
     data_catalog.invalidate()
     assert asyncio.run(data_catalog.schema_summary()) == ""
@@ -71,4 +85,5 @@ def test_introspection_failure_is_not_fatal(monkeypatch):
 def _async_return(value):
     async def _fn():
         return value
+
     return _fn

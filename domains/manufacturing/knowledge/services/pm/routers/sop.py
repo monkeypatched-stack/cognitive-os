@@ -30,6 +30,7 @@ bearer_scheme = HTTPBearer()
 
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedSOPResponse)
 async def list_sops(
     page: int = Query(1, ge=1),
@@ -48,6 +49,7 @@ async def list_sops(
 
 
 # ── Filtered list endpoints ───────────────────────────────────────────────────
+
 
 @router.get("/by-author/{authored_by}", response_model=list[SOPResponse])
 async def list_sops_by_author(
@@ -97,7 +99,9 @@ async def list_sops_by_version(
     )
 
 
-@router.get("/by-process_definition/{process_definition_id}", response_model=SOPResponse)
+@router.get(
+    "/by-process_definition/{process_definition_id}", response_model=SOPResponse
+)
 async def get_sop_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -168,6 +172,7 @@ async def analyze_sop_change_impact(
 
 # ── Single record ─────────────────────────────────────────────────────────────
 
+
 @router.get("/{sop_id}", response_model=SOPResponse)
 async def get_sop(
     sop_id: str,
@@ -185,6 +190,7 @@ async def get_sop(
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
+
 
 @router.post("/", response_model=SOPResponse, status_code=status.HTTP_201_CREATED)
 async def create_sop(
@@ -207,6 +213,7 @@ async def create_sop(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{sop_id}", response_model=SOPResponse)
 async def update_sop(
@@ -334,7 +341,9 @@ async def update_sop_corrective_actions(
     return updated
 
 
-@router.post("/{sop_id}/simulate", response_model=ProcessDefinitionCanvasFlowSimulationResponse)
+@router.post(
+    "/{sop_id}/simulate", response_model=ProcessDefinitionCanvasFlowSimulationResponse
+)
 async def simulate_sop_process_flow(
     sop_id: str,
     data: ProcessDefinitionCanvasFlowSimulationRequest,
@@ -360,6 +369,7 @@ async def simulate_sop_process_flow(
 
 
 # ── References ────────────────────────────────────────────────────────────────
+
 
 @router.post("/{sop_id}/references", response_model=SOPResponse)
 async def add_sop_reference(
@@ -396,6 +406,7 @@ async def remove_sop_reference(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{sop_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_sop(

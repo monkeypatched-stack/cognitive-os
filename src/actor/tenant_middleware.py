@@ -5,6 +5,7 @@ Decorators and context managers to ensure:
 2. All database queries scoped to tenant
 3. All responses verified for tenant leakage
 """
+
 from __future__ import annotations
 
 import functools
@@ -51,6 +52,7 @@ def require_tenant(func: F) -> F:
     2. tenant_id is non-empty string
     3. Sets TenantContext for downstream operations
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         # Extract request from args
@@ -65,10 +67,7 @@ def require_tenant(func: F) -> F:
 
         tenant_id = getattr(request, "tenant_id", None)
         if not tenant_id or not isinstance(tenant_id, str):
-            raise ValueError(
-                f"[tenant_middleware] Invalid tenant_id: {tenant_id}. "
-                f"Must be non-empty string."
-            )
+            raise ValueError(f"[tenant_middleware] Invalid tenant_id: {tenant_id}. Must be non-empty string.")
 
         # Set context for this request
         TenantContext.set_tenant(tenant_id)
@@ -90,6 +89,7 @@ def validate_response_tenant(func: F) -> F:
     1. Response tenant_id matches request tenant_id
     2. No data from other tenants in result
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         # Get current tenant context
@@ -128,17 +128,11 @@ def tenant_scoped_query(actor_id: str, tenant_id: str) -> tuple[str, str]:
     import re
 
     if not re.match(r"^[a-z0-9_-]{1,128}$", actor_id):
-        raise ValueError(
-            f"[tenant_middleware] Invalid actor_id: {actor_id}. "
-            f"Must match [a-z0-9_-]{{1,128}}"
-        )
+        raise ValueError(f"[tenant_middleware] Invalid actor_id: {actor_id}. Must match [a-z0-9_-]{{1,128}}")
 
     # Validate tenant_id
     if not re.match(r"^[a-z0-9_-]{1,128}$", tenant_id):
-        raise ValueError(
-            f"[tenant_middleware] Invalid tenant_id: {tenant_id}. "
-            f"Must match [a-z0-9_-]{{1,128}}"
-        )
+        raise ValueError(f"[tenant_middleware] Invalid tenant_id: {tenant_id}. Must match [a-z0-9_-]{{1,128}}")
 
     # Verify tenant context matches
     current_tenant = TenantContext.get_tenant()
@@ -170,10 +164,7 @@ class TenantMiddleware:
         """
         tenant_id = getattr(request, "tenant_id", None)
         if not tenant_id:
-            raise ValueError(
-                "[tenant_middleware] Request missing tenant_id. "
-                "All requests must specify tenant_id."
-            )
+            raise ValueError("[tenant_middleware] Request missing tenant_id. All requests must specify tenant_id.")
 
         TenantContext.set_tenant(tenant_id)
 
@@ -195,7 +186,7 @@ class TenantMiddleware:
                 "type": "cross_tenant_leakage",
                 "request_tenant": request_tenant,
                 "response_tenant": response_tenant,
-                "timestamp": __import__("datetime").datetime.now().isoformat()
+                "timestamp": __import__("datetime").datetime.now().isoformat(),
             }
             self._violations.append(violation)
 

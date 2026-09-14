@@ -68,12 +68,16 @@ async def get_by_product(db: AsyncIOMotorDatabase, product_id: str) -> list[dict
     return [_serialize(d) async for d in cursor]
 
 
-async def get_active_by_product(db: AsyncIOMotorDatabase, product_id: str) -> list[dict]:
+async def get_active_by_product(
+    db: AsyncIOMotorDatabase, product_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"product_id": product_id, "is_active": True})
     return [_serialize(d) async for d in cursor]
 
 
-async def get_by_pricing_type(db: AsyncIOMotorDatabase, pricing_type: str) -> list[dict]:
+async def get_by_pricing_type(
+    db: AsyncIOMotorDatabase, pricing_type: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"pricing_type": pricing_type})
     return [_serialize(d) async for d in cursor]
 

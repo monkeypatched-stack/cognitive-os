@@ -17,13 +17,18 @@ Architecture:
     ├── Action recording via ActorRuntime
     └── Async cognitive loop (observe → believe → plan → execute → learn)
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 from datetime import datetime
 
-from src.monkey_brain.kernel.compile.cognitive_actor import CognitiveActor, _CognitiveTickResult
+from src.monkey_brain.kernel.compile.cognitive_actor import (
+    CognitiveActor,
+    _CognitiveTickResult,
+)
+
 # _CognitiveTickResult is re-exported here for src/actor/autonomous_actor.py,
 # which imports it from this module (not directly from cognitive_actor.py) as
 # CognitiveLoopResult — kept even though this file's own code no longer
@@ -65,6 +70,7 @@ class ActorSystem(CognitiveActor):
             entity_type = entity.entity_type
         elif actor_id is None:
             from uuid import uuid4
+
             actor_id = f"actor_{uuid4().hex[:8]}"
 
         # Initialize CognitiveActor (beliefs, policy, Φ)
@@ -81,6 +87,7 @@ class ActorSystem(CognitiveActor):
         # CognitionEngine (shared world tensor)
         try:
             from monkey_brain.kernel.cognitive_engine import CognitionEngine
+
             self._engine = CognitionEngine(0)
         except Exception:
             self._engine = None
@@ -92,6 +99,7 @@ class ActorSystem(CognitiveActor):
         # Initialize ActorRuntime for pipeline execution
         try:
             from monkey_brain.kernel.compile.actor_runtime import ActorRuntime
+
             self._actor_runtime = ActorRuntime(
                 actor_id,
                 cognitive_runtime=self._cognitive_runtime,
@@ -158,7 +166,12 @@ class ActorSystem(CognitiveActor):
         return False
 
     async def plan(self, goals=None) -> dict:
-        return {"start_state": {}, "goal_states": goals or [], "steps": [], "constraints": {}}
+        return {
+            "start_state": {},
+            "goal_states": goals or [],
+            "steps": [],
+            "constraints": {},
+        }
 
     async def execute_actions(self, plan: dict) -> list:
         """Execute plan steps asynchronously (for cognitive loop)."""
@@ -171,7 +184,11 @@ class ActorSystem(CognitiveActor):
         return []
 
     async def simulate(self, actions: list, world_clone=None) -> dict:
-        return {"actions_simulated": len(actions), "predicted_state_trajectory": [], "predicted_rewards": []}
+        return {
+            "actions_simulated": len(actions),
+            "predicted_state_trajectory": [],
+            "predicted_rewards": [],
+        }
 
     async def compare(self, predicted: dict, actual: dict) -> dict:
         return {"trajectory_error": 0.0, "reward_error": 0.0, "model_accurate": True}
@@ -186,7 +203,11 @@ class ActorSystem(CognitiveActor):
         if self._society_runtime:
             for action in actions:
                 await self._society_runtime.publish_event(
-                    {"actor_id": self.id, "action": action, "timestamp": datetime.now().isoformat()}
+                    {
+                        "actor_id": self.id,
+                        "action": action,
+                        "timestamp": datetime.now().isoformat(),
+                    }
                 )
 
     # ── Helpers ─────────────────────────────────────────────────────────────
@@ -197,7 +218,11 @@ class ActorSystem(CognitiveActor):
         return None
 
     def _get_actual_outcome(self, actions: list) -> dict:
-        return {"actions_executed": len(actions), "state_trajectory": [], "actual_rewards": []}
+        return {
+            "actions_executed": len(actions),
+            "state_trajectory": [],
+            "actual_rewards": [],
+        }
 
     def set_world(self, world: Any) -> None:
         self._world = world
@@ -213,19 +238,29 @@ class ActorSystem(CognitiveActor):
 
     def _load_global_policies(self) -> dict:
         try:
-            from src.cingulate.governance.policy_registry import PolicyRegistry, PolicyCategory
+            from src.cingulate.governance.policy_registry import (
+                PolicyRegistry,
+                PolicyCategory,
+            )
+
             registry = PolicyRegistry()
             policies = {}
             for p in registry.get_by_category(PolicyCategory.RUNTIME):
-                policies[p.name] = {"enabled": p.enabled, "rules": p.rules, "version": p.version}
+                policies[p.name] = {
+                    "enabled": p.enabled,
+                    "rules": p.rules,
+                    "version": p.version,
+                }
             return policies
         except Exception:
             from src.actor.config import GLOBAL_POLICIES
+
             return dict(GLOBAL_POLICIES)
 
     def _load_local_policies(self) -> dict:
         try:
             from src.actor.config import LOCAL_POLICIES
+
             return dict(LOCAL_POLICIES)
         except Exception:
             return {}

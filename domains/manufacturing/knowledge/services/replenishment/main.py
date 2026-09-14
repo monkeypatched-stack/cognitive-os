@@ -10,7 +10,6 @@ from services.common.logging import configure_service_logging, install_request_l
 from services.common.tracing import install_route_tracing
 from services.replenishment.routers.replenishment import router as replenishment_router
 
-
 logger = configure_service_logging("replenishment")
 
 
@@ -38,7 +37,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(replenishment_router, prefix="/api/v1/replenishment", tags=["Replenishment"])
+app.include_router(
+    replenishment_router, prefix="/api/v1/replenishment", tags=["Replenishment"]
+)
 
 
 @app.get("/health", tags=["Health"])

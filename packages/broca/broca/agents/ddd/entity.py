@@ -1,4 +1,5 @@
 """EntityAgent — manages entity lifecycle, identity, and state transitions."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -79,4 +80,8 @@ class EntityAgent(BaseDDDAgent):
 
     def learn(self, outcome: dict[str, Any]) -> None:
         if outcome.get("action") == "transition_rejected":
-            logger.debug("[entity] rejected transition: %s → %s", outcome.get("current_state"), outcome.get("requested"))
+            logger.debug(
+                "[entity] rejected transition: %s → %s",
+                outcome.get("current_state"),
+                outcome.get("requested"),
+            )

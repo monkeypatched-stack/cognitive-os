@@ -35,5 +35,5 @@ class TraceMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
         response.headers["X-Trace-ID"] = trace_id
-        response.headers["X-Span-ID"]  = span_id
+        response.headers["X-Span-ID"] = span_id
         return response

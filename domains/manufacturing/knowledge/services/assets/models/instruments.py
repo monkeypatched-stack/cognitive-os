@@ -2,11 +2,18 @@ from datetime import datetime, timezone
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
-
 InstrumentCategory = Literal[
-    "Analytical", "Measurement", "Monitoring", "Calibration", "Testing", "Inspection", "Other"
+    "Analytical",
+    "Measurement",
+    "Monitoring",
+    "Calibration",
+    "Testing",
+    "Inspection",
+    "Other",
 ]
-InstrumentStatus = Literal["Active", "Inactive", "Calibration Due", "Under Maintenance", "Retired"]
+InstrumentStatus = Literal[
+    "Active", "Inactive", "Calibration Due", "Under Maintenance", "Retired"
+]
 
 
 def utc_now() -> datetime:

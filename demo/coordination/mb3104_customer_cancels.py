@@ -12,13 +12,20 @@ OrderCancelled:
 Usage:
     python3 demo/coordination/mb3104_customer_cancels.py
 """
+
 from __future__ import annotations
 
 import sys
 import time
 from typing import Any
 
-from bootstrap_mb3104 import ApiError, TRACKED_PRODUCT_NAME, _call, _client, bootstrap_world
+from bootstrap_mb3104 import (
+    ApiError,
+    TRACKED_PRODUCT_NAME,
+    _call,
+    _client,
+    bootstrap_world,
+)
 
 ORDER_PROMPT = "Buy a wireless gaming mouse."
 CANCEL_PROMPT = "Cancel my order."
@@ -49,11 +56,15 @@ def kv(label: str, value: Any, width: int = 28) -> None:
     print(f"{label} {dots} {value}")
 
 
-def _prompt_with_retry(client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0) -> dict[str, Any]:
+def _prompt_with_retry(
+    client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0
+) -> dict[str, Any]:
     last_response: dict[str, Any] = {}
     for attempt in range(attempts):
         response = _call(
-            client, "POST", "/prompt",
+            client,
+            "POST",
+            "/prompt",
             json={"question": question},
             headers={"X-User-ID": actor_id},
         )
@@ -108,13 +119,14 @@ def print_scope_and_trace(label: str, execution: dict[str, Any]) -> list[dict[st
     for step in trace:
         events = ", ".join(step.get("events") or [])
         actors = ", ".join(step.get("actors_ticked") or []) or "(none)"
-        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} "
-              f"-> actors ticked: {actors}")
+        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} -> actors ticked: {actors}")
     return trace
 
 
 def step_verify(
-    world: dict[str, Any], cancel_execution: dict[str, Any], cancel_trace: list[dict[str, Any]],
+    world: dict[str, Any],
+    cancel_execution: dict[str, Any],
+    cancel_trace: list[dict[str, Any]],
 ) -> bool:
     section("Verification")
 
@@ -136,9 +148,15 @@ def step_verify(
     )
 
     checks = [
-        ("Picking cancelled (Warehouse coordinated)", "OrderCancelled" in triggering_events and
-         any("Warehouse" in (s.get("society_name") or "") for s in cancel_trace)),
-        ("Inventory released (real InventoryReleased event)", "InventoryReleased" in domain_events_seen),
+        (
+            "Picking cancelled (Warehouse coordinated)",
+            "OrderCancelled" in triggering_events
+            and any("Warehouse" in (s.get("society_name") or "") for s in cancel_trace),
+        ),
+        (
+            "Inventory released (real InventoryReleased event)",
+            "InventoryReleased" in domain_events_seen,
+        ),
         ("Driver cancelled (Logistics coordinated)", "Driver" in reacted_names),
         ("Payment refunded (Merchant notified)", "Bob" in reacted_names),
     ]

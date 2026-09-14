@@ -15,12 +15,19 @@ synthetic version of them.
 Usage:
     python3 demo/coordination/mb3100_customer_order.py
 """
+
 from __future__ import annotations
 
 import sys
 from typing import Any
 
-from bootstrap_mb3100 import ApiError, TRACKED_PRODUCT_NAME, _call, _client, bootstrap_world
+from bootstrap_mb3100 import (
+    ApiError,
+    TRACKED_PRODUCT_NAME,
+    _call,
+    _client,
+    bootstrap_world,
+)
 
 PROMPT = "Buy a wireless gaming mouse."
 
@@ -52,6 +59,7 @@ def fail(label: str, detail: str = "") -> None:
 
 # ── Step 1: Bootstrap ────────────────────────────────────────────────────
 
+
 def step_bootstrap(client) -> dict[str, Any]:
     banner("MB-3100 — Customer Order Coordination")
     print("\nBootstrapping World")
@@ -68,16 +76,22 @@ def step_bootstrap(client) -> dict[str, Any]:
 
 # ── Step 2: Customer submits the order ──────────────────────────────────
 
-def _prompt_with_retry(client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0) -> dict[str, Any]:
+
+def _prompt_with_retry(
+    client, actor_id: str, question: str, attempts: int = 3, delay_seconds: float = 5.0
+) -> dict[str, Any]:
     """Same real, observed transient (POST /prompt occasionally returns
     200 with llm_answered=False and no execution data) and same fix as
     demo/ecommerce/run_demo.py's _prompt_with_retry — it isn't an HTTP
     error, so a normal HTTP-level retry wouldn't see it."""
     import time as _time
+
     last_response: dict[str, Any] = {}
     for attempt in range(attempts):
         response = _call(
-            client, "POST", "/prompt",
+            client,
+            "POST",
+            "/prompt",
             json={"question": question},
             headers={"X-User-ID": actor_id},
         )
@@ -115,12 +129,15 @@ def step_submit_order(client, actor_id: str) -> dict[str, Any]:
         print(f"  {mark} {name}" + (f" — {detail}" if detail else ""))
 
     print(f"\nGoal Achieved: {outcome.get('goal_achieved')}")
-    print(f"Actions Executed: {outcome.get('actions_executed')} "
-          f"(success={outcome.get('success_count')}, failure={outcome.get('failure_count')})")
+    print(
+        f"Actions Executed: {outcome.get('actions_executed')} "
+        f"(success={outcome.get('success_count')}, failure={outcome.get('failure_count')})"
+    )
     return execution
 
 
 # ── Step 3: Report execution scope + coordination trace ─────────────────
+
 
 def step_report_scope(execution: dict[str, Any]) -> dict[str, Any]:
     section("Execution Scope (initiating request)")
@@ -145,13 +162,13 @@ def step_report_scope(execution: dict[str, Any]) -> dict[str, Any]:
     for step in trace:
         events = ", ".join(step.get("events") or [])
         actors = ", ".join(step.get("actors_ticked") or []) or "(none)"
-        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} "
-              f"-> actors ticked: {actors}")
+        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} -> actors ticked: {actors}")
 
     return {"scope": scope, "trace": trace}
 
 
 # ── Step 4: Verify the specific acceptance criteria ──────────────────────
+
 
 def step_verify(client, world: dict[str, Any], trace: list[dict[str, Any]]) -> bool:
     section("Verification")
@@ -171,9 +188,18 @@ def step_verify(client, world: dict[str, Any], trace: list[dict[str, Any]]) -> b
     # itself succeeded.
     checks = [
         ("Customer — Order Created", "OrderCreated" in events_published),
-        ("Warehouse Worker — Picking Task Assigned", "Warehouse Worker" in reacted_names),
-        ("Inventory Robot — Inventory Reserved", "InventoryReserved" in events_published),
-        ("Driver — Shipment Assigned", "Driver" in reacted_names and "InventoryReserved" in events_published),
+        (
+            "Warehouse Worker — Picking Task Assigned",
+            "Warehouse Worker" in reacted_names,
+        ),
+        (
+            "Inventory Robot — Inventory Reserved",
+            "InventoryReserved" in events_published,
+        ),
+        (
+            "Driver — Shipment Assigned",
+            "Driver" in reacted_names and "InventoryReserved" in events_published,
+        ),
     ]
     all_pass = True
     for label, ok in checks:
@@ -186,7 +212,12 @@ def step_verify(client, world: dict[str, Any], trace: list[dict[str, Any]]) -> b
     # Negative assertion — what actually proves scoping, not just that
     # *something* reacted: nobody outside the subscribed societies
     # should have been coordinated at all.
-    unexpected = reacted_names - {"Warehouse Worker", "Picker", "Inventory Robot", "Driver"}
+    unexpected = reacted_names - {
+        "Warehouse Worker",
+        "Picker",
+        "Inventory Robot",
+        "Driver",
+    }
     if unexpected:
         fail("Unrelated actors were coordinated", ", ".join(sorted(unexpected)))
         all_pass = False
@@ -197,6 +228,7 @@ def step_verify(client, world: dict[str, Any], trace: list[dict[str, Any]]) -> b
 
 
 # ── Orchestration ────────────────────────────────────────────────────────
+
 
 def main() -> int:
     with _client() as client:

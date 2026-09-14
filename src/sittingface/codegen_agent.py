@@ -30,6 +30,7 @@ class ClaudeClient:
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import anthropic
+
         client = anthropic.Anthropic()
         msg = client.messages.create(
             model=self.model,
@@ -155,18 +156,33 @@ class CodeGenReport:
 # LLM call per file, generated in dependency order (domain has no deps,
 # application depends on domain, infrastructure/api depend on both).
 _DDD_SERVICE_FILES: list[tuple[str, str]] = [
-    ("domain/entities.py", "domain entity classes with identity and business invariants"),
+    (
+        "domain/entities.py",
+        "domain entity classes with identity and business invariants",
+    ),
     ("domain/value_objects.py", "immutable value objects with validation"),
     ("domain/aggregate.py", "the aggregate root enforcing consistency boundaries"),
-    ("domain/repository.py", "an abstract repository interface (ABC) for the aggregate"),
+    (
+        "domain/repository.py",
+        "an abstract repository interface (ABC) for the aggregate",
+    ),
     ("domain/events.py", "domain events raised by the aggregate"),
     ("application/dto.py", "request/response DTOs (Pydantic models) for the API layer"),
     ("application/commands.py", "command handlers: create/update/delete use cases"),
     ("application/queries.py", "query handlers: get/list use cases"),
-    ("infrastructure/repository_impl.py", "a MongoDB-backed implementation of the repository interface"),
+    (
+        "infrastructure/repository_impl.py",
+        "a MongoDB-backed implementation of the repository interface",
+    ),
     ("infrastructure/persistence.py", "MongoDB client/database connection setup"),
-    ("api/routes.py", "a FastAPI APIRouter exposing CRUD endpoints via the command/query handlers"),
-    ("main.py", "the FastAPI app entrypoint that mounts the router and configures the DB connection"),
+    (
+        "api/routes.py",
+        "a FastAPI APIRouter exposing CRUD endpoints via the command/query handlers",
+    ),
+    (
+        "main.py",
+        "the FastAPI app entrypoint that mounts the router and configures the DB connection",
+    ),
 ]
 
 
@@ -212,13 +228,17 @@ class CodeGenAgent:
         if not api_key:
             logger.warning("OpenRouter unavailable (OPENROUTER_API_KEY not set) — trying next provider")
             return None
-        client = OpenRouterClient(api_key=api_key, model=model or os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini"))
+        client = OpenRouterClient(
+            api_key=api_key,
+            model=model or os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+        )
         logger.info("Using OpenRouter (%s)", client.model)
         return client
 
     def _try_claude(self, model: str) -> "ClaudeClient | None":
         try:
             import anthropic
+
             anthropic.Anthropic()  # raises if ANTHROPIC_API_KEY missing
             client = ClaudeClient(model=model or "claude-sonnet-4-6")
             logger.info("Using Claude (claude-sonnet-4-6)")
@@ -230,6 +250,7 @@ class CodeGenAgent:
     def _try_ollama(self, model: str) -> "OllamaClient | None":
         try:
             import socket
+
             s = socket.socket()
             s.settimeout(1)
             reachable = s.connect_ex(("localhost", 11434)) == 0
@@ -261,10 +282,7 @@ class CodeGenAgent:
         if not src_dir.exists():
             return report
 
-        src_files = [
-            f for f in sorted(src_dir.rglob("*.py"))
-            if f.name != "__init__.py"
-        ]
+        src_files = [f for f in sorted(src_dir.rglob("*.py")) if f.name != "__init__.py"]
         if not src_files:
             return report
 
@@ -273,9 +291,7 @@ class CodeGenAgent:
         for src_file in src_files:
             rel = str(src_file.relative_to(SRC_ROOT))
             existing_code = src_file.read_text()
-            gen_prompt = self._build_gen_prompt(
-                chart_name, rel, preamble, steps, constraints, existing_code
-            )
+            gen_prompt = self._build_gen_prompt(chart_name, rel, preamble, steps, constraints, existing_code)
             tasks.append((rel, existing_code, gen_prompt))
 
         # Run all LLM calls in parallel via asyncio.gather
@@ -283,16 +299,22 @@ class CodeGenAgent:
 
         for (rel, existing_code, _), generated in zip(tasks, results):
             self._write_file(rel, generated)
-            report.steps.append(StepResult(
-                step=0, instruction=f"generate {rel}",
-                generated_code=generated, target_file=rel, success=True,
-            ))
+            report.steps.append(
+                StepResult(
+                    step=0,
+                    instruction=f"generate {rel}",
+                    generated_code=generated,
+                    target_file=rel,
+                    success=True,
+                )
+            )
             report.files_written.append(rel)
 
         return report
 
     async def _generate_all(self, tasks: list[tuple]) -> list[str]:
         """Generate code for all files in parallel."""
+
         async def _one(rel: str, existing_code: str, gen_prompt: str) -> str:
             if not self.llm:
                 return existing_code
@@ -348,8 +370,12 @@ class CodeGenAgent:
         )
 
     def _build_scaffold_prompt(
-        self, service_slug: str, rel_path: str, description: str,
-        prompt_content: str, already_generated: dict[str, str],
+        self,
+        service_slug: str,
+        rel_path: str,
+        description: str,
+        prompt_content: str,
+        already_generated: dict[str, str],
     ) -> str:
         parts = [
             f"Service: {service_slug}",
@@ -360,7 +386,9 @@ class CodeGenAgent:
             prompt_content[:4000],
         ]
         if already_generated:
-            parts.append("\n## Already-generated files in this service (reference their exact class/function names, don't redefine them):")
+            parts.append(
+                "\n## Already-generated files in this service (reference their exact class/function names, don't redefine them):"
+            )
             for path, content in already_generated.items():
                 parts.append(f"\n### {path}\n```python\n{content[:1500]}\n```")
         parts.append(
@@ -371,7 +399,15 @@ class CodeGenAgent:
         )
         return "\n".join(parts)
 
-    def _build_gen_prompt(self, chart_name: str, file_path: str, preamble: str, steps: list, constraints: list, existing_code: str) -> str:
+    def _build_gen_prompt(
+        self,
+        chart_name: str,
+        file_path: str,
+        preamble: str,
+        steps: list,
+        constraints: list,
+        existing_code: str,
+    ) -> str:
         parts = [
             f"You are generating Python code for the MonkeyBrain Cognitive Operating System.",
             f"Module: {chart_name}",
@@ -390,13 +426,15 @@ class CodeGenAgent:
             parts.append("\n## Constraints (MUST NOT violate):")
             for c in constraints:
                 parts.append(f"- {c}")
-        parts.append("\nRegenerate the code preserving the exact same API, imports, and structure. Output ONLY the Python code:")
+        parts.append(
+            "\nRegenerate the code preserving the exact same API, imports, and structure. Output ONLY the Python code:"
+        )
         return "\n".join(parts)
 
     def _clean_code(self, code: str) -> str:
         code = code.strip()
         if code.startswith("```python"):
-            code = code[len("```python"):]
+            code = code[len("```python") :]
         elif code.startswith("```"):
             code = code[3:]
         if code.endswith("```"):
@@ -461,6 +499,7 @@ class CodeGenAgent:
 
     def _load_owns(self, chart_name: str) -> list[str]:
         import yaml
+
         somatic = Path("/Users/prashunjaveri/Code/monkeypatched/somatic/charts")
         values_file = somatic / chart_name / "values.yaml"
         if not values_file.exists():
@@ -506,7 +545,12 @@ class CodeGenAgent:
             "architecture_validator": ["governance/architecture_validator.py"],
             "compliance": ["governance/compliance.py"],
             "policy_registry": ["governance/policy_registry.py"],
-            "benchmark": ["benchmark/runner.py", "benchmark/validator.py", "benchmark/reporter.py", "benchmark/scenario_runner.py"],
+            "benchmark": [
+                "benchmark/runner.py",
+                "benchmark/validator.py",
+                "benchmark/reporter.py",
+                "benchmark/scenario_runner.py",
+            ],
             "seeder": ["seed/seeder.py"],
             "seed_data": ["seed/seed_data.py"],
             "scenario_builder": ["seed/scenario_builder.py"],
@@ -539,7 +583,13 @@ class CodeGenAgent:
 
         return targets
 
-    def _generate_code_for_file(self, chart_name: str, target_file: str, instruction: str, constraint: str | None) -> str:
+    def _generate_code_for_file(
+        self,
+        chart_name: str,
+        target_file: str,
+        instruction: str,
+        constraint: str | None,
+    ) -> str:
         filename = Path(target_file).name
 
         src_path = SRC_ROOT / target_file
@@ -551,7 +601,7 @@ class CodeGenAgent:
 """{filename} — {instruction}
 
 Module: {chart_name}
-Constraint: {constraint or 'none'}
+Constraint: {constraint or "none"}
 """
 
 from __future__ import annotations

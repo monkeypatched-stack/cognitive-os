@@ -18,6 +18,7 @@ a process restart) -- fakes are used only where the invariant under test
 is about in-process logic (leases, fences, governance, delegation) that
 does not depend on Redis's own durability.
 """
+
 from __future__ import annotations
 
 import json
@@ -132,9 +133,15 @@ def fake_redis():
 
 
 def register(pr, name, **kwargs):
-    from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+    from src.monkey_brain.kernel.society.domain import (
+        ActorIdentity,
+        ActorProfile,
+        ActorType,
+    )
+
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)),
+        **kwargs,
     )
 
 

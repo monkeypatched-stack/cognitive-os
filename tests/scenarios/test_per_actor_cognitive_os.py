@@ -13,6 +13,7 @@ tests/scenarios/test_transition_gate.py (pre-commit negotiation, already
 passing) -- this file adds the OS-INSTANCE-level boundary those two didn't
 cover: kernel/runtime/graph_manager/comparator/simulation object identity.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,7 +21,11 @@ import asyncio
 import pytest
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
 from src.monkey_brain.kernel.cognitive_os.cognitive_os import CognitiveOS
@@ -34,7 +39,8 @@ def _register(pr, name, society_id=None, home_space_id=None):
     if home_space_id is not None:
         kwargs["home_space_id"] = home_space_id
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)),
+        **kwargs,
     )
 
 
@@ -59,12 +65,14 @@ def _two_actors(label):
     a = _register(pr, f"{label}-A", society.society.society_id, space_id)
     b = pr.register_actor(
         ActorProfile(identity=ActorIdentity(name=f"{label}-B", actor_type=ActorType.HUMAN)),
-        society_id=society.society.society_id, home_space_id=space_id,
+        society_id=society.society.society_id,
+        home_space_id=space_id,
     )
     return pr, a, b
 
 
 # ── Test 1 -- OS identity ────────────────────────────────────────────────
+
 
 def test_1_os_identity():
     pr, a, b = _two_actors("T1")
@@ -75,6 +83,7 @@ def test_1_os_identity():
 
 
 # ── Test 2 -- Kernel identity ────────────────────────────────────────────
+
 
 def test_2_kernel_identity():
     pr, a, b = _two_actors("T2")
@@ -90,6 +99,7 @@ def test_2_kernel_identity():
 
 # ── Test 3 -- Runtime identity ───────────────────────────────────────────
 
+
 def test_3_runtime_identity():
     pr, a, b = _two_actors("T3")
     os_a, os_b = a.actor_runtime.cognitive_os, b.actor_runtime.cognitive_os
@@ -98,6 +108,7 @@ def test_3_runtime_identity():
 
 
 # ── Test 4 -- GraphManager identity ──────────────────────────────────────
+
 
 def test_4_graph_manager_identity():
     pr, a, b = _two_actors("T4")
@@ -110,6 +121,7 @@ def test_4_graph_manager_identity():
 
 # ── Test 5 -- execution state isolation ──────────────────────────────────
 
+
 def test_5_execution_state_isolation():
     pr, a, b = _two_actors("T5")
     os_a, os_b = a.actor_runtime.cognitive_os, b.actor_runtime.cognitive_os
@@ -121,6 +133,7 @@ def test_5_execution_state_isolation():
 
 # ── Test 6 -- belief isolation ───────────────────────────────────────────
 
+
 def test_6_belief_isolation():
     belief_a = BeliefState(actor_id="os-t6-a")
     belief_b = BeliefState(actor_id="os-t6-b")
@@ -130,6 +143,7 @@ def test_6_belief_isolation():
 
 
 # ── Test 7 -- learning isolation ─────────────────────────────────────────
+
 
 def test_7_learning_isolation():
     pr, a, b = _two_actors("T7")
@@ -143,6 +157,7 @@ def test_7_learning_isolation():
 
 
 # ── Test 8 -- concurrent execution ───────────────────────────────────────
+
 
 def test_8_concurrent_execution_no_contamination():
     pr, a, b = _two_actors("T8")
@@ -163,6 +178,7 @@ def test_8_concurrent_execution_no_contamination():
 
 # ── Test 9 -- lifecycle: interrupting A does not affect B ───────────────
 
+
 def test_9_lifecycle_interrupt_isolation():
     """Kernel.shutdown() is, by design, one process-wide event (confirmed
     this session's audit) -- there is no coherent "shut down only actor
@@ -182,13 +198,17 @@ def test_9_lifecycle_interrupt_isolation():
 
 # ── Test 10 -- restart isolation ─────────────────────────────────────────
 
+
 def test_10_restart_isolation():
     pr, a, b = _two_actors("T10")
     os_a, os_b = a.actor_runtime.cognitive_os, b.actor_runtime.cognitive_os
     os_a.graph_manager.record_step("BuyMilk")
     os_b.graph_manager.record_step("BuyPizza")
     # "Restart" A: fresh execution state for A only.
-    from src.monkey_brain.kernel.cognitive_os.cognitive_os import ActorGraphExecutionState
+    from src.monkey_brain.kernel.cognitive_os.cognitive_os import (
+        ActorGraphExecutionState,
+    )
+
     os_a._graph_execution_state = ActorGraphExecutionState(tenant_id=os_a.kernel.tenant_id)
     assert os_a.graph_manager.current_node is None
     assert os_b.graph_manager.current_node == "BuyPizza"  # untouched by A's restart
@@ -196,22 +216,36 @@ def test_10_restart_isolation():
 
 # ── Test 11 -- communication ─────────────────────────────────────────────
 
+
 def test_11_communication_explicit_only():
     pr, a, b = _two_actors("T11")
     before = pr.memory_manager.search_episodic("oat milk", top_k=10, actor_id=b.actor_id)
     assert not any("oat milk" in n.payload.get("text", "").lower() for n in before)
 
     from src.monkey_brain.kernel.domains.grocery import AskActorCapability
-    result = asyncio.run(AskActorCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": a.actor_id, "actor_role": "A"},
-        "parameters": {"target_actor": b.actor_id, "question": "Does oat milk cost $5?"},
-    }))
+
+    result = asyncio.run(
+        AskActorCapability().handle(
+            {
+                "context": {
+                    "planetary_runtime": pr,
+                    "actor_id": a.actor_id,
+                    "actor_role": "A",
+                },
+                "parameters": {
+                    "target_actor": b.actor_id,
+                    "question": "Does oat milk cost $5?",
+                },
+            }
+        )
+    )
     assert result["success"] is True
     after = pr.memory_manager.search_episodic("oat milk", top_k=10, actor_id=b.actor_id)
     assert any("oat milk" in n.payload.get("text", "").lower() for n in after)
 
 
 # ── Test 12 -- negotiation (delegates to the already-proven suite) ──────
+
 
 def test_12_negotiation_delegates_to_transition_gate_suite():
     """Full proposal -> negotiation -> TransitionGate -> commit ordering
@@ -220,14 +254,26 @@ def test_12_negotiation_delegates_to_transition_gate_suite():
     duplicated here. This test only asserts that suite exists and is
     collectible, as a live link rather than a stale comment."""
     import subprocess, sys
+
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/scenarios/test_transition_gate.py", "--collect-only", "-q"],
-        cwd="/Users/prashunjaveri/Code/monkeypatched", capture_output=True, text=True, timeout=30,
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/scenarios/test_transition_gate.py",
+            "--collect-only",
+            "-q",
+        ],
+        cwd="/Users/prashunjaveri/Code/monkeypatched",
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
     assert "8 tests collected" in result.stdout or result.returncode == 0
 
 
 # ── Test 13 -- world sharing ──────────────────────────────────────────────
+
 
 def test_13_world_sharing():
     pr, a, b = _two_actors("T13")
@@ -239,6 +285,7 @@ def test_13_world_sharing():
 
 
 # ── Test 14 -- checkpoint isolation ──────────────────────────────────────
+
 
 def test_14_checkpoint_isolation():
     belief_a = BeliefState(actor_id="os-t14-a")
@@ -258,6 +305,7 @@ def test_14_checkpoint_isolation():
 
 
 # ── Test 15 -- comparator isolation ──────────────────────────────────────
+
 
 def test_15_comparator_isolation():
     """Directly exercises the ComparatorRuntime.last_comparison isolation

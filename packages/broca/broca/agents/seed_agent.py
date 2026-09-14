@@ -13,6 +13,7 @@ Steps
 
 The Pydantic model is the validator — never insert records that fail validation.
 """
+
 from __future__ import annotations
 
 import ast
@@ -48,9 +49,20 @@ def _to_collection_name(class_name: str) -> str:
 
 # Non-entity suffixes — application-layer DTOs, commands, events, etc. are not seeded
 _SKIP_SUFFIXES = (
-    "Command", "Query", "Handler", "Request", "Response",
-    "Event", "Exception", "Error", "Config", "Settings",
-    "Schema", "DTO", "Dto", "Base",
+    "Command",
+    "Query",
+    "Handler",
+    "Request",
+    "Response",
+    "Event",
+    "Exception",
+    "Error",
+    "Config",
+    "Settings",
+    "Schema",
+    "DTO",
+    "Dto",
+    "Base",
 )
 
 # Directories to skip — only domain/ holds seedable root entities
@@ -58,10 +70,27 @@ _SKIP_DIRS = {"application", "api", "infrastructure", "app", "apps"}
 
 # Class names that are almost always embedded sub-documents, not root collection docs
 _SUBDOC_NAMES = {
-    "Attachment", "Address", "LineItem", "Metadata", "Tag", "Label",
-    "Coordinate", "Location", "GeoPoint", "PhoneNumber", "Money", "Price",
-    "Period", "DateRange", "Audit", "AuditInfo", "CreatedBy", "UpdatedBy",
-    "ContactInfo", "Note", "Comment",
+    "Attachment",
+    "Address",
+    "LineItem",
+    "Metadata",
+    "Tag",
+    "Label",
+    "Coordinate",
+    "Location",
+    "GeoPoint",
+    "PhoneNumber",
+    "Money",
+    "Price",
+    "Period",
+    "DateRange",
+    "Audit",
+    "AuditInfo",
+    "CreatedBy",
+    "UpdatedBy",
+    "ContactInfo",
+    "Note",
+    "Comment",
 }
 
 
@@ -103,11 +132,7 @@ def _discover_models(service_dir: Path) -> list[dict[str, Any]]:
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
-            bases = [
-                (b.id if isinstance(b, ast.Name) else
-                 getattr(b, "attr", None))
-                for b in node.bases
-            ]
+            bases = [(b.id if isinstance(b, ast.Name) else getattr(b, "attr", None)) for b in node.bases]
             if "BaseModel" not in bases:
                 continue
             if not _is_seedable(node.name, py, service_dir):
@@ -123,12 +148,14 @@ def _discover_models(service_dir: Path) -> list[dict[str, Any]]:
                     required = stmt.value is None  # no default → required
                     fields.append({"name": fname, "type": ftype, "required": required})
             if fields:
-                models.append({
-                    "class_name": node.name,
-                    "collection": _to_collection_name(node.name),
-                    "source_file": str(py),
-                    "fields": fields,
-                })
+                models.append(
+                    {
+                        "class_name": node.name,
+                        "collection": _to_collection_name(node.name),
+                        "source_file": str(py),
+                        "fields": fields,
+                    }
+                )
     return models
 
 
@@ -164,8 +191,7 @@ def _extract_json_array(raw: str) -> list[dict]:
 async def _llm_seed(model_info: dict[str, Any], service_slug: str, count: int) -> list[dict]:
     """Ask LLM for `count` realistic seed records for a Pydantic model."""
     fields_desc = "\n".join(
-        f"  {f['name']}: {f['type']} {'(required)' if f['required'] else '(optional)'}"
-        for f in model_info["fields"]
+        f"  {f['name']}: {f['type']} {'(required)' if f['required'] else '(optional)'}" for f in model_info["fields"]
     )
     system = (
         "You generate realistic synthetic seed data for a software application. "
@@ -183,6 +209,7 @@ async def _llm_seed(model_info: dict[str, Any], service_slug: str, count: int) -
     raw = ""
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=60.0) as c:
             r = await c.post(
                 "http://localhost:11434/api/generate",
@@ -202,12 +229,15 @@ async def _llm_seed(model_info: dict[str, Any], service_slug: str, count: int) -
     if not raw.strip():
         try:
             import anthropic
+
             key = os.environ.get("ANTHROPIC_API_KEY", "")
             if key:
                 client = anthropic.Anthropic(api_key=key)
                 msg = client.messages.create(
-                    model="claude-haiku-4-5-20251001", max_tokens=1024,
-                    system=system, messages=[{"role": "user", "content": prompt}],
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=1024,
+                    system=system,
+                    messages=[{"role": "user", "content": prompt}],
                 )
                 raw = msg.content[0].text
                 logger.debug("[seed] anthropic raw (%d chars): %.200s", len(raw), raw)
@@ -220,7 +250,11 @@ async def _llm_seed(model_info: dict[str, Any], service_slug: str, count: int) -
 
     records = _extract_json_array(raw)
     if not records:
-        logger.warning("[seed] JSON extraction failed for %s — raw: %.300s", model_info["class_name"], raw)
+        logger.warning(
+            "[seed] JSON extraction failed for %s — raw: %.300s",
+            model_info["class_name"],
+            raw,
+        )
     return records
 
 
@@ -240,6 +274,7 @@ def _validate_pydantic(model_info: dict, records: list[dict], service_dir: Path)
         if str(service_dir.parent) not in sys.path:
             sys.path.insert(0, str(service_dir.parent))
         import importlib
+
         mod = importlib.import_module(f"{service_dir.name}.{module_name}")
         model_cls = getattr(mod, model_info["class_name"])
         for rec in records:
@@ -248,8 +283,12 @@ def _validate_pydantic(model_info: dict, records: list[dict], service_dir: Path)
                 validated.append(rec)
             except Exception as exc:
                 logger.debug("[seed] validation failed for %s: %s", model_info["class_name"], exc)
-        logger.info("[seed] %s: %d/%d records passed Pydantic validation",
-                    model_info["class_name"], len(validated), len(records))
+        logger.info(
+            "[seed] %s: %d/%d records passed Pydantic validation",
+            model_info["class_name"],
+            len(validated),
+            len(records),
+        )
         return validated
     except Exception:
         pass
@@ -259,8 +298,12 @@ def _validate_pydantic(model_info: dict, records: list[dict], service_dir: Path)
     for rec in records:
         if required.issubset(rec.keys()):
             validated.append(rec)
-    logger.info("[seed] %s: %d/%d records passed field-presence check",
-                model_info["class_name"], len(validated), len(records))
+    logger.info(
+        "[seed] %s: %d/%d records passed field-presence check",
+        model_info["class_name"],
+        len(validated),
+        len(records),
+    )
     return validated
 
 
@@ -268,6 +311,7 @@ async def _insert_records(mongo_uri: str, db_name: str, collection: str, records
     """Insert records into MongoDB. Returns count inserted."""
     try:
         from motor.motor_asyncio import AsyncIOMotorClient
+
         client = AsyncIOMotorClient(mongo_uri, serverSelectionTimeoutMS=5000)
         db = client[db_name]
         if records:
@@ -307,28 +351,22 @@ class SeedAgent(BaseETASSAgent):
         service_slug = str(context.get("service_slug", "")).strip()
         if not service_slug:
             self._reward(False, 0.0)
-            return self._result(
-                payload={"seeded": False}, observations=["no service_slug in context"]
-            )
+            return self._result(payload={"seeded": False}, observations=["no service_slug in context"])
 
         output_dir_raw = context.get("output_dir") or str(_REPO / "generated")
         service_dir = Path(output_dir_raw) / service_slug
         if not service_dir.exists():
             self._reward(False, 0.1)
             return self._result(
-                payload={"seeded": False, "error": f"service dir not found: {service_dir}"},
+                payload={
+                    "seeded": False,
+                    "error": f"service dir not found: {service_dir}",
+                },
                 observations=[f"generated service directory missing: {service_dir}"],
             )
 
-        mongo_uri = (
-            context.get("mongo_uri")
-            or os.environ.get("MONGODB_URI")
-            or "mongodb://localhost:27017"
-        )
-        db_name = (
-            context.get("db_name")
-            or service_slug.replace("-", "_")
-        )
+        mongo_uri = context.get("mongo_uri") or os.environ.get("MONGODB_URI") or "mongodb://localhost:27017"
+        db_name = context.get("db_name") or service_slug.replace("-", "_")
         seed_count = int(context.get("seed_count", _SEED_COUNT))
 
         # 1. Discover Pydantic models
@@ -353,7 +391,12 @@ class SeedAgent(BaseETASSAgent):
             validated = _validate_pydantic(m, records, service_dir)
             inserted = await _insert_records(mongo_uri, db_name, m["collection"], validated)
             summary[m["collection"]] = inserted
-            logger.info("[seed] inserted %d records into %s.%s", inserted, db_name, m["collection"])
+            logger.info(
+                "[seed] inserted %d records into %s.%s",
+                inserted,
+                db_name,
+                m["collection"],
+            )
 
         total = sum(summary.values())
         success = total > 0

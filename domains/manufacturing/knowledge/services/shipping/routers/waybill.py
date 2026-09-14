@@ -12,7 +12,6 @@ from services.shipping.models.waybill import (
     WaybillUpdate,
 )
 
-
 router = APIRouter()
 
 
@@ -24,7 +23,9 @@ async def list_waybills(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedWaybillResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedWaybillResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-number/{waybill_number}", response_model=WaybillResponse)
@@ -35,7 +36,9 @@ async def get_waybill_by_number(
 ):
     record = await crud.get_by_number(db, waybill_number)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Waybill '{waybill_number}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Waybill '{waybill_number}' not found"
+        )
     return record
 
 
@@ -56,7 +59,9 @@ async def get_waybill_by_barcode(
 ):
     record = await crud.get_by_barcode(db, barcode)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Waybill barcode '{barcode}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Waybill barcode '{barcode}' not found"
+        )
     return record
 
 
@@ -68,7 +73,9 @@ async def get_waybill(
 ):
     record = await crud.get_by_id(db, waybill_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Waybill '{waybill_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Waybill '{waybill_id}' not found"
+        )
     return record
 
 
@@ -80,11 +87,19 @@ async def create_waybill(
 ):
     waybill_id = str(data.id)
     if await crud.get_by_id(db, waybill_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Waybill '{waybill_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"Waybill '{waybill_id}' already exists"
+        )
     if await crud.get_by_number(db, data.waybill_number):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Waybill '{data.waybill_number}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Waybill '{data.waybill_number}' already exists",
+        )
     if data.barcode and await crud.get_by_barcode(db, data.barcode):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Waybill barcode '{data.barcode}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Waybill barcode '{data.barcode}' already exists",
+        )
     return await crud.create(db, data)
 
 
@@ -98,14 +113,22 @@ async def update_waybill(
     if data.waybill_number:
         existing = await crud.get_by_number(db, data.waybill_number)
         if existing and existing.get("id") != waybill_id:
-            raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Waybill '{data.waybill_number}' already exists")
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=f"Waybill '{data.waybill_number}' already exists",
+            )
     if data.barcode:
         existing = await crud.get_by_barcode(db, data.barcode)
         if existing and existing.get("id") != waybill_id:
-            raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Waybill barcode '{data.barcode}' already exists")
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=f"Waybill barcode '{data.barcode}' already exists",
+            )
     updated = await crud.update(db, waybill_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Waybill '{waybill_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Waybill '{waybill_id}' not found"
+        )
     return updated
 
 
@@ -116,4 +139,6 @@ async def delete_waybill(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, waybill_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Waybill '{waybill_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Waybill '{waybill_id}' not found"
+        )

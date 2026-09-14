@@ -3,6 +3,7 @@
 FleetManager tracks runtime instances across a deployment.
 Single-node MVP: in-memory registry with TTL-based health.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +22,7 @@ router = APIRouter()
 
 # ── Fleet Manager (in-memory, single-node) ────────────────────────────────
 
+
 @dataclass
 class FleetRuntimeInfo:
     runtime_id: str
@@ -38,8 +40,13 @@ class FleetManager:
         self._runtimes: dict[str, FleetRuntimeInfo] = {}
         self._ttl = heartbeat_ttl
 
-    def register(self, runtime_id: str, hostname: str = "", capabilities: list[str] | None = None,
-                 metadata: dict[str, Any] | None = None) -> FleetRuntimeInfo:
+    def register(
+        self,
+        runtime_id: str,
+        hostname: str = "",
+        capabilities: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> FleetRuntimeInfo:
         info = FleetRuntimeInfo(
             runtime_id=runtime_id,
             hostname=hostname,
@@ -72,10 +79,7 @@ class FleetManager:
         # discover() call and can otherwise report an online runtime that
         # has actually gone stale since its last heartbeat.
         now = time.time()
-        stale_now = {
-            rid: (now - i.last_heartbeat > self._ttl)
-            for rid, i in self._runtimes.items()
-        }
+        stale_now = {rid: (now - i.last_heartbeat > self._ttl) for rid, i in self._runtimes.items()}
         online = sum(1 for is_stale in stale_now.values() if not is_stale)
         stale = sum(1 for is_stale in stale_now.values() if is_stale)
         return {
@@ -98,6 +102,7 @@ class FleetManager:
 _fleet = FleetManager()
 
 # ── API Models ────────────────────────────────────────────────────────────
+
 
 class RegisterRequest(BaseModel):
     runtime_id: str
@@ -122,6 +127,7 @@ class FleetHealthResponse(BaseModel):
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────
+
 
 @router.post("/fleet/register", response_model=RuntimeInfoResponse)
 @idempotent("fleet.register_runtime")

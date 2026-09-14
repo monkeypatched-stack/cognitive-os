@@ -2,6 +2,7 @@
 
 Multi-agent family grocery coordination with substitutions and scheduling.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -9,16 +10,19 @@ import pytest
 from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor, Feature
 from src.monkey_brain.kernel.compile.society import Actor, ActorNetwork
 from src.monkey_brain.kernel.compile.trust import Relationship
-from src.monkey_brain.kernel.compile.conflict_resolution import ConflictResolver, ResolutionStrategy
+from src.monkey_brain.kernel.compile.conflict_resolution import (
+    ConflictResolver,
+    ResolutionStrategy,
+)
 from src.monkey_brain.kernel.policy.store import PolicyStore
 from src.monkey_brain.kernel.learn.world_learner import WorldLearner
 from src.monkey_brain.kernel.learn.policy_learner import PolicyLearner
 from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # World Model: Family Grocery Coordination
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def create_family_world() -> SparseTransitionTensor:
     world = SparseTransitionTensor()
@@ -58,6 +62,7 @@ def create_family_world() -> SparseTransitionTensor:
 def _create_architecture(world: SparseTransitionTensor):
     from monkey_brain.kernel.cognitive_engine import CognitiveArchitecture
     from src.monkey_brain.kernel.learn.world_learner import WorldLearner
+
     arch = CognitiveArchitecture()
     arch._world = world
     arch._world_learner = WorldLearner(world)
@@ -68,11 +73,27 @@ def _register_capabilities(arch) -> None:
     caps = [
         ("place_order", ["shopping_list"], ["order_placed"]),
         ("budget_check", ["order_placed"], ["budget_ok", "budget_exceeded"]),
-        ("check_availability", ["order_placed"], ["items_available", "item_unavailable"]),
-        ("suggest_substitute", ["item_unavailable"], ["substitute_found", "no_substitute"]),
+        (
+            "check_availability",
+            ["order_placed"],
+            ["items_available", "item_unavailable"],
+        ),
+        (
+            "suggest_substitute",
+            ["item_unavailable"],
+            ["substitute_found", "no_substitute"],
+        ),
         ("add_to_cart", ["substitute_found"], ["order_placed"]),
-        ("schedule_pickup", ["order_confirmed"], ["pickup_scheduled", "pickup_rejected"]),
-        ("execute_pickup", ["pickup_scheduled", "teen_can_pickup"], ["items_acquired", "pickup_failed"]),
+        (
+            "schedule_pickup",
+            ["order_confirmed"],
+            ["pickup_scheduled", "pickup_rejected"],
+        ),
+        (
+            "execute_pickup",
+            ["pickup_scheduled", "teen_can_pickup"],
+            ["items_acquired", "pickup_failed"],
+        ),
         ("retry_pickup", ["pickup_failed"], ["execute_pickup"]),
         ("reduce_order", ["budget_exceeded"], ["place_order"]),
     ]
@@ -86,6 +107,7 @@ def _register_capabilities(arch) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 # Tests
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestMultiAgentOrderPlacement:
     def test_both_actors_can_place_orders(self):
@@ -210,6 +232,7 @@ class TestConflictResolution:
 class TestEventSourcing:
     def test_events_recorded_during_observations(self):
         from src.monkey_brain.kernel.compile.event_sourcing import get_event_store
+
         store = get_event_store()
         initial_count = store.count()
         world = create_family_world()
@@ -301,14 +324,31 @@ def _register_arch_with_network(network: ActorNetwork) -> None:
     """Register capabilities on the CognitiveArchitecture underlying the network."""
     from monkey_brain.kernel.cognitive_engine import CognitiveArchitecture
     from src.monkey_brain.kernel.learn.world_learner import WorldLearner
+
     caps = [
         ("place_order", ["shopping_list"], ["order_placed"]),
         ("budget_check", ["order_placed"], ["budget_ok", "budget_exceeded"]),
-        ("check_availability", ["order_placed"], ["items_available", "item_unavailable"]),
-        ("suggest_substitute", ["item_unavailable"], ["substitute_found", "no_substitute"]),
+        (
+            "check_availability",
+            ["order_placed"],
+            ["items_available", "item_unavailable"],
+        ),
+        (
+            "suggest_substitute",
+            ["item_unavailable"],
+            ["substitute_found", "no_substitute"],
+        ),
         ("add_to_cart", ["substitute_found"], ["order_placed"]),
-        ("schedule_pickup", ["order_confirmed"], ["pickup_scheduled", "pickup_rejected"]),
-        ("execute_pickup", ["pickup_scheduled", "teen_can_pickup"], ["items_acquired", "pickup_failed"]),
+        (
+            "schedule_pickup",
+            ["order_confirmed"],
+            ["pickup_scheduled", "pickup_rejected"],
+        ),
+        (
+            "execute_pickup",
+            ["pickup_scheduled", "teen_can_pickup"],
+            ["items_acquired", "pickup_failed"],
+        ),
         ("retry_pickup", ["pickup_failed"], ["execute_pickup"]),
         ("reduce_order", ["budget_exceeded"], ["place_order"]),
     ]

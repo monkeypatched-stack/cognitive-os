@@ -12,6 +12,7 @@ The Intent Compiler extracts:
 - Constraints (budget, quantity, preferences)
 - Relationships between entities
 """
+
 from __future__ import annotations
 
 import json
@@ -54,8 +55,10 @@ class IntentCompilerAgent(BaseETASSAgent):
         if os.environ.get("SPEC_DISCOVERY_PROVIDER", "").lower() == "claude":
             try:
                 import anthropic
+
                 anthropic.Anthropic()
                 from .graph_generator_agent import ClaudeClient
+
                 return maybe_cache(ClaudeClient(), "intent_compiler")
             except Exception:
                 pass
@@ -63,12 +66,14 @@ class IntentCompilerAgent(BaseETASSAgent):
         # Try Ollama
         try:
             import socket
+
             s = socket.socket()
             s.settimeout(1)
             reachable = s.connect_ex(("localhost", 11434)) == 0
             s.close()
             if reachable:
                 from .graph_generator_agent import OllamaClient
+
                 return maybe_cache(
                     OllamaClient(model=os.environ.get("OLLAMA_MODEL", "gemma3:latest")),
                     "intent_compiler",
@@ -79,8 +84,10 @@ class IntentCompilerAgent(BaseETASSAgent):
         # Fallback to Claude
         try:
             import anthropic
+
             anthropic.Anthropic()
             from .graph_generator_agent import ClaudeClient
+
             return maybe_cache(ClaudeClient(), "intent_compiler")
         except Exception:
             pass
@@ -273,45 +280,53 @@ Rules:
             # Try to find the product name (word after quantity)
             idx = intent_lower.find(f"{qty} {unit}")
             if idx >= 0:
-                after = intent_lower[idx + len(f"{qty} {unit}"):].strip()
+                after = intent_lower[idx + len(f"{qty} {unit}") :].strip()
                 product = after.split()[0] if after.split() else "item"
-                entities.append(EntityIR(
-                    name=product,
-                    entity_type="product",
-                    attributes={"quantity": qty, "unit": unit},
-                ))
+                entities.append(
+                    EntityIR(
+                        name=product,
+                        entity_type="product",
+                        attributes={"quantity": qty, "unit": unit},
+                    )
+                )
 
         # Detect budget constraint
         constraints = []
         if any(w in intent_lower for w in ["budget", "cost", "price", "spend", "afford"]):
-            constraints.append(ConstraintIR(
-                constraint_type="budget",
-                description="Shared household budget constraint",
-                parameters={},
-            ))
+            constraints.append(
+                ConstraintIR(
+                    constraint_type="budget",
+                    description="Shared household budget constraint",
+                    parameters={},
+                )
+            )
 
         # Detect coordination
         relationships = []
         if any(w in intent_lower for w in ["coordinate", "shared", "together", "both"]):
-            relationships.append(RelationshipIR(
-                source="orders",
-                target="budget",
-                relationship_type="coordinates",
-            ))
+            relationships.append(
+                RelationshipIR(
+                    source="orders",
+                    target="budget",
+                    relationship_type="coordinates",
+                )
+            )
 
         from .goal_ir import GoalNode
 
         goal_tree = []
         for idx, entity in enumerate(entities):
-            goal_tree.append(GoalNode(
-                id=f"goal_{idx + 1}",
-                text=f"Obtain {entity.name}",
-                priority="high" if idx == 0 else "medium",
-                beneficiary=None,
-                parent_id=None,
-                condition=None,
-                attributes={"entity": entity.name, "type": entity.entity_type},
-            ))
+            goal_tree.append(
+                GoalNode(
+                    id=f"goal_{idx + 1}",
+                    text=f"Obtain {entity.name}",
+                    priority="high" if idx == 0 else "medium",
+                    beneficiary=None,
+                    parent_id=None,
+                    condition=None,
+                    attributes={"entity": entity.name, "type": entity.entity_type},
+                )
+            )
 
         return GoalIR(
             intent_type=intent_type,

@@ -22,17 +22,20 @@ logger = logging.getLogger("agentos.self_healing")
 _REPO = Path("/Users/prashunjaveri/Code/monkeypatched")
 _CHART = _REPO / "somatic/charts/cerebellum/capabilities/self_healing/values.yaml"
 
+
 # Ensure ANTHROPIC_API_KEY is loaded from .env if not already in environment
 def _load_env() -> None:
     env_file = _REPO / ".env"
     if not env_file.exists():
         return
     import os
+
     for line in env_file.read_text().splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             k, _, v = line.partition("=")
             os.environ.setdefault(k.strip(), v.strip())
+
 
 _load_env()
 
@@ -49,6 +52,7 @@ async def _llm_generate(system: str, prompt: str) -> str | None:
     if api_key:
         try:
             import anthropic
+
             msg = anthropic.Anthropic(api_key=api_key).messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=16384,
@@ -88,6 +92,7 @@ async def _llm_generate(system: str, prompt: str) -> str | None:
 def _load_chart() -> dict:
     try:
         import yaml
+
         return yaml.safe_load(_CHART.read_text()) or {}
     except Exception as e:
         logger.warning("[self_healing] Cannot load chart: %s", e)
@@ -102,22 +107,23 @@ async def self_healing_pipeline_question_answer(client, question: str, force: bo
 
     # Initialize evidence collector
     from src.operational_evidence import EvidenceCollector, WorkloadInfo, GoalInfo
+
     evidence_collector = EvidenceCollector(
         workload=WorkloadInfo(
             name="self_healing",
             version=cap.get("version", "1.0.0"),
             module="monkey_brain",
-            capability="self_healing"
+            capability="self_healing",
         ),
         goal=GoalInfo(
             description="Repair runtime failures",
-            success_criteria="All runtime errors resolved"
-        )
+            success_criteria="All runtime errors resolved",
+        ),
     )
-    
+
     # Track execution metrics
     evidence_collector.increment_requests()
-    
+
     src_context = _build_source_context(question)
     system = (
         "You are the ETASS Self-Healing Runtime. "
@@ -130,7 +136,7 @@ async def self_healing_pipeline_question_answer(client, question: str, force: bo
 
     # Track LLM call
     evidence_collector.increment_llm_calls()
-    
+
     response_text = await _llm_generate(system, full_prompt)
     if response_text is None:
         evidence_collector.add_error("llm_unavailable", "No LLM available for self-healing")
@@ -138,13 +144,10 @@ async def self_healing_pipeline_question_answer(client, question: str, force: bo
         return ("Self-healing: no LLM available.", [], [], False)
 
     files_written = _apply_file_blocks(response_text)
-    
+
     # Update evidence with results
     if files_written:
-        answer = (
-            f"Self-healing applied {len(files_written)} fix(es): "
-            + ", ".join(files_written)
-        )
+        answer = f"Self-healing applied {len(files_written)} fix(es): " + ", ".join(files_written)
         evidence_collector.record_generation_result(success=True)
         evidence_collector.add_code_changes(lines_changed=len(files_written))
         evidence_collector.set_status("SUCCESS", 0.95)
@@ -155,10 +158,10 @@ async def self_healing_pipeline_question_answer(client, question: str, force: bo
 
     # Complete evidence collection
     evidence_collector.complete_execution()
-    
+
     # Store evidence for aggregation
     _store_evidence(evidence_collector.get_evidence())
-    
+
     logger.info("[self_healing] Done. %s", answer)
     return (answer, [], [], bool(files_written))
 
@@ -169,12 +172,10 @@ def _build_source_context(question: str) -> str:
     # Extract paths like src/foo/bar.py from the errors section
     for match in re.finditer(r"src/[\w/]+\.py", question):
         path = _REPO / match.group(0)
-        if path.exists() and str(path) not in [l[:len(str(path))] for l in lines]:
+        if path.exists() and str(path) not in [l[: len(str(path))] for l in lines]:
             try:
                 code = path.read_text()
-                lines.append(
-                    f"FILE: {match.group(0)}\n```python\n{code[:4000]}\n```"
-                )
+                lines.append(f"FILE: {match.group(0)}\n```python\n{code[:4000]}\n```")
             except Exception:
                 logger.debug("_build_source_context: suppressed exception", exc_info=True)
     return "\n\n".join(lines)
@@ -217,14 +218,18 @@ def _apply_file_blocks(response: str) -> list[str]:
                 backup_path = backup_dir / f"{rel_path.replace('/', '_')}_{int(time.time())}.backup"
                 target.copy(backup_path)
                 logger.info("[self_healing] 💾 Created backup: %s", backup_path)
-            
+
             # Validate Python syntax before writing
             try:
-                compile(code, rel_path, 'exec')
+                compile(code, rel_path, "exec")
             except SyntaxError as e:
-                logger.error("[self_healing] ❌ Syntax error in generated code for %s: %s", rel_path, e)
+                logger.error(
+                    "[self_healing] ❌ Syntax error in generated code for %s: %s",
+                    rel_path,
+                    e,
+                )
                 continue
-            
+
             # Write the fixed code
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(code + "\n")
@@ -240,15 +245,15 @@ def _store_evidence(evidence_package: EvidencePackage) -> None:
     """Store evidence package for later aggregation and analysis."""
     try:
         import json
-        
+
         evidence_dir = _REPO / ".operational_evidence"
         evidence_dir.mkdir(parents=True, exist_ok=True)
-        
+
         evidence_file = evidence_dir / f"{evidence_package.execution_id}.json"
         evidence_file.write_text(json.dumps(evidence_package.to_dict(), indent=2))
-        
+
         logger.info("[self_healing] 📊 Stored evidence: %s", evidence_file)
-        
+
     except Exception as e:
         logger.warning("[self_healing] Failed to store evidence: %s", e)
 

@@ -3,10 +3,12 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 StageType = Literal["Assembly", "Continuous", "Batch"]
-StageStatus = Literal["Operational", "Maintenance", "Down","Decommissioned"]
+StageStatus = Literal["Operational", "Maintenance", "Down", "Decommissioned"]
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
 
 def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     if dt is None:
@@ -15,10 +17,12 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
+
 def _normalize_stage_status(value):
     if value == "Active":
         return "Operational"
     return value
+
 
 class IndustrialStage(BaseModel):
     id: str
@@ -30,7 +34,7 @@ class IndustrialStage(BaseModel):
     line_id: Optional[str] = None
     efficiency: int = Field(..., ge=0, le=100)
     description: Optional[str] = None
-    last_pm:Optional[str] = None
+    last_pm: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -53,8 +57,10 @@ class IndustrialStage(BaseModel):
             raise ValueError("efficiency must be < 100 when status is 'Maintenance'")
         return self
 
+
 class IndustrialStageCreate(IndustrialStage):
     pass
+
 
 class IndustrialStageUpdate(BaseModel):
     name: str
@@ -65,7 +71,7 @@ class IndustrialStageUpdate(BaseModel):
     line_id: Optional[str] = None
     efficiency: int = Field(..., ge=0, le=100)
     description: Optional[str] = None
-    last_pm:Optional[str] = None
+    last_pm: Optional[str] = None
     updated_at: datetime = Field(default_factory=utc_now)
 
     @field_validator("status", mode="before")
@@ -75,15 +81,25 @@ class IndustrialStageUpdate(BaseModel):
 
     @model_validator(mode="after")
     def check_efficiency_vs_status(self) -> "IndustrialStageUpdate":
-        if self.status == "Down" and self.efficiency is not None and self.efficiency > 0:
+        if (
+            self.status == "Down"
+            and self.efficiency is not None
+            and self.efficiency > 0
+        ):
             raise ValueError("efficiency must be 0 when status is 'Down'")
-        if self.status == "Maintenance" and self.efficiency is not None and self.efficiency >= 100:
+        if (
+            self.status == "Maintenance"
+            and self.efficiency is not None
+            and self.efficiency >= 100
+        ):
             raise ValueError("efficiency must be < 100 when status is 'Maintenance'")
         return self
+
 
 class IndustrialStageResponse(IndustrialStage):
     class Config:
         from_attributes = True
+
 
 class PaginatedStageResponse(BaseModel):
     total: int

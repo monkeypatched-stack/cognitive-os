@@ -1,7 +1,6 @@
 import re
 from typing import Any
 
-
 DEFAULT_EVENT_TYPE = "generic"
 
 
@@ -40,7 +39,6 @@ def infer_event_type(event: dict[str, Any] | None) -> str:
         return slugify_event_type(direction)
 
     return DEFAULT_EVENT_TYPE
-
 
 
 def configured_event_type_slugs(value: str) -> list[str]:

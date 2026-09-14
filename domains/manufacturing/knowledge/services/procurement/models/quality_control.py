@@ -182,8 +182,14 @@ class TestResult(BaseModel):
     @model_validator(mode="after")
     def flag_oos(self) -> "TestResult":
         if self.numeric_value is not None:
-            lsl_breach = self.lower_spec_limit is not None and self.numeric_value < self.lower_spec_limit
-            usl_breach = self.upper_spec_limit is not None and self.numeric_value > self.upper_spec_limit
+            lsl_breach = (
+                self.lower_spec_limit is not None
+                and self.numeric_value < self.lower_spec_limit
+            )
+            usl_breach = (
+                self.upper_spec_limit is not None
+                and self.numeric_value > self.upper_spec_limit
+            )
             self.is_oos = lsl_breach or usl_breach
         return self
 

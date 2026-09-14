@@ -13,6 +13,7 @@ Two invariants under test:
    meaningless vector is ever sent to Elasticsearch's cosineSimilarity,
    and search()/add() degrade to genuine full-text behavior instead.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -126,12 +127,27 @@ class TestSearchProvenance:
     @pytest.mark.asyncio
     async def test_real_similarity_hit_is_tagged_vector(self, monkeypatch):
         store = _connected_store(embedder="ollama")
-        _patch_httpx(monkeypatch, [
-            _FakeResponse(200, {"embedding": [0.1, 0.2]}),  # embed()
-            _FakeResponse(200, {"hits": {"hits": [
-                {"_source": {"text": "real similarity hit", "item_id": "a"}},
-            ]}}),  # similarity search
-        ])
+        _patch_httpx(
+            monkeypatch,
+            [
+                _FakeResponse(200, {"embedding": [0.1, 0.2]}),  # embed()
+                _FakeResponse(
+                    200,
+                    {
+                        "hits": {
+                            "hits": [
+                                {
+                                    "_source": {
+                                        "text": "real similarity hit",
+                                        "item_id": "a",
+                                    }
+                                },
+                            ]
+                        }
+                    },
+                ),  # similarity search
+            ],
+        )
 
         results = await store.search("query")
 
@@ -144,11 +160,21 @@ class TestSearchProvenance:
         cosineSimilarity call with a fabricated vector; go straight to
         full-text and tag it accurately."""
         store = _connected_store(embedder=None)
-        _patch_httpx(monkeypatch, [
-            _FakeResponse(200, {"hits": {"hits": [
-                {"_source": {"text": "full text hit", "item_id": "b"}},
-            ]}}),  # _fallback_search's match query -- the ONLY network call
-        ])
+        _patch_httpx(
+            monkeypatch,
+            [
+                _FakeResponse(
+                    200,
+                    {
+                        "hits": {
+                            "hits": [
+                                {"_source": {"text": "full text hit", "item_id": "b"}},
+                            ]
+                        }
+                    },
+                ),  # _fallback_search's match query -- the ONLY network call
+            ],
+        )
 
         results = await store.search("query")
 
@@ -162,13 +188,23 @@ class TestSearchProvenance:
         is still full-text, and must still be tagged accurately, not
         "vector" merely because a real embedding was computed first."""
         store = _connected_store(embedder="ollama")
-        _patch_httpx(monkeypatch, [
-            _FakeResponse(200, {"embedding": [0.1, 0.2]}),  # embed()
-            _FakeResponse(500, {}, text="internal error"),  # similarity query fails
-            _FakeResponse(200, {"hits": {"hits": [
-                {"_source": {"text": "fallback hit", "item_id": "c"}},
-            ]}}),  # _fallback_search
-        ])
+        _patch_httpx(
+            monkeypatch,
+            [
+                _FakeResponse(200, {"embedding": [0.1, 0.2]}),  # embed()
+                _FakeResponse(500, {}, text="internal error"),  # similarity query fails
+                _FakeResponse(
+                    200,
+                    {
+                        "hits": {
+                            "hits": [
+                                {"_source": {"text": "fallback hit", "item_id": "c"}},
+                            ]
+                        }
+                    },
+                ),  # _fallback_search
+            ],
+        )
 
         results = await store.search("query")
 
@@ -197,10 +233,13 @@ class TestAddNeverFabricatesEmbedding:
     async def test_add_with_embedder_indexes_the_real_vector(self, monkeypatch):
         store = _connected_store(embedder="ollama")
         real_vector = [0.5, 0.5]
-        _patch_httpx(monkeypatch, [
-            _FakeResponse(200, {"embedding": real_vector}),  # embed()
-            _FakeResponse(200, {}),  # the ES PUT
-        ])
+        _patch_httpx(
+            monkeypatch,
+            [
+                _FakeResponse(200, {"embedding": real_vector}),  # embed()
+                _FakeResponse(200, {}),  # the ES PUT
+            ],
+        )
 
         await store.add("item-2", "some text", {"type": "chart"})
 
@@ -222,7 +261,13 @@ class TestSemanticMemoryQueryProvenance:
 
         class _FakeCompiler:
             def search(self, question):
-                return [{"name": "some-chart", "chart_type": "capability", "source_path": "/x"}]
+                return [
+                    {
+                        "name": "some-chart",
+                        "chart_type": "capability",
+                        "source_path": "/x",
+                    }
+                ]
 
         memory._embeddings = _EmptyEmbeddings()
         memory._compiler = _FakeCompiler()

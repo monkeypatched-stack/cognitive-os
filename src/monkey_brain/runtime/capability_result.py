@@ -9,6 +9,7 @@ The runtime never branches based on:
 - provider
 - domain object
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -18,6 +19,7 @@ from typing import Any
 @dataclass
 class Response:
     """Structured response from a capability."""
+
     answer: str
     format: str = "text"  # text, markdown, json, html
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -26,6 +28,7 @@ class Response:
 @dataclass
 class Artifact:
     """An artifact produced by a capability."""
+
     kind: str  # file, pr, branch, commit, report
     name: str
     uri: str = ""
@@ -35,6 +38,7 @@ class Artifact:
 @dataclass
 class Event:
     """An event emitted by a capability."""
+
     event_type: str
     payload: dict[str, Any] = field(default_factory=dict)
     source: str = ""
@@ -47,9 +51,10 @@ class CapabilityResult:
     The runtime only understands this interface.
     It must never inspect domain-specific fields.
     """
+
     success: bool
     response: Response
-    operations: list['RepositoryOperation'] = field(default_factory=list)
+    operations: list["RepositoryOperation"] = field(default_factory=list)
     artifacts: list[Artifact] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)

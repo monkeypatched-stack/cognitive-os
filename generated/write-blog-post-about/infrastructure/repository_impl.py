@@ -7,6 +7,7 @@ from app.domain import (
 )
 from typing import Optional
 
+
 class MotorWriteBlogPostAboutRepository:
     def __init__(self, db: AsyncIOMotorClient):
         self.db = db.write_blog_post_about
@@ -18,7 +19,7 @@ class MotorWriteBlogPostAboutRepository:
                 title=document["title"],
                 content=document["content"],
                 reference=Reference(reference_id=document["reference"]["reference_id"]),
-                status=Status.from_string(document["status"])
+                status=Status.from_string(document["status"]),
             )
         return None
 
@@ -28,7 +29,7 @@ class MotorWriteBlogPostAboutRepository:
             "title": blog_post_item.title,
             "content": blog_post_item.content,
             "reference": {"reference_id": blog_post_item.reference.reference_id},
-            "status": blog_post_item.status.value
+            "status": blog_post_item.status.value,
         }
         await self.db.insert_one(document)
 
@@ -38,9 +39,11 @@ class MotorWriteBlogPostAboutRepository:
             "title": blog_post_item.title,
             "content": blog_post_item.content,
             "reference": {"reference_id": blog_post_item.reference.reference_id},
-            "status": blog_post_item.status.value
+            "status": blog_post_item.status.value,
         }
-        await self.db.replace_one({"blog_post_id": blog_post_item.blog_post_id}, document)
+        await self.db.replace_one(
+            {"blog_post_id": blog_post_item.blog_post_id}, document
+        )
 
     async def delete(self, blog_post_id: str) -> None:
         await self.db.delete_one({"blog_post_id": blog_post_id})

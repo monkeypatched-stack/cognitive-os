@@ -1,4 +1,5 @@
 """Compatibility shim for older launchers that import `monkeypatched.repl`."""
+
 from repl.repl import run_repl
 
 

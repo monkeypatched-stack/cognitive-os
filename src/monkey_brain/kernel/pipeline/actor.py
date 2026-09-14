@@ -32,6 +32,7 @@ Why this separation?
 
     Cognition moves independently of actor instances.
 """
+
 from __future__ import annotations
 
 import time
@@ -103,6 +104,7 @@ class Actor:
 @dataclass(frozen=True)
 class ActorSnapshot:
     """Immutable snapshot of an actor's identity at a point in time."""
+
     actor_id: str = ""
     tenant_id: str = ""
     trust_score: float = 0.0

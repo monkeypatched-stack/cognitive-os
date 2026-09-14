@@ -524,9 +524,7 @@ class BatchPlanningAgent(AgentProtocol):
             batch.updated_at = batch.actual_end
             batch.updated_by = context.user_id
 
-            logger.info(
-                f"Batch {batch.lot_number} closed by {context.user_id}"
-            )
+            logger.info(f"Batch {batch.lot_number} closed by {context.user_id}")
 
             return {
                 "status": "success",

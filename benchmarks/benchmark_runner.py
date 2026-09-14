@@ -12,8 +12,12 @@ from dataclasses import asdict
 
 from benchmarks.benchmark_framework import BenchmarkMetrics
 from benchmarks.phase_benchmarks import (
-    Phase8Benchmarks, Phase9Benchmarks, Phase11Benchmarks,
-    Phase12Benchmarks, IntegrationBenchmarks, ComparisonBenchmarks
+    Phase8Benchmarks,
+    Phase9Benchmarks,
+    Phase11Benchmarks,
+    Phase12Benchmarks,
+    IntegrationBenchmarks,
+    ComparisonBenchmarks,
 )
 
 
@@ -29,9 +33,9 @@ class BenchmarkReport:
 
     async def run_phase8_benchmarks(self) -> None:
         """Run Phase 8 benchmarks"""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("PHASE 8: AUTONOMOUS ACTORS BENCHMARKS")
-        print("="*80)
+        print("=" * 80)
 
         benchmarks = [
             ("Cognitive Cycle", await Phase8Benchmarks.benchmark_cognitive_cycle()),
@@ -46,12 +50,15 @@ class BenchmarkReport:
 
     async def run_phase9_benchmarks(self) -> None:
         """Run Phase 9 benchmarks"""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("PHASE 9: EVENT-DRIVEN OBSERVATION BENCHMARKS")
-        print("="*80)
+        print("=" * 80)
 
         benchmarks = [
-            ("Event Subscription", await Phase9Benchmarks.benchmark_event_subscription()),
+            (
+                "Event Subscription",
+                await Phase9Benchmarks.benchmark_event_subscription(),
+            ),
             ("Event Dispatch", await Phase9Benchmarks.benchmark_event_dispatch()),
             ("Belief Updates", await Phase9Benchmarks.benchmark_belief_update()),
         ]
@@ -64,13 +71,19 @@ class BenchmarkReport:
 
     async def run_phase11_benchmarks(self) -> None:
         """Run Phase 11 benchmarks"""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("PHASE 11: MULTI-AGENT COLLABORATION BENCHMARKS")
-        print("="*80)
+        print("=" * 80)
 
         benchmarks = [
-            ("Capability Broadcast", await Phase11Benchmarks.benchmark_capability_broadcast()),
-            ("Goal Coordination", await Phase11Benchmarks.benchmark_goal_coordination()),
+            (
+                "Capability Broadcast",
+                await Phase11Benchmarks.benchmark_capability_broadcast(),
+            ),
+            (
+                "Goal Coordination",
+                await Phase11Benchmarks.benchmark_goal_coordination(),
+            ),
             ("Trust Tracking", await Phase11Benchmarks.benchmark_trust_tracking()),
         ]
 
@@ -82,14 +95,17 @@ class BenchmarkReport:
 
     async def run_phase12_benchmarks(self) -> None:
         """Run Phase 12 benchmarks"""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("PHASE 12: DISTRIBUTED EXECUTION BENCHMARKS")
-        print("="*80)
+        print("=" * 80)
 
         benchmarks = [
             ("Actor Placement", await Phase12Benchmarks.benchmark_actor_placement()),
             ("Device Sync", await Phase12Benchmarks.benchmark_device_sync()),
-            ("Gossip Propagation", await Phase12Benchmarks.benchmark_gossip_propagation()),
+            (
+                "Gossip Propagation",
+                await Phase12Benchmarks.benchmark_gossip_propagation(),
+            ),
         ]
 
         for name, suite in benchmarks:
@@ -100,15 +116,21 @@ class BenchmarkReport:
 
     async def run_integration_benchmarks(self) -> None:
         """Run integration benchmarks"""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("INTEGRATION BENCHMARKS")
-        print("="*80)
+        print("=" * 80)
 
         benchmarks = [
             ("Full Pipeline", await IntegrationBenchmarks.benchmark_full_pipeline()),
-            ("Multi-Actor Coordination", await IntegrationBenchmarks.benchmark_multi_actor_coordination()),
+            (
+                "Multi-Actor Coordination",
+                await IntegrationBenchmarks.benchmark_multi_actor_coordination(),
+            ),
             ("Stress Test", await IntegrationBenchmarks.benchmark_stress_many_actors()),
-            ("Endurance Test", await IntegrationBenchmarks.benchmark_endurance_continuous()),
+            (
+                "Endurance Test",
+                await IntegrationBenchmarks.benchmark_endurance_continuous(),
+            ),
         ]
 
         for name, suite in benchmarks:
@@ -119,9 +141,9 @@ class BenchmarkReport:
 
     async def run_comparison_benchmarks(self) -> None:
         """Run v2.0 vs v3.0 comparison benchmarks"""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("v2.0 vs v3.0 COMPARISON BENCHMARKS")
-        print("="*80)
+        print("=" * 80)
 
         print("\nv2.0 (Polling-Based Observation):")
         v2_suite = await ComparisonBenchmarks.benchmark_v2_observation()
@@ -139,18 +161,20 @@ class BenchmarkReport:
         if v2_results and v3_results:
             v2_latency = v2_results[0].mean_ms
             v3_latency = v3_results[0].mean_ms
-            improvement = (v2_latency - v3_latency) / v2_latency * 100 if v2_latency > 0 else 0
+            improvement = (
+                (v2_latency - v3_latency) / v2_latency * 100 if v2_latency > 0 else 0
+            )
             print(f"\n✓ Improvement: {improvement:.0f}% faster")
 
     async def run_all(self) -> None:
         """Run all benchmarks"""
         self.start_time = datetime.now()
 
-        print("╔" + "="*78 + "╗")
-        print("║" + " "*78 + "║")
+        print("╔" + "=" * 78 + "╗")
+        print("║" + " " * 78 + "║")
         print("║" + "COMPREHENSIVE v3.0 PLATFORM BENCHMARKS".center(78) + "║")
-        print("║" + " "*78 + "║")
-        print("╚" + "="*78 + "╝")
+        print("║" + " " * 78 + "║")
+        print("╚" + "=" * 78 + "╝")
 
         await self.run_phase8_benchmarks()
         await self.run_phase9_benchmarks()
@@ -164,17 +188,24 @@ class BenchmarkReport:
     def generate_json_report(self) -> str:
         """Generate JSON report"""
         report = {
-            'metadata': {
-                'timestamp': self.start_time.isoformat() if self.start_time else None,
-                'duration_seconds': (self.end_time - self.start_time).total_seconds() if self.start_time and self.end_time else 0,
-                'total_benchmarks': len(self.results),
+            "metadata": {
+                "timestamp": self.start_time.isoformat() if self.start_time else None,
+                "duration_seconds": (
+                    (self.end_time - self.start_time).total_seconds()
+                    if self.start_time and self.end_time
+                    else 0
+                ),
+                "total_benchmarks": len(self.results),
             },
-            'benchmarks': [m.to_dict() for m in self.results],
-            'summary': self._generate_summary(),
+            "benchmarks": [m.to_dict() for m in self.results],
+            "summary": self._generate_summary(),
         }
 
-        report_path = self.output_dir / f"benchmark_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(report_path, 'w') as f:
+        report_path = (
+            self.output_dir
+            / f"benchmark_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
+        with open(report_path, "w") as f:
             json.dump(report, f, indent=2)
 
         return str(report_path)
@@ -220,7 +251,9 @@ class BenchmarkReport:
                     lines.append(f"Items:       {result.items_processed}")
 
                 if result.errors > 0:
-                    lines.append(f"Errors:      {result.errors} ({result.error_rate:.1%})")
+                    lines.append(
+                        f"Errors:      {result.errors} ({result.error_rate:.1%})"
+                    )
 
                 lines.append("```")
 
@@ -230,8 +263,11 @@ class BenchmarkReport:
         for key, value in summary.items():
             lines.append(f"- **{key}:** {value}\n")
 
-        report_path = self.output_dir / f"benchmark_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-        with open(report_path, 'w') as f:
+        report_path = (
+            self.output_dir
+            / f"benchmark_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+        )
+        with open(report_path, "w") as f:
             f.write("\n".join(lines))
 
         return str(report_path)
@@ -241,26 +277,30 @@ class BenchmarkReport:
         if not self.results:
             return {}
 
-        latency_results = [r for r in self.results if r.benchmark_type.value == "latency"]
-        throughput_results = [r for r in self.results if r.benchmark_type.value == "throughput"]
+        latency_results = [
+            r for r in self.results if r.benchmark_type.value == "latency"
+        ]
+        throughput_results = [
+            r for r in self.results if r.benchmark_type.value == "throughput"
+        ]
 
         summary = {}
 
         if latency_results:
             avg_latency = sum(r.mean_ms for r in latency_results) / len(latency_results)
-            summary['Average Latency'] = f"{avg_latency:.2f}ms"
+            summary["Average Latency"] = f"{avg_latency:.2f}ms"
 
             p99_latencies = [r.p99_ms for r in latency_results if r.p99_ms > 0]
             if p99_latencies:
-                summary['Max P99 Latency'] = f"{max(p99_latencies):.2f}ms"
+                summary["Max P99 Latency"] = f"{max(p99_latencies):.2f}ms"
 
         if throughput_results:
             total_throughput = sum(r.ops_per_second for r in throughput_results)
-            summary['Total Throughput'] = f"{total_throughput:.0f} ops/sec"
+            summary["Total Throughput"] = f"{total_throughput:.0f} ops/sec"
 
         total_ops = sum(r.operations for r in self.results if r.operations > 0)
         if total_ops > 0:
-            summary['Total Operations'] = f"{total_ops:,}"
+            summary["Total Operations"] = f"{total_ops:,}"
 
         return summary
 
@@ -270,20 +310,36 @@ class BenchmarkReport:
             return "Phase 8: Autonomous Actors"
         elif "Phase 9" in name or "Event" in name or "Belief" in name:
             return "Phase 9: Event-Driven Observation"
-        elif "Phase 11" in name or "Capability" in name or "Goal" in name or "Trust" in name:
+        elif (
+            "Phase 11" in name
+            or "Capability" in name
+            or "Goal" in name
+            or "Trust" in name
+        ):
             return "Phase 11: Multi-Agent Collaboration"
-        elif "Phase 12" in name or "Placement" in name or "Sync" in name or "Gossip" in name:
+        elif (
+            "Phase 12" in name
+            or "Placement" in name
+            or "Sync" in name
+            or "Gossip" in name
+        ):
             return "Phase 12: Distributed Execution"
-        elif "Full" in name or "Integration" in name or "Coordination" in name or "Stress" in name or "Endurance" in name:
+        elif (
+            "Full" in name
+            or "Integration" in name
+            or "Coordination" in name
+            or "Stress" in name
+            or "Endurance" in name
+        ):
             return "Integration & Stress"
         else:
             return "Comparison"
 
     def print_final_summary(self) -> None:
         """Print final benchmark summary"""
-        print("\n" + "╔" + "="*78 + "╗")
+        print("\n" + "╔" + "=" * 78 + "╗")
         print("║" + "BENCHMARK EXECUTION COMPLETE".center(78) + "║")
-        print("╚" + "="*78 + "╝\n")
+        print("╚" + "=" * 78 + "╝\n")
 
         summary = self._generate_summary()
         print("Performance Summary:")
@@ -291,7 +347,9 @@ class BenchmarkReport:
             print(f"  • {key}: {value}")
 
         print(f"\nTotal Benchmarks: {len(self.results)}")
-        print(f"Total Duration: {(self.end_time - self.start_time).total_seconds():.2f}s")
+        print(
+            f"Total Duration: {(self.end_time - self.start_time).total_seconds():.2f}s"
+        )
 
         print("\nReports generated:")
         print(f"  • JSON: {self.output_dir}/benchmark_report_*.json")

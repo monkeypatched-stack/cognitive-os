@@ -11,7 +11,11 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from services.process_definitions.models.process_definition_common import ConditionOperator, Severity
+from services.process_definitions.models.process_definition_common import (
+    ConditionOperator,
+    Severity,
+)
+
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -29,18 +33,19 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
 # PostCheckCondition
 # ---------------------------------------------------------------------------
 
+
 class PostCheckCondition(BaseModel):
-    id:                             str                = Field(..., min_length=1)
-    name:                           str                = Field(..., min_length=1)
-    description:                    str                = Field(...)
-    operator:                       ConditionOperator  = Field(...)
-    expected_value:                 Optional[str]      = None
-    is_mandatory:                   bool               = True
-    severity:                       Severity           = Field(default=Severity.HIGH)
-    check_command:                  Optional[str]      = None
-    links_to_corrective_action_ids: List[str]          = Field(default_factory=list)
-    created_at:                     datetime           = Field(default_factory=utc_now)
-    updated_at:                     datetime           = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    description: str = Field(...)
+    operator: ConditionOperator = Field(...)
+    expected_value: Optional[str] = None
+    is_mandatory: bool = True
+    severity: Severity = Field(default=Severity.HIGH)
+    check_command: Optional[str] = None
+    links_to_corrective_action_ids: List[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -56,15 +61,15 @@ class PostCheckConditionCreate(PostCheckCondition):
 
 
 class PostCheckConditionUpdate(BaseModel):
-    name:                           Optional[str]               = None
-    description:                    Optional[str]               = None
-    operator:                       Optional[ConditionOperator] = None
-    expected_value:                 Optional[str]               = None
-    is_mandatory:                   Optional[bool]              = None
-    severity:                       Optional[Severity]          = None
-    check_command:                  Optional[str]               = None
-    links_to_corrective_action_ids: Optional[List[str]]         = None
-    updated_at:                     datetime                    = Field(default_factory=utc_now)
+    name: Optional[str] = None
+    description: Optional[str] = None
+    operator: Optional[ConditionOperator] = None
+    expected_value: Optional[str] = None
+    is_mandatory: Optional[bool] = None
+    severity: Optional[Severity] = None
+    check_command: Optional[str] = None
+    links_to_corrective_action_ids: Optional[List[str]] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class PostCheckConditionResponse(PostCheckCondition):
@@ -76,15 +81,16 @@ class PostCheckConditionResponse(PostCheckCondition):
 # ProcessPostchecks
 # ---------------------------------------------------------------------------
 
+
 class ProcessPostchecks(BaseModel):
-    id:               str                       = Field(..., min_length=1)
-    process_definition_id:      str                       = Field(..., min_length=1)
-    description:      Optional[str]             = None
-    conditions:       List[PostCheckCondition]  = Field(default_factory=list)
-    all_must_pass:    bool                      = True
-    timeout_seconds:  Optional[int]             = None
-    created_at:       datetime                  = Field(default_factory=utc_now)
-    updated_at:       datetime                  = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    process_definition_id: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    conditions: List[PostCheckCondition] = Field(default_factory=list)
+    all_must_pass: bool = True
+    timeout_seconds: Optional[int] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -100,11 +106,11 @@ class ProcessPostchecksCreate(ProcessPostchecks):
 
 
 class ProcessPostchecksUpdate(BaseModel):
-    description:      Optional[str]                      = None
-    conditions:       Optional[List[PostCheckCondition]] = None
-    all_must_pass:    Optional[bool]                     = None
-    timeout_seconds:  Optional[int]                      = None
-    updated_at:       datetime                           = Field(default_factory=utc_now)
+    description: Optional[str] = None
+    conditions: Optional[List[PostCheckCondition]] = None
+    all_must_pass: Optional[bool] = None
+    timeout_seconds: Optional[int] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ProcessPostchecksResponse(ProcessPostchecks):
@@ -116,16 +122,17 @@ class ProcessPostchecksResponse(ProcessPostchecks):
 # ProcessStepPostchecks
 # ---------------------------------------------------------------------------
 
+
 class ProcessStepPostchecks(BaseModel):
-    id:               str                       = Field(..., min_length=1)
-    process_definition_id:      str                       = Field(..., min_length=1)
-    process_step_id: str                       = Field(..., min_length=1)
-    description:      Optional[str]             = None
-    conditions:       List[PostCheckCondition]  = Field(default_factory=list)
-    all_must_pass:    bool                      = True
-    timeout_seconds:  Optional[int]             = None
-    created_at:       datetime                  = Field(default_factory=utc_now)
-    updated_at:       datetime                  = Field(default_factory=utc_now)
+    id: str = Field(..., min_length=1)
+    process_definition_id: str = Field(..., min_length=1)
+    process_step_id: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    conditions: List[PostCheckCondition] = Field(default_factory=list)
+    all_must_pass: bool = True
+    timeout_seconds: Optional[int] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = {"use_enum_values": True}
 
@@ -141,11 +148,11 @@ class ProcessStepPostchecksCreate(ProcessStepPostchecks):
 
 
 class ProcessStepPostchecksUpdate(BaseModel):
-    description:      Optional[str]                      = None
-    conditions:       Optional[List[PostCheckCondition]] = None
-    all_must_pass:    Optional[bool]                     = None
-    timeout_seconds:  Optional[int]                      = None
-    updated_at:       datetime                           = Field(default_factory=utc_now)
+    description: Optional[str] = None
+    conditions: Optional[List[PostCheckCondition]] = None
+    all_must_pass: Optional[bool] = None
+    timeout_seconds: Optional[int] = None
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ProcessStepPostchecksResponse(ProcessStepPostchecks):
@@ -157,15 +164,16 @@ class ProcessStepPostchecksResponse(ProcessStepPostchecks):
 # Paginated responses
 # ---------------------------------------------------------------------------
 
+
 class PaginatedProcessPostchecksResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[ProcessPostchecksResponse]
+    results: list[ProcessPostchecksResponse]
 
 
 class PaginatedProcessStepPostchecksResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[ProcessStepPostchecksResponse]
+    results: list[ProcessStepPostchecksResponse]

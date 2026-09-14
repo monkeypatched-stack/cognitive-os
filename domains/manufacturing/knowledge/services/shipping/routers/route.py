@@ -24,7 +24,9 @@ async def list_routes(
     _: dict = Depends(require_permission("perm-view-products")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedRouteResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedRouteResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-reference/{route_reference}", response_model=RouteResponse)
@@ -35,7 +37,9 @@ async def get_route_by_reference(
 ):
     record = await crud.get_by_reference(db, route_reference)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Route '{route_reference}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Route '{route_reference}' not found"
+        )
     return record
 
 
@@ -83,7 +87,9 @@ async def get_route(
 ):
     record = await crud.get_by_id(db, route_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Route '{route_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Route '{route_id}' not found"
+        )
     return record
 
 
@@ -95,9 +101,14 @@ async def create_route(
 ):
     route_id = str(data.id)
     if await crud.get_by_id(db, route_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Route '{route_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"Route '{route_id}' already exists"
+        )
     if await crud.get_by_reference(db, data.route_reference):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Route '{data.route_reference}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Route '{data.route_reference}' already exists",
+        )
     return await crud.create(db, data)
 
 
@@ -111,10 +122,15 @@ async def update_route(
     if data.route_reference:
         existing = await crud.get_by_reference(db, data.route_reference)
         if existing and existing.get("id") != route_id:
-            raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Route '{data.route_reference}' already exists")
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail=f"Route '{data.route_reference}' already exists",
+            )
     updated = await crud.update(db, route_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Route '{route_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Route '{route_id}' not found"
+        )
     return updated
 
 
@@ -125,4 +141,6 @@ async def delete_route(
     _: dict = Depends(require_permission("perm-delete-products")),
 ):
     if not await crud.delete(db, route_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Route '{route_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Route '{route_id}' not found"
+        )

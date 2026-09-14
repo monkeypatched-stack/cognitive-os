@@ -44,6 +44,7 @@ Usage:
                                                # as Priya Sharma
     python3 scripts/seed_world.py all         # seed + validate (no demo)
 """
+
 from __future__ import annotations
 
 import json
@@ -65,6 +66,7 @@ TOKEN = os.environ.get("SEED_WORLD_TOKEN", "")
 
 
 # ─── HTTP helpers ────────────────────────────────────────────────────────
+
 
 def api(method: str, path: str, body: dict | None = None, ok404: bool = False):
     data = json.dumps(body).encode() if body is not None else None
@@ -106,7 +108,15 @@ def patch(path, body):
 
 # ─── find-or-create helpers (see module docstring for why by-name) ───────
 
-def ensure_actor(name: str, actor_type: str, description: str, society_id: str = "", goals=None, metadata=None) -> tuple[str, bool]:
+
+def ensure_actor(
+    name: str,
+    actor_type: str,
+    description: str,
+    society_id: str = "",
+    goals=None,
+    metadata=None,
+) -> tuple[str, bool]:
     for a in get("/actors"):
         if a["name"] == name and a["actor_type"] == actor_type:
             # Real gap this closes: ensure_actor previously only ever applied
@@ -122,10 +132,17 @@ def ensure_actor(name: str, actor_type: str, description: str, society_id: str =
             if metadata:
                 patch(f"/actors/{a['actor_id']}", {"metadata": metadata})
             return a["actor_id"], False
-    result = post("/actors", {
-        "name": name, "actor_type": actor_type, "description": description,
-        "society_id": society_id, "goals": goals or [], "metadata": metadata or {},
-    })
+    result = post(
+        "/actors",
+        {
+            "name": name,
+            "actor_type": actor_type,
+            "description": description,
+            "society_id": society_id,
+            "goals": goals or [],
+            "metadata": metadata or {},
+        },
+    )
     return result["actor_id"], True
 
 
@@ -139,9 +156,15 @@ def ensure_address(actor_id: str, address_type: str, value: str, is_primary: boo
     for a in existing:
         if a.get("value") == value:
             return a.get("address_id", ""), False
-    result = post(f"/actors/{actor_id}/addresses", {
-        "actor_id": actor_id, "address_type": address_type, "value": value, "is_primary": is_primary,
-    })
+    result = post(
+        f"/actors/{actor_id}/addresses",
+        {
+            "actor_id": actor_id,
+            "address_type": address_type,
+            "value": value,
+            "is_primary": is_primary,
+        },
+    )
     return result.get("address_id", ""), True
 
 
@@ -163,15 +186,29 @@ def ensure_society(name: str, description: str, society_type: str) -> tuple[str,
     for s in get("/societies"):
         if s["name"] == name:
             return s["society_id"], False
-    result = post("/societies", {"name": name, "description": description, "society_type": society_type})
+    result = post(
+        "/societies",
+        {"name": name, "description": description, "society_type": society_type},
+    )
     return result["society_id"], True
 
 
-def ensure_geo(entity_type: str, name: str, parent_id: str | None, description: str = "", **type_kwargs) -> tuple[str, bool]:
+def ensure_geo(
+    entity_type: str,
+    name: str,
+    parent_id: str | None,
+    description: str = "",
+    **type_kwargs,
+) -> tuple[str, bool]:
     for e in get(f"/planet/geo?entity_type={entity_type}"):
         if e["name"] == name and e.get("parent_id") == parent_id:
             return e["entity_id"], False
-    body = {"entity_type": entity_type, "name": name, "description": description, **type_kwargs}
+    body = {
+        "entity_type": entity_type,
+        "name": name,
+        "description": description,
+        **type_kwargs,
+    }
     if parent_id:
         body["parent_id"] = parent_id
     result = post("/planet/geo", body)
@@ -186,7 +223,15 @@ def ensure_world_location(name: str, latitude: float, longitude: float, address:
     for loc in get("/world/locations")["locations"]:
         if loc["name"] == name:
             return loc["location_id"], False
-    result = post("/world/locations", {"name": name, "address": address, "latitude": latitude, "longitude": longitude})
+    result = post(
+        "/world/locations",
+        {
+            "name": name,
+            "address": address,
+            "latitude": latitude,
+            "longitude": longitude,
+        },
+    )
     return result["location_id"], True
 
 
@@ -197,7 +242,10 @@ def ensure_geo_location(entity_id: str, location_id: str) -> None:
 
 def ensure_membership(actor_id: str, society_id: str, role: str = "member") -> bool:
     try:
-        post("/memberships", {"actor_id": actor_id, "society_id": society_id, "role": role})
+        post(
+            "/memberships",
+            {"actor_id": actor_id, "society_id": society_id, "role": role},
+        )
         return True
     except RuntimeError as e:
         if "409" in str(e):
@@ -209,9 +257,15 @@ def ensure_affiliation(actor_id: str, affiliation_type: str, target_id: str, tar
     existing = get(f"/actors/{actor_id}/affiliations")["affiliations"]
     if any(a["affiliation_type"] == affiliation_type and a["target_id"] == target_id for a in existing):
         return False
-    post(f"/actors/{actor_id}/affiliations", {
-        "affiliation_type": affiliation_type, "target_id": target_id, "target_name": target_name, **kwargs,
-    })
+    post(
+        f"/actors/{actor_id}/affiliations",
+        {
+            "affiliation_type": affiliation_type,
+            "target_id": target_id,
+            "target_name": target_name,
+            **kwargs,
+        },
+    )
     return True
 
 
@@ -227,7 +281,17 @@ def ensure_product(store_id: str, merchant_id: str, name: str, price: float, qua
     existing = get("/products")["products"]
     if any(p["store_id"] == store_id and p["name"] == name for p in existing):
         return False
-    post("/products", {"store_id": store_id, "merchant_id": merchant_id, "name": name, "price": price, "quantity": quantity, **attrs})
+    post(
+        "/products",
+        {
+            "store_id": store_id,
+            "merchant_id": merchant_id,
+            "name": name,
+            "price": price,
+            "quantity": quantity,
+            **attrs,
+        },
+    )
     return True
 
 
@@ -244,8 +308,10 @@ def ensure_wallet(owner_id: str, balance: float, newly_created_actor: bool) -> b
     # tag at all (the default here) keeps Payment on the local simulated
     # payment_processor/CAS-balance path, which needs no external
     # credentials and actually debits/checks `balance` below.
-    post("/wallets", {"owner": owner_id, "balance": balance,
-                       "name": f"{owner_id}'s Wallet"})
+    post(
+        "/wallets",
+        {"owner": owner_id, "balance": balance, "name": f"{owner_id}'s Wallet"},
+    )
     return True
 
 
@@ -268,41 +334,76 @@ def ensure_governance_policy(society_id: str, name: str, description: str, polic
     existing = get(f"/societies/{society_id}/governance-policies")["policies"]
     if any(p["name"] == name for p in existing):
         return False
-    post(f"/societies/{society_id}/governance-policies", {
-        "name": name, "description": description, "policy_type": policy_type, "rules": rules,
-    })
+    post(
+        f"/societies/{society_id}/governance-policies",
+        {
+            "name": name,
+            "description": description,
+            "policy_type": policy_type,
+            "rules": rules,
+        },
+    )
     return True
 
 
 # ─── Seed ──────────────────────────────────────────────────────────────────
 
+
 def seed() -> dict:
-    counts = {k: 0 for k in (
-        "geography", "world_locations", "societies", "humans", "enterprises", "memberships",
-        "affiliations", "products", "wallets", "riders", "governance_policies", "addresses",
-    )}
+    counts = {
+        k: 0
+        for k in (
+            "geography",
+            "world_locations",
+            "societies",
+            "humans",
+            "enterprises",
+            "memberships",
+            "affiliations",
+            "products",
+            "wallets",
+            "riders",
+            "governance_policies",
+            "addresses",
+        )
+    }
 
     # 1. Geography — real 8-tier hierarchy (kernel/geography/entity.py's
     # PARENT_TIER), not flattened. Universe/Region/Floor/Coordinate are
     # optional insertions per that file's own docstring; skipped here as
     # unneeded scope, not because they don't exist.
-    earth, c = ensure_geo("planet", "Earth", None); counts["geography"] += c
-    usa, c = ensure_geo("country", "United States", earth); counts["geography"] += c
-    california, c = ensure_geo("state", "California", usa); counts["geography"] += c
-    santa_clara, c = ensure_geo("county", "Santa Clara County", california); counts["geography"] += c
-    sunnyvale, c = ensure_geo("city", "Sunnyvale", santa_clara); counts["geography"] += c
-    maple_ave, c = ensure_geo("street", "Maple Avenue", sunnyvale); counts["geography"] += c
+    earth, c = ensure_geo("planet", "Earth", None)
+    counts["geography"] += c
+    usa, c = ensure_geo("country", "United States", earth)
+    counts["geography"] += c
+    california, c = ensure_geo("state", "California", usa)
+    counts["geography"] += c
+    santa_clara, c = ensure_geo("county", "Santa Clara County", california)
+    counts["geography"] += c
+    sunnyvale, c = ensure_geo("city", "Sunnyvale", santa_clara)
+    counts["geography"] += c
+    maple_ave, c = ensure_geo("street", "Maple Avenue", sunnyvale)
+    counts["geography"] += c
 
-    homes, c = ensure_geo("building", "Maple Avenue Homes", maple_ave, building_type="residential"); counts["geography"] += c
-    wf_plaza, c = ensure_geo("building", "Whole Foods Plaza", maple_ave, building_type="commercial"); counts["geography"] += c
-    tj_plaza, c = ensure_geo("building", "Trader Joe's Plaza", maple_ave, building_type="commercial"); counts["geography"] += c
-    sw_plaza, c = ensure_geo("building", "Safeway Plaza", maple_ave, building_type="commercial"); counts["geography"] += c
+    homes, c = ensure_geo("building", "Maple Avenue Homes", maple_ave, building_type="residential")
+    counts["geography"] += c
+    wf_plaza, c = ensure_geo("building", "Whole Foods Plaza", maple_ave, building_type="commercial")
+    counts["geography"] += c
+    tj_plaza, c = ensure_geo("building", "Trader Joe's Plaza", maple_ave, building_type="commercial")
+    counts["geography"] += c
+    sw_plaza, c = ensure_geo("building", "Safeway Plaza", maple_ave, building_type="commercial")
+    counts["geography"] += c
 
-    sharma_space, c = ensure_geo("space", "Sharma Family Apartment", homes, space_type="apartment"); counts["geography"] += c
-    community_space, c = ensure_geo("space", "Neighborhood Common House", homes, space_type="house"); counts["geography"] += c
-    wf_space, c = ensure_geo("space", "Whole Foods Retail Unit", wf_plaza, space_type="retail_unit"); counts["geography"] += c
-    tj_space, c = ensure_geo("space", "Trader Joe's Retail Unit", tj_plaza, space_type="retail_unit"); counts["geography"] += c
-    sw_space, c = ensure_geo("space", "Safeway Retail Unit", sw_plaza, space_type="retail_unit"); counts["geography"] += c
+    sharma_space, c = ensure_geo("space", "Sharma Family Apartment", homes, space_type="apartment")
+    counts["geography"] += c
+    community_space, c = ensure_geo("space", "Neighborhood Common House", homes, space_type="house")
+    counts["geography"] += c
+    wf_space, c = ensure_geo("space", "Whole Foods Retail Unit", wf_plaza, space_type="retail_unit")
+    counts["geography"] += c
+    tj_space, c = ensure_geo("space", "Trader Joe's Retail Unit", tj_plaza, space_type="retail_unit")
+    counts["geography"] += c
+    sw_space, c = ensure_geo("space", "Safeway Retail Unit", sw_plaza, space_type="retail_unit")
+    counts["geography"] += c
 
     # Real coordinates (Sunnyvale, CA) on the 4 Buildings — the frontend
     # World Map only plots entities with a linked WorldLocation; Spaces
@@ -310,10 +411,34 @@ def seed() -> dict:
     # (MapView.tsx/mapUtils.ts), so linking just the Buildings is enough
     # to surface every Space too.
     for building_id, name, lat, lng, address in [
-        (homes, "Maple Avenue Homes", 37.3705, -122.0380, "1200 Maple Ave, Sunnyvale, CA"),
-        (wf_plaza, "Whole Foods Plaza", 37.3670, -122.0340, "1400 Maple Ave, Sunnyvale, CA"),
-        (tj_plaza, "Trader Joe's Plaza", 37.3650, -122.0410, "1100 Maple Ave, Sunnyvale, CA"),
-        (sw_plaza, "Safeway Plaza", 37.3720, -122.0300, "1500 Maple Ave, Sunnyvale, CA"),
+        (
+            homes,
+            "Maple Avenue Homes",
+            37.3705,
+            -122.0380,
+            "1200 Maple Ave, Sunnyvale, CA",
+        ),
+        (
+            wf_plaza,
+            "Whole Foods Plaza",
+            37.3670,
+            -122.0340,
+            "1400 Maple Ave, Sunnyvale, CA",
+        ),
+        (
+            tj_plaza,
+            "Trader Joe's Plaza",
+            37.3650,
+            -122.0410,
+            "1100 Maple Ave, Sunnyvale, CA",
+        ),
+        (
+            sw_plaza,
+            "Safeway Plaza",
+            37.3720,
+            -122.0300,
+            "1500 Maple Ave, Sunnyvale, CA",
+        ),
     ]:
         try:
             loc_id, c = ensure_world_location(name, lat, lng, address)
@@ -338,12 +463,18 @@ def seed() -> dict:
     # (wrong) default bootstrap Space otherwise; hosting first, unlike
     # actor creation, is a pure geography write, so this ordering is safe
     # to repeat.
-    sharma_family, c = ensure_society("Sharma Family", "Priya Sharma's household", "family"); counts["societies"] += c
-    friends, c = ensure_society("Friends", "Priya Sharma's friend circle", "community"); counts["societies"] += c
-    neighborhood, c = ensure_society("Neighborhood", "Maple Avenue neighbors", "community"); counts["societies"] += c
-    wf_team, c = ensure_society("Whole Foods Team", "Whole Foods store operations", "organizational"); counts["societies"] += c
-    tj_team, c = ensure_society("Trader Joe's Team", "Trader Joe's store operations", "organizational"); counts["societies"] += c
-    sw_team, c = ensure_society("Safeway Team", "Safeway store operations", "organizational"); counts["societies"] += c
+    sharma_family, c = ensure_society("Sharma Family", "Priya Sharma's household", "family")
+    counts["societies"] += c
+    friends, c = ensure_society("Friends", "Priya Sharma's friend circle", "community")
+    counts["societies"] += c
+    neighborhood, c = ensure_society("Neighborhood", "Maple Avenue neighbors", "community")
+    counts["societies"] += c
+    wf_team, c = ensure_society("Whole Foods Team", "Whole Foods store operations", "organizational")
+    counts["societies"] += c
+    tj_team, c = ensure_society("Trader Joe's Team", "Trader Joe's store operations", "organizational")
+    counts["societies"] += c
+    sw_team, c = ensure_society("Safeway Team", "Safeway store operations", "organizational")
+    counts["societies"] += c
 
     host(sharma_space, sharma_family)
     host(community_space, friends)
@@ -382,7 +513,7 @@ def seed() -> dict:
             "seed_world.py: /planet/geo/ensure-default-space returned no "
             "space_id after creating the canonical 'Earth' root above — "
             "geography bootstrap is not ready; refusing to register Arjun "
-            "Mehta (society_id=\"\") against an unconfigured fallback Space."
+            'Mehta (society_id="") against an unconfigured fallback Space.'
         )
 
     # 3. Humans. Priya Sharma is the primary demo actor. Family shares her
@@ -392,28 +523,74 @@ def seed() -> dict:
     # scenario) deliberately uses society_id="" -> PlanetaryRuntime's own
     # bootstrap Default Society, since he needs no household of his own —
     # a deliberate scope cut, not an oversight.
-    priya, c = ensure_actor("Priya Sharma", "human", "Customer managing household groceries", sharma_family,
-                             goals=["buy groceries efficiently", "stay within household budget"],
-                             metadata=HUMAN_STRATEGY_METADATA)
+    priya, c = ensure_actor(
+        "Priya Sharma",
+        "human",
+        "Customer managing household groceries",
+        sharma_family,
+        goals=["buy groceries efficiently", "stay within household budget"],
+        metadata=HUMAN_STRATEGY_METADATA,
+    )
     counts["humans"] += c
     priya_new = c
     _, c = ensure_address(priya, "delivery", "1420 Maple Ave, Sunnyvale, CA", is_primary=True)
     counts["addresses"] += c
-    raj, c = ensure_actor("Raj Sharma", "human", "Priya's spouse", sharma_family, metadata=HUMAN_STRATEGY_METADATA); counts["humans"] += c; raj_new = c
-    ananya, c = ensure_actor("Ananya Sharma", "human", "Priya and Raj's daughter", sharma_family, metadata=HUMAN_STRATEGY_METADATA); counts["humans"] += c; ananya_new = c
-    alice, c = ensure_actor("Alice Chen", "human", "Priya's friend", friends, metadata=HUMAN_STRATEGY_METADATA); counts["humans"] += c; alice_new = c
-    bob, c = ensure_actor("Bob Martinez", "human", "Priya's neighbor on Maple Avenue", neighborhood, metadata=HUMAN_STRATEGY_METADATA); counts["humans"] += c; bob_new = c
-    arjun, c = ensure_actor("Arjun Mehta", "human", "Independent customer comparing grocery prices", "",
-                             goals=["find the best grocery deals"], metadata=HUMAN_STRATEGY_METADATA)
+    raj, c = ensure_actor(
+        "Raj Sharma",
+        "human",
+        "Priya's spouse",
+        sharma_family,
+        metadata=HUMAN_STRATEGY_METADATA,
+    )
+    counts["humans"] += c
+    raj_new = c
+    ananya, c = ensure_actor(
+        "Ananya Sharma",
+        "human",
+        "Priya and Raj's daughter",
+        sharma_family,
+        metadata=HUMAN_STRATEGY_METADATA,
+    )
+    counts["humans"] += c
+    ananya_new = c
+    alice, c = ensure_actor(
+        "Alice Chen",
+        "human",
+        "Priya's friend",
+        friends,
+        metadata=HUMAN_STRATEGY_METADATA,
+    )
+    counts["humans"] += c
+    alice_new = c
+    bob, c = ensure_actor(
+        "Bob Martinez",
+        "human",
+        "Priya's neighbor on Maple Avenue",
+        neighborhood,
+        metadata=HUMAN_STRATEGY_METADATA,
+    )
+    counts["humans"] += c
+    bob_new = c
+    arjun, c = ensure_actor(
+        "Arjun Mehta",
+        "human",
+        "Independent customer comparing grocery prices",
+        "",
+        goals=["find the best grocery deals"],
+        metadata=HUMAN_STRATEGY_METADATA,
+    )
     counts["humans"] += c
     arjun_new = c
 
     # 4. Enterprises — one per store, home society = that store's own team.
-    whole_foods, c = ensure_actor("Whole Foods", "enterprise", "Grocery store chain", wf_team); counts["enterprises"] += c
+    whole_foods, c = ensure_actor("Whole Foods", "enterprise", "Grocery store chain", wf_team)
+    counts["enterprises"] += c
     wf_new = c
-    trader_joes, c = ensure_actor("Trader Joe's", "enterprise", "Neighborhood grocery store", tj_team); counts["enterprises"] += c
+    trader_joes, c = ensure_actor("Trader Joe's", "enterprise", "Neighborhood grocery store", tj_team)
+    counts["enterprises"] += c
     tj_new = c
-    safeway, c = ensure_actor("Safeway", "enterprise", "Full-service grocery store", sw_team); counts["enterprises"] += c
+    safeway, c = ensure_actor("Safeway", "enterprise", "Full-service grocery store", sw_team)
+    counts["enterprises"] += c
     sw_new = c
 
     # 5. Explicit memberships (Membership as a First-Class Runtime
@@ -445,20 +622,31 @@ def seed() -> dict:
         counts["affiliations"] += ensure_affiliation(a_id, rel, b_id, b_name)
 
     for actor_id, society_id, society_name in [
-        (priya, sharma_family, "Sharma Family"), (raj, sharma_family, "Sharma Family"),
-        (ananya, sharma_family, "Sharma Family"), (alice, friends, "Friends"),
+        (priya, sharma_family, "Sharma Family"),
+        (raj, sharma_family, "Sharma Family"),
+        (ananya, sharma_family, "Sharma Family"),
+        (alice, friends, "Friends"),
         (bob, neighborhood, "Neighborhood"),
     ]:
         counts["affiliations"] += ensure_affiliation(actor_id, "member_of", society_id, society_name)
 
     for shopper_id in (priya, arjun):
-        for store_id, store_name in [(whole_foods, "Whole Foods"), (trader_joes, "Trader Joe's"), (safeway, "Safeway")]:
+        for store_id, store_name in [
+            (whole_foods, "Whole Foods"),
+            (trader_joes, "Trader Joe's"),
+            (safeway, "Safeway"),
+        ]:
             counts["affiliations"] += ensure_affiliation(shopper_id, "customer", store_id, store_name)
 
     # 7 + 8 + 9. Inventory + pricing — real Store/Product KG entities,
     # price set per-product-per-store (there's no separate pricing model
     # to seed — ProductCreateRequest.price IS the price).
-    wf_store, c = ensure_merchant(whole_foods, "Whole Foods", delivery_fee=2.99, address="Whole Foods Plaza, Maple Avenue, Sunnyvale, CA")
+    wf_store, c = ensure_merchant(
+        whole_foods,
+        "Whole Foods",
+        delivery_fee=2.99,
+        address="Whole Foods Plaza, Maple Avenue, Sunnyvale, CA",
+    )
     for name, price, qty, unit, category in [
         ("Whole Milk (1 Gallon)", 4.29, 50, "gallon", "dairy"),
         ("Organic Whole Milk (1 Gallon)", 6.49, 20, "gallon", "dairy"),
@@ -469,7 +657,12 @@ def seed() -> dict:
     ]:
         counts["products"] += ensure_product(wf_store, whole_foods, name, price, qty, unit=unit, category=category)
 
-    tj_store, c = ensure_merchant(trader_joes, "Trader Joe's", delivery_fee=1.99, address="Trader Joe's Plaza, Maple Avenue, Sunnyvale, CA")
+    tj_store, c = ensure_merchant(
+        trader_joes,
+        "Trader Joe's",
+        delivery_fee=1.99,
+        address="Trader Joe's Plaza, Maple Avenue, Sunnyvale, CA",
+    )
     for name, price, qty, unit, category in [
         ("2% Milk (1 Gallon)", 3.49, 40, "gallon", "dairy"),
         ("Cage-Free Eggs (Dozen)", 4.29, 60, "dozen", "dairy"),
@@ -479,7 +672,12 @@ def seed() -> dict:
     ]:
         counts["products"] += ensure_product(tj_store, trader_joes, name, price, qty, unit=unit, category=category)
 
-    sw_store, c = ensure_merchant(safeway, "Safeway", delivery_fee=3.49, address="Safeway Plaza, Maple Avenue, Sunnyvale, CA")
+    sw_store, c = ensure_merchant(
+        safeway,
+        "Safeway",
+        delivery_fee=3.49,
+        address="Safeway Plaza, Maple Avenue, Sunnyvale, CA",
+    )
     for name, price, qty, unit, category in [
         ("Whole Milk (1 Gallon)", 3.99, 45, "gallon", "dairy"),
         ("Large Eggs (Dozen)", 4.79, 70, "dozen", "dairy"),
@@ -493,8 +691,12 @@ def seed() -> dict:
     # ensure_wallet's docstring for why that's the correct idempotency
     # guard given there's no GET /wallets to look up against).
     for actor_id, is_new, balance in [
-        (priya, priya_new, 250.0), (raj, raj_new, 200.0), (ananya, ananya_new, 20.0),
-        (alice, alice_new, 150.0), (bob, bob_new, 150.0), (arjun, arjun_new, 150.0),
+        (priya, priya_new, 250.0),
+        (raj, raj_new, 200.0),
+        (ananya, ananya_new, 20.0),
+        (alice, alice_new, 150.0),
+        (bob, bob_new, 150.0),
+        (arjun, arjun_new, 150.0),
     ]:
         counts["wallets"] += ensure_wallet(actor_id, balance, is_new)
 
@@ -518,24 +720,41 @@ def seed() -> dict:
     # SocietyGovernanceEngine), one per society that plausibly needs one
     # for the demo.
     counts["governance_policies"] += ensure_governance_policy(
-        sharma_family, "Household Grocery Budget", "Keep grocery spending within the household budget.",
-        "guideline", ["prefer in-stock items", "compare prices across stores before ordering"],
+        sharma_family,
+        "Household Grocery Budget",
+        "Keep grocery spending within the household budget.",
+        "guideline",
+        ["prefer in-stock items", "compare prices across stores before ordering"],
     )
-    for team_id, store_name in [(wf_team, "Whole Foods"), (tj_team, "Trader Joe's"), (sw_team, "Safeway")]:
+    for team_id, store_name in [
+        (wf_team, "Whole Foods"),
+        (tj_team, "Trader Joe's"),
+        (sw_team, "Safeway"),
+    ]:
         counts["governance_policies"] += ensure_governance_policy(
-            team_id, "Fair Pricing Policy", f"{store_name} lists honest, currently-available pricing.",
-            "guideline", ["price must reflect real available inventory"],
+            team_id,
+            "Fair Pricing Policy",
+            f"{store_name} lists honest, currently-available pricing.",
+            "guideline",
+            ["price must reflect real available inventory"],
         )
 
     counts["_ids"] = {
-        "priya_sharma": priya, "raj_sharma": raj, "ananya_sharma": ananya,
-        "alice_chen": alice, "bob_martinez": bob, "arjun_mehta": arjun,
-        "whole_foods": whole_foods, "trader_joes": trader_joes, "safeway": safeway,
+        "priya_sharma": priya,
+        "raj_sharma": raj,
+        "ananya_sharma": ananya,
+        "alice_chen": alice,
+        "bob_martinez": bob,
+        "arjun_mehta": arjun,
+        "whole_foods": whole_foods,
+        "trader_joes": trader_joes,
+        "safeway": safeway,
     }
     return counts
 
 
 # ─── Validate ────────────────────────────────────────────────────────────
+
 
 def validate() -> bool:
     ok = True
@@ -589,15 +808,17 @@ def validate() -> bool:
 
 # ─── Demo ────────────────────────────────────────────────────────────────
 
+
 def demo() -> None:
     actors = get("/actors")
     priya = next((a for a in actors if a["name"] == "Priya Sharma"), None)
     if priya is None:
         print("Priya Sharma not found — run `seed` first.")
         sys.exit(1)
-    print(f"POST /prompt as Priya Sharma ({priya['actor_id']}): \"Buy 2 liters of milk.\"")
+    print(f'POST /prompt as Priya Sharma ({priya["actor_id"]}): "Buy 2 liters of milk."')
     req = urllib.request.Request(
-        BASE + "/prompt", method="POST",
+        BASE + "/prompt",
+        method="POST",
         data=json.dumps({"question": "Buy 2 liters of milk.", "run_simulate": False}).encode(),
     )
     req.add_header("Content-Type", "application/json")
@@ -609,8 +830,10 @@ def demo() -> None:
 
 # ─── Flush ───────────────────────────────────────────────────────────────
 
+
 def flush_redis() -> None:
     import socket
+
     print(f"Connecting to redis {REDIS_HOST}:{REDIS_PORT} ...")
     s = socket.create_connection((REDIS_HOST, REDIS_PORT), timeout=5)
     cmd = b"FLUSHDB"
@@ -628,6 +851,7 @@ def flush_redis() -> None:
 
 
 # ─── Main ────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "seed"

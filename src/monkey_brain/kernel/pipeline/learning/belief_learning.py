@@ -19,19 +19,23 @@ RewardWeights/RewardBreakdown set in Step 10.3 (and RecoveryAction/
 RecoveryPolicy in Step 9.4): sub-step-specific behavioral types stay with
 their engine.
 """
+
 from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningObservation, LearningSignal,
+    LearningExperience,
+    LearningObservation,
+    LearningSignal,
 )
 
 
 @dataclass(frozen=True)
 class BeliefUpdate:
     """A proposed confidence revision for one observed (entity, attribute)."""
+
     entity: str = ""
     attribute: str = ""
     previous_confidence: float = 0.0
@@ -71,16 +75,22 @@ def derive_belief_updates(
         if actual_delta == 0.0:
             continue
         direction = "reinforces" if actual_delta > 0 else "weakens"
-        updates.append(BeliefUpdate(
-            entity=obs.entity, attribute=obs.attribute,
-            previous_confidence=obs.confidence, new_confidence=new_confidence,
-            delta=actual_delta,
-            rationale=f"reward {reward:.2f} {direction} observation ({obs.entity}.{obs.attribute})",
-        ))
+        updates.append(
+            BeliefUpdate(
+                entity=obs.entity,
+                attribute=obs.attribute,
+                previous_confidence=obs.confidence,
+                new_confidence=new_confidence,
+                delta=actual_delta,
+                rationale=f"reward {reward:.2f} {direction} observation ({obs.entity}.{obs.attribute})",
+            )
+        )
     return tuple(updates)
 
 
-def _updates_to_signals(updates: tuple[BeliefUpdate, ...]) -> tuple[LearningSignal, ...]:
+def _updates_to_signals(
+    updates: tuple[BeliefUpdate, ...],
+) -> tuple[LearningSignal, ...]:
     return tuple(
         LearningSignal(
             kind="belief",

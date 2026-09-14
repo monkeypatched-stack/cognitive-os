@@ -13,6 +13,7 @@ here would silently shadow or be shadowed by that one depending on
 router-registration order — /run avoids the collision entirely instead
 of relying on the two ending up in the right order.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,8 +23,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    CompareRequest, CompareEpistemicLossRequest,
-    CompareResponseGateway, CompareHistoryResponse,
+    CompareRequest,
+    CompareEpistemicLossRequest,
+    CompareResponseGateway,
+    CompareHistoryResponse,
 )
 from src.monkey_brain.api.idempotency import idempotent
 

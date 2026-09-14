@@ -38,6 +38,7 @@ class PipelineStatus(StrEnum):
 @dataclass
 class PullRequestAggregate:
     """Aggregate root for pull requests."""
+
     pr_id: str = ""
     title: str = ""
     author: str = ""
@@ -68,13 +69,19 @@ class PullRequestAggregate:
         self.merged_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.pr_id, "title": self.title, "status": self.status.value,
-                "author": self.author, "reviews": self.reviews}
+        return {
+            "id": self.pr_id,
+            "title": self.title,
+            "status": self.status.value,
+            "author": self.author,
+            "reviews": self.reviews,
+        }
 
 
 @dataclass
 class TestSuiteAggregate:
     """Aggregate root for test suites."""
+
     suite_id: str = ""
     name: str = ""
     total: int = 0
@@ -94,19 +101,28 @@ class TestSuiteAggregate:
             self.passed += 1
         else:
             self.failed += 1
-        self.results.append({"name": name, "passed": passed, "duration_ms": duration_ms})
+        self.results.append(
+            {"name": name, "passed": passed, "duration_ms": duration_ms}
+        )
 
     def finalize(self) -> None:
         self.status = "passed" if self.failed == 0 else "failed"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.suite_id, "total": self.total, "passed": self.passed,
-                "failed": self.failed, "status": self.status, "success_rate": self.success_rate}
+        return {
+            "id": self.suite_id,
+            "total": self.total,
+            "passed": self.passed,
+            "failed": self.failed,
+            "status": self.status,
+            "success_rate": self.success_rate,
+        }
 
 
 @dataclass
 class DeploymentAggregate:
     """Aggregate root for deployments."""
+
     deployment_id: str = ""
     version: str = ""
     environment: str = ""
@@ -133,13 +149,18 @@ class DeploymentAggregate:
         self.status = DeploymentStatus.ROLLED_BACK
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.deployment_id, "version": self.version,
-                "environment": self.environment, "status": self.status.value}
+        return {
+            "id": self.deployment_id,
+            "version": self.version,
+            "environment": self.environment,
+            "status": self.status.value,
+        }
 
 
 @dataclass
 class PipelineAggregate:
     """Aggregate root for CI/CD pipelines."""
+
     pipeline_id: str = ""
     name: str = ""
     status: PipelineStatus = PipelineStatus.CREATED
@@ -161,13 +182,18 @@ class PipelineAggregate:
         self.status = PipelineStatus.CANCELLED
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.pipeline_id, "name": self.name,
-                "status": self.status.value, "stages": len(self.stages)}
+        return {
+            "id": self.pipeline_id,
+            "name": self.name,
+            "status": self.status.value,
+            "stages": len(self.stages),
+        }
 
 
 @dataclass
 class CodeReviewAggregate:
     """Aggregate root for code reviews."""
+
     review_id: str = ""
     pr_id: str = ""
     reviewer: str = ""
@@ -176,12 +202,19 @@ class CodeReviewAggregate:
     score: float = 0.0
 
     def add_finding(self, severity: str, description: str, file_path: str = "") -> None:
-        self.findings.append({"severity": severity, "description": description, "file": file_path})
+        self.findings.append(
+            {"severity": severity, "description": description, "file": file_path}
+        )
 
     def complete(self, score: float) -> None:
         self.score = score
         self.status = "completed"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.review_id, "pr_id": self.pr_id, "status": self.status,
-                "findings": len(self.findings), "score": self.score}
+        return {
+            "id": self.review_id,
+            "pr_id": self.pr_id,
+            "status": self.status,
+            "findings": len(self.findings),
+            "score": self.score,
+        }

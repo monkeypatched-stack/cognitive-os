@@ -22,8 +22,14 @@ MachineTypeCategory = Literal[
 ]
 
 AreaClassification = Literal[
-    "Grade A", "Grade B", "Grade C", "Grade D",
-    "ISO 5", "ISO 6", "ISO 7", "ISO 8",
+    "Grade A",
+    "Grade B",
+    "Grade C",
+    "Grade D",
+    "ISO 5",
+    "ISO 6",
+    "ISO 7",
+    "ISO 8",
     "Unclassified",
 ]
 
@@ -68,43 +74,44 @@ def _roll_maintenance(
 
 # ─── Base (mirrors PharmaceuticalMachine TS type) ────────────────────────────
 
+
 class PharmaceuticalMachine(BaseModel):
-    machine_id:           str
-    serial_no:            str
-    model_no:             str
-    type_category:        MachineTypeCategory
-    manufacturer:         str
+    machine_id: str
+    serial_no: str
+    model_no: str
+    type_category: MachineTypeCategory
+    manufacturer: str
     manufacturer_country: Optional[str] = None
 
     # Location
-    plant_id:             Optional[str] = None
-    building_id:          Optional[str] = None
-    floor_id:             Optional[str] = None
-    room_id:              Optional[str] = None
-    bay_id:               Optional[str] = None
+    plant_id: Optional[str] = None
+    building_id: Optional[str] = None
+    floor_id: Optional[str] = None
+    room_id: Optional[str] = None
+    bay_id: Optional[str] = None
 
     # Taxonomy
-    family_id:            Optional[str] = None
-    class_id:             Optional[str] = None
-    subclass_id:          Optional[str] = None
+    family_id: Optional[str] = None
+    class_id: Optional[str] = None
+    subclass_id: Optional[str] = None
 
-    area_classification:  AreaClassification = "Unclassified"
-    asset_tag:            Optional[str] = None
-    workstation_id:       Optional[str] = None
+    area_classification: AreaClassification = "Unclassified"
+    asset_tag: Optional[str] = None
+    workstation_id: Optional[str] = None
 
     # Dates stored as ISO strings (string | null in TS)
-    purchase_date:        Optional[str] = None
-    installation_date:    Optional[str] = None
+    purchase_date: Optional[str] = None
+    installation_date: Optional[str] = None
     warranty_expiry_date: Optional[str] = None
-    mfg_date:             Optional[str] = None
+    mfg_date: Optional[str] = None
 
-    service_life_years:   Optional[float] = None
-    name:                 Optional[str] = None
-    description:          Optional[str] = None
-    status:               MachineStatus = "Idle"
+    service_life_years: Optional[float] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: MachineStatus = "Idle"
 
     # ── Maintenance schedule ──────────────────────────────────────────────────
-    last_maintenance_date:     Optional[str] = None
+    last_maintenance_date: Optional[str] = None
     maintenance_frequency_days: Optional[int] = Field(default=None, ge=1)
     # Computed & stored — never set manually; always derived by the validator.
     maintenance_next_due_date: Optional[str] = None
@@ -113,7 +120,9 @@ class PharmaceuticalMachine(BaseModel):
     def installation_after_purchase(self) -> "PharmaceuticalMachine":
         if self.purchase_date and self.installation_date:
             if self.installation_date < self.purchase_date:
-                raise ValueError("'installation_date' cannot be before 'purchase_date'.")
+                raise ValueError(
+                    "'installation_date' cannot be before 'purchase_date'."
+                )
         return self
 
     @field_validator("status", mode="before")
@@ -140,55 +149,59 @@ class PharmaceuticalMachine(BaseModel):
 
 # ─── Create (identical shape to base) ────────────────────────────────────────
 
+
 class PharmaceuticalMachineCreate(PharmaceuticalMachine):
     pass
 
 
 # ─── Update (all fields optional) ────────────────────────────────────────────
 
+
 class PharmaceuticalMachineUpdate(BaseModel):
-    machine_id:           Optional[str] = None
-    serial_no:            Optional[str] = None
-    model_no:             Optional[str] = None
-    type_category:        Optional[MachineTypeCategory] = None
-    manufacturer:         Optional[str] = None
+    machine_id: Optional[str] = None
+    serial_no: Optional[str] = None
+    model_no: Optional[str] = None
+    type_category: Optional[MachineTypeCategory] = None
+    manufacturer: Optional[str] = None
     manufacturer_country: Optional[str] = None
 
     # Location
-    plant_id:             Optional[str] = None
-    building_id:          Optional[str] = None
-    floor_id:             Optional[str] = None
-    room_id:              Optional[str] = None
-    bay_id:               Optional[str] = None
+    plant_id: Optional[str] = None
+    building_id: Optional[str] = None
+    floor_id: Optional[str] = None
+    room_id: Optional[str] = None
+    bay_id: Optional[str] = None
 
     # Taxonomy
-    family_id:            Optional[str] = None
-    class_id:             Optional[str] = None
-    subclass_id:          Optional[str] = None
+    family_id: Optional[str] = None
+    class_id: Optional[str] = None
+    subclass_id: Optional[str] = None
 
-    area_classification:  Optional[AreaClassification] = None
-    asset_tag:            Optional[str] = None
-    workstation_id:       Optional[str] = None
-    purchase_date:        Optional[str] = None
-    installation_date:    Optional[str] = None
+    area_classification: Optional[AreaClassification] = None
+    asset_tag: Optional[str] = None
+    workstation_id: Optional[str] = None
+    purchase_date: Optional[str] = None
+    installation_date: Optional[str] = None
     warranty_expiry_date: Optional[str] = None
-    mfg_date:             Optional[str] = None
-    service_life_years:   Optional[float] = None
-    name:                 Optional[str] = None
-    description:          Optional[str] = None
-    status:               Optional[MachineStatus] = None
+    mfg_date: Optional[str] = None
+    service_life_years: Optional[float] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[MachineStatus] = None
 
     # ── Maintenance schedule ──────────────────────────────────────────────────
-    last_maintenance_date:      Optional[str] = None
+    last_maintenance_date: Optional[str] = None
     maintenance_frequency_days: Optional[int] = Field(default=None, ge=1)
     # Read-only from the client's perspective — recomputed on every update.
-    maintenance_next_due_date:  Optional[str] = None
+    maintenance_next_due_date: Optional[str] = None
 
     @model_validator(mode="after")
     def installation_after_purchase(self) -> "PharmaceuticalMachineUpdate":
         if self.purchase_date and self.installation_date:
             if self.installation_date < self.purchase_date:
-                raise ValueError("'installation_date' cannot be before 'purchase_date'.")
+                raise ValueError(
+                    "'installation_date' cannot be before 'purchase_date'."
+                )
         return self
 
     @field_validator("status", mode="before")
@@ -203,7 +216,10 @@ class PharmaceuticalMachineUpdate(BaseModel):
         maintenance_frequency_days is included in a PATCH payload.
         Only runs if at least one of the two fields is present in this update.
         """
-        if self.last_maintenance_date is None and self.maintenance_frequency_days is None:
+        if (
+            self.last_maintenance_date is None
+            and self.maintenance_frequency_days is None
+        ):
             return self
         rolled_last, next_due = _roll_maintenance(
             self.last_maintenance_date,
@@ -216,6 +232,7 @@ class PharmaceuticalMachineUpdate(BaseModel):
 
 # ─── Response ─────────────────────────────────────────────────────────────────
 
+
 class PharmaceuticalMachineResponse(PharmaceuticalMachine):
     class Config:
         from_attributes = True
@@ -223,8 +240,9 @@ class PharmaceuticalMachineResponse(PharmaceuticalMachine):
 
 # ─── Pagination ───────────────────────────────────────────────────────────────
 
+
 class PaginatedMachineResponse(BaseModel):
-    total:     int
-    page:      int
+    total: int
+    page: int
     page_size: int
-    results:   list[PharmaceuticalMachineResponse]
+    results: list[PharmaceuticalMachineResponse]

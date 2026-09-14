@@ -26,6 +26,7 @@ calls mint_actor_cell_identity again and gets a fresh credential -- "identity
 survives/reinitializes correctly across Actor Cell restart" falls out of the
 credential being cheap to re-mint, not out of any saved state.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -144,7 +145,10 @@ class ActorCellIdentityCache:
     ) -> DelegationCredential:
         if self.credential is None or self.credential.is_expired or self.credential.issuer != issuer:
             self.credential = mint_actor_cell_identity(
-                self.actor_id, issuer=issuer, capabilities=capabilities, ttl_seconds=ttl_seconds,
+                self.actor_id,
+                issuer=issuer,
+                capabilities=capabilities,
+                ttl_seconds=ttl_seconds,
             )
         return self.credential
 

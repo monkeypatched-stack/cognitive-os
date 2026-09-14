@@ -13,6 +13,7 @@ But other policies might:
 
 The policy makes the lifecycle flexible without changing CognitiveRuntime.
 """
+
 from __future__ import annotations
 
 import logging
@@ -71,15 +72,15 @@ class CognitivePolicy:
     ) -> None:
         """Configure the default 9-stage lifecycle."""
         self._stages = [
-            ("observe",         observe),
-            ("believe",         believe),
-            ("plan",            plan),
-            ("execute",         execute),
+            ("observe", observe),
+            ("believe", believe),
+            ("plan", plan),
+            ("execute", execute),
             ("observe_outcome", observe_outcome),
-            ("learn",           learn),
-            ("compile_phi",     compile_phi),
-            ("predict",         predict),
-            ("commit",          commit),
+            ("learn", learn),
+            ("compile_phi", compile_phi),
+            ("predict", predict),
+            ("commit", commit),
         ]
 
     async def execute(self, state: CognitiveState) -> CognitiveState:
@@ -127,13 +128,13 @@ class RecursivePlanningPolicy(CognitivePolicy):
         self._plan_fn = plan
         self._predict_fn = predict
         self._other_stages = [
-            ("observe",         observe),
-            ("believe",         believe),
-            ("execute",         execute),
+            ("observe", observe),
+            ("believe", believe),
+            ("execute", execute),
             ("observe_outcome", observe_outcome),
-            ("learn",           learn),
-            ("compile_phi",     compile_phi),
-            ("commit",          commit),
+            ("learn", learn),
+            ("compile_phi", compile_phi),
+            ("commit", commit),
         ]
 
     async def execute(self, state: CognitiveState) -> CognitiveState:
@@ -149,8 +150,12 @@ class RecursivePlanningPolicy(CognitivePolicy):
 
             confidence = state.belief.confidence()
             if confidence >= self._confidence_threshold:
-                logger.info("[policy] confidence %.2f >= %.2f after %d iterations",
-                           confidence, self._confidence_threshold, i + 1)
+                logger.info(
+                    "[policy] confidence %.2f >= %.2f after %d iterations",
+                    confidence,
+                    self._confidence_threshold,
+                    i + 1,
+                )
                 break
 
         # Post-plan stages

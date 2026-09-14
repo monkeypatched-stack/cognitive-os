@@ -1,4 +1,5 @@
 """Pharmaceutical agents — ClinicalTrial, DrugDiscovery, RegulatorySubmission, Pharmacovigilance."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,10 +15,17 @@ class ClinicalTrialAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"trial_id": context.get("trial_id", ""), "operation": context.get("operation", "status"), "phase": context.get("phase", "I")}
+        return {
+            "trial_id": context.get("trial_id", ""),
+            "operation": context.get("operation", "status"),
+            "phase": context.get("phase", "I"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"clinical_trial.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"clinical_trial.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"clinical_trial.{decision['operation']}", "success": True}
@@ -30,10 +38,17 @@ class DrugDiscoveryAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"pipeline": context.get("pipeline", ""), "operation": context.get("operation", "query"), "target": context.get("target", "")}
+        return {
+            "pipeline": context.get("pipeline", ""),
+            "operation": context.get("operation", "query"),
+            "target": context.get("target", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"drug_discovery.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"drug_discovery.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"drug_discovery.{decision['operation']}", "success": True}
@@ -46,13 +61,23 @@ class RegulatorySubmissionAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"submission_id": context.get("submission_id", ""), "operation": context.get("operation", "status"), "agency": context.get("agency", "FDA")}
+        return {
+            "submission_id": context.get("submission_id", ""),
+            "operation": context.get("operation", "status"),
+            "agency": context.get("agency", "FDA"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"regulatory_submission.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"regulatory_submission.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"regulatory_submission.{decision['Operation']}", "success": True}
+        return {
+            "action": f"regulatory_submission.{decision['Operation']}",
+            "success": True,
+        }
 
 
 class PharmacovigilanceAgent(BaseDDDAgent):
@@ -63,11 +88,23 @@ class PharmacovigilanceAgent(BaseDDDAgent):
     readonly = True
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"drug_id": context.get("drug_id", ""), "events": context.get("events", []), "operation": context.get("operation", "monitor")}
+        return {
+            "drug_id": context.get("drug_id", ""),
+            "events": context.get("events", []),
+            "operation": context.get("operation", "monitor"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         serious = [e for e in perception.get("events", []) if e.get("serious", False)]
-        return {"operation": perception["operation"], "action": f"pharmacovigilance.{perception['operation']}", "serious_events": len(serious)}
+        return {
+            "operation": perception["operation"],
+            "action": f"pharmacovigilance.{perception['operation']}",
+            "serious_events": len(serious),
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"pharmacovigilance.{decision['Operation']}", "success": True, "serious_events": decision.get("serious_events", 0)}
+        return {
+            "action": f"pharmacovigilance.{decision['Operation']}",
+            "success": True,
+            "serious_events": decision.get("serious_events", 0),
+        }

@@ -7,6 +7,7 @@ versions or rollback. DeploymentAgent tracks a deploy history per service
 discovered later — can be rolled back to the last-known-good version, which
 is the "release" stage's actual job, not just "start the process."
 """
+
 from __future__ import annotations
 import json
 import logging
@@ -92,20 +93,48 @@ class DeploymentAgent(BaseETASSAgent):
         if previous and previous.get("pid") and _pid_alive(previous["pid"]):
             self._stop(previous["pid"])
 
-        cmd = [sys.executable, "-m", "uvicorn", f"{service_slug}.main:app", "--host", host, "--port", str(port)]
+        cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            f"{service_slug}.main:app",
+            "--host",
+            host,
+            "--port",
+            str(port),
+        ]
         try:
-            proc = subprocess.Popen(cmd, cwd=str(svc_dir.parent), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(svc_dir.parent),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         except Exception as e:
             self._reward(False, 0.2)
-            return self._result(payload={"deployed": False, "error": repr(e)}, observations=[f"deploy failed: {e}"])
+            return self._result(
+                payload={"deployed": False, "error": repr(e)},
+                observations=[f"deploy failed: {e}"],
+            )
 
-        record = {"version": version, "pid": proc.pid, "host": host, "port": port, "deployed_at": time.time()}
+        record = {
+            "version": version,
+            "pid": proc.pid,
+            "host": host,
+            "port": port,
+            "deployed_at": time.time(),
+        }
         history.append(record)
         _save_history(service_slug, history)
 
         self._reward(True, 0.9)
         return self._result(
-            payload={"deployed": True, "version": version, "url": f"http://{host}:{port}", "pid": proc.pid},
+            payload={
+                "deployed": True,
+                "version": version,
+                "url": f"http://{host}:{port}",
+                "pid": proc.pid,
+            },
             observations=[f"{service_slug} v{version} deployed → http://{host}:{port} (pid={proc.pid})"],
         )
 
@@ -113,13 +142,19 @@ class DeploymentAgent(BaseETASSAgent):
         service_slug = str(context.get("service_slug", "")).strip()
         if not service_slug:
             self._reward(False, 0.0)
-            return self._result(payload={"rolled_back": False}, observations=["no service_slug in context"])
+            return self._result(
+                payload={"rolled_back": False},
+                observations=["no service_slug in context"],
+            )
 
         history = _load_history(service_slug)
         if len(history) < 2:
             self._reward(False, 0.2)
             return self._result(
-                payload={"rolled_back": False, "error": "no prior version to roll back to"},
+                payload={
+                    "rolled_back": False,
+                    "error": "no prior version to roll back to",
+                },
                 observations=[f"deploy history for {service_slug} has {len(history)} entries"],
             )
 
@@ -136,11 +171,22 @@ class DeploymentAgent(BaseETASSAgent):
             svc_dir = svc_dir / service_slug
 
         cmd = [
-            sys.executable, "-m", "uvicorn", f"{service_slug}.main:app",
-            "--host", target.get("host", "0.0.0.0"), "--port", str(target.get("port", 8090)),
+            sys.executable,
+            "-m",
+            "uvicorn",
+            f"{service_slug}.main:app",
+            "--host",
+            target.get("host", "0.0.0.0"),
+            "--port",
+            str(target.get("port", 8090)),
         ]
         try:
-            proc = subprocess.Popen(cmd, cwd=str(svc_dir.parent), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(svc_dir.parent),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
         except Exception as e:
             self._reward(False, 0.2)
             return self._result(payload={"rolled_back": False, "error": repr(e)})
@@ -152,7 +198,11 @@ class DeploymentAgent(BaseETASSAgent):
 
         self._reward(True, 0.7)
         return self._result(
-            payload={"rolled_back": True, "version": target.get("version"), "pid": proc.pid},
+            payload={
+                "rolled_back": True,
+                "version": target.get("version"),
+                "pid": proc.pid,
+            },
             observations=[f"rolled back {service_slug} to v{target.get('version')} (pid={proc.pid})"],
         )
 

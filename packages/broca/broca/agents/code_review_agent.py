@@ -9,6 +9,7 @@ passes a linter. Distinct from the external `/code-review` skill: this is
 the same capability made available as a first-class SDLC-pipeline agent, so
 a CodeGenRuntime run can gate on it the same way it gates on any other stage.
 """
+
 from __future__ import annotations
 import asyncio
 import json
@@ -27,7 +28,11 @@ _REPO = Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4])))
 
 def _git_diff(base: str, repo_dir: Path) -> str:
     r = subprocess.run(
-        ["git", "diff", f"{base}...HEAD"], cwd=str(repo_dir), capture_output=True, text=True, timeout=30,
+        ["git", "diff", f"{base}...HEAD"],
+        cwd=str(repo_dir),
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
     return r.stdout if r.returncode == 0 else ""
 
@@ -44,6 +49,7 @@ class CodeReviewAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
@@ -65,7 +71,10 @@ class CodeReviewAgent(BaseETASSAgent):
 
         if not diff.strip():
             self._reward(True, 0.5)
-            return self._result(payload={"approved": True, "findings": []}, observations=["no diff to review"])
+            return self._result(
+                payload={"approved": True, "findings": []},
+                observations=["no diff to review"],
+            )
 
         decision = str(context.get("architecture_decision") or "")
         goal = (

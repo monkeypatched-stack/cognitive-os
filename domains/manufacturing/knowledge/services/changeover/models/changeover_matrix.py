@@ -11,7 +11,9 @@ class ChangeoverMatrixEntry(BaseModel):
     workstation_id: str
     from_product_id: str
     to_product_id: str
-    standard_minutes: int = Field(..., ge=1, description="Target changeover duration (minutes)")
+    standard_minutes: int = Field(
+        ..., ge=1, description="Target changeover duration (minutes)"
+    )
     best_achieved_minutes: Optional[int] = Field(
         None,
         ge=1,
@@ -25,12 +27,17 @@ class ChangeoverMatrixEntry(BaseModel):
     @model_validator(mode="after")
     def different_products(self):
         if self.from_product_id == self.to_product_id and self.requires_cleaning:
-            raise ValueError("from_product_id and to_product_id must differ when cleaning is required")
+            raise ValueError(
+                "from_product_id and to_product_id must differ when cleaning is required"
+            )
         return self
 
     @model_validator(mode="after")
     def best_not_worse_than_standard(self):
-        if self.best_achieved_minutes is not None and self.best_achieved_minutes > self.standard_minutes:
+        if (
+            self.best_achieved_minutes is not None
+            and self.best_achieved_minutes > self.standard_minutes
+        ):
             raise ValueError("best_achieved_minutes cannot exceed standard_minutes")
         return self
 

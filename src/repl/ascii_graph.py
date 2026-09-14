@@ -2,6 +2,7 @@
 
 Used by --plan and --simulate to show the DAG structure visually.
 """
+
 from __future__ import annotations
 
 
@@ -9,11 +10,14 @@ import networkx as nx
 import phart
 
 
-def render_ascii_graph(nodes: list[dict], edges: list[dict],
-                       execution_order: list[list[str]] | None = None,
-                       state: dict | None = None,
-                       resolved: dict | None = None,
-                       title: str = "GRAPH") -> str:
+def render_ascii_graph(
+    nodes: list[dict],
+    edges: list[dict],
+    execution_order: list[list[str]] | None = None,
+    state: dict | None = None,
+    resolved: dict | None = None,
+    title: str = "GRAPH",
+) -> str:
     """Render an execution graph as an ASCII diagram using phart."""
     if not nodes:
         return "  (empty graph)"
@@ -55,15 +59,23 @@ def render_ascii_graph(nodes: list[dict], edges: list[dict],
             node_state = (state or {}).get(nid, {})
             status = node_state.get("status", "")
             if status:
-                sym = {"complete": "\033[32m✔\033[0m", "running": "\033[33m●\033[0m",
-                       "failed": "\033[31m✘\033[0m"}.get(status, "\033[90m○\033[0m")
+                sym = {
+                    "complete": "\033[32m✔\033[0m",
+                    "running": "\033[33m●\033[0m",
+                    "failed": "\033[31m✘\033[0m",
+                }.get(status, "\033[90m○\033[0m")
                 parts.append(f"{sym} {status}")
 
             if resolved:
                 src = resolved.get(n.get("agent", ""), "")
                 if src:
-                    icon = {"local": "📦", "openclaw": "🦞", "n8n": "⚡",
-                            "auto_generated": "🔧", "builtin": "⚙️"}.get(src, "")
+                    icon = {
+                        "local": "📦",
+                        "openclaw": "🦞",
+                        "n8n": "⚡",
+                        "auto_generated": "🔧",
+                        "builtin": "⚙️",
+                    }.get(src, "")
                     parts.append(f"{icon} {src}")
 
             if len(parts) > 1:
@@ -75,11 +87,14 @@ def render_ascii_graph(nodes: list[dict], edges: list[dict],
     return "\n".join(lines)
 
 
-def render_ascii_simulate_graph(nodes: list[dict], edges: list[dict],
-                                 execution_order: list[list[str]] | None = None,
-                                 state: dict | None = None,
-                                 grounding_score: float = 0.0,
-                                 needs_correction: bool = False) -> str:
+def render_ascii_simulate_graph(
+    nodes: list[dict],
+    edges: list[dict],
+    execution_order: list[list[str]] | None = None,
+    state: dict | None = None,
+    grounding_score: float = 0.0,
+    needs_correction: bool = False,
+) -> str:
     """Render simulate result with graph and scoring info."""
     graph_str = render_ascii_graph(nodes, edges, execution_order, state, title="SIMULATE")
 

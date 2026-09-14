@@ -18,13 +18,18 @@ invariants this file's assertions build on.
 
 Insecure-dev is unset, matching the other policy test files.
 """
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
 
-from src.monkey_brain.kernel.audit import AuditPersistenceError, MemoryDurableAuditStore, get_audit_log
+from src.monkey_brain.kernel.audit import (
+    AuditPersistenceError,
+    MemoryDurableAuditStore,
+    get_audit_log,
+)
 from src.monkey_brain.kernel.execution_attempt import (
     ExecutionAttemptState,
     get_attempt_store,
@@ -44,7 +49,11 @@ from src.monkey_brain.kernel.security_operation import (
     reconcile_operation,
     reset_operation_ledger_for_tests,
 )
-from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trusted_auth, unauthenticated_evidence
+from src.monkey_brain.kernel.trusted_auth import (
+    TrustedAuthEvidence,
+    bind_trusted_auth,
+    unauthenticated_evidence,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +66,10 @@ def _secure(monkeypatch):
 
 
 def _durable_audit():
-    from src.monkey_brain.api.idempotency import IdempotencyStore, _InMemoryIdempotencyBackend
+    from src.monkey_brain.api.idempotency import (
+        IdempotencyStore,
+        _InMemoryIdempotencyBackend,
+    )
 
     IdempotencyStore._instance = None
     store = IdempotencyStore.__new__(IdempotencyStore)
@@ -69,10 +81,15 @@ def _durable_audit():
 
 
 def _principal():
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id="alice",
-        principal_type="human", mfa_status="satisfied",
-    ))
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id="alice",
+            principal_type="human",
+            mfa_status="satisfied",
+        )
+    )
 
 
 async def _allow(*a, **k):
@@ -87,6 +104,7 @@ def opa_allow(monkeypatch):
 
 # ── INVARIANT 2: one operation_id -> at most one authoritative commitment ─
 
+
 class TestOneOperationOneCommitment:
     @pytest.mark.asyncio
     async def test_concurrent_requests_same_operation_id_resolve_to_one_commitment(self, opa_allow):
@@ -99,16 +117,24 @@ class TestOneOperationOneCommitment:
                 await asyncio.sleep(0)  # yield, so request_b can race in
                 ran.append("A")
                 return "A-result"
+
             return await run_governed_mutation(
-                action="orders.create", resource="o", mutate=effect, operation_id="op-race",
+                action="orders.create",
+                resource="o",
+                mutate=effect,
+                operation_id="op-race",
             )
 
         async def request_b():
             async def effect():
                 ran.append("B")
                 return "B-result"
+
             return await run_governed_mutation(
-                action="orders.create", resource="o", mutate=effect, operation_id="op-race",
+                action="orders.create",
+                resource="o",
+                mutate=effect,
+                operation_id="op-race",
             )
 
         results = await asyncio.gather(request_a(), request_b(), return_exceptions=True)
@@ -136,22 +162,28 @@ class TestOneOperationOneCommitment:
 
 # ── INVARIANT 3: commitment does not imply execution occurred ────────────
 
+
 class TestCommitmentWithoutExecution:
     def test_commitment_can_exist_with_zero_execution_attempts(self):
         """COMMITTED, then 'crash' before any attempt is ever allocated —
         the commitment is real and recoverable; zero attempts is a valid,
         distinct state, not an error."""
-        from src.monkey_brain.kernel.security_operation import SecurityOperation, TransactionClass
+        from src.monkey_brain.kernel.security_operation import (
+            SecurityOperation,
+            TransactionClass,
+        )
 
         ledger = get_operation_ledger()
         with privileged_infrastructure("simulate crash after commitment, before attempt"):
-            ledger.create(SecurityOperation(
-                operation_id="op-zero-attempts",
-                action="orders.create",
-                resource="o",
-                state=SecurityOperationState.AUDIT_INTENT_RECORDED,
-                transaction_class=TransactionClass.CLASS_A_INTERNAL,
-            ))
+            ledger.create(
+                SecurityOperation(
+                    operation_id="op-zero-attempts",
+                    action="orders.create",
+                    resource="o",
+                    state=SecurityOperationState.AUDIT_INTENT_RECORDED,
+                    transaction_class=TransactionClass.CLASS_A_INTERNAL,
+                )
+            )
 
         op = ledger.get("op-zero-attempts")
         assert op is not None
@@ -160,6 +192,7 @@ class TestCommitmentWithoutExecution:
 
 
 # ── STEP 10: audit-intent failure -> NO commitment, NO execution attempt ─
+
 
 class TestAuditIntentFailurePreventsCommitmentAndAttempt:
     @pytest.mark.asyncio
@@ -179,7 +212,10 @@ class TestAuditIntentFailurePreventsCommitmentAndAttempt:
 
         with pytest.raises(AuditPersistenceError):
             await run_governed_mutation(
-                action="orders.create", resource="o", mutate=effect, operation_id="op-no-commit",
+                action="orders.create",
+                resource="o",
+                mutate=effect,
+                operation_id="op-no-commit",
             )
         assert ran == []
 
@@ -212,7 +248,10 @@ class TestAuditIntentFailurePreventsCommitmentAndAttempt:
 
         with pytest.raises(SecurityBoundaryDenied) as exc:
             await run_governed_mutation(
-                action="orders.create", resource="o", mutate=effect, operation_id="op-no-authz",
+                action="orders.create",
+                resource="o",
+                mutate=effect,
+                operation_id="op-no-authz",
             )
         assert exc.value.stage == "AUTHZ"
         assert ran == []
@@ -222,6 +261,7 @@ class TestAuditIntentFailurePreventsCommitmentAndAttempt:
 
 
 # ── INVARIANT 6/7: retry / UNKNOWN never creates a new commitment ────────
+
 
 class TestRetryAndUnknownPreserveCommitment:
     @pytest.mark.asyncio
@@ -234,7 +274,10 @@ class TestRetryAndUnknownPreserveCommitment:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=times_out, operation_id="op-retry-commit",
+                action="orders.payment",
+                resource="pay",
+                mutate=times_out,
+                operation_id="op-retry-commit",
             )
 
         # UNKNOWN outcome — same commitment, no second operation_id.
@@ -246,7 +289,9 @@ class TestRetryAndUnknownPreserveCommitment:
             return "captured"
 
         result = await retry_execution_attempt(
-            operation_id="op-retry-commit", mutate=succeeds, idempotent_effect=True,
+            operation_id="op-retry-commit",
+            mutate=succeeds,
+            idempotent_effect=True,
         )
         assert result == "captured"
 
@@ -272,7 +317,10 @@ class TestRetryAndUnknownPreserveCommitment:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=times_out, operation_id="op-unknown-only",
+                action="orders.payment",
+                resource="pay",
+                mutate=times_out,
+                operation_id="op-unknown-only",
             )
 
         assert list(get_operation_ledger()._ops.keys()) == ["op-unknown-only"]
@@ -282,6 +330,7 @@ class TestRetryAndUnknownPreserveCommitment:
 
 
 # ── INVARIANT 8: non-idempotent UNKNOWN is never blindly retried ────────
+
 
 class TestNoUnsafeRetry:
     @pytest.mark.asyncio
@@ -294,7 +343,10 @@ class TestNoUnsafeRetry:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=times_out, operation_id="op-unsafe",
+                action="orders.payment",
+                resource="pay",
+                mutate=times_out,
+                operation_id="op-unsafe",
             )
 
         async def would_run_twice():
@@ -321,7 +373,10 @@ class TestNoUnsafeRetry:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=times_out, operation_id="op-reconciled-safe",
+                action="orders.payment",
+                resource="pay",
+                mutate=times_out,
+                operation_id="op-reconciled-safe",
             )
 
         with privileged_infrastructure("reconciliation job: PSP confirms no charge occurred"):
@@ -340,6 +395,7 @@ class TestNoUnsafeRetry:
 
 # ── INVARIANT 4/6: retry never creates ATTEMPT -> new COMMITMENT mapping ─
 
+
 class TestRetryNeverCreatesNewCommitment:
     @pytest.mark.asyncio
     async def test_cannot_retry_a_succeeded_operation_into_a_new_effect(self, opa_allow):
@@ -350,7 +406,10 @@ class TestRetryNeverCreatesNewCommitment:
             return "ok"
 
         await run_governed_mutation(
-            action="orders.create", resource="o", mutate=succeeds, operation_id="op-succeeded",
+            action="orders.create",
+            resource="o",
+            mutate=succeeds,
+            operation_id="op-succeeded",
         )
 
         async def would_double_charge():
@@ -379,6 +438,7 @@ class TestRetryNeverCreatesNewCommitment:
 
 # ── INVARIANT 10: an attempt never claims an effect it cannot evidence ───
 
+
 class TestNoOverclaimedEffect:
     @pytest.mark.asyncio
     async def test_confirmed_failure_is_not_reported_as_unknown_or_success(self, opa_allow):
@@ -390,7 +450,10 @@ class TestNoOverclaimedEffect:
 
         with pytest.raises(RuntimeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=declined, operation_id="op-declined",
+                action="orders.payment",
+                resource="pay",
+                mutate=declined,
+                operation_id="op-declined",
             )
         attempt = get_attempt_store().latest_for("op-declined")
         assert attempt.state is ExecutionAttemptState.FAILED
@@ -407,7 +470,10 @@ class TestNoOverclaimedEffect:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=times_out, operation_id="op-ambiguous",
+                action="orders.payment",
+                resource="pay",
+                mutate=times_out,
+                operation_id="op-ambiguous",
             )
         attempt = get_attempt_store().latest_for("op-ambiguous")
         # Never a resting bare UNKNOWN (Part 3/16) — it advances immediately

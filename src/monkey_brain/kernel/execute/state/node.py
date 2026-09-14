@@ -21,13 +21,14 @@ class StateNode:
     parent_id links this node to the state it was derived from, forming a
     traversable provenance chain even after eviction from the active tier.
     """
-    node_id:     str            = field(default_factory=lambda: uuid4().hex)
-    parent_id:   str | None     = None
-    action_type: str            = ""
-    state:       dict[str, Any] = field(default_factory=dict)
-    created_at:  float          = field(default_factory=time.time)
-    ttl:         float          = 300.0   # seconds before eviction from active context
-    checksum:    str            = ""
+
+    node_id: str = field(default_factory=lambda: uuid4().hex)
+    parent_id: str | None = None
+    action_type: str = ""
+    state: dict[str, Any] = field(default_factory=dict)
+    created_at: float = field(default_factory=time.time)
+    ttl: float = 300.0  # seconds before eviction from active context
+    checksum: str = ""
 
     def __post_init__(self) -> None:
         if not self.checksum:
@@ -44,13 +45,13 @@ class StateNode:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "node_id":     self.node_id,
-            "parent_id":   self.parent_id,
+            "node_id": self.node_id,
+            "parent_id": self.parent_id,
             "action_type": self.action_type,
-            "state":       self.state,
-            "created_at":  self.created_at,
-            "ttl":         self.ttl,
-            "checksum":    self.checksum,
-            "age":         round(self.age, 3),
-            "is_expired":  self.is_expired,
+            "state": self.state,
+            "created_at": self.created_at,
+            "ttl": self.ttl,
+            "checksum": self.checksum,
+            "age": round(self.age, 3),
+            "is_expired": self.is_expired,
         }

@@ -27,9 +27,10 @@ GEN = Path("packages/broca/broca/agents/graph_generator_agent.py")
 def prompt() -> str:
     """The edge prompt, with line wrapping normalised — the rules are wrapped in the source."""
     import re
+
     src = GEN.read_text()
     start = src.index("construct a dependency graph")
-    return re.sub(r"\s+", " ", src[start:start + 2600])
+    return re.sub(r"\s+", " ", src[start : start + 2600])
 
 
 def test_the_worked_example_is_not_a_straight_line(prompt):
@@ -63,22 +64,36 @@ def test_the_linear_case_is_still_permitted_when_it_is_genuinely_correct(prompt)
 
 # ---------------------------------------------------------------- the sort itself
 
+
 def test_topological_order_groups_independent_nodes_into_one_layer():
     """The sort was always right — this pins it, so a future 'fix' aimed at the prompt bug
     cannot be misapplied here."""
     import sys
+
     sys.path.insert(0, "packages/broca")
     from broca.agents.graph_generator_agent import GraphGeneratorAgent
 
-    nodes = [{"id": "db"}, {"id": "create"}, {"id": "query"}, {"id": "complete"}, {"id": "notify"}]
+    nodes = [
+        {"id": "db"},
+        {"id": "create"},
+        {"id": "query"},
+        {"id": "complete"},
+        {"id": "notify"},
+    ]
     edges = [
-        {"from": "db", "to": "create"}, {"from": "db", "to": "query"},
+        {"from": "db", "to": "create"},
+        {"from": "db", "to": "query"},
         {"from": "db", "to": "complete"},
-        {"from": "create", "to": "notify"}, {"from": "complete", "to": "notify"},
+        {"from": "create", "to": "notify"},
+        {"from": "complete", "to": "notify"},
     ]
     order = GraphGeneratorAgent()._topological_order(nodes, edges)
 
     assert order[0] == ["db"], "the prerequisite must run alone, first"
-    assert sorted(order[1]) == ["complete", "create", "query"], "independent work must share a layer"
+    assert sorted(order[1]) == [
+        "complete",
+        "create",
+        "query",
+    ], "independent work must share a layer"
     assert order[2] == ["notify"], "the join must wait for both branches"
     assert len(order) == 3, "a 5-node graph resolved into 3 layers, not 5"

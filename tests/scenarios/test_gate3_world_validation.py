@@ -21,16 +21,28 @@ Two things this proves:
      its actor is removed from the society) IS caught, with the right
      category and the right actor_id.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType, Society
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+    Society,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 from src.monkey_brain.kernel.validation.world_validator import validate_world
 
 ALL_CATEGORIES = {
-    "geography_tree", "society_hierarchy", "presence_consistency",
-    "membership_consistency", "inventory_consistency", "graph_integrity",
-    "orphaned_nodes", "cycles_forbidden", "duplicate_identifiers",
+    "geography_tree",
+    "society_hierarchy",
+    "presence_consistency",
+    "membership_consistency",
+    "inventory_consistency",
+    "graph_integrity",
+    "orphaned_nodes",
+    "cycles_forbidden",
+    "duplicate_identifiers",
     "referential_integrity",
 }
 
@@ -136,7 +148,13 @@ def test_validate_world_report_shape_is_stable():
     pr = _make_planetary_runtime()
     report = validate_world(pr)
 
-    assert set(report.keys()) == {"ok", "violation_count", "violations", "categories", "checked_at"}
+    assert set(report.keys()) == {
+        "ok",
+        "violation_count",
+        "violations",
+        "categories",
+        "checked_at",
+    }
     assert report["violation_count"] == len(report["violations"])
     assert report["ok"] == (report["violation_count"] == 0)
     assert set(report["categories"]) == ALL_CATEGORIES

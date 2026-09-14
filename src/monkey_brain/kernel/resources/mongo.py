@@ -24,6 +24,7 @@ diagnostics, and the background retry loop still retries a FAILED
 resource exactly like an UNAVAILABLE one (see resource_manager.py's
 _PERMANENT_CATEGORIES — NETWORK/AUTHENTICATION aren't in it).
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.resource_manager import (
@@ -67,16 +68,21 @@ class MongoResource:
                 await self._adapter.connect()
             except Exception as exc:
                 return ResourceHealth(
-                    name=self.name, state=ResourceState.FAILED,
-                    reason=str(exc)[:200], category=ErrorCategory.INTERNAL, required=True,
+                    name=self.name,
+                    state=ResourceState.FAILED,
+                    reason=str(exc)[:200],
+                    category=ErrorCategory.INTERNAL,
+                    required=True,
                 )
             client = getattr(self._adapter, "_client", None)
 
         if client is None:
             return ResourceHealth(
-                name=self.name, state=ResourceState.FAILED,
+                name=self.name,
+                state=ResourceState.FAILED,
                 reason="Motor client not constructed — motor/pymongo not installed?",
-                category=ErrorCategory.DEPENDENCY_MISSING, required=True,
+                category=ErrorCategory.DEPENDENCY_MISSING,
+                required=True,
             )
 
         try:
@@ -86,6 +92,9 @@ class MongoResource:
             msg = str(exc).lower()
             category = ErrorCategory.AUTHENTICATION if ("auth" in msg or "401" in msg) else ErrorCategory.NETWORK
             return ResourceHealth(
-                name=self.name, state=ResourceState.FAILED,
-                reason=str(exc)[:200], category=category, required=True,
+                name=self.name,
+                state=ResourceState.FAILED,
+                reason=str(exc)[:200],
+                category=category,
+                required=True,
             )

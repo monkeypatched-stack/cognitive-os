@@ -19,9 +19,15 @@ import time
 from dataclasses import replace
 from typing import Any
 
-from src.monkey_brain.kernel.compile.error_recovery import CircuitBreaker, CircuitBreakerConfig
+from src.monkey_brain.kernel.compile.error_recovery import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+)
 from src.monkey_brain.kernel.pipeline.belief_state import Goal, Plan, PlanStep
-from src.monkey_brain.kernel.pipeline.llm_plan_cache import get_cached_response, put_cached_response
+from src.monkey_brain.kernel.pipeline.llm_plan_cache import (
+    get_cached_response,
+    put_cached_response,
+)
 
 # Gate 11 (production readiness): CircuitBreaker existed (kernel/compile/
 # error_recovery.py) but was only ever re-exported, never instantiated or
@@ -516,7 +522,9 @@ class LLMPlanner:
 
     def __init__(self, backend: Any = None) -> None:
         if backend is None:
-            from src.monkey_brain.kernel.execute.provider.model_backend import get_backend
+            from src.monkey_brain.kernel.execute.provider.model_backend import (
+                get_backend,
+            )
 
             backend = get_backend()
         self._backend = backend
@@ -561,8 +569,12 @@ class LLMPlanner:
         # Operator-activated promoted plans bypass LLM — deterministic replay
         # of a verified recipe. Learning never activates; see
         # capability_promotion.activate_promoted_capability().
-        from src.monkey_brain.kernel.pipeline.learning.capability_promotion import try_resolve_promoted_plan
-        from src.monkey_brain.kernel.pipeline.learning.domain import scoped_goal_signature
+        from src.monkey_brain.kernel.pipeline.learning.capability_promotion import (
+            try_resolve_promoted_plan,
+        )
+        from src.monkey_brain.kernel.pipeline.learning.domain import (
+            scoped_goal_signature,
+        )
 
         # Must match learning/phi.py's _goal_signature exactly (same
         # scoped_goal_signature call) — that's the key CapabilityPromotionTracker
@@ -613,7 +625,9 @@ class LLMPlanner:
         # this not-yet-fully-defined module.
         import os
 
-        from src.monkey_brain.kernel.pipeline.planning.moss_plan_cache import get_moss_plan_cache
+        from src.monkey_brain.kernel.pipeline.planning.moss_plan_cache import (
+            get_moss_plan_cache,
+        )
 
         # Confirmed live, and genuinely dangerous, not just wasteful: Moss
         # matches on GOAL SEMANTIC SIMILARITY, which is exactly right for a
@@ -650,7 +664,11 @@ class LLMPlanner:
                     risk=cached_plan.risk,
                     goal_state=resolved_goal.name,
                     planner="llm",
-                    metadata={"summary": cached_summary, "goal_id": goal_id, "moss_cache_hit": True},
+                    metadata={
+                        "summary": cached_summary,
+                        "goal_id": goal_id,
+                        "moss_cache_hit": True,
+                    },
                 )
 
         prompt_build_started = time.perf_counter()
@@ -704,7 +722,10 @@ class LLMPlanner:
             this_call_ms = 0.0  # stays 0.0 for a cache hit — no real call was made to time
             if cached_raw is not None:
                 raw = cached_raw
-                logger.info("[llm_planner] cache hit for goal=%r — skipping backend call", resolved_goal.name)
+                logger.info(
+                    "[llm_planner] cache hit for goal=%r — skipping backend call",
+                    resolved_goal.name,
+                )
             else:
                 try:
                     raw = await _llm_backend_breaker.acall(self._backend.complete, prompt, system=_SYSTEM_PROMPT)
@@ -713,7 +734,11 @@ class LLMPlanner:
                     llm_call_ms += this_call_ms
                     llm_call_count += 1
                     _obs.counter(
-                        "llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="error"
+                        "llm.calls.total",
+                        provider=llm_provider,
+                        model=llm_model,
+                        operation="planning",
+                        status="error",
                     )
                     _obs.histogram(
                         "llm.call.duration_ms",
@@ -752,7 +777,11 @@ class LLMPlanner:
                     status="invalid_response",
                 )
                 _obs.histogram(
-                    "llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning"
+                    "llm.call.duration_ms",
+                    this_call_ms,
+                    provider=llm_provider,
+                    model=llm_model,
+                    operation="planning",
                 )
                 logger.warning(
                     "[llm_planner] plan parse failed (attempt %d/%d): %s",
@@ -794,7 +823,11 @@ class LLMPlanner:
                     status="degenerate_confidence",
                 )
                 _obs.histogram(
-                    "llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning"
+                    "llm.call.duration_ms",
+                    this_call_ms,
+                    provider=llm_provider,
+                    model=llm_model,
+                    operation="planning",
                 )
                 logger.warning(
                     "[llm_planner] plan parsed but every step confidence was 0.0 (attempt %d/%d) — resampling",
@@ -805,10 +838,18 @@ class LLMPlanner:
 
             if cached_raw is None:
                 _obs.counter(
-                    "llm.calls.total", provider=llm_provider, model=llm_model, operation="planning", status="success"
+                    "llm.calls.total",
+                    provider=llm_provider,
+                    model=llm_model,
+                    operation="planning",
+                    status="success",
                 )
                 _obs.histogram(
-                    "llm.call.duration_ms", this_call_ms, provider=llm_provider, model=llm_model, operation="planning"
+                    "llm.call.duration_ms",
+                    this_call_ms,
+                    provider=llm_provider,
+                    model=llm_model,
+                    operation="planning",
                 )
                 put_cached_response(llm_model, _SYSTEM_PROMPT, prompt, raw)
             break
@@ -818,7 +859,11 @@ class LLMPlanner:
         if metadata is not None:
             metadata["_stage_timings_ms"] = stage_timings_ms
         if parsed is None:
-            logger.warning("[llm_planner] planning failed after %d attempts: %s", _MAX_PARSE_ATTEMPTS, parse_error)
+            logger.warning(
+                "[llm_planner] planning failed after %d attempts: %s",
+                _MAX_PARSE_ATTEMPTS,
+                parse_error,
+            )
             return Plan(
                 goal=resolved_goal.name,
                 confidence=0.0,
@@ -835,7 +880,7 @@ class LLMPlanner:
                 cost=float(s.get("cost", 0.0) or 0.0),
                 confidence=float(s.get("confidence", 0.0) or 0.0),
                 required_permission=_normalize_required_permission(s.get("required_permission", "")),
-                parameters=s.get("parameters") if isinstance(s.get("parameters"), dict) else {},
+                parameters=(s.get("parameters") if isinstance(s.get("parameters"), dict) else {}),
                 depends_on=_normalize_depends_on(s.get("depends_on"), own_index=i, step_count=len(_raw_steps)),
             )
             for i, s in enumerate(_raw_steps)
@@ -930,7 +975,10 @@ class LLMPlanner:
         for label, retrieved_items in (
             ("Relevant experiences", getattr(context, "relevant_experiences", ())),
             ("Relevant knowledge", getattr(context, "relevant_knowledge", ())),
-            ("External knowledge (SittingFace)", getattr(context, "relevant_external_knowledge", ())),
+            (
+                "External knowledge (SittingFace)",
+                getattr(context, "relevant_external_knowledge", ()),
+            ),
             ("Relevant relationships", getattr(context, "relevant_relationships", ())),
             # Real-Time World Changes refactor (Context Stream spec):
             # incoming messages and negotiation updates are now their own

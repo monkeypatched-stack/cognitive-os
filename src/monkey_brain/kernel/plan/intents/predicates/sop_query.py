@@ -10,7 +10,7 @@ async def sop_query_question_answer(client, question, force=False):
         collection = db["sops"]
 
         # Extract specific SOP ID if mentioned
-        sop_match = re.search(r'(SOP-[\w-]+)', question, re.IGNORECASE)
+        sop_match = re.search(r"(SOP-[\w-]+)", question, re.IGNORECASE)
         if sop_match:
             sop_id = sop_match.group(1)
             doc = await collection.find_one({"id": sop_id})
@@ -28,7 +28,7 @@ async def sop_query_question_answer(client, question, force=False):
                 return (f"SOP {sop_id} not found.", [], [], False)
 
         # Title-based search
-        title_match = re.search(r'for\s+(.+?)(?:\?|$)', question, re.IGNORECASE)
+        title_match = re.search(r"for\s+(.+?)(?:\?|$)", question, re.IGNORECASE)
         if title_match:
             title = title_match.group(1).strip()
             cursor = collection.find({"title": {"$regex": title, "$options": "i"}}).limit(5)
@@ -40,7 +40,7 @@ async def sop_query_question_answer(client, question, force=False):
                 return ("\n".join(lines), [], [], False)
 
         # Department/entity filter
-        dept_match = re.search(r'(?:in|for|from)\s+(.+?)(?:\?|$)', question, re.IGNORECASE)
+        dept_match = re.search(r"(?:in|for|from)\s+(.+?)(?:\?|$)", question, re.IGNORECASE)
         if dept_match:
             dept = dept_match.group(1).strip()
             cursor = collection.find({"entity_name": {"$regex": dept, "$options": "i"}}).limit(10)

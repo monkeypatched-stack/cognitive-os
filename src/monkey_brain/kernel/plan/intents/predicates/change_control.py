@@ -15,7 +15,7 @@ async def change_control_query_question_answer(client, question, force=False):
         collection = db["change_controls"]
 
         # Extract specific CC ID if mentioned
-        cc_match = re.search(r'(CC-\d{4}-\d+)', question, re.IGNORECASE)
+        cc_match = re.search(r"(CC-\d{4}-\d+)", question, re.IGNORECASE)
         if cc_match:
             cc_id = cc_match.group(1)
             doc = await collection.find_one({"change_control_id": cc_id})
@@ -34,7 +34,7 @@ async def change_control_query_question_answer(client, question, force=False):
                 return (f"Change control {cc_id} not found.", [], [], False)
 
         # Count questions
-        if re.search(r'how many|count|total', question, re.IGNORECASE):
+        if re.search(r"how many|count|total", question, re.IGNORECASE):
             total = await collection.count_documents({})
             open_cc = await collection.count_documents({"status": "Open"})
             under_review = await collection.count_documents({"status": "Under Review"})
@@ -48,7 +48,11 @@ async def change_control_query_question_answer(client, question, force=False):
             return (answer, [], [], False)
 
         # Status filter
-        status_match = re.search(r'(open|under review|approved|rejected|closed|pending)', question, re.IGNORECASE)
+        status_match = re.search(
+            r"(open|under review|approved|rejected|closed|pending)",
+            question,
+            re.IGNORECASE,
+        )
         if status_match:
             status = status_match.group(1).title()
             cursor = collection.find({"status": status}).limit(10)
@@ -57,24 +61,32 @@ async def change_control_query_question_answer(client, question, force=False):
             if docs:
                 lines = [f"Found {total} {status.lower()} change controls:"]
                 for doc in docs:
-                    lines.append(f"  - {doc.get('change_control_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]")
+                    lines.append(
+                        f"  - {doc.get('change_control_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]"
+                    )
             else:
                 lines = [f"No {status.lower()} change controls found."]
             return ("\n".join(lines), [], [], False)
 
         # Department/stage filter
-        dept_match = re.search(r'(?:in|for|from)\s+(.+?)(?:\?|$)', question, re.IGNORECASE)
+        dept_match = re.search(r"(?:in|for|from)\s+(.+?)(?:\?|$)", question, re.IGNORECASE)
         if dept_match:
             dept = dept_match.group(1).strip()
-            cursor = collection.find({"$or": [
-                {"stage_name": {"$regex": dept, "$options": "i"}},
-                {"line_name": {"$regex": dept, "$options": "i"}},
-            ]}).limit(10)
+            cursor = collection.find(
+                {
+                    "$or": [
+                        {"stage_name": {"$regex": dept, "$options": "i"}},
+                        {"line_name": {"$regex": dept, "$options": "i"}},
+                    ]
+                }
+            ).limit(10)
             docs = await cursor.to_list(length=10)
             if docs:
                 lines = [f"Change controls related to '{dept}':"]
                 for doc in docs:
-                    lines.append(f"  - {doc.get('change_control_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]")
+                    lines.append(
+                        f"  - {doc.get('change_control_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]"
+                    )
                 return ("\n".join(lines), [], [], False)
 
         # Default: list recent
@@ -84,7 +96,9 @@ async def change_control_query_question_answer(client, question, force=False):
         if docs:
             lines = [f"Found {total} change controls. Recent:"]
             for doc in docs:
-                lines.append(f"  - {doc.get('change_control_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]")
+                lines.append(
+                    f"  - {doc.get('change_control_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]"
+                )
             answer = "\n".join(lines)
         else:
             answer = "No change controls found."
@@ -97,14 +111,20 @@ async def change_control_query_question_answer(client, question, force=False):
 def is_change_control_question(question):
     return "change control" in question.lower()
 
+
 def is_change_control_create_question(question):
     return "change control" in question.lower() and ("create" in question.lower() or "new" in question.lower())
 
+
 def is_change_control_query_question(question):
-    return "change control" in question.lower() and ("query" in question.lower() or "show" in question.lower() or "list" in question.lower())
+    return "change control" in question.lower() and (
+        "query" in question.lower() or "show" in question.lower() or "list" in question.lower()
+    )
+
 
 def is_change_control_update_question(question):
     return "change control" in question.lower() and "update" in question.lower()
+
 
 def is_change_control_decision_question(question):
     return "change control" in question.lower() and "decision" in question.lower()

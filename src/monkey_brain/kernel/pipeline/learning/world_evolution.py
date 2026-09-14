@@ -20,13 +20,16 @@ inject-the-current-state-as-a-parameter pattern Step 9.5's CapabilityResolver
 used for ExecutionEnvironment — Step 10.7 is what will eventually supply
 `current_strengths` from a real persistent store.
 """
+
 from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
 
 from src.monkey_brain.kernel.pipeline.learning.domain import (
-    LearningExperience, LearningObservation, LearningSignal,
+    LearningExperience,
+    LearningObservation,
+    LearningSignal,
 )
 
 NEUTRAL_STRENGTH = 0.5
@@ -37,6 +40,7 @@ class WorldRelationshipUpdate:
     """A proposed strength revision for one shared world relationship,
     identified the same way LearningObservation identifies a fact:
     (entity, attribute)."""
+
     entity: str = ""
     attribute: str = ""
     previous_strength: float = NEUTRAL_STRENGTH
@@ -78,15 +82,22 @@ def derive_world_updates(
         if actual_delta == 0.0:
             continue
         direction = "reinforced" if actual_delta > 0 else "weakened"
-        updates.append(WorldRelationshipUpdate(
-            entity=obs.entity, attribute=obs.attribute,
-            previous_strength=prior, new_strength=new_strength, delta=actual_delta,
-            rationale=f"{obs.entity} {obs.attribute.replace('_', ' ')} relationship {direction} (reward {reward:.2f})",
-        ))
+        updates.append(
+            WorldRelationshipUpdate(
+                entity=obs.entity,
+                attribute=obs.attribute,
+                previous_strength=prior,
+                new_strength=new_strength,
+                delta=actual_delta,
+                rationale=f"{obs.entity} {obs.attribute.replace('_', ' ')} relationship {direction} (reward {reward:.2f})",
+            )
+        )
     return tuple(updates)
 
 
-def _updates_to_signals(updates: tuple[WorldRelationshipUpdate, ...]) -> tuple[LearningSignal, ...]:
+def _updates_to_signals(
+    updates: tuple[WorldRelationshipUpdate, ...],
+) -> tuple[LearningSignal, ...]:
     return tuple(
         LearningSignal(
             kind="world",
@@ -114,8 +125,10 @@ class WorldEvolutionEngine:
 
     def derive_updates(self, experience: LearningExperience) -> tuple[WorldRelationshipUpdate, ...]:
         return derive_world_updates(
-            experience.observations, experience.reward,
-            self._current_strengths, self._learning_rate,
+            experience.observations,
+            experience.reward,
+            self._current_strengths,
+            self._learning_rate,
         )
 
     def learn(self, experience: LearningExperience) -> LearningExperience:

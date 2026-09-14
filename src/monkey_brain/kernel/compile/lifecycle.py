@@ -6,6 +6,7 @@ silently overwriting one runtime's knowledge with another's.
 
 Signing uses Ed25519 asymmetric keys via the identity module — no shared secrets.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -19,6 +20,7 @@ def sign_checkpoint(data: dict, key: bytes) -> str:
     """Legacy HMAC signer — kept for backward compatibility with existing
     callers.  New code should use identity.sign_payload() instead."""
     import hmac
+
     payload = json.dumps(data, sort_keys=True, default=str).encode("utf-8")
     return hmac.new(key, payload, hashlib.sha256).hexdigest()
 
@@ -26,11 +28,17 @@ def sign_checkpoint(data: dict, key: bytes) -> str:
 def verify_checkpoint(data: dict, signature: str, key: bytes) -> bool:
     """Legacy HMAC verifier — constant-time."""
     import hmac
+
     return hmac.compare_digest(sign_checkpoint(data, key), signature)
 
 
-def merge_with_conflicts(target: SparseTransitionTensor, source: SparseTransitionTensor, *,
-                         feature: Feature = Feature.FREQUENCY, tol: float = 1e-6) -> list[dict[str, Any]]:
+def merge_with_conflicts(
+    target: SparseTransitionTensor,
+    source: SparseTransitionTensor,
+    *,
+    feature: Feature = Feature.FREQUENCY,
+    tol: float = 1e-6,
+) -> list[dict[str, Any]]:
     """Merge `source` into `target`, RECORDING conflicts (same edge, materially different
     value) instead of silently overwriting. Non-conflicting edges are folded in. Returns
     the list of conflicts for the caller to resolve — no policy is overwritten silently.
@@ -39,28 +47,31 @@ def merge_with_conflicts(target: SparseTransitionTensor, source: SparseTransitio
     Q-values live in PolicyStore, not in the tensor.
     """
     conflicts: list[dict[str, Any]] = []
-    for (src, dst) in source:
+    for src, dst in source:
         sv = source.feature(src, dst, feature)
         if target.has_edge(src, dst):
             tv = target.feature(src, dst, feature)
             if abs(tv - sv) > tol:
                 conflicts.append({"edge": (src, dst), "target": tv, "source": sv})
-            continue                                  # do not overwrite an existing value
+            continue  # do not overwrite an existing value
 
         # Fold in the new edge — carrying the value of the feature being merged.
         # observe() only bumps counters; it leaves q at the neutral 0.5 prior. So a
         # merge on Q_VALUE dropped every source Q on the floor: an edge the source had
         # learned to 0.997 landed in the target at 0.5, and the merge discarded exactly
         # the thing it was merging. Preserve the destination's true domain too.
-        target.observe(src, dst,
-                       domain=source.domain_of(src),
-                       dst_domain=source.domain_of(dst))
+        target.observe(src, dst, domain=source.domain_of(src), dst_domain=source.domain_of(dst))
         _copy_feature(target, source, src, dst, feature)
     return conflicts
 
 
-def _copy_feature(target: SparseTransitionTensor, source: SparseTransitionTensor,
-                  src: str, dst: str, feature: Feature) -> None:
+def _copy_feature(
+    target: SparseTransitionTensor,
+    source: SparseTransitionTensor,
+    src: str,
+    dst: str,
+    feature: Feature,
+) -> None:
     """Carry `feature`'s value from source's cell onto target's freshly-observed cell.
 
     Only the learned/derived features that a merge can meaningfully transfer; the

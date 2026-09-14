@@ -14,23 +14,27 @@ This benchmark validates the complete cognitive loop:
 
 No workflow is hardcoded. The planner generates execution graphs dynamically.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.compile.tensor import SparseTransitionTensor, Feature
 from src.monkey_brain.kernel.compile.society import Actor, ActorNetwork
-from src.monkey_brain.kernel.compile.action_operator import ActionOperator, ActionLegality
+from src.monkey_brain.kernel.compile.action_operator import (
+    ActionOperator,
+    ActionLegality,
+)
 from src.monkey_brain.kernel.compile.trust import Relationship
 from src.monkey_brain.kernel.policy.store import PolicyStore
 from src.monkey_brain.kernel.learn.world_learner import WorldLearner
 from src.monkey_brain.kernel.learn.policy_learner import PolicyLearner
 from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # World Model: Grocery Delivery
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def create_grocery_world() -> SparseTransitionTensor:
     """Create a world with grocery delivery transitions."""
@@ -83,6 +87,7 @@ def create_grocery_world() -> SparseTransitionTensor:
 # Helper: Create Architecture
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _create_architecture(world: SparseTransitionTensor):
     """Create a CognitiveArchitecture with the given world."""
     from monkey_brain.kernel.cognitive_engine import CognitiveArchitecture
@@ -101,7 +106,11 @@ def _register_grocery_capabilities(arch) -> None:
         ("compare_products", ["products_found"], ["product_selected"]),
         ("add_to_cart", ["product_selected"], ["cart_ready"]),
         ("checkout", ["cart_ready"], ["order_confirmed"]),
-        ("process_payment", ["order_confirmed"], ["payment_authorized", "payment_declined"]),
+        (
+            "process_payment",
+            ["order_confirmed"],
+            ["payment_authorized", "payment_declined"],
+        ),
         ("track_order", ["payment_authorized"], ["driver_assigned"]),
         ("receive_delivery", ["out_for_delivery"], ["delivered"]),
         ("search_alternative", ["product_unavailable"], ["products_found"]),
@@ -117,6 +126,7 @@ def _register_grocery_capabilities(arch) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 1: Intent Compilation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestIntentCompilation:
     """Test that intent is compiled correctly from natural language."""
@@ -141,6 +151,7 @@ class TestIntentCompilation:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 2: Planner
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPlanner:
     """Test that planner generates execution graph dynamically."""
@@ -172,6 +183,7 @@ class TestPlanner:
 # Test 3: World Model
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestWorldModel:
     """Test world model transitions."""
 
@@ -196,6 +208,7 @@ class TestWorldModel:
 # Test 4: Observation Fusion
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestObservationFusion:
     """Test that observations update the world model."""
 
@@ -214,6 +227,7 @@ class TestObservationFusion:
 # Test 5: Comparator
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestComparator:
     """Test that comparator verifies goal completion."""
 
@@ -226,14 +240,16 @@ class TestComparator:
             "nodes": [{"id": "n1"}, {"id": "n2"}, {"id": "n3"}],
             "edges": [{"from": "n1", "to": "n2"}, {"from": "n2", "to": "n3"}],
             "execution_order": [["n1"], ["n2"], ["n3"]],
-            "metadata": {"summary": {
-                "predicted_state": {"milk": 2.0, "order_status": "delivered"},
-                "predicted_reward": 0.95,
-                "grounding_score": 0.9,
-                "operations": ["search", "checkout", "deliver"],
-                "events": ["confirmed", "delivered"],
-                "artifacts": ["receipt"],
-            }}
+            "metadata": {
+                "summary": {
+                    "predicted_state": {"milk": 2.0, "order_status": "delivered"},
+                    "predicted_reward": 0.95,
+                    "grounding_score": 0.9,
+                    "operations": ["search", "checkout", "deliver"],
+                    "events": ["confirmed", "delivered"],
+                    "artifacts": ["receipt"],
+                }
+            },
         }
         exec_result = {
             "graph_id": "sim-001",
@@ -264,14 +280,16 @@ class TestComparator:
             "nodes": [{"id": "n1"}],
             "edges": [],
             "execution_order": [["n1"]],
-            "metadata": {"summary": {
-                "predicted_state": {"milk": 2.0},
-                "predicted_reward": 0.9,
-                "grounding_score": 0.85,
-                "operations": ["search"],
-                "events": [],
-                "artifacts": [],
-            }}
+            "metadata": {
+                "summary": {
+                    "predicted_state": {"milk": 2.0},
+                    "predicted_reward": 0.9,
+                    "grounding_score": 0.85,
+                    "operations": ["search"],
+                    "events": [],
+                    "artifacts": [],
+                }
+            },
         }
         exec_result = {
             "graph_id": "sim-002",
@@ -297,6 +315,7 @@ class TestComparator:
 # Test 6: Learning
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLearning:
     """Test that learning updates historical knowledge."""
 
@@ -315,7 +334,12 @@ class TestLearning:
         store = PolicyStore(lr=0.1)
 
         for _ in range(10):
-            store.update("checkout", "process_payment", reward=0.9, next_state="payment_authorized")
+            store.update(
+                "checkout",
+                "process_payment",
+                reward=0.9,
+                next_state="payment_authorized",
+            )
 
         q = store.value("checkout", "process_payment")
         assert q > 0.8
@@ -324,6 +348,7 @@ class TestLearning:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 7: Replanning (Out of Stock)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestReplanning:
     """Test replanning when product is unavailable."""
@@ -360,6 +385,7 @@ class TestReplanning:
 # Test 8: Payment Failure
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPaymentFailure:
     """Test handling of payment failures."""
 
@@ -393,6 +419,7 @@ class TestPaymentFailure:
 # Test 9: Delivery Failure
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDeliveryFailure:
     """Test handling of delivery failures."""
 
@@ -411,6 +438,7 @@ class TestDeliveryFailure:
 # ═══════════════════════════════════════════════════════════════════════════
 # Test 10: Provider Discovery
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestProviderDiscovery:
     """Test that provider discovery is capability-driven."""
@@ -438,6 +466,7 @@ class TestProviderDiscovery:
 # ═══════════════════════════════════════════════════════════════════════════
 # Integration Test: Full Cognitive Cycle
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFullCognitiveCycle:
     """End-to-end test of the complete cognitive loop."""

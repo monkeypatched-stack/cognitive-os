@@ -102,9 +102,9 @@ class QCCheckpoint:
             "status": self.status.value,
             "result": self.result,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat()
-            if self.completed_at
-            else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "error": self.error,
         }
 
@@ -205,9 +205,9 @@ class WorkflowStep:
             "dependencies": self.dependencies,
             "status": self.status.value,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat()
-            if self.completed_at
-            else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "duration_seconds": self.duration_seconds,
             "qc_checkpoints": [cp.to_dict() for cp in self.qc_checkpoints],
             "qc_passed": all(
@@ -436,9 +436,9 @@ class BatchWorkflowExecution:
             "status": self.status.value,
             "created_at": self.created_at.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat()
-            if self.completed_at
-            else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "total_duration_seconds": total_duration,
             "total_steps": len(self.steps),
             "completed_steps": len(completed_steps),
@@ -463,9 +463,9 @@ class BatchWorkflowExecution:
             "status": self.status.value,
             "created_at": self.created_at.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": self.completed_at.isoformat()
-            if self.completed_at
-            else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
             "total_duration_seconds": (
                 (self.completed_at - self.started_at).total_seconds()
                 if self.completed_at and self.started_at

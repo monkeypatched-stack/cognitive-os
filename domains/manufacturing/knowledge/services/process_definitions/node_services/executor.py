@@ -9,7 +9,9 @@ from services.common.config import settings
 from services.common.approval_chains import approval_notification_event
 from services.auth.helpers import nats_store
 from services.process_definitions.helpers import process_definition as crud
-from services.process_definitions.models.process_definition import ProcessDefinitionCanvasBackendCall
+from services.process_definitions.models.process_definition import (
+    ProcessDefinitionCanvasBackendCall,
+)
 from services.process_definitions.node_services.common import execute_common_node
 from services.process_definitions.node_services.functions import execute_function_node
 from services.process_definitions.node_services.messaging import execute_messaging_node
@@ -25,8 +27,31 @@ from services.process_definitions.node_services.storage import execute_storage_n
 from services.process_definitions.node_services.webhooks import execute_webhook_node
 from services.process_definitions.node_services.models import NodeExecutionResult
 
-COMMON_NODES = {"inject", "debug", "catch", "status", "link in", "link out", "link call", "junction", "complete", "comment", "subflow"}
-FUNCTION_NODES = {"function", "switch", "change", "range", "template", "delay", "trigger", "filter", "rbe", "exec"}
+COMMON_NODES = {
+    "inject",
+    "debug",
+    "catch",
+    "status",
+    "link in",
+    "link out",
+    "link call",
+    "junction",
+    "complete",
+    "comment",
+    "subflow",
+}
+FUNCTION_NODES = {
+    "function",
+    "switch",
+    "change",
+    "range",
+    "template",
+    "delay",
+    "trigger",
+    "filter",
+    "rbe",
+    "exec",
+}
 NETWORK_HTTP_NODES = {"http in", "http response", "http request"}
 NETWORK_MQTT_NODES = {"mqtt in", "mqtt out"}
 NETWORK_WEBSOCKET_NODES = {"websocket in", "websocket out"}
@@ -34,7 +59,14 @@ NETWORK_TCP_UDP_NODES = {"tcp in", "tcp out", "udp in", "udp out"}
 SEQUENCE_NODES = {"split", "join", "sort", "batch"}
 PARSER_NODES = {"csv", "html", "json", "xml", "yaml"}
 STORAGE_NODES = {"file", "file in", "file out", "watch"}
-WEBHOOK_NODES = {"incoming webhook", "outgoing webhook", "n8n incoming", "n8n outgoing", "openclaw incoming", "openclaw outgoing"}
+WEBHOOK_NODES = {
+    "incoming webhook",
+    "outgoing webhook",
+    "n8n incoming",
+    "n8n outgoing",
+    "openclaw incoming",
+    "openclaw outgoing",
+}
 MESSAGING_NODES = {"gmail", "whatsapp"}
 COMPLIANCE_NODES = {
     "change request",
@@ -65,48 +97,85 @@ MATERIAL_FLOW_NODES = {
     "equipment usage",
     "area room usage",
 }
+
+
 def _node_label(node: dict[str, Any]) -> str:
-    return str(node.get("name") or node.get("title") or (node.get("data") or {}).get("label") or node.get("node_id") or "").strip()
+    return str(
+        node.get("name")
+        or node.get("title")
+        or (node.get("data") or {}).get("label")
+        or node.get("node_id")
+        or ""
+    ).strip()
 
 
 def _is_reviewer_assignment_node(node: dict[str, Any]) -> bool:
     label = _node_label(node).lower()
     node_id = str(node.get("node_id") or node.get("id") or "").lower()
-    return label == "reviewer assignment" or node_id.endswith(":appr-review") or node_id == "appr-review"
+    return (
+        label == "reviewer assignment"
+        or node_id.endswith(":appr-review")
+        or node_id == "appr-review"
+    )
 
 
 def _is_approval_queue_node(node: dict[str, Any]) -> bool:
     label = _node_label(node).lower()
     node_id = str(node.get("node_id") or node.get("id") or "").lower()
-    return label == "approval queue" or node_id.endswith(":appr-queue") or node_id == "appr-queue"
+    return (
+        label == "approval queue"
+        or node_id.endswith(":appr-queue")
+        or node_id == "appr-queue"
+    )
 
 
 def _is_audit_queue_node(node: dict[str, Any]) -> bool:
     label = _node_label(node).lower()
     node_id = str(node.get("node_id") or node.get("id") or "").lower()
-    return label == "audit queue" or node_id.endswith(":audit-queue") or node_id == "audit-queue"
+    return (
+        label == "audit queue"
+        or node_id.endswith(":audit-queue")
+        or node_id == "audit-queue"
+    )
 
 
 def _is_electronic_signature_node(node: dict[str, Any]) -> bool:
     label = _node_label(node).lower()
     node_id = str(node.get("node_id") or node.get("id") or "").lower()
-    return label == "electronic signature" or node_id.endswith(":appr-esig") or node_id == "appr-esig"
+    return (
+        label == "electronic signature"
+        or node_id.endswith(":appr-esig")
+        or node_id == "appr-esig"
+    )
 
 
 def _is_approval_decision_node(node: dict[str, Any]) -> bool:
     label = _node_label(node).lower()
     node_id = str(node.get("node_id") or node.get("id") or "").lower()
-    return label == "approval decision" or node_id.endswith(":appr-decision") or node_id == "appr-decision"
+    return (
+        label == "approval decision"
+        or node_id.endswith(":appr-decision")
+        or node_id == "appr-decision"
+    )
 
 
 def _approval_chain_from_message(message: dict[str, Any]) -> list[dict[str, Any]]:
-    payload = message.get("payload") if isinstance(message.get("payload"), dict) else message
-    chain = payload.get("approval_chain") or payload.get("approval_process_definition") or message.get("approval_chain") or message.get("approval_process_definition")
+    payload = (
+        message.get("payload") if isinstance(message.get("payload"), dict) else message
+    )
+    chain = (
+        payload.get("approval_chain")
+        or payload.get("approval_process_definition")
+        or message.get("approval_chain")
+        or message.get("approval_process_definition")
+    )
     return chain if isinstance(chain, list) else []
 
 
 def _source_payload_from_message(message: dict[str, Any]) -> dict[str, Any]:
-    return message.get("payload") if isinstance(message.get("payload"), dict) else message
+    return (
+        message.get("payload") if isinstance(message.get("payload"), dict) else message
+    )
 
 
 APPROVAL_APPROVED_STATUSES = {"approved", "complete", "completed"}
@@ -121,7 +190,9 @@ def _source_id_from_payload(source: dict[str, Any]) -> str | None:
     return None
 
 
-async def _approval_records_for_signature(db: AsyncIOMotorDatabase | None, source: dict[str, Any]) -> list[dict[str, Any]]:
+async def _approval_records_for_signature(
+    db: AsyncIOMotorDatabase | None, source: dict[str, Any]
+) -> list[dict[str, Any]]:
     embedded = source.get("approvals")
     if isinstance(embedded, list):
         return [item for item in embedded if isinstance(item, dict)]
@@ -132,15 +203,24 @@ async def _approval_records_for_signature(db: AsyncIOMotorDatabase | None, sourc
         return []
     source_id = _source_id_from_payload(source)
     if not source_id and source.get("approval_id"):
-        approval = await db["approvals"].find_one({"approval_id": source.get("approval_id")}, {"_id": 0})
+        approval = await db["approvals"].find_one(
+            {"approval_id": source.get("approval_id")}, {"_id": 0}
+        )
         source_id = (approval or {}).get("source_id")
     if not source_id:
         return []
-    return await db["approvals"].find({"source_id": source_id}, {"_id": 0}).to_list(length=200)
+    return (
+        await db["approvals"]
+        .find({"source_id": source_id}, {"_id": 0})
+        .to_list(length=200)
+    )
 
 
 def _approval_completion(records: list[dict[str, Any]]) -> dict[str, Any]:
-    statuses = [str(record.get("decision") or record.get("status") or "").strip().lower() for record in records]
+    statuses = [
+        str(record.get("decision") or record.get("status") or "").strip().lower()
+        for record in records
+    ]
     pending = [
         record
         for record, status_value in zip(records, statuses)
@@ -157,7 +237,11 @@ def _approval_completion(records: list[dict[str, Any]]) -> dict[str, Any]:
         if status_value in APPROVAL_APPROVED_STATUSES
     ]
     all_received = bool(records) and not pending
-    route = "rejected" if rejected else "approved" if all_received and len(approved) == len(records) else "pending"
+    route = (
+        "rejected"
+        if rejected
+        else "approved" if all_received and len(approved) == len(records) else "pending"
+    )
     return {
         "approval_count": len(records),
         "approved_count": len(approved),
@@ -165,16 +249,26 @@ def _approval_completion(records: list[dict[str, Any]]) -> dict[str, Any]:
         "pending_count": len(pending),
         "all_approvals_received": all_received,
         "route": route,
-        "pending_approval_ids": [record.get("approval_id") for record in pending if record.get("approval_id")],
-        "rejected_approval_ids": [record.get("approval_id") for record in rejected if record.get("approval_id")],
+        "pending_approval_ids": [
+            record.get("approval_id") for record in pending if record.get("approval_id")
+        ],
+        "rejected_approval_ids": [
+            record.get("approval_id")
+            for record in rejected
+            if record.get("approval_id")
+        ],
     }
 
 
-async def _publish_signature_audit_event(source: dict[str, Any], completion: dict[str, Any]) -> str:
+async def _publish_signature_audit_event(
+    source: dict[str, Any], completion: dict[str, Any]
+) -> str:
     audit_event = {
         "event": "approval_audit_event",
         "event_type": "approval-audit",
-        "source_collection": source.get("source_collection") or source.get("collection") or "gxp_change_controls",
+        "source_collection": source.get("source_collection")
+        or source.get("collection")
+        or "gxp_change_controls",
         "source_id": _source_id_from_payload(source),
         "source_title": source.get("source_title") or source.get("title"),
         "approval_id": source.get("approval_id"),
@@ -201,12 +295,27 @@ def _validate_named_chain(chain: list[dict[str, Any]]) -> str | None:
     return None
 
 
-def _approval_queue_payload(message: dict[str, Any], chain: list[dict[str, Any]]) -> dict[str, Any]:
+def _approval_queue_payload(
+    message: dict[str, Any], chain: list[dict[str, Any]]
+) -> dict[str, Any]:
     source = _source_payload_from_message(message)
-    source_id = source.get("change_control_id") or source.get("document_id") or source.get("source_id")
-    source_title = source.get("title") or source.get("document_name") or source.get("source_title") or source_id
+    source_id = (
+        source.get("change_control_id")
+        or source.get("document_id")
+        or source.get("source_id")
+    )
+    source_title = (
+        source.get("title")
+        or source.get("document_name")
+        or source.get("source_title")
+        or source_id
+    )
     return approval_notification_event(
-        source_collection=str(source.get("source_collection") or source.get("collection") or "gxp_change_controls"),
+        source_collection=str(
+            source.get("source_collection")
+            or source.get("collection")
+            or "gxp_change_controls"
+        ),
         source_id=str(source_id),
         source_title=str(source_title),
         source=source,
@@ -249,7 +358,9 @@ def _node_red_message(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(payload.get("message"), dict):
         return dict(payload["message"])
     trigger_message = payload.get("triggerMessage")
-    if isinstance(trigger_message, dict) and isinstance(trigger_message.get("message"), dict):
+    if isinstance(trigger_message, dict) and isinstance(
+        trigger_message.get("message"), dict
+    ):
         return dict(trigger_message["message"])
     if "payload" in payload:
         return dict(payload)
@@ -268,10 +379,18 @@ async def execute_canvas_node_service(
     config: dict,
     payload: dict[str, Any],
 ) -> NodeExecutionResult:
-    message_payload = payload if node_type in {"inject", "trigger"} else _node_red_message(payload)
+    message_payload = (
+        payload if node_type in {"inject", "trigger"} else _node_red_message(payload)
+    )
     if node_type in COMMON_NODES:
-        layout = await crud.get_canvas_layout_by_id(db, layout_id) if node_type in {"link out", "link call"} else None
-        return await execute_common_node(node_type, node, layout, config, message_payload)
+        layout = (
+            await crud.get_canvas_layout_by_id(db, layout_id)
+            if node_type in {"link out", "link call"}
+            else None
+        )
+        return await execute_common_node(
+            node_type, node, layout, config, message_payload
+        )
     if node_type in FUNCTION_NODES:
         return await execute_function_node(node_type, config, message_payload)
     if node_type in SEQUENCE_NODES:
@@ -338,10 +457,16 @@ async def execute_canvas_node_service(
             error = _validate_named_chain(chain)
             if error:
                 return NodeExecutionResult(False, None, None, error)
-            return await _publish_reviewer_assignment_to_approval_queue(config, message, chain)
+            return await _publish_reviewer_assignment_to_approval_queue(
+                config, message, chain
+            )
         if node_type == "electronic signature" and _is_electronic_signature_node(node):
             source = _source_payload_from_message(message)
-            signed = bool(source.get("signature_hash") or source.get("signature_id") or source.get("signature_valid") is True)
+            signed = bool(
+                source.get("signature_hash")
+                or source.get("signature_id")
+                or source.get("signature_valid") is True
+            )
             if not signed:
                 return NodeExecutionResult(
                     True,
@@ -382,7 +507,9 @@ async def execute_canvas_node_service(
                 audit_subject = await _publish_signature_audit_event(source, completion)
             except Exception as exc:
                 return NodeExecutionResult(False, None, None, str(exc))
-            target_node = "Rejected" if completion["route"] == "rejected" else "Approved"
+            target_node = (
+                "Rejected" if completion["route"] == "rejected" else "Approved"
+            )
             return NodeExecutionResult(
                 True,
                 None,
@@ -404,8 +531,16 @@ async def execute_canvas_node_service(
             )
         if node_type == "risk decision" and _is_approval_decision_node(node):
             source = _source_payload_from_message(message)
-            decision = str(source.get("decision") or source.get("status") or "").strip().lower()
-            route = "rejected" if decision == "rejected" else "approved" if decision == "approved" else "more-info"
+            decision = (
+                str(source.get("decision") or source.get("status") or "")
+                .strip()
+                .lower()
+            )
+            route = (
+                "rejected"
+                if decision == "rejected"
+                else "approved" if decision == "approved" else "more-info"
+            )
             return NodeExecutionResult(
                 True,
                 None,
@@ -417,7 +552,15 @@ async def execute_canvas_node_service(
                     "next_message": {
                         **source,
                         "route": route,
-                        "target_node": "Rejected" if route == "rejected" else "Approved" if route == "approved" else "Approval Decision",
+                        "target_node": (
+                            "Rejected"
+                            if route == "rejected"
+                            else (
+                                "Approved"
+                                if route == "approved"
+                                else "Approval Decision"
+                            )
+                        ),
                     },
                 },
             )
@@ -440,10 +583,13 @@ async def execute_canvas_node_service(
         next_message = {
             **message,
             "material_flow_action": node_type,
-            "batch_execution_record_id": config.get("batch_execution_record_id") or source.get("batch_execution_record_id"),
+            "batch_execution_record_id": config.get("batch_execution_record_id")
+            or source.get("batch_execution_record_id"),
             "batch_id": config.get("batch_id") or source.get("batch_id"),
-            "process_definition_id": config.get("process_definition_id") or source.get("process_definition_id"),
-            "process_step_id": config.get("process_step_id") or source.get("process_step_id"),
+            "process_definition_id": config.get("process_definition_id")
+            or source.get("process_definition_id"),
+            "process_step_id": config.get("process_step_id")
+            or source.get("process_step_id"),
             "bom_id": config.get("bom_id") or source.get("bom_id"),
         }
         return NodeExecutionResult(
@@ -479,8 +625,14 @@ async def execute_backend_http_call(
     payload: dict[str, Any],
 ) -> NodeExecutionResult:
     method = (backend.method or "POST").upper()
-    query_params = config.get("query") if isinstance(config.get("query"), dict) else None
-    timeout_seconds = config.get("timeout_seconds") if isinstance(config.get("timeout_seconds"), (int, float)) else 20.0
+    query_params = (
+        config.get("query") if isinstance(config.get("query"), dict) else None
+    )
+    timeout_seconds = (
+        config.get("timeout_seconds")
+        if isinstance(config.get("timeout_seconds"), (int, float))
+        else 20.0
+    )
     try:
         async with httpx.AsyncClient(timeout=float(timeout_seconds)) as client:
             response = await client.request(
@@ -494,6 +646,11 @@ async def execute_backend_http_call(
             response_body = response.json()
         except Exception:
             response_body = response.text
-        return NodeExecutionResult(response.is_success, response.status_code, response_body, None if response.is_success else response.text)
+        return NodeExecutionResult(
+            response.is_success,
+            response.status_code,
+            response_body,
+            None if response.is_success else response.text,
+        )
     except httpx.HTTPError as exc:
         return NodeExecutionResult(False, None, None, str(exc))

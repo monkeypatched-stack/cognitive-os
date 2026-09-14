@@ -5,19 +5,27 @@ no mocking, no async. ExperienceRewardEngine.evaluate() wraps it against a full
 LearningExperience, returning a new (not mutated) experience since the model
 is frozen.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.pipeline.learning.domain import LearningExperience, LearningOutcome
-from src.monkey_brain.kernel.pipeline.learning.reward import (
-    RewardBreakdown, ExperienceRewardEngine, RewardWeights, compute_reward, evaluate_experience,
+from src.monkey_brain.kernel.pipeline.learning.domain import (
+    LearningExperience,
+    LearningOutcome,
 )
-
+from src.monkey_brain.kernel.pipeline.learning.reward import (
+    RewardBreakdown,
+    ExperienceRewardEngine,
+    RewardWeights,
+    compute_reward,
+    evaluate_experience,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # compute_reward — the acceptance-criteria scenario
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestComputeRewardAcceptanceScenario:
     def test_milk_in_six_minutes_within_budget_scores_point_nine_two(self):
@@ -41,6 +49,7 @@ class TestComputeRewardAcceptanceScenario:
 # ═══════════════════════════════════════════════════════════════════════════
 # compute_reward — component behavior
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestComputeRewardComponents:
     def test_goal_not_achieved_scores_zero_by_default(self):
@@ -110,6 +119,7 @@ class TestComputeRewardComponents:
 # ExperienceRewardEngine — operates on LearningExperience, preserves immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExperienceRewardEngine:
     def test_evaluate_returns_a_new_experience_with_reward_set(self):
         outcome = LearningOutcome(goal_achieved=True, cost=0.0, duration_seconds=360.0)
@@ -164,15 +174,18 @@ class TestExperienceRewardEngine:
 # RewardBreakdown — immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRewardBreakdownImmutability:
     def test_frozen(self):
         from dataclasses import FrozenInstanceError
+
         breakdown = RewardBreakdown()
         with pytest.raises(FrozenInstanceError):
             breakdown.total = 1.0
 
     def test_weights_frozen(self):
         from dataclasses import FrozenInstanceError
+
         weights = RewardWeights()
         with pytest.raises(FrozenInstanceError):
             weights.goal_achieved = 1.0
@@ -182,9 +195,11 @@ class TestRewardBreakdownImmutability:
 # Ownership boundary — reward evaluation depends only on the domain model
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -198,14 +213,21 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_execution_engine_or_cognitive_runtime_coupling(self):
         import src.monkey_brain.kernel.pipeline.learning.reward as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "execution_state", "kernel.pipeline.execution", "action_executor"):
+        for forbidden in (
+            "belief_runtime",
+            "execution_state",
+            "kernel.pipeline.execution",
+            "action_executor",
+        ):
             assert forbidden not in imports, f"reward.py must not import: {forbidden}"
 
     def test_depends_only_on_learning_domain(self):
         """Reward evaluation is a pure function of LearningOutcome — it has
         no reason to import CognitiveState at all, unlike capture.py."""
         import src.monkey_brain.kernel.pipeline.learning.reward as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

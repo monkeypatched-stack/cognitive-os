@@ -26,13 +26,42 @@ from services.inventory.models.warehouse_regulated_records import (
 )
 from services.products.models.product_common import utc_now
 
-
 RECORDS = {
-    "special_storage_requirements": ("special_storage_requirements", "requirement_id", SpecialStorageRequirement, SpecialStorageRequirementCreate, SpecialStorageRequirementUpdate),
-    "material_inward_logs": ("material_inward_logs", "inward_log_id", MaterialInwardLog, MaterialInwardLogCreate, MaterialInwardLogUpdate),
-    "warehouse_status_labels": ("warehouse_status_labels", "label_id", WarehouseStatusLabel, WarehouseStatusLabelCreate, WarehouseStatusLabelUpdate),
-    "warehouse_dispensing_records": ("warehouse_dispensing_records", "dispensing_record_id", WarehouseDispensingRecord, WarehouseDispensingRecordCreate, WarehouseDispensingRecordUpdate),
-    "inventory_disposition_records": ("inventory_disposition_records", "disposition_id", InventoryDispositionRecord, InventoryDispositionRecordCreate, InventoryDispositionRecordUpdate),
+    "special_storage_requirements": (
+        "special_storage_requirements",
+        "requirement_id",
+        SpecialStorageRequirement,
+        SpecialStorageRequirementCreate,
+        SpecialStorageRequirementUpdate,
+    ),
+    "material_inward_logs": (
+        "material_inward_logs",
+        "inward_log_id",
+        MaterialInwardLog,
+        MaterialInwardLogCreate,
+        MaterialInwardLogUpdate,
+    ),
+    "warehouse_status_labels": (
+        "warehouse_status_labels",
+        "label_id",
+        WarehouseStatusLabel,
+        WarehouseStatusLabelCreate,
+        WarehouseStatusLabelUpdate,
+    ),
+    "warehouse_dispensing_records": (
+        "warehouse_dispensing_records",
+        "dispensing_record_id",
+        WarehouseDispensingRecord,
+        WarehouseDispensingRecordCreate,
+        WarehouseDispensingRecordUpdate,
+    ),
+    "inventory_disposition_records": (
+        "inventory_disposition_records",
+        "disposition_id",
+        InventoryDispositionRecord,
+        InventoryDispositionRecordCreate,
+        InventoryDispositionRecordUpdate,
+    ),
 }
 
 
@@ -40,7 +69,9 @@ def _record_config(record_type: str):
     try:
         return RECORDS[record_type]
     except KeyError as exc:
-        raise ValueError(f"Unknown warehouse regulated record type '{record_type}'") from exc
+        raise ValueError(
+            f"Unknown warehouse regulated record type '{record_type}'"
+        ) from exc
 
 
 def _serialize(doc: Optional[dict]) -> Optional[dict]:
@@ -82,7 +113,9 @@ async def get_all(
     return [_serialize(doc) async for doc in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, record_type: str, record_id: str) -> Optional[dict]:
+async def get_by_id(
+    db: AsyncIOMotorDatabase, record_type: str, record_id: str
+) -> Optional[dict]:
     collection, id_field, _, _, _ = _record_config(record_type)
     return _serialize(await db[collection].find_one({id_field: record_id}))
 

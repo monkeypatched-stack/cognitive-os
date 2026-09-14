@@ -14,6 +14,7 @@ derived False from an empty outcomes tuple, contradicting cases where the
 real result was a genuine success (empty actions is vacuous success; a
 fallback to ActionExecutor can itself succeed).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,28 +22,67 @@ import json
 
 from src.monkey_brain.kernel.pipeline.execution import Action
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionRequest, ExecutionOutcome, ExecutionStatus, ExecutionError,
+    ExecutionRequest,
+    ExecutionOutcome,
+    ExecutionStatus,
+    ExecutionError,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import ExecutionSchedule
-from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import ResolutionReport, ResolutionIssue
-from src.monkey_brain.kernel.pipeline.execution_runtime.trace import ExecutionTrace, build_execution_trace
-from src.monkey_brain.kernel.pipeline.execution_runtime.integration import IntegratedExecutionEngine
-from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import ExecutionEnvironment
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry, ExecutionCapability
+from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import (
+    ExecutionSchedule,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import (
+    ResolutionReport,
+    ResolutionIssue,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.trace import (
+    ExecutionTrace,
+    build_execution_trace,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.integration import (
+    IntegratedExecutionEngine,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import (
+    ExecutionEnvironment,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+    ExecutionCapability,
+)
 
 
 def _milk_scenario_actions() -> tuple[Action, ...]:
     return (
-        Action(action_id="s1", capability="Navigate", parameters={"destination": "store"}, expected_outcome="at_location"),
-        Action(action_id="s2", capability="QueryInventory", parameters={"item": "milk"}, expected_outcome="milk_availability_known"),
-        Action(action_id="s3", capability="AcquireItem", parameters={"item": "milk", "quantity": 2}, expected_outcome="milk_acquired"),
-        Action(action_id="s4", capability="Navigate", parameters={"destination": "home"}, expected_outcome="at_home"),
+        Action(
+            action_id="s1",
+            capability="Navigate",
+            parameters={"destination": "store"},
+            expected_outcome="at_location",
+        ),
+        Action(
+            action_id="s2",
+            capability="QueryInventory",
+            parameters={"item": "milk"},
+            expected_outcome="milk_availability_known",
+        ),
+        Action(
+            action_id="s3",
+            capability="AcquireItem",
+            parameters={"item": "milk", "quantity": 2},
+            expected_outcome="milk_acquired",
+        ),
+        Action(
+            action_id="s4",
+            capability="Navigate",
+            parameters={"destination": "home"},
+            expected_outcome="at_home",
+        ),
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # build_execution_trace — aggregation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBuildExecutionTrace:
     def test_success_scenario(self):
@@ -70,23 +110,43 @@ class TestBuildExecutionTrace:
         class FlakyHandler:
             operator_name = "FlakyOp"
             capability = ExecutionCapability(name="flaky")
+
             def __init__(self):
                 self.calls = 0
+
             def validate(self, step):
                 return None
+
             def execute(self, step, context):
                 self.calls += 1
                 if self.calls < 2:
-                    return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.FAILED,
-                                             error=ExecutionError(step_id=step.step_id, code="X", retryable=True))
-                return ExecutionOutcome(step_id=step.step_id, status=ExecutionStatus.SUCCEEDED, output={"ok": True})
+                    return ExecutionOutcome(
+                        step_id=step.step_id,
+                        status=ExecutionStatus.FAILED,
+                        error=ExecutionError(step_id=step.step_id, code="X", retryable=True),
+                    )
+                return ExecutionOutcome(
+                    step_id=step.step_id,
+                    status=ExecutionStatus.SUCCEEDED,
+                    output={"ok": True},
+                )
 
         from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-            ExecutionStep, ExecutionPlan, ExecutionContext, RetryPolicy, RetryStrategy,
+            ExecutionStep,
+            ExecutionPlan,
+            ExecutionContext,
+            RetryPolicy,
+            RetryStrategy,
         )
-        from src.monkey_brain.kernel.pipeline.execution_runtime.retry import RetryExecutor
-        from src.monkey_brain.kernel.pipeline.execution_runtime.monitoring import ExecutionMonitor
-        from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import ExecutionScheduler
+        from src.monkey_brain.kernel.pipeline.execution_runtime.retry import (
+            RetryExecutor,
+        )
+        from src.monkey_brain.kernel.pipeline.execution_runtime.monitoring import (
+            ExecutionMonitor,
+        )
+        from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import (
+            ExecutionScheduler,
+        )
         from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
 
         registry = ExecutionRegistry()
@@ -94,8 +154,14 @@ class TestBuildExecutionTrace:
         retry_executor = RetryExecutor(registry=registry, sleep_fn=lambda d: None)
         monitor = ExecutionMonitor(registry=retry_executor)
         scheduler = ExecutionScheduler(registry=monitor)
-        step = ExecutionStep(operator=PlanningOperator(name="FlakyOp"),
-                              retry_policy=RetryPolicy(strategy=RetryStrategy.FIXED_DELAY, max_attempts=3, base_delay_seconds=0.0))
+        step = ExecutionStep(
+            operator=PlanningOperator(name="FlakyOp"),
+            retry_policy=RetryPolicy(
+                strategy=RetryStrategy.FIXED_DELAY,
+                max_attempts=3,
+                base_delay_seconds=0.0,
+            ),
+        )
         plan = ExecutionPlan(steps=(step,))
         request = ExecutionRequest(plan=plan, actor_id="alice")
         schedule, outcomes = scheduler.run(plan, ExecutionContext(request=request))
@@ -108,11 +174,15 @@ class TestBuildExecutionTrace:
 
     def test_resolution_failure_is_recorded(self):
         resolution = ResolutionReport(
-            request_id="r1", resolved=False,
+            request_id="r1",
+            resolved=False,
             issues=(ResolutionIssue(kind="capability", subject="navigation", message="not available"),),
         )
         trace = build_execution_trace(
-            ExecutionRequest(request_id="r1"), ExecutionSchedule(), (), resolution=resolution,
+            ExecutionRequest(request_id="r1"),
+            ExecutionSchedule(),
+            (),
+            resolution=resolution,
             goal_achieved_override=False,
         )
         assert trace.resolution.resolved is False
@@ -122,17 +192,26 @@ class TestBuildExecutionTrace:
         """Regression: an empty outcomes tuple must not force goal_achieved
         to False when the caller already knows the real result."""
         trace_true = build_execution_trace(
-            ExecutionRequest(), ExecutionSchedule(), (), goal_achieved_override=True,
+            ExecutionRequest(),
+            ExecutionSchedule(),
+            (),
+            goal_achieved_override=True,
         )
         trace_false = build_execution_trace(
-            ExecutionRequest(), ExecutionSchedule(), (), goal_achieved_override=False,
+            ExecutionRequest(),
+            ExecutionSchedule(),
+            (),
+            goal_achieved_override=False,
         )
         assert trace_true.final_result.goal_achieved is True
         assert trace_false.final_result.goal_achieved is False
 
     def test_custom_rationale_overrides_default(self):
         trace = build_execution_trace(
-            ExecutionRequest(), ExecutionSchedule(), (), rationale="custom explanation",
+            ExecutionRequest(),
+            ExecutionSchedule(),
+            (),
+            rationale="custom explanation",
         )
         assert trace.rationale == "custom explanation"
 
@@ -140,6 +219,7 @@ class TestBuildExecutionTrace:
 # ═══════════════════════════════════════════════════════════════════════════
 # .explain() — the acceptance-criteria narrative shape
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExplain:
     def test_matches_acceptance_example_structure(self):
@@ -194,6 +274,7 @@ class TestExplain:
 # .to_dict() — serializability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestToDict:
     def test_json_serializable(self):
         engine = IntegratedExecutionEngine()
@@ -220,6 +301,7 @@ class TestToDict:
 # ═══════════════════════════════════════════════════════════════════════════
 # IntegratedExecutionEngine.execute_with_trace() — every path attaches a trace
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestExecuteWithTraceAttachment:
     def test_execute_still_works_unchanged(self):
@@ -252,14 +334,22 @@ class TestExecuteWithTraceAttachment:
         class SpyNavigate:
             operator_name = "Navigate"
             capability = ExecutionCapability(name="navigation")
+
             def validate(self, step):
                 return None
+
             def execute(self, step, context):
                 raise AssertionError("must not execute")
 
         registry.register(SpyNavigate())
         engine = IntegratedExecutionEngine(registry=registry, environment=env)
-        actions = (Action(action_id="s1", capability="Navigate", parameters={"destination": "store"}),)
+        actions = (
+            Action(
+                action_id="s1",
+                capability="Navigate",
+                parameters={"destination": "store"},
+            ),
+        )
 
         result, trace = asyncio.run(engine.execute_with_trace(actions, None))
 
@@ -283,10 +373,12 @@ class TestExecuteWithTraceAttachment:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_no_planning_engine_or_cognitive_runtime_coupling(self):
         import inspect
         import src.monkey_brain.kernel.pipeline.execution_runtime.trace as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "belief_runtime",

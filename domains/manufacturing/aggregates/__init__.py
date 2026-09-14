@@ -39,6 +39,7 @@ class SOPStatus(StrEnum):
 @dataclass
 class WorkOrderAggregate:
     """Aggregate root for work orders."""
+
     work_order_id: str = ""
     title: str = ""
     description: str = ""
@@ -72,13 +73,19 @@ class WorkOrderAggregate:
         self.status = WorkOrderStatus.ON_HOLD
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.work_order_id, "title": self.title, "status": self.status.value,
-                "priority": self.priority, "assigned_to": self.assigned_to}
+        return {
+            "id": self.work_order_id,
+            "title": self.title,
+            "status": self.status.value,
+            "priority": self.priority,
+            "assigned_to": self.assigned_to,
+        }
 
 
 @dataclass
 class BatchAggregate:
     """Aggregate root for manufacturing batches."""
+
     batch_id: str = ""
     product: str = ""
     quantity: int = 0
@@ -112,13 +119,19 @@ class BatchAggregate:
         self.status = BatchStatus.ON_HOLD
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.batch_id, "product": self.product, "quantity": self.quantity,
-                "status": self.status.value, "quality_metrics": self.quality_metrics}
+        return {
+            "id": self.batch_id,
+            "product": self.product,
+            "quantity": self.quantity,
+            "status": self.status.value,
+            "quality_metrics": self.quality_metrics,
+        }
 
 
 @dataclass
 class SOPAggregate:
     """Aggregate root for standard operating procedures."""
+
     sop_id: str = ""
     title: str = ""
     version: str = "1.0"
@@ -142,13 +155,19 @@ class SOPAggregate:
         self.status = SOPStatus.ARCHIVED
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.sop_id, "title": self.title, "version": self.version,
-                "status": self.status.value, "steps": len(self.steps)}
+        return {
+            "id": self.sop_id,
+            "title": self.title,
+            "version": self.version,
+            "status": self.status.value,
+            "steps": len(self.steps),
+        }
 
 
 @dataclass
 class ChangeControlAggregate:
     """Aggregate root for change control records."""
+
     change_id: str = ""
     title: str = ""
     description: str = ""
@@ -166,13 +185,19 @@ class ChangeControlAggregate:
         self.status = "implemented"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.change_id, "title": self.title, "status": self.status,
-                "risk_level": self.risk_level, "approvals": len(self.approvals)}
+        return {
+            "id": self.change_id,
+            "title": self.title,
+            "status": self.status,
+            "risk_level": self.risk_level,
+            "approvals": len(self.approvals),
+        }
 
 
 @dataclass
 class CalibrationRecordAggregate:
     """Aggregate root for calibration records."""
+
     record_id: str = ""
     equipment_id: str = ""
     calibration_type: str = ""
@@ -185,13 +210,18 @@ class CalibrationRecordAggregate:
         self.performed_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.record_id, "equipment_id": self.equipment_id,
-                "result": self.result, "calibration_type": self.calibration_type}
+        return {
+            "id": self.record_id,
+            "equipment_id": self.equipment_id,
+            "result": self.result,
+            "calibration_type": self.calibration_type,
+        }
 
 
 @dataclass
 class MaintenanceEventAggregate:
     """Aggregate root for maintenance events."""
+
     event_id: str = ""
     equipment_id: str = ""
     event_type: str = ""
@@ -208,5 +238,9 @@ class MaintenanceEventAggregate:
         self.completed_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.event_id, "equipment_id": self.equipment_id,
-                "status": self.status, "event_type": self.event_type}
+        return {
+            "id": self.event_id,
+            "equipment_id": self.equipment_id,
+            "status": self.status,
+            "event_type": self.event_type,
+        }

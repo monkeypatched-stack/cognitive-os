@@ -3,6 +3,7 @@ approval actually committed to version control" signal. Explicitly NOT a
 test that this constitutes authentication (it doesn't — see the module's
 own docstring); these tests only verify the mechanism does what it claims.
 """
+
 from __future__ import annotations
 
 import subprocess

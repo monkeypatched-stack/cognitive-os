@@ -10,6 +10,7 @@ assert its own execution outcome.
 
 Insecure-dev is unset, matching the other transaction/audit policy tests.
 """
+
 from __future__ import annotations
 
 import threading
@@ -45,7 +46,11 @@ from src.monkey_brain.kernel.security_operation import (
     reconcile_operation,
     reset_operation_ledger_for_tests,
 )
-from src.monkey_brain.kernel.trusted_auth import TrustedAuthEvidence, bind_trusted_auth, unauthenticated_evidence
+from src.monkey_brain.kernel.trusted_auth import (
+    TrustedAuthEvidence,
+    bind_trusted_auth,
+    unauthenticated_evidence,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -58,7 +63,10 @@ def _secure(monkeypatch):
 
 
 def _durable_audit():
-    from src.monkey_brain.api.idempotency import IdempotencyStore, _InMemoryIdempotencyBackend
+    from src.monkey_brain.api.idempotency import (
+        IdempotencyStore,
+        _InMemoryIdempotencyBackend,
+    )
 
     IdempotencyStore._instance = None
     store = IdempotencyStore.__new__(IdempotencyStore)
@@ -70,10 +78,15 @@ def _durable_audit():
 
 
 def _principal():
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id="alice",
-        principal_type="human", mfa_status="satisfied",
-    ))
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id="alice",
+            principal_type="human",
+            mfa_status="satisfied",
+        )
+    )
 
 
 async def _allow(*a, **k):
@@ -87,6 +100,7 @@ def opa_allow(monkeypatch):
 
 
 # ── Valid transitions ────────────────────────────────────────────────────
+
 
 class TestValidTransitions:
     def test_not_started_to_ready(self):
@@ -111,9 +125,14 @@ class TestValidTransitions:
         assert out.state is ExecutionAttemptState.SUBMITTED
         assert out.submitted is True
 
-    @pytest.mark.parametrize("target", [
-        ExecutionAttemptState.SUCCEEDED, ExecutionAttemptState.FAILED, ExecutionAttemptState.UNKNOWN,
-    ])
+    @pytest.mark.parametrize(
+        "target",
+        [
+            ExecutionAttemptState.SUCCEEDED,
+            ExecutionAttemptState.FAILED,
+            ExecutionAttemptState.UNKNOWN,
+        ],
+    )
     def test_submitted_to_outcome(self, target):
         attempt = get_attempt_store().create(f"op-submitted-{target.value}")
         with privileged_infrastructure("test"):
@@ -130,12 +149,19 @@ class TestValidTransitions:
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.STARTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.UNKNOWN)
-            out = transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.RECONCILIATION_REQUIRED)
+            out = transition_attempt(
+                attempt.execution_attempt_id,
+                ExecutionAttemptState.RECONCILIATION_REQUIRED,
+            )
         assert out.state is ExecutionAttemptState.RECONCILIATION_REQUIRED
 
-    @pytest.mark.parametrize("target", [
-        ExecutionAttemptState.SUCCEEDED, ExecutionAttemptState.FAILED,
-    ])
+    @pytest.mark.parametrize(
+        "target",
+        [
+            ExecutionAttemptState.SUCCEEDED,
+            ExecutionAttemptState.FAILED,
+        ],
+    )
     def test_reconciling_to_outcome(self, target):
         """UNKNOWN -> RECONCILIATION_REQUIRED -> RECONCILING -> outcome, via
         the lease-based claim_reconciliation()/record_reconciliation_result()
@@ -146,7 +172,10 @@ class TestValidTransitions:
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.STARTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.UNKNOWN)
-            transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.RECONCILIATION_REQUIRED)
+            transition_attempt(
+                attempt.execution_attempt_id,
+                ExecutionAttemptState.RECONCILIATION_REQUIRED,
+            )
             reconciliation_id = claim_reconciliation(attempt.execution_attempt_id)
             out = record_reconciliation_result(attempt.execution_attempt_id, reconciliation_id, target)
         assert out.state is target
@@ -158,10 +187,15 @@ class TestValidTransitions:
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.STARTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.UNKNOWN)
-            transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.RECONCILIATION_REQUIRED)
+            transition_attempt(
+                attempt.execution_attempt_id,
+                ExecutionAttemptState.RECONCILIATION_REQUIRED,
+            )
             reconciliation_id = claim_reconciliation(attempt.execution_attempt_id)
             out = record_reconciliation_result(
-                attempt.execution_attempt_id, reconciliation_id, ExecutionAttemptState.UNKNOWN,
+                attempt.execution_attempt_id,
+                reconciliation_id,
+                ExecutionAttemptState.UNKNOWN,
             )
         # Part 16: reconciliation returning UNKNOWN loops back to
         # RECONCILIATION_REQUIRED — it never rests on bare UNKNOWN again.
@@ -171,11 +205,12 @@ class TestValidTransitions:
 
 # ── Invalid transitions (Part K) ─────────────────────────────────────────
 
+
 class TestInvalidTransitions:
     def _attempt(self, op_id, *, to=None):
         attempt = get_attempt_store().create(op_id)
         with privileged_infrastructure("test"):
-            for state in (to or []):
+            for state in to or []:
                 transition_attempt(attempt.execution_attempt_id, state)
         return attempt
 
@@ -200,34 +235,54 @@ class TestInvalidTransitions:
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.FAILED)
 
     def test_succeeded_to_started(self):
-        attempt = self._attempt("inv-5", to=[
-            ExecutionAttemptState.READY, ExecutionAttemptState.STARTED,
-            ExecutionAttemptState.SUBMITTED, ExecutionAttemptState.SUCCEEDED,
-        ])
+        attempt = self._attempt(
+            "inv-5",
+            to=[
+                ExecutionAttemptState.READY,
+                ExecutionAttemptState.STARTED,
+                ExecutionAttemptState.SUBMITTED,
+                ExecutionAttemptState.SUCCEEDED,
+            ],
+        )
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.STARTED)
 
     def test_succeeded_to_submitted(self):
-        attempt = self._attempt("inv-6", to=[
-            ExecutionAttemptState.READY, ExecutionAttemptState.STARTED,
-            ExecutionAttemptState.SUBMITTED, ExecutionAttemptState.SUCCEEDED,
-        ])
+        attempt = self._attempt(
+            "inv-6",
+            to=[
+                ExecutionAttemptState.READY,
+                ExecutionAttemptState.STARTED,
+                ExecutionAttemptState.SUBMITTED,
+                ExecutionAttemptState.SUCCEEDED,
+            ],
+        )
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
 
     def test_failed_to_started(self):
-        attempt = self._attempt("inv-7", to=[
-            ExecutionAttemptState.READY, ExecutionAttemptState.STARTED,
-            ExecutionAttemptState.SUBMITTED, ExecutionAttemptState.FAILED,
-        ])
+        attempt = self._attempt(
+            "inv-7",
+            to=[
+                ExecutionAttemptState.READY,
+                ExecutionAttemptState.STARTED,
+                ExecutionAttemptState.SUBMITTED,
+                ExecutionAttemptState.FAILED,
+            ],
+        )
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.STARTED)
 
     def test_failed_to_submitted(self):
-        attempt = self._attempt("inv-8", to=[
-            ExecutionAttemptState.READY, ExecutionAttemptState.STARTED,
-            ExecutionAttemptState.SUBMITTED, ExecutionAttemptState.FAILED,
-        ])
+        attempt = self._attempt(
+            "inv-8",
+            to=[
+                ExecutionAttemptState.READY,
+                ExecutionAttemptState.STARTED,
+                ExecutionAttemptState.SUBMITTED,
+                ExecutionAttemptState.FAILED,
+            ],
+        )
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
 
@@ -242,18 +297,28 @@ class TestInvalidTransitions:
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
 
     def test_unknown_to_succeeded_without_reconciliation(self):
-        attempt = self._attempt("inv-11", to=[
-            ExecutionAttemptState.READY, ExecutionAttemptState.STARTED,
-            ExecutionAttemptState.SUBMITTED, ExecutionAttemptState.UNKNOWN,
-        ])
+        attempt = self._attempt(
+            "inv-11",
+            to=[
+                ExecutionAttemptState.READY,
+                ExecutionAttemptState.STARTED,
+                ExecutionAttemptState.SUBMITTED,
+                ExecutionAttemptState.UNKNOWN,
+            ],
+        )
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUCCEEDED)
 
     def test_unknown_to_failed_without_reconciliation(self):
-        attempt = self._attempt("inv-12", to=[
-            ExecutionAttemptState.READY, ExecutionAttemptState.STARTED,
-            ExecutionAttemptState.SUBMITTED, ExecutionAttemptState.UNKNOWN,
-        ])
+        attempt = self._attempt(
+            "inv-12",
+            to=[
+                ExecutionAttemptState.READY,
+                ExecutionAttemptState.STARTED,
+                ExecutionAttemptState.SUBMITTED,
+                ExecutionAttemptState.UNKNOWN,
+            ],
+        )
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.FAILED)
 
@@ -262,11 +327,16 @@ class TestInvalidTransitions:
         via the generic transition path — actually performing reconciliation
         (claim_reconciliation + record_reconciliation_result) is mandatory,
         not skippable."""
-        attempt = self._attempt("inv-13", to=[
-            ExecutionAttemptState.READY, ExecutionAttemptState.STARTED,
-            ExecutionAttemptState.SUBMITTED, ExecutionAttemptState.UNKNOWN,
-            ExecutionAttemptState.RECONCILIATION_REQUIRED,
-        ])
+        attempt = self._attempt(
+            "inv-13",
+            to=[
+                ExecutionAttemptState.READY,
+                ExecutionAttemptState.STARTED,
+                ExecutionAttemptState.SUBMITTED,
+                ExecutionAttemptState.UNKNOWN,
+                ExecutionAttemptState.RECONCILIATION_REQUIRED,
+            ],
+        )
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUCCEEDED)
 
@@ -274,11 +344,16 @@ class TestInvalidTransitions:
         """Part 16: 'Do not permit RECONCILING -> SUBMITTED on the same
         execution attempt. A new submission requires a new execution
         attempt.'"""
-        attempt = self._attempt("inv-14", to=[
-            ExecutionAttemptState.READY, ExecutionAttemptState.STARTED,
-            ExecutionAttemptState.SUBMITTED, ExecutionAttemptState.UNKNOWN,
-            ExecutionAttemptState.RECONCILIATION_REQUIRED,
-        ])
+        attempt = self._attempt(
+            "inv-14",
+            to=[
+                ExecutionAttemptState.READY,
+                ExecutionAttemptState.STARTED,
+                ExecutionAttemptState.SUBMITTED,
+                ExecutionAttemptState.UNKNOWN,
+                ExecutionAttemptState.RECONCILIATION_REQUIRED,
+            ],
+        )
         with privileged_infrastructure("test"):
             claim_reconciliation(attempt.execution_attempt_id)
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
@@ -286,6 +361,7 @@ class TestInvalidTransitions:
 
 
 # ── Cancellation cannot hide a submitted/ambiguous effect (Part B) ───────
+
 
 class TestCancellation:
     def test_not_started_can_cancel(self):
@@ -321,12 +397,14 @@ class TestCancellation:
             transition_attempt(attempt.execution_attempt_id, ExecutionAttemptState.SUBMITTED)
             with pytest.raises(InvalidAttemptTransition):
                 transition_attempt(
-                    attempt.execution_attempt_id, ExecutionAttemptState.CANCELLED,
+                    attempt.execution_attempt_id,
+                    ExecutionAttemptState.CANCELLED,
                     evidence={"no_effect_submitted": True},
                 )
 
 
 # ── Timeout -> UNKNOWN, never FAILED ─────────────────────────────────────
+
 
 class TestTimeoutIsUnknown:
     @pytest.mark.asyncio
@@ -338,7 +416,12 @@ class TestTimeoutIsUnknown:
             raise TimeoutError("gateway timed out after send")
 
         with pytest.raises(UnknownOutcomeError):
-            await run_governed_mutation(action="orders.payment", resource="pay", mutate=effect, operation_id="op-to")
+            await run_governed_mutation(
+                action="orders.payment",
+                resource="pay",
+                mutate=effect,
+                operation_id="op-to",
+            )
 
         op = get_operation_ledger().get("op-to")
         assert op.state is SecurityOperationState.RECONCILIATION_REQUIRED
@@ -356,6 +439,7 @@ class TestTimeoutIsUnknown:
 
 # ── Retry: one commitment, two attempts ──────────────────────────────────
 
+
 class TestRetrySameCommitment:
     @pytest.mark.asyncio
     async def test_unknown_then_safe_retry_succeeds_same_operation(self, opa_allow):
@@ -367,7 +451,10 @@ class TestRetrySameCommitment:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=times_out, operation_id="op-retry",
+                action="orders.payment",
+                resource="pay",
+                mutate=times_out,
+                operation_id="op-retry",
             )
 
         attempts_before = get_attempt_store().attempts_for("op-retry")
@@ -381,7 +468,9 @@ class TestRetrySameCommitment:
         # the external PSP) — a second attempt under the SAME operation_id
         # is therefore not a blind retry.
         result = await retry_execution_attempt(
-            operation_id="op-retry", mutate=succeeds, idempotent_effect=True,
+            operation_id="op-retry",
+            mutate=succeeds,
+            idempotent_effect=True,
         )
         assert result == "captured"
 
@@ -406,7 +495,10 @@ class TestRetrySameCommitment:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=times_out, operation_id="op-reconciled",
+                action="orders.payment",
+                resource="pay",
+                mutate=times_out,
+                operation_id="op-reconciled",
             )
 
         # Kernel-only reconciliation establishes the effect did NOT happen.
@@ -434,7 +526,10 @@ class TestRetrySameCommitment:
             return "ok"
 
         await run_governed_mutation(
-            action="orders.create", resource="o", mutate=succeeds, operation_id="op-done",
+            action="orders.create",
+            resource="o",
+            mutate=succeeds,
+            operation_id="op-done",
         )
 
         async def would_double_charge():
@@ -447,6 +542,7 @@ class TestRetrySameCommitment:
 
 # ── Non-idempotent UNKNOWN cannot be blindly retried (Part L rule 10) ────
 
+
 class TestNonIdempotentUnknownBlocksBlindRetry:
     @pytest.mark.asyncio
     async def test_blind_retry_refused_without_idempotent_effect_or_reconciliation(self, opa_allow):
@@ -458,7 +554,10 @@ class TestNonIdempotentUnknownBlocksBlindRetry:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=times_out, operation_id="op-blind",
+                action="orders.payment",
+                resource="pay",
+                mutate=times_out,
+                operation_id="op-blind",
             )
 
         async def would_run_twice():
@@ -487,6 +586,7 @@ class TestNonIdempotentUnknownBlocksBlindRetry:
 
 # ── Crash recovery: attempt state survives audit reconstruction ─────────
 
+
 class TestCrashRecovery:
     @pytest.mark.asyncio
     async def test_before_started_recovers_as_ready(self, opa_allow):
@@ -500,7 +600,10 @@ class TestCrashRecovery:
         # simulated crash means we only look at what's durable up to there.
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=hang_forever, operation_id="op-crash-1",
+                action="orders.payment",
+                resource="pay",
+                mutate=hang_forever,
+                operation_id="op-crash-1",
             )
         entries = store.find()
         ready_only = [e for e in entries if str(e.get("action", "")).endswith(".attempt.ready")]
@@ -517,16 +620,19 @@ class TestCrashRecovery:
 
         with pytest.raises(UnknownOutcomeError):
             await run_governed_mutation(
-                action="orders.payment", resource="pay", mutate=hang_forever, operation_id="op-crash-2",
+                action="orders.payment",
+                resource="pay",
+                mutate=hang_forever,
+                operation_id="op-crash-2",
             )
         entries = store.find()
         # Drop the terminal .result record AND any reconciliation-lifecycle
         # record to simulate "crashed before the outcome (or the fact that
         # reconciliation is now required) could be durably recorded".
         pre_result = [
-            e for e in entries
-            if not str(e.get("action", "")).endswith(".result")
-            and ".reconciliation." not in str(e.get("action", ""))
+            e
+            for e in entries
+            if not str(e.get("action", "")).endswith(".result") and ".reconciliation." not in str(e.get("action", ""))
         ]
         recovered = reconstruct_attempts_from_audit(pre_result)
         assert list(recovered.values()) == [ExecutionAttemptState.SUBMITTED]
@@ -540,7 +646,10 @@ class TestCrashRecovery:
             return "ok"
 
         await run_governed_mutation(
-            action="orders.create", resource="o", mutate=effect, operation_id="op-crash-3",
+            action="orders.create",
+            resource="o",
+            mutate=effect,
+            operation_id="op-crash-3",
         )
         recovered = reconstruct_attempts_from_audit(store.find())
         assert list(recovered.values()) == [ExecutionAttemptState.SUCCEEDED]
@@ -548,12 +657,14 @@ class TestCrashRecovery:
 
 # ── Agents cannot assert their own execution outcome (Part H, L rule 16) ─
 
+
 class TestAgentCannotAssertOutcome:
     def test_transition_outside_commitment_is_refused(self):
         attempt = get_attempt_store().create("op-agent-1")
         with pytest.raises(PermissionError):
             transition_attempt(
-                attempt.execution_attempt_id, ExecutionAttemptState.SUCCEEDED,
+                attempt.execution_attempt_id,
+                ExecutionAttemptState.SUCCEEDED,
                 evidence={"success": True, "mfa": "satisfied", "authorized": True},
             )
         assert get_attempt_store().get("op-agent-1-ATT-1").state is ExecutionAttemptState.NOT_STARTED
@@ -564,12 +675,14 @@ class TestAgentCannotAssertOutcome:
         attempt = get_attempt_store().create("op-agent-2")
         with privileged_infrastructure("test"), pytest.raises(InvalidAttemptTransition):
             transition_attempt(
-                attempt.execution_attempt_id, ExecutionAttemptState.SUCCEEDED,
+                attempt.execution_attempt_id,
+                ExecutionAttemptState.SUCCEEDED,
                 evidence={"success": True, "authorized": True},
             )
 
 
 # ── Concurrency: no duplicate attempt identity, single STARTED owner ────
+
 
 class TestConcurrency:
     def test_concurrent_attempt_creation_gets_distinct_ids(self):
@@ -617,6 +730,7 @@ class TestConcurrency:
 
 
 # ── Attempt identity/lookup basics ───────────────────────────────────────
+
 
 class TestAttemptIdentity:
     def test_unknown_attempt_id_raises(self):

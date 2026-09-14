@@ -22,6 +22,7 @@ respecting dependencies: a step whose dependency failed is SKIPPED rather
 than executed against a broken precondition. Retry (Step 9.4) is a separate
 concern layered on top of one step's own execution, not this scheduler's job.
 """
+
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -29,9 +30,16 @@ from dataclasses import dataclass, replace
 from enum import Enum
 
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionContext, ExecutionError, ExecutionOutcome, ExecutionPlan, ExecutionStatus, ExecutionStep,
+    ExecutionContext,
+    ExecutionError,
+    ExecutionOutcome,
+    ExecutionPlan,
+    ExecutionStatus,
+    ExecutionStep,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+)
 
 
 class ExecutionMode(Enum):
@@ -42,6 +50,7 @@ class ExecutionMode(Enum):
 @dataclass(frozen=True)
 class DependencyViolation:
     """A step's dependencies reference something that can never be satisfied."""
+
     step_id: str = ""
     missing_dependency: str = ""
     message: str = ""
@@ -55,6 +64,7 @@ class ExecutionSchedule:
     Empty if scheduling failed (violations or a deadlock) — check is_valid
     before treating `batches` as executable.
     """
+
     batches: tuple[tuple[str, ...], ...] = ()
     violations: tuple[DependencyViolation, ...] = ()
     has_deadlock: bool = False
@@ -87,9 +97,7 @@ class ExecutionScheduler:
         batches: list[tuple[str, ...]] = []
 
         while remaining:
-            ready = tuple(sorted(
-                step_id for step_id, deps in remaining.items() if deps <= scheduled
-            ))
+            ready = tuple(sorted(step_id for step_id, deps in remaining.items() if deps <= scheduled))
             if not ready:
                 return ExecutionSchedule(
                     batches=tuple(batches),
@@ -104,28 +112,39 @@ class ExecutionScheduler:
         return ExecutionSchedule(batches=tuple(batches))
 
     def _find_violations(
-        self, steps: tuple[ExecutionStep, ...], steps_by_id: dict[str, ExecutionStep],
+        self,
+        steps: tuple[ExecutionStep, ...],
+        steps_by_id: dict[str, ExecutionStep],
     ) -> tuple[DependencyViolation, ...]:
         violations = []
         for step in steps:
             for dep in step.dependencies:
                 if dep == step.step_id:
-                    violations.append(DependencyViolation(
-                        step_id=step.step_id, missing_dependency=dep,
-                        message=f"step '{step.step_id}' depends on itself",
-                    ))
+                    violations.append(
+                        DependencyViolation(
+                            step_id=step.step_id,
+                            missing_dependency=dep,
+                            message=f"step '{step.step_id}' depends on itself",
+                        )
+                    )
                 elif dep not in steps_by_id:
-                    violations.append(DependencyViolation(
-                        step_id=step.step_id, missing_dependency=dep,
-                        message=f"step '{step.step_id}' depends on unknown step '{dep}'",
-                    ))
+                    violations.append(
+                        DependencyViolation(
+                            step_id=step.step_id,
+                            missing_dependency=dep,
+                            message=f"step '{step.step_id}' depends on unknown step '{dep}'",
+                        )
+                    )
         return tuple(violations)
 
     # ── Execution ────────────────────────────────────────────────────────
 
     def run(
-        self, plan: ExecutionPlan, context: ExecutionContext | None = None,
-        *, mode: ExecutionMode = ExecutionMode.SEQUENTIAL,
+        self,
+        plan: ExecutionPlan,
+        context: ExecutionContext | None = None,
+        *,
+        mode: ExecutionMode = ExecutionMode.SEQUENTIAL,
     ) -> tuple[ExecutionSchedule, tuple[ExecutionOutcome, ...]]:
         """Schedule and execute `plan`. Returns (schedule, outcomes) — if the
         schedule isn't valid (violations or deadlock), outcomes is empty and
@@ -146,16 +165,20 @@ class ExecutionScheduler:
             for sid in batch:
                 if sid in skipped:
                     outcomes[sid] = ExecutionOutcome(
-                        step_id=sid, status=ExecutionStatus.SKIPPED,
+                        step_id=sid,
+                        status=ExecutionStatus.SKIPPED,
                         error=ExecutionError(
-                            step_id=sid, code="DEPENDENCY_FAILED",
-                            message="skipped — a dependency did not succeed", retryable=False,
+                            step_id=sid,
+                            code="DEPENDENCY_FAILED",
+                            message="skipped — a dependency did not succeed",
+                            retryable=False,
                         ),
                     )
 
             if to_run:
                 batch_outcomes = (
-                    self._run_batch_parallel(to_run, ctx) if mode == ExecutionMode.PARALLEL and len(to_run) > 1
+                    self._run_batch_parallel(to_run, ctx)
+                    if mode == ExecutionMode.PARALLEL and len(to_run) > 1
                     else self._run_batch_sequential(to_run, ctx)
                 )
                 newly_completed = []
@@ -165,18 +188,25 @@ class ExecutionScheduler:
                         newly_completed.append(outcome.step_id)
                     else:
                         skipped |= dependents.get(outcome.step_id, set())
-                ctx = replace(ctx, completed_step_ids=ctx.completed_step_ids + tuple(newly_completed))
+                ctx = replace(
+                    ctx,
+                    completed_step_ids=ctx.completed_step_ids + tuple(newly_completed),
+                )
 
         ordered = tuple(outcomes[sid] for batch in schedule.batches for sid in batch)
         return schedule, ordered
 
     def _run_batch_sequential(
-        self, steps: list[ExecutionStep], context: ExecutionContext,
+        self,
+        steps: list[ExecutionStep],
+        context: ExecutionContext,
     ) -> list[ExecutionOutcome]:
         return [self._registry.dispatch(step, context) for step in steps]
 
     def _run_batch_parallel(
-        self, steps: list[ExecutionStep], context: ExecutionContext,
+        self,
+        steps: list[ExecutionStep],
+        context: ExecutionContext,
     ) -> list[ExecutionOutcome]:
         with ThreadPoolExecutor(max_workers=len(steps)) as pool:
             futures = [pool.submit(self._registry.dispatch, step, context) for step in steps]

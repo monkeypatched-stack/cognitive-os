@@ -1,4 +1,5 @@
 """Manufacturing Domain Services — cross-aggregate manufacturing operations."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -16,10 +17,21 @@ class WorkOrderDispatchService(DomainServiceAgent):
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         wo_id = perception.get("operation", {}).get("wo_id")
         worker = perception.get("operation", {}).get("worker")
-        return {"service": self.name, "action": "dispatch", "wo_id": wo_id, "worker": worker}
+        return {
+            "service": self.name,
+            "action": "dispatch",
+            "wo_id": wo_id,
+            "worker": worker,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"service": self.name, "action": "dispatched", "wo_id": decision.get("wo_id"), "worker": decision.get("worker"), "result": "in_progress"}
+        return {
+            "service": self.name,
+            "action": "dispatched",
+            "wo_id": decision.get("wo_id"),
+            "worker": decision.get("worker"),
+            "result": "in_progress",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._memory.append(outcome)
@@ -33,10 +45,19 @@ class BatchReleaseService(DomainServiceAgent):
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         batch_id = perception.get("operation", {}).get("batch_id")
-        return {"service": self.name, "action": "evaluate_release", "batch_id": batch_id}
+        return {
+            "service": self.name,
+            "action": "evaluate_release",
+            "batch_id": batch_id,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"service": self.name, "action": "release_evaluated", "batch_id": decision.get("batch_id"), "result": "pending_qa"}
+        return {
+            "service": self.name,
+            "action": "release_evaluated",
+            "batch_id": decision.get("batch_id"),
+            "result": "pending_qa",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._memory.append(outcome)
@@ -53,7 +74,12 @@ class ChangeControlReviewService(DomainServiceAgent):
         return {"service": self.name, "action": "review_change", "change_id": change_id}
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"service": self.name, "action": "change_reviewed", "change_id": decision.get("change_id"), "result": "under_review"}
+        return {
+            "service": self.name,
+            "action": "change_reviewed",
+            "change_id": decision.get("change_id"),
+            "result": "under_review",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._memory.append(outcome)

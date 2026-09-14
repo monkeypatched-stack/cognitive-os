@@ -23,13 +23,22 @@ whose test_budget004 already proves TransitionGate/negotiation ordering
 under real asyncio.gather concurrency for a contested resource -- the
 negotiation-ordering half of Test F below.
 """
+
 from __future__ import annotations
 
 import asyncio
 
-from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Goal, WorkingMemoryEntry
+from src.monkey_brain.kernel.pipeline.belief_state import (
+    BeliefState,
+    Goal,
+    WorkingMemoryEntry,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
 from src.monkey_brain.kernel.domains.grocery import AskActorCapability
 
@@ -37,7 +46,8 @@ from src.monkey_brain.kernel.domains.grocery import AskActorCapability
 def _register(pr, name, society_id=None):
     kwargs = {"society_id": society_id} if society_id is not None else {}
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)),
+        **kwargs,
     )
 
 
@@ -59,6 +69,7 @@ def _isolated_society(pr, label):
 
 
 # ── Test A -- separate local state (deep, not just shallow object identity) ─
+
 
 def test_A_separate_local_state():
     pr = PlanetaryRuntime()
@@ -85,6 +96,7 @@ def test_A_separate_local_state():
 
 # ── Test B -- no cross-write ─────────────────────────────────────────────
 
+
 def test_B_no_cross_write():
     belief_a = BeliefState(actor_id="iso-b-a")
     belief_b = BeliefState(actor_id="iso-b-b")
@@ -103,6 +115,7 @@ def test_B_no_cross_write():
 
 # ── Test C -- belief divergence over the same fact ───────────────────────
 
+
 def test_C_belief_divergence():
     belief_a = BeliefState(actor_id="iso-c-a")
     belief_b = BeliefState(actor_id="iso-c-b")
@@ -117,22 +130,35 @@ def test_C_belief_divergence():
 
 # ── Test D -- explicit information transfer (real AskActor round trip) ──
 
+
 def test_D_explicit_information_transfer():
     pr = PlanetaryRuntime()
     society, space_id = _isolated_society(pr, "D")
     alice = _register(pr, "IsoD-Alice", society.society.society_id)
     bob = pr.register_actor(
         ActorProfile(identity=ActorIdentity(name="IsoD-Bob", actor_type=ActorType.HUMAN)),
-        society_id=society.society.society_id, home_space_id=space_id,
+        society_id=society.society.society_id,
+        home_space_id=space_id,
     )
 
     before = pr.memory_manager.search_episodic("oat milk", top_k=10, actor_id=bob.actor_id)
     assert not any("oat milk" in n.payload.get("text", "").lower() for n in before)
 
-    result = asyncio.run(AskActorCapability().handle({
-        "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-        "parameters": {"target_actor": bob.actor_id, "question": "Does oat milk cost $5?"},
-    }))
+    result = asyncio.run(
+        AskActorCapability().handle(
+            {
+                "context": {
+                    "planetary_runtime": pr,
+                    "actor_id": alice.actor_id,
+                    "actor_role": "Alice",
+                },
+                "parameters": {
+                    "target_actor": bob.actor_id,
+                    "question": "Does oat milk cost $5?",
+                },
+            }
+        )
+    )
     assert result["success"] is True
 
     # Bob now has a recorded conversation memory of the exchange -- ONLY
@@ -142,6 +168,7 @@ def test_D_explicit_information_transfer():
 
 
 # ── Test E -- private information stays private without authorization ───
+
 
 def test_E_private_information_requires_authorization():
     pr = PlanetaryRuntime()
@@ -162,7 +189,9 @@ def test_E_private_information_requires_authorization():
     # just permanently closed: mark the memory shared AND give Carol a
     # real co-membership with Alice.
     pr.memory_manager.record_experience(
-        alice.actor_id, "experience", "Alice's shopping list is public",
+        alice.actor_id,
+        "experience",
+        "Alice's shopping list is public",
         metadata={"visibility": "shared"},
     )
     pr.join_society(carol.actor_id, society_a.society.society_id)
@@ -172,13 +201,15 @@ def test_E_private_information_requires_authorization():
 
 # ── Test F -- concurrent actor execution, no local-state contamination ──
 
+
 def test_F_concurrent_actor_execution_no_contamination():
     pr = PlanetaryRuntime()
     society, space_id = _isolated_society(pr, "F")
     alice = _register(pr, "IsoF-Alice", society.society.society_id)
     bob = pr.register_actor(
         ActorProfile(identity=ActorIdentity(name="IsoF-Bob", actor_type=ActorType.HUMAN)),
-        society_id=society.society.society_id, home_space_id=space_id,
+        society_id=society.society.society_id,
+        home_space_id=space_id,
     )
     sr = pr.get_society_runtime(society.society.society_id)
 
@@ -202,6 +233,7 @@ def test_F_concurrent_actor_execution_no_contamination():
 
 
 # ── Test G -- checkpoint isolation (serialize/restore round trip) ───────
+
 
 def test_G_checkpoint_isolation():
     belief_a = BeliefState(actor_id="iso-g-a")
@@ -232,6 +264,7 @@ def test_G_checkpoint_isolation():
 
 # ── Test H -- cache isolation (per-actor memory retrieval) ──────────────
 
+
 def test_H_cache_isolation():
     pr = PlanetaryRuntime()
     alice = _register(pr, "IsoH-Alice")
@@ -249,6 +282,7 @@ def test_H_cache_isolation():
 
 # ── Test I -- local belief mutation never directly reaches world state ──
 
+
 def test_I_world_state_separation():
     pr = PlanetaryRuntime()
     alice = _register(pr, "IsoI-Alice")
@@ -264,6 +298,7 @@ def test_I_world_state_separation():
 
 
 # ── Test J -- world change reaches actors only via explicit observation ──
+
 
 def test_J_world_observation_not_automatic_sync():
     pr = PlanetaryRuntime()

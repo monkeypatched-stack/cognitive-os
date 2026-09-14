@@ -4,6 +4,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import spacy
+
     nlp = spacy.load("en_core_web_sm")
 except Exception as e:
     logger.warning("Could not load spaCy model: %s", e)

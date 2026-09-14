@@ -39,15 +39,23 @@ Three layers:
      step-construction boundary where the model's free-text JSON becomes
      a structured PlanStep now normalizes "none"/"n/a"/etc. to "".
 """
+
 from __future__ import annotations
 
 import httpx
 import pytest
 
-from src.monkey_brain.kernel.domains.commerce import CommerceCapability, CommerceCapabilityBus
+from src.monkey_brain.kernel.domains.commerce import (
+    CommerceCapability,
+    CommerceCapabilityBus,
+)
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 CUSTOMER_NAME = "Alice"
@@ -90,10 +98,7 @@ async def test_mb3002_context_published_for_customer_request():
     new_events = marketplace.context_stream.events(limit=marketplace.context_stream.event_count - events_before)
 
     # context published.
-    assert any(
-        e.event_type is ContextEventType.OBSERVATION and e.actor_id == alice.actor_id
-        for e in new_events
-    )
+    assert any(e.event_type is ContextEventType.OBSERVATION and e.actor_id == alice.actor_id for e in new_events)
 
 
 @pytest.mark.asyncio
@@ -101,7 +106,9 @@ async def test_mb3002_catalog_queried_via_real_local_llm(monkeypatch):
     if not _ollama_reachable():
         pytest.skip("no local Ollama server reachable at localhost:11434")
 
-    from src.monkey_brain.kernel.execute.provider import model_backend as model_backend_module
+    from src.monkey_brain.kernel.execute.provider import (
+        model_backend as model_backend_module,
+    )
 
     # Force Ollama for this test regardless of MODEL_BACKEND/import order —
     # ModelBackend's default provider is a module-level constant read once
@@ -119,7 +126,8 @@ async def test_mb3002_catalog_queried_via_real_local_llm(monkeypatch):
     # output instead. monkeypatch.setattr calls inside a test body override
     # an autouse fixture's earlier patch of the SAME attribute.
     monkeypatch.setattr(
-        model_backend_module, "get_backend",
+        model_backend_module,
+        "get_backend",
         lambda: model_backend_module.ModelBackend(provider="ollama"),
     )
 
@@ -136,9 +144,7 @@ async def test_mb3002_catalog_queried_via_real_local_llm(monkeypatch):
     assert result.plan.planner == "llm"
     assert result.plan.confidence > 0.0
     assert len(result.plan.steps) > 0
-    plan_text = " ".join(
-        f"{step.action} {step.description}".lower() for step in result.plan.steps
-    )
+    plan_text = " ".join(f"{step.action} {step.description}".lower() for step in result.plan.steps)
     assert "laptop" in plan_text or "search" in plan_text
 
     # results returned — and, now that the "none" permission-normalization

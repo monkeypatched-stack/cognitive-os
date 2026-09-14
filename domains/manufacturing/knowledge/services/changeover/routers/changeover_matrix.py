@@ -22,10 +22,15 @@ async def list_matrix_entries(
     _: dict = Depends(require_permission("perm-view-changeovers")),
 ):
     results, total = await crud.get_all_matrix(db, page=page, page_size=page_size)
-    return PaginatedChangeoverMatrixEntryResponse(total=total, page=page, page_size=page_size, results=results)
+    return PaginatedChangeoverMatrixEntryResponse(
+        total=total, page=page, page_size=page_size, results=results
+    )
 
 
-@router.get("/by-workstation/{workstation_id}", response_model=list[ChangeoverMatrixEntryResponse])
+@router.get(
+    "/by-workstation/{workstation_id}",
+    response_model=list[ChangeoverMatrixEntryResponse],
+)
 async def list_matrix_entries_by_workstation(
     workstation_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -42,18 +47,28 @@ async def get_matrix_entry(
 ):
     record = await crud.get_matrix_by_id(db, entry_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover matrix entry '{entry_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Changeover matrix entry '{entry_id}' not found",
+        )
     return record
 
 
-@router.post("", response_model=ChangeoverMatrixEntryResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ChangeoverMatrixEntryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_matrix_entry(
     data: ChangeoverMatrixEntryCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-create-changeovers")),
 ):
     if await crud.get_matrix_by_id(db, str(data.id)):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Changeover matrix entry '{data.id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Changeover matrix entry '{data.id}' already exists",
+        )
     return await crud.create_matrix(db, data)
 
 
@@ -66,7 +81,10 @@ async def update_matrix_entry(
 ):
     updated = await crud.update_matrix(db, entry_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover matrix entry '{entry_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Changeover matrix entry '{entry_id}' not found",
+        )
     return updated
 
 
@@ -77,4 +95,7 @@ async def delete_matrix_entry(
     _: dict = Depends(require_permission("perm-delete-changeovers")),
 ):
     if not await crud.delete_matrix(db, entry_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Changeover matrix entry '{entry_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Changeover matrix entry '{entry_id}' not found",
+        )

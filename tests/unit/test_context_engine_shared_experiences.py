@@ -6,15 +6,24 @@ pass (_search_memory) and knowledge-graph keyword exploration
 (_explore_knowledge), since MemoryManager.record_experience() writes into
 the same shared KnowledgeGraph both paths read from.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.learn.memory.manager import MemoryManager
 from src.monkey_brain.kernel.learn.memory.vector_backend import InMemoryVectorBackend
-from src.monkey_brain.kernel.learn.memory.graph_adapter import KnowledgeGraphMemoryAdapter
+from src.monkey_brain.kernel.learn.memory.graph_adapter import (
+    KnowledgeGraphMemoryAdapter,
+)
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
-from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+    ContextConstructionEngine,
+)
 from src.monkey_brain.kernel.pipeline.belief_state import Goal
 
 
@@ -39,6 +48,7 @@ def _make_household(pr, *actor_ids):
 
 # ── _search_memory: shared experiences reach a co-member's PlanningContext ──
 
+
 def test_shared_experience_reaches_co_member():
     pr, mm, kg, engine = _make_engine()
     alice = _register(pr, "Alice")
@@ -46,7 +56,9 @@ def test_shared_experience_reaches_co_member():
     _make_household(pr, alice.actor_id, bob.actor_id)
 
     mm.record_experience(
-        alice.actor_id, "experience", "Costco every Tuesday, 20% cheaper",
+        alice.actor_id,
+        "experience",
+        "Costco every Tuesday, 20% cheaper",
         {"visibility": "shared"},
     )
 
@@ -77,7 +89,9 @@ def test_shared_experience_does_not_reach_disjoint_society_actor():
     _make_household(pr, alice.actor_id)  # Bob is not a member of Alice's household
 
     mm.record_experience(
-        alice.actor_id, "experience", "Costco every Tuesday, 20% cheaper",
+        alice.actor_id,
+        "experience",
+        "Costco every Tuesday, 20% cheaper",
         {"visibility": "shared"},
     )
 
@@ -93,7 +107,9 @@ def test_shared_experience_does_not_reach_actor_with_no_memberships_at_all():
     # Neither actor has any society membership.
 
     mm.record_experience(
-        alice.actor_id, "experience", "Costco every Tuesday, 20% cheaper",
+        alice.actor_id,
+        "experience",
+        "Costco every Tuesday, 20% cheaper",
         {"visibility": "shared"},
     )
 
@@ -120,6 +136,7 @@ def test_own_top_k_not_starved_by_shared_pass():
 
 # ── _explore_knowledge: same visibility rule applies to the keyword-search path ──
 
+
 def test_explore_knowledge_does_not_leak_private_experience():
     pr, mm, kg, engine = _make_engine()
     alice = _register(pr, "Alice")
@@ -128,7 +145,10 @@ def test_explore_knowledge_does_not_leak_private_experience():
 
     mm.record_experience(alice.actor_id, "experience", "confidential budget review notes")
 
-    ctx_bob = engine.build(bob.actor_id, Goal(name="review", description="confidential budget review notes"))
+    ctx_bob = engine.build(
+        bob.actor_id,
+        Goal(name="review", description="confidential budget review notes"),
+    )
 
     assert not any("confidential" in k.content.lower() for k in ctx_bob.relevant_knowledge)
 
@@ -149,7 +169,9 @@ def test_explore_knowledge_never_surfaces_experiences_even_when_shared():
     _make_household(pr, alice.actor_id, bob.actor_id)
 
     mm.record_experience(
-        alice.actor_id, "experience", "holidaydeal seasonal discount",
+        alice.actor_id,
+        "experience",
+        "holidaydeal seasonal discount",
         {"visibility": "shared"},
     )
 
@@ -172,6 +194,7 @@ def test_explore_knowledge_unfiltered_for_non_episodic_entities():
 
 # ── search_shared_experiences: public retrieval entry point ─────────────────
 
+
 def test_search_shared_experiences_public_method_matches_gate():
     pr, mm, kg, engine = _make_engine()
     alice = _register(pr, "Alice")
@@ -179,7 +202,9 @@ def test_search_shared_experiences_public_method_matches_gate():
     _make_household(pr, alice.actor_id, bob.actor_id)
 
     mm.record_experience(
-        alice.actor_id, "experience", "Costco every Tuesday, 20% cheaper",
+        alice.actor_id,
+        "experience",
+        "Costco every Tuesday, 20% cheaper",
         {"visibility": "shared"},
     )
     mm.record_experience(alice.actor_id, "experience", "Alice's private notes")

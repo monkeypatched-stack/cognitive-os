@@ -1,4 +1,5 @@
 """InfraMixin — templates for Dockerfile, docker-compose.yml, pyproject.toml, .env.example."""
+
 from __future__ import annotations
 
 
@@ -14,7 +15,7 @@ class InfraMixin:
         elif self.s.is_mongo:
             driver_dep = " motor beanie"
 
-        return f'''\
+        return f"""\
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim AS builder
 
@@ -37,7 +38,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \\
     CMD python -c "import httpx, sys; r=httpx.get(\\'http://localhost:{self.s.port}/health\\'); sys.exit(0 if r.status_code==200 else 1)"
 
 CMD ["uvicorn", "{self.n}.main:app", "--host", "0.0.0.0", "--port", "{self.s.port}", "--workers", "4"]
-'''
+"""
 
     # ------------------------------------------------------------------
     # docker-compose.yml
@@ -45,7 +46,7 @@ CMD ["uvicorn", "{self.n}.main:app", "--host", "0.0.0.0", "--port", "{self.s.por
 
     def _docker_compose(self) -> str:
         if self.s.db.type == "postgresql":
-            db_service = f'''\
+            db_service = f"""\
   db:
     image: postgres:16-alpine
     environment:
@@ -59,12 +60,12 @@ CMD ["uvicorn", "{self.n}.main:app", "--host", "0.0.0.0", "--port", "{self.s.por
       interval: 10s
       timeout: 5s
       retries: 5
-'''
+"""
             db_env = f"      {self.s.db.url_env}: postgresql+asyncpg://appuser:apppass@db:5432/{self.n}_db"
             volumes = "\nvolumes:\n  pgdata:"
             depends_on = "    depends_on:\n      db:\n        condition: service_healthy\n"
         elif self.s.db.type == "mongodb":
-            db_service = f'''\
+            db_service = f"""\
   db:
     image: mongo:7
     environment:
@@ -77,7 +78,7 @@ CMD ["uvicorn", "{self.n}.main:app", "--host", "0.0.0.0", "--port", "{self.s.por
       interval: 10s
       timeout: 5s
       retries: 5
-'''
+"""
             db_env = f"      {self.s.db.url_env}: mongodb://appuser:apppass@db:27017"
             volumes = "\nvolumes:\n  mongodata:"
             depends_on = "    depends_on:\n      db:\n        condition: service_healthy\n"
@@ -93,7 +94,7 @@ CMD ["uvicorn", "{self.n}.main:app", "--host", "0.0.0.0", "--port", "{self.s.por
         elif self.s.auth.enabled and self.s.auth.type == "api_key":
             auth_env = f"      {self.s.auth.api_key_env}: change-me-in-production\n"
 
-        return f'''\
+        return f"""\
 services:
   api:
     build: .
@@ -104,7 +105,7 @@ services:
 {auth_env}      CORS_ORIGINS: "*"
 {depends_on}    restart: unless-stopped
 {db_service}{volumes}
-'''
+"""
 
     # ------------------------------------------------------------------
     # pyproject.toml
@@ -121,7 +122,7 @@ services:
         if self.s.auth.enabled and self.s.auth.type == "bearer":
             auth_deps = '    "python-jose[cryptography]>=3.3",\n'
 
-        return f'''\
+        return f"""\
 [project]
 name = "{self.n}-service"
 version = {self.s.version!r}
@@ -152,7 +153,7 @@ build-backend = "setuptools.backends.legacy:build"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["{self.n}*"]
-'''
+"""
 
     # ------------------------------------------------------------------
     # .env.example
@@ -171,7 +172,7 @@ include = ["{self.n}*"]
         elif self.s.auth.enabled and self.s.auth.type == "api_key":
             auth_vars = f"\n# Auth\n{self.s.auth.api_key_env}=your-api-key-here\n"
 
-        return f'''\
+        return f"""\
 # {self.cls} Service — environment variables
 # Copy to .env and fill in real values
 
@@ -181,4 +182,4 @@ include = ["{self.n}*"]
 # Runtime
 CORS_ORIGINS=http://localhost:3000,http://localhost:8080
 SQL_ECHO=false
-'''
+"""

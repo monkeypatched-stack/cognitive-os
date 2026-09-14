@@ -224,7 +224,13 @@ def _print_chart_table(charts: list, title: str):
                 ", ".join(c.get("tags", [])[:3]),
             )
         else:
-            table.add_row(c.name, c.version, c.chart_type, c.description[:50], ", ".join(c.tags[:3]))
+            table.add_row(
+                c.name,
+                c.version,
+                c.chart_type,
+                c.description[:50],
+                ", ".join(c.tags[:3]),
+            )
     console.print(table)
 
 
@@ -528,7 +534,11 @@ def blame(
     for c in commits:
         for name, _checksum in c.get("charts", {}).items():
             if name not in chart_changes:
-                chart_changes[name] = {"author": c["author"], "date": c["timestamp"][:10], "commit": c["commit_id"]}
+                chart_changes[name] = {
+                    "author": c["author"],
+                    "date": c["timestamp"][:10],
+                    "commit": c["commit_id"],
+                }
 
     if chart in chart_changes:
         info = chart_changes[chart]
@@ -738,7 +748,10 @@ def reset(
 @app.command()
 def vault_lock(
     directory: str = typer.Option(
-        os.environ.get("SITTINGFACE_GENERATED_DIR", ""), "-d", "--dir", help="Directory to lock"
+        os.environ.get("SITTINGFACE_GENERATED_DIR", ""),
+        "-d",
+        "--dir",
+        help="Directory to lock",
     ),
     password: str = typer.Option(None, "-p", "--password", help="Password (prompts if not set)"),
 ) -> None:

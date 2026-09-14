@@ -12,7 +12,6 @@ from services.orders.models.invoices import (
     PaginatedInvoiceResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -24,7 +23,9 @@ async def list_invoices(
     _: dict = Depends(require_permission("perm-view-order")),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedInvoiceResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedInvoiceResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-number/{invoice_no}", response_model=InvoiceResponse)
@@ -35,7 +36,9 @@ async def get_invoice_by_number(
 ):
     record = await crud.get_by_invoice_number(db, invoice_no)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Invoice '{invoice_no}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Invoice '{invoice_no}' not found"
+        )
     return record
 
 
@@ -65,7 +68,9 @@ async def get_invoice(
 ):
     record = await crud.get_by_id(db, invoice_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Invoice '{invoice_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Invoice '{invoice_id}' not found"
+        )
     return record
 
 
@@ -77,7 +82,9 @@ async def create_invoice(
 ):
     invoice_no = data.invoice_details.invoice_no if data.invoice_details else None
     if invoice_no and await crud.get_by_invoice_number(db, invoice_no):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Invoice '{invoice_no}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"Invoice '{invoice_no}' already exists"
+        )
     return await crud.create(db, data)
 
 
@@ -97,7 +104,9 @@ async def update_invoice(
             )
     updated = await crud.update(db, invoice_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Invoice '{invoice_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Invoice '{invoice_id}' not found"
+        )
     return updated
 
 
@@ -108,4 +117,6 @@ async def delete_invoice(
     _: dict = Depends(require_permission("perm-delete-order")),
 ):
     if not await crud.delete(db, invoice_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Invoice '{invoice_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Invoice '{invoice_id}' not found"
+        )

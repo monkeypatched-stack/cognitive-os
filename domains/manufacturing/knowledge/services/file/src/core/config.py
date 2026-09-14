@@ -22,7 +22,9 @@ from ..routes.presigned import router as presigned_url_router
 
 # S3 Configuration
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") or os.getenv("SECRET_ACCESS_KEY")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") or os.getenv(
+    "SECRET_ACCESS_KEY"
+)
 AWS_REGION = os.getenv("AWS_REGION", os.getenv("REGION", "ap-south-1"))
 S3_BUCKET = os.getenv("AWS_S3_BUCKET") or os.getenv("S3_BUCKET")
 S3_BACKUP_BUCKET = os.getenv("AWS_S3_BACKUP_BUCKET") or os.getenv("S3_BACKUP_BUCKET")
@@ -42,10 +44,12 @@ if not S3_BUCKET:
 
 s3_client_kwargs = {"region_name": AWS_REGION}
 if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
-    s3_client_kwargs.update({
-        "aws_access_key_id": AWS_ACCESS_KEY_ID,
-        "aws_secret_access_key": AWS_SECRET_ACCESS_KEY,
-    })
+    s3_client_kwargs.update(
+        {
+            "aws_access_key_id": AWS_ACCESS_KEY_ID,
+            "aws_secret_access_key": AWS_SECRET_ACCESS_KEY,
+        }
+    )
 
 s3_client = boto3.client("s3", **s3_client_kwargs)
 
@@ -54,7 +58,9 @@ logger.info(f"Forward URL: {FORWARD_URL}")
 logger.info(f"Forward Enabled: {FORWARD_ENABLED}")
 logger.info(f"Forward Timeout: {FORWARD_TIMEOUT}s")
 logger.info(f"S3 Bucket: {S3_BUCKET}")
-logger.info(f"S3 Backup Bucket: {S3_BACKUP_BUCKET or (S3_BUCKET + '-backup' if S3_BUCKET else 'N/A')}")
+logger.info(
+    f"S3 Backup Bucket: {S3_BACKUP_BUCKET or (S3_BUCKET + '-backup' if S3_BUCKET else 'N/A')}"
+)
 
 # ============================
 # FASTAPI APP INITIALIZATION
@@ -63,7 +69,7 @@ logger.info(f"S3 Backup Bucket: {S3_BACKUP_BUCKET or (S3_BUCKET + '-backup' if S
 app = FastAPI(
     title="Document Upload API with Backup",
     description="FastAPI application for Azure Container Apps",
-    version="1.0.0"
+    version="1.0.0",
 )
 install_request_logging(app, "file")
 install_route_tracing(app, "file")
@@ -78,7 +84,9 @@ app.add_middleware(
     # Explicit allowlist — a wildcard with allow_credentials=True lets any
     # site make authenticated cross-origin requests. Sourced from
     # CORS_ALLOW_ORIGINS (comma-separated), never "*".
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

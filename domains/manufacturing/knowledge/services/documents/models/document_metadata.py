@@ -5,7 +5,14 @@ from uuid import uuid4
 
 from bson import ObjectId
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, ConfigDict, Field, constr, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    constr,
+    field_validator,
+    model_validator,
+)
 
 
 class DocumentStatus(str, Enum):
@@ -132,13 +139,19 @@ class DocumentMetadataBase(BaseModel):
             raise ValueError("last_modified_at cannot be before created_at")
 
         if self.document_reviewer.lower() == self.document_preparer.lower():
-            raise ValueError("document_reviewer cannot be the same as document_preparer")
+            raise ValueError(
+                "document_reviewer cannot be the same as document_preparer"
+            )
 
         if self.document_approver.lower() == self.document_preparer.lower():
-            raise ValueError("document_approver cannot be the same as document_preparer")
+            raise ValueError(
+                "document_approver cannot be the same as document_preparer"
+            )
 
         if self.document_approver.lower() == self.document_reviewer.lower():
-            raise ValueError("document_approver cannot be the same as document_reviewer")
+            raise ValueError(
+                "document_approver cannot be the same as document_reviewer"
+            )
 
         return self
 

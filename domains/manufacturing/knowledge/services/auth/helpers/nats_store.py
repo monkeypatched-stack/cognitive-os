@@ -6,7 +6,6 @@ from fastapi.encoders import jsonable_encoder
 from services.common.config import settings
 from services.common.event_types import infer_event_type, slugify_event_type
 
-
 _client = None
 _publish_client = None
 _subscribe_client = None
@@ -94,7 +93,9 @@ def sensor_subject_wildcard() -> str:
 def configured_event_types() -> list[str]:
     return [
         slugify_event_type(event_type)
-        for event_type in str(settings.INFLUXDB_EVENT_TYPE_MEASUREMENTS or "").split(",")
+        for event_type in str(settings.INFLUXDB_EVENT_TYPE_MEASUREMENTS or "").split(
+            ","
+        )
         if event_type.strip()
     ]
 
@@ -118,21 +119,27 @@ async def publish_approval_event(event: dict) -> str:
 async def publish_change_control_event(event: dict) -> str:
     event["event_type"] = str(event.get("event_type") or "change-control")
     event["subject"] = settings.NATS_CHANGE_CONTROL_SUBJECT
-    await publish_event(_event_bytes(event), subject=settings.NATS_CHANGE_CONTROL_SUBJECT)
+    await publish_event(
+        _event_bytes(event), subject=settings.NATS_CHANGE_CONTROL_SUBJECT
+    )
     return settings.NATS_CHANGE_CONTROL_SUBJECT
 
 
 async def publish_approval_decision_event(event: dict) -> str:
     event["event_type"] = str(event.get("event_type") or "approval-decision")
     event["subject"] = settings.NATS_APPROVAL_DECISIONS_SUBJECT
-    await publish_event(_event_bytes(event), subject=settings.NATS_APPROVAL_DECISIONS_SUBJECT)
+    await publish_event(
+        _event_bytes(event), subject=settings.NATS_APPROVAL_DECISIONS_SUBJECT
+    )
     return settings.NATS_APPROVAL_DECISIONS_SUBJECT
 
 
 async def publish_approval_audit_event(event: dict) -> str:
     event["event_type"] = str(event.get("event_type") or "approval-audit")
     event["subject"] = settings.NATS_APPROVAL_AUDIT_SUBJECT
-    await publish_event(_event_bytes(event), subject=settings.NATS_APPROVAL_AUDIT_SUBJECT)
+    await publish_event(
+        _event_bytes(event), subject=settings.NATS_APPROVAL_AUDIT_SUBJECT
+    )
     return settings.NATS_APPROVAL_AUDIT_SUBJECT
 
 
@@ -143,7 +150,9 @@ async def publish_audit_event(event: dict) -> str:
     return settings.NATS_AUDIT_SUBJECT
 
 
-async def subscribe_events(callback, subject: str | None = None, queue: str | None = None):
+async def subscribe_events(
+    callback, subject: str | None = None, queue: str | None = None
+):
     client = await _get_subscribe_client()
     return await client.subscribe(
         subject or settings.NATS_EVENTS_SUBJECT,

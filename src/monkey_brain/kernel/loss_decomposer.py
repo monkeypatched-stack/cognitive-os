@@ -1,7 +1,13 @@
 """Loss Decomposer — decomposes composite loss into components."""
+
 from src.monkey_brain.kernel.config import (
-    LOSS_WEIGHT_L_S, LOSS_WEIGHT_L_B, LOSS_WEIGHT_L_A,
-    LOSS_WEIGHT_L_M, LOSS_WEIGHT_L_K, LOSS_WEIGHT_L_C, LOSS_WEIGHT_L_G,
+    LOSS_WEIGHT_L_S,
+    LOSS_WEIGHT_L_B,
+    LOSS_WEIGHT_L_A,
+    LOSS_WEIGHT_L_M,
+    LOSS_WEIGHT_L_K,
+    LOSS_WEIGHT_L_C,
+    LOSS_WEIGHT_L_G,
 )
 
 

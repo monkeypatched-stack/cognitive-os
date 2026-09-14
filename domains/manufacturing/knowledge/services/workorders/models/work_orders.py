@@ -39,6 +39,7 @@ WorkOrderType = Literal[
 # UTILS (INLINE SAFE UTC HANDLING)
 # ─────────────────────────────────────────────
 
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -50,9 +51,11 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
+
 # ─────────────────────────────────────────────
 # BASE MODEL
 # ─────────────────────────────────────────────
+
 
 class WorkOrder(BaseModel):
     work_order_id: str = Field(..., min_length=1)
@@ -107,7 +110,9 @@ class WorkOrder(BaseModel):
 
         # 2. Validate business rule: completed_at only if terminal completed
         if self.completed_at and self.status not in ("Done", "Completed"):
-            raise ValueError("'completed_at' can only be set when status is 'Done' or 'Completed'.")
+            raise ValueError(
+                "'completed_at' can only be set when status is 'Done' or 'Completed'."
+            )
 
         # 3. Validate chronological order
         if self.completed_at and self.completed_at < self.created_at:
@@ -116,7 +121,10 @@ class WorkOrder(BaseModel):
         # 4. Compute overdue safely
         now = utc_now()
 
-        if self.status not in ("Done", "Completed", "Cancelled") and self.expected_completion:
+        if (
+            self.status not in ("Done", "Completed", "Cancelled")
+            and self.expected_completion
+        ):
             self.is_overdue = now > self.expected_completion
         else:
             self.is_overdue = False
@@ -127,6 +135,7 @@ class WorkOrder(BaseModel):
 # ─────────────────────────────────────────────
 # CREATE
 # ─────────────────────────────────────────────
+
 
 class WorkOrderCreate(WorkOrder):
     pass
@@ -198,6 +207,7 @@ class WorkOrderSubtaskUpdate(BaseModel):
 # UPDATE
 # ─────────────────────────────────────────────
 
+
 class WorkOrderUpdate(BaseModel):
     title: Optional[str] = None
     message: Optional[str] = None
@@ -235,9 +245,11 @@ class WorkOrderUpdate(BaseModel):
 # RESPONSE & PAGINATION
 # ─────────────────────────────────────────────
 
+
 class WorkOrderResponse(WorkOrder):
     class Config:
         from_attributes = True
+
 
 class PaginatedWorkOrderResponse(BaseModel):
     total: int

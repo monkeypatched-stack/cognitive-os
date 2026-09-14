@@ -7,6 +7,7 @@ sync_graph()) — this wrapper calls the driver's own verify_connectivity()
 to get a real answer instead of trusting is_connected() alone. Optional:
 never blocks boot, matches GraphStore's existing log-and-continue design.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.resource_manager import (
@@ -45,16 +46,21 @@ class Neo4jResource:
                 await self._store.connect()
             except Exception as exc:
                 return ResourceHealth(
-                    name=self.name, state=ResourceState.FAILED,
-                    reason=str(exc)[:200], category=ErrorCategory.INTERNAL, required=False,
+                    name=self.name,
+                    state=ResourceState.FAILED,
+                    reason=str(exc)[:200],
+                    category=ErrorCategory.INTERNAL,
+                    required=False,
                 )
 
         driver = getattr(self._store, "_driver", None)
         if driver is None:
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
+                name=self.name,
+                state=ResourceState.UNAVAILABLE,
                 reason="neo4j driver not installed or connect failed",
-                category=ErrorCategory.DEPENDENCY_MISSING, required=False,
+                category=ErrorCategory.DEPENDENCY_MISSING,
+                required=False,
             )
 
         try:
@@ -62,8 +68,13 @@ class Neo4jResource:
             return ResourceHealth(name=self.name, state=ResourceState.READY, required=False)
         except Exception as exc:
             msg = str(exc).lower()
-            category = ErrorCategory.AUTHENTICATION if ("unauthorized" in msg or "auth" in msg) else ErrorCategory.NETWORK
+            category = (
+                ErrorCategory.AUTHENTICATION if ("unauthorized" in msg or "auth" in msg) else ErrorCategory.NETWORK
+            )
             return ResourceHealth(
-                name=self.name, state=ResourceState.UNAVAILABLE,
-                reason=str(exc)[:200], category=category, required=False,
+                name=self.name,
+                state=ResourceState.UNAVAILABLE,
+                reason=str(exc)[:200],
+                category=category,
+                required=False,
             )

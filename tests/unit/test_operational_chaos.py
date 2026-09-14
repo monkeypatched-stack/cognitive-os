@@ -2,6 +2,7 @@
 
 The system should degrade gracefully under component failures, not crash.
 """
+
 from __future__ import annotations
 
 import os
@@ -17,16 +18,23 @@ os.environ["RATE_LIMIT_BURST"] = "200000"
 def client():
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
 
 def _create_actor(client, name, goal):
-    r = client.post("/api/v1/agentos/actors", json={
-        "name": name, "actor_type": "robot", "goals": [goal],
-    })
+    r = client.post(
+        "/api/v1/agentos/actors",
+        json={
+            "name": name,
+            "actor_type": "robot",
+            "goals": [goal],
+        },
+    )
     assert r.status_code == 200
     return r.json()["actor_id"]
 
@@ -39,9 +47,14 @@ class TestChaosActorDeletion:
 
         # Tick some actors
         for aid in actors[:3]:
-            client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-                "start": "a", "goal": "b", "reward": 1.0,
-            })
+            client.post(
+                f"/api/v1/agentos/actors/{aid}/tick",
+                json={
+                    "start": "a",
+                    "goal": "b",
+                    "reward": 1.0,
+                },
+            )
 
         # Delete one actor
         r = client.delete(f"/api/v1/agentos/actors/{actors[2]}")
@@ -101,9 +114,14 @@ class TestChaosInvalidInputs:
         assert r.status_code in (404, 503)
 
     def test_tick_nonexistent_actor(self, client):
-        r = client.post("/api/v1/agentos/actors/nonexistent_id/tick", json={
-            "start": "a", "goal": "b", "reward": 1.0,
-        })
+        r = client.post(
+            "/api/v1/agentos/actors/nonexistent_id/tick",
+            json={
+                "start": "a",
+                "goal": "b",
+                "reward": 1.0,
+            },
+        )
         assert r.status_code in (404, 503)
 
 
@@ -113,9 +131,14 @@ class TestChaosRapidOperations:
     def test_rapid_actor_lifecycle(self, client):
         for i in range(20):
             aid = _create_actor(client, f"Rapid-{i}", f"task_{i}")
-            client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-                "start": "a", "goal": "b", "reward": 1.0,
-            })
+            client.post(
+                f"/api/v1/agentos/actors/{aid}/tick",
+                json={
+                    "start": "a",
+                    "goal": "b",
+                    "reward": 1.0,
+                },
+            )
             client.delete(f"/api/v1/agentos/actors/{aid}")
 
         # System should be stable
@@ -135,9 +158,14 @@ class TestChaosMembershipChaos:
         sid = r.json()[0]["society_id"]
 
         # Membership for deleted actor should still be creatable (in-memory store)
-        r = client.post("/api/v1/agentos/memberships", json={
-            "actor_id": aid, "society_id": sid, "role": "worker",
-        })
+        r = client.post(
+            "/api/v1/agentos/memberships",
+            json={
+                "actor_id": aid,
+                "society_id": sid,
+                "role": "worker",
+            },
+        )
         # This is expected behavior — membership store is independent
         assert r.status_code == 200
 
@@ -150,9 +178,14 @@ class TestChaosPlanetTickUnderStress:
 
         # Tick all
         for aid in actors:
-            client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-                "start": "a", "goal": "b", "reward": 1.0,
-            })
+            client.post(
+                f"/api/v1/agentos/actors/{aid}/tick",
+                json={
+                    "start": "a",
+                    "goal": "b",
+                    "reward": 1.0,
+                },
+            )
 
         # Delete half
         for aid in actors[:5]:

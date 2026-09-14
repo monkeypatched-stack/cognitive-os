@@ -3,6 +3,7 @@
 Reads somatic/charts/<service>-client/values.yaml (produced by ClientCharterAgent),
 converts operations to CoT steps, and writes the compiled prompt.
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,7 +64,10 @@ class CompileAgentAgent(BaseETASSAgent):
         if not charts:
             self._reward(False, 0.1)
             return self._result(
-                payload={"compiled": False, "error": f"could not load chart: {chart_path}"},
+                payload={
+                    "compiled": False,
+                    "error": f"could not load chart: {chart_path}",
+                },
                 observations=["SomaticCompiler returned no charts"],
             )
 
@@ -74,10 +78,10 @@ class CompileAgentAgent(BaseETASSAgent):
         cot_steps = [
             {
                 "step": i + 1,
-                "title": op.get("name", f"op_{i+1}"),
+                "title": op.get("name", f"op_{i + 1}"),
                 "description": (
-                    f"{op.get('method','GET')} {op.get('path','')} — "
-                    f"{op.get('description', op.get('name',''))}. "
+                    f"{op.get('method', 'GET')} {op.get('path', '')} — "
+                    f"{op.get('description', op.get('name', ''))}. "
                     f"Auth required: {op.get('auth_required', False)}."
                 ),
             }
@@ -109,7 +113,12 @@ class CompileAgentAgent(BaseETASSAgent):
 
         lines: list[str] = []
         if front:
-            lines += ["---", _yaml.dump(front, default_flow_style=False).rstrip(), "---", ""]
+            lines += [
+                "---",
+                _yaml.dump(front, default_flow_style=False).rstrip(),
+                "---",
+                "",
+            ]
         lines += [f"# {chart.name} capability", ""]
 
         if cap_meta or endpoint or auth:

@@ -7,11 +7,11 @@ Each interface represents ONE responsibility, enabling:
 - Open/Closed: New implementations don't modify existing code
 - Dependency Inversion: Depend on abstractions
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any
-
 
 # ─────────────────────────────────────────────────────────────────────────
 # I: Interface Segregation - Focused, Single-Purpose Interfaces
@@ -204,6 +204,7 @@ class ComponentInterface(BootInterface, HealthMonitorInterface):
     Open for extension: subclasses add functionality
     Closed for modification: interface doesn't change
     """
+
     pass
 
 
@@ -356,19 +357,16 @@ class RepositoryComponentInterface(
     RepositoryInterface,
     PersistenceInterface,
     TransactionalInterface,
-    HealthMonitorInterface
+    HealthMonitorInterface,
 ):
     """Composition: Repository with persistence, transactions, health."""
+
     pass
 
 
-class ServiceComponentInterface(
-    ServiceInterface,
-    ExecutorInterface,
-    EventPublisherInterface,
-    HealthMonitorInterface
-):
+class ServiceComponentInterface(ServiceInterface, ExecutorInterface, EventPublisherInterface, HealthMonitorInterface):
     """Composition: Service with execution, events, health."""
+
     pass
 
 
@@ -376,9 +374,10 @@ class RuntimeComponentInterface(
     ComponentInterface,
     ExecutorInterface,
     HealthMonitorInterface,
-    TransactionalInterface
+    TransactionalInterface,
 ):
     """Composition: Runtime with boot, execution, health, transactions."""
+
     pass
 
 

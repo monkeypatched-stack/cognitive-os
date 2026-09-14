@@ -22,6 +22,7 @@ api/routes/ is constructed with dependencies=[...]) — every route's
 guard, if any, is a Depends(...) default on its own function
 parameters. That makes this scan authoritative, not a heuristic.
 """
+
 from __future__ import annotations
 
 import ast
@@ -34,8 +35,12 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 ROUTES_DIR = ROOT / "src" / "monkey_brain" / "api" / "routes"
 
 _GUARD_NAMES = {
-    "require_permission", "get_current_user", "require_self_or_permission",
-    "require_opa", "require_admin", "require_razorpay_webhook_auth",
+    "require_permission",
+    "get_current_user",
+    "require_self_or_permission",
+    "require_opa",
+    "require_admin",
+    "require_razorpay_webhook_auth",
 }
 
 # Routes verified by hand to be genuinely pre-auth or infra, not a gap:
@@ -51,12 +56,18 @@ _GUARD_NAMES = {
 #     protected resources" -- the endpoint IS the enforcement point, not
 #     something a blanket guard in front of it would improve).
 _PUBLIC_ALLOWLIST = {
-    ("actor_profile.py", "login"), ("actor_profile.py", "logout"),
-    ("actor_profile.py", "request_otp"), ("actor_profile.py", "verify_otp"),
-    ("actor_profile.py", "get_profile"), ("actor_profile.py", "update_profile"),
-    ("admin.py", "get_version"), ("metrics.py", "metrics"),
-    ("prompt.py", "prompt_health"), ("query.py", "query_health"),
-    ("policy.py", "get_principal"), ("policy.py", "evaluate_policy"),
+    ("actor_profile.py", "login"),
+    ("actor_profile.py", "logout"),
+    ("actor_profile.py", "request_otp"),
+    ("actor_profile.py", "verify_otp"),
+    ("actor_profile.py", "get_profile"),
+    ("actor_profile.py", "update_profile"),
+    ("admin.py", "get_version"),
+    ("metrics.py", "metrics"),
+    ("prompt.py", "prompt_health"),
+    ("query.py", "query_health"),
+    ("policy.py", "get_principal"),
+    ("policy.py", "evaluate_policy"),
 }
 
 
@@ -99,9 +110,7 @@ def _route_functions():
 
 
 def _has_guard(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    all_defaults = list(func.args.defaults) + [
-        d for d in func.args.kw_defaults if d is not None
-    ]
+    all_defaults = list(func.args.defaults) + [d for d in func.args.kw_defaults if d is not None]
     for default in all_defaults:
         # Depends(require_permission(...)) or Depends(get_current_user)
         if isinstance(default, ast.Call) and isinstance(default.func, ast.Name) and default.func.id == "Depends":
@@ -187,11 +196,16 @@ def test_allowlist_entries_still_name_a_real_route(filename, func_name):
 # purpose), not the guard's own source code.
 # ─────────────────────────────────────────────────────────────
 
+
 class _FakeRequest:
     def __init__(self, path_params: dict, planetary_runtime: Any = None) -> None:
         self.path_params = path_params
         self.state = type("State", (), {})()
-        self.app = type("App", (), {"state": type("AppState", (), {"planetary_runtime": planetary_runtime})()})()
+        self.app = type(
+            "App",
+            (),
+            {"state": type("AppState", (), {"planetary_runtime": planetary_runtime})()},
+        )()
 
 
 class TestRequireSelfOrPermission:
@@ -208,7 +222,8 @@ class TestRequireSelfOrPermission:
         check = require_self_or_permission("perm-manage-actors")
         user = await check(
             request=_FakeRequest({"actor_id": "alice"}),
-            x_user_id=None, authorization=f"Bearer {token}",
+            x_user_id=None,
+            authorization=f"Bearer {token}",
         )
         assert user == "alice"
 
@@ -225,7 +240,8 @@ class TestRequireSelfOrPermission:
         with pytest.raises(HTTPException) as exc:
             await check(
                 request=_FakeRequest({"actor_id": "alice"}),
-                x_user_id=None, authorization=f"Bearer {token}",
+                x_user_id=None,
+                authorization=f"Bearer {token}",
             )
         assert exc.value.status_code == 403
 
@@ -236,11 +252,17 @@ class TestRequireSelfOrPermission:
         from services.auth.helpers.tokens import create_access_token
         from src.monkey_brain.api.dependencies import require_self_or_permission
 
-        token = create_access_token("admin-1", "admin@example.com", "operator", permissions=["perm-manage-actors"])
+        token = create_access_token(
+            "admin-1",
+            "admin@example.com",
+            "operator",
+            permissions=["perm-manage-actors"],
+        )
         check = require_self_or_permission("perm-manage-actors")
         user = await check(
             request=_FakeRequest({"actor_id": "alice"}),
-            x_user_id=None, authorization=f"Bearer {token}",
+            x_user_id=None,
+            authorization=f"Bearer {token}",
         )
         assert user == "admin-1"
 
@@ -253,11 +275,17 @@ class TestRequireSelfOrPermission:
 
         check = require_self_or_permission("perm-manage-actors")
         with pytest.raises(HTTPException) as exc:
-            await check(request=_FakeRequest({"actor_id": "alice"}), x_user_id=None, authorization=None)
+            await check(
+                request=_FakeRequest({"actor_id": "alice"}),
+                x_user_id=None,
+                authorization=None,
+            )
         assert exc.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_bare_x_user_id_claiming_to_be_the_target_is_rejected_under_enforced_auth(self, fake_settings, monkeypatch):
+    async def test_bare_x_user_id_claiming_to_be_the_target_is_rejected_under_enforced_auth(
+        self, fake_settings, monkeypatch
+    ):
         """CRITICAL regression: a completely unauthenticated caller — no
         Bearer token, no password, no cryptographic proof of anything —
         must NOT be able to act as another actor merely by echoing that
@@ -278,7 +306,8 @@ class TestRequireSelfOrPermission:
         with pytest.raises(HTTPException) as exc:
             await check(
                 request=_FakeRequest({"actor_id": "alice"}),
-                x_user_id="alice", authorization=None,
+                x_user_id="alice",
+                authorization=None,
             )
         assert exc.value.status_code == 401
 
@@ -293,7 +322,8 @@ class TestRequireSelfOrPermission:
         check = require_self_or_permission("perm-manage-actors")
         user = await check(
             request=_FakeRequest({"actor_id": "alice"}),
-            x_user_id="alice", authorization=None,
+            x_user_id="alice",
+            authorization=None,
         )
         assert user == "alice"
 
@@ -311,7 +341,8 @@ class TestRequireSelfOrPermission:
         check = require_self_or_permission("perm-manage-actors", id_param="person_id")
         user = await check(
             request=_FakeRequest({"person_id": "alice"}),
-            x_user_id=None, authorization=f"Bearer {token}",
+            x_user_id=None,
+            authorization=f"Bearer {token}",
         )
         assert user == "alice"
 
@@ -364,7 +395,10 @@ class TestAuthorizeActingFor:
         """Order-creation scenario: an admin/agent caller explicitly
         granted ACT_ON_BEHALF_PERMISSION may place an order for alice."""
         monkeypatch.setenv("AGENTOS_AUTH_REQUIRED", "true")
-        from src.monkey_brain.api.dependencies import ACT_ON_BEHALF_PERMISSION, authorize_acting_for
+        from src.monkey_brain.api.dependencies import (
+            ACT_ON_BEHALF_PERMISSION,
+            authorize_acting_for,
+        )
 
         request = _FakeRequest({})
         request.state.jwt_permissions = {ACT_ON_BEHALF_PERMISSION}
@@ -392,7 +426,10 @@ class TestAuthorizeActingFor:
         function, same ACT_ON_BEHALF_PERMISSION, proven independently for
         the specifically P0-flagged payment path."""
         monkeypatch.setenv("AGENTOS_AUTH_REQUIRED", "true")
-        from src.monkey_brain.api.dependencies import ACT_ON_BEHALF_PERMISSION, authorize_acting_for
+        from src.monkey_brain.api.dependencies import (
+            ACT_ON_BEHALF_PERMISSION,
+            authorize_acting_for,
+        )
 
         request = _FakeRequest({})
         request.state.jwt_permissions = {ACT_ON_BEHALF_PERMISSION}
@@ -437,7 +474,12 @@ class _FakeDelegationRegistry:
         self._revoked: set[str] = set()
         self._expiry: dict[str, float] = {}
 
-    def grant(self, delegate_actor_id: str, permissions: tuple[str, ...], valid_until: float | None = None) -> None:
+    def grant(
+        self,
+        delegate_actor_id: str,
+        permissions: tuple[str, ...],
+        valid_until: float | None = None,
+    ) -> None:
         self._grants[delegate_actor_id] = permissions
         if valid_until is not None:
             self._expiry[delegate_actor_id] = valid_until
@@ -447,6 +489,7 @@ class _FakeDelegationRegistry:
 
     def effective_delegated_permissions(self, delegate_actor_id: str) -> tuple[str, ...]:
         import time
+
         if delegate_actor_id in self._revoked:
             return ()
         expiry = self._expiry.get(delegate_actor_id)
@@ -495,7 +538,8 @@ class TestDelegationEnforcement:
         check = require_permission("perm-manage-actors")
         user = await check(
             request=_FakeRequest({}, planetary_runtime=pr),
-            x_user_id=None, authorization=f"Bearer {token}",
+            x_user_id=None,
+            authorization=f"Bearer {token}",
         )
         assert user == "agent-1"
 
@@ -516,7 +560,8 @@ class TestDelegationEnforcement:
         with pytest.raises(HTTPException) as exc:
             await check(
                 request=_FakeRequest({}, planetary_runtime=pr),
-                x_user_id=None, authorization=f"Bearer {token}",
+                x_user_id=None,
+                authorization=f"Bearer {token}",
             )
         assert exc.value.status_code == 403
 
@@ -537,7 +582,8 @@ class TestDelegationEnforcement:
         with pytest.raises(HTTPException) as exc:
             await check(
                 request=_FakeRequest({}, planetary_runtime=pr),
-                x_user_id=None, authorization=f"Bearer {token}",
+                x_user_id=None,
+                authorization=f"Bearer {token}",
             )
         assert exc.value.status_code == 403
 
@@ -559,7 +605,8 @@ class TestDelegationEnforcement:
         with pytest.raises(HTTPException) as exc:
             await check(
                 request=_FakeRequest({}, planetary_runtime=pr),
-                x_user_id=None, authorization=f"Bearer {token}",
+                x_user_id=None,
+                authorization=f"Bearer {token}",
             )
         assert exc.value.status_code == 403
 
@@ -582,7 +629,8 @@ class TestDelegationEnforcement:
         check = require_permission("perm-manage-actors")
         user = await check(
             request=_FakeRequest({}, planetary_runtime=pr),
-            x_user_id=None, authorization=f"Bearer {token}",
+            x_user_id=None,
+            authorization=f"Bearer {token}",
         )
         assert user == "agent-1"
 
@@ -599,8 +647,10 @@ class TestDelegationEnforcement:
 
         real_registry = DelegationRegistry()
         real_registry.grant(
-            membership_id="membership-alice", delegate_actor_id="agent-1",
-            permissions=("perm-manage-actors",), reason="test",
+            membership_id="membership-alice",
+            delegate_actor_id="agent-1",
+            permissions=("perm-manage-actors",),
+            reason="test",
         )
         pr = _FakePlanetaryRuntime({"agent-1": [_FakeSocietyRuntime(real_registry)]})
 
@@ -608,7 +658,8 @@ class TestDelegationEnforcement:
         check = require_permission("perm-manage-actors")
         user = await check(
             request=_FakeRequest({}, planetary_runtime=pr),
-            x_user_id=None, authorization=f"Bearer {token}",
+            x_user_id=None,
+            authorization=f"Bearer {token}",
         )
         assert user == "agent-1"
 
@@ -616,7 +667,8 @@ class TestDelegationEnforcement:
         with pytest.raises(HTTPException) as exc:
             await check(
                 request=_FakeRequest({}, planetary_runtime=pr),
-                x_user_id=None, authorization=f"Bearer {token}",
+                x_user_id=None,
+                authorization=f"Bearer {token}",
             )
         assert exc.value.status_code == 403
 
@@ -637,7 +689,10 @@ class TestRequirePermissionHonorsRevocation:
         monkeypatch.setenv("AGENTOS_API_KEY", "")
         from fastapi import HTTPException
         from services.auth.helpers.revocation import block_jti
-        from services.auth.helpers.tokens import create_access_token, decode_access_token
+        from services.auth.helpers.tokens import (
+            create_access_token,
+            decode_access_token,
+        )
         from src.monkey_brain.api.dependencies import require_permission
 
         token = create_access_token("alice", "alice@example.com", "actor", permissions=["perm-manage-actors"])
@@ -651,16 +706,25 @@ class TestRequirePermissionHonorsRevocation:
 
         await block_jti(jti)
         with pytest.raises(HTTPException) as exc:
-            await check(request=_FakeRequest({}), x_user_id=None, authorization=f"Bearer {token}")
+            await check(
+                request=_FakeRequest({}),
+                x_user_id=None,
+                authorization=f"Bearer {token}",
+            )
         assert exc.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_revoked_token_is_denied_by_require_self_or_permission_even_for_self(self, fake_settings, monkeypatch):
+    async def test_revoked_token_is_denied_by_require_self_or_permission_even_for_self(
+        self, fake_settings, monkeypatch
+    ):
         monkeypatch.setenv("AGENTOS_AUTH_REQUIRED", "true")
         monkeypatch.setenv("AGENTOS_API_KEY", "")
         from fastapi import HTTPException
         from services.auth.helpers.revocation import block_jti
-        from services.auth.helpers.tokens import create_access_token, decode_access_token
+        from services.auth.helpers.tokens import (
+            create_access_token,
+            decode_access_token,
+        )
         from src.monkey_brain.api.dependencies import require_self_or_permission
 
         token = create_access_token("alice", "alice@example.com", "actor", permissions=[])
@@ -670,7 +734,9 @@ class TestRequirePermissionHonorsRevocation:
         check = require_self_or_permission("perm-manage-actors")
         with pytest.raises(HTTPException) as exc:
             await check(
-                request=_FakeRequest({"actor_id": "alice"}), x_user_id=None, authorization=f"Bearer {token}",
+                request=_FakeRequest({"actor_id": "alice"}),
+                x_user_id=None,
+                authorization=f"Bearer {token}",
             )
         assert exc.value.status_code == 401
 

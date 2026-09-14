@@ -36,6 +36,7 @@ def parse_pem(pem: str) -> dict[str, Any] | None:
     try:
         from cryptography import x509
         from cryptography.hazmat.primitives import hashes
+
         cert = x509.load_pem_x509_certificate(pem.encode())
         san_list: list[str] = []
         try:
@@ -66,6 +67,7 @@ def ca_valid(cert_info: dict[str, Any], ca_path: str = "") -> bool:
     try:
         from cryptography import x509
         from cryptography.hazmat.primitives.asymmetric import padding
+
         with open(path, "rb") as f:
             ca = x509.load_pem_x509_certificate(f.read())
         client = cert_info["_raw"]

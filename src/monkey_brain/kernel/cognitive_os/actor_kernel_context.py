@@ -20,6 +20,7 @@ instance per actor (constructed by CognitiveOS, never shared), holding
 real, actor-owned mutable state, with read-only references to the shared
 Kernel-level infrastructure for the rare case actor-facing code needs it.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -80,4 +81,5 @@ class ActorKernelContext:
         server), same "honest, not fabricated" convention every other
         optional-dependency accessor in this codebase already follows."""
         from src.monkey_brain.kernel.kernel import Kernel
+
         return Kernel._instance

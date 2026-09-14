@@ -28,15 +28,24 @@ requests" ticket):
      end-to-end — same scope MB-3002 verified for "search"/"laptop".
      Skipped if no local Ollama server is reachable.
 """
+
 from __future__ import annotations
 
 import httpx
 import pytest
 
-from src.monkey_brain.kernel.domains.logistics import LogisticsCapability, create_shipment, track_order
+from src.monkey_brain.kernel.domains.logistics import (
+    LogisticsCapability,
+    create_shipment,
+    track_order,
+)
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 CUSTOMER_NAME = "Alice"
@@ -91,10 +100,7 @@ async def test_mb3020_context_published_for_customer_request():
     new_events = marketplace.context_stream.events(limit=marketplace.context_stream.event_count - events_before)
 
     # context published.
-    assert any(
-        e.event_type is ContextEventType.OBSERVATION and e.actor_id == alice.actor_id
-        for e in new_events
-    )
+    assert any(e.event_type is ContextEventType.OBSERVATION and e.actor_id == alice.actor_id for e in new_events)
 
 
 @pytest.mark.asyncio
@@ -102,7 +108,9 @@ async def test_mb3020_order_status_reasoned_about_via_real_local_llm(monkeypatch
     if not _ollama_reachable():
         pytest.skip("no local Ollama server reachable at localhost:11434")
 
-    from src.monkey_brain.kernel.execute.provider import model_backend as model_backend_module
+    from src.monkey_brain.kernel.execute.provider import (
+        model_backend as model_backend_module,
+    )
 
     # Patching get_backend() itself (not _default_backend) is required:
     # tests/conftest.py's autouse _default_test_llm_backend fixture ALREADY
@@ -113,7 +121,8 @@ async def test_mb3020_order_status_reasoned_about_via_real_local_llm(monkeypatch
     # crashed with "'str' object can't be awaited" -- LLMPlanner still got
     # the fake, synchronous backend regardless of this patch).
     monkeypatch.setattr(
-        model_backend_module, "get_backend",
+        model_backend_module,
+        "get_backend",
         lambda: model_backend_module.ModelBackend(provider="ollama"),
     )
 
@@ -126,9 +135,7 @@ async def test_mb3020_order_status_reasoned_about_via_real_local_llm(monkeypatch
     assert result.plan.planner == "llm"
     assert result.plan.confidence > 0.0
     assert len(result.plan.steps) > 0
-    plan_text = " ".join(
-        f"{step.action} {step.description}".lower() for step in result.plan.steps
-    )
+    plan_text = " ".join(f"{step.action} {step.description}".lower() for step in result.plan.steps)
     assert any(kw in plan_text for kw in ("order", "track", "ship", "status", "deliver"))
 
     assert result.actual_outcome is not None

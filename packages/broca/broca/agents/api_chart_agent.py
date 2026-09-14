@@ -3,6 +3,7 @@
 Replaces the inline SomaticCompiler calls in soma_api. Reads from the
 sittingface.api_chart catalogue, renders the values.yaml, and compiles it.
 """
+
 from __future__ import annotations
 
 import logging

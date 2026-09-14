@@ -7,7 +7,6 @@ from typing import Any
 from services.common.cdc import publish_cdc_event
 from services.common.config import settings
 
-
 _task: asyncio.Task | None = None
 _stop_event: asyncio.Event | None = None
 _last_error: str | None = None
@@ -47,7 +46,11 @@ async def publish_change_stream_event(change: dict[str, Any]) -> None:
     document_key = change.get("documentKey")
     full_document = change.get("fullDocument")
     update_description = change.get("updateDescription")
-    record = full_document if isinstance(full_document, dict) else document_key if isinstance(document_key, dict) else None
+    record = (
+        full_document
+        if isinstance(full_document, dict)
+        else document_key if isinstance(document_key, dict) else None
+    )
     await publish_cdc_event(
         collection=str(collection),
         operation=f"change_stream_{operation}",
@@ -60,7 +63,11 @@ async def publish_change_stream_event(change: dict[str, Any]) -> None:
             "operation_type": operation,
             "document_key": document_key,
             "record_id": _record_id_from_document_key(document_key),
-            "cluster_time": str(change.get("clusterTime")) if change.get("clusterTime") is not None else None,
+            "cluster_time": (
+                str(change.get("clusterTime"))
+                if change.get("clusterTime") is not None
+                else None
+            ),
         },
     )
     _events_published += 1

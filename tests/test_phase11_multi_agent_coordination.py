@@ -8,8 +8,13 @@ import asyncio
 from datetime import datetime, timedelta
 
 from src.actor.multi_agent_coordinator import (
-    MultiAgentCoordinator, CollaborativeActor, SharedGoal, ActorCapability,
-    TrustScore, CoordinationMessage, CoordinationMessageType
+    MultiAgentCoordinator,
+    CollaborativeActor,
+    SharedGoal,
+    ActorCapability,
+    TrustScore,
+    CoordinationMessage,
+    CoordinationMessageType,
 )
 
 
@@ -23,7 +28,7 @@ class TestActorCapability:
             description="Can move to adjacent locations",
             success_rate=0.95,
             cost=10.0,
-            duration_seconds=2.0
+            duration_seconds=2.0,
         )
 
         assert cap.capability_id == "move"
@@ -36,7 +41,7 @@ class TestActorCapability:
             description="Move",
             success_rate=0.8,
             cost=5.0,
-            duration_seconds=1.0
+            duration_seconds=1.0,
         )
         assert cap_good.is_available()
 
@@ -45,7 +50,7 @@ class TestActorCapability:
             description="Broken",
             success_rate=0.3,
             cost=-10.0,
-            duration_seconds=1.0
+            duration_seconds=1.0,
         )
         assert not cap_bad.is_available()
 
@@ -97,7 +102,7 @@ class TestSharedGoal:
             description="Hunt together",
             participants={"actor1", "actor2", "actor3"},
             leader_actor_id="actor1",
-            required_capabilities=["track", "hunt", "communicate"]
+            required_capabilities=["track", "hunt", "communicate"],
         )
 
         assert goal.goal_id == "goal1"
@@ -110,7 +115,7 @@ class TestSharedGoal:
             goal_id="goal1",
             description="Hunt",
             participants={"actor1", "actor2"},
-            leader_actor_id="actor1"
+            leader_actor_id="actor1",
         )
 
         assert not goal.all_accepted()
@@ -126,7 +131,7 @@ class TestSharedGoal:
             description="Hunt",
             participants={"actor1"},
             leader_actor_id="actor1",
-            deadline=future
+            deadline=future,
         )
 
         assert not goal.is_overdue()
@@ -162,7 +167,7 @@ class TestMultiAgentCoordinator:
             description="Move",
             success_rate=0.9,
             cost=5.0,
-            duration_seconds=1.0
+            duration_seconds=1.0,
         )
 
         coordinator.broadcast_capability("actor1", cap)
@@ -182,7 +187,7 @@ class TestMultiAgentCoordinator:
                 description="Move",
                 success_rate=0.9,
                 cost=5.0,
-                duration_seconds=1.0
+                duration_seconds=1.0,
             )
             coordinator.broadcast_capability(actor_id, cap)
 
@@ -204,7 +209,7 @@ class TestMultiAgentCoordinator:
             goal_id="goal1",
             description="Hunt together",
             participants={"actor1", "actor2", "actor0"},
-            leader_actor_id="actor0"
+            leader_actor_id="actor0",
         )
 
         success = await coordinator.propose_shared_goal(goal)
@@ -223,7 +228,7 @@ class TestMultiAgentCoordinator:
             goal_id="goal1",
             description="Hunt",
             participants={"actor0", "actor1", "actor2"},
-            leader_actor_id="actor0"
+            leader_actor_id="actor0",
         )
 
         await coordinator.propose_shared_goal(goal)
@@ -243,7 +248,7 @@ class TestMultiAgentCoordinator:
             goal_id="goal1",
             description="Hunt",
             participants={"actor0", "actor1", "actor2"},
-            leader_actor_id="actor0"
+            leader_actor_id="actor0",
         )
 
         await coordinator.propose_shared_goal(goal)
@@ -289,7 +294,7 @@ class TestMultiAgentCoordinator:
             message_type=CoordinationMessageType.CAPABILITY_QUERY,
             sender_actor_id="actor0",
             recipient_actor_ids=["actor1"],
-            payload={'capabilities_needed': ['move', 'hunt']}
+            payload={"capabilities_needed": ["move", "hunt"]},
         )
 
         await coordinator._send_message(message)
@@ -311,7 +316,7 @@ class TestMultiAgentCoordinator:
             message_type=CoordinationMessageType.CAPABILITY_BROADCAST,
             sender_actor_id="actor0",
             recipient_actor_ids=["actor1", "actor2"],
-            payload={'capability': 'move'}
+            payload={"capability": "move"},
         )
 
         await coordinator._broadcast_message(message)
@@ -335,14 +340,14 @@ class TestMultiAgentCoordinator:
             description="Move",
             success_rate=0.9,
             cost=5.0,
-            duration_seconds=1.0
+            duration_seconds=1.0,
         )
         coordinator.broadcast_capability("actor0", cap)
 
         stats = coordinator.get_stats()
 
-        assert stats['registered_actors'] == 3
-        assert stats['total_capabilities_broadcast'] >= 1
+        assert stats["registered_actors"] == 3
+        assert stats["total_capabilities_broadcast"] >= 1
 
 
 class TestCollaborativeActor:
@@ -377,7 +382,7 @@ class TestCollaborativeActor:
             description="Move",
             success_rate=0.9,
             cost=5.0,
-            duration_seconds=1.0
+            duration_seconds=1.0,
         )
 
         await actor.broadcast_capability(cap)
@@ -402,7 +407,7 @@ class TestCollaborativeActor:
             description="Track animals",
             success_rate=0.95,
             cost=10.0,
-            duration_seconds=3.0
+            duration_seconds=3.0,
         )
         await actor2.broadcast_capability(cap)
 
@@ -428,7 +433,7 @@ class TestCollaborativeActor:
         goal = await actor1.propose_collaboration(
             goal_description="Hunt together",
             collaborator_ids=["actor2"],
-            required_capabilities=["track", "hunt"]
+            required_capabilities=["track", "hunt"],
         )
 
         assert goal is not None
@@ -451,7 +456,7 @@ class TestCollaborativeActor:
         goal = await actor1.propose_collaboration(
             goal_description="Hunt",
             collaborator_ids=["actor2"],
-            required_capabilities=["hunt"]
+            required_capabilities=["hunt"],
         )
 
         # Actor2 accepts
@@ -474,7 +479,7 @@ class TestCollaborativeActor:
         goal = await actor1.propose_collaboration(
             goal_description="Hunt",
             collaborator_ids=["actor2"],
-            required_capabilities=[]
+            required_capabilities=[],
         )
 
         # Report success
@@ -489,8 +494,8 @@ class TestCollaborativeActor:
         actor.id = "actor1"
 
         stats = actor.get_collaboration_stats()
-        assert 'actor_id' in stats
-        assert 'capabilities' in stats
+        assert "actor_id" in stats
+        assert "capabilities" in stats
 
 
 class TestMultiAgentIntegration:
@@ -517,7 +522,7 @@ class TestMultiAgentIntegration:
                 description=f"Can {capabilities[i]}",
                 success_rate=0.9,
                 cost=10.0 * (i + 1),
-                duration_seconds=float(i + 1)
+                duration_seconds=float(i + 1),
             )
             await actor.broadcast_capability(cap)
 
@@ -525,7 +530,7 @@ class TestMultiAgentIntegration:
         goal = await actors[0].propose_collaboration(
             goal_description="Hunt together",
             collaborator_ids=[actors[1].id, actors[2].id],
-            required_capabilities=["track", "hunt"]
+            required_capabilities=["track", "hunt"],
         )
 
         assert goal is not None

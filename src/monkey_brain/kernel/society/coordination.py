@@ -9,6 +9,7 @@ Support:
 
 Planning remains local. Coordination becomes social.
 """
+
 from __future__ import annotations
 
 import time
@@ -45,6 +46,7 @@ class ResourceAllocationType(Enum):
 @dataclass(frozen=True)
 class NegotiationProposal:
     """One proposal in a negotiation."""
+
     proposal_id: str = field(default_factory=lambda: uuid4().hex)
     proposer_id: str = ""
     content: Any = None
@@ -56,6 +58,7 @@ class NegotiationProposal:
 @dataclass(frozen=True)
 class ResourceAllocation:
     """A proposed resource allocation."""
+
     resource_id: str = ""
     allocations: dict[str, float] = field(default_factory=dict)
     """actor_id -> quantity allocated."""
@@ -67,6 +70,7 @@ class ResourceAllocation:
 @dataclass(frozen=True)
 class TaskAssignment:
     """A proposed task assignment."""
+
     task_id: str = ""
     task_description: str = ""
     assigned_to: str = ""
@@ -79,6 +83,7 @@ class TaskAssignment:
 @dataclass(frozen=True)
 class ConflictResolution:
     """A resolution to a conflict between actors."""
+
     conflict_id: str = ""
     parties: tuple[str, ...] = ()
     resolution: str = ""
@@ -90,6 +95,7 @@ class ConflictResolution:
 @dataclass(frozen=True)
 class Negotiation:
     """A complete negotiation session between actors."""
+
     negotiation_id: str = field(default_factory=lambda: uuid4().hex)
     negotiation_type: NegotiationType = NegotiationType.BILATERAL
     participants: tuple[str, ...] = ()
@@ -121,18 +127,27 @@ class CoordinationEngine:
         """Evaluate an actor's strategies through the optional game runtime."""
         if self.strategic_runtime is None:
             from src.monkey_brain.kernel.society.game_theory import GameTheoryRuntime
+
             self.strategic_runtime = GameTheoryRuntime()
         return self.strategic_runtime.evaluate(profile, context)
 
-    def negotiate_strategically(self, topic: str, profiles: tuple[Any, ...],
-                                context: dict[str, Any] | None = None,
-                                messages: tuple[Any, ...] = ()):
+    def negotiate_strategically(
+        self,
+        topic: str,
+        profiles: tuple[Any, ...],
+        context: dict[str, Any] | None = None,
+        messages: tuple[Any, ...] = (),
+    ):
         """Settle a utility-ranked agreement while retaining this boundary."""
         if self.strategic_runtime is None:
             from src.monkey_brain.kernel.society.game_theory import GameTheoryRuntime
+
             self.strategic_runtime = GameTheoryRuntime()
         return self.strategic_runtime.negotiate(
-            topic, profiles, context=context, messages=messages,
+            topic,
+            profiles,
+            context=context,
+            messages=messages,
         )
 
     def propose(
@@ -146,7 +161,9 @@ class CoordinationEngine:
         max_rounds: int = 10,
     ) -> Negotiation:
         proposal = NegotiationProposal(
-            proposer_id=proposer_id, content=proposal_content, rationale=rationale,
+            proposer_id=proposer_id,
+            content=proposal_content,
+            rationale=rationale,
         )
         negotiation = Negotiation(
             negotiation_type=negotiation_type,
@@ -162,13 +179,16 @@ class CoordinationEngine:
             self._actor_negotiations.setdefault(actor_id, []).append(negotiation.negotiation_id)
         return negotiation
 
-    def counter_propose(self, negotiation_id: str, actor_id: str,
-                        content: Any, rationale: str = "") -> Negotiation | None:
+    def counter_propose(
+        self, negotiation_id: str, actor_id: str, content: Any, rationale: str = ""
+    ) -> Negotiation | None:
         negotiation = self._negotiations.get(negotiation_id)
         if negotiation is None or negotiation.status == NegotiationStatus.SETTLED:
             return None
         proposal = NegotiationProposal(
-            proposer_id=actor_id, content=content, rationale=rationale,
+            proposer_id=actor_id,
+            content=content,
+            rationale=rationale,
         )
         updated = Negotiation(
             negotiation_id=negotiation.negotiation_id,
@@ -241,28 +261,44 @@ class CoordinationEngine:
         self._negotiations[negotiation_id] = updated
         return updated
 
-    def resolve_conflict(self, parties: tuple[str, ...], resolution: str,
-                         strategy: str = "compromise") -> ConflictResolution:
+    def resolve_conflict(
+        self, parties: tuple[str, ...], resolution: str, strategy: str = "compromise"
+    ) -> ConflictResolution:
         conflict_id = uuid4().hex
         return ConflictResolution(
-            conflict_id=conflict_id, parties=parties,
-            resolution=resolution, strategy=strategy,
+            conflict_id=conflict_id,
+            parties=parties,
+            resolution=resolution,
+            strategy=strategy,
         )
 
-    def allocate_resources(self, resource_id: str, allocations: dict[str, float],
-                           allocation_type: ResourceAllocationType = ResourceAllocationType.EQUAL,
-                           total_quantity: float = 0.0) -> ResourceAllocation:
+    def allocate_resources(
+        self,
+        resource_id: str,
+        allocations: dict[str, float],
+        allocation_type: ResourceAllocationType = ResourceAllocationType.EQUAL,
+        total_quantity: float = 0.0,
+    ) -> ResourceAllocation:
         return ResourceAllocation(
-            resource_id=resource_id, allocations=allocations,
-            allocation_type=allocation_type, total_quantity=total_quantity,
+            resource_id=resource_id,
+            allocations=allocations,
+            allocation_type=allocation_type,
+            total_quantity=total_quantity,
         )
 
-    def assign_task(self, task_id: str, task_description: str,
-                    assigned_to: str, assigned_by: str,
-                    priority: int = 0) -> TaskAssignment:
+    def assign_task(
+        self,
+        task_id: str,
+        task_description: str,
+        assigned_to: str,
+        assigned_by: str,
+        priority: int = 0,
+    ) -> TaskAssignment:
         return TaskAssignment(
-            task_id=task_id, task_description=task_description,
-            assigned_to=assigned_to, assigned_by=assigned_by,
+            task_id=task_id,
+            task_description=task_description,
+            assigned_to=assigned_to,
+            assigned_by=assigned_by,
             priority=priority,
         )
 
@@ -275,6 +311,7 @@ class CoordinationEngine:
 
     def active_negotiations(self) -> tuple[Negotiation, ...]:
         return tuple(
-            n for n in self._negotiations.values()
+            n
+            for n in self._negotiations.values()
             if n.status in (NegotiationStatus.PROPOSED, NegotiationStatus.COUNTER_PROPOSED)
         )

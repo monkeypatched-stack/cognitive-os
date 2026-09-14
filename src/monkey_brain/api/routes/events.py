@@ -13,6 +13,7 @@ POST /events — publish an event (fire, flood, promotion, flash_sale,
     uses (MB-3055), just targeted at a specific Space instead of a
     randomly-picked one.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,10 +29,17 @@ from src.monkey_brain.api.idempotency import idempotent
 logger = logging.getLogger("agentos.gateway.events")
 router = APIRouter()
 
-_EVACUATION_EVENT_TYPES = frozenset({
-    "fire", "flood", "structural_failure", "security_incident", "chemical_spill",
-    "power_failure", "strike",
-})
+_EVACUATION_EVENT_TYPES = frozenset(
+    {
+        "fire",
+        "flood",
+        "structural_failure",
+        "security_incident",
+        "chemical_spill",
+        "power_failure",
+        "strike",
+    }
+)
 
 
 def _get_planetary_runtime(request: Request) -> Any:
@@ -45,7 +53,10 @@ async def create_event(
     request: Request,
     user_id: str = Depends(require_permission("perm-manage-actors")),
 ) -> dict[str, Any]:
-    from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+    from src.monkey_brain.kernel.society.context_stream import (
+        ContextEvent,
+        ContextEventType,
+    )
 
     pr = _get_planetary_runtime(request)
     if pr is None:
@@ -59,7 +70,12 @@ async def create_event(
     if event_type in _EVACUATION_EVENT_TYPES and space_id:
         evacuated = _evacuate_space(pr, space_id, event_type)
 
-    payload: dict[str, Any] = {"type": event_type, "space_id": space_id, "evacuated": evacuated, **body.model_dump()}
+    payload: dict[str, Any] = {
+        "type": event_type,
+        "space_id": space_id,
+        "evacuated": evacuated,
+        **body.model_dump(),
+    }
     if event_type == "fire" and space_id:
         # True Multi-Actor Coordination: a real evacuation is a real
         # world mutation a Society may need to react to (e.g. an
@@ -71,11 +87,13 @@ async def create_event(
         payload["domain_event"] = "WarehouseClosed"
 
     context_events_before = pr.context_stream.event_count
-    event = pr.context_stream.publish(ContextEvent(
-        event_type=ContextEventType.WORLD_UPDATE,
-        description=description,
-        payload=payload,
-    ))
+    event = pr.context_stream.publish(
+        ContextEvent(
+            event_type=ContextEventType.WORLD_UPDATE,
+            description=description,
+            payload=payload,
+        )
+    )
 
     # True Multi-Actor Coordination: propagation was previously only
     # reachable from execute_actor_request() (the /prompt path) — a
@@ -95,7 +113,9 @@ async def create_event(
         # same societies.
         async with pr._tick_lock:
             (
-                propagated_actors, propagated_societies, termination_reason,
+                propagated_actors,
+                propagated_societies,
+                termination_reason,
                 domain_events_seen,
             ) = await pr._propagate_coordination(
                 from_version=context_events_before,
@@ -112,8 +132,11 @@ async def create_event(
         }
 
     return {
-        "success": True, "event": event.to_dict(), "evacuated": evacuated,
-        "coordination_trace": coordination_trace, "execution_scope": execution_scope,
+        "success": True,
+        "event": event.to_dict(),
+        "evacuated": evacuated,
+        "coordination_trace": coordination_trace,
+        "execution_scope": execution_scope,
     }
 
 
@@ -133,7 +156,8 @@ def _evacuate_space(pr: Any, space_id: str, cause: str) -> list[dict[str, Any]]:
     destination_id = None
     if space.parent_id is not None:
         siblings = [
-            e for e in pr.geo_registry.children_of(space.parent_id)
+            e
+            for e in pr.geo_registry.children_of(space.parent_id)
             if e.entity_type == GeographicEntityType.SPACE and e.entity_id != space_id
         ]
         if siblings:
@@ -149,8 +173,12 @@ def _evacuate_space(pr: Any, space_id: str, cause: str) -> list[dict[str, Any]]:
     for actor_id in occupants:
         moved = pr.move_actor(actor_id, destination_id, activity=f"evacuating {cause}")
         if moved:
-            evacuated.append({
-                "actor_id": actor_id, "from_space_id": space_id,
-                "to_space_id": destination_id, "timestamp": timestamp,
-            })
+            evacuated.append(
+                {
+                    "actor_id": actor_id,
+                    "from_space_id": space_id,
+                    "to_space_id": destination_id,
+                    "timestamp": timestamp,
+                }
+            )
     return evacuated

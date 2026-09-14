@@ -12,21 +12,28 @@ test_mb3015_inventory_reservation.py) — a shared budget entity has no
 "owner"/"owners"/"household" attribute, so finance.py::_find_wallet
 naturally never mistakes it for a payable wallet.
 """
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.grocery import (
-    InventoryReleaseCapability, create_shared_budget,
+    InventoryReleaseCapability,
+    create_shared_budget,
 )
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 from src.monkey_brain.kernel.pipeline.execution import Action
-from src.monkey_brain.kernel.testing.fault_injection import clear_forced_failures, register_forced_failure
+from src.monkey_brain.kernel.testing.fault_injection import (
+    clear_forced_failures,
+    register_forced_failure,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -44,14 +51,23 @@ def _seed(price: float, quantity: int = 10):
 
 
 def _fund_wallet(kg, actor_id: str, balance: float) -> None:
-    kg.add_entity(f"wallet_{actor_id}", EntityType.ACCOUNT, f"{actor_id} Wallet",
-                  {"owner": actor_id, "balance": balance})
+    kg.add_entity(
+        f"wallet_{actor_id}",
+        EntityType.ACCOUNT,
+        f"{actor_id} Wallet",
+        {"owner": actor_id, "balance": balance},
+    )
 
 
 def _actions(product_id: str, with_payment: bool = False) -> tuple[Action, ...]:
     steps = [
-        Action(action_id="a0", capability="ProductSelection", step_index=0, depends_on=(),
-               parameters={"selection": [{"id": product_id, "qty": 1}]}),
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            depends_on=(),
+            parameters={"selection": [{"id": product_id, "qty": 1}]},
+        ),
         Action(action_id="a1", capability="OrderCreation", step_index=1, depends_on=(0,)),
     ]
     if with_payment:
@@ -67,8 +83,18 @@ async def test_budget001_two_actors_both_spend_within_a_shared_ceiling():
     budget_id = create_shared_budget(kg, ceiling=20.00, owner_ids=("actor_a", "actor_b"))
     executor = build_execution_engine("grocery")
 
-    context_a = {"knowledge_graph": kg, "actor_id": "actor_a", "question": "", "shared_budget_id": budget_id}
-    context_b = {"knowledge_graph": kg, "actor_id": "actor_b", "question": "", "shared_budget_id": budget_id}
+    context_a = {
+        "knowledge_graph": kg,
+        "actor_id": "actor_a",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
+    context_b = {
+        "knowledge_graph": kg,
+        "actor_id": "actor_b",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
 
     result_a = await executor.execute(_actions(product_id), context_a)
     result_b = await executor.execute(_actions(product_id), context_b)
@@ -90,7 +116,12 @@ async def test_budget002_second_actor_honestly_fails_once_the_budget_is_exhauste
     budget_id = create_shared_budget(kg, ceiling=20.00, owner_ids=("actor_a", "actor_b"))
     executor = build_execution_engine("grocery")
 
-    context_a = {"knowledge_graph": kg, "actor_id": "actor_a", "question": "", "shared_budget_id": budget_id}
+    context_a = {
+        "knowledge_graph": kg,
+        "actor_id": "actor_a",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
     result_a = await executor.execute(_actions(product_id), context_a)
     assert result_a.goal_achieved is True
 
@@ -102,10 +133,19 @@ async def test_budget002_second_actor_honestly_fails_once_the_budget_is_exhauste
     # actor_a already used, matching how a real shared budget genuinely
     # lives in one shared KnowledgeGraph, not two).
     product_id_b = list_product(
-        kg, onboard_merchant(kg, "merchant_b", "Whole Foods", delivery_fee=0.0)["store_id"],
-        "merchant_b", "Gadget", price=9.00, quantity=10,
+        kg,
+        onboard_merchant(kg, "merchant_b", "Whole Foods", delivery_fee=0.0)["store_id"],
+        "merchant_b",
+        "Gadget",
+        price=9.00,
+        quantity=10,
     )["product_id"]
-    context_b = {"knowledge_graph": kg, "actor_id": "actor_b", "question": "", "shared_budget_id": budget_id}
+    context_b = {
+        "knowledge_graph": kg,
+        "actor_id": "actor_b",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
     result_b = await executor.execute(_actions(product_id_b), context_b)
 
     assert result_b.goal_achieved is False
@@ -131,7 +171,12 @@ async def test_budget003_a_declined_payment_releases_the_real_reservation():
         error="Simulated processor decline",
     )
 
-    context = {"knowledge_graph": kg, "actor_id": "actor_a", "question": "", "shared_budget_id": budget_id}
+    context = {
+        "knowledge_graph": kg,
+        "actor_id": "actor_a",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
     result = await executor.execute(_actions(product_id, with_payment=True), context)
 
     assert result.actions[1].success is True  # OrderCreation reserved successfully
@@ -159,16 +204,30 @@ async def test_budget004_concurrent_overcommit_never_exceeds_the_real_ceiling():
     KG entity's own final state, never exceeds the ceiling."""
     kg, product_a = _seed(price=13.00, quantity=10)
     product_b = list_product(
-        kg, onboard_merchant(kg, "merchant_b", "Whole Foods", delivery_fee=0.0)["store_id"],
-        "merchant_b", "Gizmo", price=13.00, quantity=10,
+        kg,
+        onboard_merchant(kg, "merchant_b", "Whole Foods", delivery_fee=0.0)["store_id"],
+        "merchant_b",
+        "Gizmo",
+        price=13.00,
+        quantity=10,
     )["product_id"]
     budget_id = create_shared_budget(kg, ceiling=20.00, owner_ids=("actor_a", "actor_b"))
     _fund_wallet(kg, "actor_a", balance=1000.0)
     _fund_wallet(kg, "actor_b", balance=1000.0)
     executor = build_execution_engine("grocery")
 
-    context_a = {"knowledge_graph": kg, "actor_id": "actor_a", "question": "", "shared_budget_id": budget_id}
-    context_b = {"knowledge_graph": kg, "actor_id": "actor_b", "question": "", "shared_budget_id": budget_id}
+    context_a = {
+        "knowledge_graph": kg,
+        "actor_id": "actor_a",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
+    context_b = {
+        "knowledge_graph": kg,
+        "actor_id": "actor_b",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
 
     result_a, result_b = await asyncio.gather(
         executor.execute(_actions(product_a, with_payment=True), context_a),
@@ -206,7 +265,11 @@ async def test_budget005_real_prompt_text_creates_and_shares_a_real_budget_acros
     test itself."""
     from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
     from src.monkey_brain.kernel.pipeline.execution import Action
-    from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+    from src.monkey_brain.kernel.society.domain import (
+        ActorIdentity,
+        ActorProfile,
+        ActorType,
+    )
     from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
     pr = PlanetaryRuntime()
@@ -228,18 +291,40 @@ async def test_budget005_real_prompt_text_creates_and_shares_a_real_budget_acros
     executor = build_execution_engine("grocery")
     question = "Agent A buys milk while Agent B buys pizza. Shared $20 budget."
     context = {
-        "knowledge_graph": kg, "actor_id": alice.actor_id, "question": question,
+        "knowledge_graph": kg,
+        "actor_id": alice.actor_id,
+        "question": question,
         "planetary_runtime": pr,
     }
     actions = (
-        Action(action_id="a0", capability="ProductSelection", step_index=0, depends_on=(),
-               parameters={"selection": [{"id": milk_id, "qty": 1}]}),
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            depends_on=(),
+            parameters={"selection": [{"id": milk_id, "qty": 1}]},
+        ),
         Action(action_id="a1", capability="OrderCreation", step_index=1, depends_on=(0,)),
-        Action(action_id="a2", capability="DelegateTask", step_index=2, depends_on=(),
-               parameters={"target_actor": "Bob Budget5", "tasks": [
-                   {"capability": "ProductSelection", "parameters": {"selection": [{"id": pizza_id, "qty": 1}]}},
-                   {"capability": "OrderCreation", "parameters": {}, "depends_on": [0]},
-               ]}),
+        Action(
+            action_id="a2",
+            capability="DelegateTask",
+            step_index=2,
+            depends_on=(),
+            parameters={
+                "target_actor": "Bob Budget5",
+                "tasks": [
+                    {
+                        "capability": "ProductSelection",
+                        "parameters": {"selection": [{"id": pizza_id, "qty": 1}]},
+                    },
+                    {
+                        "capability": "OrderCreation",
+                        "parameters": {},
+                        "depends_on": [0],
+                    },
+                ],
+            },
+        ),
     )
 
     result = await executor.execute(actions, context)

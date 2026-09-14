@@ -1,6 +1,7 @@
 """AsyncTelemetryDispatcher (kernel/edge/telemetry.py) -- proves telemetry
 never blocks the caller and is delivered asynchronously without touching
 audit semantics."""
+
 from __future__ import annotations
 
 import threading

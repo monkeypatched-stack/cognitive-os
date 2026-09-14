@@ -6,6 +6,7 @@ GET /capabilities/bus/search   — enhanced search via CapabilityBus (modality, 
 GET /capabilities/bus/graph    — agent→capability graph
 GET /capabilities/bus/graph/mermaid — Mermaid diagram of the graph
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,6 +45,7 @@ def _get_runtime(request: Request) -> Any:
 # Capability search
 # ---------------------------------------------------------------------------
 
+
 @router.get("/capabilities", tags=["Capabilities"])
 async def search_capabilities(
     request: Request,
@@ -55,15 +57,21 @@ async def search_capabilities(
     """Search capabilities registered in the MonkeyBrain runtime."""
     runtime = _get_runtime(request)
     capabilities = _capability_list(runtime, name_filter=name, domain_filter=domain, provider_filter=provider)
-    return JSONResponse({
-        "capabilities": capabilities,
-        "total": len(capabilities),
-        "filters": {"name": name, "domain": domain, "provider": provider},
-    })
+    return JSONResponse(
+        {
+            "capabilities": capabilities,
+            "total": len(capabilities),
+            "filters": {"name": name, "domain": domain, "provider": provider},
+        }
+    )
 
 
 @router.get("/capabilities/{cap_name}", tags=["Capabilities"])
-async def get_capability(request: Request, cap_name: str, user_id: str = Depends(require_permission("perm-view-agents"))) -> JSONResponse:
+async def get_capability(
+    request: Request,
+    cap_name: str,
+    user_id: str = Depends(require_permission("perm-view-agents")),
+) -> JSONResponse:
     """Get a single capability by name."""
     runtime = _get_runtime(request)
     agents: dict[str, Any] = getattr(runtime, "_capabilities", {}) if runtime is not None else {}
@@ -71,6 +79,7 @@ async def get_capability(request: Request, cap_name: str, user_id: str = Depends
     if cap is None:
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
             cap = registry.list_agents().get(cap_name)
         except Exception:
@@ -84,6 +93,7 @@ async def get_capability(request: Request, cap_name: str, user_id: str = Depends
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _capability_list(
     runtime: Any,
     name_filter: str | None = None,
@@ -96,6 +106,7 @@ def _capability_list(
     if not agents:
         try:
             from broca.registry import get_registry
+
             registry = get_registry()
             agents = registry.list_agents()
         except Exception:
@@ -149,6 +160,7 @@ def _get_bus(runtime: Any) -> Any:
 # Bus-based capability search
 # ---------------------------------------------------------------------------
 
+
 @router.get("/capabilities/bus/search", tags=["Capabilities"])
 async def search_capabilities_bus(
     request: Request,
@@ -171,19 +183,27 @@ async def search_capabilities_bus(
             continue
         if precondition and not any(precondition.lower() in p.lower() for p in desc.preconditions):
             continue
-        results.append({
-            "name": desc.name,
-            "modality": desc.modality.value,
-            "confidence": desc.confidence,
-            "preconditions": desc.preconditions,
-            "produces": desc.produces,
-        })
+        results.append(
+            {
+                "name": desc.name,
+                "modality": desc.modality.value,
+                "confidence": desc.confidence,
+                "preconditions": desc.preconditions,
+                "produces": desc.produces,
+            }
+        )
 
-    return JSONResponse({
-        "capabilities": results,
-        "total": len(results),
-        "filters": {"name": name, "modality": modality, "precondition": precondition},
-    })
+    return JSONResponse(
+        {
+            "capabilities": results,
+            "total": len(results),
+            "filters": {
+                "name": name,
+                "modality": modality,
+                "precondition": precondition,
+            },
+        }
+    )
 
 
 @router.get("/capabilities/bus/graph", tags=["Capabilities"])

@@ -6,6 +6,7 @@ Orchestrates bidirectional synchronization:
 
 This implements Thesis 14: Edge-Cloud Cognitive Architecture.
 """
+
 from __future__ import annotations
 
 import logging
@@ -53,15 +54,18 @@ class EdgeCloudSync:
             logger.warning("EdgeCloudSync: node %s not found", node_id)
             return False
 
-        if not hasattr(node, 'actor') or node.actor is None:
+        if not hasattr(node, "actor") or node.actor is None:
             logger.warning("EdgeCloudSync: node %s has no actor", node_id)
             return False
 
         sync_data = node.actor.sync_to_cloud()
         self._cloud.receive_edge_sync(sync_data)
 
-        logger.info("EdgeCloudSync: synced edge %s to cloud (%d observations)",
-                     node_id, len(sync_data.get("observations", [])))
+        logger.info(
+            "EdgeCloudSync: synced edge %s to cloud (%d observations)",
+            node_id,
+            len(sync_data.get("observations", [])),
+        )
         return True
 
     def sync_all_edges_to_cloud(self) -> int:
@@ -84,15 +88,18 @@ class EdgeCloudSync:
             logger.warning("EdgeCloudSync: node %s not found", node_id)
             return False
 
-        if not hasattr(node, 'actor') or node.actor is None:
+        if not hasattr(node, "actor") or node.actor is None:
             logger.warning("EdgeCloudSync: node %s has no actor", node_id)
             return False
 
         world_snapshot = self._cloud.get_world_snapshot()
         node.actor.receive_world_update(world_snapshot)
 
-        logger.info("EdgeCloudSync: synced cloud to edge %s (%d transitions)",
-                     node_id, len(world_snapshot.get("transitions", [])))
+        logger.info(
+            "EdgeCloudSync: synced cloud to edge %s (%d transitions)",
+            node_id,
+            len(world_snapshot.get("transitions", [])),
+        )
         return True
 
     def sync_cloud_to_all_edges(self) -> int:
@@ -123,7 +130,10 @@ class EdgeCloudSync:
             "world_transitions": self._cloud.world.nnz(),
         }
 
-        logger.info("EdgeCloudSync: full cycle complete — %d edges synced to cloud, "
-                     "cloud synced to %d edges", edges_to_cloud, cloud_to_edges)
+        logger.info(
+            "EdgeCloudSync: full cycle complete — %d edges synced to cloud, cloud synced to %d edges",
+            edges_to_cloud,
+            cloud_to_edges,
+        )
 
         return summary

@@ -2,6 +2,7 @@
 
 Tests that RLS policies prevent cross-tenant queries at database level.
 """
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
@@ -63,7 +64,10 @@ class TestRLSPoliciesEnforced:
 
     def test_actor_state_store_uses_tenant_id(self):
         """ActorStateStore passes tenant_id to cursor."""
-        from src.monkey_brain.persistence.actor_state_store import ActorStateStore, PersistedActorState
+        from src.monkey_brain.persistence.actor_state_store import (
+            ActorStateStore,
+            PersistedActorState,
+        )
 
         mock_db = Mock()
         mock_cursor = Mock()
@@ -85,10 +89,10 @@ class TestRLSPoliciesEnforced:
             world_snapshot=b"",
             world_version=0,
             last_updated=datetime.now().isoformat(),
-            version=1
+            version=1,
         )
 
-        with patch.object(store, '_init_schema'):
+        with patch.object(store, "_init_schema"):
             store.save(state)
 
         # Verify cursor was called with tenant_id
@@ -103,8 +107,19 @@ class TestRLSPoliciesEnforced:
 
         # Mock cursor returning a row
         mock_cursor.fetchone.return_value = (
-            "alice", "org_alpha", b"", b"", b"", '{}', b"", 0,
-            datetime.now(), 1, True, 0, 0.0
+            "alice",
+            "org_alpha",
+            b"",
+            b"",
+            b"",
+            "{}",
+            b"",
+            0,
+            datetime.now(),
+            1,
+            True,
+            0,
+            0.0,
         )
 
         mock_db.cursor.return_value.__enter__ = Mock(return_value=mock_cursor)
@@ -112,7 +127,7 @@ class TestRLSPoliciesEnforced:
 
         store = ActorStateStore(mock_db)
 
-        with patch.object(store, '_init_schema'):
+        with patch.object(store, "_init_schema"):
             store.load("alice", "org_alpha")
 
         # Verify cursor was called with tenant_id
@@ -131,7 +146,7 @@ class TestRLSPoliciesEnforced:
 
         store = ActorStateStore(mock_db)
 
-        with patch.object(store, '_init_schema'):
+        with patch.object(store, "_init_schema"):
             store.delete("alice", "org_alpha")
 
         # Verify cursor was called with tenant_id
@@ -182,7 +197,7 @@ class TestRLSAttackPrevention:
             "SELECT": "tenant_isolation_read",
             "INSERT": "tenant_isolation_write",
             "UPDATE": "tenant_isolation_update",
-            "DELETE": "tenant_isolation_delete"
+            "DELETE": "tenant_isolation_delete",
         }
 
         # Each operation has its own RLS policy
@@ -226,7 +241,7 @@ class TestRLSVerification:
         table_rls_status = {
             "actor_state": True,  # RLS enabled
             "episodic_memory": True,  # RLS enabled
-            "event_log": True  # RLS enabled
+            "event_log": True,  # RLS enabled
         }
 
         for table, is_enabled in table_rls_status.items():
@@ -236,6 +251,7 @@ class TestRLSVerification:
 # ──────────────────────────────────────────────────────────────
 # PHASE 2.3 COMPLETION TEST
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase2Deliverable23Complete:
     """Verify PostgreSQL RLS enforcement complete."""

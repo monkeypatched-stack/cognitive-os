@@ -1,4 +1,5 @@
 """Hospitality agents — Reservation, Guest, Housekeeping, Concierge, Room, Event."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,13 +15,26 @@ class ReservationAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "book"), "check_in": context.get("check_in", ""), "check_out": context.get("check_out", ""), "room_type": context.get("room_type", "")}
+        return {
+            "operation": context.get("operation", "book"),
+            "check_in": context.get("check_in", ""),
+            "check_out": context.get("check_out", ""),
+            "room_type": context.get("room_type", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"reservation.{perception['operation']}", "available": True}
+        return {
+            "operation": perception["operation"],
+            "action": f"reservation.{perception['operation']}",
+            "available": True,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"reservation.{decision['operation']}", "success": decision.get("available", False), "confirmation": f"res-{decision.get('check_in', '')[:8]}"}
+        return {
+            "action": f"reservation.{decision['operation']}",
+            "success": decision.get("available", False),
+            "confirmation": f"res-{decision.get('check_in', '')[:8]}",
+        }
 
 
 class GuestAgent(BaseDDDAgent):
@@ -30,10 +44,17 @@ class GuestAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "query"), "guest_id": context.get("guest_id", ""), "stay_id": context.get("stay_id", "")}
+        return {
+            "operation": context.get("operation", "query"),
+            "guest_id": context.get("guest_id", ""),
+            "stay_id": context.get("stay_id", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"guest.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"guest.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"guest.{decision['operation']}", "success": True}
@@ -46,10 +67,17 @@ class HousekeepingAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"room_id": context.get("room_id", ""), "operation": context.get("operation", "status"), "priority": context.get("priority", "normal")}
+        return {
+            "room_id": context.get("room_id", ""),
+            "operation": context.get("operation", "status"),
+            "priority": context.get("priority", "normal"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"housekeeping.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"housekeeping.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"housekeeping.{decision['operation']}", "success": True}
@@ -62,13 +90,20 @@ class ConciergeAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"guest_id": context.get("guest_id", ""), "request": context.get("request", ""), "priority": context.get("priority", "normal")}
+        return {
+            "guest_id": context.get("guest_id", ""),
+            "request": context.get("request", ""),
+            "priority": context.get("priority", "normal"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         return {"action": "concierge.fulfill", "fulfilled": True}
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "concierge.fulfill", "success": decision.get("fulfilled", False)}
+        return {
+            "action": "concierge.fulfill",
+            "success": decision.get("fulfilled", False),
+        }
 
 
 class RoomAgent(BaseDDDAgent):
@@ -78,10 +113,17 @@ class RoomAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"room_id": context.get("room_id", ""), "operation": context.get("operation", "status"), "room_type": context.get("room_type", "")}
+        return {
+            "room_id": context.get("room_id", ""),
+            "operation": context.get("operation", "status"),
+            "room_type": context.get("room_type", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"room.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"room.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"room.{decision['operation']}", "success": True}
@@ -94,10 +136,17 @@ class HospitalityEventAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "book"), "event": context.get("event", {}), "venue": context.get("venue", "")}
+        return {
+            "operation": context.get("operation", "book"),
+            "event": context.get("event", {}),
+            "venue": context.get("venue", ""),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"hospitality_event.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"hospitality_event.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"hospitality_event.{decision['operation']}", "success": True}

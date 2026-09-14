@@ -14,6 +14,7 @@ REAL ActionExecutor (not mocked), proving:
    authorization, expired authority, and missing human approval all fail
    closed regardless of network state.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -21,9 +22,15 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.monkey_brain.kernel.approval import reset_approval_store
-from src.monkey_brain.kernel.edge.local_governance import GovernanceOrigin, LocalGovernanceEvaluator
+from src.monkey_brain.kernel.edge.local_governance import (
+    GovernanceOrigin,
+    LocalGovernanceEvaluator,
+)
 from src.monkey_brain.kernel.edge.local_store import EdgeLocalStore
-from src.monkey_brain.kernel.edge.policy_cache import EdgePolicyCache, issue_policy_snapshot
+from src.monkey_brain.kernel.edge.policy_cache import (
+    EdgePolicyCache,
+    issue_policy_snapshot,
+)
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.pipeline.execution import Action
 from src.monkey_brain.kernel.security_boundary import reset_governed_pipeline_for_tests
@@ -48,10 +55,15 @@ def _reset(monkeypatch):
     # OPA. The per-capability decision under test is made entirely by
     # local_policy_decision, which takes priority over that relaxation
     # regardless of this setting (see _authorize_and_gate).
-    bind_trusted_auth(TrustedAuthEvidence(
-        authenticated=True, token_valid=True, principal_id=PRINCIPAL,
-        principal_type="service", mfa_status="satisfied",
-    ))
+    bind_trusted_auth(
+        TrustedAuthEvidence(
+            authenticated=True,
+            token_valid=True,
+            principal_id=PRINCIPAL,
+            principal_type="service",
+            mfa_status="satisfied",
+        )
+    )
     yield
     reset_approval_store()
     reset_governed_pipeline_for_tests()
@@ -62,7 +74,11 @@ def _refusing_connectivity_check(capability_name: str):
     decided this capability cannot proceed centrally (DISCONNECTED) --
     the exact condition under which edge governance is meant to be
     consulted at all."""
-    return False, "WAITING_FOR_AUTHORITY", f"{capability_name} requires authority but this node is disconnected"
+    return (
+        False,
+        "WAITING_FOR_AUTHORITY",
+        f"{capability_name} requires authority but this node is disconnected",
+    )
 
 
 def _fake_bus_and_capability():
@@ -85,8 +101,14 @@ class TestLocalAllowRequiresNoCentralRoundTrip:
     async def test_valid_cached_authority_executes_without_calling_opa(self, monkeypatch, tmp_path):
         store, cache, gov = _edge_governance(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal=PRINCIPAL, action="capability.ReserveDock", resource="ReserveDock",
-            policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE", "policy_rule": "edge_cached"},
+            principal=PRINCIPAL,
+            action="capability.ReserveDock",
+            resource="ReserveDock",
+            policy_decision={
+                "allowed": True,
+                "approval_mode": "AUTO_APPROVE",
+                "policy_rule": "edge_cached",
+            },
         )
         cache.store_snapshot(snapshot)
 
@@ -100,7 +122,9 @@ class TestLocalAllowRequiresNoCentralRoundTrip:
 
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(
-            capability_bus=bus, connectivity_check=_refusing_connectivity_check, edge_governance=gov,
+            capability_bus=bus,
+            connectivity_check=_refusing_connectivity_check,
+            edge_governance=gov,
         )
         action = Action(action_id="a1", capability="ReserveDock", step_index=0)
 
@@ -118,7 +142,9 @@ class TestEscalationWhenFreshAuthorityRequired:
         store, cache, gov = _edge_governance(tmp_path)
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(
-            capability_bus=bus, connectivity_check=_refusing_connectivity_check, edge_governance=gov,
+            capability_bus=bus,
+            connectivity_check=_refusing_connectivity_check,
+            edge_governance=gov,
         )
         action = Action(action_id="a1", capability="Payment", step_index=0)
 
@@ -149,14 +175,22 @@ class TestLocalExecutionPreservesEnsureGovernedInvariants:
     async def test_cached_deny_blocks_execution_locally(self, tmp_path):
         store, cache, gov = _edge_governance(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal=PRINCIPAL, action="capability.Delete", resource="Delete",
-            policy_decision={"allowed": False, "approval_mode": "DENY", "policy_rule": "blocked"},
+            principal=PRINCIPAL,
+            action="capability.Delete",
+            resource="Delete",
+            policy_decision={
+                "allowed": False,
+                "approval_mode": "DENY",
+                "policy_rule": "blocked",
+            },
         )
         cache.store_snapshot(snapshot)
 
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(
-            capability_bus=bus, connectivity_check=_refusing_connectivity_check, edge_governance=gov,
+            capability_bus=bus,
+            connectivity_check=_refusing_connectivity_check,
+            edge_governance=gov,
         )
         action = Action(action_id="a1", capability="Delete", step_index=0)
 
@@ -173,14 +207,22 @@ class TestLocalExecutionPreservesEnsureGovernedInvariants:
         NEVER be locally satisfied -- it must escalate every time."""
         store, cache, gov = _edge_governance(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal=PRINCIPAL, action="capability.Refund", resource="Refund",
-            policy_decision={"allowed": True, "approval_mode": "HUMAN_APPROVAL_REQUIRED", "policy_rule": "needs_human"},
+            principal=PRINCIPAL,
+            action="capability.Refund",
+            resource="Refund",
+            policy_decision={
+                "allowed": True,
+                "approval_mode": "HUMAN_APPROVAL_REQUIRED",
+                "policy_rule": "needs_human",
+            },
         )
         cache.store_snapshot(snapshot)
 
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(
-            capability_bus=bus, connectivity_check=_refusing_connectivity_check, edge_governance=gov,
+            capability_bus=bus,
+            connectivity_check=_refusing_connectivity_check,
+            edge_governance=gov,
         )
         action = Action(action_id="a1", capability="Refund", step_index=0)
 
@@ -194,14 +236,18 @@ class TestLocalExecutionPreservesEnsureGovernedInvariants:
     async def test_wrong_principal_presenting_cached_snapshot_is_refused(self, tmp_path):
         store, cache, gov = _edge_governance(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal="someone-else", action="capability.ReserveDock", resource="ReserveDock",
+            principal="someone-else",
+            action="capability.ReserveDock",
+            resource="ReserveDock",
             policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
         )
         cache.store_snapshot(snapshot)
 
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(
-            capability_bus=bus, connectivity_check=_refusing_connectivity_check, edge_governance=gov,
+            capability_bus=bus,
+            connectivity_check=_refusing_connectivity_check,
+            edge_governance=gov,
         )
         action = Action(action_id="a1", capability="ReserveDock", step_index=0)
 
@@ -214,16 +260,22 @@ class TestLocalExecutionPreservesEnsureGovernedInvariants:
     async def test_expired_cached_authority_blocks_operation(self, tmp_path):
         store, cache, gov = _edge_governance(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal=PRINCIPAL, action="capability.ReserveDock", resource="ReserveDock",
-            policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"}, ttl_seconds=0.01,
+            principal=PRINCIPAL,
+            action="capability.ReserveDock",
+            resource="ReserveDock",
+            policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
+            ttl_seconds=0.01,
         )
         cache.store_snapshot(snapshot)
         import time
+
         time.sleep(0.02)
 
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(
-            capability_bus=bus, connectivity_check=_refusing_connectivity_check, edge_governance=gov,
+            capability_bus=bus,
+            connectivity_check=_refusing_connectivity_check,
+            edge_governance=gov,
         )
         action = Action(action_id="a1", capability="ReserveDock", step_index=0)
 
@@ -240,12 +292,15 @@ class TestLocalExecutionPreservesEnsureGovernedInvariants:
         dispatch path."""
         store, cache, gov = _edge_governance(tmp_path)
         snapshot = issue_policy_snapshot(
-            principal=PRINCIPAL, action="capability.ReserveDock", resource="ReserveDock",
+            principal=PRINCIPAL,
+            action="capability.ReserveDock",
+            resource="ReserveDock",
             policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
         )
         cache.store_snapshot(snapshot)
 
         import src.monkey_brain.kernel.security_boundary as sb
+
         real_ensure_governed = sb.ensure_governed
         calls = []
 
@@ -257,7 +312,9 @@ class TestLocalExecutionPreservesEnsureGovernedInvariants:
 
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(
-            capability_bus=bus, connectivity_check=_refusing_connectivity_check, edge_governance=gov,
+            capability_bus=bus,
+            connectivity_check=_refusing_connectivity_check,
+            edge_governance=gov,
         )
         action = Action(action_id="a1", capability="ReserveDock", step_index=0)
         result = await executor.execute((action,))
@@ -282,7 +339,8 @@ class TestNetworkFailureDoesNotCauseUnsafeFallback:
 
         bus, capability = _fake_bus_and_capability()
         executor = ActionExecutor(
-            capability_bus=bus, connectivity_check=_refusing_connectivity_check,
+            capability_bus=bus,
+            connectivity_check=_refusing_connectivity_check,
             edge_governance=_BrokenGovernance(),
         )
         action = Action(action_id="a1", capability="Payment", step_index=0)

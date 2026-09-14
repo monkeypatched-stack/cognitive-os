@@ -11,6 +11,7 @@ Compaction is safe because:
   - The full episodic history remains traversable for audit purposes.
   - CognitiveGC separately decides if/when tombstoning is appropriate.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,9 +21,8 @@ from typing import Any
 
 from src.monkey_brain.kernel.learn.memory.manager import MemoryManager
 
-
-
 logger = logging.getLogger("monkey_brain.kernel.memory.compactor")
+
 
 class BackgroundCompactor:
     """Scans episodic trails and compiles frequent patterns into procedural policies.
@@ -40,9 +40,7 @@ class BackgroundCompactor:
         Returns a summary dict describing how many patterns were processed.
         """
         frequent_patterns = self.mgr.graph_db.query(
-            "MATCH (e:EpisodicTrace) "
-            "WHERE e.access_count > 100 "
-            "RETURN e.pattern_id, count(e) AS hit_count"
+            "MATCH (e:EpisodicTrace) WHERE e.access_count > 100 RETURN e.pattern_id, count(e) AS hit_count"
         )
 
         compiled = 0
@@ -62,7 +60,11 @@ class BackgroundCompactor:
             except Exception as exc:
                 errors.append(f"pattern={pattern_id}: {exc}")
 
-        return {"patterns_compiled": compiled, "errors": errors, "swept_at": time.time()}
+        return {
+            "patterns_compiled": compiled,
+            "errors": errors,
+            "swept_at": time.time(),
+        }
 
     def _distill_traces_to_policy(self, pattern_id: str) -> dict[str, Any]:
         """Flatten 100+ deep LLM reasoning traces into a statistical routing heuristic.
@@ -71,8 +73,8 @@ class BackgroundCompactor:
         encodes it as a deterministic routing shortcut.
         """
         return {
-            "compiled_at":      time.time(),
-            "target_pattern":   pattern_id,
+            "compiled_at": time.time(),
+            "target_pattern": pattern_id,
             "routing_shortcut": True,
         }
 

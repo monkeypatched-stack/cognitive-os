@@ -4,8 +4,13 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from services.common.auth import get_current_user, require_permission
 from services.common.db import get_database
 from services.assets.helpers import plc as crud
-from services.assets.models.plc import PLCCreate, PLCResponse, PLCStatus, PLCUpdate, PaginatedPLCResponse
-
+from services.assets.models.plc import (
+    PLCCreate,
+    PLCResponse,
+    PLCStatus,
+    PLCUpdate,
+    PaginatedPLCResponse,
+)
 
 router = APIRouter()
 
@@ -18,7 +23,9 @@ async def list_plcs(
     _: dict = Depends(get_current_user),
 ):
     records, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedPLCResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedPLCResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/by-status/{plc_status}", response_model=list[PLCResponse])
@@ -56,7 +63,9 @@ async def get_plc(
 ):
     record = await crud.get_by_id(db, plc_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"PLC '{plc_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"PLC '{plc_id}' not found"
+        )
     return record
 
 
@@ -67,7 +76,9 @@ async def create_plc(
     _: dict = Depends(require_permission("perm-create-sensors")),
 ):
     if await crud.get_by_id(db, data.plc_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"PLC '{data.plc_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"PLC '{data.plc_id}' already exists"
+        )
     return await crud.create(db, data)
 
 
@@ -80,7 +91,9 @@ async def update_plc(
 ):
     updated = await crud.update(db, plc_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"PLC '{plc_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"PLC '{plc_id}' not found"
+        )
     return updated
 
 
@@ -91,4 +104,6 @@ async def delete_plc(
     _: dict = Depends(require_permission("perm-delete-sensors")),
 ):
     if not await crud.delete(db, plc_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"PLC '{plc_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"PLC '{plc_id}' not found"
+        )

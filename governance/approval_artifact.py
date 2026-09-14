@@ -14,6 +14,7 @@ a frozen/immutable core record, a small explicit status-transition table,
 and one canonical validator that every caller must use rather than
 re-implementing the checks.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -56,10 +57,23 @@ inspect AUTHENTICATED_APPROVER_AVAILABLE's boolean value."""
 # Placeholder/self-referential values that must never be accepted as a
 # human approving identity. This is a weak heuristic (a name blocklist),
 # not authentication — see README.md.
-_DISALLOWED_APPROVER_IDENTITIES = frozenset({
-    "agent", "llm", "system", "anonymous", "unknown", "claude", "assistant",
-    "ai", "bot", "", "n/a", "none", "null",
-})
+_DISALLOWED_APPROVER_IDENTITIES = frozenset(
+    {
+        "agent",
+        "llm",
+        "system",
+        "anonymous",
+        "unknown",
+        "claude",
+        "assistant",
+        "ai",
+        "bot",
+        "",
+        "n/a",
+        "none",
+        "null",
+    }
+)
 
 
 class ApprovalDecision(str, Enum):
@@ -87,18 +101,27 @@ class ApprovalStatus(str, Enum):
     INVALID = "invalid"
 
 
-TERMINAL_STATUSES = frozenset({
-    ApprovalStatus.REJECTED, ApprovalStatus.EXPIRED,
-    ApprovalStatus.REVOKED, ApprovalStatus.SUPERSEDED, ApprovalStatus.INVALID,
-})
+TERMINAL_STATUSES = frozenset(
+    {
+        ApprovalStatus.REJECTED,
+        ApprovalStatus.EXPIRED,
+        ApprovalStatus.REVOKED,
+        ApprovalStatus.SUPERSEDED,
+        ApprovalStatus.INVALID,
+    }
+)
 
 # CREATED -> APPROVED|REJECTED is set once, at construction, from the
 # decision itself (see ApprovalRecord.create) — it is not a separate call.
 STATUS_TRANSITIONS: dict[ApprovalStatus, frozenset[ApprovalStatus]] = {
     ApprovalStatus.CREATED: frozenset({ApprovalStatus.APPROVED, ApprovalStatus.REJECTED}),
-    ApprovalStatus.APPROVED: frozenset({
-        ApprovalStatus.EXPIRED, ApprovalStatus.REVOKED, ApprovalStatus.SUPERSEDED,
-    }),
+    ApprovalStatus.APPROVED: frozenset(
+        {
+            ApprovalStatus.EXPIRED,
+            ApprovalStatus.REVOKED,
+            ApprovalStatus.SUPERSEDED,
+        }
+    ),
     ApprovalStatus.REJECTED: frozenset(),
     ApprovalStatus.EXPIRED: frozenset(),
     ApprovalStatus.REVOKED: frozenset(),
@@ -269,7 +292,8 @@ class ApprovalArtifact:
 
     def __post_init__(self) -> None:
         missing = [
-            name for name, value in (
+            name
+            for name, value in (
                 ("approval_id", self.approval_id),
                 ("handoff_id", self.handoff_id),
                 ("approved_by", self.approved_by),

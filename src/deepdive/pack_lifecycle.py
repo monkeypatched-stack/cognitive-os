@@ -58,6 +58,7 @@ logger = logging.getLogger("deepdive.pack_lifecycle")
 # Provenance
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class EpisodicRef:
     """Pointer back to the episodic memory node that produced this contribution.
@@ -66,26 +67,29 @@ class EpisodicRef:
     earned it — once merged into a version, the audit trail runs:
       PackVersion → PackContribution → EpisodicRef → EpisodicTrace (graph DB)
     """
-    episode_id:    str          # MemoryNode.node_id of the source EpisodicTrace
-    pattern_id:    str          # BackgroundCompactor pattern that crystallised it
-    access_count:  int          # how many times the pattern was observed before nomination
-    compacted_at:  float = field(default_factory=time.time)
+
+    episode_id: str  # MemoryNode.node_id of the source EpisodicTrace
+    pattern_id: str  # BackgroundCompactor pattern that crystallised it
+    access_count: int  # how many times the pattern was observed before nomination
+    compacted_at: float = field(default_factory=time.time)
 
 
 # ---------------------------------------------------------------------------
 # Contribution status
 # ---------------------------------------------------------------------------
 
+
 class ContributionStatus(str, Enum):
-    PROPOSED  = "proposed"    # accumulated in the candidate, not yet validated
-    VALIDATED = "validated"   # passed all validation checks
-    REJECTED  = "rejected"    # failed one or more checks — never enters a version
-    MERGED    = "merged"      # included in a released PackVersion
+    PROPOSED = "proposed"  # accumulated in the candidate, not yet validated
+    VALIDATED = "validated"  # passed all validation checks
+    REJECTED = "rejected"  # failed one or more checks — never enters a version
+    MERGED = "merged"  # included in a released PackVersion
 
 
 # ---------------------------------------------------------------------------
 # Pack contribution (the unit of staging)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PackContribution:
@@ -96,15 +100,16 @@ class PackContribution:
     audit trail covers not just what the system did with a pack, but how the
     pack itself came to know what it knows.
     """
+
     contribution_id: str = field(default_factory=lambda: f"contrib-{uuid4().hex[:12]}")
-    knowledge_type:  str = ""
-    entry:           KnowledgeEntry = field(default_factory=KnowledgeEntry)
-    episodic_refs:   list[EpisodicRef] = field(default_factory=list)
-    proposed_by:     str = "runtime"     # "runtime" | agent_type | node_id
-    proposed_at:     float = field(default_factory=time.time)
-    status:          ContributionStatus = ContributionStatus.PROPOSED
+    knowledge_type: str = ""
+    entry: KnowledgeEntry = field(default_factory=KnowledgeEntry)
+    episodic_refs: list[EpisodicRef] = field(default_factory=list)
+    proposed_by: str = "runtime"  # "runtime" | agent_type | node_id
+    proposed_at: float = field(default_factory=time.time)
+    status: ContributionStatus = ContributionStatus.PROPOSED
     rejection_reasons: list[str] = field(default_factory=list)
-    content_hash:    str = ""            # sha256[:16] of entry.content — for dedup
+    content_hash: str = ""  # sha256[:16] of entry.content — for dedup
 
     def __post_init__(self) -> None:
         if not self.content_hash:
@@ -114,21 +119,21 @@ class PackContribution:
     def to_dict(self) -> dict[str, Any]:
         return {
             "contribution_id": self.contribution_id,
-            "knowledge_type":  self.knowledge_type,
-            "entry":           asdict(self.entry),
-            "episodic_refs":   [
+            "knowledge_type": self.knowledge_type,
+            "entry": asdict(self.entry),
+            "episodic_refs": [
                 {
-                    "episode_id":   r.episode_id,
-                    "pattern_id":   r.pattern_id,
+                    "episode_id": r.episode_id,
+                    "pattern_id": r.pattern_id,
                     "access_count": r.access_count,
                     "compacted_at": r.compacted_at,
                 }
                 for r in self.episodic_refs
             ],
-            "proposed_by":     self.proposed_by,
-            "proposed_at":     self.proposed_at,
-            "status":          self.status,
-            "content_hash":    self.content_hash,
+            "proposed_by": self.proposed_by,
+            "proposed_at": self.proposed_at,
+            "status": self.status,
+            "content_hash": self.content_hash,
             "rejection_reasons": self.rejection_reasons,
         }
 
@@ -136,6 +141,7 @@ class PackContribution:
 # ---------------------------------------------------------------------------
 # Pack candidate (the staging area for one knowledge type)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PackCandidate:
@@ -145,11 +151,12 @@ class PackCandidate:
     It is never deployed as-is — it must be promoted by PackVersionRegistry.release().
     The deployed pack is never touched until release is called.
     """
-    knowledge_type:   str
-    base_version:     str = ""   # version of the deployed pack this builds on
-    contributions:    list[PackContribution] = field(default_factory=list)
-    opened_at:        float = field(default_factory=time.time)
-    closed_at:        float | None = None
+
+    knowledge_type: str
+    base_version: str = ""  # version of the deployed pack this builds on
+    contributions: list[PackContribution] = field(default_factory=list)
+    opened_at: float = field(default_factory=time.time)
+    closed_at: float | None = None
 
     @property
     def is_open(self) -> bool:
@@ -171,13 +178,13 @@ class PackCandidate:
         for c in self.contributions:
             by_status[c.status] = by_status.get(c.status, 0) + 1
         return {
-            "knowledge_type":  self.knowledge_type,
-            "base_version":    self.base_version,
-            "is_open":         self.is_open,
-            "total":           len(self.contributions),
-            "by_status":       by_status,
-            "opened_at":       self.opened_at,
-            "closed_at":       self.closed_at,
+            "knowledge_type": self.knowledge_type,
+            "base_version": self.base_version,
+            "is_open": self.is_open,
+            "total": len(self.contributions),
+            "by_status": by_status,
+            "opened_at": self.opened_at,
+            "closed_at": self.closed_at,
         }
 
 
@@ -185,10 +192,11 @@ class PackCandidate:
 # Validation
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ContributionValidationResult:
-    passed:   bool
-    reasons:  list[str] = field(default_factory=list)   # failure reasons; empty on pass
+    passed: bool
+    reasons: list[str] = field(default_factory=list)  # failure reasons; empty on pass
 
 
 class ContributionValidator:
@@ -208,38 +216,31 @@ class ContributionValidator:
 
     def __init__(
         self,
-        min_confidence:   float = CONFIDENCE_THRESHOLD,
-        min_access_count: int   = 10,
+        min_confidence: float = CONFIDENCE_THRESHOLD,
+        min_access_count: int = 10,
     ) -> None:
-        self._min_confidence   = min_confidence
+        self._min_confidence = min_confidence
         self._min_access_count = min_access_count
 
     def validate(
         self,
-        contribution:    PackContribution,
+        contribution: PackContribution,
         existing_hashes: set[str],
     ) -> ContributionValidationResult:
         reasons: list[str] = []
 
         if contribution.entry.confidence < self._min_confidence:
-            reasons.append(
-                f"confidence {contribution.entry.confidence:.3f} < "
-                f"threshold {self._min_confidence}"
-            )
+            reasons.append(f"confidence {contribution.entry.confidence:.3f} < threshold {self._min_confidence}")
 
         if not contribution.episodic_refs:
             reasons.append("no episodic provenance — cannot trace origin")
         else:
-            weak_refs = [
-                r for r in contribution.episodic_refs
-                if r.access_count < self._min_access_count
-            ]
+            weak_refs = [r for r in contribution.episodic_refs if r.access_count < self._min_access_count]
             if len(weak_refs) == len(contribution.episodic_refs):
                 # All refs are below the access floor — likely a fluke observation
                 max_count = max(r.access_count for r in contribution.episodic_refs)
                 reasons.append(
-                    f"all episodic refs have access_count < {self._min_access_count} "
-                    f"(max seen: {max_count})"
+                    f"all episodic refs have access_count < {self._min_access_count} (max seen: {max_count})"
                 )
 
         if contribution.content_hash in existing_hashes:
@@ -255,6 +256,7 @@ class ContributionValidator:
 # Versioned pack record
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PackVersion:
     """An immutable, released snapshot of a Knowledge Pack.
@@ -262,35 +264,37 @@ class PackVersion:
     Once released, a PackVersion is never mutated.  Subsequent contributions
     open a new PackCandidate targeting the next version number.
     """
-    version_id:      str = field(default_factory=lambda: f"v-{uuid4().hex[:8]}")
-    knowledge_type:  str = ""
-    version:         str = "0.1.0"
-    pack:            KnowledgePack = field(default_factory=KnowledgePack)
+
+    version_id: str = field(default_factory=lambda: f"v-{uuid4().hex[:8]}")
+    knowledge_type: str = ""
+    version: str = "0.1.0"
+    pack: KnowledgePack = field(default_factory=KnowledgePack)
     contribution_ids: list[str] = field(default_factory=list)
-    episodic_refs:    list[dict[str, Any]] = field(default_factory=list)  # flattened for audit
-    released_at:     float = field(default_factory=time.time)
-    released_by:     str = "system"   # "system" | human approver id
-    yaml_path:       str = ""
+    episodic_refs: list[dict[str, Any]] = field(default_factory=list)  # flattened for audit
+    released_at: float = field(default_factory=time.time)
+    released_by: str = "system"  # "system" | human approver id
+    yaml_path: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "version_id":      self.version_id,
-            "knowledge_type":  self.knowledge_type,
-            "version":         self.version,
-            "pack_id":         self.pack.pack_id,
-            "entry_count":     self.pack.entry_count,
-            "avg_confidence":  self.pack.avg_confidence,
+            "version_id": self.version_id,
+            "knowledge_type": self.knowledge_type,
+            "version": self.version,
+            "pack_id": self.pack.pack_id,
+            "entry_count": self.pack.entry_count,
+            "avg_confidence": self.pack.avg_confidence,
             "contribution_ids": self.contribution_ids,
             "episodic_ref_count": len(self.episodic_refs),
-            "released_at":     self.released_at,
-            "released_by":     self.released_by,
-            "yaml_path":       self.yaml_path,
+            "released_at": self.released_at,
+            "released_by": self.released_by,
+            "yaml_path": self.yaml_path,
         }
 
 
 # ---------------------------------------------------------------------------
 # Version registry
 # ---------------------------------------------------------------------------
+
 
 class PackVersionRegistry:
     """Tracks released versions and manages the live candidate per knowledge type.
@@ -304,18 +308,18 @@ class PackVersionRegistry:
 
     def __init__(
         self,
-        pack_dir:             Path | None = None,
-        validator:            ContributionValidator | None = None,
+        pack_dir: Path | None = None,
+        validator: ContributionValidator | None = None,
         sittingface_publisher: "SittingFacePublisher | None" = None,
     ) -> None:
-        self._pack_dir     = pack_dir or _PACK_DIR
-        self._validator    = validator or ContributionValidator()
+        self._pack_dir = pack_dir or _PACK_DIR
+        self._validator = validator or ContributionValidator()
         self._sf_publisher: SittingFacePublisher | None = sittingface_publisher
 
         # knowledge_type → list of released PackVersion (oldest first)
-        self._versions:   dict[str, list[PackVersion]] = {}
+        self._versions: dict[str, list[PackVersion]] = {}
         # knowledge_type → open PackCandidate (None if no staging work yet)
-        self._candidates: dict[str, PackCandidate]     = {}
+        self._candidates: dict[str, PackCandidate] = {}
 
     # ------------------------------------------------------------------
     # Staging
@@ -340,7 +344,7 @@ class PackVersionRegistry:
         Validation is synchronous and deterministic — no side effects on failure.
         The contribution's status is updated in place.
         """
-        candidate    = self.candidate_for(contribution.knowledge_type)
+        candidate = self.candidate_for(contribution.knowledge_type)
         known_hashes = candidate.content_hashes()
 
         # Also include hashes already in the deployed version
@@ -363,9 +367,9 @@ class PackVersionRegistry:
                 len(contribution.episodic_refs),
             )
         else:
-            contribution.status         = ContributionStatus.REJECTED
+            contribution.status = ContributionStatus.REJECTED
             contribution.rejection_reasons = result.reasons
-            candidate.contributions.append(contribution)   # kept for audit
+            candidate.contributions.append(contribution)  # kept for audit
             logger.warning(
                 "[pack_lifecycle] contribution %s rejected for %s: %s",
                 contribution.contribution_id,
@@ -382,8 +386,8 @@ class PackVersionRegistry:
     def release(
         self,
         knowledge_type: str,
-        released_by:    str = "system",
-        next_version:   str | None = None,
+        released_by: str = "system",
+        next_version: str | None = None,
     ) -> PackVersion | None:
         """Promote the validated candidate into a new immutable PackVersion.
 
@@ -403,19 +407,20 @@ class PackVersionRegistry:
 
         validated = candidate.validated_contributions
         if not validated:
-            logger.warning("[pack_lifecycle] no validated contributions for %s — nothing to release", knowledge_type)
+            logger.warning(
+                "[pack_lifecycle] no validated contributions for %s — nothing to release",
+                knowledge_type,
+            )
             return None
 
         # Determine next version string
         deployed = self.deployed_version(knowledge_type)
-        version  = next_version or self._bump_version(
-            deployed.version if deployed else "0.0.0"
-        )
+        version = next_version or self._bump_version(deployed.version if deployed else "0.0.0")
 
         # Build the new KnowledgePack from validated contributions only
-        entries      = [asdict(c.entry) for c in validated]
-        avg_conf     = sum(c.entry.confidence for c in validated) / len(validated)
-        new_pack     = KnowledgePack(
+        entries = [asdict(c.entry) for c in validated]
+        avg_conf = sum(c.entry.confidence for c in validated) / len(validated)
+        new_pack = KnowledgePack(
             knowledge_type=knowledge_type,
             entries=entries,
             avg_confidence=round(avg_conf, 4),
@@ -427,27 +432,29 @@ class PackVersionRegistry:
         all_refs: list[dict[str, Any]] = []
         for c in validated:
             for ref in c.episodic_refs:
-                all_refs.append({
-                    "contribution_id": c.contribution_id,
-                    "episode_id":      ref.episode_id,
-                    "pattern_id":      ref.pattern_id,
-                    "access_count":    ref.access_count,
-                })
+                all_refs.append(
+                    {
+                        "contribution_id": c.contribution_id,
+                        "episode_id": ref.episode_id,
+                        "pattern_id": ref.pattern_id,
+                        "access_count": ref.access_count,
+                    }
+                )
 
         # Write to disk — new YAML alongside any existing pack
         self._pack_dir.mkdir(parents=True, exist_ok=True)
         yaml_path = self._pack_dir / f"{knowledge_type}.yaml"
-        tmp_path  = yaml_path.with_suffix(".yaml.tmp")
+        tmp_path = yaml_path.with_suffix(".yaml.tmp")
 
         pack_dict = asdict(new_pack)
-        pack_dict["_version"]      = version
-        pack_dict["_released_at"]  = datetime.now(timezone.utc).isoformat()
-        pack_dict["_released_by"]  = released_by
+        pack_dict["_version"] = version
+        pack_dict["_released_at"] = datetime.now(timezone.utc).isoformat()
+        pack_dict["_released_by"] = released_by
         pack_dict["_episodic_refs"] = all_refs
 
         with open(tmp_path, "w") as fh:
             yaml.dump(pack_dict, fh, default_flow_style=False, sort_keys=False)
-        tmp_path.rename(yaml_path)   # atomic on POSIX
+        tmp_path.rename(yaml_path)  # atomic on POSIX
 
         pack_version = PackVersion(
             knowledge_type=knowledge_type,
@@ -470,7 +477,11 @@ class PackVersionRegistry:
 
         logger.info(
             "[pack_lifecycle] released %s v%s — %d entries, %d episodic refs → %s",
-            knowledge_type, version, len(entries), len(all_refs), yaml_path,
+            knowledge_type,
+            version,
+            len(entries),
+            len(all_refs),
+            yaml_path,
         )
 
         if self._sf_publisher:
@@ -532,6 +543,7 @@ class PackVersionRegistry:
 # SittingFace publisher — optional post-release publication
 # ---------------------------------------------------------------------------
 
+
 class SittingFacePublisher:
     """Publishes a sealed PackVersion to the SittingFace chart registry.
 
@@ -548,10 +560,10 @@ class SittingFacePublisher:
     def __init__(
         self,
         registry_url: str | None = None,
-        use_local:    bool = False,
+        use_local: bool = False,
     ) -> None:
         self._registry_url = registry_url
-        self._use_local    = use_local
+        self._use_local = use_local
 
     @classmethod
     def local(cls) -> "SittingFacePublisher":
@@ -591,8 +603,8 @@ class SittingFacePublisher:
     def _publish_local(
         self,
         pack_version: PackVersion,
-        values_yaml:  str,
-        tags:         list[str],
+        values_yaml: str,
+        tags: list[str],
     ) -> dict[str, Any]:
         import tempfile
 
@@ -607,18 +619,18 @@ class SittingFacePublisher:
 
         logger.info("[sf_publisher] local publish: %s v%s", meta.name, meta.version)
         return {
-            "status":   "published",
+            "status": "published",
             "registry": "local",
-            "name":     meta.name,
-            "version":  meta.version,
+            "name": meta.name,
+            "version": meta.version,
         }
 
     def _publish_remote(
         self,
         pack_version: PackVersion,
-        values_yaml:  str,
-        tags:         list[str],
-        description:  str,
+        values_yaml: str,
+        tags: list[str],
+        description: str,
     ) -> dict[str, Any]:
         from sittingface.client import SittingFaceClient
 
@@ -634,7 +646,9 @@ class SittingFacePublisher:
             )
             logger.info(
                 "[sf_publisher] remote publish: %s v%s → %s",
-                pack_version.knowledge_type, pack_version.version, self._registry_url,
+                pack_version.knowledge_type,
+                pack_version.version,
+                self._registry_url,
             )
             return {"status": "published", "registry": self._registry_url, **result}
         finally:
@@ -644,6 +658,7 @@ class SittingFacePublisher:
 # ---------------------------------------------------------------------------
 # Contributor — convenience façade over registry + validator
 # ---------------------------------------------------------------------------
+
 
 class PackContributor:
     """High-level API for the compaction pipeline to propose new knowledge.
@@ -668,20 +683,20 @@ class PackContributor:
 
     def __init__(
         self,
-        registry:             PackVersionRegistry,
+        registry: PackVersionRegistry,
         sittingface_publisher: SittingFacePublisher | None = None,
     ) -> None:
-        self._registry  = registry
-        self._sf_pub    = sittingface_publisher
+        self._registry = registry
+        self._sf_pub = sittingface_publisher
         if sittingface_publisher and registry._sf_publisher is None:
             registry._sf_publisher = sittingface_publisher
 
     def from_compacted_pattern(
         self,
         knowledge_type: str,
-        entry:          KnowledgeEntry,
-        episodic_refs:  list[EpisodicRef],
-        proposed_by:    str = "background_compactor",
+        entry: KnowledgeEntry,
+        episodic_refs: list[EpisodicRef],
+        proposed_by: str = "background_compactor",
     ) -> PackContribution:
         return PackContribution(
             knowledge_type=knowledge_type,
@@ -696,8 +711,8 @@ class PackContributor:
     def release(
         self,
         knowledge_type: str,
-        released_by:    str = "system",
-        next_version:   str | None = None,
+        released_by: str = "system",
+        next_version: str | None = None,
     ) -> PackVersion | None:
         return self._registry.release(knowledge_type, released_by, next_version)
 

@@ -11,6 +11,7 @@ own header), this file is written but not executed by the assistant unless
 explicitly asked to run it. Run with:
     python -m pytest tests/scenarios/test_edge_deployment.py -v
 """
+
 from __future__ import annotations
 
 import os
@@ -24,16 +25,20 @@ os.environ["AGENTOS_AUTH_REQUIRED"] = "false"
 from src.monkey_brain.edge_agent import EdgeAgent
 from src.monkey_brain.kernel.society import edge_provisioner as edgeprov
 from src.monkey_brain.kernel.society.edge_provisioner import EdgeProvisioner
-from src.monkey_brain.kernel.society.actor_scheduler import ExecutionNode, NodeClass, ActorPlacementRequirements
+from src.monkey_brain.kernel.society.actor_scheduler import (
+    ExecutionNode,
+    NodeClass,
+    ActorPlacementRequirements,
+)
 from src.monkey_brain.kernel.society.domain import ActorStatus
 from tests.scenarios.test_horizontal_scheduler_scaling import _FakeRedis, _pr, _register
-
 
 # ── 1-5: EdgeAgent process supervision (real subprocesses, no CognitiveOS
 #         stack needed -- these test the Agent's OWN process-management
 #         logic in isolation, using a trivial stand-in command instead of
 #         the real actor_runtime.py, matching KubernetesProvisioner's own
 #         test_07's use of a fake `kubectl` rather than a real cluster) ──
+
 
 def _patch_actor_command(monkeypatch, agent: EdgeAgent, command: list[str]) -> None:
     """Redirects EdgeAgent.start_actor's subprocess command to a trivial
@@ -47,7 +52,10 @@ def _patch_actor_command(monkeypatch, agent: EdgeAgent, command: list[str]) -> N
     real_popen = _subprocess.Popen
 
     def _fake_popen(cmd, **kwargs):
-        return real_popen(command, **{k: v for k, v in kwargs.items() if k != "env"} | {"env": kwargs.get("env")})
+        return real_popen(
+            command,
+            **{k: v for k, v in kwargs.items() if k != "env"} | {"env": kwargs.get("env")},
+        )
 
     monkeypatch.setattr("src.monkey_brain.edge_agent.subprocess.Popen", _fake_popen)
 
@@ -121,6 +129,7 @@ def test_05_supervise_loop_restarts_a_crashed_actor(monkeypatch):
 
 # ── 6-9: EdgeProvisioner (push-based, mirrors KubernetesProvisioner) ──────
 
+
 def test_06_provisioning_disabled_by_default(monkeypatch):
     monkeypatch.delenv("EDGE_PROVISIONING_ENABLED", raising=False)
     assert edgeprov.provisioning_enabled() is False
@@ -144,6 +153,7 @@ def test_08_provision_posts_to_the_devices_own_agent(monkeypatch):
         return _FakeResponse()
 
     import httpx
+
     monkeypatch.setattr(httpx, "post", _fake_post)
 
     class _FakePlanetary:
@@ -169,6 +179,7 @@ def test_09_provision_never_raises_when_agent_unreachable(monkeypatch):
 
 # ── 10-12: Lifecycle Controller -> EdgeProvisioner dispatch ───────────────
 
+
 def test_10_edge_provisioning_fires_for_never_started_actor_on_edge_node(monkeypatch):
     redis = _FakeRedis()
     control_plane = _pr(redis, "control-plane-node")
@@ -177,7 +188,8 @@ def test_10_edge_provisioning_fires_for_never_started_actor_on_edge_node(monkeyp
     entry = _register(control_plane, "carol")
     aid = entry.actor_id
     control_plane.set_actor_placement_requirements(
-        aid, ActorPlacementRequirements(required_node_class=NodeClass.EDGE),
+        aid,
+        ActorPlacementRequirements(required_node_class=NodeClass.EDGE),
     )
 
     monkeypatch.setenv("EDGE_PROVISIONING_ENABLED", "true")
@@ -203,7 +215,8 @@ def test_11_edge_provisioning_does_not_fire_when_disabled(monkeypatch):
     entry = _register(control_plane, "dave")
     aid = entry.actor_id
     control_plane.set_actor_placement_requirements(
-        aid, ActorPlacementRequirements(required_node_class=NodeClass.EDGE),
+        aid,
+        ActorPlacementRequirements(required_node_class=NodeClass.EDGE),
     )
 
     monkeypatch.delenv("EDGE_PROVISIONING_ENABLED", raising=False)
@@ -232,13 +245,15 @@ def test_12_edge_provisioning_does_not_fire_for_already_suspended_actor(monkeypa
     entry = _register(control_plane, "erin")
     aid = entry.actor_id
     control_plane.set_actor_placement_requirements(
-        aid, ActorPlacementRequirements(required_node_class=NodeClass.EDGE),
+        aid,
+        ActorPlacementRequirements(required_node_class=NodeClass.EDGE),
     )
     # Mark this actor's registry status as already SUSPENDED (as if it
     # had previously run and was suspended for migration), not a fresh
     # REGISTERED record.
     raw = redis._hashes[control_plane._ACTORS_HASH_KEY][aid]
     import json
+
     data = json.loads(raw)
     data["status"] = ActorStatus.SUSPENDED.value
     redis._hashes[control_plane._ACTORS_HASH_KEY][aid] = json.dumps(data)
@@ -257,6 +272,7 @@ def test_12_edge_provisioning_does_not_fire_for_already_suspended_actor(monkeypa
 
 
 # ── 13: device identity != Actor identity ─────────────────────────────────
+
 
 def test_13_device_id_is_never_derived_from_or_equal_to_actor_id(monkeypatch):
     monkeypatch.setenv("EDGE_DEVICE_ID", "edge-007")
@@ -280,6 +296,7 @@ def test_13_device_id_is_never_derived_from_or_equal_to_actor_id(monkeypatch):
 
 
 # ── 14: device heartbeat is never itself a placement candidate ───────────
+
 
 def test_14_device_heartbeat_registers_with_zero_capacity(monkeypatch):
     """Live Deployment Validation finding: registering the device itself

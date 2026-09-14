@@ -18,7 +18,11 @@ from cortex.knowledge.confidence import ConfidenceVector
 from cortex.knowledge.evidence import BayesianEvidenceFusionEngine, SolverEvidence
 from cortex.knowledge.interface import IKnowledge, MODALITIES, default_confidence_for
 from cortex.knowledge.pack import KnowledgeNode, KnowledgePack
-from cortex.knowledge.retrieval import RetrievalDecision, best_retrieval, should_retrieve
+from cortex.knowledge.retrieval import (
+    RetrievalDecision,
+    best_retrieval,
+    should_retrieve,
+)
 
 __all__ = [
     "ConfidenceVector",

@@ -6,15 +6,31 @@ scenario and a genuinely risky one (low probability + uncertain +
 missing-knowledge steps together) to prove every metric actually responds
 to the underlying transitions, not just returns plausible-looking defaults.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.monkey_brain.kernel.pipeline.prediction.domain import Prediction, PredictionConfidence
-from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel, TransitionPredictionEngine, WorldTransition
+from src.monkey_brain.kernel.pipeline.prediction.domain import (
+    Prediction,
+    PredictionConfidence,
+)
+from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+    TransitionModel,
+    TransitionPredictionEngine,
+    WorldTransition,
+)
 from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationEngine
-from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption, CounterfactualEngine
-from src.monkey_brain.kernel.pipeline.prediction.risk import RiskAssessment, RiskEngine, RiskFactor, enrich_prediction
+from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+    CounterfactualAssumption,
+    CounterfactualEngine,
+)
+from src.monkey_brain.kernel.pipeline.prediction.risk import (
+    RiskAssessment,
+    RiskEngine,
+    RiskFactor,
+    enrich_prediction,
+)
 
 
 class _Step:
@@ -28,30 +44,65 @@ class _Plan:
 
 
 def _confident_trajectory():
-    model = TransitionModel(known_transitions={
-        ("", "drive_to_store_a"): (WorldTransition(description="Arrived, store open", probability=0.96, confidence=0.9,
-                                              resulting_world_delta={"actor.location": "store_a"}),),
-        ("", "purchase_milk"): (WorldTransition(description="Milk purchased", probability=0.96, confidence=0.9,
-                                           resulting_world_delta={"actor.has_milk": True}),),
-    })
+    model = TransitionModel(
+        known_transitions={
+            ("", "drive_to_store_a"): (
+                WorldTransition(
+                    description="Arrived, store open",
+                    probability=0.96,
+                    confidence=0.9,
+                    resulting_world_delta={"actor.location": "store_a"},
+                ),
+            ),
+            ("", "purchase_milk"): (
+                WorldTransition(
+                    description="Milk purchased",
+                    probability=0.96,
+                    confidence=0.9,
+                    resulting_world_delta={"actor.has_milk": True},
+                ),
+            ),
+        }
+    )
     plan = _Plan(steps=(_Step("drive_to_store_a"), _Step("purchase_milk")))
     return SimulationEngine(TransitionPredictionEngine(model)).simulate_plan(None, None, plan)
 
 
 def _risky_trajectory():
-    model = TransitionModel(known_transitions={
-        ("", "drive_to_store_a"): (WorldTransition(description="Maybe arrives", probability=0.5, confidence=0.5,
-                                              resulting_world_delta={}),),
-        ("", "ask_directions"): (WorldTransition(description="Might get lost", probability=1.0, confidence=0.1,
-                                            resulting_world_delta={}),),
-    })
-    plan = _Plan(steps=(_Step("drive_to_store_a"), _Step("ask_directions"), _Step("unregistered_step")))
+    model = TransitionModel(
+        known_transitions={
+            ("", "drive_to_store_a"): (
+                WorldTransition(
+                    description="Maybe arrives",
+                    probability=0.5,
+                    confidence=0.5,
+                    resulting_world_delta={},
+                ),
+            ),
+            ("", "ask_directions"): (
+                WorldTransition(
+                    description="Might get lost",
+                    probability=1.0,
+                    confidence=0.1,
+                    resulting_world_delta={},
+                ),
+            ),
+        }
+    )
+    plan = _Plan(
+        steps=(
+            _Step("drive_to_store_a"),
+            _Step("ask_directions"),
+            _Step("unregistered_step"),
+        )
+    )
     return SimulationEngine(TransitionPredictionEngine(model)).simulate_plan(None, None, plan)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Confident scenario — the Store A "get 2L of milk" running example
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestConfidentScenario:
     def test_probability_of_success_is_the_path_probability_product(self):
@@ -79,11 +130,16 @@ class TestConfidentScenario:
 # Risky scenario — low probability + uncertain + missing knowledge together
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRiskyScenario:
     def test_identifies_a_risk_factor_per_problematic_step(self):
         assessment = RiskEngine().assess(_risky_trajectory())
         categories = {f.category for f in assessment.risk_factors}
-        assert categories == {"low_probability", "uncertain_transition", "missing_knowledge"}
+        assert categories == {
+            "low_probability",
+            "uncertain_transition",
+            "missing_knowledge",
+        }
 
     def test_missing_knowledge_factor_has_maximum_severity(self):
         assessment = RiskEngine().assess(_risky_trajectory())
@@ -123,6 +179,7 @@ class TestRiskyScenario:
 # Empty plan
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestEmptyPlan:
     def test_vacuously_certain(self):
         empty_trajectory = SimulationEngine().simulate(None, None, ())
@@ -137,6 +194,7 @@ class TestEmptyPlan:
 # Configurable utility scale
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestUtilityScale:
     def test_custom_utility_values_change_expected_reward(self):
         engine = RiskEngine(utility_if_success=10.0, utility_if_failure=-5.0)
@@ -150,29 +208,49 @@ class TestUtilityScale:
 # assess_branch — composes with Step 11.4's CounterfactualBranch
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestAssessBranch:
     def test_assesses_a_counterfactual_branchs_own_trajectory(self):
-        model = TransitionModel(known_transitions={
-            ("", "purchase_milk"): (WorldTransition(description="Milk purchased", probability=0.96, confidence=0.9,
-                                               resulting_world_delta={"actor.has_milk": True}),),
-        })
+        model = TransitionModel(
+            known_transitions={
+                ("", "purchase_milk"): (
+                    WorldTransition(
+                        description="Milk purchased",
+                        probability=0.96,
+                        confidence=0.9,
+                        resulting_world_delta={"actor.has_milk": True},
+                    ),
+                ),
+            }
+        )
         plan = _Plan(steps=(_Step("purchase_milk"),))
         cf_engine = CounterfactualEngine(model)
         assumption = CounterfactualAssumption(
             description="Store closed",
-            transition_overrides={"purchase_milk": (WorldTransition(probability=0.95, confidence=0.9, resulting_world_delta={"actor.has_milk": False}),)},
+            transition_overrides={
+                "purchase_milk": (
+                    WorldTransition(
+                        probability=0.95,
+                        confidence=0.9,
+                        resulting_world_delta={"actor.has_milk": False},
+                    ),
+                )
+            },
         )
         branch = cf_engine.branch(None, None, plan, assumption)
 
         assessment = RiskEngine().assess_branch(branch)
 
         assert isinstance(assessment, RiskAssessment)
-        assert assessment.probability_of_success == pytest.approx(RiskEngine().assess(branch.trajectory).probability_of_success)
+        assert assessment.probability_of_success == pytest.approx(
+            RiskEngine().assess(branch.trajectory).probability_of_success
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # enrich_prediction — "expose uncertainty throughout the prediction pipeline"
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestEnrichPrediction:
     def test_threads_confidence_and_expected_reward_into_prediction(self):
@@ -207,15 +285,18 @@ class TestEnrichPrediction:
 # Immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestImmutability:
     def test_risk_factor_frozen(self):
         from dataclasses import FrozenInstanceError
+
         factor = RiskFactor()
         with pytest.raises(FrozenInstanceError):
             factor.severity = 1.0
 
     def test_risk_assessment_frozen(self):
         from dataclasses import FrozenInstanceError
+
         assessment = RiskAssessment()
         with pytest.raises(FrozenInstanceError):
             assessment.execution_risk = 1.0
@@ -264,14 +345,22 @@ class TestActorLockoutRecovery:
         # real values comparison/integration.py::_apply_transition_
         # learning uses).
         model = model.learn_from_execution(
-            "OrderConfirmation", success=False, confidence=0.85, learning_rate=0.15, goal_key="buy groceries",
+            "OrderConfirmation",
+            success=False,
+            confidence=0.85,
+            learning_rate=0.15,
+            goal_key="buy groceries",
         )
         learned = model.known_transitions[("buy groceries", "OrderConfirmation")][0]
         assert 0.0 < learned.probability < 0.5, "one real failure must degrade, not zero out, the learned probability"
 
         plan = _sequential_plan(
-            "ProductSelection", "OrderCreation", "PaymentConfirmation",
-            "Payment", "OrderConfirmation", "Delivery",
+            "ProductSelection",
+            "OrderCreation",
+            "PaymentConfirmation",
+            "Payment",
+            "OrderConfirmation",
+            "Delivery",
         )
         trajectory = SimulationEngine(TransitionPredictionEngine(model)).simulate_plan(None, None, plan)
         assessment = RiskEngine().assess(trajectory)
@@ -289,12 +378,20 @@ class TestActorLockoutRecovery:
         be stuck at whatever the first failure set it to."""
         model = TransitionModel()
         model = model.learn_from_execution(
-            "OrderConfirmation", success=False, confidence=0.85, learning_rate=0.15, goal_key="buy groceries",
+            "OrderConfirmation",
+            success=False,
+            confidence=0.85,
+            learning_rate=0.15,
+            goal_key="buy groceries",
         )
         after_failure = model.known_transitions[("buy groceries", "OrderConfirmation")][0].probability
 
         model = model.learn_from_execution(
-            "OrderConfirmation", success=True, confidence=0.85, learning_rate=0.15, goal_key="buy groceries",
+            "OrderConfirmation",
+            success=True,
+            confidence=0.85,
+            learning_rate=0.15,
+            goal_key="buy groceries",
         )
         after_recovery = model.known_transitions[("buy groceries", "OrderConfirmation")][0].probability
 
@@ -309,7 +406,11 @@ class TestActorLockoutRecovery:
         probabilities = []
         for _ in range(5):
             model = model.learn_from_execution(
-                "Payment", success=False, confidence=0.85, learning_rate=0.15, goal_key="buy groceries",
+                "Payment",
+                success=False,
+                confidence=0.85,
+                learning_rate=0.15,
+                goal_key="buy groceries",
             )
             probabilities.append(model.known_transitions[("buy groceries", "Payment")][0].probability)
 
@@ -325,9 +426,11 @@ class TestActorLockoutRecovery:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -341,12 +444,19 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_execution_or_runtime_coupling(self):
         import src.monkey_brain.kernel.pipeline.prediction.risk as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "kernel.pipeline.execution", "action_executor", "learning."):
+        for forbidden in (
+            "belief_runtime",
+            "kernel.pipeline.execution",
+            "action_executor",
+            "learning.",
+        ):
             assert forbidden not in imports, f"risk.py must not import: {forbidden}"
 
     def test_depends_only_on_prediction_subpackage(self):
         import src.monkey_brain.kernel.pipeline.prediction.risk as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

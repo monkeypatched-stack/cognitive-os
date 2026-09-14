@@ -9,13 +9,18 @@ async def network_monitoring_question_answer(client, question, force=False):
         db = client["demo"]
         collection = db["network_nodes"]
 
-        if re.search(r'monitor|status|check|health', question, re.IGNORECASE):
-            node_match = re.search(r'(?:node|tower|switch)\s+(\w+)', question, re.IGNORECASE)
+        if re.search(r"monitor|status|check|health", question, re.IGNORECASE):
+            node_match = re.search(r"(?:node|tower|switch)\s+(\w+)", question, re.IGNORECASE)
             if node_match:
                 node_id = node_match.group(1)
                 doc = await collection.find_one({"node_id": node_id})
                 if doc:
-                    return (f"Node {node_id}: {doc.get('status', 'unknown')}", [], [], False)
+                    return (
+                        f"Node {node_id}: {doc.get('status', 'unknown')}",
+                        [],
+                        [],
+                        False,
+                    )
                 return (f"Node {node_id} not found.", [], [], False)
 
             cursor = collection.find().limit(10)
@@ -27,7 +32,7 @@ async def network_monitoring_question_answer(client, question, force=False):
                 return ("\n".join(lines), [], [], False)
             return ("No network nodes found.", [], [], False)
 
-        if re.search(r'fault|down|issue|problem', question, re.IGNORECASE):
+        if re.search(r"fault|down|issue|problem", question, re.IGNORECASE):
             cursor = collection.find({"status": "fault"}).limit(10)
             docs = await cursor.to_list(length=10)
             if docs:
@@ -37,7 +42,12 @@ async def network_monitoring_question_answer(client, question, force=False):
                 return ("\n".join(lines), [], [], False)
             return ("No active faults.", [], [], False)
 
-        return ("I can help you monitor network status or check faults. What would you like to do?", [], [], False)
+        return (
+            "I can help you monitor network status or check faults. What would you like to do?",
+            [],
+            [],
+            False,
+        )
 
     except Exception as e:
         return (f"Error with network monitoring: {e}", [], [], False)

@@ -10,18 +10,29 @@ never validated against commerce/logistics — the same cross-reference
 convention every other domain module already uses, keeping support.py
 free of any dependency on either).
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import build_default_capability_bus
-from src.monkey_brain.kernel.domains.support import SupportCapability, get_ticket, open_ticket
+from src.monkey_brain.kernel.domains.support import (
+    SupportCapability,
+    get_ticket,
+    open_ticket,
+)
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 
 
 def test_mb3041_customer_opens_a_ticket():
     kg = KnowledgeGraph()
 
-    result = open_ticket(kg, "alice", "My order never arrived", description="Been a week",
-                          order_id="ORD-1", category="shipping")
+    result = open_ticket(
+        kg,
+        "alice",
+        "My order never arrived",
+        description="Been a week",
+        order_id="ORD-1",
+        category="shipping",
+    )
 
     assert result["success"] is True
     assert result["status"] == "open"

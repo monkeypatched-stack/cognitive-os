@@ -9,6 +9,7 @@ Checks:
 
 Plans that fail validation are rejected before reaching execution.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +23,7 @@ logger = logging.getLogger("agentos.pipeline.plan_validator")
 @dataclass(frozen=True)
 class ValidationResult:
     """Result of validating a plan."""
+
     valid: bool = True
     """Whether the plan passes all checks."""
     violations: tuple[str, ...] = ()
@@ -104,7 +106,9 @@ class PlanValidator:
         if not valid:
             logger.warning(
                 "[validator] Plan rejected: %d violations (%s), score=%.2f",
-                len(violations), ", ".join(violations), score,
+                len(violations),
+                ", ".join(violations),
+                score,
             )
 
         return ValidationResult(
@@ -118,7 +122,7 @@ class PlanValidator:
         """Check if a precondition is satisfied by the current belief."""
         # Simple check: precondition is satisfied if a matching fact exists
         if precondition.startswith("verify:"):
-            entity_attr = precondition[len("verify:"):]
+            entity_attr = precondition[len("verify:") :]
             parts = entity_attr.split(".", 1)
             if len(parts) == 2:
                 for fact in belief.facts:

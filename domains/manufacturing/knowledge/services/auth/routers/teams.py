@@ -18,6 +18,7 @@ router = APIRouter()
 
 # ── List (with filters) ──────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedTeamResponse)
 async def list_teams(
     page: int = Query(1, ge=1),
@@ -25,7 +26,6 @@ async def list_teams(
     department_id: str | None = Query(None),
     search: str | None = Query(None),
     sort_desc: bool = Query(True),
-
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(require_permission("perm-view-teams")),
 ):
@@ -45,7 +45,9 @@ async def list_teams(
         results=teams,
     )
 
+
 # ── Get by department ─────────────────────────────────────────────────────────
+
 
 @router.get("/by-department/{department_id}", response_model=list[TeamResponse])
 async def list_teams_by_department(
@@ -58,6 +60,7 @@ async def list_teams_by_department(
 
 # ── Get one ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/{team_id}", response_model=TeamResponse)
 async def get_team(
     team_id: str,
@@ -66,11 +69,14 @@ async def get_team(
 ):
     record = await crud.get_by_id(db, team_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Team '{team_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Team '{team_id}' not found"
+        )
     return record
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
+
 
 @router.post("/", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
 async def create_team(
@@ -79,11 +85,14 @@ async def create_team(
     _: dict = Depends(require_permission("perm-create-teams")),
 ):
     if await crud.get_by_id(db, data.team_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Team '{data.team_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail=f"Team '{data.team_id}' already exists"
+        )
     return await crud.create(db, data)
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{team_id}", response_model=TeamResponse)
 async def update_team(
@@ -94,11 +103,14 @@ async def update_team(
 ):
     updated = await crud.update(db, team_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Team '{team_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Team '{team_id}' not found"
+        )
     return updated
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{team_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_team(
@@ -107,6 +119,9 @@ async def delete_team(
     _: dict = Depends(require_permission("perm-delete-teams")),
 ):
     if not await crud.delete(db, team_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Team '{team_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Team '{team_id}' not found"
+        )
+
 
 # TODO_ENDPOINT: GET /api/v1/teams/{team_id}/users — list all users in a team

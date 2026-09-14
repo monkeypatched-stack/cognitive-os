@@ -1,4 +1,5 @@
 """Contract for external (SittingFace) knowledge before it enters an LLM prompt."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

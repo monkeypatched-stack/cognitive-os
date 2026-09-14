@@ -8,7 +8,12 @@ from services.auth.helpers.influx_store import write_websocket_event
 from services.auth.helpers.nats_store import subject_for_event_type
 from services.common.embeddings import build_embedding
 from services.common.neo4j_mirror import mirror_document, safe_mirror
-from services.pm.models.checklists import ChecklistCreate, ChecklistItemCreate, ChecklistItemUpdate, ChecklistUpdate
+from services.pm.models.checklists import (
+    ChecklistCreate,
+    ChecklistItemCreate,
+    ChecklistItemUpdate,
+    ChecklistUpdate,
+)
 
 COLLECTION = "checklists"
 HVAC_TEMPERATURE_WORK_ORDER_ID = "WO-HVAC-TEMP-THRESHOLD-001"
@@ -63,7 +68,9 @@ async def get_by_work_order(db: AsyncIOMotorDatabase, work_order_id: str) -> lis
     return [_serialize(d) async for d in cursor]
 
 
-async def get_by_process_definition(db: AsyncIOMotorDatabase, process_definition_id: str) -> list[dict]:
+async def get_by_process_definition(
+    db: AsyncIOMotorDatabase, process_definition_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"process_definition_id": process_definition_id})
     return [_serialize(d) async for d in cursor]
 
@@ -127,7 +134,10 @@ async def add_item(
 ) -> Optional[dict]:
     result = await db[COLLECTION].find_one_and_update(
         {"checklist_id": checklist_id},
-        {"$push": {"items": _prepare(item.model_dump())}, "$set": {"updated_at": datetime.now(timezone.utc)}},
+        {
+            "$push": {"items": _prepare(item.model_dump())},
+            "$set": {"updated_at": datetime.now(timezone.utc)},
+        },
         return_document=True,
     )
     return _serialize(result)
@@ -161,9 +171,19 @@ async def set_item_completed(
     now = datetime.now(timezone.utc)
     before = await db[COLLECTION].find_one(
         {"checklist_id": checklist_id, "items.item_id": item_id},
-        {"items.$": 1, "checklist_id": 1, "title": 1, "work_order_id": 1, "process_definition_id": 1},
+        {
+            "items.$": 1,
+            "checklist_id": 1,
+            "title": 1,
+            "work_order_id": 1,
+            "process_definition_id": 1,
+        },
     )
-    was_completed = bool((before or {}).get("items", [{}])[0].get("is_completed")) if before else False
+    was_completed = (
+        bool((before or {}).get("items", [{}])[0].get("is_completed"))
+        if before
+        else False
+    )
     updates = {
         "items.$.is_completed": is_completed,
         "items.$.completed_at": now if is_completed else None,
@@ -265,7 +285,11 @@ async def ensure_hvac_temperature_threshold_checklist(
     }
     document["embedding"] = build_embedding(COLLECTION, document)
     await db[COLLECTION].insert_one(_prepare(document))
-    await safe_mirror(mirror_document(COLLECTION, document, "ensure_hvac_temperature_threshold_checklist"))
+    await safe_mirror(
+        mirror_document(
+            COLLECTION, document, "ensure_hvac_temperature_threshold_checklist"
+        )
+    )
     return _serialize(document)
 
 
@@ -291,8 +315,17 @@ def _hvac_checklist_item(
     }
 
 
-async def _write_checklist_item_completed_event(checklist: dict, item_id: str, completed_at: datetime) -> None:
-    item = next((entry for entry in checklist.get("items", []) if entry.get("item_id") == item_id), {})
+async def _write_checklist_item_completed_event(
+    checklist: dict, item_id: str, completed_at: datetime
+) -> None:
+    item = next(
+        (
+            entry
+            for entry in checklist.get("items", [])
+            if entry.get("item_id") == item_id
+        ),
+        {},
+    )
     payload = {
         "id": f"EVT-CHECKLIST-COMPLETE-{item_id}",
         "type": "Checklist Item Completed",
@@ -315,4 +348,6 @@ async def _write_checklist_item_completed_event(checklist: dict, item_id: str, c
         "payload_type": "json",
         "payload": payload,
     }
-    await write_websocket_event(event, subject_for_event_type("checklist-item-completed"))
+    await write_websocket_event(
+        event, subject_for_event_type("checklist-item-completed")
+    )

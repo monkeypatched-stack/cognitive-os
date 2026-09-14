@@ -3,6 +3,7 @@
 Wraps src.cortex.adversarial_agents and the refinement loop from world_model_simulation.
 Registered as capability_name="adversarial_falsification", capability_type="simulation".
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,8 +15,8 @@ try:
     from src.monkey_brain.kernel.capability_interface import ICapability
     from src.monkey_brain.kernel.execution_state import ExecutionState
 except ImportError:
-    ICapability = object   # type: ignore
-    ExecutionState = Any   # type: ignore
+    ICapability = object  # type: ignore
+    ExecutionState = Any  # type: ignore
 
 
 class AdversarialFalsificationCapability(ICapability):
@@ -65,7 +66,10 @@ class AdversarialFalsificationCapability(ICapability):
         timeout = float(ctx.get("timeout", 90.0))
 
         try:
-            from src.cortex.world_model_simulation import run_adversarial_refinement_loop
+            from src.cortex.world_model_simulation import (
+                run_adversarial_refinement_loop,
+            )
+
             result = await run_adversarial_refinement_loop(
                 prompt=prompt,
                 world_state=world_state,

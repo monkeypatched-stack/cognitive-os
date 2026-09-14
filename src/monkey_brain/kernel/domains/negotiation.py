@@ -12,13 +12,16 @@ constitution: "no business decision... may be hardcoded anywhere").
 bargaining shape to any single bounded numeric term. `record_agreement`
 follows the exact CAS-append template `place_bid` already uses.
 """
+
 from __future__ import annotations
 
 import time
 from typing import Any
 
 
-def evaluate_utility(preferences: dict[str, float], candidate: dict[str, float]) -> float:
+def evaluate_utility(
+    preferences: dict[str, float], candidate: dict[str, float]
+) -> float:
     """Real, deterministic weighted-sum utility over whatever keys the
     two dicts share — sum(preferences[k] * candidate[k]). Does no
     normalization or interpretation itself (same principle
@@ -32,7 +35,9 @@ def evaluate_utility(preferences: dict[str, float], candidate: dict[str, float])
     return sum(preferences[k] * candidate[k] for k in shared_keys)
 
 
-def evaluate_candidates(preferences: dict[str, float], candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def evaluate_candidates(
+    preferences: dict[str, float], candidates: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Ranks real candidate options against one actor's own real
     preferences — the concrete, explainable "Utility Evaluation" a
     negotiation/strategy trace exposes, not something an LLM merely
@@ -60,7 +65,9 @@ def evaluate_candidates(preferences: dict[str, float], candidates: list[dict[str
 
     bounds: dict[str, tuple[float, float]] = {}
     for key in all_keys:
-        values = [c["attributes"][key] for c in candidates if key in c.get("attributes", {})]
+        values = [
+            c["attributes"][key] for c in candidates if key in c.get("attributes", {})
+        ]
         bounds[key] = (min(values), max(values))
 
     results = []
@@ -70,15 +77,23 @@ def evaluate_candidates(preferences: dict[str, float], candidates: list[dict[str
             lo, hi = bounds[key]
             normalized[key] = 1.0 if hi == lo else (value - lo) / (hi - lo)
         utility = evaluate_utility(preferences, normalized)
-        results.append({"name": c.get("name", ""), "utility": round(utility, 4), "attributes": c.get("attributes", {})})
+        results.append(
+            {
+                "name": c.get("name", ""),
+                "utility": round(utility, 4),
+                "attributes": c.get("attributes", {}),
+            }
+        )
 
     results.sort(key=lambda r: r["utility"], reverse=True)
     return results
 
 
 def negotiate_terms(
-    high_side_opening: float, high_side_floor: float,
-    low_side_opening: float, max_rounds: int = 3,
+    high_side_opening: float,
+    high_side_floor: float,
+    low_side_opening: float,
+    max_rounds: int = 3,
 ) -> dict:
     """Generic bounded split-the-difference bargaining over a single
     numeric term — the exact same algorithm `negotiate_price`
@@ -106,9 +121,23 @@ def negotiate_terms(
     for i in range(1, max_rounds + 1):
         if low_pos >= high_pos:
             term = round((low_pos + high_pos) / 2, 2)
-            rounds.append({"round": i, "high_side": round(high_pos, 2), "low_side": round(low_pos, 2), "outcome": "deal"})
+            rounds.append(
+                {
+                    "round": i,
+                    "high_side": round(high_pos, 2),
+                    "low_side": round(low_pos, 2),
+                    "outcome": "deal",
+                }
+            )
             return {"agreed": True, "term": term, "rounds": rounds}
-        rounds.append({"round": i, "high_side": round(high_pos, 2), "low_side": round(low_pos, 2), "outcome": "no deal yet"})
+        rounds.append(
+            {
+                "round": i,
+                "high_side": round(high_pos, 2),
+                "low_side": round(low_pos, 2),
+                "outcome": "no deal yet",
+            }
+        )
         gap = high_pos - low_pos
         high_pos = max(high_side_floor, high_pos - gap / 2)
         low_pos = low_pos + gap / 2
@@ -116,11 +145,17 @@ def negotiate_terms(
     if low_pos >= high_pos:
         term = round((low_pos + high_pos) / 2, 2)
         return {"agreed": True, "term": term, "rounds": rounds}
-    return {"agreed": False, "term": None, "rounds": rounds,
-            "reason": f"no agreement within {max_rounds} rounds"}
+    return {
+        "agreed": False,
+        "term": None,
+        "rounds": rounds,
+        "reason": f"no agreement within {max_rounds} rounds",
+    }
 
 
-def record_agreement(kg: Any, entity_id: str, agreement: dict[str, Any], max_attempts: int = 5) -> tuple[bool, str]:
+def record_agreement(
+    kg: Any, entity_id: str, agreement: dict[str, Any], max_attempts: int = 5
+) -> tuple[bool, str]:
     """CAS-appends a negotiated agreement to entity_id's real,
     persistent `agreements` list — same template `place_bid`
     (grocery.py:2741) already uses for CAS-append. This is what makes
@@ -135,7 +170,9 @@ def record_agreement(kg: Any, entity_id: str, agreement: dict[str, Any], max_att
         agreements = list(entity.attributes.get("agreements", []))
         agreements.append({**agreement, "recorded_at": time.time()})
         version = kg.version_of(entity_id)
-        ok, _current = kg.compare_and_swap(entity_id, version, {"agreements": agreements})
+        ok, _current = kg.compare_and_swap(
+            entity_id, version, {"agreements": agreements}
+        )
         if ok:
             return True, "agreement recorded"
     return False, "too much contention, gave up"

@@ -35,6 +35,7 @@ of both, for callers that just need "every Society this Actor is currently
 affiliated with, permanently or by presence" — the distinction itself must
 stay visible to callers that care which kind a given membership is.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -48,12 +49,25 @@ from typing import Any, Callable
 from src.monkey_brain.kernel.timeline.entry import MembershipRecord, TimelineKind
 from src.monkey_brain.kernel.timeline.store import TimelineStore
 from src.monkey_brain.kernel.geography.registry import GeographicRegistry
-from src.monkey_brain.kernel.timeline.presence import MovementEvent, MovementEventType, PresenceTimeline
-from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType, SocietyContextStream
+from src.monkey_brain.kernel.timeline.presence import (
+    MovementEvent,
+    MovementEventType,
+    PresenceTimeline,
+)
+from src.monkey_brain.kernel.society.context_stream import (
+    ContextEvent,
+    ContextEventType,
+    SocietyContextStream,
+)
 
 logger = logging.getLogger("agentos.membership")
 
-__all__ = ["MembershipRecord", "Membership", "SocietyMembershipRegistry", "MembershipGovernor"]
+__all__ = [
+    "MembershipRecord",
+    "Membership",
+    "SocietyMembershipRegistry",
+    "MembershipGovernor",
+]
 
 
 @dataclass(frozen=True)
@@ -61,6 +75,7 @@ class Membership:
     """Derived, read-only current-state view of one membership_id's latest
     MembershipRecord — the object every governance lookup (roles,
     permissions, policies, trust, capabilities, constraints) is keyed by."""
+
     membership_id: str
     actor_id: str
     society_id: str
@@ -76,10 +91,16 @@ class Membership:
     @classmethod
     def from_record(cls, record: MembershipRecord) -> "Membership":
         return cls(
-            membership_id=record.membership_id, actor_id=record.actor_id,
-            society_id=record.society_id, team_id=record.team_id, roles=record.roles,
-            status=record.status, start_time=record.start_time, end_time=record.end_time,
-            permissions=record.permissions, trust_score=record.trust_score,
+            membership_id=record.membership_id,
+            actor_id=record.actor_id,
+            society_id=record.society_id,
+            team_id=record.team_id,
+            roles=record.roles,
+            status=record.status,
+            start_time=record.start_time,
+            end_time=record.end_time,
+            permissions=record.permissions,
+            trust_score=record.trust_score,
             metadata=dict(record.metadata),
         )
 
@@ -161,8 +182,13 @@ class SocietyMembershipRegistry:
                     return record
         return None
 
-    def _supersede(self, current: MembershipRecord, event: str,
-                    extra_metadata: dict[str, Any] | None = None, **field_overrides: Any) -> Membership:
+    def _supersede(
+        self,
+        current: MembershipRecord,
+        event: str,
+        extra_metadata: dict[str, Any] | None = None,
+        **field_overrides: Any,
+    ) -> Membership:
         """Close `current` and append a new record for the same
         membership_id with the given field overrides applied — the one
         mechanism every mutator below (role/status/trust/delegation
@@ -172,14 +198,19 @@ class SocietyMembershipRegistry:
         self._store.close(current, TimelineKind.MEMBERSHIP, end_time=now)
         merged_metadata = {**current.metadata, **(extra_metadata or {}), "event": event}
         new_record = dataclasses.replace(
-            current, entry_id=_new_entry_id(), start_time=now, end_time=None,
-            metadata=merged_metadata, **field_overrides,
+            current,
+            entry_id=_new_entry_id(),
+            start_time=now,
+            end_time=None,
+            metadata=merged_metadata,
+            **field_overrides,
         )
         appended = self._store.append(new_record, TimelineKind.MEMBERSHIP)
         if self._memory_manager is not None:
             try:
                 self._memory_manager.record_experience(
-                    appended.actor_id, "membership_event",
+                    appended.actor_id,
+                    "membership_event",
                     f"Actor {appended.actor_id} membership event '{event}' in society "
                     f"{appended.society_id} (roles={list(appended.roles)}, status={appended.status})",
                     metadata={"membership_id": appended.membership_id, "event": event},
@@ -202,23 +233,36 @@ class SocietyMembershipRegistry:
 
     # ── Backward-compatible core API (unchanged signatures) ──────────────
 
-    def add(self, actor_id: str, society_id: str, role: str = "member",
-            metadata: dict[str, Any] | None = None) -> MembershipRecord:
+    def add(
+        self,
+        actor_id: str,
+        society_id: str,
+        role: str = "member",
+        metadata: dict[str, Any] | None = None,
+    ) -> MembershipRecord:
         with self._add_lock:
             existing = self._open_record_for(actor_id, society_id)
             if existing is not None:
                 return existing
             record = self._store.record(
-                TimelineKind.MEMBERSHIP, actor_id=actor_id, society_id=society_id,
-                membership_id=_new_entry_id(), roles=(role,), status="active",
+                TimelineKind.MEMBERSHIP,
+                actor_id=actor_id,
+                society_id=society_id,
+                membership_id=_new_entry_id(),
+                roles=(role,),
+                status="active",
                 metadata={**(metadata or {}), "event": "created"},
             )
         if self._memory_manager is not None:
             try:
                 self._memory_manager.record_experience(
-                    actor_id, "membership_event",
+                    actor_id,
+                    "membership_event",
                     f"Actor {actor_id} joined society {society_id} with role '{role}'",
-                    metadata={"membership_id": record.membership_id, "event": "created"},
+                    metadata={
+                        "membership_id": record.membership_id,
+                        "event": "created",
+                    },
                 )
             except Exception:
                 logger.debug("add: suppressed exception", exc_info=True)
@@ -236,10 +280,13 @@ class SocietyMembershipRegistry:
         return record is not None and Membership.from_record(record).is_active()
 
     def societies_for_actor(self, actor_id: str) -> tuple[str, ...]:
-        return tuple(dict.fromkeys(
-            r.society_id for r in self._store.query(actor_id, TimelineKind.MEMBERSHIP)
-            if r.is_open() and Membership.from_record(r).is_active()
-        ))
+        return tuple(
+            dict.fromkeys(
+                r.society_id
+                for r in self._store.query(actor_id, TimelineKind.MEMBERSHIP)
+                if r.is_open() and Membership.from_record(r).is_active()
+            )
+        )
 
     def actors_for_society(self, society_id: str) -> tuple[str, ...]:
         actors = []
@@ -248,8 +295,9 @@ class SocietyMembershipRegistry:
                 actors.append(actor_id)
         return tuple(actors)
 
-    def history_for_actor(self, actor_id: str, since: float | None = None,
-                           until: float | None = None) -> tuple[MembershipRecord, ...]:
+    def history_for_actor(
+        self, actor_id: str, since: float | None = None, until: float | None = None
+    ) -> tuple[MembershipRecord, ...]:
         return self._store.query(actor_id, TimelineKind.MEMBERSHIP, since, until)
 
     # ── Discovery ─────────────────────────────────────────────────────────
@@ -260,8 +308,7 @@ class SocietyMembershipRegistry:
 
     def memberships_for_actor(self, actor_id: str) -> tuple[Membership, ...]:
         return tuple(
-            Membership.from_record(r) for r in self._store.query(actor_id, TimelineKind.MEMBERSHIP)
-            if r.is_open()
+            Membership.from_record(r) for r in self._store.query(actor_id, TimelineKind.MEMBERSHIP) if r.is_open()
         )
 
     def memberships_for_society(self, society_id: str) -> tuple[Membership, ...]:
@@ -320,13 +367,22 @@ class SocietyMembershipRegistry:
             return None
         if current.status == status:
             return Membership.from_record(current)
-        event = {"active": "activated", "suspended": "suspended", "terminated": "terminated"}.get(status, "status_changed")
+        event = {
+            "active": "activated",
+            "suspended": "suspended",
+            "terminated": "terminated",
+        }.get(status, "status_changed")
         return self._supersede(current, event, status=status, reason=reason)
 
     # ── Trust (canonical store: SocietyGovernanceEngine.TrustRecord) ─────
 
-    def update_trust(self, membership_id: str, trust_score: float,
-                      governance: Any = None, factors: dict[str, float] | None = None) -> Membership | None:
+    def update_trust(
+        self,
+        membership_id: str,
+        trust_score: float,
+        governance: Any = None,
+        factors: dict[str, float] | None = None,
+    ) -> Membership | None:
         """Writes through to the owning society's SocietyGovernanceEngine
         (the canonical trust store — see governance.py::TrustRecord) and
         appends a MembershipRecord snapshot of the new score, so the
@@ -374,11 +430,16 @@ class SocietyMembershipRegistry:
 
     def resolve_constraints(self, membership_id: str, governance: Any = None) -> tuple[Any, ...]:
         from src.monkey_brain.kernel.pipeline.planning.domain import PlanningConstraint
+
         if governance is None:
             return ()
         return tuple(
-            PlanningConstraint(kind=p.policy_type.value, description=p.description,
-                                parameters=dict(p.metadata), hard=(p.priority > 0))
+            PlanningConstraint(
+                kind=p.policy_type.value,
+                description=p.description,
+                parameters=dict(p.metadata),
+                hard=(p.priority > 0),
+            )
             for p in self.resolve_policies(membership_id, governance=governance)
         )
 
@@ -412,8 +473,11 @@ class MembershipGovernor:
     Space" wording exactly."""
 
     def __init__(
-        self, presence: PresenceTimeline, geo_registry: GeographicRegistry,
-        permanent: "SocietyMembershipRegistry", context_stream: SocietyContextStream | None = None,
+        self,
+        presence: PresenceTimeline,
+        geo_registry: GeographicRegistry,
+        permanent: "SocietyMembershipRegistry",
+        context_stream: SocietyContextStream | None = None,
         on_temporary_granted: "Callable[[str, str], None] | None" = None,
         on_temporary_revoked: "Callable[[str, str], None] | None" = None,
         memory_manager: Any = None,
@@ -484,24 +548,36 @@ class MembershipGovernor:
         """Lemon's effective_membership_calculations."""
         return self._effective_calculation_count
 
-    def _publish(self, event_type: MembershipEventType, actor_id: str, society_id: str,
-                 space_id: str, timestamp: float) -> None:
+    def _publish(
+        self,
+        event_type: MembershipEventType,
+        actor_id: str,
+        society_id: str,
+        space_id: str,
+        timestamp: float,
+    ) -> None:
         if event_type is MembershipEventType.TEMPORARY_MEMBERSHIP_GRANTED:
             self._created_count += 1
             if self._on_temporary_granted is not None:
                 try:
                     self._on_temporary_granted(actor_id, society_id)
                 except Exception:
-                    logger.exception("on_temporary_granted callback raised for actor=%s society=%s",
-                                      actor_id, society_id)
+                    logger.exception(
+                        "on_temporary_granted callback raised for actor=%s society=%s",
+                        actor_id,
+                        society_id,
+                    )
         else:
             self._revoked_count += 1
             if self._on_temporary_revoked is not None:
                 try:
                     self._on_temporary_revoked(actor_id, society_id)
                 except Exception:
-                    logger.exception("on_temporary_revoked callback raised for actor=%s society=%s",
-                                      actor_id, society_id)
+                    logger.exception(
+                        "on_temporary_revoked callback raised for actor=%s society=%s",
+                        actor_id,
+                        society_id,
+                    )
         if self._context_stream is None:
             return
         context_event_type = (
@@ -509,13 +585,19 @@ class MembershipGovernor:
             if event_type is MembershipEventType.TEMPORARY_MEMBERSHIP_GRANTED
             else ContextEventType.TEMPORARY_MEMBERSHIP_REVOKED
         )
-        self._context_stream.publish(ContextEvent(
-            event_type=context_event_type,
-            actor_id=actor_id,
-            description=f"{event_type.value}: actor {actor_id}, society {society_id}, space {space_id}",
-            payload={"actor_id": actor_id, "society_id": society_id, "space_id": space_id},
-            timestamp=timestamp,
-        ))
+        self._context_stream.publish(
+            ContextEvent(
+                event_type=context_event_type,
+                actor_id=actor_id,
+                description=f"{event_type.value}: actor {actor_id}, society {society_id}, space {space_id}",
+                payload={
+                    "actor_id": actor_id,
+                    "society_id": society_id,
+                    "space_id": space_id,
+                },
+                timestamp=timestamp,
+            )
+        )
         self._events_published_count += 1
 
     def _on_movement(self, event: MovementEvent) -> None:
@@ -539,10 +621,7 @@ class MembershipGovernor:
         unaffected either way."""
         if self._memory_manager is None:
             return
-        others = tuple(
-            a for a in self._presence.occupants(event.space_id, event.timestamp)
-            if a != event.actor_id
-        )
+        others = tuple(a for a in self._presence.occupants(event.space_id, event.timestamp) if a != event.actor_id)
         text = f"Actor {event.actor_id} entered space {event.space_id}"
         if event.activity:
             text += f" for activity {event.activity!r}"
@@ -550,10 +629,14 @@ class MembershipGovernor:
             text += f", alongside actors: {', '.join(others)}"
         try:
             self._memory_manager.record_experience(
-                event.actor_id, "experience", text,
+                event.actor_id,
+                "experience",
+                text,
                 metadata={
-                    "presence_event": event.event_type.value, "space_id": event.space_id,
-                    "nearby_actors": list(others), "timestamp": event.timestamp,
+                    "presence_event": event.event_type.value,
+                    "space_id": event.space_id,
+                    "nearby_actors": list(others),
+                    "timestamp": event.timestamp,
                 },
             )
         except Exception:
@@ -568,11 +651,15 @@ class MembershipGovernor:
         ENTER would have produced. Composes the existing handlers rather
         than duplicating their revoke/grant logic."""
         if event.prior_space_id:
-            self._handle_leave(MovementEvent(
-                event_type=MovementEventType.LEAVE, actor_id=event.actor_id,
-                space_id=event.prior_space_id, timestamp=event.timestamp,
-                activity=event.activity,
-            ))
+            self._handle_leave(
+                MovementEvent(
+                    event_type=MovementEventType.LEAVE,
+                    actor_id=event.actor_id,
+                    space_id=event.prior_space_id,
+                    timestamp=event.timestamp,
+                    activity=event.activity,
+                )
+            )
         self._handle_enter(event)
 
     def _handle_leave(self, event: MovementEvent) -> None:
@@ -582,8 +669,13 @@ class MembershipGovernor:
         associated = self._geo_registry.societies_at_or_above(event.space_id)
         for society_id in held & associated:
             held.discard(society_id)
-            self._publish(MembershipEventType.TEMPORARY_MEMBERSHIP_REVOKED,
-                           event.actor_id, society_id, event.space_id, event.timestamp)
+            self._publish(
+                MembershipEventType.TEMPORARY_MEMBERSHIP_REVOKED,
+                event.actor_id,
+                society_id,
+                event.space_id,
+                event.timestamp,
+            )
         if not held:
             self._temporary.pop(event.actor_id, None)
 
@@ -595,8 +687,13 @@ class MembershipGovernor:
             if society_id in permanent or society_id in held:
                 continue
             held.add(society_id)
-            self._publish(MembershipEventType.TEMPORARY_MEMBERSHIP_GRANTED,
-                           event.actor_id, society_id, event.space_id, event.timestamp)
+            self._publish(
+                MembershipEventType.TEMPORARY_MEMBERSHIP_GRANTED,
+                event.actor_id,
+                society_id,
+                event.space_id,
+                event.timestamp,
+            )
         if not held:
             self._temporary.pop(event.actor_id, None)
 
@@ -615,7 +712,8 @@ class MembershipGovernor:
         current = self._presence.current(actor_id)
         associated = (
             self._geo_registry.societies_at_or_above(current.space_id)
-            if current is not None and current.is_open() else set()
+            if current is not None and current.is_open()
+            else set()
         )
         space_id = current.space_id if current is not None else ""
         permanent = set(self._permanent.societies_for_actor(actor_id))
@@ -626,16 +724,26 @@ class MembershipGovernor:
             if society_id in permanent or society_id not in associated:
                 held.discard(society_id)
                 changed += 1
-                self._publish(MembershipEventType.TEMPORARY_MEMBERSHIP_REVOKED,
-                               actor_id, society_id, space_id, time.time())
+                self._publish(
+                    MembershipEventType.TEMPORARY_MEMBERSHIP_REVOKED,
+                    actor_id,
+                    society_id,
+                    space_id,
+                    time.time(),
+                )
 
         for society_id in associated:
             if society_id in permanent or society_id in held:
                 continue
             held.add(society_id)
             changed += 1
-            self._publish(MembershipEventType.TEMPORARY_MEMBERSHIP_GRANTED,
-                           actor_id, society_id, space_id, time.time())
+            self._publish(
+                MembershipEventType.TEMPORARY_MEMBERSHIP_GRANTED,
+                actor_id,
+                society_id,
+                space_id,
+                time.time(),
+            )
 
         if not held:
             self._temporary.pop(actor_id, None)
@@ -644,4 +752,5 @@ class MembershipGovernor:
 
 def _new_entry_id() -> str:
     from uuid import uuid4
+
     return uuid4().hex

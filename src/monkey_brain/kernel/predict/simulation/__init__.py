@@ -31,6 +31,7 @@ Public surface (backward compatible):
   - analyze(graph) → list[Issue]    (sync wrapper, backward compat)
   - predict(graph) → PredictionReport  (async, full structured report with EPA loss)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,10 +45,10 @@ logger = logging.getLogger(__name__)
 
 
 class IssueKind(StrEnum):
-    FAILED_NODE        = "failed_node"
-    UNREACHABLE_NODE   = "unreachable_node"
+    FAILED_NODE = "failed_node"
+    UNREACHABLE_NODE = "unreachable_node"
     CRITICAL_PATH_SLOW = "critical_path_slow"
-    CYCLE_DETECTED     = "cycle_detected"
+    CYCLE_DETECTED = "cycle_detected"
 
 
 @dataclass
@@ -61,6 +62,7 @@ class Issue:
 
 # ── Primary async API ─────────────────────────────────────────────────────────
 
+
 async def predict(graph: Any) -> "PredictionReport":
     """Full structured prediction: SolverMesh → PredictedEPAState → PredictionReport.
 
@@ -71,11 +73,13 @@ async def predict(graph: Any) -> "PredictionReport":
       - issues           = supplementary Issue list for backward compat
     """
     from src.monkey_brain.kernel.predict.engine import PredictEngine
+
     engine = PredictEngine()
     return await engine.predict(graph)
 
 
 # ── Backward-compatible sync API ──────────────────────────────────────────────
+
 
 def analyze(graph: Any) -> list[Issue]:
     """Sync entry point — returns list[Issue] from GraphSolver (no full EPA loop).
@@ -108,6 +112,7 @@ def _fallback_analyze(graph: Any) -> list[Issue]:
     """Direct GraphSolver fallback — no async, no mesh."""
     from src.monkey_brain.kernel.predict.graph_solver.graph import GraphSolver
     from src.monkey_brain.kernel.execute.graph import NodeState
+
     gs = GraphSolver()
     issues: list[Issue] = []
 
@@ -119,8 +124,13 @@ def _fallback_analyze(graph: Any) -> list[Issue]:
     failed = set(gs.find_failed_nodes(graph))
     for nid in cp:
         if nid in failed:
-            issues.append(Issue(kind=IssueKind.CRITICAL_PATH_SLOW, node_id=nid,
-                                metadata={"critical_path": cp}))
+            issues.append(
+                Issue(
+                    kind=IssueKind.CRITICAL_PATH_SLOW,
+                    node_id=nid,
+                    metadata={"critical_path": cp},
+                )
+            )
     if gs.detect_cycles(graph):
         issues.append(Issue(kind=IssueKind.CYCLE_DETECTED, node_id="*"))
     return issues

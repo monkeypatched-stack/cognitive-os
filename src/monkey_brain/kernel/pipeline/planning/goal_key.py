@@ -9,6 +9,7 @@ own idempotency check) — extracted here so every goal-scoped lookup across
 the planning/prediction pipeline shares exactly one normalization, not a
 second implementation that could drift.
 """
+
 from __future__ import annotations
 
 import re

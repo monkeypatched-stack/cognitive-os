@@ -110,9 +110,7 @@ class DataBricksJobAdapter(CapabilityAdapter):
             return AdapterResponse.fail("Missing required input: job_id")
 
         parameters = inputs.get("parameters", {})
-        job_timeout = int(
-            inputs.get("job_timeout", self.config.get("timeout", _DEFAULT_JOB_TIMEOUT))
-        )
+        job_timeout = int(inputs.get("job_timeout", self.config.get("timeout", _DEFAULT_JOB_TIMEOUT)))
         poll_interval = int(self.config.get("poll_interval", 10))
 
         try:
@@ -136,9 +134,7 @@ class DataBricksJobAdapter(CapabilityAdapter):
                     state, result_state, output = await self._poll_run(run_id)
 
                     if state in _TERMINAL_STATES:
-                        success = (
-                            state == _SUCCESS_STATE and result_state == _SUCCESS_RESULT
-                        )
+                        success = state == _SUCCESS_STATE and result_state == _SUCCESS_RESULT
                         if success:
                             await self.emit_event(
                                 "databricks_job_completed",
@@ -155,13 +151,9 @@ class DataBricksJobAdapter(CapabilityAdapter):
                             )
                         else:
                             await self.emit_metric("databricks_jobs_failed", 1.0)
-                            return AdapterResponse.fail(
-                                f"DataBricks job failed: state={state}, result={result_state}"
-                            )
+                            return AdapterResponse.fail(f"DataBricks job failed: state={state}, result={result_state}")
 
-                return AdapterResponse.fail(
-                    f"DataBricks job run {run_id} timed out after {job_timeout}s."
-                )
+                return AdapterResponse.fail(f"DataBricks job run {run_id} timed out after {job_timeout}s.")
 
         except Exception as exc:
             self.log("error", f"DataBricks execute failed: {exc}")

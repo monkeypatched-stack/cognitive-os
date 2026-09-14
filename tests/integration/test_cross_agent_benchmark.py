@@ -6,6 +6,7 @@ Tests the complete lifecycle:
 - Engineering knowledge retrieval for future tasks
 - Capability-based agent interaction (no direct coupling)
 """
+
 import sys
 import os
 import uuid
@@ -15,14 +16,16 @@ from enum import StrEnum
 from typing import Any
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from domains.software_engineering.knowledge.pack import SoftwareEngineeringKnowledgePublisher as EngineeringKnowledgePublisher
-
+from domains.software_engineering.knowledge.pack import (
+    SoftwareEngineeringKnowledgePublisher as EngineeringKnowledgePublisher,
+)
 
 # ── Domain Models ────────────────────────────────────────────────────────────
+
 
 class WorkOrderStatus(StrEnum):
     CREATED = "created"
@@ -38,47 +41,75 @@ class TodoStatus(StrEnum):
 
 # ── Agent Stubs (minimal, focused on workflow behavior) ──────────────────────
 
+
 class WorkOrderAgent:
-    def __init__(self): self.orders = {}; self.events = []
+    def __init__(self):
+        self.orders = {}
+        self.events = []
+
     def create(self, title, equipment, priority="medium"):
-        wo = {"id": f"WO-{uuid.uuid4().hex[:8]}", "title": title, "equipment": equipment,
-              "priority": priority, "status": WorkOrderStatus.CREATED, "todos": []}
+        wo = {
+            "id": f"WO-{uuid.uuid4().hex[:8]}",
+            "title": title,
+            "equipment": equipment,
+            "priority": priority,
+            "status": WorkOrderStatus.CREATED,
+            "todos": [],
+        }
         self.orders[wo["id"]] = wo
         self.events.append({"type": "WorkOrderCreated", "id": wo["id"]})
         return wo
+
     def complete(self, wo_id):
         self.orders[wo_id]["status"] = WorkOrderStatus.COMPLETED
         self.events.append({"type": "WorkOrderCompleted", "id": wo_id})
 
 
 class TodoAgent:
-    def __init__(self): self.todos = {}; self.events = []
+    def __init__(self):
+        self.todos = {}
+        self.events = []
+
     def generate(self, wo):
         todos = []
         for step in ["Inspect", "Gather tools", "Perform", "Document"]:
-            t = {"id": f"TD-{uuid.uuid4().hex[:8]}", "wo_id": wo["id"], "title": step,
-                 "assigned": "worker-001", "status": TodoStatus.PENDING}
+            t = {
+                "id": f"TD-{uuid.uuid4().hex[:8]}",
+                "wo_id": wo["id"],
+                "title": step,
+                "assigned": "worker-001",
+                "status": TodoStatus.PENDING,
+            }
             self.todos[t["id"]] = t
             wo["todos"].append(t["id"])
             todos.append(t)
             self.events.append({"type": "TodoCreated", "id": t["id"]})
         return todos
+
     def accept(self, tid):
         self.todos[tid]["status"] = TodoStatus.ACCEPTED
+
     def complete(self, tid):
         self.todos[tid]["status"] = TodoStatus.COMPLETED
 
 
 class NotificationCapability:
-    def __init__(self): self.sent = []
+    def __init__(self):
+        self.sent = []
+
     def notify(self, todo, wo):
-        n = {"id": f"NT-{uuid.uuid4().hex[:8]}", "todo_id": todo["id"],
-             "message": f"Task '{todo['title']}' for WO {wo['id']}", "sent": True}
+        n = {
+            "id": f"NT-{uuid.uuid4().hex[:8]}",
+            "todo_id": todo["id"],
+            "message": f"Task '{todo['title']}' for WO {wo['id']}",
+            "sent": True,
+        }
         self.sent.append(n)
         return n
 
 
 # ── Benchmark Tests ──────────────────────────────────────────────────────────
+
 
 def test_wo_persists():
     ag = WorkOrderAgent()
@@ -169,12 +200,16 @@ def test_full_lifecycle():
 
 def test_knowledge_publishing():
     pub = EngineeringKnowledgePublisher()
-    pub.publish(spec_id="bench-001", goal="WorkOrder workflow", domain="manufacturing",
-                generated_files={"wo.py": "code", "td.py": "code", "nc.py": "code"},
-                governance_findings=[{"severity": "low"}],
-                benchmark_results={"throughput": 42},
-                workflow_topology=["CreateWO", "GenTodos", "Notify", "Accept", "Complete"],
-                confidence=0.9)
+    pub.publish(
+        spec_id="bench-001",
+        goal="WorkOrder workflow",
+        domain="manufacturing",
+        generated_files={"wo.py": "code", "td.py": "code", "nc.py": "code"},
+        governance_findings=[{"severity": "low"}],
+        benchmark_results={"throughput": 42},
+        workflow_topology=["CreateWO", "GenTodos", "Notify", "Accept", "Complete"],
+        confidence=0.9,
+    )
     assert pub.summary()["total_published"] == 1
     items = pub.get_knowledge_items_for_retrieval("WorkOrder")
     assert len(items) >= 4
@@ -212,16 +247,21 @@ def test_multi_workflow():
 
 
 if __name__ == "__main__":
-    ok = 0; f = []
-    for name, fn in sorted((k, v) for k, v in globals().items() if k.startswith('test_') and callable(v)):
-        try: fn(); ok += 1
-        except Exception as e: f.append(f"{name}: {e}")
-    print(f"\n{'='*60}")
+    ok = 0
+    f = []
+    for name, fn in sorted((k, v) for k, v in globals().items() if k.startswith("test_") and callable(v)):
+        try:
+            fn()
+            ok += 1
+        except Exception as e:
+            f.append(f"{name}: {e}")
+    print(f"\n{'=' * 60}")
     print(f"CROSS-AGENT INTEGRATION BENCHMARK")
-    print(f"{'='*60}")
-    print(f"  Total: {ok}/{ok+len(f)}")
+    print(f"{'=' * 60}")
+    print(f"  Total: {ok}/{ok + len(f)}")
     if f:
-        for e in f: print(f"  FAIL: {e}")
+        for e in f:
+            print(f"  FAIL: {e}")
     else:
         print("  ALL CHECKS PASS")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")

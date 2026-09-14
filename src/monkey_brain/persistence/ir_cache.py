@@ -5,6 +5,7 @@ Phase 4: Improved LRU eviction + TTL support.
 Caches compiled Intent/Goal IR to avoid reparsing.
 Reduces latency by avoiding repeated compilation for identical requests.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +19,7 @@ logger = logging.getLogger("agentos.ir_cache")
 
 class CacheEntry(NamedTuple):
     """Cache entry with value and timestamp."""
+
     value: Any
     timestamp: float
 
@@ -77,8 +79,12 @@ class IRCache:
             # Move to end for LRU ordering
             self._cache.move_to_end(cache_key)
             self._hits += 1
-            logger.debug("[ir_cache] IntentIR hit: %s (hits=%d, ratio=%.1f%%)",
-                        cache_key[:8], self._hits, 100*self._hits/(self._hits+self._misses) if (self._hits+self._misses) > 0 else 0)
+            logger.debug(
+                "[ir_cache] IntentIR hit: %s (hits=%d, ratio=%.1f%%)",
+                cache_key[:8],
+                self._hits,
+                (100 * self._hits / (self._hits + self._misses) if (self._hits + self._misses) > 0 else 0),
+            )
             return entry.value
 
         self._misses += 1
@@ -103,12 +109,20 @@ class IRCache:
             lru_key = next(iter(self._cache))
             del self._cache[lru_key]
             self._evictions += 1
-            logger.debug("[ir_cache] LRU eviction: %s (evictions=%d)", lru_key[:8], self._evictions)
+            logger.debug(
+                "[ir_cache] LRU eviction: %s (evictions=%d)",
+                lru_key[:8],
+                self._evictions,
+            )
 
         # Store with timestamp for TTL checking
         self._cache[cache_key] = CacheEntry(value=intent_ir, timestamp=time.time())
-        logger.debug("[ir_cache] Cached IntentIR: %s (size=%d/%d)",
-                     cache_key[:8], len(self._cache), self._maxsize)
+        logger.debug(
+            "[ir_cache] Cached IntentIR: %s (size=%d/%d)",
+            cache_key[:8],
+            len(self._cache),
+            self._maxsize,
+        )
 
     def get_goal_ir(self, question: str, intent_type: str, domain: str = "") -> Any | None:
         """Get cached GoalIR if available.
@@ -159,12 +173,20 @@ class IRCache:
             lru_key = next(iter(self._cache))
             del self._cache[lru_key]
             self._evictions += 1
-            logger.debug("[ir_cache] LRU eviction: %s (evictions=%d)", lru_key[:8], self._evictions)
+            logger.debug(
+                "[ir_cache] LRU eviction: %s (evictions=%d)",
+                lru_key[:8],
+                self._evictions,
+            )
 
         # Store with timestamp for TTL checking
         self._cache[cache_key] = CacheEntry(value=goal_ir, timestamp=time.time())
-        logger.debug("[ir_cache] Cached GoalIR: %s (size=%d/%d)",
-                     cache_key[:8], len(self._cache), self._maxsize)
+        logger.debug(
+            "[ir_cache] Cached GoalIR: %s (size=%d/%d)",
+            cache_key[:8],
+            len(self._cache),
+            self._maxsize,
+        )
 
     def clear(self) -> None:
         """Clear entire cache."""

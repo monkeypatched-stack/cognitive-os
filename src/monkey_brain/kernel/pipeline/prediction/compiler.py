@@ -25,6 +25,7 @@ learning/integration.py (prediction_result_to_dict) already established,
 so a real Plan object threaded through as `plan=...` falls back to str()
 instead of breaking json.dumps() on the result.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -34,7 +35,9 @@ from typing import Any
 from uuid import uuid4
 
 from src.monkey_brain.kernel.pipeline.prediction.domain import (
-    PredictionCandidate, PredictionConfidence, PredictionResult,
+    PredictionCandidate,
+    PredictionConfidence,
+    PredictionResult,
 )
 from src.monkey_brain.kernel.pipeline.prediction.risk import RiskAssessment, RiskFactor
 from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationTrajectory
@@ -44,6 +47,7 @@ from src.monkey_brain.kernel.pipeline.prediction.simulation import SimulationTra
 class ScenarioSummary:
     """One scenario's serializable summary: label, probability, outcome
     description, assumptions, and whether it was rejected."""
+
     label: str = ""
     probability: float = 0.0
     predicted_outcome: str = ""
@@ -58,6 +62,7 @@ class ScenarioSummary:
 class ScenarioSet:
     """All scenarios considered during one prediction cycle, in ranked
     order. Deterministic: same inputs always produce the same ScenarioSet."""
+
     set_id: str = field(default_factory=lambda: uuid4().hex)
     scenarios: tuple[ScenarioSummary, ...] = ()
     total_count: int = 0
@@ -68,6 +73,7 @@ class ScenarioSet:
 @dataclass(frozen=True)
 class ConfidenceReport:
     """Structured confidence analysis across all evaluated scenarios."""
+
     report_id: str = field(default_factory=lambda: uuid4().hex)
     overall_confidence: PredictionConfidence = field(default_factory=PredictionConfidence)
     best_case_confidence: PredictionConfidence = field(default_factory=PredictionConfidence)
@@ -81,6 +87,7 @@ class ConfidenceReport:
 class DecisionRecommendation:
     """The final, fully-serializable decision output: what to do, why, and
     what was considered."""
+
     recommendation_id: str = field(default_factory=lambda: uuid4().hex)
     selected_scenario: str = ""
     recommendation: str = ""
@@ -96,6 +103,7 @@ class PredictionSummary:
     """The compiler's top-level artifact: one compact, fully-serializable
     record of an entire prediction cycle, suitable for persistence,
     sharing, or governance audit."""
+
     summary_id: str = field(default_factory=lambda: uuid4().hex)
     plan_summary: Any = None
     scenario_set: ScenarioSet = field(default_factory=ScenarioSet)
@@ -150,16 +158,18 @@ class PredictionCompiler:
             predicted_outcome = ""
             if prediction.predicted_outcomes:
                 predicted_outcome = prediction.predicted_outcomes[0].description
-            summaries.append(ScenarioSummary(
-                label=candidate.scenario_label,
-                probability=candidate.probability,
-                predicted_outcome=predicted_outcome,
-                assumptions=prediction.assumptions,
-                rejected=candidate.rejected,
-                rejection_reason=candidate.rejection_reason,
-                risk_factors=risk_factors,
-                trajectory_length=trajectory_length,
-            ))
+            summaries.append(
+                ScenarioSummary(
+                    label=candidate.scenario_label,
+                    probability=candidate.probability,
+                    predicted_outcome=predicted_outcome,
+                    assumptions=prediction.assumptions,
+                    rejected=candidate.rejected,
+                    rejection_reason=candidate.rejection_reason,
+                    risk_factors=risk_factors,
+                    trajectory_length=trajectory_length,
+                )
+            )
 
         viable = sum(1 for s in summaries if not s.rejected)
         return ScenarioSet(
@@ -170,7 +180,9 @@ class PredictionCompiler:
         )
 
     def _compile_confidence_report(
-        self, result: PredictionResult, assessments: tuple[RiskAssessment, ...],
+        self,
+        result: PredictionResult,
+        assessments: tuple[RiskAssessment, ...],
     ) -> ConfidenceReport:
         candidates = [c for c in result.candidates if not c.rejected]
         if not candidates:
@@ -178,13 +190,11 @@ class PredictionCompiler:
 
         all_confidences = [c.prediction.confidence for c in candidates]
         overall = PredictionConfidence(
-            point_estimate=min(c.point_estimate for c in all_confidences) if all_confidences else 0.0,
-            lower_bound=min(c.lower_bound for c in all_confidences) if all_confidences else 0.0,
-            upper_bound=max(c.upper_bound for c in all_confidences) if all_confidences else 1.0,
+            point_estimate=(min(c.point_estimate for c in all_confidences) if all_confidences else 0.0),
+            lower_bound=(min(c.lower_bound for c in all_confidences) if all_confidences else 0.0),
+            upper_bound=(max(c.upper_bound for c in all_confidences) if all_confidences else 1.0),
             rationale=f"aggregated across {len(all_confidences)} viable scenario(s)",
-            uncertainty_sources=tuple(
-                src for c in all_confidences for src in c.uncertainty_sources
-            ),
+            uncertainty_sources=tuple(src for c in all_confidences for src in c.uncertainty_sources),
         )
 
         best = max(candidates, key=lambda c: c.probability)
@@ -265,6 +275,9 @@ def compile_prediction(
 ) -> PredictionSummary:
     """Module-level convenience wrapper around PredictionCompiler().compile()."""
     return PredictionCompiler().compile(
-        result, trajectories=trajectories, assessments=assessments,
-        plan=plan, metadata=metadata,
+        result,
+        trajectories=trajectories,
+        assessments=assessments,
+        plan=plan,
+        metadata=metadata,
     )

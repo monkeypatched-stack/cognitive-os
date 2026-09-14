@@ -4,6 +4,7 @@ Reads the client's source files (client.py, models.py, exceptions.py), calls an 
 via the client_charter workload spec, and writes a somatic values.yaml capability chart
 that registers the API client as a first-class MonkeyBrain ICapability.
 """
+
 from __future__ import annotations
 
 import logging
@@ -57,9 +58,7 @@ class ClientCharterAgent(BaseETASSAgent):
             )
 
         # ── Build LLM goal ────────────────────────────────────────────────────
-        sources_text = "\n\n".join(
-            f"=== {fname} ===\n{content}" for fname, content in sources.items()
-        )
+        sources_text = "\n\n".join(f"=== {fname} ===\n{content}" for fname, content in sources.items())
         goal = (
             f"Convert this API client for service '{service_slug}' into a somatic "
             f"CAPABILITY chart (values.yaml). Base URL: {base_url}\n\n"
@@ -112,6 +111,7 @@ class ClientCharterAgent(BaseETASSAgent):
             return ""
         try:
             import anthropic
+
             msg = anthropic.Anthropic(api_key=api_key).messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=3072,
@@ -137,25 +137,20 @@ class ClientCharterAgent(BaseETASSAgent):
     @staticmethod
     def _parse_operations(client_src: str, slug: str) -> list[dict]:
         """Infer HTTP operations from public method names in client.py."""
-        # Try to find methods with their signatures
-        method_pattern = re.compile(
-            r"def ([\w]+)\(self[^)]*\)[^:]*:\s*\n\s*[\"']{3}([^\"']*)[\"']{3}",
-            re.DOTALL,
-        )
         ops: list[dict] = []
         seen: set[str] = set()
 
         # Map common verb prefixes to HTTP methods and path patterns
         _verb_map = {
-            "create":  ("POST",   f"/{slug}s/"),
-            "add":     ("POST",   f"/{slug}s/"),
-            "list":    ("GET",    f"/{slug}s/"),
-            "get":     ("GET",    f"/{slug}s/{{id}}"),
-            "fetch":   ("GET",    f"/{slug}s/{{id}}"),
-            "update":  ("PATCH",  f"/{slug}s/{{id}}"),
-            "replace": ("PUT",    f"/{slug}s/{{id}}"),
-            "delete":  ("DELETE", f"/{slug}s/{{id}}"),
-            "remove":  ("DELETE", f"/{slug}s/{{id}}"),
+            "create": ("POST", f"/{slug}s/"),
+            "add": ("POST", f"/{slug}s/"),
+            "list": ("GET", f"/{slug}s/"),
+            "get": ("GET", f"/{slug}s/{{id}}"),
+            "fetch": ("GET", f"/{slug}s/{{id}}"),
+            "update": ("PATCH", f"/{slug}s/{{id}}"),
+            "replace": ("PUT", f"/{slug}s/{{id}}"),
+            "delete": ("DELETE", f"/{slug}s/{{id}}"),
+            "remove": ("DELETE", f"/{slug}s/{{id}}"),
         }
 
         public_methods = re.findall(r"def ([a-z][\w]+)\(self", client_src)
@@ -169,21 +164,22 @@ class ClientCharterAgent(BaseETASSAgent):
                     http_method, path = hm, pt
                     break
             auth_required = http_method in ("POST", "PUT", "PATCH", "DELETE")
-            ops.append({
-                "name": method,
-                "method": http_method,
-                "path": path,
-                "description": method.replace("_", " ").capitalize(),
-                "auth_required": auth_required,
-            })
+            ops.append(
+                {
+                    "name": method,
+                    "method": http_method,
+                    "path": path,
+                    "description": method.replace("_", " ").capitalize(),
+                    "auth_required": auth_required,
+                }
+            )
 
         return ops
 
-    def _build_structural_chart(
-        self, slug: str, base_url: str, sources: dict[str, str]
-    ) -> str:
+    def _build_structural_chart(self, slug: str, base_url: str, sources: dict[str, str]) -> str:
         """Fallback: build a valid capability chart from parsed client source."""
         import datetime
+
         client_src = sources.get("client.py", "")
         operations = self._parse_operations(client_src, slug)
         cap_prefix = slug.upper().replace("-", "")[:8]
@@ -196,15 +192,15 @@ class ClientCharterAgent(BaseETASSAgent):
                 f"  - name: {op['name']}\n"
                 f"    method: {op['method']}\n"
                 f"    path: {op['path']}\n"
-                f"    description: \"{op['description']}\"\n"
+                f'    description: "{op["description"]}"\n'
                 f"    auth_required: {'true' if op['auth_required'] else 'false'}\n"
             )
         if not ops_yaml:
             ops_yaml = (
-                f"  - name: list_{slug.replace('-','_')}s\n"
+                f"  - name: list_{slug.replace('-', '_')}s\n"
                 f"    method: GET\n"
                 f"    path: /{slug}s/\n"
-                f"    description: \"List all {slug} resources\"\n"
+                f'    description: "List all {slug} resources"\n'
                 f"    auth_required: false\n"
             )
 
@@ -213,23 +209,23 @@ class ClientCharterAgent(BaseETASSAgent):
             f"    rule: typed_parameters\n"
             f"    statement: All operation parameters must be fully typed.\n"
             f"    severity: critical\n"
-            f"    rejection: \"REJECTED — Untyped parameter in operation.\"\n"
+            f'    rejection: "REJECTED — Untyped parameter in operation."\n'
             f"  - id: {cap_prefix}-CAP-002\n"
             f"    rule: auth_at_registration\n"
             f"    statement: JWT token injected at capability registration, not per operation.\n"
             f"    severity: high\n"
-            f"    rejection: \"REJECTED — Auth credential passed per operation call.\"\n"
+            f'    rejection: "REJECTED — Auth credential passed per operation call."\n'
             f"  - id: {cap_prefix}-CAP-003\n"
             f"    rule: error_mapping\n"
             f"    statement: HTTP errors must map to domain exceptions.\n"
             f"    severity: high\n"
-            f"    rejection: \"REJECTED — Raw HTTP error exposed to caller.\"\n"
+            f'    rejection: "REJECTED — Raw HTTP error exposed to caller."\n'
         )
 
         rejected = (
-            f"      - \"REJECTED — Untyped parameter in operation.\"\n"
-            f"      - \"REJECTED — Auth credential passed per operation call.\"\n"
-            f"      - \"REJECTED — Raw HTTP error exposed to caller.\"\n"
+            '      - "REJECTED — Untyped parameter in operation."\n'
+            '      - "REJECTED — Auth credential passed per operation call."\n'
+            '      - "REJECTED — Raw HTTP error exposed to caller."\n'
         )
 
         return (
@@ -237,15 +233,15 @@ class ClientCharterAgent(BaseETASSAgent):
             f"  name: {slug}-client\n"
             f"  id: cap-{slug}-client-001\n"
             f"  platform: HTTP/REST\n"
-            f"  description: \"Typed {slug} API client capability\"\n"
-            f"  version: \"1.0.0\"\n"
+            f'  description: "Typed {slug} API client capability"\n'
+            f'  version: "1.0.0"\n'
             f"  status: active\n"
             f"  authored_by: ClientCharterAgent\n"
             f"  approved_by: CingulateAgent\n"
             f"  effective_date: '{today}'\n"
             f"  review_date: '{review}'\n"
-            f"  module_id: {slug.replace('-','_')}\n"
-            f"  module_name: {slug.title().replace('-',' ')}\n"
+            f"  module_id: {slug.replace('-', '_')}\n"
+            f"  module_name: {slug.title().replace('-', ' ')}\n"
             f"  tags:\n"
             f"    - api-client\n"
             f"    - {slug}\n"
@@ -253,14 +249,14 @@ class ClientCharterAgent(BaseETASSAgent):
             f"auth:\n"
             f"  type: bearer\n"
             f"  header_name: Authorization\n"
-            f"  format_template: \"Bearer {{{{token}}}}\"\n"
+            f'  format_template: "Bearer {{{{token}}}}"\n'
             f"  scopes: []\n"
-            f"  refresh_endpoint: \"\"\n"
+            f'  refresh_endpoint: ""\n'
             f"  ttl_seconds: 3600\n\n"
             f"endpoint:\n"
-            f"  base_url: \"{base_url}\"\n"
+            f'  base_url: "{base_url}"\n'
             f"  protocol: http\n"
-            f"  version: \"1.0.0\"\n"
+            f'  version: "1.0.0"\n'
             f"  tls_verify: false\n"
             f"  timeout_seconds: 30\n\n"
             f"operations:\n{ops_yaml}\n"
@@ -286,6 +282,6 @@ class ClientCharterAgent(BaseETASSAgent):
             f"reviewGate:\n"
             f"  mode: constitutional\n"
             f"  outcomes:\n"
-            f"    approved: \"APPROVED — {slug}-client capability conforms to all API client invariants.\"\n"
+            f'    approved: "APPROVED — {slug}-client capability conforms to all API client invariants."\n'
             f"    rejected:\n{rejected}"
         )

@@ -21,6 +21,7 @@ Known, deliberate gaps this file documents rather than works around:
   propagation test suite. This file's own correlation test below now
   asserts presence instead of absence.
 """
+
 from __future__ import annotations
 
 import os
@@ -33,7 +34,11 @@ os.environ["RATE_LIMIT_RPS"] = "100000"
 os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.communication import CommunicationDecision
 
 
@@ -44,25 +49,37 @@ def _register(pr, name, society_id=None, home_space_id=None):
     if home_space_id is not None:
         kwargs["home_space_id"] = home_space_id
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)),
+        **kwargs,
     )
 
 
 @pytest.fixture(scope="module")
 def client():
     import subprocess
+
     try:
         subprocess.run(
-            ["redis-cli", "-h", os.getenv("REDIS_HOST", "localhost"),
-             "-p", os.getenv("REDIS_PORT", "6379"), "flushdb"],
-            timeout=2, capture_output=True, check=False,
+            [
+                "redis-cli",
+                "-h",
+                os.getenv("REDIS_HOST", "localhost"),
+                "-p",
+                os.getenv("REDIS_PORT", "6379"),
+                "flushdb",
+            ],
+            timeout=2,
+            capture_output=True,
+            check=False,
         )
     except Exception:
         pass
     from pathlib import Path
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).parents[2] / ".env")
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -80,8 +97,10 @@ class TestCommunicationLogEmptyState:
         # is exactly what happened before this fix).
         pr = client.app.state.planetary_runtime
         club = pr.create_society("Comm Test Empty", society_type="community")
-        r = client.get(f"/api/v1/agentos/societies/{club.society.society_id}/communication-log",
-                        headers={"X-User-ID": "seed-world"})
+        r = client.get(
+            f"/api/v1/agentos/societies/{club.society.society_id}/communication-log",
+            headers={"X-User-ID": "seed-world"},
+        )
         assert r.status_code == 200, r.text
         assert r.json()["entries"] == []
 
@@ -138,12 +157,24 @@ class TestCommunicationLogRecordsDeniedDecision:
         default_space_id = pr.default_bootstrap_space_id
         building = pr.geo_registry.parent_of(default_space_id)
         club_b_space = pr.geo_registry.create(
-            GeographicEntityType.SPACE, "Comm Test Denied B Space", parent_id=building.entity_id,
+            GeographicEntityType.SPACE,
+            "Comm Test Denied B Space",
+            parent_id=building.entity_id,
         )
         pr.host_society(club_b_space.entity_id, club_b.society.society_id)
 
-        alice = _register(pr, "Alice Denied", society_id=club_a.society.society_id, home_space_id=default_space_id)
-        carol = _register(pr, "Carol Denied", society_id=club_b.society.society_id, home_space_id=club_b_space.entity_id)
+        alice = _register(
+            pr,
+            "Alice Denied",
+            society_id=club_a.society.society_id,
+            home_space_id=default_space_id,
+        )
+        carol = _register(
+            pr,
+            "Carol Denied",
+            society_id=club_b.society.society_id,
+            home_space_id=club_b_space.entity_id,
+        )
 
         sr_a = pr.get_society_runtime(club_a.society.society_id)
         sent = sr_a.send_message(alice.actor_id, carol.actor_id, "greeting", {"text": "hi"})
@@ -187,13 +218,19 @@ class TestContextStreamInteractionEventPayloadShapes:
 
         from src.monkey_brain.kernel.society.interaction import InteractionType
         from src.monkey_brain.kernel.society.context_stream import ContextEventType
+
         sr.route_interaction(
-            InteractionType.NEGOTIATE, alice.actor_id, (alice.actor_id, bob.actor_id),
-            topic="split the rent", proposal={"amount": 500},
+            InteractionType.NEGOTIATE,
+            alice.actor_id,
+            (alice.actor_id, bob.actor_id),
+            topic="split the rent",
+            proposal={"amount": 500},
         )
 
         events = pr.context_stream.events(limit=1000)
-        matching = [e for e in events if e.event_type == ContextEventType.INTERACTION and "participants" in (e.payload or {})]
+        matching = [
+            e for e in events if e.event_type == ContextEventType.INTERACTION and "participants" in (e.payload or {})
+        ]
         assert matching, "route_interaction must publish an INTERACTION event with a participants/topic payload"
         assert matching[-1].payload["topic"] == "split the rent"
 
@@ -213,10 +250,16 @@ class TestNoRetryOnAskActorTimeout:
         club = pr.create_society("Comm Test AskActor", society_type="community")
         alice = _register(pr, "Alice AskActor", society_id=club.society.society_id)
 
-        result = await AskActorCapability().handle({
-            "context": {"planetary_runtime": pr, "actor_id": alice.actor_id, "actor_role": "Alice"},
-            "parameters": {"target_actor": "Nobody Real", "question": "hi?"},
-        })
+        result = await AskActorCapability().handle(
+            {
+                "context": {
+                    "planetary_runtime": pr,
+                    "actor_id": alice.actor_id,
+                    "actor_role": "Alice",
+                },
+                "parameters": {"target_actor": "Nobody Real", "question": "hi?"},
+            }
+        )
         assert result["success"] is False
         assert "no actor named" in result["error"]
 
@@ -231,6 +274,7 @@ class TestNoCorrelationIdOnCommunicationDecision:
 
     def test_communication_decision_has_correlation_fields(self):
         import dataclasses
+
         field_names = {f.name for f in dataclasses.fields(CommunicationDecision)}
         assert "decision_id" in field_names
         assert "correlation_id" in field_names

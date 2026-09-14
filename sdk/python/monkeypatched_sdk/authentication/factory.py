@@ -109,9 +109,7 @@ class AuthFactory:
         5. Otherwise → NONE
         """
         if credentials.get("oauth_endpoint") or credentials.get("token_endpoint"):
-            endpoint = credentials.get("oauth_endpoint") or credentials.get(
-                "token_endpoint"
-            )
+            endpoint = credentials.get("oauth_endpoint") or credentials.get("token_endpoint")
             return AuthFactory.create(
                 AuthStrategy.OAUTH2,
                 token_endpoint=endpoint,

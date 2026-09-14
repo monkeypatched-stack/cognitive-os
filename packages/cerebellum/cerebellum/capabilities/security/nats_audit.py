@@ -20,7 +20,7 @@ _CONNECT_TIMEOUT_SEC = float(os.getenv("NATS_AUDIT_CONNECT_TIMEOUT_SEC", "2"))
 
 logger = logging.getLogger(__name__)
 
-_NATS_URL     = os.getenv("NATS_URL", "")
+_NATS_URL = os.getenv("NATS_URL", "")
 _AUDIT_SUBJECT = "indus.audit.queue"
 
 _nc: Any = None  # cached NATS connection
@@ -41,6 +41,7 @@ async def _get_nats():
 
     try:
         import nats
+
         # Live Deployment Validation finding: this module's own docstring
         # ("never blocks the request path") was violated — a bare
         # `await nats.connect(url)` has no bound on its own, and every

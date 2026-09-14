@@ -27,7 +27,9 @@ async def get_all(
     return [serialize(d) async for d in cursor], total
 
 
-async def get_by_id(db: AsyncIOMotorDatabase, collection: str, record_id: str) -> Optional[dict]:
+async def get_by_id(
+    db: AsyncIOMotorDatabase, collection: str, record_id: str
+) -> Optional[dict]:
     doc = await db[collection].find_one({"id": record_id})
     return serialize(doc) if doc else None
 
@@ -38,7 +40,9 @@ async def create(db: AsyncIOMotorDatabase, collection: str, data) -> dict:
     return serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, collection: str, record_id: str, data) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, collection: str, record_id: str, data
+) -> Optional[dict]:
     fields = dump(data)
     if not fields:
         return await get_by_id(db, collection, record_id)

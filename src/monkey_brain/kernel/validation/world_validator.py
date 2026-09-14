@@ -25,6 +25,7 @@ Each check is independent and defensive: one category raising never stops
 the others from running — a validator that silently reports "ok" because
 ONE check crashed would be worse than not having it.
 """
+
 from __future__ import annotations
 
 import logging
@@ -105,15 +106,23 @@ def validate_world(planetary_runtime: Any, actor_id: str | None = None) -> dict:
         try:
             fn(planetary_runtime, violations)
         except Exception as exc:
-            logger.warning("world validation category=%r raised, treating as a violation: %s", category, exc)
-            violations.append({
-                "type": "validator_error", "category": category,
-                "detail": f"{type(exc).__name__}: {exc}",
-            })
+            logger.warning(
+                "world validation category=%r raised, treating as a violation: %s",
+                category,
+                exc,
+            )
+            violations.append(
+                {
+                    "type": "validator_error",
+                    "category": category,
+                    "detail": f"{type(exc).__name__}: {exc}",
+                }
+            )
         category_counts[category] = len(violations) - before
 
     blocking = [
-        v for v in violations
+        v
+        for v in violations
         if actor_id is None
         or v.get("category") not in _ACTOR_SCOPED_CATEGORIES
         or v.get("actor_id") is None
@@ -135,6 +144,7 @@ def _add(violations: list[dict[str, Any]], category: str, vtype: str, **fields: 
 
 # ── 1 & 8. Geography tree: orphans, cycles, tier order ──────────────────────
 
+
 def _check_geography_tree(pr: Any, violations: list[dict[str, Any]]) -> None:
     from src.monkey_brain.kernel.geography.entity import PARENT_TIER, ROOT_ELIGIBLE
 
@@ -146,8 +156,14 @@ def _check_geography_tree(pr: Any, violations: list[dict[str, Any]]) -> None:
             continue
         parent = by_id.get(entity.parent_id) if entity.parent_id else None
         if entity.parent_id is None or parent is None:
-            _add(violations, "geography_tree", "orphaned_geographic_entity",
-                 entity_id=entity.entity_id, entity_type=entity.entity_type.value, name=entity.name)
+            _add(
+                violations,
+                "geography_tree",
+                "orphaned_geographic_entity",
+                entity_id=entity.entity_id,
+                entity_type=entity.entity_type.value,
+                name=entity.name,
+            )
             continue
         # Tier-order: a child's parent must be one of its allowed parent
         # tiers (entity.py::PARENT_TIER -- the same source of truth
@@ -157,9 +173,15 @@ def _check_geography_tree(pr: Any, violations: list[dict[str, Any]]) -> None:
         # check, not a fixed linear-index one).
         allowed_parent_tiers = PARENT_TIER.get(entity.entity_type)
         if allowed_parent_tiers is not None and parent.entity_type not in allowed_parent_tiers:
-            _add(violations, "geography_tree", "geography_tier_violation",
-                 entity_id=entity.entity_id, entity_type=entity.entity_type.value,
-                 parent_id=parent.entity_id, parent_type=parent.entity_type.value)
+            _add(
+                violations,
+                "geography_tree",
+                "geography_tier_violation",
+                entity_id=entity.entity_id,
+                entity_type=entity.entity_type.value,
+                parent_id=parent.entity_id,
+                parent_type=parent.entity_type.value,
+            )
 
 
 def _check_cycles_forbidden(pr: Any, violations: list[dict[str, Any]]) -> None:
@@ -177,8 +199,13 @@ def _check_cycles_forbidden(pr: Any, violations: list[dict[str, Any]]) -> None:
         depth = 0
         while current is not None and current.parent_id:
             if current.parent_id in seen or current.parent_id == entity.entity_id:
-                _add(violations, "cycles_forbidden", "geography_cycle",
-                     entity_id=entity.entity_id, cycle_at=current.parent_id)
+                _add(
+                    violations,
+                    "cycles_forbidden",
+                    "geography_cycle",
+                    entity_id=entity.entity_id,
+                    cycle_at=current.parent_id,
+                )
                 break
             seen.add(current.entity_id)
             current = by_id.get(current.parent_id)
@@ -187,12 +214,18 @@ def _check_cycles_forbidden(pr: Any, violations: list[dict[str, Any]]) -> None:
                 # Defensive bound — should be unreachable given the seen-set
                 # check above, but a scan must never spin forever on
                 # corrupted data.
-                _add(violations, "cycles_forbidden", "geography_cycle",
-                     entity_id=entity.entity_id, cycle_at="depth_bound_exceeded")
+                _add(
+                    violations,
+                    "cycles_forbidden",
+                    "geography_cycle",
+                    entity_id=entity.entity_id,
+                    cycle_at="depth_bound_exceeded",
+                )
                 break
 
 
 # ── 2. Society hierarchy ─────────────────────────────────────────────────
+
 
 def _check_society_hierarchy(pr: Any, violations: list[dict[str, Any]]) -> None:
     seen_ids: set[str] = set()
@@ -204,11 +237,18 @@ def _check_society_hierarchy(pr: Any, violations: list[dict[str, Any]]) -> None:
         try:
             pr.geo_registry.validate_society_has_space(sid)
         except Exception as exc:
-            _add(violations, "society_hierarchy", "society_without_space",
-                 society_id=sid, society_name=sr.society.name, detail=str(exc))
+            _add(
+                violations,
+                "society_hierarchy",
+                "society_without_space",
+                society_id=sid,
+                society_name=sr.society.name,
+                detail=str(exc),
+            )
 
 
 # ── 3. Presence consistency ──────────────────────────────────────────────
+
 
 def _check_presence_consistency(pr: Any, violations: list[dict[str, Any]]) -> None:
     known_space_ids = {e.entity_id for e in pr.geo_registry.all()}
@@ -220,15 +260,26 @@ def _check_presence_consistency(pr: Any, violations: list[dict[str, Any]]) -> No
             seen.add(state.actor_id)
             presence = pr.presence.current(state.actor_id)
             if presence is None or not presence.is_open():
-                _add(violations, "presence_consistency", "actor_without_presence",
-                     actor_id=state.actor_id, actor_name=state.profile.identity.name)
+                _add(
+                    violations,
+                    "presence_consistency",
+                    "actor_without_presence",
+                    actor_id=state.actor_id,
+                    actor_name=state.profile.identity.name,
+                )
                 continue
             if presence.space_id not in known_space_ids:
-                _add(violations, "presence_consistency", "presence_references_unknown_space",
-                     actor_id=state.actor_id, space_id=presence.space_id)
+                _add(
+                    violations,
+                    "presence_consistency",
+                    "presence_references_unknown_space",
+                    actor_id=state.actor_id,
+                    space_id=presence.space_id,
+                )
 
 
 # ── 4. Membership consistency ────────────────────────────────────────────
+
 
 def _check_membership_consistency(pr: Any, violations: list[dict[str, Any]]) -> None:
     registry = pr.membership_registry
@@ -237,21 +288,37 @@ def _check_membership_consistency(pr: Any, violations: list[dict[str, Any]]) -> 
 
     for membership in registry.active_memberships():
         if pr.get_society_runtime(membership.society_id) is None:
-            _add(violations, "membership_consistency", "membership_invalid_society",
-                 membership_id=membership.membership_id, society_id=membership.society_id)
+            _add(
+                violations,
+                "membership_consistency",
+                "membership_invalid_society",
+                membership_id=membership.membership_id,
+                society_id=membership.society_id,
+            )
         if membership.actor_id not in known_actor_ids:
-            _add(violations, "membership_consistency", "membership_invalid_actor",
-                 membership_id=membership.membership_id, actor_id=membership.actor_id)
+            _add(
+                violations,
+                "membership_consistency",
+                "membership_invalid_actor",
+                membership_id=membership.membership_id,
+                actor_id=membership.actor_id,
+            )
 
         pair = (membership.actor_id, membership.society_id)
         if pair in seen_pairs:
-            _add(violations, "membership_consistency", "duplicate_active_membership",
-                 actor_id=membership.actor_id, society_id=membership.society_id,
-                 membership_id=membership.membership_id)
+            _add(
+                violations,
+                "membership_consistency",
+                "duplicate_active_membership",
+                actor_id=membership.actor_id,
+                society_id=membership.society_id,
+                membership_id=membership.membership_id,
+            )
         seen_pairs.add(pair)
 
 
 # ── 5. Inventory consistency (Commerce, KnowledgeGraph) ──────────────────
+
 
 def _check_inventory_consistency(pr: Any, violations: list[dict[str, Any]]) -> None:
     kg = getattr(pr, "knowledge_graph", None)
@@ -263,15 +330,27 @@ def _check_inventory_consistency(pr: Any, violations: list[dict[str, Any]]) -> N
             continue
         quantity = attrs.get("quantity")
         if isinstance(quantity, (int, float)) and quantity < 0:
-            _add(violations, "inventory_consistency", "negative_product_quantity",
-                 product_id=entity.entity_id, quantity=quantity)
+            _add(
+                violations,
+                "inventory_consistency",
+                "negative_product_quantity",
+                product_id=entity.entity_id,
+                quantity=quantity,
+            )
         held = attrs.get("held_quantity") or attrs.get("reserved_quantity")
         if isinstance(held, (int, float)) and isinstance(quantity, (int, float)) and held > quantity:
-            _add(violations, "inventory_consistency", "reservation_exceeds_quantity",
-                 product_id=entity.entity_id, quantity=quantity, held_quantity=held)
+            _add(
+                violations,
+                "inventory_consistency",
+                "reservation_exceeds_quantity",
+                product_id=entity.entity_id,
+                quantity=quantity,
+                held_quantity=held,
+            )
 
 
 # ── 6. Graph integrity + 7. Orphaned nodes (World Graph / SharedWorld) ──
+
 
 def _check_graph_integrity(pr: Any, violations: list[dict[str, Any]]) -> None:
     world = getattr(pr, "world", None)
@@ -284,11 +363,21 @@ def _check_graph_integrity(pr: Any, violations: list[dict[str, Any]]) -> None:
 
     for rel in world.relationships():
         if rel.source_id not in entity_ids:
-            _add(violations, "graph_integrity", "relationship_source_missing",
-                 relationship_id=rel.relationship_id, source_id=rel.source_id)
+            _add(
+                violations,
+                "graph_integrity",
+                "relationship_source_missing",
+                relationship_id=rel.relationship_id,
+                source_id=rel.source_id,
+            )
         if rel.target_id not in entity_ids:
-            _add(violations, "graph_integrity", "relationship_target_missing",
-                 relationship_id=rel.relationship_id, target_id=rel.target_id)
+            _add(
+                violations,
+                "graph_integrity",
+                "relationship_target_missing",
+                relationship_id=rel.relationship_id,
+                target_id=rel.target_id,
+            )
 
 
 def _check_orphaned_nodes(pr: Any, violations: list[dict[str, Any]]) -> None:
@@ -302,8 +391,13 @@ def _check_orphaned_nodes(pr: Any, violations: list[dict[str, Any]]) -> None:
 
     for resource in world.resources():
         if resource.location_id and resource.location_id not in entity_ids:
-            _add(violations, "orphaned_nodes", "resource_references_missing_entity",
-                 resource_id=resource.resource_id, location_id=resource.location_id)
+            _add(
+                violations,
+                "orphaned_nodes",
+                "resource_references_missing_entity",
+                resource_id=resource.resource_id,
+                location_id=resource.location_id,
+            )
 
     # WorldEvent.entity_id is used loosely in practice — it references a
     # WorldEntity for most event types, but domain code also legitimately
@@ -316,14 +410,25 @@ def _check_orphaned_nodes(pr: Any, violations: list[dict[str, Any]]) -> None:
         events = ()
     for event in events:
         if event.entity_id and event.entity_id not in known_ids:
-            _add(violations, "orphaned_nodes", "event_references_missing_entity",
-                 event_id=event.event_id, entity_id=event.entity_id)
+            _add(
+                violations,
+                "orphaned_nodes",
+                "event_references_missing_entity",
+                event_id=event.event_id,
+                entity_id=event.entity_id,
+            )
 
 
 # ── 9. Duplicate identifiers across independent ID namespaces ───────────
 
+
 def _check_duplicate_identifiers(pr: Any, violations: list[dict[str, Any]]) -> None:
-    namespaces: dict[str, set[str]] = {"geography": set(), "society": set(), "actor": set(), "world_entity": set()}
+    namespaces: dict[str, set[str]] = {
+        "geography": set(),
+        "society": set(),
+        "actor": set(),
+        "world_entity": set(),
+    }
 
     namespaces["geography"] = {e.entity_id for e in pr.geo_registry.all()}
     namespaces["society"] = {sr.society.society_id for sr in pr.all_societies()}
@@ -342,11 +447,17 @@ def _check_duplicate_identifiers(pr: Any, violations: list[dict[str, Any]]) -> N
 
     for entity_id, ns_list in id_to_namespaces.items():
         if len(ns_list) > 1:
-            _add(violations, "duplicate_identifiers", "id_reused_across_namespaces",
-                 entity_id=entity_id, namespaces=ns_list)
+            _add(
+                violations,
+                "duplicate_identifiers",
+                "id_reused_across_namespaces",
+                entity_id=entity_id,
+                namespaces=ns_list,
+            )
 
 
 # ── 10. Referential integrity (Commerce cross-references) ───────────────
+
 
 def _check_referential_integrity(pr: Any, violations: list[dict[str, Any]]) -> None:
     kg = getattr(pr, "knowledge_graph", None)
@@ -356,7 +467,8 @@ def _check_referential_integrity(pr: Any, violations: list[dict[str, Any]]) -> N
     entities = kg.entities
     product_ids = {e.entity_id for e in entities if e.attributes.get("product") is True}
     order_ids = {
-        e.entity_id for e in entities
+        e.entity_id
+        for e in entities
         if "order_id" in e.attributes and "items" in e.attributes and "total" in e.attributes
     }
 
@@ -365,11 +477,21 @@ def _check_referential_integrity(pr: Any, violations: list[dict[str, Any]]) -> N
         if attrs.get("shipment") is True:
             order_id = attrs.get("order_id")
             if order_id and order_id not in order_ids:
-                _add(violations, "referential_integrity", "shipment_references_missing_order",
-                     shipment_id=entity.entity_id, order_id=order_id)
+                _add(
+                    violations,
+                    "referential_integrity",
+                    "shipment_references_missing_order",
+                    shipment_id=entity.entity_id,
+                    order_id=order_id,
+                )
         if "order_id" in attrs and "items" in attrs and "total" in attrs:
             for item in attrs.get("items") or []:
                 product_id = item.get("id") if isinstance(item, dict) else None
                 if product_id and product_id not in product_ids:
-                    _add(violations, "referential_integrity", "order_references_missing_product",
-                         order_id=entity.entity_id, product_id=product_id)
+                    _add(
+                        violations,
+                        "referential_integrity",
+                        "order_references_missing_product",
+                        order_id=entity.entity_id,
+                        product_id=product_id,
+                    )

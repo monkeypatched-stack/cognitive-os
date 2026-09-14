@@ -64,11 +64,7 @@ class WorkloadDAG:
         return errors
 
     def _check_self_loops(self) -> list[str]:
-        return [
-            f"Step {step_id!r} depends on itself"
-            for step_id, deps in self.edges.items()
-            if step_id in deps
-        ]
+        return [f"Step {step_id!r} depends on itself" for step_id, deps in self.edges.items() if step_id in deps]
 
     def _check_cycles(self) -> list[str]:
         """DFS cycle detection — returns one error per back-edge found.
@@ -90,7 +86,7 @@ class WorkloadDAG:
             while stack:
                 node, it = stack[-1]
                 descended = False
-                for dep in it:                     # resumes where this frame left off
+                for dep in it:  # resumes where this frame left off
                     if dep not in color:
                         continue
                     if color[dep] == GRAY:
@@ -119,11 +115,7 @@ class WorkloadDAG:
 
     def successors(self, step_id: str) -> list["WorkloadStep"]:
         """Steps that list step_id as a dependency (downstream consumers)."""
-        return [
-            self.nodes[sid]
-            for sid, deps in self.edges.items()
-            if step_id in deps and sid in self.nodes
-        ]
+        return [self.nodes[sid] for sid, deps in self.edges.items() if step_id in deps and sid in self.nodes]
 
     def topo_sort(self) -> list["WorkloadStep"]:
         """Return all steps in dependency order (dependencies before dependents).
@@ -148,7 +140,7 @@ class WorkloadDAG:
                 descended = False
                 for dep_id in it:
                     if dep_id not in self.nodes or dep_id in visited or dep_id in on_stack:
-                        continue                    # missing / done / cycle back-edge
+                        continue  # missing / done / cycle back-edge
                     stack.append((dep_id, iter(self.edges.get(dep_id, []))))
                     on_stack.add(dep_id)
                     descended = True

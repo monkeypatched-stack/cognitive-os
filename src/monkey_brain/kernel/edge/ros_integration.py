@@ -38,6 +38,7 @@ is the one place that enforces this: it NEVER calls the adapter directly;
 `invoke()` is passed in as `ensure_governed`'s own `effect` callable, so
 governance always runs first, exactly like any other capability.
 """
+
 from __future__ import annotations
 
 import logging
@@ -82,8 +83,13 @@ class RosExecutionAdapter(Protocol):
 
 
 async def run_ros_action_if_governed(
-    *, capability: str, resource: str, parameters: dict[str, Any],
-    adapter: RosExecutionAdapter, actor_id: str = "", local_policy_decision: dict[str, Any] | None = None,
+    *,
+    capability: str,
+    resource: str,
+    parameters: dict[str, Any],
+    adapter: RosExecutionAdapter,
+    actor_id: str = "",
+    local_policy_decision: dict[str, Any] | None = None,
     verified_delegation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The ONLY sanctioned entry point from a robot actor's committed
@@ -116,8 +122,14 @@ async def run_ros_action_if_governed(
         return await adapter.invoke(capability=capability, parameters=parameters)
 
     return await ensure_governed(
-        f"capability.{capability}", resource, _invoke,
-        extra={"capability": capability, "parameters": parameters, "actor_id": actor_id},
+        f"capability.{capability}",
+        resource,
+        _invoke,
+        extra={
+            "capability": capability,
+            "parameters": parameters,
+            "actor_id": actor_id,
+        },
         force_authorize=True,
         local_policy_decision=local_policy_decision,
         verified_delegation=verified_delegation,
@@ -160,7 +172,11 @@ class RclpyRosExecutionAdapter:
     """
 
     def __init__(
-        self, *, actor_id: str = "", node_name: str | None = None, service_prefix: str | None = None,
+        self,
+        *,
+        actor_id: str = "",
+        node_name: str | None = None,
+        service_prefix: str | None = None,
     ) -> None:
         try:
             import rclpy  # type: ignore[import-not-found]
@@ -186,7 +202,8 @@ class RclpyRosExecutionAdapter:
         # sanitized here before being embedded.
         default_node_name = (
             f"cognitiveos_edge_actor_{re.sub(r'[^a-zA-Z0-9_]', '_', actor_id)}"
-            if actor_id else "cognitiveos_edge_actor"
+            if actor_id
+            else "cognitiveos_edge_actor"
         )
         node_name = node_name if node_name is not None else default_node_name
         service_prefix = service_prefix if service_prefix is not None else default_prefix
@@ -216,7 +233,8 @@ class RclpyRosExecutionAdapter:
             from std_srvs.srv import Trigger  # type: ignore[import-not-found]
 
             self._clients[capability] = self._node.create_client(
-                Trigger, f"{self._service_prefix}/{capability}",
+                Trigger,
+                f"{self._service_prefix}/{capability}",
             )
         return self._clients[capability]
 
@@ -227,7 +245,10 @@ class RclpyRosExecutionAdapter:
 
         client = self._client_for(capability)
         if not client.wait_for_service(timeout_sec=5.0):
-            return {"success": False, "error": f"ROS service {self._service_prefix}/{capability} not available"}
+            return {
+                "success": False,
+                "error": f"ROS service {self._service_prefix}/{capability} not available",
+            }
 
         request = Trigger.Request()
         future = client.call_async(request)
@@ -235,7 +256,10 @@ class RclpyRosExecutionAdapter:
         await loop.run_in_executor(None, self._rclpy.spin_until_future_complete, self._node, future)
         response = future.result()
         if response is None:
-            return {"success": False, "error": f"ROS service {capability} call timed out or failed"}
+            return {
+                "success": False,
+                "error": f"ROS service {capability} call timed out or failed",
+            }
         return {"success": bool(response.success), "message": response.message}
 
     def shutdown(self) -> None:
@@ -353,7 +377,10 @@ def build_ros_execution_adapter(*, actor_id: str = "", require_real: bool = Fals
                     "ROS_ADAPTER_KIND=px4 requires PX4_NAMESPACE to be set "
                     "(must match the px4-sitl sidecar's own PX4_UXRCE_DDS_NS)"
                 )
-            from src.monkey_brain.kernel.edge.px4_ros_adapter import Px4RosExecutionAdapter
+            from src.monkey_brain.kernel.edge.px4_ros_adapter import (
+                Px4RosExecutionAdapter,
+            )
+
             return Px4RosExecutionAdapter(actor_id=actor_id, namespace=namespace)
         return RclpyRosExecutionAdapter(actor_id=actor_id)
     except RosUnavailableError:

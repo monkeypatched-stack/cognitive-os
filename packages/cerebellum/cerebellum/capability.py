@@ -17,7 +17,7 @@ from cerebellum.peripheral import Peripheral
 @dataclass
 class CapabilityManifest:
     """Capability metadata for registry."""
-    
+
     capability_id: str = ""
     name: str = ""
     version: str = "1.0.0"
@@ -35,19 +35,19 @@ class CapabilityManifest:
 
 class Capability:
     """A unit of work that transforms execution state.
-    
+
     Responsibilities:
     - Execute a specific operation
     - Read from/write to peripherals
     - Return structured results
-    
+
     The Capability never:
     - Makes execution decisions
     - Selects other capabilities
     - Manages threads
     - Owns execution policy
     """
-    
+
     def __init__(
         self,
         name: str,
@@ -58,39 +58,39 @@ class Capability:
         self.peripheral = peripheral
         self.config = config or {}
         self._id = f"cap-{uuid4().hex[:8]}"
-    
+
     @property
     def id(self) -> str:
         return self._id
-    
+
     async def execute(
         self,
         state: dict[str, Any],
         context: Any = None,
     ) -> dict[str, Any]:
         """Execute the capability.
-        
+
         Args:
             state: Current execution state (read-only)
             context: Runtime context (memory, stream)
-            
+
         Returns:
             Result dict with capability output
         """
         raise NotImplementedError(f"Capability '{self.name}' must implement execute()")
-    
+
     def can_execute(self, state: dict[str, Any]) -> bool:
         """Check if capability can execute."""
         return True
-    
+
     def estimate_cost(self, state: dict[str, Any]) -> float:
         """Estimate execution cost."""
         return 1.0
-    
+
     def estimate_reward(self, state: dict[str, Any]) -> float:
         """Estimate expected reward."""
         return 0.5
-    
+
     def manifest(self) -> CapabilityManifest:
         """Generate manifest for registry."""
         return CapabilityManifest(
@@ -99,7 +99,7 @@ class Capability:
             description=f"Capability: {self.name}",
             peripheral_type=self.peripheral.type.value if self.peripheral else None,
         )
-    
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self._id,

@@ -3,6 +3,7 @@
 kernel/cognitive_runtime.py:CognitiveRuntime (an incompatible .run(question: str, ...)
 signature) and left every action query silently falling back to mock execution.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -11,7 +12,9 @@ import pytest
 
 from src.monkey_brain.kernel.kernel import Kernel
 from src.monkey_brain.kernel.pipeline.orchestrator import PipelineOrchestrator
-from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime as PipelineCognitiveRuntime
+from src.monkey_brain.kernel.pipeline.belief_runtime import (
+    CognitiveRuntime as PipelineCognitiveRuntime,
+)
 from src.hybrid.query_classifier import QueryType
 
 
@@ -23,7 +26,10 @@ def test_legacy_cognitive_runtime_is_not_the_pipeline_one():
     must remain genuinely distinct classes — this assertion is the regression
     guard against ever conflating them, closing the loop this test file's own
     docstring already warned about."""
-    from src.monkey_brain.kernel.cognitive_runtime import LegacyCognitiveRuntime, CognitiveRuntime
+    from src.monkey_brain.kernel.cognitive_runtime import (
+        LegacyCognitiveRuntime,
+        CognitiveRuntime,
+    )
 
     assert CognitiveRuntime is LegacyCognitiveRuntime
     assert LegacyCognitiveRuntime is not PipelineCognitiveRuntime

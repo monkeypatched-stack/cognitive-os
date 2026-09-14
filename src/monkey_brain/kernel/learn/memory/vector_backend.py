@@ -9,6 +9,7 @@ mirroring kernel/society/integration.py::_load_knowledge_graph's exact
 pattern — the real runtime now uses this one so episodic memory
 survives a restart the same way KnowledgeGraph entities already did.
 """
+
 from __future__ import annotations
 
 import json
@@ -114,9 +115,17 @@ class RedisBackedVectorBackend(InMemoryVectorBackend):
         if self._redis is None:
             return
         try:
-            self._redis.hset(self._REDIS_KEY, id, json.dumps({"vector": list(vector), "metadata": dict(metadata)}))
+            self._redis.hset(
+                self._REDIS_KEY,
+                id,
+                json.dumps({"vector": list(vector), "metadata": dict(metadata)}),
+            )
         except Exception:
-            logger.warning("RedisBackedVectorBackend: write-through failed for %s", id, exc_info=True)
+            logger.warning(
+                "RedisBackedVectorBackend: write-through failed for %s",
+                id,
+                exc_info=True,
+            )
 
     def remove(self, id: str) -> None:
         super().remove(id)

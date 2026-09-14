@@ -1,4 +1,5 @@
 """Pipeline execution context — shared state threaded through all 15 phases."""
+
 from __future__ import annotations
 
 import time
@@ -10,7 +11,7 @@ from typing import Any
 class PhaseResult:
     phase: int
     name: str
-    status: str          # success | failed | skipped | pending_human
+    status: str  # success | failed | skipped | pending_human
     output: dict[str, Any] = field(default_factory=dict)
     error: str = ""
     duration_ms: float = 0.0
@@ -29,7 +30,9 @@ class PipelineContext:
     chart_version: str = "1.0.0"
     chart_domain: str = "pharmaceutical"
     monkeybrain_url: str = "http://localhost:8031"
-    inside_monkeybrain: bool = False  # True when called from a MonkeyBrain intent handler — Phase 10 skips its POST to avoid recursion
+    inside_monkeybrain: bool = (
+        False  # True when called from a MonkeyBrain intent handler — Phase 10 skips its POST to avoid recursion
+    )
 
     # Accumulated state (each phase adds to this)
     state: dict[str, Any] = field(default_factory=dict)

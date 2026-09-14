@@ -27,6 +27,7 @@ Architectural invariant:
     It never modifies policy storage.
     It is the SOLE authority for world updates.
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,6 +50,7 @@ class Observation:
       - weight: how strongly the actor believes this (0-1)
       - trust: reliability of the source in the trust fabric (0-1)
     """
+
     src: str
     dst: str
     domain: str = "default"
@@ -150,15 +152,28 @@ class WorldLearner:
         Returns True if the observation was accepted and recorded.
         """
         obs = Observation(
-            src=src, dst=dst, domain=domain, dst_domain=dst_domain,
-            latency_ms=latency_ms, cost=cost, confidence=confidence,
-            ts=ts, origin=origin, weight=weight, trust=trust,
+            src=src,
+            dst=dst,
+            domain=domain,
+            dst_domain=dst_domain,
+            latency_ms=latency_ms,
+            cost=cost,
+            confidence=confidence,
+            ts=ts,
+            origin=origin,
+            weight=weight,
+            trust=trust,
         )
 
         if not self.propose(obs):
             self._rejected_count += 1
-            logger.debug("[world_learner] rejected observation: %s → %s (origin=%s, trust=%.2f)",
-                        src, dst, origin, trust)
+            logger.debug(
+                "[world_learner] rejected observation: %s → %s (origin=%s, trust=%.2f)",
+                src,
+                dst,
+                origin,
+                trust,
+            )
             return False
 
         # Compute effective weight: how much this observation influences world state
@@ -166,7 +181,8 @@ class WorldLearner:
 
         with self._lock:
             self._tensor.observe(
-                src, dst,
+                src,
+                dst,
                 domain=domain,
                 dst_domain=dst_domain,
                 latency_ms=latency_ms,
@@ -176,8 +192,14 @@ class WorldLearner:
                 weight=effective_weight,  # Apply trust weighting to tensor
             )
             self._update_count += 1
-            logger.debug("[world_learner] recorded observation: %s → %s (weight=%.2f, trust=%.2f, effective=%.2f)",
-                        src, dst, weight, trust, effective_weight)
+            logger.debug(
+                "[world_learner] recorded observation: %s → %s (weight=%.2f, trust=%.2f, effective=%.2f)",
+                src,
+                dst,
+                weight,
+                trust,
+                effective_weight,
+            )
             return True
 
     def batch_observe(self, transitions: list[dict]) -> int:
@@ -194,7 +216,8 @@ class WorldLearner:
         count = 0
         for t in transitions:
             if self.observe_transition(
-                t["src"], t["dst"],
+                t["src"],
+                t["dst"],
                 domain=t.get("domain", "default"),
                 dst_domain=t.get("dst_domain"),
                 latency_ms=t.get("latency_ms", 0.0),

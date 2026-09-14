@@ -9,6 +9,7 @@ Two things every client here needs and several were missing:
 2. **Credential-safe logging.** Connection URLs conventionally carry credentials in the
    userinfo (``scheme://user:pass@host``). Logging them verbatim leaks secrets.
 """
+
 from __future__ import annotations
 
 import os

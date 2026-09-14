@@ -7,6 +7,7 @@ Affiliations and ZERO presence in the Warehouse — reachability, when it
 appears, must come purely from real, physical Presence-driven temporary
 membership (MembershipGovernor), not from any configured Affiliation.
 """
+
 from __future__ import annotations
 
 import sys
@@ -14,7 +15,15 @@ from typing import Any
 
 import httpx
 
-from _common import ApiError, call, client, create_actor, create_geo, host_society, verify_world
+from _common import (
+    ApiError,
+    call,
+    client,
+    create_actor,
+    create_geo,
+    host_society,
+    verify_world,
+)
 
 
 def build_geography(c: httpx.Client) -> dict[str, str]:
@@ -26,12 +35,22 @@ def build_geography(c: httpx.Client) -> dict[str, str]:
     street = create_geo(c, "street", "Market Street", city)
 
     spaces = {}
-    for key, label in (("contractor_office", "Contractor Pool Office"), ("warehouse_a", "Warehouse A")):
+    for key, label in (
+        ("contractor_office", "Contractor Pool Office"),
+        ("warehouse_a", "Warehouse A"),
+    ):
         building = create_geo(c, "building", f"{label} Building", street)
         space = create_geo(c, "space", f"{label} Floor", building)
         spaces[key] = space
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, **spaces}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        **spaces,
+    }
 
 
 def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
@@ -42,8 +61,18 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
 
         societies = {}
         for key, space_key, name, description in (
-            ("contractor", "contractor_office", "Contractor Pool Society", "Contract staffing pool"),
-            ("warehouse", "warehouse_a", "Warehouse Society", "Warehouse A floor operations"),
+            (
+                "contractor",
+                "contractor_office",
+                "Contractor Pool Society",
+                "Contract staffing pool",
+            ),
+            (
+                "warehouse",
+                "warehouse_a",
+                "Warehouse Society",
+                "Warehouse A floor operations",
+            ),
         ):
             society_id = call(c, "POST", "/societies", json={"name": name, "description": description})["society_id"]
             host_society(c, spaces[space_key], society_id)
@@ -55,8 +84,12 @@ def bootstrap_world(c: httpx.Client | None = None) -> dict[str, Any]:
         }
 
         verification = verify_world(c)
-        return {"spaces": spaces, "societies": societies, "actors": actors,
-                "verification": verification}
+        return {
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "verification": verification,
+        }
     finally:
         if owns_client:
             c.close()

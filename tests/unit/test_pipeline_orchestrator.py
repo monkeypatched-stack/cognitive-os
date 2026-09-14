@@ -2,6 +2,7 @@
 
 Validates orchestration flow, delegation, error handling, and statelessness.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,10 +21,10 @@ from src.monkey_brain.kernel.pipeline.compiler import RequestCompiler, Compilati
 from src.monkey_brain.kernel.pipeline.orchestrator import PipelineOrchestrator
 from src.monkey_brain.kernel.pipeline.response_builder import ResponseBuilder
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _make_request(question: str = "get 2 l of milk") -> PipelineRequest:
     return PipelineRequest(question=question)
@@ -58,6 +59,7 @@ def _mock_runtime(answer: str = "Got 2L of milk") -> Any:
 # ═══════════════════════════════════════════════════════════════════════════
 # PipelineOrchestrator
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestOrchestratorConstruction:
     def test_creates_with_defaults(self):
@@ -137,9 +139,7 @@ class TestOrchestratorErrors:
     @pytest.mark.asyncio
     async def test_compilation_failure(self):
         compiler = MagicMock(spec=RequestCompiler)
-        compiler.compile = AsyncMock(
-            side_effect=CompilationError(code="BAD_INTENT", message="cannot classify")
-        )
+        compiler.compile = AsyncMock(side_effect=CompilationError(code="BAD_INTENT", message="cannot classify"))
         orch = PipelineOrchestrator(compiler=compiler, runtime=_mock_runtime())
 
         response = await orch.run(_make_request())
@@ -163,8 +163,8 @@ class TestOrchestratorErrors:
         assert len(response.errors) == 1
         assert response.errors[0].code == "EXECUTION_FAILED"
         assert len(response.trace) == 3
-        assert response.trace[0].status == "ok"   # compile succeeded
-        assert response.trace[1].status == "ok"    # resolve_runtime
+        assert response.trace[0].status == "ok"  # compile succeeded
+        assert response.trace[1].status == "ok"  # resolve_runtime
         assert response.trace[2].status == "failed"  # execute failed
 
     @pytest.mark.asyncio
@@ -188,9 +188,9 @@ class TestOrchestratorStatelessness:
         await orch.run(_make_request())
 
         # Orchestrator should not accumulate state
-        assert not hasattr(orch, '_last_request')
-        assert not hasattr(orch, '_last_result')
-        assert not hasattr(orch, '_cached_compiled')
+        assert not hasattr(orch, "_last_request")
+        assert not hasattr(orch, "_last_result")
+        assert not hasattr(orch, "_cached_compiled")
 
     @pytest.mark.asyncio
     async def test_runtime_receives_compiled_not_question(self):
@@ -210,6 +210,7 @@ class TestOrchestratorStatelessness:
 # ═══════════════════════════════════════════════════════════════════════════
 # ResponseBuilder
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestResponseBuilder:
     def test_build_from_dict_result(self):
@@ -270,11 +271,13 @@ class TestResponseBuilder:
 # No Runtime Dependencies
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNoRuntimeDependencies:
     def test_orchestrator_has_no_runtime_imports(self):
         """orchestrator.py must not import any runtime implementation."""
         import inspect
         import src.monkey_brain.kernel.pipeline.orchestrator as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "from src.monkey_brain.kernel.compile.society",
@@ -290,6 +293,7 @@ class TestNoRuntimeDependencies:
         """response_builder.py must not import any runtime implementation."""
         import inspect
         import src.monkey_brain.kernel.pipeline.response_builder as mod
+
         source = inspect.getsource(mod)
         forbidden = [
             "from src.monkey_brain.kernel.compile.",

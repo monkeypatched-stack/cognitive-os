@@ -16,6 +16,7 @@ checked like every other merchant-facing operation (require_store_owner()).
 - customers: distinct buyers and repeat-customer count, mined the same
   way customers_also_bought() mines real order history.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import (
@@ -39,21 +40,61 @@ def _seed_store_with_activity() -> tuple[KnowledgeGraph, str]:
     p4 = list_product(kg, store_id, MERCHANT_ID, "Discontinued Item", price=1.0, quantity=10)["product_id"]
     remove_product(kg, p4, MERCHANT_ID)
 
-    kg.add_entity("ORD-1", EntityType.EVENT, "Order", {
-        "items": [{"product_id": p2, "qty": 1}], "total": 3.0, "buyer_id": "alice", "payment_status": "paid",
-    })
-    kg.add_entity("ORD-2", EntityType.EVENT, "Order", {
-        "items": [{"product_id": p3, "qty": 2}], "total": 12.0, "buyer_id": "alice", "payment_status": "paid",
-    })
-    kg.add_entity("ORD-3", EntityType.EVENT, "Order", {
-        "items": [{"product_id": p3, "qty": 1}], "total": 6.0, "buyer_id": "carol", "payment_status": "paid",
-    })
-    kg.add_entity("ORD-4-unpaid", EntityType.EVENT, "Order", {
-        "items": [{"product_id": p3, "qty": 1}], "total": 6.0, "buyer_id": "dave", "payment_status": "pending",
-    })
-    kg.add_entity("ORD-other-store", EntityType.EVENT, "Order", {
-        "items": [{"product_id": "unrelated_product"}], "total": 999.0, "buyer_id": "eve", "payment_status": "paid",
-    })
+    kg.add_entity(
+        "ORD-1",
+        EntityType.EVENT,
+        "Order",
+        {
+            "items": [{"product_id": p2, "qty": 1}],
+            "total": 3.0,
+            "buyer_id": "alice",
+            "payment_status": "paid",
+        },
+    )
+    kg.add_entity(
+        "ORD-2",
+        EntityType.EVENT,
+        "Order",
+        {
+            "items": [{"product_id": p3, "qty": 2}],
+            "total": 12.0,
+            "buyer_id": "alice",
+            "payment_status": "paid",
+        },
+    )
+    kg.add_entity(
+        "ORD-3",
+        EntityType.EVENT,
+        "Order",
+        {
+            "items": [{"product_id": p3, "qty": 1}],
+            "total": 6.0,
+            "buyer_id": "carol",
+            "payment_status": "paid",
+        },
+    )
+    kg.add_entity(
+        "ORD-4-unpaid",
+        EntityType.EVENT,
+        "Order",
+        {
+            "items": [{"product_id": p3, "qty": 1}],
+            "total": 6.0,
+            "buyer_id": "dave",
+            "payment_status": "pending",
+        },
+    )
+    kg.add_entity(
+        "ORD-other-store",
+        EntityType.EVENT,
+        "Order",
+        {
+            "items": [{"product_id": "unrelated_product"}],
+            "total": 999.0,
+            "buyer_id": "eve",
+            "payment_status": "paid",
+        },
+    )
     return kg, store_id
 
 

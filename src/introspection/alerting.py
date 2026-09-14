@@ -48,11 +48,15 @@ def _notify_webhook(alert: "Alert") -> None:
     if not url:
         return
     try:
-        body = json.dumps({
-            "text": f"[{alert.severity.value.upper()}] {alert.name}: {alert.message}",
-        }).encode("utf-8")
+        body = json.dumps(
+            {
+                "text": f"[{alert.severity.value.upper()}] {alert.name}: {alert.message}",
+            }
+        ).encode("utf-8")
         req = urllib.request.Request(
-            url, data=body, headers={"Content-Type": "application/json"},
+            url,
+            data=body,
+            headers={"Content-Type": "application/json"},
         )
         urllib.request.urlopen(req, timeout=3)
     except Exception as exc:
@@ -74,7 +78,7 @@ class AlertStatus(str, Enum):
 @dataclass
 class Alert:
     """An alert instance."""
-    
+
     alert_id: str = field(default_factory=lambda: f"alert-{uuid4().hex[:8]}")
     name: str = ""
     severity: AlertSeverity = AlertSeverity.WARNING
@@ -83,7 +87,7 @@ class Alert:
     source: str = ""
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "alert_id": self.alert_id,
@@ -98,7 +102,7 @@ class Alert:
 
 class AlertRule:
     """A rule that triggers alerts."""
-    
+
     def __init__(
         self,
         name: str,
@@ -110,7 +114,7 @@ class AlertRule:
         self.condition = condition
         self.severity = severity
         self.message_template = message_template
-    
+
     def evaluate(self, context: dict) -> Alert | None:
         try:
             if self.condition(context):
@@ -126,22 +130,22 @@ class AlertRule:
 
 class AlertManager:
     """Alert management system.
-    
+
     Responsibilities:
     - Evaluate alert rules
     - Fire alerts
     - Track alert history
     - Support alert suppression
     """
-    
+
     def __init__(self):
         self._rules: list[AlertRule] = []
         self._alerts: list[Alert] = []
         self._active: dict[str, Alert] = {}
-    
+
     def add_rule(self, rule: AlertRule) -> None:
         self._rules.append(rule)
-    
+
     def evaluate(self, context: dict) -> list[Alert]:
         """Evaluate all rules against context."""
         new_alerts = []
@@ -154,14 +158,20 @@ class AlertManager:
                 _notify_webhook(alert)
         return new_alerts
 
-    def fire(self, name: str, message: str, severity: AlertSeverity = AlertSeverity.WARNING, **metadata: Any) -> Alert:
+    def fire(
+        self,
+        name: str,
+        message: str,
+        severity: AlertSeverity = AlertSeverity.WARNING,
+        **metadata: Any,
+    ) -> Alert:
         """Manually fire an alert."""
         alert = Alert(name=name, severity=severity, message=message, metadata=metadata)
         self._alerts.append(alert)
         self._active[alert.alert_id] = alert
         _notify_webhook(alert)
         return alert
-    
+
     def resolve(self, alert_id: str) -> bool:
         """Resolve an active alert."""
         if alert_id in self._active:
@@ -169,13 +179,13 @@ class AlertManager:
             del self._active[alert_id]
             return True
         return False
-    
+
     def get_active(self) -> list[Alert]:
         return list(self._active.values())
-    
+
     def get_history(self, limit: int = 50) -> list[Alert]:
         return self._alerts[-limit:]
-    
+
     def summary(self) -> dict:
         return {
             "rules": len(self._rules),

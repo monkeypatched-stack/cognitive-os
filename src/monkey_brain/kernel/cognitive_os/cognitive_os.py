@@ -41,6 +41,7 @@ Trust enforcement:
     Low-trust actors cannot communicate. Messages are filtered by trust
     threshold at send, broadcast, and receive time.
 """
+
 from __future__ import annotations
 
 import logging
@@ -54,7 +55,10 @@ from typing import Any
 # module) and because CognitiveOS.evaluate_goals() etc. remain as one-line
 # delegating wrappers below.
 from src.monkey_brain.kernel.cognitive_os.reasoning_runtime import (
-    GoalEvaluation, CapabilityMatch, ResourceCheck, DecisionSynthesis,
+    GoalEvaluation,
+    CapabilityMatch,
+    ResourceCheck,
+    DecisionSynthesis,
     DecisionEngine,
 )
 from src.monkey_brain.kernel.cognitive_os.actor_kernel_context import ActorKernelContext
@@ -97,6 +101,7 @@ class ActorGraphExecutionState:
         needlessly duplicate immutable/tenant-shared infrastructure"
         rule this refactor is bound by)."""
         from src.monkey_brain.kernel.compile.world_tensor import get_world_tensor
+
         return get_world_tensor(self.tenant_id)
 
 
@@ -116,6 +121,7 @@ class ActorComparatorView:
         if not execution_id:
             return None
         from src.monkey_brain.kernel.comparator_runtime import get_comparator_runtime
+
         return get_comparator_runtime().get_last_comparison(execution_id)
 
 
@@ -211,7 +217,7 @@ class CognitiveOS:
         self._kernel_context.actor_id = actor_id
         self._kernel_context.tenant_id = tenant_id
         self._graph_execution_state.tenant_id = tenant_id
-        logger.info("CognitiveOS: bound to actor %s", getattr(actor, 'entity_id', '?'))
+        logger.info("CognitiveOS: bound to actor %s", getattr(actor, "entity_id", "?"))
 
     def set_society_runtime(self, runtime: Any) -> None:
         self._society_runtime = runtime
@@ -226,7 +232,7 @@ class CognitiveOS:
     def _check_trust(self, target_actor_id: str) -> bool:
         if self._actor is None:
             return False
-        affiliations = getattr(self._actor, '_affiliations', None)
+        affiliations = getattr(self._actor, "_affiliations", None)
         if affiliations is None:
             return True
         trust = affiliations.get_trust(target_actor_id)
@@ -235,7 +241,7 @@ class CognitiveOS:
     def _get_actor_trust(self, target_actor_id: str) -> float:
         if self._actor is None:
             return 0.0
-        affiliations = getattr(self._actor, '_affiliations', None)
+        affiliations = getattr(self._actor, "_affiliations", None)
         if affiliations is None:
             return 0.5
         return affiliations.get_trust(target_actor_id)
@@ -243,16 +249,16 @@ class CognitiveOS:
     def _update_trust(self, target_actor_id: str, goal_achieved: bool) -> None:
         if self._actor is None:
             return
-        affiliations = getattr(self._actor, '_affiliations', None)
+        affiliations = getattr(self._actor, "_affiliations", None)
         if affiliations is not None:
             affiliations.update_trust_from_outcome(
-                target_actor_id, goal_achieved=goal_achieved,
+                target_actor_id,
+                goal_achieved=goal_achieved,
             )
 
     # ── Messaging (trust-enforced) ───────────────────────────
 
-    def send_message(self, to_actor: str, msg_type: str,
-                     payload: dict = None) -> bool:
+    def send_message(self, to_actor: str, msg_type: str, payload: dict = None) -> bool:
         if not self._check_trust(to_actor):
             logger.warning(
                 "Message BLOCKED: %s → %s (trust=%.2f < %.2f)",
@@ -264,14 +270,21 @@ class CognitiveOS:
             return False
 
         if self._society_runtime is None:
-            self._message_bus.append({
-                "from": self._actor.entity_id if self._actor else "?",
-                "to": to_actor, "type": msg_type, "payload": payload or {},
-            })
+            self._message_bus.append(
+                {
+                    "from": self._actor.entity_id if self._actor else "?",
+                    "to": to_actor,
+                    "type": msg_type,
+                    "payload": payload or {},
+                }
+            )
             return True
 
         self._society_runtime.send_message(
-            self._actor.entity_id, to_actor, msg_type, payload,
+            self._actor.entity_id,
+            to_actor,
+            msg_type,
+            payload,
         )
         return True
 
@@ -284,13 +297,17 @@ class CognitiveOS:
             if target.actor_id != (self._actor.entity_id if self._actor else "?"):
                 if self._check_trust(target.actor_id):
                     self._society_runtime.send_message(
-                        self._actor.entity_id, target.actor_id, msg_type, payload,
+                        self._actor.entity_id,
+                        target.actor_id,
+                        msg_type,
+                        payload,
                     )
                     sent += 1
                 else:
                     logger.debug(
                         "Broadcast BLOCKED to %s (trust=%.2f)",
-                        target.actor_id, self._get_actor_trust(target.actor_id),
+                        target.actor_id,
+                        self._get_actor_trust(target.actor_id),
                     )
         return sent
 
@@ -310,7 +327,8 @@ class CognitiveOS:
             else:
                 logger.debug(
                     "Message FILTERED from %s (trust=%.2f)",
-                    sender, self._get_actor_trust(sender),
+                    sender,
+                    self._get_actor_trust(sender),
                 )
         return filtered
 
@@ -485,7 +503,9 @@ class CognitiveOS:
         a real tick result (_CognitiveTickResult or an equivalent dict) —
         the only place CognitiveOS's actor-owned execution state actually
         gets populated, so it reflects real ticks, not fabricated data."""
-        execution_id = getattr(result, "execution_id", None) if not isinstance(result, dict) else result.get("execution_id")
+        execution_id = (
+            getattr(result, "execution_id", None) if not isinstance(result, dict) else result.get("execution_id")
+        )
         if execution_id:
             self._kernel_context.begin_execution(execution_id)
         plan = getattr(result, "plan", None) if not isinstance(result, dict) else result.get("plan")
@@ -493,7 +513,14 @@ class CognitiveOS:
         if steps:
             last_step = steps[-1]
             node = last_step.get("action") if isinstance(last_step, dict) else str(last_step)
-            self._graph_execution_state.record_step(node, outcome=getattr(result, "actual_outcome", None) if not isinstance(result, dict) else result.get("actual_outcome"))
+            self._graph_execution_state.record_step(
+                node,
+                outcome=(
+                    getattr(result, "actual_outcome", None)
+                    if not isinstance(result, dict)
+                    else result.get("actual_outcome")
+                ),
+            )
 
     # ── Lazy Services ────────────────────────────────────────
 
@@ -506,6 +533,9 @@ class CognitiveOS:
 
     def _get_transition_model(self):
         if self._transition_model is None:
-            from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
+            from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+                TransitionModel,
+            )
+
             self._transition_model = TransitionModel()
         return self._transition_model

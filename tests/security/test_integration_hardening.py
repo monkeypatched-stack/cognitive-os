@@ -4,14 +4,15 @@ I-1  connection URLs embed credentials — they must be redacted before logging
 I-2  Redis had no socket timeout (redis-py default is None → a hung server blocks forever)
 I-3  Mongo clients had no explicit timeouts (30s default server-selection stalls every op)
 """
+
 from __future__ import annotations
 
 import os
 
 from src.monkey_brain.persistence.client_options import redact_url, mongo_client_options
 
-
 # ── I-1: credential redaction ────────────────────────────────────────────────────
+
 
 def test_credentials_are_stripped_from_urls():
     assert redact_url("mongodb://alice:s3cret@db:27017/app") == "mongodb://***@db:27017/app"
@@ -33,15 +34,22 @@ def test_redaction_never_leaks_the_secret():
 
 def test_domain_db_redactor_matches():
     from services.common.db import _redact_url
+
     assert _redact_url("mongodb://u:pw@h:27017/db") == "mongodb://***@h:27017/db"
     assert "pw" not in _redact_url("mongodb://u:pw@h:27017/db")
 
 
 # ── I-3: Mongo timeouts are explicit and bounded ─────────────────────────────────
 
+
 def test_mongo_options_bound_every_wait():
     o = mongo_client_options()
-    for key in ("serverSelectionTimeoutMS", "connectTimeoutMS", "socketTimeoutMS", "maxPoolSize"):
+    for key in (
+        "serverSelectionTimeoutMS",
+        "connectTimeoutMS",
+        "socketTimeoutMS",
+        "maxPoolSize",
+    ):
         assert key in o and o[key] > 0
     # must be tighter than the 30s driver default that stalled every op
     assert o["serverSelectionTimeoutMS"] <= 10_000
@@ -54,8 +62,10 @@ def test_mongo_options_are_env_tunable(monkeypatch):
 
 # ── I-2: Redis client is constructed with bounded sockets ────────────────────────
 
+
 def test_redis_adapter_sets_socket_timeouts(monkeypatch):
     import asyncio
+
     captured = {}
 
     class _FakeAioredis:
@@ -65,6 +75,7 @@ def test_redis_adapter_sets_socket_timeouts(monkeypatch):
             return object()
 
     import sys, types
+
     fake = types.ModuleType("redis.asyncio")
     fake.from_url = _FakeAioredis.from_url
     redis_mod = types.ModuleType("redis")
@@ -73,7 +84,8 @@ def test_redis_adapter_sets_socket_timeouts(monkeypatch):
     monkeypatch.setitem(sys.modules, "redis.asyncio", fake)
 
     from src.monkey_brain.persistence.redis_adapter import RedisAdapter
+
     asyncio.run(RedisAdapter(url="redis://localhost:6379").connect())
 
-    assert captured["socket_timeout"] > 0          # was absent → blocked forever on a hung server
+    assert captured["socket_timeout"] > 0  # was absent → blocked forever on a hung server
     assert captured["socket_connect_timeout"] > 0

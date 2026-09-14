@@ -18,6 +18,7 @@ from monkeypatched_sdk import (
     capability_adapter,
 )
 
+
 @capability_adapter(
     capability_id="create_work_order",
     version="1.0.0",
@@ -25,33 +26,33 @@ from monkeypatched_sdk import (
 )
 class CMMSAdapter(CapabilityAdapter):
     """Adapter for creating work orders in CMMS system."""
-    
+
     async def initialize(self):
         """Called once at startup."""
         self.log("info", "Initializing CMMS adapter")
         # Validate configuration
         self.endpoint = self.configuration.get("endpoint")
         # Test connection
-        
+
     async def execute(self, context: AdapterContext, inputs: dict) -> AdapterResponse:
         """Execute the capability."""
         try:
             # Validate inputs
             equipment_id = inputs.get("equipment_id")
             description = inputs.get("description")
-            
+
             # Call external system
             result = await self._create_work_order(equipment_id, description)
-            
+
             # Emit event
             await self.emit_event(
                 "work_order_created",
                 {"work_order_id": result["id"]},
             )
-            
+
             # Emit metric
             await self.emit_metric("work_orders_created", 1)
-            
+
             return AdapterResponse(
                 success=True,
                 result={"work_order_id": result["id"]},
@@ -61,7 +62,7 @@ class CMMSAdapter(CapabilityAdapter):
                 success=False,
                 error=str(e),
             )
-    
+
     async def health_check(self) -> bool:
         """Check if CMMS is reachable."""
         try:
@@ -69,16 +70,16 @@ class CMMSAdapter(CapabilityAdapter):
             return await self._test_connection()
         except:
             return False
-    
+
     async def shutdown(self):
         """Clean up on shutdown."""
         self.log("info", "Shutting down CMMS adapter")
-    
+
     async def _create_work_order(self, equipment_id: str, description: str):
         """Internal: Call CMMS API."""
         # Implementation here
         pass
-    
+
     async def _test_connection(self) -> bool:
         """Internal: Test CMMS connectivity."""
         # Implementation here
@@ -141,13 +142,13 @@ The SDK injects these services into your adapter:
 class MyAdapter(CapabilityAdapter):
     def __init__(self, adapter_id: str, capability_id: str):
         super().__init__(adapter_id, capability_id)
-        
+
         # These are available after init:
-        self.logger              # Logging
-        self.event_bus           # Publish events
-        self.telemetry           # Metrics & traces
-        self.configuration       # Config access
-        self.connection_pool     # Connection management
+        self.logger  # Logging
+        self.event_bus  # Publish events
+        self.telemetry  # Metrics & traces
+        self.configuration  # Config access
+        self.connection_pool  # Connection management
 ```
 
 ### AdapterContext
@@ -156,11 +157,11 @@ Passed to `execute()`:
 
 ```python
 async def execute(self, context: AdapterContext, inputs: dict):
-    context.capability_id     # "create_work_order"
-    context.workflow_id       # Workflow being executed
-    context.execution_id      # Unique execution instance
-    context.world_state       # Current world model state
-    context.request_id        # For tracing
+    context.capability_id  # "create_work_order"
+    context.workflow_id  # Workflow being executed
+    context.execution_id  # Unique execution instance
+    context.world_state  # Current world model state
+    context.request_id  # For tracing
 ```
 
 ### AdapterResponse
@@ -169,12 +170,12 @@ Return from `execute()`:
 
 ```python
 return AdapterResponse(
-    success=True,              # Did it work?
-    result={                   # The actual result
+    success=True,  # Did it work?
+    result={  # The actual result
         "work_order_id": "WO-123",
     },
-    error=None,                # Error message if failed
-    metadata={                 # Extra information
+    error=None,  # Error message if failed
+    metadata={  # Extra information
         "execution_time_ms": 150,
     },
 )
@@ -189,16 +190,16 @@ return AdapterResponse(
 ```python
 from monkeypatched_sdk import HTTPConnectionPool
 
+
 @capability_adapter(capability_id="create_work_order")
 class HTTPAdapter(CapabilityAdapter):
-    
     async def initialize(self):
         self.pool = HTTPConnectionPool(
             base_url=self.configuration.get("endpoint"),
             pool_size=5,
         )
         await self.pool.initialize()
-    
+
     async def execute(self, context, inputs) -> AdapterResponse:
         conn = await self.pool.acquire()
         try:
@@ -211,7 +212,7 @@ class HTTPAdapter(CapabilityAdapter):
             return AdapterResponse(success=True, result=data)
         finally:
             await self.pool.release(conn)
-    
+
     async def health_check(self) -> bool:
         conn = await self.pool.acquire()
         try:
@@ -219,7 +220,7 @@ class HTTPAdapter(CapabilityAdapter):
             return response.status == 200
         finally:
             await self.pool.release(conn)
-    
+
     async def shutdown(self):
         await self.pool.shutdown()
 ```
@@ -229,20 +230,20 @@ class HTTPAdapter(CapabilityAdapter):
 ```python
 from monkeypatched_sdk import OAuth2Handler
 
+
 @capability_adapter(capability_id="read_data")
 class OAuth2Adapter(CapabilityAdapter):
-    
     async def initialize(self):
         self.auth = OAuth2Handler(
             token_endpoint=self.configuration.get("oauth_endpoint"),
             client_id=self.configuration.get("client_id"),
             client_secret=self.configuration.get("client_secret"),
         )
-    
+
     async def execute(self, context, inputs) -> AdapterResponse:
         # Get auth headers (handles token refresh)
         headers = await self.auth.authenticate()
-        
+
         # Use headers in your API call
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -251,10 +252,10 @@ class OAuth2Adapter(CapabilityAdapter):
             ) as resp:
                 data = await resp.json()
                 return AdapterResponse(success=True, result=data)
-    
+
     async def health_check(self) -> bool:
         return await self.auth.is_valid()
-    
+
     async def shutdown(self):
         pass
 ```
@@ -264,16 +265,16 @@ class OAuth2Adapter(CapabilityAdapter):
 ```python
 from monkeypatched_sdk import DatabaseConnectionPool
 
+
 @capability_adapter(capability_id="query_data")
 class DatabaseAdapter(CapabilityAdapter):
-    
     async def initialize(self):
         self.pool = DatabaseConnectionPool(
             connection_string=self.configuration.get("connection_string"),
             pool_size=10,
         )
         await self.pool.initialize()
-    
+
     async def execute(self, context, inputs) -> AdapterResponse:
         conn = await self.pool.acquire()
         try:
@@ -287,7 +288,7 @@ class DatabaseAdapter(CapabilityAdapter):
             )
         finally:
             await self.pool.release(conn)
-    
+
     async def health_check(self) -> bool:
         conn = await self.pool.acquire()
         try:
@@ -297,7 +298,7 @@ class DatabaseAdapter(CapabilityAdapter):
             return False
         finally:
             await self.pool.release(conn)
-    
+
     async def shutdown(self):
         await self.pool.shutdown()
 ```
@@ -307,32 +308,31 @@ class DatabaseAdapter(CapabilityAdapter):
 ```python
 @capability_adapter(capability_id="process_data")
 class MetricsAdapter(CapabilityAdapter):
-    
     async def execute(self, context, inputs) -> AdapterResponse:
         # Create trace span
         async with await self.telemetry.start_span("process_data") as span:
             span.set_tag("input_size", len(inputs))
-            
+
             try:
                 # Do work
                 result = await self._process(inputs)
-                
+
                 # Emit custom metric
                 await self.emit_metric(
                     "items_processed",
                     len(result),
                     tags={"type": inputs.get("type", "unknown")},
                 )
-                
+
                 return AdapterResponse(success=True, result=result)
-            
+
             except Exception as e:
                 # Error metric
                 await self.emit_metric("process_errors", 1)
                 span.set_tag("error", True)
                 span.set_tag("error_message", str(e))
                 return AdapterResponse(success=False, error=str(e))
-    
+
     async def _process(self, inputs):
         # Implementation
         pass
@@ -343,12 +343,11 @@ class MetricsAdapter(CapabilityAdapter):
 ```python
 @capability_adapter(capability_id="create_order")
 class EventAdapter(CapabilityAdapter):
-    
     async def execute(self, context, inputs) -> AdapterResponse:
         try:
             # Create the order
             order = await self._create_order(inputs)
-            
+
             # Emit event to platform
             await self.emit_event(
                 event_type="order_created",
@@ -359,9 +358,9 @@ class EventAdapter(CapabilityAdapter):
                     "workflow_id": context.workflow_id,
                 },
             )
-            
+
             return AdapterResponse(success=True, result=order)
-        
+
         except Exception as e:
             # Emit error event
             await self.emit_event(
@@ -372,7 +371,7 @@ class EventAdapter(CapabilityAdapter):
                 },
             )
             return AdapterResponse(success=False, error=str(e))
-    
+
     async def _create_order(self, inputs):
         # Implementation
         pass
@@ -424,7 +423,6 @@ export SDK_HEALTH_CHECK_INTERVAL=60
 
 ```python
 class MyAdapter(CapabilityAdapter):
-    
     async def initialize(self):
         # Get from configuration manager
         endpoint = self.configuration.get("endpoint")
@@ -466,11 +464,12 @@ The SDK logs automatically:
 
 ```python
 from monkeypatched_sdk import (
-    AdapterInitializationError,    # Init failed
-    AdapterExecutionError,         # Execute failed
-    HealthCheckError,              # Health check failed
-    ConfigurationError,            # Config invalid
+    AdapterInitializationError,  # Init failed
+    AdapterExecutionError,  # Execute failed
+    HealthCheckError,  # Health check failed
+    ConfigurationError,  # Config invalid
 )
+
 
 async def initialize(self):
     try:
@@ -509,36 +508,45 @@ async def execute(self, context, inputs) -> AdapterResponse:
 import pytest
 from monkeypatched_sdk import AdapterContext, AdapterResponse
 
+
 class MockEventBus:
     async def publish(self, *args, **kwargs):
         self.last_event = (args, kwargs)
 
+
 class MockTelemetry:
     async def emit_metric(self, *args, **kwargs):
         self.last_metric = (args, kwargs)
-    
+
     async def start_span(self, name):
         class MockSpan:
-            async def __aenter__(self): return self
-            async def __aexit__(self, *args): pass
-            def set_tag(self, k, v): pass
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                pass
+
+            def set_tag(self, k, v):
+                pass
+
         return MockSpan()
+
 
 @pytest.mark.asyncio
 async def test_adapter_creation():
     adapter = MyAdapter("test_id", "test_capability")
-    
+
     # Inject mocks
     adapter.event_bus = MockEventBus()
     adapter.telemetry = MockTelemetry()
     adapter.configuration = {"endpoint": "http://test"}
-    
+
     # Mock logger
     adapter.log = lambda *a, **kw: None
-    
+
     # Test initialization
     await adapter.initialize()
-    
+
     # Test execution
     context = AdapterContext(
         capability_id="test",
@@ -547,9 +555,9 @@ async def test_adapter_creation():
         world_state={},
         request_id="req-789",
     )
-    
+
     response = await adapter.execute(context, {"key": "value"})
-    
+
     assert isinstance(response, AdapterResponse)
     assert response.success is True
 ```
@@ -609,25 +617,27 @@ from monkeypatched_sdk import LifecycleManager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 async def main():
     lifecycle = LifecycleManager()
-    
+
     try:
         logger.info("Starting SDK...")
         await lifecycle.startup()
-        
+
         logger.info("SDK ready for requests")
-        
+
         # Keep running
         while True:
             await asyncio.sleep(60)
-    
+
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")
-    
+
     finally:
         await lifecycle.shutdown()
         logger.info("SDK stopped")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -662,9 +672,11 @@ app = FastAPI()
 
 lifecycle = LifecycleManager()
 
+
 @app.get("/health")
 async def health():
     return lifecycle.get_health_status()
+
 
 @app.get("/metrics")
 async def metrics():
@@ -766,9 +778,9 @@ async def execute(self, context, inputs) -> AdapterResponse:
 ```python
 async def shutdown(self):
     # Close connections
-    if hasattr(self, 'connection_pool'):
+    if hasattr(self, "connection_pool"):
         await self.connection_pool.shutdown()
-    
+
     # Flush pending operations
     # Close files
     # Release locks

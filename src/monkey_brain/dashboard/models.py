@@ -4,13 +4,14 @@ Every field in this model is computed by the backend from existing
 runtime artifacts (IntentIR, ExecutionGraph, SimulationGraph, etc.).
 No frontend should derive or compute any of these values.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ── Graph View ────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class GraphNodeState:
@@ -42,6 +43,7 @@ class GraphView:
 
 # ── Planning Section ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class PlanningSection:
     intent: str = ""
@@ -58,6 +60,7 @@ class PlanningSection:
 
 # ── Execution Section ────────────────────────────────────────────────────────
 
+
 @dataclass
 class ExecutionSection:
     completed_nodes: int = 0
@@ -71,6 +74,7 @@ class ExecutionSection:
 
 
 # ── Simulation Section ───────────────────────────────────────────────────────
+
 
 @dataclass
 class SolverResult:
@@ -94,6 +98,7 @@ class SimulationSection:
 
 # ── Learning Section ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class LearningSection:
     epistemic_loss: float = 0.0
@@ -109,6 +114,7 @@ class LearningSection:
 
 # ── Mutation Timeline ────────────────────────────────────────────────────────
 
+
 @dataclass
 class Mutation:
     timestamp: str = ""
@@ -122,6 +128,7 @@ class Mutation:
 
 
 # ── Bellman Section ──────────────────────────────────────────────────────────
+
 
 @dataclass
 class BellmanSection:
@@ -138,6 +145,7 @@ class BellmanSection:
 
 # ── Consensus Section ────────────────────────────────────────────────────────
 
+
 @dataclass
 class ConsensusSection:
     participating_solvers: list[str] = field(default_factory=list)
@@ -148,6 +156,7 @@ class ConsensusSection:
 
 
 # ── Health Section ───────────────────────────────────────────────────────────
+
 
 @dataclass
 class ComponentHealth:
@@ -164,6 +173,7 @@ class HealthSection:
 
 
 # ── Metrics Section ──────────────────────────────────────────────────────────
+
 
 @dataclass
 class MetricsSection:
@@ -184,6 +194,7 @@ class MetricsSection:
 
 # ── Observability Section ────────────────────────────────────────────────────
 
+
 @dataclass
 class ObservabilitySection:
     traces: list[dict[str, Any]] = field(default_factory=list)
@@ -192,6 +203,7 @@ class ObservabilitySection:
 
 
 # ── Timeline Section ─────────────────────────────────────────────────────────
+
 
 @dataclass
 class TimelineEntry:
@@ -202,6 +214,7 @@ class TimelineEntry:
 
 
 # ── DashboardModel ───────────────────────────────────────────────────────────
+
 
 @dataclass
 class DashboardModel:
@@ -232,4 +245,5 @@ class DashboardModel:
             if isinstance(obj, dict):
                 return {k: _dc(v) for k, v in obj.items()}
             return obj
+
         return _dc(self)

@@ -8,7 +8,6 @@ from pymongo import ReturnDocument
 
 from services.shipping.models.waybill import WaybillCreate, WaybillUpdate, utc_now
 
-
 COLLECTION = "waybills"
 
 
@@ -38,7 +37,9 @@ def _prepare(value):
     return value
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -49,7 +50,9 @@ async def get_by_id(db: AsyncIOMotorDatabase, waybill_id: str) -> Optional[dict]
     return _serialize(await db[COLLECTION].find_one({"id": waybill_id}))
 
 
-async def get_by_number(db: AsyncIOMotorDatabase, waybill_number: str) -> Optional[dict]:
+async def get_by_number(
+    db: AsyncIOMotorDatabase, waybill_number: str
+) -> Optional[dict]:
     return _serialize(await db[COLLECTION].find_one({"waybill_number": waybill_number}))
 
 
@@ -68,7 +71,9 @@ async def create(db: AsyncIOMotorDatabase, data: WaybillCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, waybill_id: str, data: WaybillUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, waybill_id: str, data: WaybillUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, waybill_id)

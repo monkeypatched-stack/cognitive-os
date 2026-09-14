@@ -8,6 +8,7 @@
 6. Loss reduction and repair across iterations
 7. Recovery from injected failures
 """
+
 import asyncio
 import os
 import random
@@ -15,7 +16,7 @@ import sys
 import time
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -23,29 +24,41 @@ from cortex.epa import epa_transition, epa_loss, EpistemicPredictiveState
 from cortex.epistemic import GoalState
 from src.monkey_brain.kernel.cognitive_kernel import CognitiveKernel
 from src.monkey_brain.kernel.solver_mesh import SolverMesh, GraphSolver, SATSolver
-from src.monkey_brain.kernel.execute.agent_mesh import ExecutionPool, AgentSpec, AgentRole
+from src.monkey_brain.kernel.execute.agent_mesh import (
+    ExecutionPool,
+    AgentSpec,
+    AgentRole,
+)
 from src.monkey_brain.kernel.execute.capabilities.bus import CapabilityBus
 from src.knowledge.pack import KnowledgePack
 from src.knowledge.item import KnowledgeItem, Modality
-from domains.software_engineering.knowledge.pack import SoftwareEngineeringKnowledgePublisher as EngineeringKnowledgePublisher
+from domains.software_engineering.knowledge.pack import (
+    SoftwareEngineeringKnowledgePublisher as EngineeringKnowledgePublisher,
+)
 from src.monkey_brain.kernel.loss_driven_repair import LossDrivenRepair
 
 
 def _r(c):
     l = asyncio.new_event_loop()
-    try: return l.run_until_complete(c)
-    finally: l.close()
+    try:
+        return l.run_until_complete(c)
+    finally:
+        l.close()
 
 
 def _p(msg):
     print(f"  {msg}")
 
 
-ok = 0; f = []
+ok = 0
+f = []
+
+
 def T(name, fn):
     global ok
     try:
-        fn(); ok += 1
+        fn()
+        ok += 1
         print(f"  OK: {name}")
     except Exception as e:
         f.append(f"{name}: {e}")
@@ -55,6 +68,7 @@ def T(name, fn):
 # ═══════════════════════════════════════════════════════════════
 # 1. EPA EVOLUTION OVER MANY STEPS
 # ═══════════════════════════════════════════════════════════════
+
 
 def test_epa_evolution_50_steps():
     k = CognitiveKernel()
@@ -89,18 +103,38 @@ def test_epa_state_components():
 # 2. SOLVER-GUIDED STATE PREDICTION
 # ═══════════════════════════════════════════════════════════════
 
+
 def test_solver_mesh_all_9():
     sm = SolverMesh()
     results = {}
     for t, p in [
         ("rule_check", {"rules": [{"satisfied": True}]}),
-        ("reachability", {"graph": {"a": ["b"], "b": ["c"]}, "query": {"source": "a", "target": "c", "check": "reachability"}}),
+        (
+            "reachability",
+            {
+                "graph": {"a": ["b"], "b": ["c"]},
+                "query": {"source": "a", "target": "c", "check": "reachability"},
+            },
+        ),
         ("satisfiability", {"clauses": [[1, 2]], "variables": [1, 2]}),
         ("constraint", {"variables": {"x": [1, 2]}, "constraints": []}),
-        ("verification", {"model": {"x": 1}, "invariants": [{"type": "positive", "variable": "x"}]}),
-        ("optimization", {"objective": "minimize", "variables": {"x": 5.0}, "iterations": 100}),
+        (
+            "verification",
+            {"model": {"x": 1}, "invariants": [{"type": "positive", "variable": "x"}]},
+        ),
+        (
+            "optimization",
+            {"objective": "minimize", "variables": {"x": 5.0}, "iterations": 100},
+        ),
         ("planning", {"actions": ["a", "b"], "n_simulations": 20}),
-        ("prediction", {"current_state": {"x": 1}, "action": "move", "history": [{"x": i} for i in range(5)]}),
+        (
+            "prediction",
+            {
+                "current_state": {"x": 1},
+                "action": "move",
+                "history": [{"x": i} for i in range(5)],
+            },
+        ),
         ("general", {}),
     ]:
         r = _r(sm.solve(p))
@@ -122,11 +156,13 @@ def test_solver_prediction_in_transition():
 # 3. CAPABILITY DISCOVERY DURING AGENT CREATION
 # ═══════════════════════════════════════════════════════════════
 
+
 class _Capability:
     """Minimal stand-in for register_capability()/execute() (execute/
     capabilities/bus.py) — the bus only ever reads .name for registration
     and .fn (or calls the object itself) for execution; it never actually
     requires FunctionalCapability/CapabilityEffects specifically."""
+
     def __init__(self, name, fn=None):
         self.name = name
         self.fn = fn
@@ -159,6 +195,7 @@ def test_capability_bus_resolution():
 # 4. MULTI-AGENT WORKFLOW EXECUTION
 # ═══════════════════════════════════════════════════════════════
 
+
 def test_multi_agent_workflow():
     ep = ExecutionPool(KnowledgePack())
     for _ in range(5):
@@ -176,16 +213,26 @@ def test_multi_agent_workflow():
 # 5. KNOWLEDGE PUBLICATION AND RETRIEVAL
 # ═══════════════════════════════════════════════════════════════
 
+
 def test_knowledge_publish_and_retrieve():
     pub = EngineeringKnowledgePublisher()
-    pub.publish(spec_id="wo-001", goal="Build Work Order Service", domain="manufacturing",
-                generated_files={"main.py": "code", "models.py": "code"},
-                governance_findings=[{"severity": "low"}],
-                benchmark_results={"throughput": 42, "latency_ms": 15},
-                workflow_topology=["Create", "Todo", "Notify"],
-                confidence=0.9)
-    pub.publish(spec_id="wo-002", goal="Build Todo Service", domain="manufacturing",
-                generated_files={"main.py": "code"}, confidence=0.85)
+    pub.publish(
+        spec_id="wo-001",
+        goal="Build Work Order Service",
+        domain="manufacturing",
+        generated_files={"main.py": "code", "models.py": "code"},
+        governance_findings=[{"severity": "low"}],
+        benchmark_results={"throughput": 42, "latency_ms": 15},
+        workflow_topology=["Create", "Todo", "Notify"],
+        confidence=0.9,
+    )
+    pub.publish(
+        spec_id="wo-002",
+        goal="Build Todo Service",
+        domain="manufacturing",
+        generated_files={"main.py": "code"},
+        confidence=0.85,
+    )
     items = pub.get_knowledge_items_for_retrieval("Work Order")
     assert len(items) >= 3
     assert pub.summary()["total_published"] == 2
@@ -196,23 +243,40 @@ def test_knowledge_publish_and_retrieve():
 # 6. LOSS REDUCTION AND REPAIR ACROSS ITERATIONS
 # ═══════════════════════════════════════════════════════════════
 
+
 def test_loss_reduction_repair():
     repair = LossDrivenRepair(loss_threshold=0.05, max_iterations=15)
     report = repair.run(
         0.85,
-        {"test_results": {}, "ddd_results": {}, "govern_results": {}, "runtime_errors": []},
-        loss_terms={"L_S": 0.3, "L_B": 0.2, "L_A": 0.1, "L_M": 0.1, "L_K": 0.1, "L_C": 0.0, "L_G": 0.05},
+        {
+            "test_results": {},
+            "ddd_results": {},
+            "govern_results": {},
+            "runtime_errors": [],
+        },
+        loss_terms={
+            "L_S": 0.3,
+            "L_B": 0.2,
+            "L_A": 0.1,
+            "L_M": 0.1,
+            "L_K": 0.1,
+            "L_C": 0.0,
+            "L_G": 0.05,
+        },
     )
     assert report.initial_loss > report.final_loss
     assert report.total_iterations >= 1
     assert report.final_loss < report.initial_loss
     reduction = (1 - report.final_loss / report.initial_loss) * 100
-    _p(f"Loss: {report.initial_loss:.3f} -> {report.final_loss:.3f} ({reduction:.0f}% reduction, {report.total_iterations} iterations)")
+    _p(
+        f"Loss: {report.initial_loss:.3f} -> {report.final_loss:.3f} ({reduction:.0f}% reduction, {report.total_iterations} iterations)"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════
 # 7. RECOVERY FROM INJECTED FAILURES
 # ═══════════════════════════════════════════════════════════════
+
 
 def test_recovery_from_failure():
     k = CognitiveKernel()
@@ -277,7 +341,7 @@ if __name__ == "__main__":
         T(name, fn)
 
     print("\n" + "=" * 70)
-    print(f"RESULTS: {ok}/{ok+len(f)} passed")
+    print(f"RESULTS: {ok}/{ok + len(f)} passed")
     if f:
         print("FAILURES:")
         for e in f:

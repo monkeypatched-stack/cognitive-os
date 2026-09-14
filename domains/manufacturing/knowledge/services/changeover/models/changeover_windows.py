@@ -11,12 +11,20 @@ class ChangeoverWindow(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     workstation_id: str
     factory_id: str
-    event_id: Optional[str] = Field(None, description="Linked ChangeoverEvent once created")
-    calendar_booking_id: Optional[str] = Field(None, description="Linked calendar booking once added to calendar")
+    event_id: Optional[str] = Field(
+        None, description="Linked ChangeoverEvent once created"
+    )
+    calendar_booking_id: Optional[str] = Field(
+        None, description="Linked calendar booking once added to calendar"
+    )
     start_dt: datetime
     end_dt: datetime
-    buffer_minutes: int = Field(default=0, ge=0, le=120, description="Safety buffer after planned end")
-    locked: bool = Field(default=False, description="Locked windows cannot be moved by auto-scheduler")
+    buffer_minutes: int = Field(
+        default=0, ge=0, le=120, description="Safety buffer after planned end"
+    )
+    locked: bool = Field(
+        default=False, description="Locked windows cannot be moved by auto-scheduler"
+    )
 
     @model_validator(mode="after")
     def end_after_start(self):

@@ -20,6 +20,7 @@ Flow:
     → NANDA? return NANDAProxyAgent(card)
     → none? log warning, skip step
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,7 +35,9 @@ class NANDAAgent(BaseETASSAgent):
     """Handles explicit NANDA discovery and routing workflow steps."""
 
     agent_type = "nanda"
-    description = "NANDA provider — discovers remote agents from the decentralized NANDA registry by capability or domain"
+    description = (
+        "NANDA provider — discovers remote agents from the decentralized NANDA registry by capability or domain"
+    )
 
     async def handle(self, context: dict[str, Any]):
         return await self._run(context, self._impl)
@@ -55,9 +58,11 @@ class NANDAAgent(BaseETASSAgent):
         return self._result(
             payload=result,
             observations=[
-                f"nanda {operation}: {result.get('status', 'unknown')} "
-                f"({len(result.get('agents', []))} agents)" if operation == "discover"
-                else f"nanda {operation}: {result.get('status', 'unknown')}"
+                (
+                    f"nanda {operation}: {result.get('status', 'unknown')} ({len(result.get('agents', []))} agents)"
+                    if operation == "discover"
+                    else f"nanda {operation}: {result.get('status', 'unknown')}"
+                )
             ],
         )
 
@@ -91,6 +96,7 @@ class NANDAProxyAgent:
         """Route step to the remote NANDA agent and coerce result to AgentResult."""
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.post(
                     f"{self._endpoint}/tasks",
@@ -101,12 +107,18 @@ class NANDAProxyAgent:
                 result = resp.json()
                 self._last_reward = float(result.get("reward", 0.8))
         except Exception as exc:
-            logger.warning("[nanda_proxy:%s] → %s failed: %s", self._agent_type, self._endpoint, exc)
+            logger.warning(
+                "[nanda_proxy:%s] → %s failed: %s",
+                self._agent_type,
+                self._endpoint,
+                exc,
+            )
             self._last_reward = 0.1
             result = {"error": str(exc), "success": False}
 
         try:
             from src.monkey_brain.kernel.execute.runtime.outcome import AgentResult
+
             return AgentResult(
                 reward=self._last_reward,
                 payload=result.get("payload", result),

@@ -11,6 +11,7 @@ Belief(t+1) = f(Belief(t), Context Stream, Observations, Memory)
 The belief model NEVER mutates the Global World.
 Planning operates against World × Belief × Φ.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ class ActorBeliefSnapshot:
     kernel/pipeline/belief_state.py::BeliefState (the live per-request
     cognitive belief). This class is a point-in-time metrics summary of
     ActorBelief below, not a belief store."""
+
     version: int
     timestamp: float
     belief_nnz: int
@@ -66,6 +68,7 @@ class ActorBelief:
 
         # Delegate Bellman to PolicyStore (single source of truth for Q-values)
         from src.monkey_brain.kernel.policy.store import PolicyStore
+
         self._policy_store = PolicyStore(owner_id=actor_id)
 
         self._belief_version = 0
@@ -75,8 +78,16 @@ class ActorBelief:
 
     # ── Belief Updates ────────────────────────────────────────────────────────
 
-    def observe(self, src: str, dst: str, *, reward: float = 0.0, confidence: float = 1.0,
-                source: str = "direct", domain: str = "default") -> None:
+    def observe(
+        self,
+        src: str,
+        dst: str,
+        *,
+        reward: float = 0.0,
+        confidence: float = 1.0,
+        source: str = "direct",
+        domain: str = "default",
+    ) -> None:
         """Record an observation into the belief model."""
         key = (src, dst)
         old = self._beliefs.get(key, 0.0)
@@ -85,11 +96,16 @@ class ActorBelief:
         self._belief_version += 1
         self._dirty = True
 
-        self._reward_history.append({
-            "src": src, "dst": dst, "reward": reward,
-            "source": source, "domain": domain,
-            "timestamp": time.time(),
-        })
+        self._reward_history.append(
+            {
+                "src": src,
+                "dst": dst,
+                "reward": reward,
+                "source": source,
+                "domain": domain,
+                "timestamp": time.time(),
+            }
+        )
         if len(self._reward_history) > 10000:
             self._reward_history = self._reward_history[-10000:]
 
@@ -118,8 +134,15 @@ class ActorBelief:
 
         return removed
 
-    def update_bellman(self, state: str, action: str, reward: float,
-                       next_state: str, lr: float = 0.1, discount: float = 0.95) -> None:
+    def update_bellman(
+        self,
+        state: str,
+        action: str,
+        reward: float,
+        next_state: str,
+        lr: float = 0.1,
+        discount: float = 0.95,
+    ) -> None:
         """Bellman TD update delegated to PolicyStore."""
         self._policy_store.update(state, action, reward, next_state)
         self._dirty = True
@@ -142,8 +165,7 @@ class ActorBelief:
         if len(self._memory) > 5000:
             self._memory = self._memory[-5000:]
 
-    def detect_conflicts(self, src: str, dst: str, new_reward: float,
-                         threshold: float = 0.5) -> dict | None:
+    def detect_conflicts(self, src: str, dst: str, new_reward: float, threshold: float = 0.5) -> dict | None:
         """Detect if a new observation conflicts with existing belief.
 
         Returns conflict info if detected, None otherwise.

@@ -16,6 +16,7 @@ Architectural invariant:
     Policy learning updates only PolicyStore.
     It never modifies transition frequencies.
 """
+
 from __future__ import annotations
 
 import logging
@@ -89,7 +90,9 @@ class PolicyLearner:
         """
         return [
             self.update(
-                t["state"], t["action"], t["reward"],
+                t["state"],
+                t["action"],
+                t["reward"],
                 t.get("next_state", ""),
                 t.get("actor_loss", 0.0),
             )

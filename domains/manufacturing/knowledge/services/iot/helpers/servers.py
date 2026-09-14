@@ -15,7 +15,11 @@ def _serialize(doc: dict) -> dict:
 def _prepare(doc: dict) -> dict:
     """Convert date → datetime so BSON can encode them."""
     return {
-        k: datetime(v.year, v.month, v.day) if isinstance(v, date) and not isinstance(v, datetime) else v
+        k: (
+            datetime(v.year, v.month, v.day)
+            if isinstance(v, date) and not isinstance(v, datetime)
+            else v
+        )
         for k, v in doc.items()
     }
 

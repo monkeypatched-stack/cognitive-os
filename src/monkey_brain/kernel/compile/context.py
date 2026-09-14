@@ -12,6 +12,7 @@ queue, so the most urgent constraint (a revoked permission, an exhausted budget)
 before routine ones. Applying the context to the fixed world yields the constrained
 operator an action runs over — the world is untouched.
 """
+
 from __future__ import annotations
 
 import heapq
@@ -30,7 +31,7 @@ logger = logging.getLogger("agentos.compile.context")
 
 # Lower number = more urgent (min-heap). Named points; any int is valid.
 class Priority:
-    URGENT = 0     # a revoked permission, a safety stop
+    URGENT = 0  # a revoked permission, a safety stop
     HIGH = 25
     NORMAL = 100
     LOW = 200
@@ -39,7 +40,8 @@ class Priority:
 @dataclass(frozen=True)
 class Constraints:
     """Immutable snapshot of the current runtime constraints the context holds."""
-    allowed_domains: frozenset[str] | None = None      # None = any domain
+
+    allowed_domains: frozenset[str] | None = None  # None = any domain
     forbidden_states: frozenset[str] = frozenset()
     max_cost: float | None = None
     max_latency_ms: float | None = None
@@ -63,7 +65,8 @@ class Constraints:
 @dataclass(frozen=True)
 class ContextChange:
     """A single change to the runtime constraints."""
-    op: str            # allow_domains | forbid_state | unforbid_state | max_cost | max_latency | min_confidence
+
+    op: str  # allow_domains | forbid_state | unforbid_state | max_cost | max_latency | min_confidence
     value: Any = None
 
 
@@ -82,14 +85,14 @@ class Context:
         self._constraints = constraints or Constraints()
         self._heap: list[_Queued] = []
         self._seq = 0
-        self.tenant_id = tenant_id            # first-class: the tenant this context is scoped to
+        self.tenant_id = tenant_id  # first-class: the tenant this context is scoped to
 
     @classmethod
     def from_token(cls, claims: "dict[str, Any]", constraints: Constraints | None = None) -> "Context":
         """token claim → context. Extract the tenant from a decoded auth token's claims
-        (tenant | tenant_id | org | org_id) so tenancy flows from identity into runtime."""
-        tenant = str(claims.get("tenant") or claims.get("tenant_id")
-                     or claims.get("org") or claims.get("org_id") or "")
+        (tenant | tenant_id | org | org_id) so tenancy flows from identity into runtime.
+        """
+        tenant = str(claims.get("tenant") or claims.get("tenant_id") or claims.get("org") or claims.get("org_id") or "")
         return cls(constraints=constraints, tenant_id=tenant)
 
     @property
@@ -116,8 +119,11 @@ class Context:
             self._constraints = self._reduce(self._constraints, q.change)
             applied.append(q.change)
         if applied:
-            logger.info("[context] applied %d constraint change(s) in priority order: %s",
-                        len(applied), [c.op for c in applied])
+            logger.info(
+                "[context] applied %d constraint change(s) in priority order: %s",
+                len(applied),
+                [c.op for c in applied],
+            )
             _obs.counter("context.changes_applied", increment=len(applied))
         return applied
 
@@ -145,7 +151,7 @@ class Context:
         operator (SparseMatrix), probabilities renormalized over surviving successors.
         The world is never modified."""
         kept: dict[str, dict[str, float]] = {}
-        for (src, dst) in world:
+        for src, dst in world:
             if self._constraints.permits(world, src, dst):
                 kept.setdefault(src, {})[dst] = world.feature(src, dst, f)
         m = SparseMatrix()
@@ -154,7 +160,11 @@ class Context:
             total = sum(succ.values()) or 1.0
             for dst, w in succ.items():
                 m.set(src, dst, w / total)
-        logger.debug("[context] constrained world: kept %d, dropped %d transitions", m.nnz(), dropped)
+        logger.debug(
+            "[context] constrained world: kept %d, dropped %d transitions",
+            m.nnz(),
+            dropped,
+        )
         _obs.gauge("context.constrained_transitions", float(m.nnz()))
         return m
 
@@ -165,9 +175,10 @@ class Context:
         is not persisted)."""
         c = self._constraints
         return {
-            "allowed_domains": sorted(c.allowed_domains) if c.allowed_domains is not None else None,
+            "allowed_domains": (sorted(c.allowed_domains) if c.allowed_domains is not None else None),
             "forbidden_states": sorted(c.forbidden_states),
-            "max_cost": c.max_cost, "max_latency_ms": c.max_latency_ms,
+            "max_cost": c.max_cost,
+            "max_latency_ms": c.max_latency_ms,
             "min_confidence": c.min_confidence,
         }
 
@@ -182,8 +193,9 @@ class Context:
             return
         d = json.loads(p.read_text())
         self._constraints = Constraints(
-            allowed_domains=frozenset(d["allowed_domains"]) if d.get("allowed_domains") is not None else None,
+            allowed_domains=(frozenset(d["allowed_domains"]) if d.get("allowed_domains") is not None else None),
             forbidden_states=frozenset(d.get("forbidden_states", [])),
-            max_cost=d.get("max_cost"), max_latency_ms=d.get("max_latency_ms"),
+            max_cost=d.get("max_cost"),
+            max_latency_ms=d.get("max_latency_ms"),
             min_confidence=d.get("min_confidence", 0.0),
         )

@@ -2,6 +2,7 @@
 
 Insecure-dev is explicitly unset. Classification defaults to critical.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -69,9 +70,13 @@ class TestClassification:
         assert classify_operation("") is OperationClass.SECURITY_CRITICAL
 
     def test_agent_cannot_declare_payment_read_only(self):
-        assert classify_operation(
-            "send_payment", declared=OperationClass.READ_ONLY,
-        ) is OperationClass.SECURITY_CRITICAL
+        assert (
+            classify_operation(
+                "send_payment",
+                declared=OperationClass.READ_ONLY,
+            )
+            is OperationClass.SECURITY_CRITICAL
+        )
 
     def test_simulate_capture_is_critical_not_proposal(self):
         assert classify_operation("simulate_capture") is OperationClass.SECURITY_CRITICAL
@@ -86,9 +91,10 @@ class TestBypassResistance:
             context={},
         )
         assert result.actions[0].success is False
-        assert "forbidden" in (result.actions[0].error or "").lower() or "ungoverned" in (
-            result.actions[0].error or ""
-        ).lower()
+        assert (
+            "forbidden" in (result.actions[0].error or "").lower()
+            or "ungoverned" in (result.actions[0].error or "").lower()
+        )
 
     @pytest.mark.asyncio
     async def test_direct_executor_without_auth_denies(self):
@@ -109,20 +115,30 @@ class TestBypassResistance:
             return {"allowed": False, "reason": "deny", "source": "opa"}
 
         monkeypatch.setattr("services.common.opa.evaluate_full", allow)
-        bind_trusted_auth(TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id="alice",
-            principal_type="human", mfa_status="satisfied",
-        ))
+        bind_trusted_auth(
+            TrustedAuthEvidence(
+                authenticated=True,
+                token_valid=True,
+                principal_id="alice",
+                principal_type="human",
+                mfa_status="satisfied",
+            )
+        )
 
         async def mutate():
             mutations.append(1)
 
-        from src.monkey_brain.api.idempotency import IdempotencyStore, _InMemoryIdempotencyBackend
+        from src.monkey_brain.api.idempotency import (
+            IdempotencyStore,
+            _InMemoryIdempotencyBackend,
+        )
+
         IdempotencyStore._instance = None
         store = IdempotencyStore.__new__(IdempotencyStore)
         store._backend = _InMemoryIdempotencyBackend()
         IdempotencyStore._instance = store
         from src.monkey_brain.kernel.audit import MemoryDurableAuditStore, get_audit_log
+
         get_audit_log().set_store(MemoryDurableAuditStore())
 
         with pytest.raises(SecurityBoundaryDenied):
@@ -166,7 +182,10 @@ class TestBypassResistance:
 
     @pytest.mark.asyncio
     async def test_kg_write_allowed_inside_governed_mutation(self, monkeypatch):
-        from src.monkey_brain.api.idempotency import IdempotencyStore, _InMemoryIdempotencyBackend
+        from src.monkey_brain.api.idempotency import (
+            IdempotencyStore,
+            _InMemoryIdempotencyBackend,
+        )
         from src.monkey_brain.kernel.audit import MemoryDurableAuditStore, get_audit_log
         from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 
@@ -181,10 +200,15 @@ class TestBypassResistance:
             return {"allowed": True, "reason": "", "source": "opa"}
 
         monkeypatch.setattr("services.common.opa.evaluate_full", allow)
-        bind_trusted_auth(TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id="alice",
-            principal_type="human", mfa_status="satisfied",
-        ))
+        bind_trusted_auth(
+            TrustedAuthEvidence(
+                authenticated=True,
+                token_valid=True,
+                principal_id="alice",
+                principal_type="human",
+                mfa_status="satisfied",
+            )
+        )
         kg = KnowledgeGraph()
 
         async def mutate():
@@ -196,7 +220,10 @@ class TestBypassResistance:
         IdempotencyStore._instance = None
 
     def test_direct_capability_handle_cannot_mutate_kg(self):
-        from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
+        from src.monkey_brain.kernel.domains.commerce import (
+            list_product,
+            onboard_merchant,
+        )
         from src.monkey_brain.kernel.domains.grocery import OrderCreationCapability
         from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
         from src.monkey_brain.kernel.security_boundary import privileged_infrastructure
@@ -207,13 +234,15 @@ class TestBypassResistance:
             pid = list_product(kg, store, "m", "Milk", price=3.99, quantity=5, store_name="Store")["product_id"]
 
         with pytest.raises(SecurityBoundaryDenied):
-            OrderCreationCapability().handle({
-                "context": {
-                    "knowledge_graph": kg,
-                    "actor_id": "alice",
-                    "selected_product": [{"id": pid, "qty": 1}],
-                },
-            })
+            OrderCreationCapability().handle(
+                {
+                    "context": {
+                        "knowledge_graph": kg,
+                        "actor_id": "alice",
+                        "selected_product": [{"id": pid, "qty": 1}],
+                    },
+                }
+            )
 
     @pytest.mark.asyncio
     async def test_idempotency_key_required_outside_insecure_dev(self):
@@ -241,7 +270,10 @@ class TestBypassResistance:
 class TestOrderingAndFailClosed:
     @pytest.mark.asyncio
     async def test_audit_intent_before_effect(self, monkeypatch):
-        from src.monkey_brain.api.idempotency import IdempotencyStore, _InMemoryIdempotencyBackend
+        from src.monkey_brain.api.idempotency import (
+            IdempotencyStore,
+            _InMemoryIdempotencyBackend,
+        )
         from src.monkey_brain.kernel.audit import AuditPersistenceError, get_audit_log
 
         IdempotencyStore._instance = None
@@ -260,10 +292,15 @@ class TestOrderingAndFailClosed:
             return {"allowed": True, "reason": "", "source": "opa"}
 
         monkeypatch.setattr("services.common.opa.evaluate_full", allow)
-        bind_trusted_auth(TrustedAuthEvidence(
-            authenticated=True, token_valid=True, principal_id="alice",
-            principal_type="human", mfa_status="satisfied",
-        ))
+        bind_trusted_auth(
+            TrustedAuthEvidence(
+                authenticated=True,
+                token_valid=True,
+                principal_id="alice",
+                principal_type="human",
+                mfa_status="satisfied",
+            )
+        )
         mutations = []
 
         async def mutate():
@@ -276,6 +313,7 @@ class TestOrderingAndFailClosed:
 
     def test_architecture_requires_ensure_governed(self):
         from scripts.check_architecture_conformance import collect
+
         result = collect()
         assert result["hard_checks"]["governed_commitment_on_action_executor"] is True
         assert result["hard_checks"]["governed_commitment_on_runtime"] is True

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.monkey_brain.kernel.predict.graph_solver.base import ISolver, SolverClass, SolverResult
+from src.monkey_brain.kernel.predict.graph_solver.base import (
+    ISolver,
+    SolverClass,
+    SolverResult,
+)
 
 if TYPE_CHECKING:
     from src.monkey_brain.kernel.execute.graph import ExecutionGraph
@@ -15,6 +19,7 @@ class GraphSolver(ISolver):
 
     Uses BFS/DFS for reachability and Tarjan's for cycle detection.
     """
+
     name = "graph"
     solver_class = SolverClass.GRAPH
 
@@ -31,29 +36,36 @@ class GraphSolver(ISolver):
         if check_type == "cycle_check":
             has_cycle, cycle = self._find_cycle(graph)
             return SolverResult(
-                solver_name=self.name, solver_class=self.solver_class,
+                solver_name=self.name,
+                solver_class=self.solver_class,
                 solution={"has_cycle": has_cycle, "cycle": cycle},
-                confidence=0.95, proof=f"Cycle detection: {'found' if has_cycle else 'none'}",
+                confidence=0.95,
+                proof=f"Cycle detection: {'found' if has_cycle else 'none'}",
             )
 
         if check_type == "reachability" and source and target:
             path = self._bfs(graph, source, target)
             reachable = path is not None
             return SolverResult(
-                solver_name=self.name, solver_class=self.solver_class,
+                solver_name=self.name,
+                solver_class=self.solver_class,
                 solution={"reachable": reachable, "path": path or []},
-                confidence=0.95, proof=f"BFS from {source} to {target}: {'reachable' if reachable else 'unreachable'}",
+                confidence=0.95,
+                proof=f"BFS from {source} to {target}: {'reachable' if reachable else 'unreachable'}",
             )
 
         topo = self._topological_sort(graph)
         return SolverResult(
-            solver_name=self.name, solver_class=self.solver_class,
+            solver_name=self.name,
+            solver_class=self.solver_class,
             solution={"topological_order": topo, "is_dag": topo is not None},
-            confidence=0.9, proof=f"Topological sort: {'valid' if topo else 'has cycle'}",
+            confidence=0.9,
+            proof=f"Topological sort: {'valid' if topo else 'has cycle'}",
         )
 
     def _bfs(self, graph: dict, source: str, target: str) -> list[str] | None:
         from collections import deque
+
         visited = set()
         queue = deque([(source, [source])])
         while queue:
@@ -109,14 +121,13 @@ class GraphSolver(ISolver):
     def find_failed_nodes(self, graph: "ExecutionGraph") -> list[str]:
         """Return node_ids that are in FAILED state."""
         from src.monkey_brain.kernel.execute.graph import NodeState
-        return [
-            n.id for n in graph.get_step_nodes()
-            if graph.get_state(n.id) == NodeState.FAILED
-        ]
+
+        return [n.id for n in graph.get_step_nodes() if graph.get_state(n.id) == NodeState.FAILED]
 
     def find_unreachable_nodes(self, graph: "ExecutionGraph") -> list[str]:
         """Return PENDING node_ids whose every direct upstream dep is FAILED."""
         from src.monkey_brain.kernel.execute.graph import NodeState
+
         result = []
         for node in graph.get_step_nodes():
             state = graph.get_state(node.id)

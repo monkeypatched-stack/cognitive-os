@@ -20,13 +20,18 @@ genuinely updates: every one of the 5 participants is observed, ticked,
 and has its cognition state (cycle_count) actually advance, from one
 single City-scoped tick.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
 from src.monkey_brain.kernel.geography.runtime import GeographicEntityRuntime
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 ECOSYSTEM = [
@@ -40,7 +45,9 @@ ECOSYSTEM = [
 
 def _city_scoped_runtime(marketplace: PlanetaryRuntime, city_entity_id: str) -> GeographicEntityRuntime:
     return GeographicEntityRuntime(
-        marketplace.geo_registry, city_entity_id, marketplace._societies.get,
+        marketplace.geo_registry,
+        city_entity_id,
+        marketplace._societies.get,
         presence=marketplace.presence,
         actor_ticker=marketplace._tick_present_actor,
         membership_reconciler=marketplace.membership_governor.reconcile,
@@ -61,7 +68,8 @@ def _build_commerce_ecosystem():
         participants.append((society_runtime, actor))
 
     city = marketplace.geo_registry.ancestor_of_type(
-        marketplace.default_bootstrap_space_id, GeographicEntityType.CITY,
+        marketplace.default_bootstrap_space_id,
+        GeographicEntityType.CITY,
     )
     return marketplace, participants, city.entity_id
 

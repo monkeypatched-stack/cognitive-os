@@ -18,6 +18,7 @@ Verifies:
 Usage:
     python3 demo/coordination/mb3105_shipment_delivered.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -72,7 +73,9 @@ def step_confirm_receipt(client, order_id: str) -> dict[str, Any]:
     return result
 
 
-def print_scope_and_trace(result: dict[str, Any]) -> tuple[list[dict[str, Any]], set[str]]:
+def print_scope_and_trace(
+    result: dict[str, Any],
+) -> tuple[list[dict[str, Any]], set[str]]:
     scope = result.get("execution_scope") or {}
     section("Propagation")
     kv("Societies Coordinated", scope.get("societies_coordinated"))
@@ -86,15 +89,17 @@ def print_scope_and_trace(result: dict[str, Any]) -> tuple[list[dict[str, Any]],
     for step in trace:
         events = ", ".join(step.get("events") or [])
         actors = ", ".join(step.get("actors_ticked") or []) or "(none)"
-        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} "
-              f"-> actors ticked: {actors}")
+        print(f"  depth {step.get('depth')}: [{events}] -> {step.get('society_name')} -> actors ticked: {actors}")
 
     domain_events_seen = set(scope.get("domain_events_seen") or [])
     return trace, domain_events_seen
 
 
 def step_verify(
-    client, world: dict[str, Any], trace: list[dict[str, Any]], domain_events_seen: set[str],
+    client,
+    world: dict[str, Any],
+    trace: list[dict[str, Any]],
+    domain_events_seen: set[str],
 ) -> bool:
     section("Verification")
 
@@ -115,7 +120,10 @@ def step_verify(
 
     checks = [
         ("Customer notified (Customer Society coordinated)", "Alice" in reacted_names),
-        ("Review request created (Customer Society coordinated)", "Alice" in reacted_names),
+        (
+            "Review request created (Customer Society coordinated)",
+            "Alice" in reacted_names,
+        ),
         ("Loyalty points awarded (real LoyaltyPointsAwarded event)", loyalty_awarded),
     ]
     all_pass = True

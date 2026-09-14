@@ -1,12 +1,17 @@
 """Testing agents — UnitTestingAgent, StaticAnalysisAgent, SecurityAgent — typed AgentResult."""
+
 from __future__ import annotations
-import asyncio, logging, subprocess
+import asyncio
+import logging
+import os
+import subprocess
+import sys as _sys
 from pathlib import Path
 from typing import Any
 from ._base import BaseETASSAgent
 
 logger = logging.getLogger("broca.agents.testing")
-import os, sys as _sys
+
 _REPO = Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[4])))
 _PYTHON = str(Path(_sys.executable))  # same interpreter that launched the agent
 
@@ -28,6 +33,7 @@ class UnitTestingAgent(BaseETASSAgent):
         if cap:
             try:
                 from src.monkey_brain.kernel.execution_state import ExecutionState
+
                 state = ExecutionState.from_dict(context) if hasattr(ExecutionState, "from_dict") else context
                 raw = await cap.execute(state)
                 output = raw.output if hasattr(raw, "output") else (raw if isinstance(raw, dict) else {})
@@ -72,7 +78,10 @@ class StaticAnalysisAgent(BaseETASSAgent):
             )
         except FileNotFoundError:
             self._reward(True, 0.8)
-            return self._result(payload={"clean": True, "skipped": True}, observations=["ruff not installed"])
+            return self._result(
+                payload={"clean": True, "skipped": True},
+                observations=["ruff not installed"],
+            )
         except Exception as e:
             self._reward(True, 0.6)
             return self._result(payload={"clean": True}, observations=[str(e)])
@@ -98,7 +107,10 @@ class SecurityAgent(BaseETASSAgent):
             )
         except FileNotFoundError:
             self._reward(True, 0.8)
-            return self._result(payload={"clean": True, "skipped": True}, observations=["bandit not installed"])
+            return self._result(
+                payload={"clean": True, "skipped": True},
+                observations=["bandit not installed"],
+            )
         except Exception as e:
             self._reward(True, 0.6)
             return self._result(payload={"clean": True}, observations=[str(e)])

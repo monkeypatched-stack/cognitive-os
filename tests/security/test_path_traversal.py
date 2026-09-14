@@ -13,6 +13,7 @@ class TestLocalStorageTraversal:
 
     def _make_capability(self, base_path):
         from cerebellum.capabilities.storage.storage import LocalFileSystemCapability
+
         return LocalFileSystemCapability(base_path=base_path)
 
     def _run(self, coro):
@@ -31,7 +32,15 @@ class TestLocalStorageTraversal:
 
     def test_escape_write_blocked(self, tmp_path):
         cap = self._make_capability(str(tmp_path))
-        result = self._run(cap.execute({"operation": "write", "path": "../../../tmp/pwned.txt", "content": "PWNED"}))
+        result = self._run(
+            cap.execute(
+                {
+                    "operation": "write",
+                    "path": "../../../tmp/pwned.txt",
+                    "content": "PWNED",
+                }
+            )
+        )
         assert not os.path.exists("/tmp/pwned.txt") or result.get("status") == "error"
 
     def test_escape_list_blocked(self, tmp_path):
@@ -88,14 +97,20 @@ class TestProcessDefinitionsStorageTraversal:
             loop.close()
 
     def test_dotdot_rejected(self):
-        from services.process_definitions.node_services.storage import execute_storage_node
+        from services.process_definitions.node_services.storage import (
+            execute_storage_node,
+        )
+
         result = self._run(execute_storage_node("file in", {"path": "../../../etc/passwd"}, {}))
         assert result.ok is False
         err = (result.error or "").lower()
         assert "traversal" in err or "not found" in err
 
     def test_valid_path_works(self, tmp_path):
-        from services.process_definitions.node_services.storage import execute_storage_node
+        from services.process_definitions.node_services.storage import (
+            execute_storage_node,
+        )
+
         secret = tmp_path / "ok.txt"
         secret.write_text("VISIBLE")
         result = self._run(execute_storage_node("file in", {"path": str(secret)}, {}))
@@ -107,6 +122,7 @@ class TestCADConversionFilenameSanitization:
 
     def test_strips_directory_from_filename(self):
         from pathlib import Path
+
         malicious = "../../etc/cron.d/evil.dwg"
         safe = Path(malicious).name
         assert safe == "evil.dwg"
@@ -114,5 +130,6 @@ class TestCADConversionFilenameSanitization:
 
     def test_strips_leading_slash(self):
         from pathlib import Path
+
         safe = Path("/etc/passwd").name
         assert safe == "passwd"

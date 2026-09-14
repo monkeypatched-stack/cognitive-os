@@ -5,6 +5,7 @@ synchronous signature, kernel/execute/provider/model_backend.py) is
 injected so tests run without network/API keys, mirroring this codebase's
 established LLM test pattern (test_llm_query_classification.py).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,19 +29,29 @@ class FakeBackend:
 
 
 def _goal():
-    return Goal(name="acquire_milk", description="buy 1 liter of milk",
-                success_criteria=("milk",))
+    return Goal(
+        name="acquire_milk",
+        description="buy 1 liter of milk",
+        success_criteria=("milk",),
+    )
 
 
 def test_successful_response_parses_into_plan_and_steps():
-    response = json.dumps({
-        "steps": [
-            {"action": "buy_milk", "description": "Buy milk at costco: $2.10",
-             "expected_outcome": "milk acquired", "cost": 0.1, "confidence": 0.9},
-        ],
-        "summary": "Buy milk at costco, cheapest and in stock",
-        "confidence": 0.9,
-    })
+    response = json.dumps(
+        {
+            "steps": [
+                {
+                    "action": "buy_milk",
+                    "description": "Buy milk at costco: $2.10",
+                    "expected_outcome": "milk acquired",
+                    "cost": 0.1,
+                    "confidence": 0.9,
+                },
+            ],
+            "summary": "Buy milk at costco, cheapest and in stock",
+            "confidence": 0.9,
+        }
+    )
     backend = FakeBackend(response)
     belief = BeliefState(actor_id="alice")
     belief.add_fact(entity="costco", attribute="price", value=2.10, confidence=0.9)

@@ -1,4 +1,5 @@
 """PolicyAgent — evaluates governance rules and OPA policies, produces compliance decisions."""
+
 from __future__ import annotations
 import logging
 import re
@@ -9,9 +10,7 @@ logger = logging.getLogger("broca.agents.ddd.policy")
 
 # Matches canonical cognitive SPIFFE URI:
 #   spiffe://{trust_domain}/pipeline/{pid}/step/{step}/agent/{role}
-_PIPELINE_SPIFFE_RE = re.compile(
-    r"^spiffe://[^/]+/pipeline/([^/]+)/step/([^/]+)/agent/([^/]+)$"
-)
+_PIPELINE_SPIFFE_RE = re.compile(r"^spiffe://[^/]+/pipeline/([^/]+)/step/([^/]+)/agent/([^/]+)$")
 
 
 class PolicyAgent(BaseDDDAgent):
@@ -103,6 +102,7 @@ class PolicyAgent(BaseDDDAgent):
         try:
             from services.common.opa import evaluate_full
             from services.common.dynamic_policy import build_dynamic_context
+
             dynamic_ctx = await build_dynamic_context(principal, action, resource)
             policy_path = perception.get("opa_policy_path", "agent/mesh/allow")
 
@@ -116,24 +116,25 @@ class PolicyAgent(BaseDDDAgent):
 
             # --- Pipeline guardrail (only when sub is a pipeline SPIFFE URI) ---
             guardrail_violations: list[str] = []
-            spiffe_sub = (principal.get("sub") or principal.get("spiffe_id") or "")
+            spiffe_sub = principal.get("sub") or principal.get("spiffe_id") or ""
             m = _PIPELINE_SPIFFE_RE.match(spiffe_sub)
             if m:
                 pipeline_id, step_name, agent_role = m.group(1), m.group(2), m.group(3)
                 pipeline_state: dict[str, Any] = {}
                 try:
                     from services.common.pipeline_attestation import get as _attest_get
+
                     pipeline_state = (await _attest_get(pipeline_id)) or {}
                 except Exception:
                     pass
 
                 guardrail_input = {
                     **input_data,
-                    "pipeline_id":        pipeline_id,
-                    "step_name":          step_name,
-                    "agent_role":         agent_role,
+                    "pipeline_id": pipeline_id,
+                    "step_name": step_name,
+                    "agent_role": agent_role,
                     "requested_capability": resource or action,
-                    "pipeline_state":     pipeline_state,
+                    "pipeline_state": pipeline_state,
                 }
                 guardrail_result = await evaluate_full(
                     "pipeline/guardrail",
@@ -141,9 +142,7 @@ class PolicyAgent(BaseDDDAgent):
                     default_allow=False,  # deny-by-default for structural guardrail
                 )
                 if not guardrail_result.get("allowed", False):
-                    guardrail_violations.append(
-                        f"pipeline_guardrail:pipeline={pipeline_id}:step={step_name}:denied"
-                    )
+                    guardrail_violations.append(f"pipeline_guardrail:pipeline={pipeline_id}:step={step_name}:denied")
 
             # --- Mesh-level OPA ---
             result = await evaluate_full(policy_path, input_data, default_allow=True)
@@ -157,7 +156,12 @@ class PolicyAgent(BaseDDDAgent):
                 "dynamic_context": dynamic_ctx.to_dict(),
             }
         except ImportError:
-            return {"source": "fallback", "violations": [], "obligations": [], "dynamic_context": {}}
+            return {
+                "source": "fallback",
+                "violations": [],
+                "obligations": [],
+                "dynamic_context": {},
+            }
         except Exception as exc:
             logger.warning("OPA evaluation failed — treating as policy violation: %s", exc)
             return {
@@ -174,6 +178,7 @@ class PolicyAgent(BaseDDDAgent):
         if not obligations:
             try:
                 from services.common.policy_obligations import derive_obligations
+
                 principal = decision.get("context", {}).get("principal", {})
                 dynamic = decision.get("dynamic_context", {})
                 risk_level = dynamic.get("risk_level", "low")

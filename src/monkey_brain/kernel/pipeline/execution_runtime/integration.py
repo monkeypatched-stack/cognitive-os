@@ -33,6 +33,7 @@ back to a real ActionExecutor for the WHOLE action list (not a partial mix
 — that would fragment dependency/ordering semantics in confusing ways),
 producing identical behavior to not having this engine installed at all.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -40,20 +41,41 @@ from uuid import uuid4
 
 from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
 from src.monkey_brain.kernel.pipeline.execution import (
-    Action, ActionOutcome, ExecutionResult as LegacyExecutionResult,
+    Action,
+    ActionOutcome,
+    ExecutionResult as LegacyExecutionResult,
 )
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.pipeline.execution_runtime.domain import (
-    ExecutionContext, ExecutionOutcome, ExecutionPlan, ExecutionRequest, ExecutionStep,
+    ExecutionContext,
+    ExecutionOutcome,
+    ExecutionPlan,
+    ExecutionRequest,
+    ExecutionStep,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import ExecutionRegistry
-from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import ExecutionScheduler, ExecutionSchedule
-from src.monkey_brain.kernel.pipeline.execution_runtime.retry import RecoveryPolicy, RetryExecutor
+from src.monkey_brain.kernel.pipeline.execution_runtime.handlers import (
+    ExecutionRegistry,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.scheduler import (
+    ExecutionScheduler,
+    ExecutionSchedule,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.retry import (
+    RecoveryPolicy,
+    RetryExecutor,
+)
 from src.monkey_brain.kernel.pipeline.execution_runtime.resolution import (
-    CapabilityResolver, ExecutionEnvironment, ResolutionReport,
+    CapabilityResolver,
+    ExecutionEnvironment,
+    ResolutionReport,
 )
-from src.monkey_brain.kernel.pipeline.execution_runtime.monitoring import ExecutionMonitor
-from src.monkey_brain.kernel.pipeline.execution_runtime.trace import ExecutionTrace, build_execution_trace
+from src.monkey_brain.kernel.pipeline.execution_runtime.monitoring import (
+    ExecutionMonitor,
+)
+from src.monkey_brain.kernel.pipeline.execution_runtime.trace import (
+    ExecutionTrace,
+    build_execution_trace,
+)
 
 
 class IntegratedExecutionEngine:
@@ -111,19 +133,26 @@ class IntegratedExecutionEngine:
         if not actions:
             result = LegacyExecutionResult(goal_achieved=True)
             trace = build_execution_trace(
-                ExecutionRequest(), ExecutionSchedule(), (),
-                rationale="No actions to execute.", goal_achieved_override=result.goal_achieved,
+                ExecutionRequest(),
+                ExecutionSchedule(),
+                (),
+                rationale="No actions to execute.",
+                goal_achieved_override=result.goal_achieved,
             )
             return result, trace
 
         if execution_graph is not None or not self._all_capabilities_known(actions):
             result = await self._fallback.execute(
-                actions, context, execution_graph=execution_graph,
+                actions,
+                context,
+                execution_graph=execution_graph,
             )
             trace = build_execution_trace(
-                ExecutionRequest(), ExecutionSchedule(), (),
+                ExecutionRequest(),
+                ExecutionSchedule(),
+                (),
                 rationale="Delegated to ActionExecutor — execution_graph supplied or one or more "
-                          "actions used a capability the Step 9 registry has no handler for.",
+                "actions used a capability the Step 9 registry has no handler for.",
                 goal_achieved_override=result.goal_achieved,
             )
             return result, trace
@@ -137,7 +166,11 @@ class IntegratedExecutionEngine:
         if not resolution.resolved:
             result = self._resolution_failure_result(actions, resolution)
             trace = build_execution_trace(
-                request, ExecutionSchedule(), (), resolution=resolution, step_labels=labels,
+                request,
+                ExecutionSchedule(),
+                (),
+                resolution=resolution,
+                step_labels=labels,
                 goal_achieved_override=result.goal_achieved,
             )
             return result, trace
@@ -146,17 +179,26 @@ class IntegratedExecutionEngine:
         self._monitor.observe_all(outcomes)  # close the skip-visibility gap (Step 9.6)
 
         trace = build_execution_trace(
-            request, schedule, outcomes, resolution=resolution,
-            timeline=self._monitor.timeline(), step_labels=labels,
+            request,
+            schedule,
+            outcomes,
+            resolution=resolution,
+            timeline=self._monitor.timeline(),
+            step_labels=labels,
         )
 
         if not schedule.is_valid:
             # Shouldn't happen — _actions_to_plan() only ever builds a linear
             # chain, which can't violate or deadlock — but never silently
             # drop a validity problem if one somehow occurred.
-            return await self._fallback.execute(
-                actions, context, execution_graph=execution_graph,
-            ), trace
+            return (
+                await self._fallback.execute(
+                    actions,
+                    context,
+                    execution_graph=execution_graph,
+                ),
+                trace,
+            )
 
         return self._to_legacy_result(outcomes), trace
 
@@ -198,8 +240,11 @@ class IntegratedExecutionEngine:
             operator=operator,
             parameters=dict(action.parameters),
             dependencies=(previous_step_id,) if previous_step_id else (),
-            expected_effects=(action.expected_outcome,) if action.expected_outcome else (),
-            trace_metadata={"source_step": action.source_step, "planning_confidence": action.confidence},
+            expected_effects=((action.expected_outcome,) if action.expected_outcome else ()),
+            trace_metadata={
+                "source_step": action.source_step,
+                "planning_confidence": action.confidence,
+            },
         )
 
     def _extract_actor_id(self, context: Any) -> str:
@@ -233,13 +278,22 @@ class IntegratedExecutionEngine:
         )
 
     def _resolution_failure_result(
-        self, actions: tuple[Action, ...], resolution: ResolutionReport,
+        self,
+        actions: tuple[Action, ...],
+        resolution: ResolutionReport,
     ) -> LegacyExecutionResult:
         message = "; ".join(issue.message for issue in resolution.issues)
         action_outcomes = tuple(
-            ActionOutcome(action_id=action.action_id, success=False, error=f"resolution failed: {message}")
+            ActionOutcome(
+                action_id=action.action_id,
+                success=False,
+                error=f"resolution failed: {message}",
+            )
             for action in actions
         )
         return LegacyExecutionResult(
-            actions=action_outcomes, success_count=0, failure_count=len(action_outcomes), goal_achieved=False,
+            actions=action_outcomes,
+            success_count=0,
+            failure_count=len(action_outcomes),
+            goal_achieved=False,
         )

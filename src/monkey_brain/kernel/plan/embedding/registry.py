@@ -15,6 +15,7 @@ build_default_registry() wires the production defaults:
 All paths ultimately fall back to HashEmbeddingEmbedder if ML models
 are unavailable (e.g., in CI without model weights).
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,11 @@ from typing import Any, Callable
 import numpy as np
 
 from src.monkey_brain.kernel.plan.embedding._utils import EMBEDDING_DIM
-from src.monkey_brain.kernel.plan.embedding.provider import Embedding, EmbeddingEmbedder, HashEmbeddingEmbedder
+from src.monkey_brain.kernel.plan.embedding.provider import (
+    Embedding,
+    EmbeddingEmbedder,
+    HashEmbeddingEmbedder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +121,15 @@ def build_default_registry() -> EmbeddingRegistry:
         (all others)       → HashEmbeddingEmbedder (default fallback)
     """
     from src.monkey_brain.kernel.plan.embedding.text import SBERTEmbedder
-    from src.monkey_brain.kernel.plan.embedding.telemetry import TelemetryEmbedder, SensorEmbedder, SimulationEmbedder
-    from src.monkey_brain.kernel.plan.embedding.graph import GraphEmbedder, OntologyEmbedder
+    from src.monkey_brain.kernel.plan.embedding.telemetry import (
+        TelemetryEmbedder,
+        SensorEmbedder,
+        SimulationEmbedder,
+    )
+    from src.monkey_brain.kernel.plan.embedding.graph import (
+        GraphEmbedder,
+        OntologyEmbedder,
+    )
     from src.monkey_brain.kernel.plan.embedding.database import DatabaseEmbedder
     from src.monkey_brain.kernel.plan.embedding.code import CodeEmbedder
     from src.monkey_brain.kernel.plan.embedding.cad import CADEmbedder
@@ -127,24 +139,24 @@ def build_default_registry() -> EmbeddingRegistry:
 
     registry = EmbeddingRegistry()
 
-    sbert = SBERTEmbedder()   # shared instance — lazy-loads model once
+    sbert = SBERTEmbedder()  # shared instance — lazy-loads model once
 
-    registry.register("document",   sbert)
-    registry.register("manual",     sbert)
+    registry.register("document", sbert)
+    registry.register("manual", sbert)
 
-    registry.register("image",      CLIPImageEmbedder())
-    registry.register("video",      VideoEmbedder())
-    registry.register("audio",      WhisperAudioEmbedder())
+    registry.register("image", CLIPImageEmbedder())
+    registry.register("video", VideoEmbedder())
+    registry.register("audio", WhisperAudioEmbedder())
 
-    registry.register("telemetry",  TelemetryEmbedder())
-    registry.register("sensor",     SensorEmbedder())
+    registry.register("telemetry", TelemetryEmbedder())
+    registry.register("sensor", SensorEmbedder())
     registry.register("simulation", SimulationEmbedder())
 
-    registry.register("graph",      GraphEmbedder())
-    registry.register("ontology",   OntologyEmbedder())
+    registry.register("graph", GraphEmbedder())
+    registry.register("ontology", OntologyEmbedder())
 
-    registry.register("database",   DatabaseEmbedder())
-    registry.register("code",       CodeEmbedder())
-    registry.register("cad",        CADEmbedder())
+    registry.register("database", DatabaseEmbedder())
+    registry.register("code", CodeEmbedder())
+    registry.register("cad", CADEmbedder())
 
     return registry

@@ -82,22 +82,22 @@ from monkeypatched_sdk import (
     capability_adapter,
 )
 
+
 @capability_adapter(capability_id="create_work_order")
 class MyAdapter(CapabilityAdapter):
-    
     async def initialize(self):
         # Setup: validate config, test connection
         pass
-    
+
     async def execute(self, context: AdapterContext, inputs: dict) -> AdapterResponse:
         # Do the actual work
         # Return AdapterResponse with result or error
         pass
-    
+
     async def health_check(self) -> bool:
         # Check if external system is healthy
         pass
-    
+
     async def shutdown(self):
         # Cleanup: close connections, flush operations
         pass

@@ -1,4 +1,5 @@
 """SittingFace knowledge retrieval — keyword + optional vector, with cycle cache."""
+
 from __future__ import annotations
 
 import contextvars
@@ -15,7 +16,8 @@ from src.monkey_brain.kernel.knowledge.external_context import (
 logger = logging.getLogger("agentos.knowledge.sittingface")
 
 _RETRIEVAL_CACHE: contextvars.ContextVar[dict[str, KnowledgeRetrievalReport] | None] = contextvars.ContextVar(
-    "sittingface_retrieval_cache", default=None,
+    "sittingface_retrieval_cache",
+    default=None,
 )
 
 _KNOWLEDGE_QUERY_PATTERNS = re.compile(
@@ -25,10 +27,34 @@ _KNOWLEDGE_QUERY_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-_STOPWORDS = frozenset({
-    "a", "an", "the", "for", "to", "of", "and", "or", "in", "on", "at", "is", "are",
-    "was", "were", "this", "that", "i", "we", "you", "please", "buy", "purchase", "order",
-})
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "for",
+        "to",
+        "of",
+        "and",
+        "or",
+        "in",
+        "on",
+        "at",
+        "is",
+        "are",
+        "was",
+        "were",
+        "this",
+        "that",
+        "i",
+        "we",
+        "you",
+        "please",
+        "buy",
+        "purchase",
+        "order",
+    }
+)
 
 
 def should_retrieve_external_knowledge(
@@ -140,7 +166,9 @@ class SittingFaceKnowledgeRetriever:
         if report.vector_available and semantic_memory is not None:
             try:
                 vector_items = await self._vector_retrieve(
-                    semantic_memory, query, existing_charts={i.source_chart for i in items},
+                    semantic_memory,
+                    query,
+                    existing_charts={i.source_chart for i in items},
                 )
                 if vector_items:
                     items.extend(vector_items)
@@ -188,7 +216,9 @@ class SittingFaceKnowledgeRetriever:
         return items, methods
 
     @staticmethod
-    def _finalize_items(items: list[ExternalKnowledgeItem]) -> list[ExternalKnowledgeItem]:
+    def _finalize_items(
+        items: list[ExternalKnowledgeItem],
+    ) -> list[ExternalKnowledgeItem]:
         seen: set[str] = set()
         deduped: list[ExternalKnowledgeItem] = []
         for item in sorted(items, key=lambda i: i.relevance_score, reverse=True):
@@ -215,7 +245,10 @@ class SittingFaceKnowledgeRetriever:
 
     def _get_compiler(self) -> Any:
         try:
-            from src.monkey_brain.kernel.plan.intents.intent_registry import get_somatic_compiler
+            from src.monkey_brain.kernel.plan.intents.intent_registry import (
+                get_somatic_compiler,
+            )
+
             return get_somatic_compiler()
         except Exception:
             return None
@@ -225,6 +258,7 @@ class SittingFaceKnowledgeRetriever:
             return self._semantic_memory
         try:
             from src.monkey_brain.api.main import app
+
             cr = getattr(getattr(app, "state", None), "cognitive_runtime", None)
             return getattr(cr, "semantic_memory", None)
         except Exception:
@@ -246,15 +280,17 @@ class SittingFaceKnowledgeRetriever:
             content = _snippet_from_chart(chart, hit.get("matched_in") or [], query) if chart else name
             if not content:
                 continue
-            items.append(ExternalKnowledgeItem(
-                content=content,
-                source_chart=name,
-                source_path=str(hit.get("source_path") or ""),
-                retrieval_method="keyword",
-                relevance_score=0.75,
-                query=query,
-                matched_fields=tuple(hit.get("matched_in") or ()),
-            ))
+            items.append(
+                ExternalKnowledgeItem(
+                    content=content,
+                    source_chart=name,
+                    source_path=str(hit.get("source_path") or ""),
+                    retrieval_method="keyword",
+                    relevance_score=0.75,
+                    query=query,
+                    matched_fields=tuple(hit.get("matched_in") or ()),
+                )
+            )
         return items
 
     async def _vector_retrieve(
@@ -296,14 +332,16 @@ class SittingFaceKnowledgeRetriever:
             method = hit.get("retrieval_method")
             if method not in ("vector", "keyword"):
                 method = "keyword"
-            items.append(ExternalKnowledgeItem(
-                content=text[:500],
-                source_chart=chart_name,
-                source_path=str(meta.get("source_path") or ""),
-                retrieval_method=method,
-                relevance_score=min(1.0, score),
-                query=query,
-            ))
+            items.append(
+                ExternalKnowledgeItem(
+                    content=text[:500],
+                    source_chart=chart_name,
+                    source_path=str(meta.get("source_path") or ""),
+                    retrieval_method=method,
+                    relevance_score=min(1.0, score),
+                    query=query,
+                )
+            )
         return items
 
 

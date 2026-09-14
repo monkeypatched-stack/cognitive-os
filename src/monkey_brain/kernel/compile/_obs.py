@@ -8,6 +8,7 @@ be installed to capture and assert on emitted telemetry.
 Coarse structural events only (batch updates, compiles, cognitive cycles, knowledge
 exchange, context changes) — never per-cell hot loops.
 """
+
 from __future__ import annotations
 
 import logging
@@ -57,6 +58,7 @@ def clear_sink() -> None:
 def _lemon():
     try:
         from src.introspection.lemon import get_lemon
+
         return get_lemon()
     except Exception:
         return None
@@ -139,6 +141,7 @@ def _current_request_trace_id() -> str:
     background auto-tick)."""
     try:
         from services.common.trace_context import get_trace_id
+
         return get_trace_id()
     except Exception:
         return ""

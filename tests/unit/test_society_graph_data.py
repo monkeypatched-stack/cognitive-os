@@ -3,10 +3,15 @@ actor counts (not hardcoded/placeholder figures) and real MEMBER_OF edge
 data (the exact affiliation-mirror surface the frontend graph-builder
 reads) appearing and disappearing correctly as memberships change.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.api.routes.societies import _society_actor_counts
 
 

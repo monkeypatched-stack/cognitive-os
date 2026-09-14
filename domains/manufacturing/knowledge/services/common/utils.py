@@ -27,4 +27,3 @@ def _prepare(value):
     if isinstance(value, list):
         return [_prepare(v) for v in value]
     return value
-

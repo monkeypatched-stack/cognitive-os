@@ -3,6 +3,7 @@
 Periodically exports the local knowledge bundle and sends it to configured
 peer runtimes.  Peer runtimes import and merge (with conflict resolution).
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,8 +21,12 @@ class KnowledgeReplicator:
     Configurable interval, peer list, and merge strategy.
     """
 
-    def __init__(self, peers: list[str] | None = None, interval: float = 300.0,
-                 merge_strategy: str = "higher") -> None:
+    def __init__(
+        self,
+        peers: list[str] | None = None,
+        interval: float = 300.0,
+        merge_strategy: str = "higher",
+    ) -> None:
         self._peers = peers or []
         self._interval = interval
         self._merge_strategy = merge_strategy
@@ -41,7 +46,11 @@ class KnowledgeReplicator:
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True, name="knowledge-replicator")
         self._thread.start()
-        logger.info("[replication] started (peers=%d, interval=%.0fs)", len(self._peers), self._interval)
+        logger.info(
+            "[replication] started (peers=%d, interval=%.0fs)",
+            len(self._peers),
+            self._interval,
+        )
 
     def stop(self) -> None:
         """Stop the background replication."""
@@ -63,23 +72,31 @@ class KnowledgeReplicator:
 
         # Send to each peer
         from src.monkey_brain.kernel.compile.network import ExchangeClient
+
         client = ExchangeClient(timeout=30.0)
         success_count = 0
 
         for peer_url in self._peers:
             try:
                 url = f"{peer_url.rstrip('/')}/api/v1/agentos/knowledge/import"
-                result = client.post_json(url, {
-                    "bundle": export,
-                    "origin": export.get("runtime_id", "replication"),
-                    "domain": "default",
-                    "merge_strategy": self._merge_strategy,
-                })
+                result = client.post_json(
+                    url,
+                    {
+                        "bundle": export,
+                        "origin": export.get("runtime_id", "replication"),
+                        "domain": "default",
+                        "merge_strategy": self._merge_strategy,
+                    },
+                )
                 if result.get("status") in ("accepted", "empty"):
                     success_count += 1
                     logger.debug("[replication] synced to %s: %s", peer_url, result.get("status"))
                 elif result.get("status") == "error":
-                    logger.debug("[replication] failed to sync to %s: %s", peer_url, result.get("detail"))
+                    logger.debug(
+                        "[replication] failed to sync to %s: %s",
+                        peer_url,
+                        result.get("detail"),
+                    )
             except Exception as exc:
                 logger.debug("[replication] failed to sync to %s: %s", peer_url, exc)
 
@@ -98,13 +115,17 @@ class KnowledgeReplicator:
             world = tw.view(identity.runtime_id)
 
             transitions = []
-            for (src, dst) in world:
+            for src, dst in world:
                 from src.monkey_brain.kernel.compile.tensor import Feature
-                transitions.append({
-                    "src": src, "dst": dst,
-                    "domain": world.domain_of(src) or "default",
-                    "reward": world.feature(src, dst, Feature.REWARD),
-                })
+
+                transitions.append(
+                    {
+                        "src": src,
+                        "dst": dst,
+                        "domain": world.domain_of(src) or "default",
+                        "reward": world.feature(src, dst, Feature.REWARD),
+                    }
+                )
 
             return {
                 "version": "1.0",

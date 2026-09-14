@@ -8,7 +8,6 @@ from services.common.compat import empty_collection_router
 from services.events.routers.count_events import router as count_events_router
 from services.events.routers.events import router as events_router
 
-
 logger = configure_service_logging("events")
 
 app = FastAPI(
@@ -21,7 +20,9 @@ install_route_tracing(app, "events")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

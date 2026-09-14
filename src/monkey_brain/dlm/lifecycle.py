@@ -17,14 +17,16 @@ from typing import Any
 
 class StorageClass(str, Enum):
     """Data storage tiers."""
-    PERMANENT = "permanent"      # Never automatically deleted
-    LONG_TERM = "long_term"      # Retained for configurable periods
+
+    PERMANENT = "permanent"  # Never automatically deleted
+    LONG_TERM = "long_term"  # Retained for configurable periods
     OPERATIONAL = "operational"  # Retained for operational analysis
-    EPHEMERAL = "ephemeral"      # Automatically removed
+    EPHEMERAL = "ephemeral"  # Automatically removed
 
 
 class ExpirationAction(str, Enum):
     """Actions when data expires."""
+
     DELETE = "delete"
     ARCHIVE = "archive"
     COMPRESS = "compress"
@@ -34,46 +36,46 @@ class ExpirationAction(str, Enum):
 @dataclass
 class LifecyclePolicy:
     """Defines the lifecycle of a data type."""
-    
+
     name: str = ""
     storage_class: StorageClass = StorageClass.OPERATIONAL
-    
+
     # TTL (seconds) - None means no expiration
     ttl_seconds: int | None = None
-    
+
     # Retention
     max_age_seconds: int | None = None
     max_count: int | None = None
-    
+
     # Expiration
     expiration_action: ExpirationAction = ExpirationAction.DELETE
-    
+
     # Archival
     archive_after_seconds: int | None = None
     archive_to: str | None = None
-    
+
     # Compression
     compress_after_seconds: int | None = None
-    
+
     # Safety
     protected: bool = False  # Never delete if True
-    
+
     # Metadata
     description: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
-    
+
     def is_expired(self, age_seconds: float) -> bool:
         """Check if data has expired."""
         if self.ttl_seconds is None:
             return False
         return age_seconds >= self.ttl_seconds
-    
+
     def should_archive(self, age_seconds: float) -> bool:
         """Check if data should be archived."""
         if self.archive_after_seconds is None:
             return False
         return age_seconds >= self.archive_after_seconds
-    
+
     def should_compress(self, age_seconds: float) -> bool:
         """Check if data should be compressed."""
         if self.compress_after_seconds is None:
@@ -124,18 +126,15 @@ DATA_POLICIES: dict[str, LifecyclePolicy] = {
     "policy": PERMANENT_POLICY,
     "configuration": PERMANENT_POLICY,
     "ontology": PERMANENT_POLICY,
-    
     # Long-term
     "audit": LONG_TERM_POLICY,
     "memory": LONG_TERM_POLICY,
     "batch_history": LONG_TERM_POLICY,
-    
     # Operational
     "metric": OPERATIONAL_POLICY,
     "log": OPERATIONAL_POLICY,
     "trace": OPERATIONAL_POLICY,
     "execution": OPERATIONAL_POLICY,
-    
     # Ephemeral
     "session": EPHEMERAL_POLICY,
     "cache": EPHEMERAL_POLICY,

@@ -14,6 +14,7 @@ items, a real, persisted fact — GS-1900) or an already-added cart line
 customer who added an item to their cart, or already bought it, at the
 old price is never silently charged the new one.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import (
@@ -51,13 +52,24 @@ def test_mb3033_price_change_updates_the_live_catalog():
 def test_mb3033_price_change_does_not_rewrite_a_historical_order():
     kg, store_id, product_id = _seed_product()
     cap = OrderCreationCapability()
-    order_result = cap.handle({"context": {
-        "knowledge_graph": kg, "actor_id": "alice",
-        "selected_product": [{
-            "id": product_id, "name": "Oat Milk", "price": OLD_PRICE, "qty": 1,
-            "store_id": store_id, "store_name": "Bob's Store",
-        }],
-    }})
+    order_result = cap.handle(
+        {
+            "context": {
+                "knowledge_graph": kg,
+                "actor_id": "alice",
+                "selected_product": [
+                    {
+                        "id": product_id,
+                        "name": "Oat Milk",
+                        "price": OLD_PRICE,
+                        "qty": 1,
+                        "store_id": store_id,
+                        "store_name": "Bob's Store",
+                    }
+                ],
+            }
+        }
+    )
     order_id = order_result["order_id"]
 
     update_product(kg, product_id, MERCHANT_ID, price=NEW_PRICE)

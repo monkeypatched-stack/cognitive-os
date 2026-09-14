@@ -10,6 +10,7 @@ GET  /version   — version info
 POST /backup    — export every persisted monkeybrain:* key (Gate 6)
 POST /restore   — write a previously-exported backup back to Redis
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,9 +22,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from src.monkey_brain.api.audit_decorator import audited
 from src.monkey_brain.api.dependencies import require_permission
 from src.monkey_brain.api.gateway_models import (
-    BootRequest, BootResponse, ShutdownResponse, ReloadResponse,
-    LogsResponse, ConfigurationResponse, VersionResponse,
-    BackupResponse, RestoreRequest, RestoreResponse,
+    BootRequest,
+    BootResponse,
+    ShutdownResponse,
+    ReloadResponse,
+    LogsResponse,
+    ConfigurationResponse,
+    VersionResponse,
+    BackupResponse,
+    RestoreRequest,
+    RestoreResponse,
 )
 from src.monkey_brain.api.idempotency import idempotent
 
@@ -39,7 +47,12 @@ async def boot_runtime(
     user_id: str = Depends(require_permission("perm-admin")),
 ) -> BootResponse:
     components = {}
-    for name in ("cognitive_runtime", "simulation_runtime", "comparator_runtime", "planetary_runtime"):
+    for name in (
+        "cognitive_runtime",
+        "simulation_runtime",
+        "comparator_runtime",
+        "planetary_runtime",
+    ):
         rt = getattr(request.app.state, name, None)
         components[name] = "ready" if rt is not None else "offline"
     return BootResponse(status="already_booted", components=components)
@@ -96,6 +109,7 @@ async def get_tuning(
     user_id: str = Depends(require_permission("perm-admin")),
 ) -> dict:
     from src.monkey_brain.kernel.pipeline.tuning import get_tuning
+
     return get_tuning().to_dict()
 
 
@@ -106,6 +120,7 @@ async def update_tuning(
     user_id: str = Depends(require_permission("perm-admin")),
 ) -> dict:
     from src.monkey_brain.kernel.pipeline.tuning import get_tuning
+
     body = await request.json()
     tuning = get_tuning()
     tuning._from_dict(body)
@@ -118,7 +133,14 @@ async def get_version() -> VersionResponse:
     import tomllib
     from datetime import datetime, timezone
 
-    pyproject = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "pyproject.toml")
+    pyproject = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "..",
+        "..",
+        "..",
+        "pyproject.toml",
+    )
     try:
         with open(pyproject, "rb") as f:
             data = tomllib.load(f)

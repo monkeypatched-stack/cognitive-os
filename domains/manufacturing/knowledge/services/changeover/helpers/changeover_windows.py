@@ -5,7 +5,13 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
 from services.pm.helpers import calendar_bookings
-from services.changeover.helpers.changeover_common import create, delete, get_all, get_by_id, update
+from services.changeover.helpers.changeover_common import (
+    create,
+    delete,
+    get_all,
+    get_by_id,
+    update,
+)
 from services.pm.models.calendar_booking import CalendarBookingCreate
 from services.changeover.models.changeover_windows import (
     ChangeoverWindowCalendarBookingCreate,
@@ -26,7 +32,9 @@ def _calendar_title(window: dict) -> str:
     return f"Changeover window - workstation {window['workstation_id']}"
 
 
-async def get_all_windows(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all_windows(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     return await get_all(db, COLLECTION, page, page_size)
 
 
@@ -34,8 +42,12 @@ async def get_window_by_id(db: AsyncIOMotorDatabase, window_id: str) -> Optional
     return await get_by_id(db, COLLECTION, window_id)
 
 
-async def get_windows_by_workstation(db: AsyncIOMotorDatabase, workstation_id: str) -> list[dict]:
-    records, _ = await get_all(db, COLLECTION, query={"workstation_id": workstation_id}, page_size=1000)
+async def get_windows_by_workstation(
+    db: AsyncIOMotorDatabase, workstation_id: str
+) -> list[dict]:
+    records, _ = await get_all(
+        db, COLLECTION, query={"workstation_id": workstation_id}, page_size=1000
+    )
     return records
 
 
@@ -43,7 +55,9 @@ async def create_window(db: AsyncIOMotorDatabase, data: ChangeoverWindowCreate) 
     return await create(db, COLLECTION, data)
 
 
-async def update_window(db: AsyncIOMotorDatabase, window_id: str, data: ChangeoverWindowUpdate) -> Optional[dict]:
+async def update_window(
+    db: AsyncIOMotorDatabase, window_id: str, data: ChangeoverWindowUpdate
+) -> Optional[dict]:
     return await update(db, COLLECTION, window_id, data)
 
 
@@ -58,7 +72,9 @@ async def add_window_to_calendar(
 
     existing_booking_id = window.get("calendar_booking_id")
     if existing_booking_id:
-        existing_booking = await calendar_bookings.get_by_id(db, str(existing_booking_id))
+        existing_booking = await calendar_bookings.get_by_id(
+            db, str(existing_booking_id)
+        )
         if existing_booking:
             return existing_booking
 
@@ -78,7 +94,9 @@ async def add_window_to_calendar(
         or f"Changeover window {window_id} for workstation {window['workstation_id']}.",
     )
 
-    if await calendar_bookings.has_conflict(db, booking.calendar_id, booking.start_at, booking.end_at):
+    if await calendar_bookings.has_conflict(
+        db, booking.calendar_id, booking.start_at, booking.end_at
+    ):
         return {"conflict": True}
 
     created = await calendar_bookings.create(db, booking)

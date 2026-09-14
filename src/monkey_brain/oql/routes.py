@@ -4,6 +4,7 @@ POST /api/v1/agentos/oql/execute
 POST /api/v1/agentos/oql/validate
 GET  /api/v1/agentos/oql/stats
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,10 @@ router = APIRouter()
 
 class OQLExecuteRequest(BaseModel):
     entity: str = Field(..., description="Entity type (e.g., Customer, Order)")
-    operation: str = Field(..., description="Operation (select, insert, update, delete, upsert, count, exists)")
+    operation: str = Field(
+        ...,
+        description="Operation (select, insert, update, delete, upsert, count, exists)",
+    )
     filters: dict[str, Any] = Field(default_factory=dict)
     fields: list[str] = Field(default_factory=list)
     sort: list[list[str]] = Field(default_factory=list)
@@ -61,6 +65,7 @@ async def execute_oql(
     for s in body.sort:
         if len(s) == 2:
             from src.monkey_brain.oql.query import SortClause, SortDirection
+
             sort_clauses.append(SortClause(field=s[0], direction=SortDirection(s[1])))
 
     query = Query(
@@ -92,6 +97,7 @@ async def validate_oql(
         return JSONResponse(status_code=503, content={"error": "OQL engine not initialized"})
 
     from src.monkey_brain.oql.validator import QueryValidator
+
     validator = QueryValidator()
 
     query = Query(

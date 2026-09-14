@@ -33,11 +33,23 @@ async def execute_sequence_node(
             part = dict(message)
             set_nested_value(part, prop, item)
             if config.get("include_parts", True):
-                part["parts"] = {"id": payload.get("_msgid") or payload.get("id"), "index": index, "count": len(items)}
+                part["parts"] = {
+                    "id": payload.get("_msgid") or payload.get("id"),
+                    "index": index,
+                    "count": len(items),
+                }
             messages.append(part)
-        return NodeExecutionResult(True, None, {"status": "split", "messages": messages, "count": len(messages)})
+        return NodeExecutionResult(
+            True,
+            None,
+            {"status": "split", "messages": messages, "count": len(messages)},
+        )
     if node_type == "join":
-        messages = payload.get("messages") if isinstance(payload.get("messages"), list) else payload.get("payload")
+        messages = (
+            payload.get("messages")
+            if isinstance(payload.get("messages"), list)
+            else payload.get("payload")
+        )
         if not isinstance(messages, list):
             messages = [payload]
         values = []
@@ -45,7 +57,9 @@ async def execute_sequence_node(
             values.append(nested_value(item, prop) if isinstance(item, dict) else item)
         mode = str(config_value(config, "mode", "array"))
         if mode == "string":
-            joined = str(config.get("separator") or "").join(str(item) for item in values)
+            joined = str(config.get("separator") or "").join(
+                str(item) for item in values
+            )
         elif mode == "object":
             joined = {}
             key_prop = str(config_value(config, "key_property", "topic"))
@@ -55,16 +69,29 @@ async def execute_sequence_node(
         else:
             joined = values
         set_nested_value(message, prop, joined)
-        return NodeExecutionResult(True, None, {"status": "joined", "message": message, "count": len(values)})
+        return NodeExecutionResult(
+            True, None, {"status": "joined", "message": message, "count": len(values)}
+        )
     if node_type == "sort":
         if not isinstance(value, list):
-            return NodeExecutionResult(False, None, None, "Sort node requires a list at the configured property")
+            return NodeExecutionResult(
+                False,
+                None,
+                None,
+                "Sort node requires a list at the configured property",
+            )
         key_path = str(config.get("key") or "")
         numeric = bool(config.get("numeric") or False)
-        reverse = str(config_value(config, "direction", "ascending")).lower() == "descending"
+        reverse = (
+            str(config_value(config, "direction", "ascending")).lower() == "descending"
+        )
 
         def sort_key(item):
-            raw = nested_value(item, key_path) if key_path and isinstance(item, dict) else item
+            raw = (
+                nested_value(item, key_path)
+                if key_path and isinstance(item, dict)
+                else item
+            )
             if numeric:
                 try:
                     return float(raw)
@@ -74,16 +101,25 @@ async def execute_sequence_node(
 
         sorted_items = sorted(value, key=sort_key, reverse=reverse)
         set_nested_value(message, prop, sorted_items)
-        return NodeExecutionResult(True, None, {"status": "sorted", "message": message, "count": len(sorted_items)})
+        return NodeExecutionResult(
+            True,
+            None,
+            {"status": "sorted", "message": message, "count": len(sorted_items)},
+        )
     if node_type == "batch":
         if not isinstance(value, list):
-            return NodeExecutionResult(False, None, None, "Batch node requires a list at the configured property")
+            return NodeExecutionResult(
+                False,
+                None,
+                None,
+                "Batch node requires a list at the configured property",
+            )
         size = max(1, int(config_value(config, "size", 10)))
         overlap = max(0, min(int(config_value(config, "overlap", 0)), size - 1))
         step = max(1, size - overlap)
         messages = []
         for index, start in enumerate(range(0, len(value), step)):
-            batch = value[start:start + size]
+            batch = value[start : start + size]
             if not batch:
                 continue
             part = dict(message)
@@ -91,5 +127,9 @@ async def execute_sequence_node(
             if config.get("include_parts", True):
                 part["parts"] = {"index": index, "start": start, "size": len(batch)}
             messages.append(part)
-        return NodeExecutionResult(True, None, {"status": "batched", "messages": messages, "count": len(messages)})
+        return NodeExecutionResult(
+            True,
+            None,
+            {"status": "batched", "messages": messages, "count": len(messages)},
+        )
     return NodeExecutionResult(True, None, {"status": "queued", "message": message})

@@ -1,4 +1,5 @@
 """Smart Cities agents — Traffic, Parking, UtilityMonitoring, EmergencyResponse, WasteManagement."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -14,14 +15,26 @@ class TrafficAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"intersection_id": context.get("intersection_id", ""), "operation": context.get("operation", "monitor"), "metrics": context.get("metrics", {})}
+        return {
+            "intersection_id": context.get("intersection_id", ""),
+            "operation": context.get("operation", "monitor"),
+            "metrics": context.get("metrics", {}),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         congestion = perception.get("metrics", {}).get("congestion_level", 0)
-        return {"operation": perception["operation"], "action": f"traffic.{perception['operation']}", "status": "normal" if congestion < 0.5 else "congested"}
+        return {
+            "operation": perception["operation"],
+            "action": f"traffic.{perception['operation']}",
+            "status": "normal" if congestion < 0.5 else "congested",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"traffic.{decision['operation']}", "success": True, "status": decision.get("status", "normal")}
+        return {
+            "action": f"traffic.{decision['operation']}",
+            "success": True,
+            "status": decision.get("status", "normal"),
+        }
 
 
 class ParkingAgent(BaseDDDAgent):
@@ -31,13 +44,24 @@ class ParkingAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"lot_id": context.get("lot_id", ""), "operation": context.get("operation", "status")}
+        return {
+            "lot_id": context.get("lot_id", ""),
+            "operation": context.get("operation", "status"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"parking.{perception['operation']}", "available_spaces": 0}
+        return {
+            "operation": perception["operation"],
+            "action": f"parking.{perception['operation']}",
+            "available_spaces": 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"parking.{decision['operation']}", "success": True, "available_spaces": decision.get("available_spaces", 0)}
+        return {
+            "action": f"parking.{decision['operation']}",
+            "success": True,
+            "available_spaces": decision.get("available_spaces", 0),
+        }
 
 
 class UtilityMonitoringAgent(BaseDDDAgent):
@@ -47,13 +71,25 @@ class UtilityMonitoringAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"utility_type": context.get("utility_type", "water"), "grid_id": context.get("grid_id", ""), "operation": context.get("operation", "monitor")}
+        return {
+            "utility_type": context.get("utility_type", "water"),
+            "grid_id": context.get("grid_id", ""),
+            "operation": context.get("operation", "monitor"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"utility_monitoring.{perception['operation']}", "status": "normal"}
+        return {
+            "operation": perception["operation"],
+            "action": f"utility_monitoring.{perception['operation']}",
+            "status": "normal",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": f"utility_monitoring.{decision['operation']}", "success": True, "status": decision.get("status", "normal")}
+        return {
+            "action": f"utility_monitoring.{decision['operation']}",
+            "success": True,
+            "status": decision.get("status", "normal"),
+        }
 
 
 class EmergencyResponseAgent(BaseDDDAgent):
@@ -63,13 +99,28 @@ class EmergencyResponseAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"emergency_id": context.get("emergency_id", ""), "type": context.get("type", "fire"), "location": context.get("location", {}), "severity": context.get("severity", "medium")}
+        return {
+            "emergency_id": context.get("emergency_id", ""),
+            "type": context.get("type", "fire"),
+            "location": context.get("location", {}),
+            "severity": context.get("severity", "medium"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "emergency_response.dispatch", "type": perception.get("type", "fire"), "units_dispatched": 0, "eta_minutes": 0}
+        return {
+            "action": "emergency_response.dispatch",
+            "type": perception.get("type", "fire"),
+            "units_dispatched": 0,
+            "eta_minutes": 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
-        return {"action": "emergency_response.dispatch", "success": True, "units_dispatched": decision.get("units_dispatched", 0), "eta_minutes": decision.get("eta_minutes", 0)}
+        return {
+            "action": "emergency_response.dispatch",
+            "success": True,
+            "units_dispatched": decision.get("units_dispatched", 0),
+            "eta_minutes": decision.get("eta_minutes", 0),
+        }
 
 
 class WasteManagementAgent(BaseDDDAgent):
@@ -79,10 +130,17 @@ class WasteManagementAgent(BaseDDDAgent):
     workload_spec = "source_control"
 
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": context.get("operation", "schedule"), "zone": context.get("zone", ""), "waste_type": context.get("waste_type", "general")}
+        return {
+            "operation": context.get("operation", "schedule"),
+            "zone": context.get("zone", ""),
+            "waste_type": context.get("waste_type", "general"),
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
-        return {"operation": perception["operation"], "action": f"waste_management.{perception['operation']}"}
+        return {
+            "operation": perception["operation"],
+            "action": f"waste_management.{perception['operation']}",
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         return {"action": f"waste_management.{decision['Operation']}", "success": True}

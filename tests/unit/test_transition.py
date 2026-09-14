@@ -1,9 +1,10 @@
 """Tests for transition module."""
+
 import sys
 import os
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -34,18 +35,25 @@ def test_transition_table_query():
 def test_transition_table_sample():
     tt = TransitionTable()
     for i in range(10):
-        tt.store(Transition(state={"i": i}, action="a", reward=0.1, next_state={"i": i+1}))
+        tt.store(Transition(state={"i": i}, action="a", reward=0.1, next_state={"i": i + 1}))
     samples = tt.sample(5)
     assert len(samples) == 5
 
 
 if __name__ == "__main__":
-    ok = 0; f = []
-    for name, fn in [("creation", test_transition_creation),
-                     ("store", test_transition_table_store),
-                     ("query", test_transition_table_query),
-                     ("sample", test_transition_table_sample)]:
-        try: fn(); ok += 1
-        except Exception as e: f.append(f"{name}: {e}")
+    ok = 0
+    f = []
+    for name, fn in [
+        ("creation", test_transition_creation),
+        ("store", test_transition_table_store),
+        ("query", test_transition_table_query),
+        ("sample", test_transition_table_sample),
+    ]:
+        try:
+            fn()
+            ok += 1
+        except Exception as e:
+            f.append(f"{name}: {e}")
     print(f"Transition: {ok}/4 passed")
-    for e in f: print(f"  FAIL: {e}")
+    for e in f:
+        print(f"  FAIL: {e}")

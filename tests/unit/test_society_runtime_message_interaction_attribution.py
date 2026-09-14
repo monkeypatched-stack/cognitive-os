@@ -12,6 +12,7 @@ BroadcastToAffiliationCapability results (no target_actor key) mean "I,
 the ticking actor, said this" -- AskActor/DelegateTask results always
 carry target_actor precisely because the content came from someone else.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
@@ -34,7 +35,9 @@ class _FakeTickResult:
 def test_ask_actor_answer_is_not_republished_as_the_askers_own_message():
     sr = SocietyRuntime()
     actions = _actions_result(
-        success=True, target_actor="raj", question="Can you pick up milk?",
+        success=True,
+        target_actor="raj",
+        question="Can you pick up milk?",
         answer="Sure, I'll grab a gallon on the way home.",
     )
     sr._publish_tick_events("priya", _FakeTickResult(actions))
@@ -45,7 +48,9 @@ def test_ask_actor_answer_is_not_republished_as_the_askers_own_message():
     # event (as it does live), that's a separate call site this test
     # doesn't exercise; this test isolates _publish_message_interaction
     # specifically.
-    assert not any(e.payload and e.payload.get("answer") == "Sure, I'll grab a gallon on the way home." for e in interactions)
+    assert not any(
+        e.payload and e.payload.get("answer") == "Sure, I'll grab a gallon on the way home." for e in interactions
+    )
 
 
 def test_respond_to_inquiry_answer_is_still_published_as_the_actors_own_message():
@@ -72,8 +77,11 @@ def test_broadcast_message_is_still_published_as_the_actors_own_message():
 def test_delegate_task_result_is_not_republished_as_the_delegators_own_message():
     sr = SocietyRuntime()
     actions = _actions_result(
-        success=True, target_actor="raj", answer="Done -- order placed.",
-        success_count=3, failure_count=0,
+        success=True,
+        target_actor="raj",
+        answer="Done -- order placed.",
+        success_count=3,
+        failure_count=0,
     )
     sr._publish_tick_events("priya", _FakeTickResult(actions))
 

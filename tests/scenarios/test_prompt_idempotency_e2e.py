@@ -13,6 +13,7 @@ Two layers:
      (app.dependency_overrides, no live Ollama/Mongo/Redis needed) —
      proving it's genuinely wired in the real app, not just in theory.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,7 +43,9 @@ def _make_prompt_style_app(calls: dict):
     @app.post("/prompt")
     @idempotent("prompt.execute")
     async def unified_prompt(
-        request: Request, payload: PromptRequest, user_id: str = Depends(_fake_auth),
+        request: Request,
+        payload: PromptRequest,
+        user_id: str = Depends(_fake_auth),
     ) -> PromptResponse:
         calls["n"] += 1
         return PromptResponse(
@@ -66,8 +69,16 @@ class TestPromptShapedRouteIsCorrectlyDeduplicated:
         calls = {"n": 0}
         client = TestClient(_make_prompt_style_app(calls))
 
-        r1 = client.post("/prompt", json={"question": "buy milk"}, headers={"Idempotency-Key": "req-1"})
-        r2 = client.post("/prompt", json={"question": "buy milk"}, headers={"Idempotency-Key": "req-1"})
+        r1 = client.post(
+            "/prompt",
+            json={"question": "buy milk"},
+            headers={"Idempotency-Key": "req-1"},
+        )
+        r2 = client.post(
+            "/prompt",
+            json={"question": "buy milk"},
+            headers={"Idempotency-Key": "req-1"},
+        )
 
         assert r1.status_code == r2.status_code == 200
         assert r1.json() == r2.json()
@@ -83,8 +94,16 @@ class TestPromptShapedRouteIsCorrectlyDeduplicated:
         calls = {"n": 0}
         client = TestClient(_make_prompt_style_app(calls))
 
-        client.post("/prompt", json={"question": "buy eggs"}, headers={"Idempotency-Key": "req-2"})
-        r2 = client.post("/prompt", json={"question": "buy eggs"}, headers={"Idempotency-Key": "req-2"})
+        client.post(
+            "/prompt",
+            json={"question": "buy eggs"},
+            headers={"Idempotency-Key": "req-2"},
+        )
+        r2 = client.post(
+            "/prompt",
+            json={"question": "buy eggs"},
+            headers={"Idempotency-Key": "req-2"},
+        )
 
         validated = PromptResponse.model_validate(r2.json())
         assert validated.question == "buy eggs"
@@ -112,9 +131,17 @@ class TestPromptShapedRouteIsCorrectlyDeduplicated:
         calls = {"n": 0}
         client = TestClient(_make_prompt_style_app(calls))
 
-        first = client.post("/prompt", json={"question": "buy milk"}, headers={"Idempotency-Key": "timeout-retry"})
+        first = client.post(
+            "/prompt",
+            json={"question": "buy milk"},
+            headers={"Idempotency-Key": "timeout-retry"},
+        )
         # Client "never saw" `first`'s response and retries identically.
-        retry = client.post("/prompt", json={"question": "buy milk"}, headers={"Idempotency-Key": "timeout-retry"})
+        retry = client.post(
+            "/prompt",
+            json={"question": "buy milk"},
+            headers={"Idempotency-Key": "timeout-retry"},
+        )
 
         assert first.json()["query_result"]["order_id"] == retry.json()["query_result"]["order_id"]
         assert calls["n"] == 1
@@ -127,8 +154,16 @@ class TestPromptShapedRouteIsCorrectlyDeduplicated:
         calls = {"n": 0}
         client = TestClient(_make_prompt_style_app(calls))
 
-        client.post("/prompt", json={"question": "buy milk"}, headers={"Idempotency-Key": "reused-key"})
-        r2 = client.post("/prompt", json={"question": "buy eggs"}, headers={"Idempotency-Key": "reused-key"})
+        client.post(
+            "/prompt",
+            json={"question": "buy milk"},
+            headers={"Idempotency-Key": "reused-key"},
+        )
+        r2 = client.post(
+            "/prompt",
+            json={"question": "buy eggs"},
+            headers={"Idempotency-Key": "reused-key"},
+        )
 
         assert r2.status_code == 409
         assert calls["n"] == 1  # the second (mismatched) request never executed
@@ -142,8 +177,16 @@ class TestPromptShapedRouteIsCorrectlyDeduplicated:
         calls = {"n": 0}
         client = TestClient(_make_prompt_style_app(calls))
 
-        r1 = client.post("/prompt", json={"question": "buy milk"}, headers={"Idempotency-Key": "key-a"})
-        r2 = client.post("/prompt", json={"question": "buy milk"}, headers={"Idempotency-Key": "key-b"})
+        r1 = client.post(
+            "/prompt",
+            json={"question": "buy milk"},
+            headers={"Idempotency-Key": "key-a"},
+        )
+        r2 = client.post(
+            "/prompt",
+            json={"question": "buy milk"},
+            headers={"Idempotency-Key": "key-b"},
+        )
 
         assert r1.json()["query_result"]["order_id"] != r2.json()["query_result"]["order_id"]
         assert calls["n"] == 2

@@ -93,9 +93,7 @@ class ConnectionPool(ABC):
                     exc,
                 )
         if errors == self.pool_size:
-            raise ConnectionPoolExhausted(
-                f"{self.__class__.__name__}: could not create any connections."
-            )
+            raise ConnectionPoolExhausted(f"{self.__class__.__name__}: could not create any connections.")
         self._initialized = True
         logger.debug(
             "%s: pool ready (%d/%d connections).",
@@ -160,9 +158,7 @@ class ConnectionPool(ABC):
             if await self.is_healthy(connection):
                 await self._available.put(connection)
             else:
-                logger.debug(
-                    "%s: replacing unhealthy connection.", self.__class__.__name__
-                )
+                logger.debug("%s: replacing unhealthy connection.", self.__class__.__name__)
                 await self._close_connection(connection)
                 try:
                     replacement = await self.create_connection()

@@ -15,14 +15,14 @@ import httpx
 
 # ── Service map ───────────────────────────────────────────────────────────────
 
-AUTH_URL      = os.getenv("AUTH_URL",      "http://localhost:8010")
-AGENTOS_URL   = os.getenv("AGENTOS_URL",   "http://localhost:8031")
-ASSETS_URL    = os.getenv("ASSETS_URL",    "http://localhost:8011")
-ORDERS_URL    = os.getenv("ORDERS_URL",    "http://localhost:8018")
-PROCESS_URL   = os.getenv("PROCESS_URL",   "http://localhost:8000")
+AUTH_URL = os.getenv("AUTH_URL", "http://localhost:8010")
+AGENTOS_URL = os.getenv("AGENTOS_URL", "http://localhost:8031")
+ASSETS_URL = os.getenv("ASSETS_URL", "http://localhost:8011")
+ORDERS_URL = os.getenv("ORDERS_URL", "http://localhost:8018")
+PROCESS_URL = os.getenv("PROCESS_URL", "http://localhost:8000")
 INVENTORY_URL = os.getenv("INVENTORY_URL", "http://localhost:8016")
 
-E2E_USER     = os.getenv("E2E_USER",     "prashun@monkeypatched.com")
+E2E_USER = os.getenv("E2E_USER", "prashun@monkeypatched.com")
 E2E_PASSWORD = os.getenv("E2E_PASSWORD", "Admin@12345678")
 
 TIMEOUT = httpx.Timeout(10.0)
@@ -44,6 +44,7 @@ def _skip_if_down(url: str):
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def auth_token() -> str:
@@ -73,17 +74,21 @@ def authed(auth_token) -> httpx.Client:
 
 # ── Health checks ─────────────────────────────────────────────────────────────
 
+
 class TestServiceHealth:
     """All core services must return a healthy response."""
 
-    @pytest.mark.parametrize("name,url", [
-        ("auth",             AUTH_URL),
-        ("agentos",          AGENTOS_URL),
-        ("assets",           ASSETS_URL),
-        ("orders",           ORDERS_URL),
-        ("process_definition", PROCESS_URL),
-        ("inventory",        INVENTORY_URL),
-    ])
+    @pytest.mark.parametrize(
+        "name,url",
+        [
+            ("auth", AUTH_URL),
+            ("agentos", AGENTOS_URL),
+            ("assets", ASSETS_URL),
+            ("orders", ORDERS_URL),
+            ("process_definition", PROCESS_URL),
+            ("inventory", INVENTORY_URL),
+        ],
+    )
     def test_health(self, name, url):
         if not _reachable(url):
             pytest.skip(f"{name} not running at {url}")
@@ -92,6 +97,7 @@ class TestServiceHealth:
 
 
 # ── Auth flow ─────────────────────────────────────────────────────────────────
+
 
 @_skip_if_down(AUTH_URL)
 class TestAuthFlow:
@@ -117,6 +123,7 @@ class TestAuthFlow:
 
 
 # ── AgentOS query flow ────────────────────────────────────────────────────────
+
 
 @_skip_if_down(AGENTOS_URL)
 class TestAgentOSExecution:
@@ -149,6 +156,7 @@ class TestAgentOSExecution:
 
 # ── Process definition flow ───────────────────────────────────────────────────
 
+
 @_skip_if_down(PROCESS_URL)
 class TestProcessDefinitionFlow:
     def test_list_process_definitions(self, authed):
@@ -158,6 +166,7 @@ class TestProcessDefinitionFlow:
 
     def test_create_and_retrieve_process(self, authed):
         import uuid
+
         pd_id = f"e2e-test-{uuid.uuid4().hex[:8]}"
         payload = {
             "process_definition_id": pd_id,
@@ -181,6 +190,7 @@ class TestProcessDefinitionFlow:
 
 # ── Inventory read flow ───────────────────────────────────────────────────────
 
+
 @_skip_if_down(INVENTORY_URL)
 class TestInventoryFlow:
     def test_list_inventory_items(self, authed):
@@ -193,6 +203,7 @@ class TestInventoryFlow:
 
 
 # ── Cross-service flow: auth → agentos → process ─────────────────────────────
+
 
 @pytest.mark.skipif(
     not (_reachable(AUTH_URL) and _reachable(AGENTOS_URL) and _reachable(PROCESS_URL)),

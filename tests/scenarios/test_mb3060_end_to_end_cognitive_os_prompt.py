@@ -60,6 +60,7 @@ decision the plan format has no way to express. Fixing that is its own
 follow-up (a PlanStep.parameters field + system prompt schema change +
 Action construction change), not attempted here.
 """
+
 from __future__ import annotations
 
 import httpx
@@ -67,13 +68,21 @@ import pytest
 
 from src.monkey_brain.kernel.compile import _obs
 from src.monkey_brain.kernel.compile.cognitive_actor import CognitiveActor
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.vertical_router import build_runtime_engine
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
-from src.monkey_brain.kernel.pipeline.planning.context_engine import ContextConstructionEngine
+from src.monkey_brain.kernel.pipeline.planning.context_engine import (
+    ContextConstructionEngine,
+)
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 PROMPT_TEXT = "I need a wireless gaming mouse under $100 with next-day delivery."
@@ -98,24 +107,60 @@ def _build_real_scenario():
 
     kg = KnowledgeGraph()
     store_id = onboard_merchant(
-        kg, "merchant_bob", "Bob's Store", delivery_fee=0.0, address="200 W 23rd St, New York, NY",
+        kg,
+        "merchant_bob",
+        "Bob's Store",
+        delivery_fee=0.0,
+        address="200 W 23rd St, New York, NY",
     )["store_id"]
-    product_id = list_product(kg, store_id, "merchant_bob", "Wireless Gaming Mouse", price=59.99, quantity=25)["product_id"]
-    kg.add_entity("addr_home", EntityType.ADDRESS, "Home", {
-        "street": "123 Main St", "city": "New York", "state": "NY", "zip_code": "10001", "is_primary": True,
-    })
-    kg.add_entity("wallet_alice", EntityType.ACCOUNT, "Alice Wallet", {
-        "account_type": "debit", "balance": 500.0, "owner": actor_id,
-    })
-    kg.add_entity("proc_stripe", EntityType.ORGANIZATION, "Stripe", {"type": "payment_processor", "priority": 0})
-    kg.add_entity("rider_1", EntityType.PERSON, "Ravi", {
-        "status": "available", "rating": 4.8, "vehicle": "bike", "estimated_minutes": 20,
-    })
+    product_id = list_product(kg, store_id, "merchant_bob", "Wireless Gaming Mouse", price=59.99, quantity=25)[
+        "product_id"
+    ]
+    kg.add_entity(
+        "addr_home",
+        EntityType.ADDRESS,
+        "Home",
+        {
+            "street": "123 Main St",
+            "city": "New York",
+            "state": "NY",
+            "zip_code": "10001",
+            "is_primary": True,
+        },
+    )
+    kg.add_entity(
+        "wallet_alice",
+        EntityType.ACCOUNT,
+        "Alice Wallet",
+        {
+            "account_type": "debit",
+            "balance": 500.0,
+            "owner": actor_id,
+        },
+    )
+    kg.add_entity(
+        "proc_stripe",
+        EntityType.ORGANIZATION,
+        "Stripe",
+        {"type": "payment_processor", "priority": 0},
+    )
+    kg.add_entity(
+        "rider_1",
+        EntityType.PERSON,
+        "Ravi",
+        {
+            "status": "available",
+            "rating": 4.8,
+            "vehicle": "bike",
+            "estimated_minutes": 20,
+        },
+    )
 
     engine = build_runtime_engine(None, name="grocery")
     engine._context_engine = ContextConstructionEngine(planetary_runtime=marketplace, knowledge_graph=kg)
     my_actor = CognitiveActor(
-        entity_id=actor_id, engine=engine,
+        entity_id=actor_id,
+        engine=engine,
         # context_factory receives this tick's triggering question (see
         # runtime.py::register_actor's own "Context-Aware Personalized
         # Planning refactor" comment) -- this scenario's question is
@@ -123,13 +168,18 @@ def _build_real_scenario():
         # is accepted but intentionally unused, not ignored by omitting
         # the parameter (which crashed: "takes 0 positional arguments
         # but 1 was given").
-        context_factory=lambda question: {"knowledge_graph": kg, "actor_id": actor_id, "question": PROMPT_TEXT},
+        context_factory=lambda question: {
+            "knowledge_graph": kg,
+            "actor_id": actor_id,
+            "question": PROMPT_TEXT,
+        },
     )
     alice_state = marketplace.register_actor(profile, actor=my_actor)
     return marketplace, alice_state, kg, product_id
 
 
 # ── Deterministic: the capability-vocabulary wiring itself ────────────
+
 
 def test_mb3060_available_capabilities_lists_only_real_invokable_names():
     engine = ContextConstructionEngine()
@@ -154,7 +204,8 @@ def test_mb3060_llm_prompt_renders_available_actions_verbatim():
 
     planner = LLMPlanner.__new__(LLMPlanner)  # skip backend construction
     context = PlanningContext(
-        actor_id="alice", goal=Goal(name="buy mouse"),
+        actor_id="alice",
+        goal=Goal(name="buy mouse"),
         available_capabilities=("ProductSelection", "OrderCreation", "Payment"),
     )
 
@@ -167,7 +218,9 @@ def test_mb3060_llm_prompt_renders_available_actions_verbatim():
 
 
 def test_mb3060_permission_schema_echo_is_normalized_to_empty():
-    from src.monkey_brain.kernel.pipeline.llm_planner import _normalize_required_permission
+    from src.monkey_brain.kernel.pipeline.llm_planner import (
+        _normalize_required_permission,
+    )
 
     assert _normalize_required_permission("resource:delivery or empty if none needed") == ""
     assert _normalize_required_permission("resource:payment or empty if none needed") == ""
@@ -176,6 +229,7 @@ def test_mb3060_permission_schema_echo_is_normalized_to_empty():
 
 
 # ── Real local LLM: the full wired pipeline ────────────────────────────
+
 
 def _force_ollama_backend(monkeypatch) -> None:
     """conftest.py's autouse _default_test_llm_backend fixture patches
@@ -192,15 +246,21 @@ def _force_ollama_backend(monkeypatch) -> None:
     SAME symbol (get_backend) here, after the autouse fixture already
     ran, wins for the remainder of this test — matching the escape
     hatch _GenericPlanningBackend's own docstring documents."""
-    from src.monkey_brain.kernel.execute.provider import model_backend as model_backend_module
+    from src.monkey_brain.kernel.execute.provider import (
+        model_backend as model_backend_module,
+    )
+
     monkeypatch.setattr(
-        model_backend_module, "get_backend",
+        model_backend_module,
+        "get_backend",
         lambda: model_backend_module.ModelBackend(provider="ollama"),
     )
 
 
 @pytest.mark.asyncio
-async def test_mb3060_real_prompt_produces_a_plan_using_only_real_capabilities(monkeypatch):
+async def test_mb3060_real_prompt_produces_a_plan_using_only_real_capabilities(
+    monkeypatch,
+):
     if not _ollama_reachable():
         pytest.skip("no local Ollama server reachable at localhost:11434")
     _force_ollama_backend(monkeypatch)
@@ -234,8 +294,7 @@ async def test_mb3060_at_least_one_step_executes_for_real_not_simulated(monkeypa
     result = await marketplace.execute_actor_request(alice_state.actor_id, {"question": PROMPT_TEXT})
 
     real_outcomes = [
-        a for a in result.actions
-        if isinstance(a.get("result"), dict) and not a["result"].get("simulated")
+        a for a in result.actions if isinstance(a.get("result"), dict) and not a["result"].get("simulated")
     ]
     assert real_outcomes, "every action was simulated -- the capability bus never actually ran"
 
@@ -256,20 +315,16 @@ async def test_mb3060_product_selection_genuinely_queries_the_real_catalog(monke
     # previously checked, which doesn't match any current branch of that
     # capability (confirmed live, repeatedly, this session's own testing).
     product_selection_outcomes = [
-        a for a in result.actions
-        if isinstance(a.get("result"), dict) and a["result"].get("selected")
+        a for a in result.actions if isinstance(a.get("result"), dict) and a["result"].get("selected")
     ]
     assert product_selection_outcomes, "no step returned a real product selection"
-    found_ids = {
-        p.get("id")
-        for outcome in product_selection_outcomes
-        for p in outcome["result"]["selected"]
-    }
+    found_ids = {p.get("id") for outcome in product_selection_outcomes for p in outcome["result"]["selected"]}
     assert product_id in found_ids
 
 
 # ── System-level: society coordination, presence, membership, context,
 #    metrics, planetary cycle -- all independent of what the LLM plans ──
+
 
 @pytest.mark.asyncio
 async def test_mb3060_actor_cognition_and_society_coordination():

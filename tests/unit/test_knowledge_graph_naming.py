@@ -5,10 +5,13 @@ another actor's goal keywords — while the structural "EpisodicTrace"/
 "ProceduralPolicy" label (which cognitive_gc.py/compactor.py match on via
 Cypher) stays exactly as before.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
-from src.monkey_brain.kernel.learn.memory.graph_adapter import KnowledgeGraphMemoryAdapter
+from src.monkey_brain.kernel.learn.memory.graph_adapter import (
+    KnowledgeGraphMemoryAdapter,
+)
 from src.monkey_brain.kernel.learn.memory.manager import MemoryManager
 from src.monkey_brain.kernel.learn.memory.vector_backend import InMemoryVectorBackend
 
@@ -22,7 +25,8 @@ def _manager() -> tuple[MemoryManager, KnowledgeGraph]:
 def test_record_experience_creates_a_content_derived_name():
     mm, kg = _manager()
     mm.record_experience(
-        "costco", "supplier_discovery",
+        "costco",
+        "supplier_discovery",
         "Supplier X reduces spoilage for milk by using refrigerated trucks",
     )
     entities = kg.entities_by_keywords(["spoilage"])
@@ -34,7 +38,8 @@ def test_record_experience_creates_a_content_derived_name():
 def test_record_experience_is_findable_by_another_actors_goal_keywords():
     mm, kg = _manager()
     mm.record_experience(
-        "costco", "supplier_discovery",
+        "costco",
+        "supplier_discovery",
         "Supplier X reduces spoilage for milk by using refrigerated trucks",
     )
     # Aldi's own goal text, tokenized the same way context_engine.py's

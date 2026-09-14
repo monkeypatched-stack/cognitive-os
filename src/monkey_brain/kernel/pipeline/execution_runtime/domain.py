@@ -30,6 +30,7 @@ reinventing an operator representation — Step 9.2's whole job is "Support
 mapping: PlanningOperator -> ExecutionHandler", which presumes execution
 steps carry a real PlanningOperator, not just a bare string.
 """
+
 from __future__ import annotations
 
 import time
@@ -43,6 +44,7 @@ from src.monkey_brain.kernel.pipeline.planning.domain import PlanningOperator
 
 class ExecutionStatus(Enum):
     """Lifecycle state of one ExecutionStep."""
+
     PENDING = "pending"
     SCHEDULED = "scheduled"
     RUNNING = "running"
@@ -60,6 +62,7 @@ class RetryStrategy(Enum):
     these (computing delays, deciding when to give up). This module only
     describes what policy a step was configured with.
     """
+
     NONE = "none"
     FIXED_DELAY = "fixed_delay"
     EXPONENTIAL_BACKOFF = "exponential_backoff"
@@ -68,6 +71,7 @@ class RetryStrategy(Enum):
 @dataclass(frozen=True)
 class RetryPolicy:
     """How an ExecutionStep should be retried on transient failure."""
+
     strategy: RetryStrategy = RetryStrategy.NONE
     max_attempts: int = 1
     base_delay_seconds: float = 0.0
@@ -78,6 +82,7 @@ class RetryPolicy:
 class ExecutionStep:
     """One step to execute: an operator, its parameters, and how it relates
     to the other steps in the same plan (dependencies, timeout, retry)."""
+
     step_id: str = field(default_factory=lambda: uuid4().hex)
     operator: PlanningOperator | None = None
     parameters: dict[str, Any] = field(default_factory=dict)
@@ -96,6 +101,7 @@ class ExecutionPlan:
     set of ExecutionSteps to carry out. Self-contained — deliberately holds
     no reference back to whatever planning.domain.Plan it was built from;
     that conversion is Step 9.7's job, not this model's."""
+
     plan_id: str = field(default_factory=lambda: uuid4().hex)
     steps: tuple[ExecutionStep, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -104,6 +110,7 @@ class ExecutionPlan:
 @dataclass(frozen=True)
 class ExecutionRequest:
     """A request to carry out an ExecutionPlan for a specific actor/tenant."""
+
     request_id: str = field(default_factory=lambda: uuid4().hex)
     plan: ExecutionPlan = field(default_factory=ExecutionPlan)
     actor_id: str = ""
@@ -121,6 +128,7 @@ class ExecutionContext:
     Distinct from contracts.RuntimeContext (booted infra handles) and
     planning.domain.PlanningContext (the planning phase's own working set).
     """
+
     request: ExecutionRequest = field(default_factory=ExecutionRequest)
     available_capabilities: tuple[str, ...] = ()
     completed_step_ids: tuple[str, ...] = ()
@@ -130,6 +138,7 @@ class ExecutionContext:
 @dataclass(frozen=True)
 class ExecutionError:
     """What went wrong executing one step."""
+
     step_id: str = ""
     code: str = ""
     message: str = ""
@@ -140,6 +149,7 @@ class ExecutionError:
 @dataclass(frozen=True)
 class ExecutionOutcome:
     """The result of one ExecutionStep's (attempted) execution."""
+
     step_id: str = ""
     status: ExecutionStatus = ExecutionStatus.PENDING
     output: Any = None
@@ -163,6 +173,7 @@ class ExecutionOutcome:
 @dataclass(frozen=True)
 class ExecutionMetrics:
     """Aggregate statistics over one ExecutionRequest's outcomes."""
+
     total_steps: int = 0
     succeeded: int = 0
     failed: int = 0
@@ -178,6 +189,7 @@ class ExecutionMetrics:
 @dataclass(frozen=True)
 class ExecutionResult:
     """The complete outcome of carrying out one ExecutionRequest."""
+
     request_id: str = ""
     outcomes: tuple[ExecutionOutcome, ...] = ()
     metrics: ExecutionMetrics = field(default_factory=ExecutionMetrics)

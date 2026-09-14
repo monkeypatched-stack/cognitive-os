@@ -1,7 +1,6 @@
 from typing import Literal, Optional
 from pydantic import BaseModel
 
-
 EventCategory = Literal[
     "Event Log",
     "Count Event",
@@ -42,6 +41,7 @@ class EventResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class PaginatedEventsResponse(BaseModel):
     total: int

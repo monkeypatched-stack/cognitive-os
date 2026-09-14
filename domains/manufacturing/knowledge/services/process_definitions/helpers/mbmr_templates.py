@@ -10,7 +10,6 @@ from services.process_definitions.models.mbmr_templates import (
     MbmrTemplateUpdate,
 )
 
-
 COLLECTION = "mbmr_templates"
 
 
@@ -40,7 +39,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -83,7 +84,9 @@ async def create(db: AsyncIOMotorDatabase, data: MbmrTemplateCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, mbmr_template_id: str, data: MbmrTemplateUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, mbmr_template_id: str, data: MbmrTemplateUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(exclude_unset=True))
     if not fields:
         return await get_by_id(db, mbmr_template_id)

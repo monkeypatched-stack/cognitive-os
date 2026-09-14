@@ -38,9 +38,14 @@ architectural layer from PlanetaryRuntime's own actor/geography/society
 system; conflating the two is a separate, much larger undertaking this
 ticket's chosen scope doesn't ask for.
 """
+
 from __future__ import annotations
 
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -88,7 +93,10 @@ def test_mb3052_marketplace_society_coordinates_a_customer():
 def test_mb3052_merchant_society_coordinates_a_merchant():
     marketplace = PlanetaryRuntime()
     society_runtime, bob = _register_participant(
-        marketplace, "Merchant Society", "Bob's Store", ActorType.ENTERPRISE,
+        marketplace,
+        "Merchant Society",
+        "Bob's Store",
+        ActorType.ENTERPRISE,
     )
 
     _assert_actor_is_coordinated(marketplace, society_runtime, bob)
@@ -97,7 +105,10 @@ def test_mb3052_merchant_society_coordinates_a_merchant():
 def test_mb3052_warehouse_society_coordinates_a_warehouse():
     marketplace = PlanetaryRuntime()
     society_runtime, warehouse = _register_participant(
-        marketplace, "Warehouse Society", "Central Warehouse", ActorType.DEVICE,
+        marketplace,
+        "Warehouse Society",
+        "Central Warehouse",
+        ActorType.DEVICE,
     )
 
     _assert_actor_is_coordinated(marketplace, society_runtime, warehouse)
@@ -106,7 +117,10 @@ def test_mb3052_warehouse_society_coordinates_a_warehouse():
 def test_mb3052_logistics_society_coordinates_a_delivery_rider():
     marketplace = PlanetaryRuntime()
     society_runtime, rider = _register_participant(
-        marketplace, "Logistics Society", "Rider Rae", ActorType.HUMAN,
+        marketplace,
+        "Logistics Society",
+        "Rider Rae",
+        ActorType.HUMAN,
     )
 
     _assert_actor_is_coordinated(marketplace, society_runtime, rider)
@@ -115,7 +129,10 @@ def test_mb3052_logistics_society_coordinates_a_delivery_rider():
 def test_mb3052_payment_society_coordinates_a_payment_processor():
     marketplace = PlanetaryRuntime()
     society_runtime, processor = _register_participant(
-        marketplace, "Payment Society", "PaySecure Gateway", ActorType.DIGITAL_SERVICE,
+        marketplace,
+        "Payment Society",
+        "PaySecure Gateway",
+        ActorType.DIGITAL_SERVICE,
     )
 
     _assert_actor_is_coordinated(marketplace, society_runtime, processor)
@@ -128,7 +145,12 @@ def test_mb3052_all_five_societies_coexist_without_cross_contamination():
         _register_participant(marketplace, "Merchant Society", "Bob's Store", ActorType.ENTERPRISE),
         _register_participant(marketplace, "Warehouse Society", "Central Warehouse", ActorType.DEVICE),
         _register_participant(marketplace, "Logistics Society", "Rider Rae", ActorType.HUMAN),
-        _register_participant(marketplace, "Payment Society", "PaySecure Gateway", ActorType.DIGITAL_SERVICE),
+        _register_participant(
+            marketplace,
+            "Payment Society",
+            "PaySecure Gateway",
+            ActorType.DIGITAL_SERVICE,
+        ),
     ]
 
     society_ids = {society_runtime.society.society_id for society_runtime, _ in participants}

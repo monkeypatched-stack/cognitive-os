@@ -22,6 +22,7 @@ Reconstruction:
     - Rollback ("revert to state at time t")
     - Audit ("who changed what, when?")
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,6 +38,7 @@ logger = logging.getLogger("agentos.event_sourcing")
 
 class EventType(str, Enum):
     """Types of events in the cognitive system."""
+
     TRANSITION = "world.transition"
     BELIEF = "world.belief"
     POLICY = "world.policy"
@@ -47,6 +49,7 @@ class EventType(str, Enum):
 @dataclass
 class Event:
     """An immutable record of a state change."""
+
     event_id: str = field(default_factory=lambda: str(uuid4()))
     event_type: EventType = EventType.TRANSITION
     timestamp: float = field(default_factory=time.time)
@@ -94,6 +97,7 @@ class Event:
 @dataclass
 class Snapshot:
     """A point-in-time capture of the system state."""
+
     snapshot_id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: float = field(default_factory=time.time)
     event_index: int = 0  # Index of the last event included
@@ -152,7 +156,7 @@ class EventStore:
         with self._lock:
             if len(self._events) >= self._max:
                 logger.warning("Event store full — oldest events will be rotated")
-                self._events = self._events[-self._max // 2:]
+                self._events = self._events[-self._max // 2 :]
             self._events.append(event)
 
             # Notify subscribers (sorted by priority, highest first)
@@ -172,8 +176,13 @@ class EventStore:
         if self._auto_save:
             self._save()
 
-    def subscribe(self, callback: callable, event_type: EventType | None = None,
-                  actor_id: str | None = None, priority: int = 0) -> str:
+    def subscribe(
+        self,
+        callback: callable,
+        event_type: EventType | None = None,
+        actor_id: str | None = None,
+        priority: int = 0,
+    ) -> str:
         """Subscribe to events with optional filters.
 
         Args:
@@ -384,8 +393,12 @@ class EventStore:
                 snapshots_data = data.get("snapshots", [])
                 if snapshots_data:
                     self._snapshots = [Snapshot.from_dict(s) for s in snapshots_data]
-            logger.info("[event_sourcing] loaded %d events, %d snapshots from %s",
-                         len(self._events), len(self._snapshots), self._persist_path)
+            logger.info(
+                "[event_sourcing] loaded %d events, %d snapshots from %s",
+                len(self._events),
+                len(self._snapshots),
+                self._persist_path,
+            )
         except Exception as exc:
             logger.warning("[event_sourcing] load failed: %s", exc)
 
@@ -439,9 +452,12 @@ class EventStore:
 
     # ── Snapshotting ──────────────────────────────────────────────────────
 
-    def create_snapshot(self, world_state: dict[str, Any],
-                        actor_states: dict[str, dict[str, Any]],
-                        metadata: dict[str, Any] | None = None) -> Snapshot:
+    def create_snapshot(
+        self,
+        world_state: dict[str, Any],
+        actor_states: dict[str, dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
+    ) -> Snapshot:
         """Create a point-in-time snapshot of the system state."""
         with self._lock:
             snapshot = Snapshot(
@@ -480,7 +496,7 @@ class EventStore:
     def replay_from_snapshot(self, snapshot: Snapshot) -> list[Event]:
         """Replay events since a snapshot."""
         with self._lock:
-            return self._events[snapshot.event_index:]
+            return self._events[snapshot.event_index :]
 
     def rebuild_from_snapshot(self, snapshot: Snapshot) -> dict[str, Any]:
         """Rebuild state by replaying events from a snapshot.
@@ -513,10 +529,7 @@ class EventStore:
                         beliefs[actor] = {}
                     beliefs[actor][(event.src, event.dst)] = event.new_value
         # Convert to serializable format
-        return {
-            actor: {f"{s}→{d}": v for (s, d), v in edges.items()}
-            for actor, edges in beliefs.items()
-        }
+        return {actor: {f"{s}→{d}": v for (s, d), v in edges.items()} for actor, edges in beliefs.items()}
 
     def project_world_transitions(self) -> dict[str, dict[str, Any]]:
         """Project: build read-optimized view of world transitions.
@@ -537,10 +550,7 @@ class EventStore:
                     transitions[key]["count"] += 1
                     transitions[key]["last_value"] = event.new_value
         # Convert to serializable format
-        return {
-            f"{s}→{d}": info
-            for (s, d), info in transitions.items()
-        }
+        return {f"{s}→{d}": info for (s, d), info in transitions.items()}
 
     def project_conflicts(self) -> list[dict[str, Any]]:
         """Project: build read-optimized view of conflict resolutions."""
@@ -548,16 +558,18 @@ class EventStore:
         with self._lock:
             for event in self._events:
                 if event.event_type == EventType.CONFLICT:
-                    conflicts.append({
-                        "src": event.src,
-                        "dst": event.dst,
-                        "actor_a": event.actor_id,
-                        "timestamp": event.timestamp,
-                        "old_value": event.old_value,
-                        "new_value": event.new_value,
-                        "strategy": event.metadata.get("strategy", "unknown"),
-                        "severity": event.metadata.get("severity", 0.0),
-                    })
+                    conflicts.append(
+                        {
+                            "src": event.src,
+                            "dst": event.dst,
+                            "actor_a": event.actor_id,
+                            "timestamp": event.timestamp,
+                            "old_value": event.old_value,
+                            "new_value": event.new_value,
+                            "strategy": event.metadata.get("strategy", "unknown"),
+                            "severity": event.metadata.get("severity", 0.0),
+                        }
+                    )
         return conflicts
 
     def project_statistics(self) -> dict[str, Any]:
@@ -634,10 +646,7 @@ class EventReplayEngine:
                     beliefs[actor] = {}
                 beliefs[actor][(event.src, event.dst)] = event.new_value
         # Convert to serializable format
-        return {
-            actor: {f"{s}→{d}": v for (s, d), v in edges.items()}
-            for actor, edges in beliefs.items()
-        }
+        return {actor: {f"{s}→{d}": v for (s, d), v in edges.items()} for actor, edges in beliefs.items()}
 
     def rebuild_conflict_history(self, since: float = 0.0) -> list[dict[str, Any]]:
         """Rebuild conflict resolution history from events."""
@@ -688,11 +697,13 @@ class EventReplayEngine:
                     beliefs[actor] = {}
                 beliefs[actor][(event.src, event.dst)] = event.new_value
             elif event.event_type == EventType.CONFLICT:
-                conflicts.append({
-                    "src": event.src,
-                    "dst": event.dst,
-                    "strategy": event.metadata.get("strategy", "unknown"),
-                })
+                conflicts.append(
+                    {
+                        "src": event.src,
+                        "dst": event.dst,
+                        "strategy": event.metadata.get("strategy", "unknown"),
+                    }
+                )
 
         return {
             "world_transitions": len(world),
@@ -752,12 +763,14 @@ class SubscriptionManager:
             priority=priority,
         )
         self._patterns[sub_id] = pattern
-        self._history.append({
-            "action": "subscribe",
-            "sub_id": sub_id,
-            "pattern": pattern,
-            "timestamp": time.time(),
-        })
+        self._history.append(
+            {
+                "action": "subscribe",
+                "sub_id": sub_id,
+                "pattern": pattern,
+                "timestamp": time.time(),
+            }
+        )
         return sub_id
 
     def subscribe_one_time(
@@ -767,17 +780,20 @@ class SubscriptionManager:
         actor_id: str | None = None,
     ) -> str:
         """Subscribe to receive only the next matching event."""
+
         def wrapper(event: Event):
             callback(event)
             self._store.unsubscribe(sub_id)
 
         sub_id = self._store.subscribe(wrapper, event_type=event_type, actor_id=actor_id)
         self._patterns[sub_id] = {"one_time": True}
-        self._history.append({
-            "action": "subscribe_one_time",
-            "sub_id": sub_id,
-            "timestamp": time.time(),
-        })
+        self._history.append(
+            {
+                "action": "subscribe_one_time",
+                "sub_id": sub_id,
+                "timestamp": time.time(),
+            }
+        )
         return sub_id
 
     def unsubscribe(self, sub_id: str) -> bool:
@@ -785,11 +801,13 @@ class SubscriptionManager:
         result = self._store.unsubscribe(sub_id)
         if result:
             self._patterns.pop(sub_id, None)
-            self._history.append({
-                "action": "unsubscribe",
-                "sub_id": sub_id,
-                "timestamp": time.time(),
-            })
+            self._history.append(
+                {
+                    "action": "unsubscribe",
+                    "sub_id": sub_id,
+                    "timestamp": time.time(),
+                }
+            )
         return result
 
     def get_subscription_history(self, limit: int = 100) -> list[dict]:

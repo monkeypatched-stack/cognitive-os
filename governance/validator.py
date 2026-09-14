@@ -9,6 +9,7 @@ validate_approval() reports facts; it does not itself decide what to do
 with an invalid result (that's the caller's IMPLEMENTATION_AUTHORIZATION_CHECK
 step) — see governance/README.md for the full workflow this fits into.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,8 +21,17 @@ from governance.approval_artifact import (
     ApprovalStatus,
     DiscoveryHandoff,
 )
-from governance.git_provenance import GitProvenance, GitProvenanceError, approval_git_provenance
-from governance.store import ApprovalIntegrityError, ApprovalPersistenceError, ApprovalRecord, ApprovalRecordStore
+from governance.git_provenance import (
+    GitProvenance,
+    GitProvenanceError,
+    approval_git_provenance,
+)
+from governance.store import (
+    ApprovalIntegrityError,
+    ApprovalPersistenceError,
+    ApprovalRecord,
+    ApprovalRecordStore,
+)
 
 
 @dataclass(frozen=True)
@@ -51,18 +61,20 @@ class ApprovalValidationResult:
 
     @property
     def authorized(self) -> bool:
-        return all((
-            self.schema_valid,
-            self.decision_approved,
-            self.status_approved,
-            self.handoff_matches,
-            self.revision_matches,
-            self.within_validity_window,
-            self.scope_covers_request,
-            self.identity_plausible,
-            self.integrity_valid,
-            self.git_provenance_satisfied,
-        ))
+        return all(
+            (
+                self.schema_valid,
+                self.decision_approved,
+                self.status_approved,
+                self.handoff_matches,
+                self.revision_matches,
+                self.within_validity_window,
+                self.scope_covers_request,
+                self.identity_plausible,
+                self.integrity_valid,
+                self.git_provenance_satisfied,
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -86,13 +98,21 @@ class ScopeChangeRequest:
 
 def _fail(reasons: list[str], *, git_provenance_required: bool = False, **overrides: bool) -> ApprovalValidationResult:
     base = dict(
-        schema_valid=True, decision_approved=True, status_approved=True,
-        handoff_matches=True, revision_matches=True, within_validity_window=True,
-        scope_covers_request=True, identity_plausible=True, integrity_valid=True,
+        schema_valid=True,
+        decision_approved=True,
+        status_approved=True,
+        handoff_matches=True,
+        revision_matches=True,
+        within_validity_window=True,
+        scope_covers_request=True,
+        identity_plausible=True,
+        integrity_valid=True,
     )
     base.update(overrides)
     return ApprovalValidationResult(
-        reasons=tuple(reasons), git_provenance_required=git_provenance_required, **base,
+        reasons=tuple(reasons),
+        git_provenance_required=git_provenance_required,
+        **base,
     )
 
 
@@ -128,7 +148,8 @@ def validate_approval(
     except (ApprovalPersistenceError, ApprovalIntegrityError) as exc:
         return _fail(
             [f"approval could not be durably verified: {exc}"],
-            schema_valid=False, integrity_valid=False,
+            schema_valid=False,
+            integrity_valid=False,
             git_provenance_required=require_git_provenance,
         )
 
@@ -162,7 +183,8 @@ def validate_approval(
             reasons.append(f"approval expired at {artifact.expires_at.isoformat()} (now {now.isoformat()})")
 
     covered, scope_reasons = handoff.scope.covers(
-        files=requested_files, behaviors=requested_behaviors,
+        files=requested_files,
+        behaviors=requested_behaviors,
         security_boundaries=requested_security_boundaries,
     )
     reasons.extend(scope_reasons)
@@ -194,8 +216,7 @@ def validate_approval(
             else:
                 if not git_provenance.committed:
                     reasons.append(
-                        f"require_git_provenance=True but approval {approval_id!r} "
-                        "has not been committed to git",
+                        f"require_git_provenance=True but approval {approval_id!r} has not been committed to git",
                     )
 
     return ApprovalValidationResult(

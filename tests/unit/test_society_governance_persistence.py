@@ -28,6 +28,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/unit/test_society_governance_persistence.py -v
 """
+
 from __future__ import annotations
 
 import os
@@ -41,8 +42,12 @@ os.environ["RATE_LIMIT_BURST"] = "200000"
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 from src.monkey_brain.kernel.society.domain import Society
 from src.monkey_brain.kernel.society.governance import (
-    GovernancePolicy, Permission, TrustRecord, SafetyConstraint,
-    ComplianceStatus, PolicyType,
+    GovernancePolicy,
+    Permission,
+    TrustRecord,
+    SafetyConstraint,
+    ComplianceStatus,
+    PolicyType,
 )
 
 _SHARED_SOCIETY_ID = "shared-test-society"
@@ -79,16 +84,35 @@ class _FakeSocietiesRedis:
     # client and touched by other PlanetaryRuntime.__init__ persistence
     # paths (e.g. geography/collective-learning save) that run in the same
     # constructor call — no-op stand-ins so construction doesn't raise.
-    def hset(self, *a, **kw): pass
-    def hget(self, *a, **kw): return None
-    def hgetall(self, *a, **kw): return {}
-    def hdel(self, *a, **kw): pass
-    def sadd(self, *a, **kw): pass
-    def smembers(self, *a, **kw): return set()
-    def exists(self, *a, **kw): return 0
-    def rpush(self, *a, **kw): pass
-    def lrange(self, *a, **kw): return []
-    def delete(self, *a, **kw): return 0
+    def hset(self, *a, **kw):
+        pass
+
+    def hget(self, *a, **kw):
+        return None
+
+    def hgetall(self, *a, **kw):
+        return {}
+
+    def hdel(self, *a, **kw):
+        pass
+
+    def sadd(self, *a, **kw):
+        pass
+
+    def smembers(self, *a, **kw):
+        return set()
+
+    def exists(self, *a, **kw):
+        return 0
+
+    def rpush(self, *a, **kw):
+        pass
+
+    def lrange(self, *a, **kw):
+        return []
+
+    def delete(self, *a, **kw):
+        return 0
 
 
 def _shared_pair():
@@ -112,10 +136,16 @@ def _shared_pair():
 
 # ── Round-trip correctness for all five governance concerns ─────────────
 
+
 def test_save_load_round_trips_governance_policy():
     pr1, pr2, redis = _shared_pair()
-    policy = GovernancePolicy(name="refund-limit", description="cap refunds",
-                              policy_type=PolicyType.RESTRICTION, rules=("amount<=100",), scope="cashier")
+    policy = GovernancePolicy(
+        name="refund-limit",
+        description="cap refunds",
+        policy_type=PolicyType.RESTRICTION,
+        rules=("amount<=100",),
+        scope="cashier",
+    )
     pr1.governance.add_policy(policy)
     pr1._save_societies()
 
@@ -154,8 +184,10 @@ def test_save_load_round_trips_safety_constraint():
     """Previously: zero persisted fields for safety_constraints at all."""
     pr1, pr2, redis = _shared_pair()
     constraint = SafetyConstraint(
-        name="no-unsupervised-large-refunds", rule="amount<=500",
-        severity="high", applies_to=("cashier",),
+        name="no-unsupervised-large-refunds",
+        rule="amount<=500",
+        severity="high",
+        applies_to=("cashier",),
     )
     pr1.governance.add_safety_constraint(constraint)
     pr1._save_societies()
@@ -172,8 +204,18 @@ def test_save_load_round_trips_audit_log_in_chronological_order():
     restore order matches original append order, not reversed or
     scrambled by the JSON round trip."""
     pr1, pr2, redis = _shared_pair()
-    pr1.governance.audit("carol", "attempted_refund", compliance_status=ComplianceStatus.COMPLIANT, details="first")
-    pr1.governance.audit("carol", "attempted_refund", compliance_status=ComplianceStatus.NON_COMPLIANT, details="second")
+    pr1.governance.audit(
+        "carol",
+        "attempted_refund",
+        compliance_status=ComplianceStatus.COMPLIANT,
+        details="first",
+    )
+    pr1.governance.audit(
+        "carol",
+        "attempted_refund",
+        compliance_status=ComplianceStatus.NON_COMPLIANT,
+        details="second",
+    )
     pr1._save_societies()
 
     pr2._load_societies()
@@ -184,6 +226,7 @@ def test_save_load_round_trips_audit_log_in_chronological_order():
 
 # ── The actual cross-process guarantee: mutate-then-save sequence, as the
 #    now-fixed routes perform it, is visible to a second process ──────────
+
 
 def test_policy_added_and_saved_is_visible_to_a_second_process():
     """Exercises the EXACT sequence add_society_governance_policy now
@@ -228,6 +271,7 @@ def test_policy_added_without_saving_is_correctly_NOT_visible_to_a_second_proces
 
 # ── restore_trust_record / restore_audit_entry are restores, not new events ──
 
+
 def test_restore_trust_record_does_not_increment_evidence_count():
     """restore_trust_record must reinstate verbatim, unlike evaluate_trust
     (which always increments evidence_count relative to whatever is
@@ -246,7 +290,10 @@ def test_restore_audit_entry_preserves_original_timestamp():
     """restore_audit_entry must preserve the ORIGINAL timestamp, unlike
     audit() (which always mints time.time()) — otherwise every restart
     would silently rewrite audit history to "now"."""
-    from src.monkey_brain.kernel.society.governance import SocietyGovernanceEngine, AuditEntry
+    from src.monkey_brain.kernel.society.governance import (
+        SocietyGovernanceEngine,
+        AuditEntry,
+    )
 
     engine = SocietyGovernanceEngine()
     original = AuditEntry(actor_id="frank", action="checkout", timestamp=1000.0)

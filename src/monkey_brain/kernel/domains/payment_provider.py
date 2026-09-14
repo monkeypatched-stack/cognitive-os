@@ -21,6 +21,7 @@ A real PSP-backed implementation (e.g. UPI Reserve Pay) is a separate,
 later module implementing this same interface — nothing above this line
 should ever need to change to add one.
 """
+
 from __future__ import annotations
 
 import time
@@ -55,6 +56,7 @@ class ReservationResult:
     with an empty reservation_id means the operation never took a hold at
     all (declined, invalid amount), distinct from a hold that WAS taken
     and later moved to FAILED/EXPIRED."""
+
     success: bool
     reservation_id: str
     status: ReservationStatus
@@ -80,7 +82,9 @@ class PaymentProvider:
 
     name: str = "payment_provider"
 
-    async def reserve(self, amount: float, payer_ref: str, idempotency_key: str) -> ReservationResult:
+    async def reserve(
+        self, amount: float, payer_ref: str, idempotency_key: str
+    ) -> ReservationResult:
         raise NotImplementedError
 
     async def capture(self, reservation_id: str, idempotency_key: str) -> CaptureResult:
@@ -135,74 +139,127 @@ class FakePaymentProvider(PaymentProvider):
         self._expiry_seconds = expiry_seconds
         self.declined_payer_refs: set[str] = set()
 
-    async def reserve(self, amount: float, payer_ref: str, idempotency_key: str) -> ReservationResult:
+    async def reserve(
+        self, amount: float, payer_ref: str, idempotency_key: str
+    ) -> ReservationResult:
         existing_id = self._idempotency_index.get(idempotency_key)
         if existing_id is not None:
             existing = self._reservations[existing_id]
             return ReservationResult(
-                True, existing.reservation_id, existing.status, existing.amount, "idempotent replay",
+                True,
+                existing.reservation_id,
+                existing.status,
+                existing.amount,
+                "idempotent replay",
             )
 
         if amount <= 0:
-            return ReservationResult(False, "", ReservationStatus.FAILED, amount, "amount must be positive")
+            return ReservationResult(
+                False, "", ReservationStatus.FAILED, amount, "amount must be positive"
+            )
 
         if payer_ref in self.declined_payer_refs:
             return ReservationResult(
-                False, "", ReservationStatus.FAILED, amount, f"reservation declined for payer {payer_ref!r}",
+                False,
+                "",
+                ReservationStatus.FAILED,
+                amount,
+                f"reservation declined for payer {payer_ref!r}",
             )
 
         reservation_id = f"UPI-RSV-{uuid.uuid4().hex[:12]}"
         reservation = _Reservation(
-            reservation_id=reservation_id, payer_ref=payer_ref, amount=round(amount, 2),
-            status=ReservationStatus.RESERVED, created_at=time.time(),
+            reservation_id=reservation_id,
+            payer_ref=payer_ref,
+            amount=round(amount, 2),
+            status=ReservationStatus.RESERVED,
+            created_at=time.time(),
             reserve_idempotency_key=idempotency_key,
         )
         self._reservations[reservation_id] = reservation
         self._idempotency_index[idempotency_key] = reservation_id
-        return ReservationResult(True, reservation_id, ReservationStatus.RESERVED, reservation.amount)
+        return ReservationResult(
+            True, reservation_id, ReservationStatus.RESERVED, reservation.amount
+        )
 
     async def capture(self, reservation_id: str, idempotency_key: str) -> CaptureResult:
         reservation = self._reservations.get(reservation_id)
         if reservation is None:
-            return CaptureResult(False, reservation_id, ReservationStatus.FAILED, 0.0, "no such reservation")
+            return CaptureResult(
+                False,
+                reservation_id,
+                ReservationStatus.FAILED,
+                0.0,
+                "no such reservation",
+            )
 
-        if reservation.status == ReservationStatus.CAPTURED and reservation.capture_idempotency_key == idempotency_key:
-            return CaptureResult(True, reservation_id, ReservationStatus.CAPTURED, reservation.amount, "idempotent replay")
+        if (
+            reservation.status == ReservationStatus.CAPTURED
+            and reservation.capture_idempotency_key == idempotency_key
+        ):
+            return CaptureResult(
+                True,
+                reservation_id,
+                ReservationStatus.CAPTURED,
+                reservation.amount,
+                "idempotent replay",
+            )
 
         self._expire_if_due(reservation)
         if reservation.status != ReservationStatus.RESERVED:
             return CaptureResult(
-                False, reservation_id, reservation.status, 0.0,
+                False,
+                reservation_id,
+                reservation.status,
+                0.0,
                 f"cannot capture a reservation in status {reservation.status.value!r}",
             )
 
         reservation.status = ReservationStatus.CAPTURED
         reservation.capture_idempotency_key = idempotency_key
-        return CaptureResult(True, reservation_id, ReservationStatus.CAPTURED, reservation.amount)
+        return CaptureResult(
+            True, reservation_id, ReservationStatus.CAPTURED, reservation.amount
+        )
 
     async def release(self, reservation_id: str) -> ReservationResult:
         reservation = self._reservations.get(reservation_id)
         if reservation is None:
-            return ReservationResult(False, reservation_id, ReservationStatus.FAILED, 0.0, "no such reservation")
+            return ReservationResult(
+                False,
+                reservation_id,
+                ReservationStatus.FAILED,
+                0.0,
+                "no such reservation",
+            )
 
         if reservation.status == ReservationStatus.CAPTURED:
             return ReservationResult(
-                False, reservation_id, reservation.status, reservation.amount,
+                False,
+                reservation_id,
+                reservation.status,
+                reservation.amount,
                 "cannot release an already-captured reservation",
             )
 
         reservation.status = ReservationStatus.RELEASED
-        return ReservationResult(True, reservation_id, ReservationStatus.RELEASED, reservation.amount)
+        return ReservationResult(
+            True, reservation_id, ReservationStatus.RELEASED, reservation.amount
+        )
 
     async def get_reservation(self, reservation_id: str) -> ReservationResult | None:
         reservation = self._reservations.get(reservation_id)
         if reservation is None:
             return None
         self._expire_if_due(reservation)
-        return ReservationResult(True, reservation.reservation_id, reservation.status, reservation.amount)
+        return ReservationResult(
+            True, reservation.reservation_id, reservation.status, reservation.amount
+        )
 
     def _expire_if_due(self, reservation: _Reservation) -> None:
-        if reservation.status == ReservationStatus.RESERVED and (time.time() - reservation.created_at) > self._expiry_seconds:
+        if (
+            reservation.status == ReservationStatus.RESERVED
+            and (time.time() - reservation.created_at) > self._expiry_seconds
+        ):
             reservation.status = ReservationStatus.EXPIRED
 
 
@@ -227,10 +284,12 @@ def sync_call(coro: Any) -> Any:
     common case (no loop running, e.g. a direct synchronous test/route
     call) just uses asyncio.run() directly, no extra thread needed."""
     import asyncio
+
     try:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(coro)
     import concurrent.futures
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(asyncio.run, coro).result()

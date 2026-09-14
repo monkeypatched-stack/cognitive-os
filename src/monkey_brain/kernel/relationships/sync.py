@@ -8,6 +8,7 @@ Provides bidirectional synchronization between:
 When an affiliation is added/updated/removed on an actor, the corresponding
 world relationship is created/updated/removed, and vice versa.
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,7 +34,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "neighbor": RelationshipKind.NEIGHBOR,
     "confidant": RelationshipKind.CONFIDANT,
     "soulmate": RelationshipKind.SOULMATE,
-
     # Organizational
     "employment": RelationshipKind.EMPLOYMENT,
     "contractor": RelationshipKind.CONTRACTOR,
@@ -54,7 +54,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "consultant": RelationshipKind.CONSULTANT,
     "agent": RelationshipKind.AGENT,
     "broker": RelationshipKind.BROKER,
-
     # Commercial
     "customer": RelationshipKind.CUSTOMER,
     "supplier": RelationshipKind.SUPPLIER,
@@ -69,7 +68,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "referrer": RelationshipKind.REFERRER,
     "buyer": RelationshipKind.BUYER,
     "seller": RelationshipKind.SELLER,
-
     # Government
     "citizen": RelationshipKind.CITIZEN,
     "resident": RelationshipKind.RESIDENT,
@@ -79,7 +77,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "regulated": RelationshipKind.REGULATED,
     "public_official": RelationshipKind.PUBLIC_OFFICIAL,
     "civil_servant": RelationshipKind.CIVIL_SERVANT,
-
     # Education
     "student": RelationshipKind.STUDENT,
     "teacher": RelationshipKind.TEACHER,
@@ -90,7 +87,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "faculty": RelationshipKind.FACULTY_MEMBER,
     "researcher": RelationshipKind.CO_AUTHOR,
     "collaborator": RelationshipKind.COLLABORATED_WITH,
-
     # Healthcare
     "patient": RelationshipKind.PATIENT,
     "doctor": RelationshipKind.DOCTOR,
@@ -101,7 +97,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "insurer": RelationshipKind.INSURER,
     "donor": RelationshipKind.DONOR,
     "recipient": RelationshipKind.RECIPIENT,
-
     # Digital
     "ai_agent": RelationshipKind.AI_AGENT,
     "robot": RelationshipKind.ROBOT,
@@ -110,11 +105,9 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "bot": RelationshipKind.BOT,
     "chatbot": RelationshipKind.CHATBOT,
     "virtual_assistant": RelationshipKind.VIRTUAL_ASSISTANT,
-
     # Trust
     "trusted": RelationshipKind.TRUSTED,
     "untrusted": RelationshipKind.UNTRUSTED,
-
     # Structural (Affiliation Graph vocabulary — kernel/affiliations/types.py)
     "member_of": RelationshipKind.MEMBER_OF,
     "affiliated_with": RelationshipKind.AFFILIATE,
@@ -122,7 +115,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "employed_by": RelationshipKind.EMPLOYMENT,
     "represents": RelationshipKind.AGENT,
     "manages": RelationshipKind.MANAGER,
-
     # Knowledge
     "depends_on": RelationshipKind.DEPENDS_ON,
     "caused_by": RelationshipKind.CAUSED_BY,
@@ -135,7 +127,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "part_of": RelationshipKind.PART_OF,
     "instance_of": RelationshipKind.INSTANCE_OF,
     "example_of": RelationshipKind.EXAMPLE_OF,
-
     # Financial
     "owns": RelationshipKind.OWNS,
     "leases": RelationshipKind.LEASES,
@@ -145,7 +136,6 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "donates_to": RelationshipKind.DONATES_TO,
     "sponsors": RelationshipKind.SPONSORS,
     "funding": RelationshipKind.FUNDING,
-
     # Legal
     "governs": RelationshipKind.GOVERNS_LEGAL,
     "enforces": RelationshipKind.ENFORCES,
@@ -159,9 +149,7 @@ _AFFILIATION_TO_RELATIONSHIP: dict[str, RelationshipKind] = {
     "licenses": RelationshipKind.LICENSES,
 }
 
-_RELATIONSHIP_TO_AFFILIATION: dict[RelationshipKind, str] = {
-    v: k for k, v in _AFFILIATION_TO_RELATIONSHIP.items()
-}
+_RELATIONSHIP_TO_AFFILIATION: dict[RelationshipKind, str] = {v: k for k, v in _AFFILIATION_TO_RELATIONSHIP.items()}
 
 
 class RelationshipSync:
@@ -180,8 +168,7 @@ class RelationshipSync:
 
     # ── Affiliation → Relationship ──────────────────────────────
 
-    def affiliation_to_relationship(self, affiliation: Affiliation,
-                                    source_actor_id: str = "") -> Relationship:
+    def affiliation_to_relationship(self, affiliation: Affiliation, source_actor_id: str = "") -> Relationship:
         """Convert an Affiliation to a Relationship."""
         kind = _AFFILIATION_TO_RELATIONSHIP.get(
             affiliation.affiliation_type,
@@ -194,7 +181,7 @@ class RelationshipSync:
             kind=kind,
             strength=affiliation.trust_level,
             confidence=1.0,
-            bidirectional=affiliation.type_info.bidirectional if affiliation.type_info else True,
+            bidirectional=(affiliation.type_info.bidirectional if affiliation.type_info else True),
             attributes={
                 "permissions": list(affiliation.permissions),
                 "policies": list(affiliation.policies),
@@ -208,15 +195,13 @@ class RelationshipSync:
             source_actor_id=source_actor_id,
         )
 
-    def sync_affiliation(self, affiliation: Affiliation,
-                         source_actor_id: str) -> Relationship:
+    def sync_affiliation(self, affiliation: Affiliation, source_actor_id: str) -> Relationship:
         """Sync an affiliation to the relationship graph."""
         if not self._sync_enabled:
             return None
 
         # Check if relationship already exists
-        existing = self._find_existing(affiliation.target_id, source_actor_id,
-                                       affiliation.affiliation_type)
+        existing = self._find_existing(affiliation.target_id, source_actor_id, affiliation.affiliation_type)
 
         if existing:
             # Update existing
@@ -249,8 +234,7 @@ class RelationshipSync:
 
         return rel
 
-    def sync_affiliation_manager(self, manager: AffiliationManager,
-                                 source_actor_id: str) -> int:
+    def sync_affiliation_manager(self, manager: AffiliationManager, source_actor_id: str) -> int:
         """Sync all affiliations from a manager to the graph."""
         count = 0
         for affiliation in manager.all():
@@ -275,8 +259,7 @@ class RelationshipSync:
             priority=rel.metadata.get("priority", 0),
         )
 
-    def sync_to_affiliation_manager(self, manager: AffiliationManager,
-                                    source_actor_id: str) -> int:
+    def sync_to_affiliation_manager(self, manager: AffiliationManager, source_actor_id: str) -> int:
         """Sync relationships to an affiliation manager."""
         if not self._sync_enabled:
             return 0
@@ -298,9 +281,12 @@ class RelationshipSync:
 
     # ── Conflict Resolution ─────────────────────────────────────
 
-    def resolve_conflict(self, affiliation: Affiliation,
-                         relationship: Relationship,
-                         strategy: str = "strongest") -> Relationship:
+    def resolve_conflict(
+        self,
+        affiliation: Affiliation,
+        relationship: Relationship,
+        strategy: str = "strongest",
+    ) -> Relationship:
         """Resolve conflicts between affiliation and relationship views.
 
         Strategies:
@@ -330,8 +316,7 @@ class RelationshipSync:
 
     # ── Helper ──────────────────────────────────────────────────
 
-    def _find_existing(self, target_id: str, source_id: str,
-                       aff_type: str) -> Relationship | None:
+    def _find_existing(self, target_id: str, source_id: str, aff_type: str) -> Relationship | None:
         """Find existing relationship for an affiliation."""
         kind = _AFFILIATION_TO_RELATIONSHIP.get(aff_type)
         if kind is None:

@@ -16,6 +16,7 @@ thing that could end a round, so an LLM that kept suggesting
 "contact_another_affiliate" could out-vote an already-achieved objective
 or an already-reached Nash equilibrium).
 """
+
 from __future__ import annotations
 
 import time
@@ -23,7 +24,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
-    from src.monkey_brain.kernel.society.transaction import NegotiationTrace, TransactionStatus
+    from src.monkey_brain.kernel.society.transaction import (
+        NegotiationTrace,
+        TransactionStatus,
+    )
 
 # Suggested-action values from _strategic_context's game-theoretic
 # evaluation that mean "the equilibrium strategy is to stop" -- the two
@@ -38,6 +42,7 @@ class TerminalState:
     """The TerminalStateEvaluator's verdict for one point in a
     transaction's lifecycle. `status`/`reason` are only meaningful when
     `is_terminal` is True."""
+
     is_terminal: bool
     status: "TransactionStatus | None" = None
     reason: str = ""
@@ -50,6 +55,7 @@ class TransactionState:
     original trust-ranked eligible-affiliate list (kept for the planner's
     tie-break order, never mutated); everything about what has actually
     happened lives in the other fields."""
+
     originating_actor_id: str
     objective: str
     candidates: tuple[str, ...]
@@ -73,7 +79,9 @@ class TransactionState:
         return [c for c in self.candidates if c not in contacted_set]
 
     def record_contact(
-        self, actor_id: str, trace: "NegotiationTrace | None",
+        self,
+        actor_id: str,
+        trace: "NegotiationTrace | None",
         strategic_context: dict[str, Any] | None,
     ) -> None:
         self.contacted.append(actor_id)
@@ -97,7 +105,9 @@ class TerminalStateEvaluator:
     """
 
     def __init__(
-        self, *, policy_gate: Callable[[TransactionState], str | None] | None = None,
+        self,
+        *,
+        policy_gate: Callable[[TransactionState], str | None] | None = None,
         timeout_seconds: float | None = None,
     ) -> None:
         self._policy_gate = policy_gate
@@ -110,7 +120,11 @@ class TerminalStateEvaluator:
             return TerminalState(True, TransactionStatus.TERMINATED, "cancelled")
 
         if state.error:
-            return TerminalState(True, TransactionStatus.TERMINATED, f"unrecoverable error: {state.error}")
+            return TerminalState(
+                True,
+                TransactionStatus.TERMINATED,
+                f"unrecoverable error: {state.error}",
+            )
 
         if self._policy_gate is not None:
             policy_reason = self._policy_gate(state)
@@ -126,8 +140,7 @@ class TerminalStateEvaluator:
             suggested = strategic_context.get("suggested_action")
             if suggested in _EQUILIBRIUM_TERMINAL_ACTIONS:
                 status = (
-                    TransactionStatus.COMPLETED if suggested == "complete_objective"
-                    else TransactionStatus.TERMINATED
+                    TransactionStatus.COMPLETED if suggested == "complete_objective" else TransactionStatus.TERMINATED
                 )
                 return TerminalState(True, status, f"nash equilibrium reached: {suggested}")
 
@@ -143,7 +156,8 @@ class TerminalStateEvaluator:
 
         if len(state.contacted) >= state.max_steps:
             return TerminalState(
-                True, TransactionStatus.TERMINATED,
+                True,
+                TransactionStatus.TERMINATED,
                 f"reached max_steps ({state.max_steps}) without a terminal decision",
             )
 

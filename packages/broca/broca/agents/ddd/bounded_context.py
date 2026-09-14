@@ -1,4 +1,5 @@
 """BoundedContextAgent — owns a business capability, coordinates its aggregates."""
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -17,7 +18,9 @@ class BoundedContextAgent(BaseDDDAgent):
     """
 
     agent_type = "bounded_context"
-    description = "Bounded context agent — owns a business capability, enforces context boundaries, coordinates aggregates"
+    description = (
+        "Bounded context agent — owns a business capability, enforces context boundaries, coordinates aggregates"
+    )
     ddd_layer = "bounded_context"
     workload_spec = "architecture_review"
 

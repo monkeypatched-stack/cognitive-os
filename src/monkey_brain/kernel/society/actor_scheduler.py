@@ -39,6 +39,7 @@ Algorithm (Section 9): deterministic, explainable, reproducible. No ML,
 no LLM. candidates = healthy nodes -> filter hard constraints -> rank
 preferences -> select. Ties break on node_id for reproducibility.
 """
+
 from __future__ import annotations
 
 import logging
@@ -58,6 +59,7 @@ class NodeClass(Enum):
     """Conceptual execution-location classes (Section 22) — reuses the
     vocabulary edge_device_coordinator.py's DeviceType already explored
     (CENTRAL/EDGE/MOBILE), renamed to this task's exact requested terms."""
+
     CLOUD = "cloud"
     EDGE = "edge"
     DEVICE = "device"
@@ -87,6 +89,7 @@ class ExecutionNode:
     """One execution location the Scheduler can place Actors on. A node
     represents compute/execution location — it never owns Actor identity
     (Section 5)."""
+
     node_id: str
     node_class: NodeClass = NodeClass.CLOUD
     capacity: int = 1000
@@ -112,10 +115,14 @@ class ExecutionNode:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "node_id": self.node_id, "node_class": self.node_class.value,
-            "capacity": self.capacity, "current_actor_count": self.current_actor_count,
-            "capabilities": list(self.capabilities), "region": self.region,
-            "reported_health": self.reported_health.value, "updated_at": self.updated_at,
+            "node_id": self.node_id,
+            "node_class": self.node_class.value,
+            "capacity": self.capacity,
+            "current_actor_count": self.current_actor_count,
+            "capabilities": list(self.capabilities),
+            "region": self.region,
+            "reported_health": self.reported_health.value,
+            "updated_at": self.updated_at,
         }
 
     @staticmethod
@@ -129,11 +136,14 @@ class ExecutionNode:
         except ValueError:
             health = NodeHealth.UNKNOWN
         return ExecutionNode(
-            node_id=d.get("node_id", ""), node_class=node_class,
+            node_id=d.get("node_id", ""),
+            node_class=node_class,
             capacity=int(d.get("capacity", 1000)),
             current_actor_count=int(d.get("current_actor_count", 0)),
-            capabilities=tuple(d.get("capabilities", [])), region=d.get("region", ""),
-            reported_health=health, updated_at=float(d.get("updated_at", 0.0)),
+            capabilities=tuple(d.get("capabilities", [])),
+            region=d.get("region", ""),
+            reported_health=health,
+            updated_at=float(d.get("updated_at", 0.0)),
         )
 
 
@@ -146,6 +156,7 @@ class ActorPlacementRequirements:
     default (no constraints at all) matches every healthy node with
     available capacity — today's implicit "any node will do" behavior,
     unchanged for any Actor that never specifies requirements."""
+
     required_capabilities: tuple[str, ...] = ()
     """HARD: the node must have ALL of these capability tags."""
     required_node_class: NodeClass | None = None
@@ -162,10 +173,10 @@ class ActorPlacementRequirements:
     def to_dict(self) -> dict[str, Any]:
         return {
             "required_capabilities": list(self.required_capabilities),
-            "required_node_class": self.required_node_class.value if self.required_node_class else None,
+            "required_node_class": (self.required_node_class.value if self.required_node_class else None),
             "prohibited_node_ids": list(self.prohibited_node_ids),
             "min_available_capacity": self.min_available_capacity,
-            "preferred_node_class": self.preferred_node_class.value if self.preferred_node_class else None,
+            "preferred_node_class": (self.preferred_node_class.value if self.preferred_node_class else None),
             "preferred_region": self.preferred_region,
         }
 
@@ -178,6 +189,7 @@ class ActorPlacementRequirements:
                 return NodeClass(v)
             except ValueError:
                 return None
+
         return ActorPlacementRequirements(
             required_capabilities=tuple(d.get("required_capabilities", [])),
             required_node_class=_class(d.get("required_node_class")),
@@ -195,6 +207,7 @@ class SchedulingDecision:
     out and why; reason explains the winner, or explains why nothing
     qualified (Section 11 — UNSCHEDULABLE is a valid, explicit state, not
     a silent failure or a fabricated placement)."""
+
     actor_id: str
     scheduled: bool
     node_id: str = ""
@@ -223,8 +236,13 @@ class ActorScheduler:
     def __init__(self, planetary: "PlanetaryRuntime") -> None:
         self._planetary = planetary
 
-    def schedule(self, actor_id: str, requirements: ActorPlacementRequirements | None = None,
-                *, force: bool = False) -> SchedulingDecision:
+    def schedule(
+        self,
+        actor_id: str,
+        requirements: ActorPlacementRequirements | None = None,
+        *,
+        force: bool = False,
+    ) -> SchedulingDecision:
         """Produce (or confirm) an Actor -> Execution Node assignment.
 
         Idempotent (Section 19): if the Actor already has a valid
@@ -247,7 +265,9 @@ class ActorScheduler:
             # environment (including every pre-existing test in this repo)
             # that never calls register_self_as_node/register_node.
             return SchedulingDecision(
-                actor_id=actor_id, scheduled=True, node_id="",
+                actor_id=actor_id,
+                scheduled=True,
+                node_id="",
                 reason="no nodes registered -- unmanaged single-node mode, placement unconstrained",
             )
 
@@ -279,12 +299,15 @@ class ActorScheduler:
                     # correctly still counts every currently-resident
                     # actor, unchanged.
                     self_excluded = dataclasses.replace(
-                        current_node, current_actor_count=max(0, current_node.current_actor_count - 1),
+                        current_node,
+                        current_actor_count=max(0, current_node.current_actor_count - 1),
                     )
                     ok, _ = self._check_hard_constraints(self_excluded, requirements)
                     if ok:
                         return SchedulingDecision(
-                            actor_id=actor_id, scheduled=True, node_id=current_node_id,
+                            actor_id=actor_id,
+                            scheduled=True,
+                            node_id=current_node_id,
                             reason=f"already validly placed on {current_node_id}",
                         )
 
@@ -302,13 +325,13 @@ class ActorScheduler:
                 rejected.append((n.node_id, why))
 
         if not candidates:
-            reason = (
-                "no healthy nodes registered" if not healthy
-                else self._summarize_no_candidate_reason(requirements)
-            )
+            reason = "no healthy nodes registered" if not healthy else self._summarize_no_candidate_reason(requirements)
             decision = SchedulingDecision(
-                actor_id=actor_id, scheduled=False, reason=reason,
-                candidates_considered=len(nodes), candidates_rejected=tuple(rejected),
+                actor_id=actor_id,
+                scheduled=False,
+                reason=reason,
+                candidates_considered=len(nodes),
+                candidates_rejected=tuple(rejected),
             )
             self._publish_decision(decision)
             return decision
@@ -324,29 +347,38 @@ class ActorScheduler:
         # transient race.
         for selected in ranked:
             if self._planetary._reserve_node_capacity(selected.node_id, 1) is None:
-                rejected.append((selected.node_id, "lost capacity reservation race (concurrent placement)"))
+                rejected.append(
+                    (
+                        selected.node_id,
+                        "lost capacity reservation race (concurrent placement)",
+                    )
+                )
                 continue
             self._planetary.set_actor_desired_node(actor_id, selected.node_id)
             if previous_node_id and previous_node_id != selected.node_id:
                 self._planetary._reserve_node_capacity(previous_node_id, -1)
             decision = SchedulingDecision(
-                actor_id=actor_id, scheduled=True, node_id=selected.node_id,
+                actor_id=actor_id,
+                scheduled=True,
+                node_id=selected.node_id,
                 reason=self._explain_selection(selected, requirements),
-                candidates_considered=len(nodes), candidates_rejected=tuple(rejected),
+                candidates_considered=len(nodes),
+                candidates_rejected=tuple(rejected),
             )
             self._publish_decision(decision)
             return decision
 
         decision = SchedulingDecision(
-            actor_id=actor_id, scheduled=False,
+            actor_id=actor_id,
+            scheduled=False,
             reason="every otherwise-qualifying node lost its capacity reservation race",
-            candidates_considered=len(nodes), candidates_rejected=tuple(rejected),
+            candidates_considered=len(nodes),
+            candidates_rejected=tuple(rejected),
         )
         self._publish_decision(decision)
         return decision
 
-    def migrate_actor(self, actor_id: str,
-                      target_node_id: str | None = None) -> SchedulingDecision:
+    def migrate_actor(self, actor_id: str, target_node_id: str | None = None) -> SchedulingDecision:
         """Deliberate rescheduling for an Actor already RUNNING somewhere
         (Section 14). Safe checkpoint-and-restart, never unsafe live
         migration: this only updates the desired placement record and, if
@@ -363,14 +395,17 @@ class ActorScheduler:
             node = self._planetary.get_node(target_node_id)
             if node is None:
                 decision = SchedulingDecision(
-                    actor_id=actor_id, scheduled=False,
+                    actor_id=actor_id,
+                    scheduled=False,
                     reason=f"target node {target_node_id!r} is not registered",
                 )
                 self._publish_decision(decision)
                 return decision
             self._planetary.set_actor_desired_node(actor_id, target_node_id)
             decision = SchedulingDecision(
-                actor_id=actor_id, scheduled=True, node_id=target_node_id,
+                actor_id=actor_id,
+                scheduled=True,
+                node_id=target_node_id,
                 reason=f"explicit migration target {target_node_id}",
             )
         else:
@@ -381,21 +416,27 @@ class ActorScheduler:
             self._publish_migration_event(actor_id, decision.node_id)
         return decision
 
-    def _check_hard_constraints(self, node: ExecutionNode,
-                                req: ActorPlacementRequirements) -> tuple[bool, str]:
+    def _check_hard_constraints(self, node: ExecutionNode, req: ActorPlacementRequirements) -> tuple[bool, str]:
         if req.required_node_class is not None and node.node_class != req.required_node_class:
-            return False, f"node_class {node.node_class.value!r} != required {req.required_node_class.value!r}"
+            return (
+                False,
+                f"node_class {node.node_class.value!r} != required {req.required_node_class.value!r}",
+            )
         if node.node_id in req.prohibited_node_ids:
             return False, "node is prohibited for this actor"
         missing = set(req.required_capabilities) - set(node.capabilities)
         if missing:
             return False, f"missing required capabilities: {sorted(missing)}"
         if node.available_capacity < req.min_available_capacity:
-            return False, f"insufficient available capacity ({node.available_capacity} < {req.min_available_capacity})"
+            return (
+                False,
+                f"insufficient available capacity ({node.available_capacity} < {req.min_available_capacity})",
+            )
         return True, ""
 
-    def _rank_by_preferences(self, candidates: list[ExecutionNode],
-                             req: ActorPlacementRequirements) -> list[ExecutionNode]:
+    def _rank_by_preferences(
+        self, candidates: list[ExecutionNode], req: ActorPlacementRequirements
+    ) -> list[ExecutionNode]:
         def score(node: ExecutionNode) -> float:
             s = 0.0
             if req.preferred_node_class is not None and node.node_class == req.preferred_node_class:
@@ -404,13 +445,17 @@ class ActorScheduler:
                 s += 5.0
             s += node.available_capacity * _CAPACITY_HEADROOM_WEIGHT
             return s
+
         # node_id as the final tiebreak -- identical inputs always produce
         # an identical ranking (Section 9: reproducible), never dependent
         # on dict/set iteration order.
         return sorted(candidates, key=lambda n: (-score(n), n.node_id))
 
     def _explain_selection(self, node: ExecutionNode, req: ActorPlacementRequirements) -> str:
-        checks = ["node healthy", f"available capacity {node.available_capacity} >= {req.min_available_capacity}"]
+        checks = [
+            "node healthy",
+            f"available capacity {node.available_capacity} >= {req.min_available_capacity}",
+        ]
         if req.required_capabilities:
             checks.append(f"required capabilities satisfied: {list(req.required_capabilities)}")
         if req.required_node_class is not None:
@@ -420,9 +465,7 @@ class ActorScheduler:
                 f"preferred node_class {'satisfied' if node.node_class == req.preferred_node_class else 'not satisfied'}"
             )
         if req.preferred_region:
-            checks.append(
-                f"preferred region {'satisfied' if node.region == req.preferred_region else 'not satisfied'}"
-            )
+            checks.append(f"preferred region {'satisfied' if node.region == req.preferred_region else 'not satisfied'}")
         return f"scheduled to {node.node_id}: " + "; ".join(checks)
 
     def _summarize_no_candidate_reason(self, req: ActorPlacementRequirements) -> str:
@@ -439,45 +482,70 @@ class ActorScheduler:
 
     def _publish_decision(self, decision: SchedulingDecision) -> None:
         try:
-            from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
+            from src.monkey_brain.kernel.society.context_stream import (
+                ContextEvent,
+                ContextEventType,
+            )
+
             description = (
-                f"{decision.actor_id}: {decision.reason}" if decision.scheduled
+                f"{decision.actor_id}: {decision.reason}"
+                if decision.scheduled
                 else f"{decision.actor_id}: UNSCHEDULABLE — {decision.reason}"
             )
-            self._planetary.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.ACTOR_LIFECYCLE, actor_id=decision.actor_id,
-                description=description,
-                payload={
-                    "event_type": "actor_scheduled" if decision.scheduled else "actor_unschedulable",
-                    "node_id": decision.node_id, "reason": decision.reason,
-                    "candidates_considered": decision.candidates_considered,
-                    "candidates_rejected": list(decision.candidates_rejected),
-                },
-                provenance="actor_scheduler",
-            ))
+            self._planetary.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.ACTOR_LIFECYCLE,
+                    actor_id=decision.actor_id,
+                    description=description,
+                    payload={
+                        "event_type": ("actor_scheduled" if decision.scheduled else "actor_unschedulable"),
+                        "node_id": decision.node_id,
+                        "reason": decision.reason,
+                        "candidates_considered": decision.candidates_considered,
+                        "candidates_rejected": list(decision.candidates_rejected),
+                    },
+                    provenance="actor_scheduler",
+                )
+            )
         except Exception:
             logger.debug("_publish_decision: publish failed (non-fatal)", exc_info=True)
         try:
-            from src.monkey_brain.kernel.pipeline.audit_trail import record_decision_event
+            from src.monkey_brain.kernel.pipeline.audit_trail import (
+                record_decision_event,
+            )
+
             record_decision_event(
                 "actor_scheduled" if decision.scheduled else "actor_unschedulable",
-                actor_id=decision.actor_id, reason=decision.reason,
+                actor_id=decision.actor_id,
+                reason=decision.reason,
                 metadata={
-                    "node_id": decision.node_id, "candidates_considered": decision.candidates_considered,
-                    "candidates_rejected": list(decision.candidates_rejected), "source": "ActorScheduler",
+                    "node_id": decision.node_id,
+                    "candidates_considered": decision.candidates_considered,
+                    "candidates_rejected": list(decision.candidates_rejected),
+                    "source": "ActorScheduler",
                 },
             )
         except Exception:
-            logger.debug("_publish_decision: audit_trail record failed (non-fatal)", exc_info=True)
+            logger.debug(
+                "_publish_decision: audit_trail record failed (non-fatal)",
+                exc_info=True,
+            )
 
     def _publish_migration_event(self, actor_id: str, node_id: str) -> None:
         try:
-            from src.monkey_brain.kernel.society.context_stream import ContextEvent, ContextEventType
-            self._planetary.context_stream.publish(ContextEvent(
-                event_type=ContextEventType.ACTOR_LIFECYCLE, actor_id=actor_id,
-                description=f"{actor_id}: migrating to {node_id}",
-                payload={"event_type": "actor_migrating", "node_id": node_id},
-                provenance="actor_scheduler",
-            ))
+            from src.monkey_brain.kernel.society.context_stream import (
+                ContextEvent,
+                ContextEventType,
+            )
+
+            self._planetary.context_stream.publish(
+                ContextEvent(
+                    event_type=ContextEventType.ACTOR_LIFECYCLE,
+                    actor_id=actor_id,
+                    description=f"{actor_id}: migrating to {node_id}",
+                    payload={"event_type": "actor_migrating", "node_id": node_id},
+                    provenance="actor_scheduler",
+                )
+            )
         except Exception:
             logger.debug("_publish_migration_event: publish failed (non-fatal)", exc_info=True)

@@ -25,15 +25,15 @@ logger = logging.getLogger("monkey_brain.memory.cognitive_gc")
 
 @dataclass
 class GCResult:
-    tombstoned:  int = 0
-    errors:      list[str] = field(default_factory=list)
-    swept_at:    float = field(default_factory=time.time)
+    tombstoned: int = 0
+    errors: list[str] = field(default_factory=list)
+    swept_at: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "tombstoned": self.tombstoned,
-            "errors":     self.errors,
-            "swept_at":   self.swept_at,
+            "errors": self.errors,
+            "swept_at": self.swept_at,
         }
 
 
@@ -55,9 +55,9 @@ class CognitiveGC:
 
     def collect_garbage(self) -> GCResult:
         """Scan for stale episodic nodes and tombstone them."""
-        now          = time.time()
+        now = time.time()
         stale_cutoff = now - self.mgr.staleness_threshold_seconds
-        result       = GCResult()
+        result = GCResult()
 
         stale_records = self.mgr.graph_db.query(
             "MATCH (e:EpisodicTrace) "
@@ -67,7 +67,7 @@ class CognitiveGC:
         )
 
         for record in stale_records:
-            node_id    = record["id"]
+            node_id = record["id"]
             provenance = record["provenance_token"]
 
             try:
@@ -96,11 +96,7 @@ class CognitiveGC:
 
     def _write_tombstone(self, node_id: str, provenance: Any) -> None:
         """Mutate the node to a minimal tombstone, retaining the audit hash."""
-        auth_hash = (
-            provenance.auth_hash
-            if hasattr(provenance, "auth_hash")
-            else str(provenance)
-        )
+        auth_hash = provenance.auth_hash if hasattr(provenance, "auth_hash") else str(provenance)
         self.mgr.graph_db.execute(
             "MATCH (e:EpisodicTrace {id: $node_id}) "
             "SET e.status = 'GC_TOMBSTONE', "

@@ -33,13 +33,13 @@ Pipeline:
            ▼
     World Tensor (placeholder)
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 from ._base import BaseETASSAgent
-from .goal_ir import GoalIR
 from .intent_compiler_agent import IntentCompilerAgent
 from .graph_generator_agent import GraphGeneratorAgent
 from .world_compiler_agent import WorldCompilerAgent
@@ -156,8 +156,10 @@ class CompilerPipeline(BaseETASSAgent):
                 f"Stage 1 (Intent Compiler): {goal_ir.intent_type}/{goal_ir.domain}",
                 f"Stage 2 (Graph Synthesizer): {len(graph_result.payload.get('candidates', []))} candidates",
                 f"Stage 3 (World Compiler): {len(world_result.payload.get('candidates', []))} validated",
-                f"Stage 4 (Runtime): pending",
-                f"Stage 5 (Observations): pending",
-                f"Stage 6 (Fusion): pending",
-            ] + graph_result.observations + world_result.observations,
+                "Stage 4 (Runtime): pending",
+                "Stage 5 (Observations): pending",
+                "Stage 6 (Fusion): pending",
+            ]
+            + graph_result.observations
+            + world_result.observations,
         )

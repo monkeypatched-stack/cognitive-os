@@ -5,7 +5,9 @@ from collections.abc import Mapping
 from services.common.config import settings
 
 
-def n8n_webhook_auth_headers(existing: Mapping[str, str] | None = None) -> dict[str, str]:
+def n8n_webhook_auth_headers(
+    existing: Mapping[str, str] | None = None,
+) -> dict[str, str]:
     """Return headers for authenticated n8n webhook calls.
 
     Authentication is opt-in via N8N_WEBHOOK_SECRET. Existing headers win so callers
@@ -15,7 +17,9 @@ def n8n_webhook_auth_headers(existing: Mapping[str, str] | None = None) -> dict[
     secret = str(settings.N8N_WEBHOOK_SECRET or "").strip()
     if not secret:
         return headers
-    header_name = str(settings.N8N_WEBHOOK_AUTH_HEADER or "X-Sentinel-Webhook-Secret").strip()
+    header_name = str(
+        settings.N8N_WEBHOOK_AUTH_HEADER or "X-Sentinel-Webhook-Secret"
+    ).strip()
     if not header_name:
         header_name = "X-Sentinel-Webhook-Secret"
     headers.setdefault(header_name, secret)

@@ -7,7 +7,9 @@ from urllib.parse import urlparse
 
 import httpx
 
-from services.process_definitions.models.process_definition import ProcessDefinitionCanvasBackendCall
+from services.process_definitions.models.process_definition import (
+    ProcessDefinitionCanvasBackendCall,
+)
 from services.process_definitions.node_services.models import (
     NodeExecutionResult,
     config_value,
@@ -36,7 +38,9 @@ async def execute_http_node(
         )
     if node_type == "http response":
         status_code = int(config_value(config, "status_code", 200))
-        headers = config.get("headers") if isinstance(config.get("headers"), dict) else {}
+        headers = (
+            config.get("headers") if isinstance(config.get("headers"), dict) else {}
+        )
         body_template = str(config.get("body_template") or "")
         body = render_template(body_template, payload) if body_template else payload
         return NodeExecutionResult(
@@ -54,12 +58,20 @@ async def execute_http_node(
     url = (backend.url if backend else None) or config.get("url")
     if not url:
         return NodeExecutionResult(False, None, None, "HTTP request URL is required")
-    method = ((backend.method if backend else None) or config.get("method") or "GET").upper()
+    method = (
+        (backend.method if backend else None) or config.get("method") or "GET"
+    ).upper()
     headers = dict((backend.headers if backend else None) or {})
-    query_params = config.get("query") if isinstance(config.get("query"), dict) else None
+    query_params = (
+        config.get("query") if isinstance(config.get("query"), dict) else None
+    )
     body_template = str(config.get("body_template") or "")
     body = render_template(body_template, payload) if body_template else payload
-    timeout_seconds = config.get("timeout_seconds") if isinstance(config.get("timeout_seconds"), (int, float)) else 20.0
+    timeout_seconds = (
+        config.get("timeout_seconds")
+        if isinstance(config.get("timeout_seconds"), (int, float))
+        else 20.0
+    )
     try:
         async with httpx.AsyncClient(timeout=float(timeout_seconds)) as client:
             response = await client.request(
@@ -73,20 +85,31 @@ async def execute_http_node(
             response_body = response.json()
         except Exception:
             response_body = response.text
-        return NodeExecutionResult(response.is_success, response.status_code, response_body, None if response.is_success else response.text)
+        return NodeExecutionResult(
+            response.is_success,
+            response.status_code,
+            response_body,
+            None if response.is_success else response.text,
+        )
     except httpx.HTTPError as exc:
         return NodeExecutionResult(False, None, None, str(exc))
 
 
-async def execute_mqtt_node(node_type: str | None, config: dict, payload: dict[str, Any]) -> NodeExecutionResult:
+async def execute_mqtt_node(
+    node_type: str | None, config: dict, payload: dict[str, Any]
+) -> NodeExecutionResult:
     if node_type == "mqtt in":
-        return NodeExecutionResult(True, None, listener_registration_response(node_type, config))
+        return NodeExecutionResult(
+            True, None, listener_registration_response(node_type, config)
+        )
     if node_type != "mqtt out":
         return NodeExecutionResult(True, None, {"status": "queued"})
     try:
         import paho.mqtt.client as mqtt
     except Exception:
-        return NodeExecutionResult(False, None, None, "paho-mqtt is not installed; cannot publish MQTT message")
+        return NodeExecutionResult(
+            False, None, None, "paho-mqtt is not installed; cannot publish MQTT message"
+        )
     broker = urlparse(str(config_value(config, "broker_url", "mqtt://localhost:1883")))
     host = str(config_value(config, "host", broker.hostname or "localhost"))
     port = int(config_value(config, "port", broker.port or 1883))
@@ -107,18 +130,32 @@ async def execute_mqtt_node(node_type: str | None, config: dict, payload: dict[s
     result.wait_for_publish(timeout=float(config_value(config, "timeout_seconds", 20)))
     client.disconnect()
     ok = result.rc == mqtt.MQTT_ERR_SUCCESS
-    return NodeExecutionResult(ok, None, {"topic": topic, "published": ok, "rc": result.rc}, None if ok else f"MQTT publish failed rc={result.rc}")
+    return NodeExecutionResult(
+        ok,
+        None,
+        {"topic": topic, "published": ok, "rc": result.rc},
+        None if ok else f"MQTT publish failed rc={result.rc}",
+    )
 
 
-async def execute_websocket_node(node_type: str | None, config: dict, payload: dict[str, Any]) -> NodeExecutionResult:
+async def execute_websocket_node(
+    node_type: str | None, config: dict, payload: dict[str, Any]
+) -> NodeExecutionResult:
     if node_type == "websocket in":
-        return NodeExecutionResult(True, None, listener_registration_response(node_type, config))
+        return NodeExecutionResult(
+            True, None, listener_registration_response(node_type, config)
+        )
     if node_type != "websocket out":
         return NodeExecutionResult(True, None, {"status": "queued"})
     try:
         import websockets
     except Exception:
-        return NodeExecutionResult(False, None, None, "websockets is not installed; cannot send WebSocket message")
+        return NodeExecutionResult(
+            False,
+            None,
+            None,
+            "websockets is not installed; cannot send WebSocket message",
+        )
     url = str(config_value(config, "url", ""))
     if not url:
         return NodeExecutionResult(False, None, None, "WebSocket URL is required")
@@ -135,9 +172,13 @@ async def execute_websocket_node(node_type: str | None, config: dict, payload: d
     return NodeExecutionResult(True, None, {"url": url, "sent": True})
 
 
-async def execute_tcp_udp_node(node_type: str | None, config: dict, payload: dict[str, Any]) -> NodeExecutionResult:
+async def execute_tcp_udp_node(
+    node_type: str | None, config: dict, payload: dict[str, Any]
+) -> NodeExecutionResult:
     if node_type in {"tcp in", "udp in"}:
-        return NodeExecutionResult(True, None, listener_registration_response(node_type, config))
+        return NodeExecutionResult(
+            True, None, listener_registration_response(node_type, config)
+        )
     host = str(config_value(config, "host", "localhost"))
     port = config_value(config, "port")
     if port is None:
@@ -147,15 +188,21 @@ async def execute_tcp_udp_node(node_type: str | None, config: dict, payload: dic
     message = payload_message(payload, config).encode(encoding)
     timeout_seconds = float(config_value(config, "timeout_seconds", 20))
     if node_type == "tcp out":
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout_seconds)
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port), timeout=timeout_seconds
+        )
         writer.write(message)
         await writer.drain()
         writer.close()
         await writer.wait_closed()
-        return NodeExecutionResult(True, None, {"host": host, "port": port, "bytes_sent": len(message)})
+        return NodeExecutionResult(
+            True, None, {"host": host, "port": port, "bytes_sent": len(message)}
+        )
     if node_type == "udp out":
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.settimeout(timeout_seconds)
             sent = sock.sendto(message, (host, port))
-        return NodeExecutionResult(True, None, {"host": host, "port": port, "bytes_sent": sent})
+        return NodeExecutionResult(
+            True, None, {"host": host, "port": port, "bytes_sent": sent}
+        )
     return NodeExecutionResult(True, None, {"status": "queued"})

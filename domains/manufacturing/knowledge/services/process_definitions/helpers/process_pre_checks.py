@@ -39,6 +39,7 @@ def _serialize(doc: dict) -> dict:
 # Read
 # ---------------------------------------------------------------------------
 
+
 async def get_all(
     db: AsyncIOMotorDatabase,
     page: int = 1,
@@ -72,7 +73,9 @@ async def get_by_process_definition_id(
     """Fetch the prechecks container that belongs to a given process_definition."""
     if not process_definition_id:
         return None
-    doc = await db[WORKFLOW_COLLECTION].find_one({"process_definition_id": process_definition_id})
+    doc = await db[WORKFLOW_COLLECTION].find_one(
+        {"process_definition_id": process_definition_id}
+    )
     return _serialize(doc) if doc else None
 
 
@@ -86,7 +89,8 @@ async def get_conditions_by_severity(
     if not doc:
         return []
     return [
-        c for c in doc.get("process_definition_precheck_conditions", [])
+        c
+        for c in doc.get("process_definition_precheck_conditions", [])
         if c.get("severity") == severity
     ]
 
@@ -100,7 +104,8 @@ async def get_mandatory_conditions(
     if not doc:
         return []
     return [
-        c for c in doc.get("process_definition_precheck_conditions", [])
+        c
+        for c in doc.get("process_definition_precheck_conditions", [])
         if c.get("is_mandatory") is True
     ]
 
@@ -108,6 +113,7 @@ async def get_mandatory_conditions(
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create(
     db: AsyncIOMotorDatabase,
@@ -163,7 +169,9 @@ async def update_condition(
     Update specific fields of a PreCheckCondition inside the conditions array.
     Pass only the fields you want to change in the `fields` dict.
     """
-    updates = {f"process_definition_precheck_conditions.$.{k}": v for k, v in fields.items()}
+    updates = {
+        f"process_definition_precheck_conditions.$.{k}": v for k, v in fields.items()
+    }
     result = await db[WORKFLOW_COLLECTION].find_one_and_update(
         {"id": prechecks_id, "process_definition_precheck_conditions.id": condition_id},
         {"$set": updates},
@@ -200,7 +208,9 @@ async def delete_by_process_definition_id(
     process_definition_id: str,
 ) -> bool:
     """Delete the prechecks container that belongs to a process_definition (cascade delete)."""
-    result = await db[WORKFLOW_COLLECTION].delete_one({"process_definition_id": process_definition_id})
+    result = await db[WORKFLOW_COLLECTION].delete_one(
+        {"process_definition_id": process_definition_id}
+    )
     return result.deleted_count == 1
 
 
@@ -211,6 +221,7 @@ async def delete_by_process_definition_id(
 # ---------------------------------------------------------------------------
 # Read
 # ---------------------------------------------------------------------------
+
 
 async def get_step_prechecks_by_id(
     db: AsyncIOMotorDatabase,
@@ -253,7 +264,8 @@ async def get_step_conditions_by_severity(
     if not doc:
         return []
     return [
-        c for c in doc.get("process_step_precheck_conditions", [])
+        c
+        for c in doc.get("process_step_precheck_conditions", [])
         if c.get("severity") == severity
     ]
 
@@ -261,6 +273,7 @@ async def get_step_conditions_by_severity(
 # ---------------------------------------------------------------------------
 # Write
 # ---------------------------------------------------------------------------
+
 
 async def create_step_prechecks(
     db: AsyncIOMotorDatabase,

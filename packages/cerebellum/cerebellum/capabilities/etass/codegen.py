@@ -1,6 +1,10 @@
 """SittingFaceCodegenCapability — SomaticCompiler + CodeGenAgent as an ICapability."""
+
 from __future__ import annotations
-import asyncio, logging, sys
+import asyncio
+import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +18,6 @@ except ImportError:
     ExecutionState = Any  # type: ignore
     CapabilityResult = None  # type: ignore
 
-import os
 _REPO = Path(os.environ.get("MONKEYBRAIN_REPO", str(Path(__file__).parents[6])))
 _GEN_DIR = Path(os.environ.get("MONKEYBRAIN_GEN_DIR", str(_REPO.parent / "generated" / _REPO.name)))
 
@@ -66,8 +69,12 @@ class SittingFaceCodegenCapability(ICapability):
             prompts = compiler.compile_prompts()
             agent = CodeGenAgent(output_dir=_GEN_DIR)
             prompt_dicts = [
-                {"chart": p.chart_name, "preamble": p.preamble,
-                 "steps": p.cot_steps, "constraints": p.constraints}
+                {
+                    "chart": p.chart_name,
+                    "preamble": p.preamble,
+                    "steps": p.cot_steps,
+                    "constraints": p.constraints,
+                }
                 for p in prompts
             ]
             loop = asyncio.get_event_loop()
@@ -81,7 +88,11 @@ class SittingFaceCodegenCapability(ICapability):
     def _result(self, output: dict):
         if CapabilityResult is not None:
             try:
-                return CapabilityResult(success=output.get("files_generated", 0) >= 0, output=output, metadata={"capability": self.capability_name})
+                return CapabilityResult(
+                    success=output.get("files_generated", 0) >= 0,
+                    output=output,
+                    metadata={"capability": self.capability_name},
+                )
             except Exception:
                 pass
         return output

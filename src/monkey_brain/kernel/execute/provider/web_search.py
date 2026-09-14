@@ -7,6 +7,7 @@ same "never raise into the caller, degrade to an honest empty" idiom
 kernel/timeline/store.py and the other provider clients in this package
 already use.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ async def tavily_search(query: str, max_results: int = 5) -> list[dict[str, Any]
         return []
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
                 TAVILY_SEARCH_URL,

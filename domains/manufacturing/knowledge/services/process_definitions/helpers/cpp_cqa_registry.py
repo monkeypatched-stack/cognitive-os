@@ -10,7 +10,6 @@ from services.process_definitions.models.cpp_cqa_registry import (
     CppCqaRegistryUpdate,
 )
 
-
 COLLECTION = "cpp_cqa_registry"
 
 
@@ -40,7 +39,9 @@ def _prepare(doc: dict) -> dict:
         elif isinstance(value, dict):
             result[key] = _prepare(value)
         elif isinstance(value, list):
-            result[key] = [_prepare(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                _prepare(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             result[key] = value
     return result

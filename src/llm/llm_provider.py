@@ -19,6 +19,7 @@ import httpx
 
 class LLMProvider(str, Enum):
     """Available LLM providers"""
+
     CLAUDE = "claude"
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
@@ -33,7 +34,7 @@ class BaseLLMProvider(ABC):
         system: str,
         user_message: str,
         max_tokens: int = 1000,
-        model: Optional[str] = None
+        model: Optional[str] = None,
     ) -> str:
         """Get completion from LLM"""
         pass
@@ -49,9 +50,7 @@ class ClaudeProvider(BaseLLMProvider):
 
     def __init__(self, api_key: Optional[str] = None):
         """Initialize Claude provider"""
-        self.client = anthropic.Anthropic(
-            api_key=api_key or os.getenv("ANTHROPIC_API_KEY")
-        )
+        self.client = anthropic.Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
         self.model = "claude-3-5-sonnet-20241022"
         self.cache_hits = 0
         self.cache_misses = 0
@@ -61,7 +60,7 @@ class ClaudeProvider(BaseLLMProvider):
         system: str,
         user_message: str,
         max_tokens: int = 1000,
-        model: Optional[str] = None
+        model: Optional[str] = None,
     ) -> str:
         """Get completion from Claude"""
         if model is None:
@@ -72,7 +71,7 @@ class ClaudeProvider(BaseLLMProvider):
             model=model,
             max_tokens=max_tokens,
             system=system,
-            messages=[{"role": "user", "content": user_message}]
+            messages=[{"role": "user", "content": user_message}],
         )
 
         return response.content[0].text
@@ -99,7 +98,7 @@ class OpenRouterProvider(BaseLLMProvider):
                 "Authorization": f"Bearer {self.api_key}",
                 "HTTP-Referer": "https://github.com/monkeypatched",
                 "X-Title": "MonkeyPatched v3.0",
-            }
+            },
         )
 
     async def complete(
@@ -107,7 +106,7 @@ class OpenRouterProvider(BaseLLMProvider):
         system: str,
         user_message: str,
         max_tokens: int = 1000,
-        model: Optional[str] = None
+        model: Optional[str] = None,
     ) -> str:
         """Get completion from OpenRouter"""
         if model is None:
@@ -121,9 +120,9 @@ class OpenRouterProvider(BaseLLMProvider):
                 "temperature": 0.7,
                 "messages": [
                     {"role": "system", "content": system},
-                    {"role": "user", "content": user_message}
-                ]
-            }
+                    {"role": "user", "content": user_message},
+                ],
+            },
         )
 
         data = response.json()
@@ -159,7 +158,7 @@ class OllamaProvider(BaseLLMProvider):
         system: str,
         user_message: str,
         max_tokens: int = 1000,
-        model: Optional[str] = None
+        model: Optional[str] = None,
     ) -> str:
         """Get completion from Ollama"""
         if model is None:
@@ -172,10 +171,7 @@ class OllamaProvider(BaseLLMProvider):
             available_models = [m["name"] for m in models_data.get("models", [])]
 
             if model not in available_models:
-                raise ValueError(
-                    f"Model {model} not available in Ollama. "
-                    f"Available: {available_models}"
-                )
+                raise ValueError(f"Model {model} not available in Ollama. Available: {available_models}")
         except Exception as e:
             raise ValueError(f"Failed to connect to Ollama: {e}")
 
@@ -187,7 +183,7 @@ class OllamaProvider(BaseLLMProvider):
                 "prompt": f"{system}\n\nUser: {user_message}",
                 "stream": False,
                 "num_predict": max_tokens,
-            }
+            },
         )
 
         data = response.json()
@@ -233,10 +229,7 @@ class LLMProviderFactory:
             return OllamaProvider()
 
         else:
-            raise ValueError(
-                f"Unknown LLM provider: {provider_name}. "
-                f"Supported: claude, openrouter, ollama"
-            )
+            raise ValueError(f"Unknown LLM provider: {provider_name}. Supported: claude, openrouter, ollama")
 
     @staticmethod
     def get_provider_async(provider_name: Optional[str] = None) -> BaseLLMProvider:
@@ -282,13 +275,7 @@ class LLMConfig:
 
     def __repr__(self) -> str:
         """String representation"""
-        return (
-            f"LLMConfig("
-            f"provider={self.provider}, "
-            f"enabled={self.enabled}, "
-            f"model={self.get_model_for_provider()}"
-            f")"
-        )
+        return f"LLMConfig(provider={self.provider}, enabled={self.enabled}, model={self.get_model_for_provider()})"
 
 
 # Global config instance
@@ -299,7 +286,7 @@ async def get_llm_completion(
     system_prompt: str,
     user_message: str,
     max_tokens: int = 1000,
-    provider_name: Optional[str] = None
+    provider_name: Optional[str] = None,
 ) -> str:
     """Convenience function to get LLM completion
 
@@ -328,13 +315,11 @@ async def get_llm_completion(
     try:
         result = await asyncio.wait_for(
             provider.complete(system_prompt, user_message, max_tokens, model),
-            timeout=llm_config.timeout_seconds
+            timeout=llm_config.timeout_seconds,
         )
         return result
 
     except asyncio.TimeoutError:
-        raise TimeoutError(
-            f"LLM request timed out after {llm_config.timeout_seconds} seconds"
-        )
+        raise TimeoutError(f"LLM request timed out after {llm_config.timeout_seconds} seconds")
     except Exception as e:
         raise RuntimeError(f"LLM request failed: {e}")

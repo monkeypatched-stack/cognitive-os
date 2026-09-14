@@ -37,7 +37,9 @@ def _prepare(value):
     return value
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -57,13 +59,19 @@ async def get_by_pallet(db: AsyncIOMotorDatabase, pallet_id: str) -> list[dict]:
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_delivery_note(db: AsyncIOMotorDatabase, delivery_note_id: str) -> list[dict]:
+async def get_by_delivery_note(
+    db: AsyncIOMotorDatabase, delivery_note_id: str
+) -> list[dict]:
     cursor = db[COLLECTION].find({"delivery_note_id": delivery_note_id})
     return [_serialize(doc) async for doc in cursor]
 
 
-async def get_by_tracking_number(db: AsyncIOMotorDatabase, tracking_number: str) -> Optional[dict]:
-    return _serialize(await db[COLLECTION].find_one({"tracking_number": tracking_number}))
+async def get_by_tracking_number(
+    db: AsyncIOMotorDatabase, tracking_number: str
+) -> Optional[dict]:
+    return _serialize(
+        await db[COLLECTION].find_one({"tracking_number": tracking_number})
+    )
 
 
 async def get_by_status(db: AsyncIOMotorDatabase, status: str) -> list[dict]:
@@ -77,7 +85,9 @@ async def create(db: AsyncIOMotorDatabase, data: PackageCreate) -> dict:
     return _serialize(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, package_id: str, data: PackageUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, package_id: str, data: PackageUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, package_id)

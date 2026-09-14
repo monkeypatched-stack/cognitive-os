@@ -9,8 +9,13 @@ import asyncio
 from datetime import datetime
 
 from src.actor.event_driven_observer import (
-    ContextEvent, EventType, EventFilter, EventSubscription,
-    ContextStreamBroker, EventDrivenActor, ReactiveAutonomousActor
+    ContextEvent,
+    EventType,
+    EventFilter,
+    EventSubscription,
+    ContextStreamBroker,
+    EventDrivenActor,
+    ReactiveAutonomousActor,
 )
 from src.monkey_brain.kernel.compile.context_stream_broker import ContextStreamManager
 from src.monkey_brain.kernel.compile.entity import Person
@@ -24,7 +29,7 @@ class TestContextStreamBroker:
         broker = ContextStreamBroker()
         assert broker is not None
         stats = broker.get_stats()
-        assert stats['total_events_published'] == 0
+        assert stats["total_events_published"] == 0
 
     def test_create_event(self):
         """Context events can be created"""
@@ -32,7 +37,7 @@ class TestContextStreamBroker:
             event_type=EventType.ENTITY_CREATED,
             source_actor_id="actor1",
             affected_entity_id="entity1",
-            data={'name': 'Test'}
+            data={"name": "Test"},
         )
 
         assert event.event_type == EventType.ENTITY_CREATED
@@ -43,7 +48,7 @@ class TestContextStreamBroker:
         event = ContextEvent(
             event_type=EventType.ACTION_EXECUTED,
             source_actor_id="actor1",
-            affected_entity_id="entity1"
+            affected_entity_id="entity1",
         )
 
         # Filter by event type
@@ -72,11 +77,7 @@ class TestContextStreamBroker:
             received_events.append(event)
 
         event_filter = EventFilter(event_types={EventType.ACTION_EXECUTED})
-        subscription = broker.subscribe(
-            actor_id="actor1",
-            event_filter=event_filter,
-            callback=callback
-        )
+        subscription = broker.subscribe(actor_id="actor1", event_filter=event_filter, callback=callback)
 
         assert subscription is not None
 
@@ -97,7 +98,7 @@ class TestContextStreamBroker:
             event_type=EventType.ACTION_EXECUTED,
             source_actor_id="actor2",
             affected_entity_id="entity1",
-            data={'action': 'move'}
+            data={"action": "move"},
         )
         await broker.publish(event)
 
@@ -127,7 +128,7 @@ class TestContextStreamBroker:
         event = ContextEvent(
             event_type=EventType.ENTITY_UPDATED,
             source_actor_id="actor3",
-            affected_entity_id="entity1"
+            affected_entity_id="entity1",
         )
         await broker.publish(event)
 
@@ -153,7 +154,7 @@ class TestContextStreamBroker:
         event1 = ContextEvent(
             event_type=EventType.ACTION_EXECUTED,
             source_actor_id="actor2",
-            affected_entity_id="entity1"
+            affected_entity_id="entity1",
         )
         await broker.publish(event1)
 
@@ -161,7 +162,7 @@ class TestContextStreamBroker:
         event2 = ContextEvent(
             event_type=EventType.ACTION_EXECUTED,
             source_actor_id="actor3",
-            affected_entity_id="entity1"
+            affected_entity_id="entity1",
         )
         await broker.publish(event2)
 
@@ -187,7 +188,7 @@ class TestContextStreamBroker:
         event1 = ContextEvent(
             event_type=EventType.ENTITY_UPDATED,
             source_actor_id="actor2",
-            affected_entity_id="entity1"
+            affected_entity_id="entity1",
         )
         await broker.publish(event1)
 
@@ -195,7 +196,7 @@ class TestContextStreamBroker:
         event2 = ContextEvent(
             event_type=EventType.ENTITY_UPDATED,
             source_actor_id="actor2",
-            affected_entity_id="entity2"
+            affected_entity_id="entity2",
         )
         await broker.publish(event2)
 
@@ -223,7 +224,7 @@ class TestContextStreamBroker:
         event = ContextEvent(
             event_type=EventType.ACTION_EXECUTED,
             source_actor_id="actor2",
-            affected_entity_id="entity1"
+            affected_entity_id="entity1",
         )
         await broker.publish(event)
 
@@ -244,10 +245,7 @@ class TestContextStreamBroker:
         broker.subscribe("actor1", event_filter, callback)
 
         # Batch publish
-        events = [
-            ContextEvent(EventType.ACTION_EXECUTED, "actor2", f"entity{i}")
-            for i in range(5)
-        ]
+        events = [ContextEvent(EventType.ACTION_EXECUTED, "actor2", f"entity{i}") for i in range(5)]
         await broker.publish_batch(events)
 
         await asyncio.sleep(0.1)
@@ -260,11 +258,13 @@ class TestContextStreamBroker:
 
         # Publish events (without async)
         for i in range(5):
-            broker._event_history.append(ContextEvent(
-                event_type=EventType.ACTION_EXECUTED,
-                source_actor_id="actor1",
-                affected_entity_id=f"entity{i}"
-            ))
+            broker._event_history.append(
+                ContextEvent(
+                    event_type=EventType.ACTION_EXECUTED,
+                    source_actor_id="actor1",
+                    affected_entity_id=f"entity{i}",
+                )
+            )
             broker._event_count += 1
 
         history = broker.get_event_history(limit=3)
@@ -278,8 +278,8 @@ class TestContextStreamBroker:
         broker._event_history = [None] * 10
 
         stats = broker.get_stats()
-        assert stats['total_events_published'] == 10
-        assert stats['event_history_size'] == 10
+        assert stats["total_events_published"] == 10
+        assert stats["event_history_size"] == 10
 
 
 class TestEventDrivenActor:
@@ -390,19 +390,14 @@ class TestReactiveAutonomousActor:
         actor.id = "actor1"
 
         # Queue an event
-        event = ContextEvent(
-            EventType.ACTION_EXECUTED,
-            "actor2",
-            "entity1",
-            data={'action': 'move'}
-        )
+        event = ContextEvent(EventType.ACTION_EXECUTED, "actor2", "entity1", data={"action": "move"})
         await actor._pending_observations.put(event)
 
         # Observe processes the event
         observations = await actor.observe()
 
-        assert observations['event_count'] == 1
-        assert len(observations['events']) == 1
+        assert observations["event_count"] == 1
+        assert len(observations["events"]) == 1
 
     @pytest.mark.asyncio
     async def test_believe_from_events(self):
@@ -415,7 +410,7 @@ class TestReactiveAutonomousActor:
                 EventType.ENTITY_UPDATED,
                 "actor2",
                 "entity1",
-                data={'new_state': {'status': 'active'}}
+                data={"new_state": {"status": "active"}},
             )
         ]
 
@@ -452,11 +447,7 @@ class TestContextStreamManager:
         event_filter = EventFilter(event_types={EventType.ACTION_EXECUTED})
         broker.subscribe("actor1", event_filter, callback)
 
-        await manager.publish_action_execution(
-            actor_id="actor2",
-            action={'type': 'move'},
-            result={'success': True}
-        )
+        await manager.publish_action_execution(actor_id="actor2", action={"type": "move"}, result={"success": True})
 
         await asyncio.sleep(0.1)
 
@@ -475,11 +466,7 @@ class TestContextStreamManager:
         event_filter = EventFilter(event_types={EventType.ENTITY_UPDATED})
         broker.subscribe("actor1", event_filter, callback)
 
-        await manager.publish_entity_update(
-            entity_id="entity1",
-            source_actor_id="actor2",
-            updates={'status': 'active'}
-        )
+        await manager.publish_entity_update(entity_id="entity1", source_actor_id="actor2", updates={"status": "active"})
 
         await asyncio.sleep(0.1)
 
@@ -490,8 +477,8 @@ class TestContextStreamManager:
         manager = ContextStreamManager()
         stats = manager.get_stats()
 
-        assert 'total_events_published' in stats
-        assert 'active_actors' in stats
+        assert "total_events_published" in stats
+        assert "active_actors" in stats
 
 
 class TestPhase9Integration:
@@ -520,7 +507,7 @@ class TestPhase9Integration:
             event_type=EventType.ACTION_EXECUTED,
             source_actor_id="actor2",
             affected_entity_id="entity1",
-            data={'action': 'move'}
+            data={"action": "move"},
         )
         await broker.publish(event)
 
@@ -528,7 +515,7 @@ class TestPhase9Integration:
 
         # Actor 1 should have received event in observations
         observations = await actor1.observe()
-        assert observations['event_count'] == 1
+        assert observations["event_count"] == 1
 
     @pytest.mark.asyncio
     async def test_multi_actor_event_flow(self):
@@ -551,7 +538,7 @@ class TestPhase9Integration:
         event = ContextEvent(
             event_type=EventType.ACTION_EXECUTED,
             source_actor_id="actor0",
-            affected_entity_id="entity1"
+            affected_entity_id="entity1",
         )
         await broker.publish(event)
 
@@ -560,4 +547,4 @@ class TestPhase9Integration:
         # All actors should have received event
         for i, actor in enumerate(actors):
             observations = await actor.observe()
-            assert observations['event_count'] == 1
+            assert observations["event_count"] == 1

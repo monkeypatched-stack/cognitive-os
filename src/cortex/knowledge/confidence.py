@@ -26,13 +26,14 @@ from typing import ClassVar, NamedTuple
 
 class ConfidenceComponent(NamedTuple):
     """Named index into a ConfidenceVector."""
-    PROVENANCE:  int = 0
-    FRESHNESS:   int = 1
-    SEMANTIC:    int = 2
-    VERIFICATION:int = 3
-    EMPIRICAL:   int = 4
-    MODALITY:    int = 5
-    RETRIEVAL:   int = 6
+
+    PROVENANCE: int = 0
+    FRESHNESS: int = 1
+    SEMANTIC: int = 2
+    VERIFICATION: int = 3
+    EMPIRICAL: int = 4
+    MODALITY: int = 5
+    RETRIEVAL: int = 6
 
 
 COMPONENT = ConfidenceComponent()
@@ -50,13 +51,14 @@ class ConfidenceVector:
 
     All components ∈ [0.0, 1.0].
     """
-    provenance:   float = 1.0   # P: source authority
-    freshness:    float = 1.0   # F: temporal relevance
-    semantic:     float = 1.0   # S: internal consistency
-    verification: float = 1.0   # V: formal proof / audit / test result
-    empirical:    float = 1.0   # E: observed simulation or experimental evidence
-    modality:     float = 1.0   # M: reliability of this evidence type
-    retrieval:    float = 1.0   # R: confidence the right item was retrieved
+
+    provenance: float = 1.0  # P: source authority
+    freshness: float = 1.0  # F: temporal relevance
+    semantic: float = 1.0  # S: internal consistency
+    verification: float = 1.0  # V: formal proof / audit / test result
+    empirical: float = 1.0  # E: observed simulation or experimental evidence
+    modality: float = 1.0  # M: reliability of this evidence type
+    retrieval: float = 1.0  # R: confidence the right item was retrieved
 
     # Default projection weights — domain teams tune these
     _W: ClassVar[tuple[float, ...]] = (0.20, 0.12, 0.15, 0.22, 0.18, 0.08, 0.05)
@@ -69,8 +71,13 @@ class ConfidenceVector:
         """Project to [0,1] for SimulationLoss and retrieval decisions."""
         w = weights or self._W
         components = (
-            self.provenance, self.freshness, self.semantic,
-            self.verification, self.empirical, self.modality, self.retrieval,
+            self.provenance,
+            self.freshness,
+            self.semantic,
+            self.verification,
+            self.empirical,
+            self.modality,
+            self.retrieval,
         )
         return round(sum(wi * ci for wi, ci in zip(w, components)), 4)
 
@@ -108,14 +115,14 @@ class ConfidenceVector:
         else:
             updated = current * (1.0 - evidence_confidence * learning_rate)
         kwargs = {
-            "provenance":   self.provenance,
-            "freshness":    self.freshness,
-            "semantic":     self.semantic,
+            "provenance": self.provenance,
+            "freshness": self.freshness,
+            "semantic": self.semantic,
             "verification": self.verification,
-            "empirical":    self.empirical,
-            "modality":     self.modality,
-            "retrieval":    self.retrieval,
-            component:      round(max(0.0, min(1.0, updated)), 4),
+            "empirical": self.empirical,
+            "modality": self.modality,
+            "retrieval": self.retrieval,
+            component: round(max(0.0, min(1.0, updated)), 4),
         }
         return ConfidenceVector(**kwargs)
 
@@ -152,13 +159,13 @@ class ConfidenceVector:
             return len(pos) / sum(1.0 / v for v in pos)
 
         return cls(
-            provenance=  round(_hmean([v.provenance   for v in vectors]), 4),
-            freshness=   round(_hmean([v.freshness    for v in vectors]), 4),
-            semantic=    round(_hmean([v.semantic     for v in vectors]), 4),
+            provenance=round(_hmean([v.provenance for v in vectors]), 4),
+            freshness=round(_hmean([v.freshness for v in vectors]), 4),
+            semantic=round(_hmean([v.semantic for v in vectors]), 4),
             verification=round(_hmean([v.verification for v in vectors]), 4),
-            empirical=   round(_hmean([v.empirical    for v in vectors]), 4),
-            modality=    round(_hmean([v.modality     for v in vectors]), 4),
-            retrieval=   round(_hmean([v.retrieval    for v in vectors]), 4),
+            empirical=round(_hmean([v.empirical for v in vectors]), 4),
+            modality=round(_hmean([v.modality for v in vectors]), 4),
+            retrieval=round(_hmean([v.retrieval for v in vectors]), 4),
         )
 
     # ---------------------------------------------------------------------------
@@ -167,26 +174,26 @@ class ConfidenceVector:
 
     def to_dict(self) -> dict[str, float]:
         return {
-            "provenance":   self.provenance,
-            "freshness":    self.freshness,
-            "semantic":     self.semantic,
+            "provenance": self.provenance,
+            "freshness": self.freshness,
+            "semantic": self.semantic,
             "verification": self.verification,
-            "empirical":    self.empirical,
-            "modality":     self.modality,
-            "retrieval":    self.retrieval,
-            "scalar":       self.scalar(),
+            "empirical": self.empirical,
+            "modality": self.modality,
+            "retrieval": self.retrieval,
+            "scalar": self.scalar(),
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "ConfidenceVector":
         return cls(
-            provenance=  float(d.get("provenance",   1.0)),
-            freshness=   float(d.get("freshness",    1.0)),
-            semantic=    float(d.get("semantic",     1.0)),
+            provenance=float(d.get("provenance", 1.0)),
+            freshness=float(d.get("freshness", 1.0)),
+            semantic=float(d.get("semantic", 1.0)),
             verification=float(d.get("verification", 1.0)),
-            empirical=   float(d.get("empirical",    1.0)),
-            modality=    float(d.get("modality",     1.0)),
-            retrieval=   float(d.get("retrieval",    1.0)),
+            empirical=float(d.get("empirical", 1.0)),
+            modality=float(d.get("modality", 1.0)),
+            retrieval=float(d.get("retrieval", 1.0)),
         )
 
     @classmethod
@@ -194,6 +201,11 @@ class ConfidenceVector:
         """Bootstrap from a legacy scalar — treats all components equally."""
         v = max(0.0, min(1.0, float(value)))
         return cls(
-            provenance=v, freshness=v, semantic=v,
-            verification=v, empirical=v, modality=v, retrieval=v,
+            provenance=v,
+            freshness=v,
+            semantic=v,
+            verification=v,
+            empirical=v,
+            modality=v,
+            retrieval=v,
         )

@@ -5,6 +5,7 @@ GET /api/v1/agentos/data-routing/entry/{capability}/{entity}
 GET /api/v1/agentos/data-routing/summary
 POST /api/v1/agentos/data-routing/resolve
 """
+
 from __future__ import annotations
 
 import logging
@@ -57,7 +58,10 @@ async def routing_entry(
         return JSONResponse(status_code=503, content={"error": "Data routing not initialized"})
     entry = middleware.get_entry(capability, entity)
     if entry is None:
-        return JSONResponse(status_code=404, content={"error": f"No routing entry for {capability}:{entity}"})
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"No routing entry for {capability}:{entity}"},
+        )
     return entry.to_dict()
 
 

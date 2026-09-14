@@ -3,7 +3,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-
 BatchStepExecutionStatus = Literal[
     "Planned",
     "In Progress",
@@ -74,18 +73,36 @@ class BatchStepExecution(BaseModel):
         self.created_at = ensure_utc(self.created_at) or utc_now()
         self.updated_at = ensure_utc(self.updated_at) or utc_now()
 
-        if self.completed_at and self.started_at and self.completed_at < self.started_at:
-            raise ValueError("completed_at cannot be before started_at for a batch step execution.")
+        if (
+            self.completed_at
+            and self.started_at
+            and self.completed_at < self.started_at
+        ):
+            raise ValueError(
+                "completed_at cannot be before started_at for a batch step execution."
+            )
         if self.duration_minutes is None and self.started_at and self.completed_at:
-            self.duration_minutes = round((self.completed_at - self.started_at).total_seconds() / 60, 4)
+            self.duration_minutes = round(
+                (self.completed_at - self.started_at).total_seconds() / 60, 4
+            )
         if self.status == "In Progress" and not self.started_at:
-            raise ValueError("in-progress batch step executions must include started_at.")
+            raise ValueError(
+                "in-progress batch step executions must include started_at."
+            )
         if self.status == "Completed" and not self.completed_at:
-            raise ValueError("completed batch step executions must include completed_at.")
+            raise ValueError(
+                "completed batch step executions must include completed_at."
+            )
         if self.status == "Completed" and not self.signature_ids:
-            raise ValueError("completed batch step executions must include signature_ids.")
-        if self.status in {"Failed", "Rejected"} and not (self.exception_notes or self.deviation_id):
-            raise ValueError("failed/rejected batch step executions must include exception_notes or deviation_id.")
+            raise ValueError(
+                "completed batch step executions must include signature_ids."
+            )
+        if self.status in {"Failed", "Rejected"} and not (
+            self.exception_notes or self.deviation_id
+        ):
+            raise ValueError(
+                "failed/rejected batch step executions must include exception_notes or deviation_id."
+            )
         return self
 
 

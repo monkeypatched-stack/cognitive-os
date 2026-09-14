@@ -10,6 +10,7 @@ Expands the generalization test suite with deeper coverage across:
 - Knowledge generalization
 - Workflow generalization
 """
+
 from __future__ import annotations
 
 import os
@@ -35,6 +36,7 @@ _skip_slow_scale = pytest.mark.skipif(
 @pytest.fixture(scope="module")
 def client():
     from src.monkey_brain.api.main import app
+
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -43,19 +45,30 @@ def client():
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _create_actor(client, name, actor_type, goal, caps=None):
-    r = client.post("/api/v1/agentos/actors", json={
-        "name": name, "actor_type": actor_type,
-        "goals": [goal], "capabilities": caps or [{"name": "general"}],
-    })
+    r = client.post(
+        "/api/v1/agentos/actors",
+        json={
+            "name": name,
+            "actor_type": actor_type,
+            "goals": [goal],
+            "capabilities": caps or [{"name": "general"}],
+        },
+    )
     assert r.status_code == 200
     return r.json()["actor_id"]
 
 
 def _tick_actor(client, aid, start="origin", goal="target"):
-    r = client.post(f"/api/v1/agentos/actors/{aid}/tick", json={
-        "start": start, "goal": goal, "reward": 1.0,
-    })
+    r = client.post(
+        f"/api/v1/agentos/actors/{aid}/tick",
+        json={
+            "start": start,
+            "goal": goal,
+            "reward": 1.0,
+        },
+    )
     assert r.status_code == 200
     return r.json()
 
@@ -63,8 +76,10 @@ def _tick_actor(client, aid, start="origin", goal="target"):
 def _share_experience(client, aid, outcome="success", confidence=0.8, lessons=None, learning_type=None):
     body = {
         "experience": {
-            "actor_id": aid, "outcome": outcome,
-            "confidence": confidence, "lessons": lessons or [],
+            "actor_id": aid,
+            "outcome": outcome,
+            "confidence": confidence,
+            "lessons": lessons or [],
         }
     }
     if learning_type:
@@ -84,32 +99,68 @@ def _tick_planet(client):
 # 1. Expanded Domain Scenarios
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExpandedDomains:
     """Deeper domain coverage with more realistic scenarios."""
 
     DOMAINS = [
         # (name, actors: [(name, type, goal, caps)])
-        ("Telecom Network Optimization", [
-            ("NetworkEng", "human", "optimize_bandwidth", [{"name": "network_engineering"}]),
-            ("TrafficAI", "ai_agent", "balance_load", [{"name": "traffic_analysis"}]),
-        ]),
-        ("Legal Contract Review", [
-            ("Lawyer-1", "human", "review_contract", [{"name": "legal_review"}]),
-            ("ContractAI", "ai_agent", "extract_clauses", [{"name": "nlp"}]),
-        ]),
-        ("Agricultural Supply Chain", [
-            ("FarmMgr", "human", "manage_harvest", [{"name": "agriculture"}]),
-            ("DroneBot", "robot", "survey_crops", [{"name": "aerial_imaging"}]),
-            ("LogisticsCo", "enterprise", "coordinate_distribution", [{"name": "logistics"}]),
-        ]),
-        ("Energy Grid Management", [
-            ("GridOp", "human", "balance_load", [{"name": "grid_operations"}]),
-            ("ForecastAI", "ai_agent", "predict_demand", [{"name": "forecasting"}]),
-        ]),
-        ("Educational Content Delivery", [
-            ("Teacher-1", "human", "create_curriculum", [{"name": "education"}]),
-            ("ContentAI", "ai_agent", "personalize_learning", [{"name": "adaptive_learning"}]),
-        ]),
+        (
+            "Telecom Network Optimization",
+            [
+                (
+                    "NetworkEng",
+                    "human",
+                    "optimize_bandwidth",
+                    [{"name": "network_engineering"}],
+                ),
+                (
+                    "TrafficAI",
+                    "ai_agent",
+                    "balance_load",
+                    [{"name": "traffic_analysis"}],
+                ),
+            ],
+        ),
+        (
+            "Legal Contract Review",
+            [
+                ("Lawyer-1", "human", "review_contract", [{"name": "legal_review"}]),
+                ("ContractAI", "ai_agent", "extract_clauses", [{"name": "nlp"}]),
+            ],
+        ),
+        (
+            "Agricultural Supply Chain",
+            [
+                ("FarmMgr", "human", "manage_harvest", [{"name": "agriculture"}]),
+                ("DroneBot", "robot", "survey_crops", [{"name": "aerial_imaging"}]),
+                (
+                    "LogisticsCo",
+                    "enterprise",
+                    "coordinate_distribution",
+                    [{"name": "logistics"}],
+                ),
+            ],
+        ),
+        (
+            "Energy Grid Management",
+            [
+                ("GridOp", "human", "balance_load", [{"name": "grid_operations"}]),
+                ("ForecastAI", "ai_agent", "predict_demand", [{"name": "forecasting"}]),
+            ],
+        ),
+        (
+            "Educational Content Delivery",
+            [
+                ("Teacher-1", "human", "create_curriculum", [{"name": "education"}]),
+                (
+                    "ContentAI",
+                    "ai_agent",
+                    "personalize_learning",
+                    [{"name": "adaptive_learning"}],
+                ),
+            ],
+        ),
     ]
 
     @pytest.mark.parametrize("name,actors", DOMAINS, ids=[d[0] for d in DOMAINS])
@@ -127,6 +178,7 @@ class TestExpandedDomains:
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. Entity Type Combinations
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestEntityCombinations:
     """Verify all actor type pairs work together."""
@@ -157,6 +209,7 @@ class TestEntityCombinations:
 # 3. Constraint Variations
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestConstraintVariations:
     """Different planning constraint profiles."""
 
@@ -180,6 +233,7 @@ class TestConstraintVariations:
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. Scale Boundaries
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestScaleBoundaries:
     """Test at various scale boundaries."""
@@ -209,6 +263,7 @@ class TestScaleBoundaries:
 # ═══════════════════════════════════════════════════════════════════════════
 # 5. Failure Recovery Patterns
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFailureRecoveryPatterns:
     """Recovery from various failure modes."""
@@ -247,6 +302,7 @@ class TestFailureRecoveryPatterns:
 # ═══════════════════════════════════════════════════════════════════════════
 # 6. Learning Transfer
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestLearningTransfer:
     """Verify learning transfers across scenarios."""
@@ -289,6 +345,7 @@ class TestLearningTransfer:
 # 7. Knowledge Generalization
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestKnowledgeGeneralization:
     """Handle unseen concepts gracefully."""
 
@@ -300,8 +357,13 @@ class TestKnowledgeGeneralization:
 
     def test_unseen_capability(self, client):
         """Actor with novel capabilities should be registered."""
-        aid = _create_actor(client, "NovelCap", "robot", "task",
-                          caps=[{"name": "teleportation"}, {"name": "time_travel"}])
+        aid = _create_actor(
+            client,
+            "NovelCap",
+            "robot",
+            "task",
+            caps=[{"name": "teleportation"}, {"name": "time_travel"}],
+        )
         result = _tick_actor(client, aid)
         assert result["result"].get("belief_updated") is True
 
@@ -315,6 +377,7 @@ class TestKnowledgeGeneralization:
 # ═══════════════════════════════════════════════════════════════════════════
 # 8. Workflow Generalization
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestWorkflowGeneralization:
     """Different workflow patterns should all execute."""
@@ -337,6 +400,7 @@ class TestWorkflowGeneralization:
 # ═══════════════════════════════════════════════════════════════════════════
 # 9. World State Consistency
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestWorldStateConsistency:
     """World state remains consistent across diverse operations."""
@@ -373,6 +437,7 @@ class TestWorldStateConsistency:
 # 10. Runtime Stability Under Diversity
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRuntimeStabilityUnderDiversity:
     """Runtime remains stable under diverse workloads."""
 
@@ -408,6 +473,7 @@ class TestRuntimeStabilityUnderDiversity:
 # 11. Policy Evolution
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPolicyEvolution:
     """Verify policy evolution through learning."""
 
@@ -415,14 +481,17 @@ class TestPolicyEvolution:
         """Policy evolution experiences should propose policies."""
         aid = _create_actor(client, "PolicyEvolver", "ai_agent", "evolve_policy")
 
-        r = client.post("/api/v1/agentos/learn/experience", json={
-            "learning_type": "policy_evolution",
-            "experience": {
-                "actor_id": aid,
-                "outcome": "success",
-                "confidence": 0.9,
-            }
-        })
+        r = client.post(
+            "/api/v1/agentos/learn/experience",
+            json={
+                "learning_type": "policy_evolution",
+                "experience": {
+                    "actor_id": aid,
+                    "outcome": "success",
+                    "confidence": 0.9,
+                },
+            },
+        )
         assert r.status_code == 200
         assert r.json()["result"]["policy_proposed"] is not None
 
@@ -430,8 +499,11 @@ class TestPolicyEvolution:
         """Lessons should refine the world."""
         aid = _create_actor(client, "WorldRefiner", "ai_agent", "refine_world")
 
-        exp = _share_experience(client, aid,
-            outcome="success", confidence=0.9,
+        exp = _share_experience(
+            client,
+            aid,
+            outcome="success",
+            confidence=0.9,
             lessons=["lesson_1", "lesson_2"],
         )
         assert exp["result"]["world_refined"] is True
@@ -440,6 +512,7 @@ class TestPolicyEvolution:
 # ═══════════════════════════════════════════════════════════════════════════
 # 12. Generalization Matrix (Summary)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestGeneralizationMatrix:
     """Final summary test — all dimensions pass."""

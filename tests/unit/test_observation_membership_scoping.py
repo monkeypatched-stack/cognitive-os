@@ -4,12 +4,17 @@ active Membership in that society; an entity with no owner (the default)
 stays globally visible to everyone, unchanged. A bare ObservationProvider
 with no membership_lookup wired in behaves exactly as before this change.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.society.observation import ObservationProvider
 from src.monkey_brain.kernel.society.world import SharedWorld, WorldEntity
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+)
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
 
 
@@ -81,7 +86,8 @@ def test_real_planetary_runtime_gates_by_active_membership():
     # register_actor() also creates a "home" membership in a different,
     # default society — find the one for THIS household specifically.
     membership = next(
-        m for m in pr.membership_registry.memberships_for_actor(member.actor_id)
+        m
+        for m in pr.membership_registry.memberships_for_actor(member.actor_id)
         if m.society_id == soc.society.society_id
     )
     pr.membership_registry.set_status(membership.membership_id, "terminated")

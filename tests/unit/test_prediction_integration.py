@@ -8,6 +8,7 @@ the original _predict's belief.record_prediction() side effect (read by
 the untouched _commit stage) is preserved exactly, not silently dropped.
 Mirrors test_learning_integration.py's rigor for the analogous Step 10.7.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,19 +16,31 @@ import unittest.mock as mock
 
 import pytest
 
-from src.monkey_brain.kernel.pipeline.contracts import CompiledRequest, PipelineRequest, RuntimeContext
+from src.monkey_brain.kernel.pipeline.contracts import (
+    CompiledRequest,
+    PipelineRequest,
+    RuntimeContext,
+)
 from src.monkey_brain.kernel.pipeline.belief_runtime import CognitiveRuntime
 from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
 from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
 from src.monkey_brain.kernel.pipeline.actor import Actor
 from src.monkey_brain.kernel.pipeline.cognitive_policy import CognitivePolicy
-from src.monkey_brain.kernel.pipeline.learning.integration import LearningIntegratedPolicy
+from src.monkey_brain.kernel.pipeline.learning.integration import (
+    LearningIntegratedPolicy,
+)
 from src.monkey_brain.kernel.pipeline.planning import IntegratedPlanningEngine
 from src.monkey_brain.kernel.pipeline.execution_runtime import IntegratedExecutionEngine
-from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel, WorldTransition
-from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption
+from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+    TransitionModel,
+    WorldTransition,
+)
+from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+    CounterfactualAssumption,
+)
 from src.monkey_brain.kernel.pipeline.prediction.integration import (
-    PredictionIntegratedPolicy, build_prediction_integrated_runtime,
+    PredictionIntegratedPolicy,
+    build_prediction_integrated_runtime,
 )
 
 
@@ -36,9 +49,11 @@ def _make_compiled(question: str = "get 2 l of milk", goal_name: str = "acquire_
     ctx = mock.MagicMock()
     ctx.run_id = "run-001"
     return CompiledRequest(
-        request=request, intent={"intent": "shopping", "confidence": 0.9},
+        request=request,
+        intent={"intent": "shopping", "confidence": 0.9},
         goal={"name": goal_name, "description": "Get milk"},
-        intent_ir=mock.MagicMock(), goal_ir=mock.MagicMock(goal=question),
+        intent_ir=mock.MagicMock(),
+        goal_ir=mock.MagicMock(goal=question),
         execution_context=ctx,
     )
 
@@ -55,7 +70,12 @@ async def _run_cycle(runtime: CognitiveRuntime) -> CognitiveState:
     compiled = _make_compiled()
     context = _make_context()
     actor = Actor(actor_id="alice", tenant_id="acme")
-    state = CognitiveState(compiled=compiled, context=context, actor=actor, belief=BeliefState(actor_id="alice", tenant_id="acme"))
+    state = CognitiveState(
+        compiled=compiled,
+        context=context,
+        actor=actor,
+        belief=BeliefState(actor_id="alice", tenant_id="acme"),
+    )
     actor.start_reasoning()
     return await runtime._policy.execute(state)
 
@@ -63,6 +83,7 @@ async def _run_cycle(runtime: CognitiveRuntime) -> CognitiveState:
 # ═══════════════════════════════════════════════════════════════════════════
 # Backward compatibility — the original Predict stage contract is preserved
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestBackwardCompatibility:
     @pytest.mark.asyncio
@@ -96,6 +117,7 @@ class TestBackwardCompatibility:
 # New prediction pipeline is genuinely wired in
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestNewPredictionPipelineWiredIn:
     @pytest.mark.asyncio
     async def test_prediction_result_attribute_populated(self):
@@ -104,7 +126,13 @@ class TestNewPredictionPipelineWiredIn:
 
         assert hasattr(state, "prediction_result")
         assert isinstance(state.prediction_result, dict)
-        for key in ("prediction_id", "candidates", "selected", "recommendation", "rationale"):
+        for key in (
+            "prediction_id",
+            "candidates",
+            "selected",
+            "recommendation",
+            "rationale",
+        ):
             assert key in state.prediction_result
 
     @pytest.mark.asyncio
@@ -124,12 +152,18 @@ class TestNewPredictionPipelineWiredIn:
 
     @pytest.mark.asyncio
     async def test_richer_transition_model_produces_richer_prediction(self):
-        model = TransitionModel(known_transitions={
-            "walk to the corner store": (
-                WorldTransition(description="Arrived", probability=0.9, confidence=0.85,
-                                 resulting_world_delta={"at_store": True}),
-            ),
-        })
+        model = TransitionModel(
+            known_transitions={
+                "walk to the corner store": (
+                    WorldTransition(
+                        description="Arrived",
+                        probability=0.9,
+                        confidence=0.85,
+                        resulting_world_delta={"at_store": True},
+                    ),
+                ),
+            }
+        )
         rt = build_prediction_integrated_runtime(transition_model=model, time_horizon=600.0)
         state = await _run_cycle(rt)
         assert state.prediction_result["candidates"][0]["prediction"]["time_horizon"] == 600.0
@@ -158,6 +192,7 @@ class TestNewPredictionPipelineWiredIn:
 # ═══════════════════════════════════════════════════════════════════════════
 # Composes with Step 10.7/10.8's LearningIntegratedPolicy (inherited)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestComposesWithLearningIntegration:
     @pytest.mark.asyncio
@@ -191,6 +226,7 @@ class TestComposesWithLearningIntegration:
 # Composes with Step 8.7 / 9.7's integration points
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestComposesWithPlanningAndExecutionIntegration:
     @pytest.mark.asyncio
     async def test_four_way_composition(self):
@@ -214,6 +250,7 @@ class TestComposesWithPlanningAndExecutionIntegration:
 # PredictionIntegratedPolicy — direct construction, no factory
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPredictionIntegratedPolicyDirect:
     @pytest.mark.asyncio
     async def test_wires_in_via_cognitive_runtime_policy_parameter(self):
@@ -229,8 +266,15 @@ class TestPredictionIntegratedPolicyDirect:
         assert len(policy._stages) == 9
         stage_names = [name for name, _ in policy._stages]
         assert stage_names == [
-            "observe", "believe", "plan", "execute", "observe_outcome",
-            "learn", "compile_phi", "predict", "commit",
+            "observe",
+            "believe",
+            "plan",
+            "execute",
+            "observe_outcome",
+            "learn",
+            "compile_phi",
+            "predict",
+            "commit",
         ]
 
 
@@ -238,14 +282,17 @@ class TestPredictionIntegratedPolicyDirect:
 # Ownership boundary — no modification, only import
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOwnershipBoundary:
     def test_belief_runtime_source_is_readable_and_unmodified_anchor_present(self):
         import src.monkey_brain.kernel.pipeline.belief_runtime as mod
+
         source = open(mod.__file__, "rb").read()
         assert b"CognitiveRuntime owns cognition." in source
 
     def test_cognitive_policy_source_unmodified_anchor_present(self):
         import src.monkey_brain.kernel.pipeline.cognitive_policy as mod
+
         source = open(mod.__file__, "rb").read()
         assert b"class RecursivePlanningPolicy(CognitivePolicy):" in source
 
@@ -253,10 +300,9 @@ class TestOwnershipBoundary:
         import ast
         import inspect
         import src.monkey_brain.kernel.pipeline.prediction.integration as mod
+
         tree = ast.parse(inspect.getsource(mod))
-        top_level_imports = [
-            node.module for node in tree.body if isinstance(node, ast.ImportFrom)
-        ]
+        top_level_imports = [node.module for node in tree.body if isinstance(node, ast.ImportFrom)]
         assert not any(m and "belief_runtime" in m for m in top_level_imports)
 
     def test_no_execution_engine_module_level_coupling(self):
@@ -267,6 +313,7 @@ class TestOwnershipBoundary:
         import ast
         import inspect
         import src.monkey_brain.kernel.pipeline.prediction.integration as mod
+
         tree = ast.parse(inspect.getsource(mod))
         imports = [node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
         assert not any("action_executor" in m for m in imports)

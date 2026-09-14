@@ -2,10 +2,22 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from services.changeover.models.changeover_tasks import ChangeoverTask
-from services.common.models.enums import ChangeoverStatus, ChangeoverTrigger, ChangeoverType, TaskStatus
+from services.common.models.enums import (
+    ChangeoverStatus,
+    ChangeoverTrigger,
+    ChangeoverType,
+    TaskStatus,
+)
 
 
 class ChangeoverEvent(BaseModel):
@@ -16,8 +28,12 @@ class ChangeoverEvent(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     workstation_id: str
     factory_id: str
-    procedure_id: Optional[str] = Field(None, description="Source ChangeoverProcedure template")
-    shift_schedule_id: Optional[str] = Field(None, description="Shift during which the changeover occurs")
+    procedure_id: Optional[str] = Field(
+        None, description="Source ChangeoverProcedure template"
+    )
+    shift_schedule_id: Optional[str] = Field(
+        None, description="Shift during which the changeover occurs"
+    )
     changeover_type: ChangeoverType
     trigger: ChangeoverTrigger = ChangeoverTrigger.SCHEDULED
     status: ChangeoverStatus = ChangeoverStatus.PLANNED
@@ -30,8 +46,12 @@ class ChangeoverEvent(BaseModel):
     lead_operator_id: Optional[str] = None
     team_member_ids: list[str] = Field(default_factory=list)
     tasks: list[ChangeoverTask] = Field(default_factory=list)
-    downtime_minutes: Optional[float] = Field(None, ge=0, description="Unplanned stoppage time added during changeover")
-    quality_check_passed: Optional[bool] = Field(None, description="First-article / first-off quality result after changeover")
+    downtime_minutes: Optional[float] = Field(
+        None, ge=0, description="Unplanned stoppage time added during changeover"
+    )
+    quality_check_passed: Optional[bool] = Field(
+        None, description="First-article / first-off quality result after changeover"
+    )
     notes: Optional[str] = Field(None, max_length=800)
 
     @field_validator("changeover_type", "trigger", "status", mode="before")
@@ -47,14 +67,22 @@ class ChangeoverEvent(BaseModel):
 
     @model_validator(mode="after")
     def actual_end_after_actual_start(self):
-        if self.actual_start and self.actual_end and self.actual_end <= self.actual_start:
+        if (
+            self.actual_start
+            and self.actual_end
+            and self.actual_end <= self.actual_start
+        ):
             raise ValueError("actual_end must be after actual_start")
         return self
 
     @model_validator(mode="after")
     def completed_needs_actual_times(self):
-        if self.status == ChangeoverStatus.COMPLETED and (not self.actual_start or not self.actual_end):
-            raise ValueError("status=completed requires both actual_start and actual_end")
+        if self.status == ChangeoverStatus.COMPLETED and (
+            not self.actual_start or not self.actual_end
+        ):
+            raise ValueError(
+                "status=completed requires both actual_start and actual_end"
+            )
         return self
 
     @computed_field  # type: ignore[misc]
@@ -81,7 +109,9 @@ class ChangeoverEvent(BaseModel):
     def completion_pct(self) -> float:
         if not self.tasks:
             return 0.0
-        done = sum(1 for t in self.tasks if t.status in {TaskStatus.DONE, TaskStatus.SKIPPED})
+        done = sum(
+            1 for t in self.tasks if t.status in {TaskStatus.DONE, TaskStatus.SKIPPED}
+        )
         return round(done / len(self.tasks) * 100, 1)
 
     @computed_field  # type: ignore[misc]

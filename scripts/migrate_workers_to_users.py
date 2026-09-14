@@ -122,7 +122,11 @@ def main():
 
     # Write the one-time credentials to an owner-only file for out-of-band
     # distribution. Never printed to stdout in bulk, never stored in the DB.
-    fd = os.open(CREDENTIALS_OUTFILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+    fd = os.open(
+        CREDENTIALS_OUTFILE,
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        stat.S_IRUSR | stat.S_IWUSR,
+    )
     with os.fdopen(fd, "w") as fh:
         fh.write("# One-time migration passwords — users must reset on first login.\n")
         fh.write("# email\tuser_id\tpassword\n")

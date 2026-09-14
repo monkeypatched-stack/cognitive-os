@@ -18,7 +18,11 @@ from src.monkey_brain.kernel.plan.classifier.embed_classifier import classify_in
 from src.monkey_brain.kernel.config import INTENT_MIN_CONFIDENCE
 
 
-def classified_intent_is(classified_intent: dict, *intents: str, min_confidence: float = INTENT_MIN_CONFIDENCE) -> bool:
+def classified_intent_is(
+    classified_intent: dict,
+    *intents: str,
+    min_confidence: float = INTENT_MIN_CONFIDENCE,
+) -> bool:
     """Check if classified intent matches any of the provided intents."""
     return (
         str(classified_intent.get("intent") or "") in intents
@@ -38,6 +42,7 @@ def query_plan_from_classification(classified_intent: dict, question: str) -> di
         "filters": classified_intent.get("filters", {}),
         "entities": classified_intent.get("entities", []),
     }
+
 
 def unsupported_intent_answer(classified_intent: dict) -> str:
     """Generate fallback answer for unsupported intents."""
@@ -64,7 +69,7 @@ def classify_and_check_support(question: str) -> dict[str, Any]:
         }
     """
     result = classify_intent(question, {"verb": "query", "target": "general"})
-    
+
     if not result:
         return {
             "intent": "unknown",
@@ -72,11 +77,11 @@ def classify_and_check_support(question: str) -> dict[str, Any]:
             "question": question,
             "supported": False,
         }
-    
+
     intent_name = result.get("intent", "unknown")
     confidence = result.get("confidence", 0)
     supported = intent_name in INTENT_REGISTRY
-    
+
     return {
         "intent": intent_name,
         "confidence": confidence,
@@ -114,5 +119,6 @@ async def execute_intent(
         return result
     except Exception as e:
         import logging
+
         logging.getLogger("agentos.router").error(f"Handler error for {intent_name}: {e}")
         return None

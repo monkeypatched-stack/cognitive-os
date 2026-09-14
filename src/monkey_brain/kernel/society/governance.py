@@ -28,6 +28,7 @@ check_permission() into a capability-authorization decision — that would
 create a second, competing authority path this codebase does not
 currently have and should not gain by accident.
 """
+
 from __future__ import annotations
 
 import time
@@ -63,6 +64,7 @@ class ComplianceStatus(Enum):
 @dataclass(frozen=True)
 class GovernancePolicy:
     """A governance policy constraining actor behavior."""
+
     policy_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -80,6 +82,7 @@ class GovernancePolicy:
 @dataclass(frozen=True)
 class Permission:
     """A specific permission granted to an actor."""
+
     permission_id: str = field(default_factory=lambda: uuid4().hex)
     actor_id: str = ""
     resource: str = ""
@@ -93,6 +96,7 @@ class Permission:
 @dataclass(frozen=True)
 class AuditEntry:
     """One entry in the governance audit log."""
+
     entry_id: str = field(default_factory=lambda: uuid4().hex)
     actor_id: str = ""
     action: str = ""
@@ -105,6 +109,7 @@ class AuditEntry:
 @dataclass(frozen=True)
 class TrustRecord:
     """A trust record for an actor."""
+
     actor_id: str = ""
     trust_score: float = 0.5
     """0.0 = completely untrusted, 1.0 = fully trusted."""
@@ -117,6 +122,7 @@ class TrustRecord:
 @dataclass(frozen=True)
 class SafetyConstraint:
     """A safety constraint that must be satisfied."""
+
     constraint_id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
@@ -149,8 +155,9 @@ class SocietyGovernanceEngine:
             return True
         return False
 
-    def policies(self, *, policy_type: PolicyType | None = None,
-                 enabled_only: bool = True) -> tuple[GovernancePolicy, ...]:
+    def policies(
+        self, *, policy_type: PolicyType | None = None, enabled_only: bool = True
+    ) -> tuple[GovernancePolicy, ...]:
         result = self._policies.values()
         if enabled_only:
             result = [p for p in result if p.enabled]
@@ -176,8 +183,7 @@ class SocietyGovernanceEngine:
             return False
         return True
 
-    def authorize(self, actor_id: str, resource: str, action: str,
-                  amount: float | None = None) -> bool:
+    def authorize(self, actor_id: str, resource: str, action: str, amount: float | None = None) -> bool:
         """Authorize an operation, including policy-defined amount limits.
 
         A permission answers *who may perform the action*.  A governance
@@ -228,8 +234,7 @@ class SocietyGovernanceEngine:
 
     # ── Trust ────────────────────────────────────────────────────────────
 
-    def evaluate_trust(self, actor_id: str, score: float,
-                       factors: dict[str, float] | None = None) -> TrustRecord:
+    def evaluate_trust(self, actor_id: str, score: float, factors: dict[str, float] | None = None) -> TrustRecord:
         existing = self._trust_records.get(actor_id, TrustRecord(actor_id=actor_id))
         record = TrustRecord(
             actor_id=actor_id,
@@ -258,12 +263,20 @@ class SocietyGovernanceEngine:
 
     # ── Audit ────────────────────────────────────────────────────────────
 
-    def audit(self, actor_id: str, action: str, policy_id: str = "",
-              compliance_status: ComplianceStatus = ComplianceStatus.COMPLIANT,
-              details: str = "") -> AuditEntry:
+    def audit(
+        self,
+        actor_id: str,
+        action: str,
+        policy_id: str = "",
+        compliance_status: ComplianceStatus = ComplianceStatus.COMPLIANT,
+        details: str = "",
+    ) -> AuditEntry:
         entry = AuditEntry(
-            actor_id=actor_id, action=action, policy_id=policy_id,
-            compliance_status=compliance_status, details=details,
+            actor_id=actor_id,
+            action=action,
+            policy_id=policy_id,
+            compliance_status=compliance_status,
+            details=details,
         )
         self._audit_log.append(entry)
         return entry
@@ -277,8 +290,7 @@ class SocietyGovernanceEngine:
         stays chronological."""
         self._audit_log.append(entry)
 
-    def audit_log(self, *, actor_id: str | None = None,
-                  limit: int = 100) -> tuple[AuditEntry, ...]:
+    def audit_log(self, *, actor_id: str | None = None, limit: int = 100) -> tuple[AuditEntry, ...]:
         log = self._audit_log
         if actor_id is not None:
             log = [e for e in log if e.actor_id == actor_id]

@@ -36,6 +36,7 @@ def _ensure_subtask_creator(current_user: dict) -> None:
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedWorkOrderResponse)
 async def list_work_orders(
     page: int = Query(1, ge=1),
@@ -44,10 +45,13 @@ async def list_work_orders(
     _: dict = Depends(require_permission("perm-view-tasks")),
 ):
     work_orders, total = await crud.get_all(db, page=page, page_size=page_size)
-    return PaginatedWorkOrderResponse(total=total, page=page, page_size=page_size, results=work_orders)
+    return PaginatedWorkOrderResponse(
+        total=total, page=page, page_size=page_size, results=work_orders
+    )
 
 
 # ── Filters ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/by-status/{status}", response_model=list[WorkOrderResponse])
 async def list_work_orders_by_status(
@@ -75,6 +79,7 @@ async def list_work_orders_by_machine(
 ):
     return await crud.get_by_machine(db, machine_id)
 
+
 @router.get("/by-equipment/{equipment_id}", response_model=list[WorkOrderResponse])
 async def list_work_orders_by_equipment(
     equipment_id: str,
@@ -82,6 +87,7 @@ async def list_work_orders_by_equipment(
     _: dict = Depends(require_permission("perm-view-tasks")),
 ):
     return await crud.get_by_equipment_id(db, equipment_id)
+
 
 @router.get("/by-line/{line_id}", response_model=list[WorkOrderResponse])
 async def list_work_orders_by_line(
@@ -117,6 +123,7 @@ async def list_overdue_work_orders(
 ):
     return await crud.get_overdue(db)
 
+
 @router.get("/by-user/{user_id}", response_model=list[WorkOrderResponse])
 async def list_work_orders_by_user(
     user_id: str,
@@ -142,7 +149,9 @@ async def get_work_order_count_stats(
 ):
     return await crud.get_count_stats(db)
 
+
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{work_order_id}", response_model=WorkOrderResponse)
 async def get_work_order(
@@ -152,11 +161,14 @@ async def get_work_order(
 ):
     record = await crud.get_by_id(db, work_order_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found"
+        )
     return record
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
+
 
 @router.post("/", response_model=WorkOrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_work_order(
@@ -165,11 +177,15 @@ async def create_work_order(
     _: dict = Depends(require_permission("perm-create-tasks")),
 ):
     if await crud.get_by_id(db, data.work_order_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Work order '{data.work_order_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Work order '{data.work_order_id}' already exists",
+        )
     return await crud.create(db, data)
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{work_order_id}", response_model=WorkOrderResponse)
 async def update_work_order(
@@ -180,7 +196,9 @@ async def update_work_order(
 ):
     updated = await crud.update(db, work_order_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found"
+        )
     return updated
 
 
@@ -191,11 +209,17 @@ async def list_work_order_subtasks(
     _: dict = Depends(require_permission("perm-view-tasks")),
 ):
     if not await crud.get_by_id(db, work_order_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found"
+        )
     return await crud.get_subtasks(db, work_order_id)
 
 
-@router.post("/{work_order_id}/subtasks", response_model=WorkOrderResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{work_order_id}/subtasks",
+    response_model=WorkOrderResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_work_order_subtask(
     work_order_id: str,
     data: WorkOrderSubtaskCreate,
@@ -204,16 +228,24 @@ async def create_work_order_subtask(
 ):
     _ensure_subtask_creator(current_user)
     if await crud.get_by_id(db, data.work_order_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Work order '{data.work_order_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Work order '{data.work_order_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     created = await crud.add_subtask(db, work_order_id, data)
     if not created:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found"
+        )
     return created
 
 
-@router.patch("/{work_order_id}/subtasks/{subtask_work_order_id}", response_model=WorkOrderResponse)
+@router.patch(
+    "/{work_order_id}/subtasks/{subtask_work_order_id}",
+    response_model=WorkOrderResponse,
+)
 async def update_work_order_subtask(
     work_order_id: str,
     subtask_work_order_id: str,
@@ -230,7 +262,10 @@ async def update_work_order_subtask(
     return updated
 
 
-@router.delete("/{work_order_id}/subtasks/{subtask_work_order_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{work_order_id}/subtasks/{subtask_work_order_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_work_order_subtask(
     work_order_id: str,
     subtask_work_order_id: str,
@@ -246,6 +281,7 @@ async def delete_work_order_subtask(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 @router.delete("/{work_order_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_work_order(
     work_order_id: str,
@@ -253,5 +289,6 @@ async def delete_work_order(
     _: dict = Depends(require_permission("perm-delete-tasks")),
 ):
     if not await crud.delete(db, work_order_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found")
-    
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Work order '{work_order_id}' not found"
+        )

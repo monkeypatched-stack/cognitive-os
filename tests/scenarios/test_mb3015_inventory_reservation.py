@@ -19,6 +19,7 @@ safety guarantee is scoped to asyncio's cooperative concurrency; real
 threads are the honest, harder test of the CAS retry loop itself), plus
 the deterministic edge cases (exact-tie race, expiry, over-request).
 """
+
 from __future__ import annotations
 
 import threading
@@ -33,8 +34,10 @@ def _run_concurrent(fn, count: int) -> list:
     before any is joined, so they genuinely race rather than running
     sequentially."""
     results = [None] * count
+
     def worker(i):
         results[i] = fn(i)
+
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(count)]
     for t in threads:
         t.start()
@@ -59,7 +62,12 @@ def test_mb3015_two_actors_racing_for_the_last_unit():
 
 def test_mb3015_no_oversell_under_concurrent_reservation_300_actors_100_units():
     kg = KnowledgeGraph()
-    kg.add_entity("prod_limited", EntityType.ASSET, "Limited Item", {"price": 9.99, "quantity": 100})
+    kg.add_entity(
+        "prod_limited",
+        EntityType.ASSET,
+        "Limited Item",
+        {"price": 9.99, "quantity": 100},
+    )
 
     results = _run_concurrent(
         lambda i: try_reserve(kg, "prod_limited", f"actor_{i}", qty=1, hold_seconds=30.0)[0],
@@ -80,7 +88,12 @@ def test_mb3015_no_oversell_under_concurrent_reserve_and_confirm():
     committing it (the real stock decrement) — concurrently, for more
     claimants than available stock."""
     kg = KnowledgeGraph()
-    kg.add_entity("prod_limited", EntityType.ASSET, "Limited Item", {"price": 9.99, "quantity": 50})
+    kg.add_entity(
+        "prod_limited",
+        EntityType.ASSET,
+        "Limited Item",
+        {"price": 9.99, "quantity": 50},
+    )
 
     def reserve_then_confirm(i: int) -> bool:
         ok, _ = try_reserve(kg, "prod_limited", f"actor_{i}", qty=1, hold_seconds=30.0)

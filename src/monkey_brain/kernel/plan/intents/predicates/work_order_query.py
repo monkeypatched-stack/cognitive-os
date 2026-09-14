@@ -10,7 +10,7 @@ async def work_order_query_question_answer(client, question, force=False):
         collection = db["work_orders"]
 
         # Extract specific work order ID if mentioned
-        wo_match = re.search(r'(PM-\w+-\d+|WO-\d+)', question, re.IGNORECASE)
+        wo_match = re.search(r"(PM-\w+-\d+|WO-\d+)", question, re.IGNORECASE)
         if wo_match:
             wo_id = wo_match.group(1)
             doc = await collection.find_one({"work_order_id": wo_id})
@@ -26,7 +26,7 @@ async def work_order_query_question_answer(client, question, force=False):
                 return (answer, [], [], False)
 
         # Count questions
-        if re.search(r'how many|count|total', question, re.IGNORECASE):
+        if re.search(r"how many|count|total", question, re.IGNORECASE):
             total = await collection.count_documents({})
             open_count = await collection.count_documents({"status": {"$nin": ["Completed", "Cancelled"]}})
             completed = await collection.count_documents({"status": "Completed"})
@@ -34,7 +34,11 @@ async def work_order_query_question_answer(client, question, force=False):
             return (answer, [], [], False)
 
         # Status filter
-        status_match = re.search(r'(completed|open|todo|in progress|scheduled|cancelled)', question, re.IGNORECASE)
+        status_match = re.search(
+            r"(completed|open|todo|in progress|scheduled|cancelled)",
+            question,
+            re.IGNORECASE,
+        )
         if status_match:
             status = status_match.group(1).title()
             count = await collection.count_documents({"status": status})
@@ -42,7 +46,7 @@ async def work_order_query_question_answer(client, question, force=False):
             return (answer, [], [], False)
 
         # Priority filter
-        priority_match = re.search(r'(high|medium|low|critical)', question, re.IGNORECASE)
+        priority_match = re.search(r"(high|medium|low|critical)", question, re.IGNORECASE)
         if priority_match:
             priority = priority_match.group(1).title()
             count = await collection.count_documents({"priority": priority})
@@ -56,7 +60,9 @@ async def work_order_query_question_answer(client, question, force=False):
         if docs:
             lines = [f"Found {total} work orders. Recent:"]
             for doc in docs:
-                lines.append(f"  - {doc.get('work_order_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]")
+                lines.append(
+                    f"  - {doc.get('work_order_id', '?')}: {doc.get('title', 'N/A')} [{doc.get('status', '?')}]"
+                )
             answer = "\n".join(lines)
         else:
             answer = "No work orders found."

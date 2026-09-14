@@ -20,6 +20,7 @@ Flow:
         → Human Approval Gate (approve / reject / edit)
         → ETASS Pipeline (existing SDLC stages)
 """
+
 from __future__ import annotations
 
 import json
@@ -43,6 +44,7 @@ class OllamaClient:
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import httpx
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -64,6 +66,7 @@ class ClaudeClient:
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import anthropic
+
         client = anthropic.Anthropic()
         msg = client.messages.create(
             model=self.model,
@@ -82,11 +85,13 @@ class OpenRouterClient:
         self.model = model or os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
         self.base_url = os.environ.get("OPENROUTER_API_BASE_URL") or os.environ.get(
-            "OPENROUTER_API_URL", "https://openrouter.ai/api/v1",
+            "OPENROUTER_API_URL",
+            "https://openrouter.ai/api/v1",
         )
 
     async def generate(self, prompt: str, system: str = "") -> str:
         import httpx
+
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -122,6 +127,7 @@ def _ollama_available() -> bool:
 def _claude_available() -> bool:
     try:
         import anthropic
+
         anthropic.Anthropic()
         return True
     except Exception:
@@ -143,6 +149,7 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
     def _select_provider(self):
         from ._llm_bridge import dev_bridge_client
         from ._llm_cache import maybe_cache
+
         bridge = dev_bridge_client("spec_discovery")
         if bridge is not None:
             logger.info("[spec_discovery] Using dev LLM bridge")
@@ -168,12 +175,7 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
         return await self._run(context, self._impl)
 
     async def _impl(self, context: dict):
-        intent = str(
-            context.get("question")
-            or context.get("intent")
-            or context.get("ask")
-            or ""
-        ).strip()
+        intent = str(context.get("question") or context.get("intent") or context.get("ask") or "").strip()
 
         if not intent:
             self._reward(False, 0.0)
@@ -235,7 +237,10 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
                 if m:
                     return json.loads(m.group(0))
             except Exception as e:
-                logger.warning("[spec_discovery] LLM discovery failed: %s — falling back to heuristic", e)
+                logger.warning(
+                    "[spec_discovery] LLM discovery failed: %s — falling back to heuristic",
+                    e,
+                )
 
         return self._heuristic_discover(intent)
 
@@ -297,31 +302,103 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
 
         agents = []
         if any(w in intent_lower for w in ["write", "essay", "blog", "post", "article", "content"]):
-            agents.append({"name": "writer", "type": "agent", "description": "Content generation agent"})
+            agents.append(
+                {
+                    "name": "writer",
+                    "type": "agent",
+                    "description": "Content generation agent",
+                }
+            )
         if any(w in intent_lower for w in ["review", "edit", "proofread", "grammar"]):
-            agents.append({"name": "reviewer", "type": "agent", "description": "Content review and editing agent"})
+            agents.append(
+                {
+                    "name": "reviewer",
+                    "type": "agent",
+                    "description": "Content review and editing agent",
+                }
+            )
         if any(w in intent_lower for w in ["style", "voice", "tone", "my writing"]):
-            agents.append({"name": "style_analyzer", "type": "agent", "description": "Writing style analysis agent"})
+            agents.append(
+                {
+                    "name": "style_analyzer",
+                    "type": "agent",
+                    "description": "Writing style analysis agent",
+                }
+            )
         if any(w in intent_lower for w in ["search", "find", "lookup", "research"]):
-            agents.append({"name": "researcher", "type": "agent", "description": "Research and information gathering agent"})
+            agents.append(
+                {
+                    "name": "researcher",
+                    "type": "agent",
+                    "description": "Research and information gathering agent",
+                }
+            )
         if any(w in intent_lower for w in ["image", "diagram", "chart", "visual"]):
-            agents.append({"name": "visualizer", "type": "agent", "description": "Visual content generation agent"})
+            agents.append(
+                {
+                    "name": "visualizer",
+                    "type": "agent",
+                    "description": "Visual content generation agent",
+                }
+            )
         if any(w in intent_lower for w in ["data", "analyze", "analysis", "metrics"]):
-            agents.append({"name": "analyst", "type": "agent", "description": "Data analysis agent"})
+            agents.append(
+                {
+                    "name": "analyst",
+                    "type": "agent",
+                    "description": "Data analysis agent",
+                }
+            )
         if any(w in intent_lower for w in ["automate", "workflow", "pipeline"]):
-            agents.append({"name": "orchestrator", "type": "agent", "description": "Workflow orchestration agent"})
+            agents.append(
+                {
+                    "name": "orchestrator",
+                    "type": "agent",
+                    "description": "Workflow orchestration agent",
+                }
+            )
         if any(w in intent_lower for w in ["schedule", "calendar", "meeting"]):
-            agents.append({"name": "scheduler", "type": "agent", "description": "Scheduling and calendar agent"})
+            agents.append(
+                {
+                    "name": "scheduler",
+                    "type": "agent",
+                    "description": "Scheduling and calendar agent",
+                }
+            )
         if any(w in intent_lower for w in ["summarize", "summary", "tldr"]):
-            agents.append({"name": "summarizer", "type": "agent", "description": "Content summarization agent"})
+            agents.append(
+                {
+                    "name": "summarizer",
+                    "type": "agent",
+                    "description": "Content summarization agent",
+                }
+            )
 
         if not agents:
-            agents.append({"name": "assistant", "type": "agent", "description": "General-purpose assistant agent"})
+            agents.append(
+                {
+                    "name": "assistant",
+                    "type": "agent",
+                    "description": "General-purpose assistant agent",
+                }
+            )
 
         providers = []
         for p in platforms:
-            providers.append({"name": f"{p}_api", "type": "provider", "description": f"{p} API integration"})
-        providers.append({"name": "llm_provider", "type": "provider", "description": "Language model provider (Ollama local or cloud)"})
+            providers.append(
+                {
+                    "name": f"{p}_api",
+                    "type": "provider",
+                    "description": f"{p} API integration",
+                }
+            )
+        providers.append(
+            {
+                "name": "llm_provider",
+                "type": "provider",
+                "description": "Language model provider (Ollama local or cloud)",
+            }
+        )
 
         knowledge_sources = []
         if any(w in intent_lower for w in ["style", "voice", "my writing", "previous"]):
@@ -383,51 +460,59 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
         step_id = 0
 
         if knowledge:
-            steps.append({
-                "id": step_id,
-                "name": "knowledge_acquisition",
-                "type": "discovery",
-                "agent": "knowledge_retrieval",
-                "description": f"Retrieve knowledge from: {', '.join(knowledge)}",
-                "depends_on": [],
-                "outputs": ["knowledge_context"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "knowledge_acquisition",
+                    "type": "discovery",
+                    "agent": "knowledge_retrieval",
+                    "description": f"Retrieve knowledge from: {', '.join(knowledge)}",
+                    "depends_on": [],
+                    "outputs": ["knowledge_context"],
+                }
+            )
             step_id += 1
 
         if "style_analyzer" in agents:
-            steps.append({
-                "id": step_id,
-                "name": "style_analysis",
-                "type": "analysis",
-                "agent": "style_analyzer",
-                "description": "Analyze user's writing style from historical documents",
-                "depends_on": [s["name"] for s in steps] if steps else [],
-                "outputs": ["style_profile"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "style_analysis",
+                    "type": "analysis",
+                    "agent": "style_analyzer",
+                    "description": "Analyze user's writing style from historical documents",
+                    "depends_on": [s["name"] for s in steps] if steps else [],
+                    "outputs": ["style_profile"],
+                }
+            )
             step_id += 1
 
         if "researcher" in agents:
-            steps.append({
-                "id": step_id,
-                "name": "research",
-                "type": "discovery",
-                "agent": "researcher",
-                "description": "Research topic and gather supporting information",
-                "depends_on": [],
-                "outputs": ["research_material"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "research",
+                    "type": "discovery",
+                    "agent": "researcher",
+                    "description": "Research topic and gather supporting information",
+                    "depends_on": [],
+                    "outputs": ["research_material"],
+                }
+            )
             step_id += 1
 
         if "analyst" in agents:
-            steps.append({
-                "id": step_id,
-                "name": "data_analysis",
-                "type": "analysis",
-                "agent": "analyst",
-                "description": "Analyze data and extract insights",
-                "depends_on": [s["name"] for s in steps] if steps else [],
-                "outputs": ["analysis_results"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "data_analysis",
+                    "type": "analysis",
+                    "agent": "analyst",
+                    "description": "Analyze data and extract insights",
+                    "depends_on": [s["name"] for s in steps] if steps else [],
+                    "outputs": ["analysis_results"],
+                }
+            )
             step_id += 1
 
         if "writer" in agents:
@@ -441,27 +526,33 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
             if not write_deps and steps:
                 write_deps = [steps[-1]["name"]]
 
-            steps.append({
-                "id": step_id,
-                "name": "content_generation",
-                "type": "execution",
-                "agent": "writer",
-                "description": "Generate content based on research, style, and analysis",
-                "depends_on": write_deps,
-                "outputs": ["draft_content"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "content_generation",
+                    "type": "execution",
+                    "agent": "writer",
+                    "description": "Generate content based on research, style, and analysis",
+                    "depends_on": write_deps,
+                    "outputs": ["draft_content"],
+                }
+            )
             step_id += 1
 
         if "visualizer" in agents:
-            steps.append({
-                "id": step_id,
-                "name": "visual_generation",
-                "type": "execution",
-                "agent": "visualizer",
-                "description": "Generate visual assets (charts, diagrams, images)",
-                "depends_on": ["content_generation"] if any(s["name"] == "content_generation" for s in steps) else [],
-                "outputs": ["visual_assets"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "visual_generation",
+                    "type": "execution",
+                    "agent": "visualizer",
+                    "description": "Generate visual assets (charts, diagrams, images)",
+                    "depends_on": (
+                        ["content_generation"] if any(s["name"] == "content_generation" for s in steps) else []
+                    ),
+                    "outputs": ["visual_assets"],
+                }
+            )
             step_id += 1
 
         if "reviewer" in agents:
@@ -471,71 +562,81 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
             if any(s["name"] == "visual_generation" for s in steps):
                 review_deps.append("visual_generation")
 
-            steps.append({
-                "id": step_id,
-                "name": "review",
-                "type": "validation",
-                "agent": "reviewer",
-                "description": "Review content for quality, grammar, and style consistency",
-                "depends_on": review_deps,
-                "outputs": ["reviewed_content"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "review",
+                    "type": "validation",
+                    "agent": "reviewer",
+                    "description": "Review content for quality, grammar, and style consistency",
+                    "depends_on": review_deps,
+                    "outputs": ["reviewed_content"],
+                }
+            )
             step_id += 1
 
         if "summarizer" in agents:
-            steps.append({
-                "id": step_id,
-                "name": "summarize",
-                "type": "execution",
-                "agent": "summarizer",
-                "description": "Create summary/TLDR of the final content",
-                "depends_on": ["review"] if any(s["name"] == "review" for s in steps) else [],
-                "outputs": ["summary"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "summarize",
+                    "type": "execution",
+                    "agent": "summarizer",
+                    "description": "Create summary/TLDR of the final content",
+                    "depends_on": (["review"] if any(s["name"] == "review" for s in steps) else []),
+                    "outputs": ["summary"],
+                }
+            )
             step_id += 1
 
         platform_steps = []
         for platform in platforms:
-            steps.append({
-                "id": step_id,
-                "name": f"publish_{platform}",
-                "type": "integration",
-                "agent": f"{platform}_provider",
-                "description": f"Publish/deliver content to {platform}",
-                "depends_on": ["review"] if any(s["name"] == "review" for s in steps) else [],
-                "outputs": [f"{platform}_result"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": f"publish_{platform}",
+                    "type": "integration",
+                    "agent": f"{platform}_provider",
+                    "description": f"Publish/deliver content to {platform}",
+                    "depends_on": (["review"] if any(s["name"] == "review" for s in steps) else []),
+                    "outputs": [f"{platform}_result"],
+                }
+            )
             platform_steps.append(f"publish_{platform}")
             step_id += 1
 
         if not steps:
-            steps.append({
-                "id": 0,
-                "name": "execute",
-                "type": "execution",
-                "agent": agents[0] if agents else "assistant",
-                "description": "Execute the primary task",
-                "depends_on": [],
-                "outputs": ["result"],
-            })
+            steps.append(
+                {
+                    "id": 0,
+                    "name": "execute",
+                    "type": "execution",
+                    "agent": agents[0] if agents else "assistant",
+                    "description": "Execute the primary task",
+                    "depends_on": [],
+                    "outputs": ["result"],
+                }
+            )
 
         if "orchestrator" in agents and len(steps) > 1:
-            steps.append({
-                "id": step_id,
-                "name": "orchestrate",
-                "type": "coordination",
-                "agent": "orchestrator",
-                "description": "Coordinate all steps and handle failures",
-                "depends_on": [s["name"] for s in steps],
-                "outputs": ["final_result"],
-            })
+            steps.append(
+                {
+                    "id": step_id,
+                    "name": "orchestrate",
+                    "type": "coordination",
+                    "agent": "orchestrator",
+                    "description": "Coordinate all steps and handle failures",
+                    "depends_on": [s["name"] for s in steps],
+                    "outputs": ["final_result"],
+                }
+            )
 
         return {
             "total_steps": len(steps),
             "steps": steps,
             "execution_order": self._topological_sort(steps),
             "parallel_groups": self._find_parallel_groups(steps),
-            "estimated_complexity": "high" if len(steps) > 6 else "medium" if len(steps) > 3 else "low",
+            "estimated_complexity": ("high" if len(steps) > 6 else "medium" if len(steps) > 3 else "low"),
         }
 
     def _topological_sort(self, steps: list[dict]) -> list[list[str]]:
@@ -545,9 +646,9 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
 
         for _ in range(len(steps) + 1):
             ready = [
-                s["name"] for s in steps
-                if s["name"] not in completed
-                and all(d in completed for d in s.get("depends_on", []))
+                s["name"]
+                for s in steps
+                if s["name"] not in completed and all(d in completed for d in s.get("depends_on", []))
             ]
             if not ready:
                 break
@@ -579,7 +680,8 @@ class SpecificationDiscoveryAgent(BaseETASSAgent):
                 continue
             descendants = _bfs(s["name"])
             parallel = [
-                other["name"] for other in steps
+                other["name"]
+                for other in steps
                 if other["name"] not in visited
                 and other["name"] not in descendants
                 and not any(other["name"] in d.get("depends_on", []) for d in [s])

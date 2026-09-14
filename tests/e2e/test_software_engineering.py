@@ -15,8 +15,8 @@ import pytest
 import httpx
 
 AGENTOS_URL = os.getenv("AGENTOS_URL", "http://localhost:8031")
-AUTH_URL    = os.getenv("AUTH_URL",    "http://localhost:8010")
-E2E_USER    = os.getenv("E2E_USER",    "prashun@monkeypatched.com")
+AUTH_URL = os.getenv("AUTH_URL", "http://localhost:8010")
+E2E_USER = os.getenv("E2E_USER", "prashun@monkeypatched.com")
 E2E_PASSWORD = os.getenv("E2E_PASSWORD", "Admin@12345678")
 
 TIMEOUT = httpx.Timeout(30.0)
@@ -34,6 +34,7 @@ def _skip_if_down(url: str):
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def authed() -> httpx.Client:
@@ -63,6 +64,7 @@ def brain() -> httpx.Client:
 
 # ── 1. Codegen Pipeline ───────────────────────────────────────────────────────
 
+
 @_skip_if_down(AGENTOS_URL)
 class TestCodegenPipeline:
     """Spec → validate → generate → verify output files."""
@@ -73,9 +75,9 @@ class TestCodegenPipeline:
         "description": "E2E test microservice",
         "db": {"type": "mongodb"},
         "fields": [
-            {"name": "sku",   "type": "str",   "unique": True},
+            {"name": "sku", "type": "str", "unique": True},
             {"name": "price", "type": "float", "gt": 0},
-            {"name": "stock", "type": "int",   "default": 0},
+            {"name": "stock", "type": "int", "default": 0},
         ],
         "timestamps": True,
         "auth": {"enabled": True, "type": "bearer"},
@@ -140,6 +142,7 @@ class TestCodegenPipeline:
 
 # ── 2. Somatic Charts (SittingFace) ──────────────────────────────────────────
 
+
 @_skip_if_down(AGENTOS_URL)
 class TestSomaticCharts:
     """Verify somatic chart registry is loaded and queryable."""
@@ -160,6 +163,7 @@ class TestSomaticCharts:
 
 
 # ── 3. AgentOS Query — Software Engineering intents ──────────────────────────
+
 
 @_skip_if_down(AGENTOS_URL)
 class TestAgentOSEngineeringQueries:
@@ -198,6 +202,7 @@ class TestAgentOSEngineeringQueries:
 
 
 # ── 4. Prompt Pipeline (full ETASS execution) ─────────────────────────────────
+
 
 @_skip_if_down(AGENTOS_URL)
 class TestPromptPipeline:
@@ -248,6 +253,7 @@ class TestPromptPipeline:
 
 # ── 5. Observability ──────────────────────────────────────────────────────────
 
+
 @_skip_if_down(AGENTOS_URL)
 class TestObservability:
     """Engineering pipeline observability panels."""
@@ -275,6 +281,7 @@ class TestObservability:
 
 # ── 6. Full Engineering Flow: spec → validate → generate → query ──────────────
 
+
 @pytest.mark.skipif(
     not _reachable(AGENTOS_URL),
     reason="Full engineering flow requires agentos",
@@ -292,7 +299,11 @@ class TestFullEngineeringFlow:
             "fields": [
                 {"name": "batch_id", "type": "str", "unique": True},
                 {"name": "quantity", "type": "int", "ge": 0},
-                {"name": "status",   "type": "str", "enum": ["pending", "running", "done"]},
+                {
+                    "name": "status",
+                    "type": "str",
+                    "enum": ["pending", "running", "done"],
+                },
             ],
             "auth": {"enabled": True, "type": "bearer"},
         }

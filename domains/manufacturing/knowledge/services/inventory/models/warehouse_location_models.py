@@ -18,8 +18,9 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, computed_field, model_validator
 
-
-LocationStatus = Literal["Active", "Inactive", "Under-Maintenance", "Reserved", "Blocked"]
+LocationStatus = Literal[
+    "Active", "Inactive", "Under-Maintenance", "Reserved", "Blocked"
+]
 
 StorageType = Literal[
     "Ambient",
@@ -57,11 +58,15 @@ def _utc_now() -> datetime:
 class _LocationBase(BaseModel):
     """Fields common to every level of the hierarchy."""
 
-    code: str = Field(..., min_length=1, description="Short mnemonic code, e.g. 'LOT-A'")
+    code: str = Field(
+        ..., min_length=1, description="Short mnemonic code, e.g. 'LOT-A'"
+    )
     name: str = Field(..., min_length=1)
     status: LocationStatus = "Active"
     description: Optional[str] = None
-    tags: list[str] = Field(default_factory=list, description="Free-form labels for search / filtering")
+    tags: list[str] = Field(
+        default_factory=list, description="Free-form labels for search / filtering"
+    )
     is_active: bool = True
     created_at: datetime = Field(default_factory=_utc_now)
     updated_at: datetime = Field(default_factory=_utc_now)
@@ -81,12 +86,18 @@ class _CapacityMixin(BaseModel):
 
     @model_validator(mode="after")
     def weight_within_capacity(self) -> "_CapacityMixin":
-        if self.max_weight_kg is not None and self.current_weight_kg > self.max_weight_kg:
+        if (
+            self.max_weight_kg is not None
+            and self.current_weight_kg > self.max_weight_kg
+        ):
             raise ValueError(
                 f"current_weight_kg ({self.current_weight_kg}) exceeds "
                 f"max_weight_kg ({self.max_weight_kg})"
             )
-        if self.max_volume_m3 is not None and self.current_volume_m3 > self.max_volume_m3:
+        if (
+            self.max_volume_m3 is not None
+            and self.current_volume_m3 > self.max_volume_m3
+        ):
             raise ValueError(
                 f"current_volume_m3 ({self.current_volume_m3}) exceeds "
                 f"max_volume_m3 ({self.max_volume_m3})"
@@ -130,7 +141,9 @@ class Lot(_LocationBase, _DimensionMixin, _CapacityMixin):
     """Largest physical unit: a fenced plot, building, or outdoor storage area."""
 
     lot_id: str = Field(..., min_length=1)
-    warehouse_id: str = Field(..., min_length=1, description="Parent warehouse / site FK")
+    warehouse_id: str = Field(
+        ..., min_length=1, description="Parent warehouse / site FK"
+    )
     storage_type: StorageType = "Ambient"
     temperature_zone: TemperatureZone = "Ambient"
     is_outdoor: bool = False
@@ -181,7 +194,9 @@ class Aisle(_LocationBase):
     area_id: str = Field(..., min_length=1, description="Parent Area FK")
     aisle_number: int = Field(..., ge=1)
     orientation: Orientation = "Horizontal"
-    width_m: Optional[float] = Field(default=None, ge=0, description="Clear aisle width")
+    width_m: Optional[float] = Field(
+        default=None, ge=0, description="Clear aisle width"
+    )
     length_m: Optional[float] = Field(default=None, ge=0)
     allows_forklift: bool = False
     is_one_way: bool = False
@@ -358,7 +373,9 @@ class RackTree(BaseModel):
 
     @property
     def available_bins(self) -> int:
-        return sum(1 for bin_ in self.bins if not bin_.is_occupied and bin_.is_available)
+        return sum(
+            1 for bin_ in self.bins if not bin_.is_occupied and bin_.is_available
+        )
 
     @property
     def occupancy_pct(self) -> float:
@@ -498,7 +515,9 @@ class AreaUpdate(BaseModel):
     storage_type: Optional[StorageType] = None
     velocity_class: Optional[Literal["A", "B", "C", "D", "Unclassified"]] = None
     product_category: Optional[str] = None
-    picking_method: Optional[Literal["Manual", "Forklift", "AGV", "Conveyor", "Mixed"]] = None
+    picking_method: Optional[
+        Literal["Manual", "Forklift", "AGV", "Conveyor", "Mixed"]
+    ] = None
     length_m: Optional[float] = None
     width_m: Optional[float] = None
     height_m: Optional[float] = None

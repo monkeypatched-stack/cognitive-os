@@ -5,6 +5,7 @@ GET /api/v1/agentos/dashboard/{run_id}
 
 Returns a complete DashboardModel. No business logic in the frontend.
 """
+
 from __future__ import annotations
 
 import logging

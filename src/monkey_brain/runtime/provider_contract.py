@@ -10,6 +10,7 @@ starting policy, not a learned model — the heuristics are named constants
 specifically so they're easy to replace with real measurements later
 without touching the scoring logic itself.
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,14 +25,15 @@ logger = logging.getLogger("agentos.provider_contract")
 @dataclass
 class ProviderContract:
     """What a provider advertises for one capability it can satisfy."""
+
     provider: str
     capability: str
     capability_type: CapabilityType
     input_schema: dict[str, Any] = field(default_factory=dict)
     output_schema: dict[str, Any] = field(default_factory=dict)
-    cost: float = 0.5          # 0 = free/cheap .. 1 = expensive
+    cost: float = 0.5  # 0 = free/cheap .. 1 = expensive
     latency_ms: float = 1000.0
-    confidence: float = 0.5    # 0 = unreliable .. 1 = highly reliable
+    confidence: float = 0.5  # 0 = unreliable .. 1 = highly reliable
     version: str = "1.0"
     success_rate: float = 0.8  # 0 = always fails .. 1 = always succeeds
 
@@ -56,25 +58,71 @@ class ProviderContract:
 # confident, SDLC auto-generation the most expensive/slowest/least certain
 # (it writes and deploys real code — see codegen_runtime.py).
 _TYPE_DEFAULTS: dict[CapabilityType, dict[str, float]] = {
-    CapabilityType.NATIVE:         {"cost": 0.1, "latency_ms": 50,    "confidence": 0.9, "success_rate": 0.9},
-    CapabilityType.WORKFLOW:       {"cost": 0.2, "latency_ms": 300,   "confidence": 0.7, "success_rate": 0.75},
-    CapabilityType.EXTERNAL_API:   {"cost": 0.4, "latency_ms": 2000,  "confidence": 0.6, "success_rate": 0.7},
-    CapabilityType.LLM_GENERATIVE: {"cost": 0.5, "latency_ms": 8000,  "confidence": 0.6, "success_rate": 0.85},
-    CapabilityType.HUMAN:          {"cost": 0.9, "latency_ms": 600000, "confidence": 0.95, "success_rate": 0.95},
-    CapabilityType.COMPOSITE:      {"cost": 0.6, "latency_ms": 15000, "confidence": 0.55, "success_rate": 0.7},
+    CapabilityType.NATIVE: {
+        "cost": 0.1,
+        "latency_ms": 50,
+        "confidence": 0.9,
+        "success_rate": 0.9,
+    },
+    CapabilityType.WORKFLOW: {
+        "cost": 0.2,
+        "latency_ms": 300,
+        "confidence": 0.7,
+        "success_rate": 0.75,
+    },
+    CapabilityType.EXTERNAL_API: {
+        "cost": 0.4,
+        "latency_ms": 2000,
+        "confidence": 0.6,
+        "success_rate": 0.7,
+    },
+    CapabilityType.LLM_GENERATIVE: {
+        "cost": 0.5,
+        "latency_ms": 8000,
+        "confidence": 0.6,
+        "success_rate": 0.85,
+    },
+    CapabilityType.HUMAN: {
+        "cost": 0.9,
+        "latency_ms": 600000,
+        "confidence": 0.95,
+        "success_rate": 0.95,
+    },
+    CapabilityType.COMPOSITE: {
+        "cost": 0.6,
+        "latency_ms": 15000,
+        "confidence": 0.55,
+        "success_rate": 0.7,
+    },
 }
 # SDLC auto-generation is deliberately worse than every real-provider default
 # above on every axis — it's the last resort, never a competitive choice
 # when any real provider is available (see codegen_runtime.py: ~24 real
 # LLM-backed stages, several minutes, writes real files).
-SDLC_DEFAULTS = {"cost": 0.95, "latency_ms": 240000, "confidence": 0.3, "success_rate": 0.4}
+SDLC_DEFAULTS = {
+    "cost": 0.95,
+    "latency_ms": 240000,
+    "confidence": 0.3,
+    "success_rate": 0.4,
+}
 
 
-def default_contract(provider: str, capability: str, capability_type: CapabilityType, *, is_sdlc: bool = False) -> ProviderContract:
+def default_contract(
+    provider: str,
+    capability: str,
+    capability_type: CapabilityType,
+    *,
+    is_sdlc: bool = False,
+) -> ProviderContract:
     """A contract using type-level heuristics — the starting point before
     any real telemetry exists for this specific provider+capability."""
     defaults = SDLC_DEFAULTS if is_sdlc else _TYPE_DEFAULTS.get(capability_type, _TYPE_DEFAULTS[CapabilityType.NATIVE])
-    return ProviderContract(provider=provider, capability=capability, capability_type=capability_type, **defaults)
+    return ProviderContract(
+        provider=provider,
+        capability=capability,
+        capability_type=capability_type,
+        **defaults,
+    )
 
 
 def contract_from_telemetry(provider: str, capability: str, capability_type: CapabilityType) -> ProviderContract:
@@ -84,6 +132,7 @@ def contract_from_telemetry(provider: str, capability: str, capability_type: Cap
     contract = default_contract(provider, capability, capability_type)
     try:
         from src.introspection.lemon import get_lemon
+
         lemon = get_lemon()
         if lemon is None:
             return contract
@@ -92,7 +141,12 @@ def contract_from_telemetry(provider: str, capability: str, capability_type: Cap
             contract.latency_ms = stats.get("p50_latency_ms", contract.latency_ms)
             contract.success_rate = stats.get("success_rate", contract.success_rate)
     except Exception as e:
-        logger.debug("[provider_contract] telemetry lookup failed for %s/%s: %s", provider, capability, e)
+        logger.debug(
+            "[provider_contract] telemetry lookup failed for %s/%s: %s",
+            provider,
+            capability,
+            e,
+        )
     return contract
 
 

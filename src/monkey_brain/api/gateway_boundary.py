@@ -8,6 +8,7 @@ mode).
 Health/readiness probes and Prometheus scrape paths are exempt so
 Kubernetes can reach the control plane without traversing Kong.
 """
+
 from __future__ import annotations
 
 import os

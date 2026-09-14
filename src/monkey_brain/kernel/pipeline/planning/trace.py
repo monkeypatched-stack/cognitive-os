@@ -12,6 +12,7 @@ Candidates -> Validate -> Score -> Select narrative used throughout this
 project's examples, for logging/debugging; a future visualization layer can
 consume .to_dict() instead.
 """
+
 from __future__ import annotations
 
 import time
@@ -26,6 +27,7 @@ from src.monkey_brain.kernel.pipeline.planning.decomposition import GoalTree
 @dataclass(frozen=True)
 class PlanningTrace:
     """The complete, structured record of one planning decision."""
+
     trace_id: str = field(default_factory=lambda: uuid4().hex)
     goal: Goal = field(default_factory=Goal)
     subgoal_tree: GoalTree | None = None
@@ -48,7 +50,7 @@ class PlanningTrace:
         return {
             "trace_id": self.trace_id,
             "goal": {"name": self.goal.name, "description": self.goal.description},
-            "subgoal_names": [c.goal.name for c in self.subgoal_tree.children] if self.subgoal_tree else [],
+            "subgoal_names": ([c.goal.name for c in self.subgoal_tree.children] if self.subgoal_tree else []),
             "candidates": [
                 {
                     "candidate_id": c.candidate_id,
@@ -62,10 +64,15 @@ class PlanningTrace:
                 for c in self.candidate_plans
             ],
             "validation_failures": list(self.validation_failures),
-            "selected_strategy": self.selected_plan.metadata.get("strategy", "") if self.selected_plan else None,
-            "selected_score": next(
-                (c.score for c in self.candidate_plans if c.plan is self.selected_plan), None,
-            ) if self.selected_plan else None,
+            "selected_strategy": (self.selected_plan.metadata.get("strategy", "") if self.selected_plan else None),
+            "selected_score": (
+                next(
+                    (c.score for c in self.candidate_plans if c.plan is self.selected_plan),
+                    None,
+                )
+                if self.selected_plan
+                else None
+            ),
             "rationale": self.rationale,
             "created_at": self.created_at,
         }
@@ -96,13 +103,18 @@ class PlanningTrace:
         lines.append(f"Validate: {checks}")
 
         scores = ", ".join(
-            f"{c.plan.metadata.get('strategy', c.candidate_id)}={c.score:.2f}"
-            if c.score is not None else f"{c.plan.metadata.get('strategy', c.candidate_id)}=unscored"
+            (
+                f"{c.plan.metadata.get('strategy', c.candidate_id)}={c.score:.2f}"
+                if c.score is not None
+                else f"{c.plan.metadata.get('strategy', c.candidate_id)}=unscored"
+            )
             for c in self.candidate_plans
         )
         lines.append(f"Score: {scores}")
 
-        selected_name = self.selected_plan.metadata.get("strategy", "") if self.selected_plan else "(none — fallback used)"
+        selected_name = (
+            self.selected_plan.metadata.get("strategy", "") if self.selected_plan else "(none — fallback used)"
+        )
         lines.append(f"Select: {selected_name}")
         lines.append(f"Rationale: {self.rationale}")
 
@@ -122,7 +134,8 @@ def build_planning_trace(
     rejected = tuple(c for c in candidates if c.rejected)
     failures = tuple(
         f"{c.plan.metadata.get('strategy', c.candidate_id)}: {c.rejection_reason}"
-        for c in rejected if c.rejection_reason
+        for c in rejected
+        if c.rejection_reason
     )
 
     return PlanningTrace(
@@ -132,7 +145,7 @@ def build_planning_trace(
         rejected_plans=rejected,
         validation_failures=failures,
         selected_plan=selected.plan if selected is not None else None,
-        rationale=rationale if rationale is not None else _default_rationale(candidates, selected),
+        rationale=(rationale if rationale is not None else _default_rationale(candidates, selected)),
     )
 
 

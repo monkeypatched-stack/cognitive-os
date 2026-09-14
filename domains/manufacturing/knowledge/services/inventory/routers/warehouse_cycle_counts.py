@@ -31,7 +31,9 @@ async def list_warehouse_cycle_counts(
     )
 
 
-@router.get("/by-warehouse/{warehouse_id}", response_model=list[WarehouseCycleCountResponse])
+@router.get(
+    "/by-warehouse/{warehouse_id}", response_model=list[WarehouseCycleCountResponse]
+)
 async def list_warehouse_cycle_counts_by_warehouse(
     warehouse_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -40,7 +42,9 @@ async def list_warehouse_cycle_counts_by_warehouse(
     return await crud.get_by_warehouse_id(db, warehouse_id)
 
 
-@router.get("/by-location/{location_id}", response_model=list[WarehouseCycleCountResponse])
+@router.get(
+    "/by-location/{location_id}", response_model=list[WarehouseCycleCountResponse]
+)
 async def list_warehouse_cycle_counts_by_location(
     location_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -58,7 +62,9 @@ async def list_warehouse_cycle_counts_by_sku(
     return await crud.get_by_sku(db, sku)
 
 
-@router.get("/by-status/{cycle_status}", response_model=list[WarehouseCycleCountResponse])
+@router.get(
+    "/by-status/{cycle_status}", response_model=list[WarehouseCycleCountResponse]
+)
 async def list_warehouse_cycle_counts_by_status(
     cycle_status: CycleCountStatus,
     db: AsyncIOMotorDatabase = Depends(get_database),

@@ -12,7 +12,6 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -73,24 +72,31 @@ def _elk_trace_logger(service_name: str) -> logging.Logger:
 def _configure_sentry(service_name: str):
     dsn = os.getenv("SENTRY_DSN", "").strip()
     if not dsn:
-        logger.warning("TRACE_MODE=sentry requested, but SENTRY_DSN is not configured; using local traces")
+        logger.warning(
+            "TRACE_MODE=sentry requested, but SENTRY_DSN is not configured; using local traces"
+        )
         return None
 
     try:
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
     except ImportError:
-        logger.warning("TRACE_MODE=sentry requested, but sentry-sdk is not installed; using local traces")
+        logger.warning(
+            "TRACE_MODE=sentry requested, but sentry-sdk is not installed; using local traces"
+        )
         return None
 
     sentry_sdk.init(
         dsn=dsn,
-        environment=os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development")),
+        environment=os.getenv(
+            "SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development")
+        ),
         release=os.getenv("SENTRY_RELEASE"),
         traces_sample_rate=_env_float("SENTRY_TRACES_SAMPLE_RATE", 1.0),
         profiles_sample_rate=_env_float("SENTRY_PROFILES_SAMPLE_RATE", 0.0),
         integrations=[FastApiIntegration()],
-        send_default_pii=os.getenv("SENTRY_SEND_DEFAULT_PII", "false").lower() == "true",
+        send_default_pii=os.getenv("SENTRY_SEND_DEFAULT_PII", "false").lower()
+        == "true",
     )
     sentry_sdk.set_tag("service", service_name)
     return sentry_sdk
@@ -102,11 +108,23 @@ def install_route_tracing(app: FastAPI, service_name: str) -> None:
         return
 
     sentry_sdk = _configure_sentry(service_name) if backend == "sentry" else None
-    trace_logger = None if sentry_sdk else (_local_trace_logger(service_name) if backend == "local" else _elk_trace_logger(service_name))
+    trace_logger = (
+        None
+        if sentry_sdk
+        else (
+            _local_trace_logger(service_name)
+            if backend == "local"
+            else _elk_trace_logger(service_name)
+        )
+    )
 
     @app.middleware("http")
     async def route_trace_interceptor(request: Request, call_next):
-        trace_id = request.headers.get("x-trace-id") or request.headers.get("x-request-id") or str(uuid.uuid4())
+        trace_id = (
+            request.headers.get("x-trace-id")
+            or request.headers.get("x-request-id")
+            or str(uuid.uuid4())
+        )
         start = time.perf_counter()
         started_at = datetime.now(timezone.utc)
         client_host = request.client.host if request.client else "-"

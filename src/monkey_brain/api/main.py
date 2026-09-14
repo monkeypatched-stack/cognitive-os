@@ -25,6 +25,7 @@ each other — they share only the stateless intent compiler
 (plan.goals.compile.compile_intent) and the process-local run store
 (plan.goals.run_store), plus whatever the Kernel injects.
 """
+
 from __future__ import annotations
 
 import os
@@ -98,6 +99,7 @@ async def lifespan(app: FastAPI):
     kernel = await Kernel.boot(app)
 
     from src.monkey_brain.api.routes.memberships import init_memberships_store
+
     init_memberships_store()
 
     # Gate 3 (ADR-010) — after bootstrap: validate the freshly-booted world
@@ -109,7 +111,9 @@ async def lifespan(app: FastAPI):
     planetary_runtime = getattr(app.state, "planetary_runtime", None)
     if planetary_runtime is not None:
         try:
-            from src.monkey_brain.kernel.validation.world_validator import validate_world
+            from src.monkey_brain.kernel.validation.world_validator import (
+                validate_world,
+            )
 
             report = validate_world(planetary_runtime)
             if report["ok"]:
@@ -117,7 +121,8 @@ async def lifespan(app: FastAPI):
             else:
                 logger.warning(
                     "world validation (post-bootstrap): %d violations across categories %s",
-                    report["violation_count"], report["categories"],
+                    report["violation_count"],
+                    report["categories"],
                 )
         except Exception as exc:
             logger.warning("world validation (post-bootstrap) failed to run: %s", exc)
@@ -136,12 +141,14 @@ app = FastAPI(
 
 try:
     from services.common.trace_middleware import TraceMiddleware
+
     app.add_middleware(TraceMiddleware)
 except ImportError:
     logger.warning("TraceMiddleware not available — distributed tracing disabled")
 
 try:
     from services.common.mtls import MTLSMiddleware
+
     app.add_middleware(MTLSMiddleware)
 except ImportError:
     # Fallback: extract mTLS client cert info from request state
@@ -165,10 +172,14 @@ except ImportError:
             mtls_verified = bool(cert_subject)
 
             # Store on request.state for downstream access
-            request.state.mtls_cert = {
-                "subject": cert_subject,
-                "fingerprint": cert_fingerprint,
-            } if mtls_verified else None
+            request.state.mtls_cert = (
+                {
+                    "subject": cert_subject,
+                    "fingerprint": cert_fingerprint,
+                }
+                if mtls_verified
+                else None
+            )
             request.state.mtls_verified = mtls_verified
 
             return await call_next(request)
@@ -221,8 +232,11 @@ else:
             return await call_next(request)
 
     app.add_middleware(RateLimitMiddleware)
-    logger.info("Rate limiting enabled: %s rps, %s burst",
-                os.getenv("RATE_LIMIT_RPS", "100"), os.getenv("RATE_LIMIT_BURST", "200"))
+    logger.info(
+        "Rate limiting enabled: %s rps, %s burst",
+        os.getenv("RATE_LIMIT_RPS", "100"),
+        os.getenv("RATE_LIMIT_BURST", "200"),
+    )
 
 from src.monkey_brain.api.gateway_boundary import ApiGatewayBoundaryMiddleware
 
@@ -257,8 +271,12 @@ from src.monkey_brain.api.routes.societies import router as societies_router
 from src.monkey_brain.api.routes.actors import router as actors_router
 from src.monkey_brain.api.routes.memberships import router as memberships_router
 from src.monkey_brain.api.routes.runtime_gateway import router as runtime_gw_router
-from src.monkey_brain.api.routes.simulation_gateway import router as simulation_gw_router
-from src.monkey_brain.api.routes.comparator_gateway import router as comparator_gw_router
+from src.monkey_brain.api.routes.simulation_gateway import (
+    router as simulation_gw_router,
+)
+from src.monkey_brain.api.routes.comparator_gateway import (
+    router as comparator_gw_router,
+)
 from src.monkey_brain.api.routes.learning_gateway import router as learning_gw_router
 from src.monkey_brain.api.routes.world import router as world_router
 from src.monkey_brain.api.routes.discovery import router as discovery_router
@@ -332,7 +350,10 @@ app.include_router(edge_router, prefix="/api/v1/agentos", tags=["Edge"])
 
 # ── Exchange Server (network transport for knowledge proposals) ──────────────
 try:
-    from src.monkey_brain.kernel.compile.network import configure_exchange, secure_mode_preflight
+    from src.monkey_brain.kernel.compile.network import (
+        configure_exchange,
+        secure_mode_preflight,
+    )
 
     # Surface the security posture at boot (and hard-fail with AGENTOS_SECURE_MODE=1 if the
     # deployment is configured to run open — a pilot must not silently be insecure).
@@ -344,7 +365,7 @@ try:
     app.include_router(_exchange_server.create_router(), prefix="/api/v1/agentos", tags=["Exchange"])
     logger.info("Exchange server registered — network transport enabled")
 except RuntimeError:
-    raise                                              # strict secure-mode failure — do not swallow
+    raise  # strict secure-mode failure — do not swallow
 except Exception as exc:
     logger.warning("Exchange server not available: %s", exc)
 
@@ -414,8 +435,10 @@ async def readiness_check(request: Request):
     try:
         health = _overall_health(request)
     except Exception as exc:
-        return JSONResponse(status_code=503,
-                            content={"ready": False, "health": "unhealthy", "error": str(exc)})
+        return JSONResponse(
+            status_code=503,
+            content={"ready": False, "health": "unhealthy", "error": str(exc)},
+        )
     if health == "unhealthy":
         return JSONResponse(status_code=503, content={"ready": False, "health": health})
     return {"ready": True, "health": health, "service": "monkeybrain-runtime"}

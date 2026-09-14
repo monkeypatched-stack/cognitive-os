@@ -7,7 +7,14 @@ Provides:
 - TestReporter: generates reports
 """
 
-from plasticity.testing.runner import TestRunner, TestCase, TestResult, TestSuiteResult, TestType, TestStatus
+from plasticity.testing.runner import (
+    TestRunner,
+    TestCase,
+    TestResult,
+    TestSuiteResult,
+    TestType,
+    TestStatus,
+)
 from plasticity.testing.performance import PerformanceTester, PerformanceResult
 from plasticity.testing.profiler import Profiler, ProfilerReport, PerformanceBudget
 from plasticity.testing.reporter import TestReporter

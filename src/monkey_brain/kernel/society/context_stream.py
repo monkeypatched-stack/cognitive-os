@@ -9,6 +9,7 @@ Support:
 
 Context becomes append-only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -46,6 +47,7 @@ class ContextEventType(Enum):
 @dataclass(frozen=True)
 class ContextEvent:
     """One event in the context stream. Append-only."""
+
     event_id: str = field(default_factory=lambda: uuid4().hex)
     event_type: ContextEventType = ContextEventType.WORLD_UPDATE
     actor_id: str = ""
@@ -83,7 +85,7 @@ class ContextEvent:
     def from_dict(cls, d: dict[str, Any]) -> "ContextEvent":
         return cls(
             event_id=d.get("event_id", uuid4().hex),
-            event_type=ContextEventType(d["event_type"]) if "event_type" in d else ContextEventType.WORLD_UPDATE,
+            event_type=(ContextEventType(d["event_type"]) if "event_type" in d else ContextEventType.WORLD_UPDATE),
             actor_id=d.get("actor_id", ""),
             description=d.get("description", ""),
             payload=d.get("payload"),
@@ -99,6 +101,7 @@ class ContextEvent:
 @dataclass(frozen=True)
 class ContextSnapshot:
     """A point-in-time snapshot of the context stream for replay."""
+
     snapshot_id: str = field(default_factory=lambda: uuid4().hex)
     version: int = 0
     event_count: int = 0
@@ -173,7 +176,7 @@ class SocietyContextStream:
 
         self._events.append(stamped)
         if len(self._events) > self._max_history:
-            self._events = self._events[-self._max_history:]
+            self._events = self._events[-self._max_history :]
         self._dirty = True
         self._validate_causal_lineage(stamped)
         if self._nats_client is not None:
@@ -183,9 +186,12 @@ class SocietyContextStream:
             # correctly best-effort; the existing _save_context path
             # below is still the durable record.
             try:
-                task = asyncio.create_task(self._nats_client.publish(
-                    self._nats_subject, json.dumps(stamped.to_dict()).encode(),
-                ))
+                task = asyncio.create_task(
+                    self._nats_client.publish(
+                        self._nats_subject,
+                        json.dumps(stamped.to_dict()).encode(),
+                    )
+                )
                 self._nats_tasks.add(task)
                 task.add_done_callback(self._nats_tasks.discard)
             except RuntimeError:
@@ -220,14 +226,19 @@ class SocietyContextStream:
         not to enforce it by fiat before every caller has been audited."""
         if event.causation_id and not event.correlation_id:
             from src.monkey_brain.kernel.compile import _obs
+
             logger.warning(
                 "context_stream: event %s (%s, provenance=%r) has causation_id=%r but no "
                 "correlation_id -- causal chain cannot be traced back to its originating operation",
-                event.event_id, event.event_type.value, event.provenance, event.causation_id,
+                event.event_id,
+                event.event_type.value,
+                event.provenance,
+                event.causation_id,
             )
             _obs.counter(
                 "context_stream.causal_lineage_violations",
-                event_type=event.event_type.value, provenance=event.provenance,
+                event_type=event.event_type.value,
+                provenance=event.provenance,
             )
 
     def subscribe(self, callback: Callable[[ContextEvent], None]) -> None:
@@ -236,9 +247,13 @@ class SocietyContextStream:
     def unsubscribe(self, callback: Callable[[ContextEvent], None]) -> None:
         self._subscribers = [s for s in self._subscribers if s is not callback]
 
-    def replay(self, from_version: int = 0, to_version: int | None = None,
-               event_type: ContextEventType | None = None,
-               actor_id: str | None = None) -> tuple[ContextEvent, ...]:
+    def replay(
+        self,
+        from_version: int = 0,
+        to_version: int | None = None,
+        event_type: ContextEventType | None = None,
+        actor_id: str | None = None,
+    ) -> tuple[ContextEvent, ...]:
         events = self._events
         if from_version > 0:
             events = [e for e in events if e.version >= from_version]

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-sys.path.insert(0, '/Users/prashunjaveri/Code/monkeypatched')
+sys.path.insert(0, "/Users/prashunjaveri/Code/monkeypatched")
 
 from services.common.config import settings
 from services.common.embeddings import build_embedding
@@ -24,8 +24,7 @@ async def generate_embeddings():
 
     all_collections = await db.list_collection_names()
     collections_to_embed = [
-        c for c in sorted(all_collections)
-        if not c.startswith("system.") and c not in SKIP_collections
+        c for c in sorted(all_collections) if not c.startswith("system.") and c not in SKIP_collections
     ]
 
     print(f"Found {len(collections_to_embed)} collections to embed:")
@@ -46,10 +45,7 @@ async def generate_embeddings():
         async for document in collection.find({}):
             doc_id = document.get("_id")
             embedding = build_embedding(collection_name, document)
-            await collection.update_one(
-                {"_id": doc_id},
-                {"$set": {"embedding": embedding}}
-            )
+            await collection.update_one({"_id": doc_id}, {"$set": {"embedding": embedding}})
             updated += 1
 
         print(f"  Updated {updated} documents with embeddings")

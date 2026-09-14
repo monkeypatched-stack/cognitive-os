@@ -17,32 +17,54 @@ Written, not executed, per project convention (write test files; don't run
 pytest as part of a fix/feature change) — each scenario here was independently
 verified via standalone scripts during development.
 """
+
 import asyncio
 import sys
 import os
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 from src.monkey_brain.kernel.plan.goals.intent_ir import build_intent_ir
 from src.monkey_brain.kernel.execute.context import ExecutionContext
 from src.monkey_brain.kernel.execute.models import ExecutionMode
-from src.monkey_brain.kernel.execute.graph import ExecutionGraph, GraphNode, GraphEdge, NodeState
-from src.monkey_brain.kernel.process.manager import ProcessManager, InvalidTransitionError, ProcessNotFoundError
+from src.monkey_brain.kernel.execute.graph import (
+    ExecutionGraph,
+    GraphNode,
+    GraphEdge,
+    NodeState,
+)
+from src.monkey_brain.kernel.process.manager import (
+    ProcessManager,
+    InvalidTransitionError,
+    ProcessNotFoundError,
+)
 from src.monkey_brain.kernel.process.models import RuntimeProcessState
-from src.monkey_brain.kernel.process.compensation import CompensationRegistry, CompensationSpec, CompensationType
-from src.monkey_brain.kernel.process.idempotency import idempotency_key, IdempotencyClass, DEFAULT_IDEMPOTENCY_CLASS
+from src.monkey_brain.kernel.process.compensation import (
+    CompensationRegistry,
+    CompensationSpec,
+    CompensationType,
+)
+from src.monkey_brain.kernel.process.idempotency import (
+    idempotency_key,
+    IdempotencyClass,
+    DEFAULT_IDEMPOTENCY_CLASS,
+)
 
 
 def _make_context(run_id: str, goal_type: str = "query") -> ExecutionContext:
     ir = build_intent_ir(
         intent={"intent": "test_intent", "confidence": 0.9},
-        goal=type("G", (), {
-            "to_dict": lambda self: {"name": "test_goal", "goal_type": goal_type},
-            "entities": (),
-        })(),
+        goal=type(
+            "G",
+            (),
+            {
+                "to_dict": lambda self: {"name": "test_goal", "goal_type": goal_type},
+                "entities": (),
+            },
+        )(),
         run_id=run_id,
         question="test question",
     )
@@ -78,15 +100,20 @@ def test_normal_completion():
                 break
 
         assert pm.get_process(run_id).state == RuntimeProcessState.COMPLETED
+
     asyncio.run(scenario())
 
 
 def test_capability_failure_triggers_compensation():
     async def scenario():
         registry = CompensationRegistry()
-        registry.register("write_db", CompensationSpec(
-            type=CompensationType.COMPENSATING_ACTION, compensating_capability="undo_write_db",
-        ))
+        registry.register(
+            "write_db",
+            CompensationSpec(
+                type=CompensationType.COMPENSATING_ACTION,
+                compensating_capability="undo_write_db",
+            ),
+        )
         registry.register("flaky", CompensationSpec(type=CompensationType.NONE))
 
         class FakeBus:
@@ -96,12 +123,17 @@ def test_capability_failure_triggers_compensation():
                         self.success = ok
                         self.output = {"name": name}
                         self.error = None if ok else "boom"
+
                 return R(name != "flaky")
 
         async def exec_capability(name, inputs):
             return {"undone": name}
 
-        pm = ProcessManager(compensation_registry=registry, execute_capability=exec_capability, max_repair_attempts=1)
+        pm = ProcessManager(
+            compensation_registry=registry,
+            execute_capability=exec_capability,
+            max_repair_attempts=1,
+        )
         run_id = "test-fail-compensate"
         ctx = _make_context(run_id, goal_type="update")
         graph = _linear_graph("write_db", "flaky")
@@ -113,7 +145,11 @@ def test_capability_failure_triggers_compensation():
         for _ in range(10):
             await pm.tick_all()
             state = pm.get_process(run_id).state
-            if state in (RuntimeProcessState.ROLLED_BACK, RuntimeProcessState.FAILED, RuntimeProcessState.COMPLETED):
+            if state in (
+                RuntimeProcessState.ROLLED_BACK,
+                RuntimeProcessState.FAILED,
+                RuntimeProcessState.COMPLETED,
+            ):
                 break
 
         final = pm.get_process(run_id)
@@ -121,6 +157,7 @@ def test_capability_failure_triggers_compensation():
         assert len(final.compensation_log) == 1
         assert final.compensation_log[0].capability_name == "write_db"
         assert final.compensation_log[0].success
+
     asyncio.run(scenario())
 
 
@@ -158,6 +195,7 @@ def test_checkpoint_restore_resume_across_instances():
         final = pm2.get_process(run_id)
         assert final.state == RuntimeProcessState.COMPLETED
         assert final.graph.get_state("n1") == NodeState.COMPLETE
+
     asyncio.run(scenario())
 
 
@@ -174,7 +212,14 @@ def test_approval_gate_grant_path():
         ctx = _make_context(run_id, goal_type="update")
         graph = ExecutionGraph()
         graph.add_node(GraphNode(id="n0", type="step", label="n0", props={"capability": "cap_a"}))
-        graph.add_node(GraphNode(id="gate", type="approval_gate", label="gate", props={"prompt": "confirm?"}))
+        graph.add_node(
+            GraphNode(
+                id="gate",
+                type="approval_gate",
+                label="gate",
+                props={"prompt": "confirm?"},
+            )
+        )
         graph.add_node(GraphNode(id="n1", type="step", label="n1", props={"capability": "cap_b"}))
         graph.add_edge(GraphEdge(src="n0", dst="gate", rel="depends_on"))
         graph.add_edge(GraphEdge(src="gate", dst="n1", rel="depends_on"))
@@ -202,15 +247,20 @@ def test_approval_gate_grant_path():
 
         assert pm.get_process(run_id).state == RuntimeProcessState.COMPLETED
         assert any(e[0] == "process.approval_granted" for e in events)
+
     asyncio.run(scenario())
 
 
 def test_approval_gate_reject_path_triggers_compensation():
     async def scenario():
         registry = CompensationRegistry()
-        registry.register("cap_a", CompensationSpec(
-            type=CompensationType.COMPENSATING_ACTION, compensating_capability="undo_a",
-        ))
+        registry.register(
+            "cap_a",
+            CompensationSpec(
+                type=CompensationType.COMPENSATING_ACTION,
+                compensating_capability="undo_a",
+            ),
+        )
 
         async def exec_capability(name, inputs):
             return {"ok": True, "name": name}
@@ -234,6 +284,7 @@ def test_approval_gate_reject_path_triggers_compensation():
         assert final.state == RuntimeProcessState.ROLLED_BACK
         assert len(final.compensation_log) == 1
         assert final.compensation_log[0].capability_name == "cap_a"
+
     asyncio.run(scenario())
 
 
@@ -252,6 +303,7 @@ def test_invalid_transition_rejected():
         except InvalidTransitionError:
             raised = True
         assert raised
+
     asyncio.run(scenario())
 
 
@@ -264,6 +316,7 @@ def test_unknown_run_id_raises_process_not_found():
         except ProcessNotFoundError:
             raised = True
         assert raised
+
     asyncio.run(scenario())
 
 
@@ -276,6 +329,7 @@ def test_retry_exhaustion_reaches_compensating_not_stuck_waiting():
     FAILED with retry budget remaining must keep the process RUNNING (not
     WAITING) until that budget is confirmed exhausted.
     """
+
     async def scenario():
         registry = CompensationRegistry()
         registry.register("always_fails", CompensationSpec(type=CompensationType.NONE))
@@ -286,6 +340,7 @@ def test_retry_exhaustion_reaches_compensating_not_stuck_waiting():
                     success = False
                     output = {}
                     error = "always fails"
+
                 return R()
 
         pm = ProcessManager(compensation_registry=registry, max_repair_attempts=1)
@@ -307,8 +362,12 @@ def test_retry_exhaustion_reaches_compensating_not_stuck_waiting():
                 break
 
         final = pm.get_process(run_id)
-        assert final.state in (RuntimeProcessState.ROLLED_BACK, RuntimeProcessState.FAILED)
+        assert final.state in (
+            RuntimeProcessState.ROLLED_BACK,
+            RuntimeProcessState.FAILED,
+        )
         assert not seen_waiting_stuck, "process must not pass through WAITING while retry budget remains"
+
     asyncio.run(scenario())
 
 
@@ -328,8 +387,13 @@ def test_undeclared_capability_compensation_is_not_silently_skipped():
     as an implicit NONE — silently skipping an unaudited capability's
     compensation would be worse than surfacing it as a failure.
     """
+
     async def scenario():
-        from src.monkey_brain.kernel.process.compensation import compensate, UNDECLARED_SPEC, CompensationType
+        from src.monkey_brain.kernel.process.compensation import (
+            compensate,
+            UNDECLARED_SPEC,
+            CompensationType,
+        )
 
         assert UNDECLARED_SPEC.type == CompensationType.IRREVERSIBLE
         assert UNDECLARED_SPEC.declared is False
@@ -337,7 +401,14 @@ def test_undeclared_capability_compensation_is_not_silently_skipped():
         registry = CompensationRegistry()  # nothing registered
 
         graph = ExecutionGraph()
-        graph.add_node(GraphNode(id="n0", type="step", label="n0", props={"capability": "mystery_capability"}))
+        graph.add_node(
+            GraphNode(
+                id="n0",
+                type="step",
+                label="n0",
+                props={"capability": "mystery_capability"},
+            )
+        )
         graph.mark_running("n0")
         graph.mark_complete("n0", result={"ok": True})
 
@@ -345,6 +416,7 @@ def test_undeclared_capability_compensation_is_not_silently_skipped():
         assert all_recovered is False
         assert len(records) == 1
         assert records[0].success is False
+
     asyncio.run(scenario())
 
 

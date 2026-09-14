@@ -79,9 +79,7 @@ class MQTTSensorAdapter(CapabilityAdapter):
     async def initialize(self) -> None:
         broker = self.config.get("endpoint")
         if not broker:
-            raise AdapterInitializationError(
-                "MQTTSensorAdapter requires 'endpoint' (broker hostname)."
-            )
+            raise AdapterInitializationError("MQTTSensorAdapter requires 'endpoint' (broker hostname).")
 
         credentials = self.config.get("credentials", {})
         port = int(self.config.get("port", 1883))
@@ -122,9 +120,7 @@ class MQTTSensorAdapter(CapabilityAdapter):
                     "qos": message.qos,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
-                loop.call_soon_threadsafe(
-                    lambda: asyncio.ensure_future(self._handle_message(record))
-                )
+                loop.call_soon_threadsafe(lambda: asyncio.ensure_future(self._handle_message(record)))
             except Exception as exc:
                 logger.warning("MQTT message handling error: %s", exc)
 
@@ -189,23 +185,15 @@ class MQTTSensorAdapter(CapabilityAdapter):
             while True:
                 remaining = deadline - asyncio.get_event_loop().time()
                 if remaining <= 0:
-                    return AdapterResponse.fail(
-                        f"No message received on '{topic_filter}' within {wait_timeout}s."
-                    )
+                    return AdapterResponse.fail(f"No message received on '{topic_filter}' within {wait_timeout}s.")
 
                 try:
-                    record = await asyncio.wait_for(
-                        self._message_buffer.get(), timeout=remaining
-                    )
+                    record = await asyncio.wait_for(self._message_buffer.get(), timeout=remaining)
                 except asyncio.TimeoutError:
-                    return AdapterResponse.fail(
-                        f"No message received on '{topic_filter}' within {wait_timeout}s."
-                    )
+                    return AdapterResponse.fail(f"No message received on '{topic_filter}' within {wait_timeout}s.")
 
                 # Topic filter matching
-                if topic_filter and not self._topic_matches(
-                    record["topic"], topic_filter
-                ):
+                if topic_filter and not self._topic_matches(record["topic"], topic_filter):
                     # Put it back (simple re-queue)
                     await self._message_buffer.put(record)
                     await asyncio.sleep(0.1)

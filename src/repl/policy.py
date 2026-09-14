@@ -1,4 +1,5 @@
 """Policy management."""
+
 from __future__ import annotations
 
 import logging
@@ -68,7 +69,6 @@ def policy_grant(
         raise typer.Exit(1)
 
 
-
 def policy_revoke(
     subject: str = typer.Argument(..., help="Role ID"),
     permission_id: str = typer.Argument(..., help="Permission ID to revoke"),
@@ -89,7 +89,6 @@ def policy_revoke(
     else:
         typer.echo(f"  Error {r.status_code}: {r.text}", err=True)
         raise typer.Exit(1)
-
 
 
 def policy_list(
@@ -117,10 +116,10 @@ def policy_list(
         if not isinstance(items, list):
             items = [items]
         typer.echo(f"  {'ID':<30s} {'RESOURCE':<20s} {'ACTION'}")
-        typer.echo(f"  {'-'*30} {'-'*20} {'-'*12}")
+        typer.echo(f"  {'-' * 30} {'-' * 20} {'-' * 12}")
         for p in items:
-            typer.echo(f"  {str(p.get('id', p.get('_id','?'))):<30s} {p.get('resource','?'):<20s} {p.get('action','?')}")
+            typer.echo(
+                f"  {str(p.get('id', p.get('_id', '?'))):<30s} {p.get('resource', '?'):<20s} {p.get('action', '?')}"
+            )
     except Exception:
         typer.echo(r.text)
-
-

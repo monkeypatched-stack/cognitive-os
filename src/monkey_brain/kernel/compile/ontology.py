@@ -6,12 +6,12 @@ Defines the structure of the world:
 - Type inheritance
 - Domain constraints
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
 from typing import Any
-
 
 logger = logging.getLogger("agentos.ontology")
 
@@ -19,6 +19,7 @@ logger = logging.getLogger("agentos.ontology")
 @dataclass
 class TypeDef:
     """Definition of an entity or relationship type."""
+
     name: str
     parent: str | None
     category: str
@@ -43,42 +44,82 @@ class Ontology:
         # Entity types
         self.add_entity_type("entity", None, "generic")
         self.add_entity_type("physical_entity", "entity", "physical")
-        self.add_entity_type("person", "physical_entity", "physical",
-                             attributes={"name": "str", "age": "int", "role": "str"})
-        self.add_entity_type("vehicle", "physical_entity", "physical",
-                             attributes={"capacity_kg": "float", "fuel_type": "str"})
+        self.add_entity_type(
+            "person",
+            "physical_entity",
+            "physical",
+            attributes={"name": "str", "age": "int", "role": "str"},
+        )
+        self.add_entity_type(
+            "vehicle",
+            "physical_entity",
+            "physical",
+            attributes={"capacity_kg": "float", "fuel_type": "str"},
+        )
         self.add_entity_type("car", "vehicle", "physical", attributes={"plate": "str"})
         self.add_entity_type("truck", "vehicle", "physical", attributes={"axles": "int"})
-        self.add_entity_type("robot", "physical_entity", "physical",
-                             attributes={"robot_type": "str"})
-        self.add_entity_type("machine", "physical_entity", "physical",
-                             attributes={"capacity": "float", "status": "str"})
-        self.add_entity_type("product", "physical_entity", "physical",
-                             attributes={"category": "str", "unit": "str", "brand": "str"})
-        self.add_entity_type("building", "physical_entity", "physical",
-                             attributes={"address": "str"})
-        self.add_entity_type("road", "physical_entity", "physical",
-                             attributes={"road_type": "str", "blocked": "bool"})
-        self.add_entity_type("sensor", "physical_entity", "physical",
-                             attributes={"sensor_type": "str", "reading": "float"})
-        self.add_entity_type("organization", "entity", "organization",
-                             attributes={"name": "str", "legal_form": "str"})
-        self.add_entity_type("enterprise", "organization", "organization",
-                             attributes={"revenue": "float", "employees": "int"})
-        self.add_entity_type("government", "organization", "organization",
-                             attributes={"jurisdiction": "str"})
-        self.add_entity_type("community", "organization", "organization",
-                             attributes={"population": "int"})
-        self.add_entity_type("location", "entity", "location",
-                             attributes={"lat": "float", "lon": "float"})
+        self.add_entity_type("robot", "physical_entity", "physical", attributes={"robot_type": "str"})
+        self.add_entity_type(
+            "machine",
+            "physical_entity",
+            "physical",
+            attributes={"capacity": "float", "status": "str"},
+        )
+        self.add_entity_type(
+            "product",
+            "physical_entity",
+            "physical",
+            attributes={"category": "str", "unit": "str", "brand": "str"},
+        )
+        self.add_entity_type("building", "physical_entity", "physical", attributes={"address": "str"})
+        self.add_entity_type(
+            "road",
+            "physical_entity",
+            "physical",
+            attributes={"road_type": "str", "blocked": "bool"},
+        )
+        self.add_entity_type(
+            "sensor",
+            "physical_entity",
+            "physical",
+            attributes={"sensor_type": "str", "reading": "float"},
+        )
+        self.add_entity_type(
+            "organization",
+            "entity",
+            "organization",
+            attributes={"name": "str", "legal_form": "str"},
+        )
+        self.add_entity_type(
+            "enterprise",
+            "organization",
+            "organization",
+            attributes={"revenue": "float", "employees": "int"},
+        )
+        self.add_entity_type(
+            "government",
+            "organization",
+            "organization",
+            attributes={"jurisdiction": "str"},
+        )
+        self.add_entity_type(
+            "community",
+            "organization",
+            "organization",
+            attributes={"population": "int"},
+        )
+        self.add_entity_type(
+            "location",
+            "entity",
+            "location",
+            attributes={"lat": "float", "lon": "float"},
+        )
         self.add_entity_type("city", "location", "location")
         self.add_entity_type("factory", "location", "location")
         self.add_entity_type("warehouse", "location", "location")
         self.add_entity_type("store", "location", "location")
-        self.add_entity_type("digital_entity", "entity", "digital",
-                             attributes={"version": "str"})
-        self.add_entity_type("ai_agent", "digital_entity", "digital",
-                             attributes={"model": "str"})
+        self.add_entity_type("digital_entity", "entity", "digital", attributes={"version": "str"})
+        self.add_entity_type("ai_agent", "digital_entity", "digital", attributes={"model": "str"})
 
         # Relation types
         self.add_relation_type("related_to", None, "general")
@@ -110,21 +151,27 @@ class Ontology:
         self.add_relation_type("observes", "related_to", "general")
         self.add_relation_type("transitions_to", "related_to", "procedural")
 
-    def add_entity_type(self, name: str, parent: str | None, category: str,
-                        **kwargs: Any) -> TypeDef:
-        td = TypeDef(name=name, parent=parent, category=category,
-                     attributes=kwargs.get("attributes", {}),
-                     constraints=kwargs.get("constraints", []),
-                     domain=kwargs.get("domain", "default"))
+    def add_entity_type(self, name: str, parent: str | None, category: str, **kwargs: Any) -> TypeDef:
+        td = TypeDef(
+            name=name,
+            parent=parent,
+            category=category,
+            attributes=kwargs.get("attributes", {}),
+            constraints=kwargs.get("constraints", []),
+            domain=kwargs.get("domain", "default"),
+        )
         self._entity_types[name] = td
         return td
 
-    def add_relation_type(self, name: str, parent: str | None, category: str,
-                          **kwargs: Any) -> TypeDef:
-        td = TypeDef(name=name, parent=parent, category=category,
-                     attributes=kwargs.get("attributes", {}),
-                     constraints=kwargs.get("constraints", []),
-                     domain=kwargs.get("domain", "default"))
+    def add_relation_type(self, name: str, parent: str | None, category: str, **kwargs: Any) -> TypeDef:
+        td = TypeDef(
+            name=name,
+            parent=parent,
+            category=category,
+            attributes=kwargs.get("attributes", {}),
+            constraints=kwargs.get("constraints", []),
+            domain=kwargs.get("domain", "default"),
+        )
         self._relation_types[name] = td
         return td
 
@@ -163,12 +210,24 @@ class Ontology:
 
     def export(self) -> dict:
         return {
-            "entity_types": {k: {"parent": v.parent, "category": v.category,
-                                  "attributes": v.attributes, "constraints": v.constraints}
-                             for k, v in self._entity_types.items()},
-            "relation_types": {k: {"parent": v.parent, "category": v.category,
-                                    "attributes": v.attributes, "constraints": v.constraints}
-                               for k, v in self._relation_types.items()},
+            "entity_types": {
+                k: {
+                    "parent": v.parent,
+                    "category": v.category,
+                    "attributes": v.attributes,
+                    "constraints": v.constraints,
+                }
+                for k, v in self._entity_types.items()
+            },
+            "relation_types": {
+                k: {
+                    "parent": v.parent,
+                    "category": v.category,
+                    "attributes": v.attributes,
+                    "constraints": v.constraints,
+                }
+                for k, v in self._relation_types.items()
+            },
         }
 
     def validate_entity(self, entity_type: str, attributes: dict[str, Any]) -> list[str]:
@@ -187,7 +246,9 @@ class Ontology:
             if attr_name not in attributes:
                 errors.append(f"Missing required attribute: {attr_name} (type: {attr_type})")
             elif not self._check_type(attributes[attr_name], attr_type):
-                errors.append(f"Attribute {attr_name} has wrong type: expected {attr_type}, got {type(attributes[attr_name]).__name__}")
+                errors.append(
+                    f"Attribute {attr_name} has wrong type: expected {attr_type}, got {type(attributes[attr_name]).__name__}"
+                )
 
         # Check constraints
         for constraint in td.constraints:
@@ -196,8 +257,7 @@ class Ontology:
 
         return errors
 
-    def validate_relationship(self, relation_type: str, source_type: str,
-                              target_type: str) -> list[str]:
+    def validate_relationship(self, relation_type: str, source_type: str, target_type: str) -> list[str]:
         """Validate that a relationship is allowed between two entity types.
 
         Returns list of validation errors (empty if valid).
@@ -253,8 +313,12 @@ class Ontology:
     def _check_type(value: Any, expected_type: str) -> bool:
         """Check if a value matches the expected type."""
         type_map = {
-            "str": str, "int": int, "float": (int, float),
-            "bool": bool, "list": list, "dict": dict,
+            "str": str,
+            "int": int,
+            "float": (int, float),
+            "bool": bool,
+            "list": list,
+            "dict": dict,
         }
         expected = type_map.get(expected_type)
         if expected is None:

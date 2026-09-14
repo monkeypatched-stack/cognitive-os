@@ -2,7 +2,16 @@ import json
 from typing import Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from pymongo import ReturnDocument
 
 from services.common.db import get_database
@@ -29,7 +38,9 @@ def empty_collection_router(paths: list[str]) -> APIRouter:
 
     for path in paths:
         router.add_api_route(path, list_empty, methods=["GET"])
-        router.add_api_route(f"{path}/", list_empty, methods=["GET"], include_in_schema=False)
+        router.add_api_route(
+            f"{path}/", list_empty, methods=["GET"], include_in_schema=False
+        )
 
     return router
 
@@ -56,7 +67,9 @@ def _serialize(doc: dict | None) -> dict | None:
 
 
 async def _read_uploaded_json(file: UploadFile) -> Any:
-    content_type = file.content_type.split(";", 1)[0].lower() if file.content_type else None
+    content_type = (
+        file.content_type.split(";", 1)[0].lower() if file.content_type else None
+    )
     if content_type and content_type not in {
         "application/json",
         "text/json",
@@ -69,20 +82,31 @@ async def _read_uploaded_json(file: UploadFile) -> Any:
 
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded JSON file is empty.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded JSON file is empty.",
+        )
 
     try:
         return json.loads(content.decode("utf-8"))
     except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file must be UTF-8 JSON.") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must be UTF-8 JSON.",
+        ) from exc
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON: {exc.msg}") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON: {exc.msg}"
+        ) from exc
 
 
 def _documents_from_json(payload: Any) -> list[dict]:
     documents = payload if isinstance(payload, list) else [payload]
     if not documents:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="JSON array must contain at least one object.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="JSON array must contain at least one object.",
+        )
     if not all(isinstance(document, dict) for document in documents):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -107,10 +131,7 @@ def collection_router(paths: list[str]) -> APIRouter:
         ) -> dict:
             total = await db[collection].count_documents({})
             cursor = (
-                db[collection]
-                .find({})
-                .skip((page - 1) * page_size)
-                .limit(page_size)
+                db[collection].find({}).skip((page - 1) * page_size).limit(page_size)
             )
             return {
                 "total": total,
@@ -126,9 +147,19 @@ def collection_router(paths: list[str]) -> APIRouter:
             collection: str = collection,
             id_field: str = id_field,
         ) -> dict:
-            doc = await db[collection].find_one({"$or": [{id_field: record_id}, {"id": record_id}, {"group_id": record_id}]})
+            doc = await db[collection].find_one(
+                {
+                    "$or": [
+                        {id_field: record_id},
+                        {"id": record_id},
+                        {"group_id": record_id},
+                    ]
+                }
+            )
             if not doc:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+                )
             return _serialize(doc)
 
         async def create_record(
@@ -139,13 +170,25 @@ def collection_router(paths: list[str]) -> APIRouter:
             id_field: str = id_field,
         ) -> dict:
             doc = dict(payload)
-            record_id = str(doc.get(id_field) or doc.get("id") or doc.get("group_id") or ObjectId())
+            record_id = str(
+                doc.get(id_field) or doc.get("id") or doc.get("group_id") or ObjectId()
+            )
             doc.setdefault(id_field, record_id)
             doc.setdefault("id", record_id)
             doc.setdefault("group_id", record_id)
-            existing = await db[collection].find_one({"$or": [{id_field: record_id}, {"id": record_id}, {"group_id": record_id}]})
+            existing = await db[collection].find_one(
+                {
+                    "$or": [
+                        {id_field: record_id},
+                        {"id": record_id},
+                        {"group_id": record_id},
+                    ]
+                }
+            )
             if existing:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Record already exists")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, detail="Record already exists"
+                )
             await db[collection].insert_one(doc)
             return _serialize(doc)
 
@@ -186,7 +229,13 @@ def collection_router(paths: list[str]) -> APIRouter:
             fields.setdefault("id", record_id)
             fields.setdefault("group_id", record_id)
             doc = await db[collection].find_one_and_update(
-                {"$or": [{id_field: record_id}, {"id": record_id}, {"group_id": record_id}]},
+                {
+                    "$or": [
+                        {id_field: record_id},
+                        {"id": record_id},
+                        {"group_id": record_id},
+                    ]
+                },
                 {"$set": fields},
                 upsert=True,
                 return_document=ReturnDocument.AFTER,
@@ -200,18 +249,78 @@ def collection_router(paths: list[str]) -> APIRouter:
             collection: str = collection,
             id_field: str = id_field,
         ) -> None:
-            result = await db[collection].delete_one({"$or": [{id_field: record_id}, {"id": record_id}, {"group_id": record_id}]})
+            result = await db[collection].delete_one(
+                {
+                    "$or": [
+                        {id_field: record_id},
+                        {"id": record_id},
+                        {"group_id": record_id},
+                    ]
+                }
+            )
             if result.deleted_count != 1:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+                )
 
-        router.add_api_route(path, list_records, methods=["GET"], name=f"list_{collection}")
-        router.add_api_route(f"{path}/", list_records, methods=["GET"], include_in_schema=False, name=f"list_{collection}_slash")
-        router.add_api_route(path, create_record, methods=["POST"], status_code=status.HTTP_201_CREATED, name=f"create_{collection}")
-        router.add_api_route(f"{path}/", create_record, methods=["POST"], status_code=status.HTTP_201_CREATED, include_in_schema=False, name=f"create_{collection}_slash")
-        router.add_api_route(f"{path}/upload-json", upload_json, methods=["POST"], status_code=status.HTTP_201_CREATED, name=f"upload_{collection}_json")
-        router.add_api_route(f"{path}/upload-json/", upload_json, methods=["POST"], status_code=status.HTTP_201_CREATED, include_in_schema=False, name=f"upload_{collection}_json_slash")
-        router.add_api_route(f"{path}/{{record_id}}", get_record, methods=["GET"], name=f"get_{collection}")
-        router.add_api_route(f"{path}/{{record_id}}", update_record, methods=["PATCH"], name=f"update_{collection}")
-        router.add_api_route(f"{path}/{{record_id}}", delete_record, methods=["DELETE"], status_code=status.HTTP_204_NO_CONTENT, name=f"delete_{collection}")
+        router.add_api_route(
+            path, list_records, methods=["GET"], name=f"list_{collection}"
+        )
+        router.add_api_route(
+            f"{path}/",
+            list_records,
+            methods=["GET"],
+            include_in_schema=False,
+            name=f"list_{collection}_slash",
+        )
+        router.add_api_route(
+            path,
+            create_record,
+            methods=["POST"],
+            status_code=status.HTTP_201_CREATED,
+            name=f"create_{collection}",
+        )
+        router.add_api_route(
+            f"{path}/",
+            create_record,
+            methods=["POST"],
+            status_code=status.HTTP_201_CREATED,
+            include_in_schema=False,
+            name=f"create_{collection}_slash",
+        )
+        router.add_api_route(
+            f"{path}/upload-json",
+            upload_json,
+            methods=["POST"],
+            status_code=status.HTTP_201_CREATED,
+            name=f"upload_{collection}_json",
+        )
+        router.add_api_route(
+            f"{path}/upload-json/",
+            upload_json,
+            methods=["POST"],
+            status_code=status.HTTP_201_CREATED,
+            include_in_schema=False,
+            name=f"upload_{collection}_json_slash",
+        )
+        router.add_api_route(
+            f"{path}/{{record_id}}",
+            get_record,
+            methods=["GET"],
+            name=f"get_{collection}",
+        )
+        router.add_api_route(
+            f"{path}/{{record_id}}",
+            update_record,
+            methods=["PATCH"],
+            name=f"update_{collection}",
+        )
+        router.add_api_route(
+            f"{path}/{{record_id}}",
+            delete_record,
+            methods=["DELETE"],
+            status_code=status.HTTP_204_NO_CONTENT,
+            name=f"delete_{collection}",
+        )
 
     return router

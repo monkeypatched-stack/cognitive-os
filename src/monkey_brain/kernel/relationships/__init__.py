@@ -31,6 +31,7 @@ Usage:
     # Get transitive relationships
     graph.transitive("alice", "colleague")
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,6 +47,7 @@ logger = logging.getLogger("agentos.relationships")
 # ═══════════════════════════════════════════════════════════════════════════════
 # Core Types
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class RelationshipKind(str, Enum):
     """Types of relationships between entities.
@@ -70,6 +72,7 @@ class RelationshipKind(str, Enum):
     - Creative relationships
     - Scientific relationships
     """
+
     # ═══════════════════════════════════════════════════════════════════════════
     # Personal Relationships
     # ═══════════════════════════════════════════════════════════════════════════
@@ -815,6 +818,7 @@ class RelationshipKind(str, Enum):
 
 class RelationshipDirection(str, Enum):
     """Direction of a relationship."""
+
     OUTGOING = "outgoing"
     INCOMING = "incoming"
     BIDIRECTIONAL = "bidirectional"
@@ -823,6 +827,7 @@ class RelationshipDirection(str, Enum):
 @dataclass
 class Relationship:
     """A directed relationship between two entities."""
+
     relationship_id: str = field(default_factory=lambda: uuid4().hex)
     source_id: str = ""
     target_id: str = ""
@@ -891,6 +896,7 @@ class Relationship:
 @dataclass
 class RelationshipPath:
     """A path through the relationship graph."""
+
     source_id: str
     target_id: str
     relationships: list[Relationship]
@@ -905,6 +911,7 @@ class RelationshipPath:
 @dataclass
 class RelationshipHistoryEntry:
     """An audit trail entry for a relationship change."""
+
     entry_id: str = field(default_factory=lambda: uuid4().hex)
     relationship_id: str = ""
     action: str = ""  # "create", "update", "delete"
@@ -916,23 +923,34 @@ class RelationshipHistoryEntry:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "entry_id": self.entry_id, "relationship_id": self.relationship_id,
-            "action": self.action, "old_value": self.old_value, "new_value": self.new_value,
-            "actor_id": self.actor_id, "timestamp": self.timestamp, "reason": self.reason,
+            "entry_id": self.entry_id,
+            "relationship_id": self.relationship_id,
+            "action": self.action,
+            "old_value": self.old_value,
+            "new_value": self.new_value,
+            "actor_id": self.actor_id,
+            "timestamp": self.timestamp,
+            "reason": self.reason,
         }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "RelationshipHistoryEntry":
         return cls(
-            entry_id=d.get("entry_id", uuid4().hex), relationship_id=d.get("relationship_id", ""),
-            action=d.get("action", ""), old_value=d.get("old_value"), new_value=d.get("new_value"),
-            actor_id=d.get("actor_id", ""), timestamp=d.get("timestamp", 0.0), reason=d.get("reason", ""),
+            entry_id=d.get("entry_id", uuid4().hex),
+            relationship_id=d.get("relationship_id", ""),
+            action=d.get("action", ""),
+            old_value=d.get("old_value"),
+            new_value=d.get("new_value"),
+            actor_id=d.get("actor_id", ""),
+            timestamp=d.get("timestamp", 0.0),
+            reason=d.get("reason", ""),
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RelationshipGraph — Core Graph Engine
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class RelationshipGraph:
     """Graph-based relationship storage with traversal and inference.
@@ -960,12 +978,19 @@ class RelationshipGraph:
 
     # ── Storage ─────────────────────────────────────────────────
 
-    def add(self, source_id: str, target_id: str,
-            kind: RelationshipKind | str = RelationshipKind.RELATED_TO,
-            strength: float = 0.5, confidence: float = 1.0,
-            bidirectional: bool = False, attributes: dict | None = None,
-            metadata: dict | None = None, source_actor_id: str = "",
-            **kwargs) -> Relationship:
+    def add(
+        self,
+        source_id: str,
+        target_id: str,
+        kind: RelationshipKind | str = RelationshipKind.RELATED_TO,
+        strength: float = 0.5,
+        confidence: float = 1.0,
+        bidirectional: bool = False,
+        attributes: dict | None = None,
+        metadata: dict | None = None,
+        source_actor_id: str = "",
+        **kwargs,
+    ) -> Relationship:
         """Add a relationship to the graph."""
         if isinstance(kind, str):
             kind = RelationshipKind(kind)
@@ -993,11 +1018,22 @@ class RelationshipGraph:
             self._reverse_adjacency.setdefault(source_id, []).append(rel.relationship_id)
 
         # Record history
-        self._record_history(rel.relationship_id, "create", None, rel.to_dict(),
-                           source_actor_id, kwargs.get("reason", ""))
+        self._record_history(
+            rel.relationship_id,
+            "create",
+            None,
+            rel.to_dict(),
+            source_actor_id,
+            kwargs.get("reason", ""),
+        )
 
-        logger.debug("Added relationship: %s -[%s]-> %s (strength=%.2f)",
-                     source_id, kind.value, target_id, strength)
+        logger.debug(
+            "Added relationship: %s -[%s]-> %s (strength=%.2f)",
+            source_id,
+            kind.value,
+            target_id,
+            strength,
+        )
         return rel
 
     def update(self, relationship_id: str, **kwargs) -> Relationship | None:
@@ -1014,25 +1050,29 @@ class RelationshipGraph:
                 object.__setattr__(old, key, value)
 
         # Update timestamps
-        object.__setattr__(old, 'updated_at', time.time())
+        object.__setattr__(old, "updated_at", time.time())
 
         # Handle kind change
-        if 'kind' in kwargs and isinstance(kwargs['kind'], str):
-            object.__setattr__(old, 'kind', RelationshipKind(kwargs['kind']))
+        if "kind" in kwargs and isinstance(kwargs["kind"], str):
+            object.__setattr__(old, "kind", RelationshipKind(kwargs["kind"]))
 
         # Handle strength clamping
-        if 'strength' in kwargs:
-            object.__setattr__(old, 'strength', max(0.0, min(1.0, kwargs['strength'])))
+        if "strength" in kwargs:
+            object.__setattr__(old, "strength", max(0.0, min(1.0, kwargs["strength"])))
 
         # Record history
-        self._record_history(relationship_id, "update", old_dict, old.to_dict(),
-                           kwargs.get("source_actor_id", ""),
-                           kwargs.get("reason", ""))
+        self._record_history(
+            relationship_id,
+            "update",
+            old_dict,
+            old.to_dict(),
+            kwargs.get("source_actor_id", ""),
+            kwargs.get("reason", ""),
+        )
 
         return old
 
-    def remove(self, relationship_id: str, source_actor_id: str = "",
-               reason: str = "") -> bool:
+    def remove(self, relationship_id: str, source_actor_id: str = "", reason: str = "") -> bool:
         """Remove a relationship."""
         rel = self._relationships.pop(relationship_id, None)
         if rel is None:
@@ -1056,8 +1096,7 @@ class RelationshipGraph:
                 target_list2.remove(relationship_id)
 
         # Record history
-        self._record_history(relationship_id, "delete", rel.to_dict(), None,
-                           source_actor_id, reason)
+        self._record_history(relationship_id, "delete", rel.to_dict(), None, source_actor_id, reason)
 
         return True
 
@@ -1075,20 +1114,29 @@ class RelationshipGraph:
 
     # ── Query ───────────────────────────────────────────────────
 
-    def relationships_for(self, entity_id: str,
-                          direction: RelationshipDirection = RelationshipDirection.BIDIRECTIONAL,
-                          kind: RelationshipKind | None = None,
-                          min_strength: float = 0.0) -> list[Relationship]:
+    def relationships_for(
+        self,
+        entity_id: str,
+        direction: RelationshipDirection = RelationshipDirection.BIDIRECTIONAL,
+        kind: RelationshipKind | None = None,
+        min_strength: float = 0.0,
+    ) -> list[Relationship]:
         """Get all relationships involving an entity."""
         results = set()
 
-        if direction in (RelationshipDirection.OUTGOING, RelationshipDirection.BIDIRECTIONAL):
+        if direction in (
+            RelationshipDirection.OUTGOING,
+            RelationshipDirection.BIDIRECTIONAL,
+        ):
             for rel_id in self._adjacency.get(entity_id, []):
                 rel = self._relationships.get(rel_id)
                 if rel and rel.source_id == entity_id:
                     results.add(rel)
 
-        if direction in (RelationshipDirection.INCOMING, RelationshipDirection.BIDIRECTIONAL):
+        if direction in (
+            RelationshipDirection.INCOMING,
+            RelationshipDirection.BIDIRECTIONAL,
+        ):
             for rel_id in self._reverse_adjacency.get(entity_id, []):
                 rel = self._relationships.get(rel_id)
                 if rel and rel.target_id == entity_id:
@@ -1103,8 +1151,9 @@ class RelationshipGraph:
 
         return sorted(results, key=lambda r: r.strength, reverse=True)
 
-    def relationships_between(self, source_id: str, target_id: str,
-                              kind: RelationshipKind | None = None) -> list[Relationship]:
+    def relationships_between(
+        self, source_id: str, target_id: str, kind: RelationshipKind | None = None
+    ) -> list[Relationship]:
         """Get all relationships between two entities."""
         results = []
         for rel in self._relationships.values():
@@ -1122,17 +1171,14 @@ class RelationshipGraph:
 
     def by_attribute(self, key: str, value: Any) -> list[Relationship]:
         """Get all relationships with a specific attribute value."""
-        return [r for r in self._relationships.values()
-                if r.attributes.get(key) == value]
+        return [r for r in self._relationships.values() if r.attributes.get(key) == value]
 
-    def strongest_relationship(self, entity_id: str,
-                               kind: RelationshipKind | None = None) -> Relationship | None:
+    def strongest_relationship(self, entity_id: str, kind: RelationshipKind | None = None) -> Relationship | None:
         """Get the strongest relationship for an entity."""
         rels = self.relationships_for(entity_id, kind=kind)
         return rels[0] if rels else None
 
-    def entities_connected_to(self, entity_id: str,
-                              min_strength: float = 0.0) -> list[str]:
+    def entities_connected_to(self, entity_id: str, min_strength: float = 0.0) -> list[str]:
         """Get all entities connected to this entity."""
         connected = set()
         for rel in self.relationships_for(entity_id, min_strength=min_strength):
@@ -1144,9 +1190,13 @@ class RelationshipGraph:
 
     # ── Traversal ───────────────────────────────────────────────
 
-    def find_path(self, source_id: str, target_id: str,
-                  max_hops: int = 10,
-                  kind: RelationshipKind | None = None) -> RelationshipPath:
+    def find_path(
+        self,
+        source_id: str,
+        target_id: str,
+        max_hops: int = 10,
+        kind: RelationshipKind | None = None,
+    ) -> RelationshipPath:
         """Find shortest path between two entities using BFS."""
         if source_id == target_id:
             return RelationshipPath(source_id, target_id, [], 0.0, 0)
@@ -1182,28 +1232,36 @@ class RelationshipGraph:
 
         return RelationshipPath(source_id, target_id, [], 0.0, 0)
 
-    def all_paths(self, source_id: str, target_id: str,
-                  max_hops: int = 5) -> list[RelationshipPath]:
+    def all_paths(self, source_id: str, target_id: str, max_hops: int = 5) -> list[RelationshipPath]:
         """Find all paths between two entities (up to max_hops)."""
         paths = []
         self._dfs_paths(source_id, target_id, [], set(), paths, max_hops)
         return paths
 
-    def _dfs_paths(self, current: str, target: str, path: list[Relationship],
-                   visited: set, results: list[RelationshipPath], max_hops: int):
+    def _dfs_paths(
+        self,
+        current: str,
+        target: str,
+        path: list[Relationship],
+        visited: set,
+        results: list[RelationshipPath],
+        max_hops: int,
+    ):
         """DFS helper for finding all paths."""
         if len(path) >= max_hops:
             return
 
         if current == target and path:
             total_strength = min(r.strength for r in path)
-            results.append(RelationshipPath(
-                source_id=path[0].source_id,
-                target_id=target,
-                relationships=list(path),
-                total_strength=total_strength,
-                hop_count=len(path),
-            ))
+            results.append(
+                RelationshipPath(
+                    source_id=path[0].source_id,
+                    target_id=target,
+                    relationships=list(path),
+                    total_strength=total_strength,
+                    hop_count=len(path),
+                )
+            )
             return
 
         for rel in self.relationships_for(current):
@@ -1215,8 +1273,7 @@ class RelationshipGraph:
 
     # ── Inference ───────────────────────────────────────────────
 
-    def transitive(self, source_id: str, kind: RelationshipKind,
-                   max_hops: int = 5) -> list[Relationship]:
+    def transitive(self, source_id: str, kind: RelationshipKind, max_hops: int = 5) -> list[Relationship]:
         """Find transitive relationships of a given kind.
 
         Example: If A -colleague-> B and B -colleague-> C,
@@ -1239,16 +1296,21 @@ class RelationshipGraph:
         _traverse(source_id, 0)
         return results
 
-    def reverse_relationships(self, entity_id: str,
-                              kind: RelationshipKind | None = None) -> list[Relationship]:
+    def reverse_relationships(self, entity_id: str, kind: RelationshipKind | None = None) -> list[Relationship]:
         """Get all incoming relationships (where entity is the target)."""
         return self.relationships_for(entity_id, direction=RelationshipDirection.INCOMING, kind=kind)
 
     # ── History ─────────────────────────────────────────────────
 
-    def _record_history(self, relationship_id: str, action: str,
-                       old_value: dict | None, new_value: dict | None,
-                       actor_id: str, reason: str) -> None:
+    def _record_history(
+        self,
+        relationship_id: str,
+        action: str,
+        old_value: dict | None,
+        new_value: dict | None,
+        actor_id: str,
+        reason: str,
+    ) -> None:
         """Record a history entry."""
         entry = RelationshipHistoryEntry(
             relationship_id=relationship_id,
@@ -1262,9 +1324,12 @@ class RelationshipGraph:
         if len(self._history) > self._max_history:
             del self._history[: len(self._history) - self._max_history]
 
-    def history(self, relationship_id: str | None = None,
-                action: str | None = None,
-                limit: int = 100) -> list[RelationshipHistoryEntry]:
+    def history(
+        self,
+        relationship_id: str | None = None,
+        action: str | None = None,
+        limit: int = 100,
+    ) -> list[RelationshipHistoryEntry]:
         """Get relationship history."""
         results = self._history
 
@@ -1309,10 +1374,12 @@ class RelationshipGraph:
 
         return {
             "total_relationships": self.count(),
-            "unique_entities": len(set(
-                [r.source_id for r in self._relationships.values()] +
-                [r.target_id for r in self._relationships.values()]
-            )),
+            "unique_entities": len(
+                set(
+                    [r.source_id for r in self._relationships.values()]
+                    + [r.target_id for r in self._relationships.values()]
+                )
+            ),
             "by_kind": kind_counts,
             "bidirectional_count": sum(1 for r in self._relationships.values() if r.bidirectional),
             "history_entries": len(self._history),

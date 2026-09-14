@@ -12,6 +12,7 @@ resolving against real data instead of a dangling reference. Refuses
 unless the merchant owns the product's store, same rule as
 update_product() (MB-3039).
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import (

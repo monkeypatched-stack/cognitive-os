@@ -8,11 +8,13 @@ from typing import Any
 import httpx
 
 from services.auth.helpers import influx_store, nats_store, websocket_broadcast
-from services.common.data_transformation import RAW_INTEGRATION_SUBJECT, transform_and_persist_ingested_event
+from services.common.data_transformation import (
+    RAW_INTEGRATION_SUBJECT,
+    transform_and_persist_ingested_event,
+)
 from services.common.db import get_database
 from services.common.event_reducers import reduce_event_to_state
 from services.common.event_types import infer_event_type
-
 
 log = logging.getLogger("uvicorn.error")
 APPROVAL_AUDIT_EVENTS_COLLECTION = "approval_audit_events"
@@ -39,15 +41,51 @@ def _binding(name: str, subject: str, queue: str) -> dict[str, str]:
 
 def _expected_consumer_bindings() -> list[dict[str, str]]:
     bindings = [
-        _binding("legacy_events", nats_store.settings.NATS_EVENTS_SUBJECT, nats_store.settings.NATS_EVENTS_QUEUE),
-        _binding("sensor_readings", nats_store.sensor_subject_wildcard(), nats_store.settings.NATS_SENSOR_QUEUE),
-        _binding("approval_requests", nats_store.settings.NATS_APPROVALS_SUBJECT, nats_store.settings.NATS_APPROVALS_QUEUE),
-        _binding("change_control", nats_store.settings.NATS_CHANGE_CONTROL_SUBJECT, nats_store.settings.NATS_CHANGE_CONTROL_QUEUE),
-        _binding("approval_decisions", nats_store.settings.NATS_APPROVAL_DECISIONS_SUBJECT, nats_store.settings.NATS_APPROVAL_DECISIONS_QUEUE),
-        _binding("approval_audit", nats_store.settings.NATS_APPROVAL_AUDIT_SUBJECT, nats_store.settings.NATS_APPROVAL_AUDIT_QUEUE),
-        _binding("audit_events", nats_store.settings.NATS_AUDIT_SUBJECT, nats_store.settings.NATS_AUDIT_QUEUE),
-        _binding("cdc", nats_store.settings.NATS_CDC_SUBJECT, nats_store.settings.NATS_CDC_QUEUE),
-        _binding("integration_transformer", RAW_INTEGRATION_SUBJECT, "indus-integration-transformer"),
+        _binding(
+            "legacy_events",
+            nats_store.settings.NATS_EVENTS_SUBJECT,
+            nats_store.settings.NATS_EVENTS_QUEUE,
+        ),
+        _binding(
+            "sensor_readings",
+            nats_store.sensor_subject_wildcard(),
+            nats_store.settings.NATS_SENSOR_QUEUE,
+        ),
+        _binding(
+            "approval_requests",
+            nats_store.settings.NATS_APPROVALS_SUBJECT,
+            nats_store.settings.NATS_APPROVALS_QUEUE,
+        ),
+        _binding(
+            "change_control",
+            nats_store.settings.NATS_CHANGE_CONTROL_SUBJECT,
+            nats_store.settings.NATS_CHANGE_CONTROL_QUEUE,
+        ),
+        _binding(
+            "approval_decisions",
+            nats_store.settings.NATS_APPROVAL_DECISIONS_SUBJECT,
+            nats_store.settings.NATS_APPROVAL_DECISIONS_QUEUE,
+        ),
+        _binding(
+            "approval_audit",
+            nats_store.settings.NATS_APPROVAL_AUDIT_SUBJECT,
+            nats_store.settings.NATS_APPROVAL_AUDIT_QUEUE,
+        ),
+        _binding(
+            "audit_events",
+            nats_store.settings.NATS_AUDIT_SUBJECT,
+            nats_store.settings.NATS_AUDIT_QUEUE,
+        ),
+        _binding(
+            "cdc",
+            nats_store.settings.NATS_CDC_SUBJECT,
+            nats_store.settings.NATS_CDC_QUEUE,
+        ),
+        _binding(
+            "integration_transformer",
+            RAW_INTEGRATION_SUBJECT,
+            "indus-integration-transformer",
+        ),
     ]
     bindings.extend(
         _binding(
@@ -61,8 +99,14 @@ def _expected_consumer_bindings() -> list[dict[str, str]]:
 
 
 def consumer_status() -> dict[str, Any]:
-    audit_binding = next((item for item in _consumer_bindings if item.get("name") == "approval_audit"), None)
-    regulated_audit_binding = next((item for item in _consumer_bindings if item.get("name") == "audit_events"), None)
+    audit_binding = next(
+        (item for item in _consumer_bindings if item.get("name") == "approval_audit"),
+        None,
+    )
+    regulated_audit_binding = next(
+        (item for item in _consumer_bindings if item.get("name") == "audit_events"),
+        None,
+    )
     return {
         "running": _task is not None and not _task.done(),
         "last_connect_error": _last_connect_error,
@@ -109,7 +153,16 @@ async def _handle_event(message) -> None:
             "payload_type": "text",
         }
 
-    event.setdefault("event_type", message.subject.rsplit(".", 1)[-1] if message.subject.startswith(f"{nats_store.settings.NATS_EVENT_TYPE_SUBJECT_PREFIX}.") else infer_event_type(event))
+    event.setdefault(
+        "event_type",
+        (
+            message.subject.rsplit(".", 1)[-1]
+            if message.subject.startswith(
+                f"{nats_store.settings.NATS_EVENT_TYPE_SUBJECT_PREFIX}."
+            )
+            else infer_event_type(event)
+        ),
+    )
 
     log.info(
         "NATS event received subject=%s event_id=%s source=%s payload_type=%s summary=%s",
@@ -165,7 +218,11 @@ async def _handle_approval_event(message) -> None:
 
 
 async def _handle_change_control_event(message) -> None:
-    event = await _decode_queue_event(message, default_event_type="change-control", default_source="change-control-nats-queue")
+    event = await _decode_queue_event(
+        message,
+        default_event_type="change-control",
+        default_source="change-control-nats-queue",
+    )
     log.info(
         "Change-control NATS event received subject=%s source_id=%s approvals=%s",
         message.subject,
@@ -176,7 +233,11 @@ async def _handle_change_control_event(message) -> None:
 
 
 async def _handle_approval_decision_event(message) -> None:
-    event = await _decode_queue_event(message, default_event_type="approval-decision", default_source="approval-decision-nats-queue")
+    event = await _decode_queue_event(
+        message,
+        default_event_type="approval-decision",
+        default_source="approval-decision-nats-queue",
+    )
     log.info(
         "Approval decision NATS event received subject=%s approval_id=%s decision=%s",
         message.subject,
@@ -185,13 +246,22 @@ async def _handle_approval_decision_event(message) -> None:
     )
     await _persist_and_broadcast_queue_event(event, message.subject)
     try:
-        await nats_store.publish_event(json.dumps(event, default=str).encode("utf-8"), subject=nats_store.settings.NATS_CANVAS_WEBHOOK_INCOMING_SUBJECT)
+        await nats_store.publish_event(
+            json.dumps(event, default=str).encode("utf-8"),
+            subject=nats_store.settings.NATS_CANVAS_WEBHOOK_INCOMING_SUBJECT,
+        )
     except Exception:
-        log.exception("Failed to publish approval decision to canvas webhook NATS subject")
+        log.exception(
+            "Failed to publish approval decision to canvas webhook NATS subject"
+        )
 
 
 async def _handle_approval_audit_event(message) -> None:
-    event = await _decode_queue_event(message, default_event_type="approval-audit", default_source="approval-audit-nats-queue")
+    event = await _decode_queue_event(
+        message,
+        default_event_type="approval-audit",
+        default_source="approval-audit-nats-queue",
+    )
     _mark_approval_audit_received()
     log.info(
         "Approval audit NATS event received subject=%s approval_id=%s decision=%s",
@@ -204,7 +274,9 @@ async def _handle_approval_audit_event(message) -> None:
 
 
 async def _handle_audit_event(message) -> None:
-    event = await _decode_queue_event(message, default_event_type="audit-event", default_source="audit-nats-queue")
+    event = await _decode_queue_event(
+        message, default_event_type="audit-event", default_source="audit-nats-queue"
+    )
     log.info(
         "Audit NATS event received subject=%s audit_id=%s record_id=%s",
         message.subject,
@@ -215,7 +287,9 @@ async def _handle_audit_event(message) -> None:
 
 
 async def _handle_cdc_event(message) -> None:
-    event = await _decode_queue_event(message, default_event_type="cdc-change", default_source="mongodb-cdc")
+    event = await _decode_queue_event(
+        message, default_event_type="cdc-change", default_source="mongodb-cdc"
+    )
     log.info(
         "CDC NATS event received subject=%s collection=%s operation=%s record_id=%s",
         message.subject,
@@ -227,7 +301,11 @@ async def _handle_cdc_event(message) -> None:
 
 
 async def _handle_integration_raw_event(message) -> None:
-    event = await _decode_queue_event(message, default_event_type="integration-raw", default_source="integration-adapter")
+    event = await _decode_queue_event(
+        message,
+        default_event_type="integration-raw",
+        default_source="integration-adapter",
+    )
     log.info(
         "Integration raw NATS event received subject=%s adapter_id=%s source_object=%s",
         message.subject,
@@ -244,10 +322,14 @@ async def _handle_integration_raw_event(message) -> None:
             event.get("source_object"),
         )
         return
-    await _persist_and_broadcast_queue_event(transformed, transformed.get("subject") or message.subject)
+    await _persist_and_broadcast_queue_event(
+        transformed, transformed.get("subject") or message.subject
+    )
 
 
-async def _decode_queue_event(message, *, default_event_type: str, default_source: str) -> dict:
+async def _decode_queue_event(
+    message, *, default_event_type: str, default_source: str
+) -> dict:
     try:
         event = json.loads(message.data.decode("utf-8"))
         if not isinstance(event, dict):
@@ -313,7 +395,9 @@ def _approval_audit_event_id(event: dict, subject: str) -> str:
         "signature_meaning": event.get("signature_meaning"),
         "decision_source": event.get("decision_source"),
     }
-    digest = hashlib.sha256(json.dumps(_jsonable(identity), sort_keys=True, default=str).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(
+        json.dumps(_jsonable(identity), sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
     return f"approval-audit-{digest[:32]}"
 
 
@@ -371,7 +455,9 @@ def _approval_audit_elasticsearch_document(record: dict) -> dict:
 def _elasticsearch_headers() -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
     if nats_store.settings.AUDIT_ELASTICSEARCH_API_KEY:
-        headers["Authorization"] = f"ApiKey {nats_store.settings.AUDIT_ELASTICSEARCH_API_KEY}"
+        headers["Authorization"] = (
+            f"ApiKey {nats_store.settings.AUDIT_ELASTICSEARCH_API_KEY}"
+        )
     return headers
 
 
@@ -410,7 +496,9 @@ async def _index_approval_audit_event(record: dict) -> dict:
     }
 
 
-async def _persist_received_approval_audit_event(event: dict, subject: str) -> dict | None:
+async def _persist_received_approval_audit_event(
+    event: dict, subject: str
+) -> dict | None:
     received_at = datetime.now(timezone.utc)
     event_id = _approval_audit_event_id(event, subject)
     record = {
@@ -445,7 +533,9 @@ async def _persist_received_approval_audit_event(event: dict, subject: str) -> d
                 "$set": {
                     "last_received_at": received_at,
                     "elasticsearch": {
-                        "enabled": bool(nats_store.settings.AUDIT_ELASTICSEARCH_ENABLED),
+                        "enabled": bool(
+                            nats_store.settings.AUDIT_ELASTICSEARCH_ENABLED
+                        ),
                         "indexed": False,
                         "pending": True,
                         "index": nats_store.settings.AUDIT_ELASTICSEARCH_INDEX,
@@ -456,7 +546,9 @@ async def _persist_received_approval_audit_event(event: dict, subject: str) -> d
             upsert=True,
         )
         _approval_audit_stats["persisted"] += 1
-        _approval_audit_stats["last_persisted_at"] = datetime.now(timezone.utc).isoformat()
+        _approval_audit_stats["last_persisted_at"] = datetime.now(
+            timezone.utc
+        ).isoformat()
     except Exception as exc:
         _approval_audit_stats["failed"] += 1
         _approval_audit_stats["last_error"] = f"mongo_persistence_failed: {exc}"
@@ -535,14 +627,38 @@ async def _run_consumer() -> None:
     while not _stop_event.is_set():
         try:
             _subscriptions = [await nats_store.subscribe_events(_handle_event)]
-            _subscriptions.append(await nats_store.subscribe_sensor_readings(_handle_sensor_reading))
-            _subscriptions.append(await nats_store.subscribe_approval_events(_handle_approval_event))
-            _subscriptions.append(await nats_store.subscribe_change_control_events(_handle_change_control_event))
-            _subscriptions.append(await nats_store.subscribe_approval_decision_events(_handle_approval_decision_event))
-            _subscriptions.append(await nats_store.subscribe_approval_audit_events(_handle_approval_audit_event))
-            _subscriptions.append(await nats_store.subscribe_audit_events(_handle_audit_event))
-            _subscriptions.append(await nats_store.subscribe_cdc_events(_handle_cdc_event))
-            _subscriptions.append(await nats_store.subscribe_integration_raw_events(_handle_integration_raw_event))
+            _subscriptions.append(
+                await nats_store.subscribe_sensor_readings(_handle_sensor_reading)
+            )
+            _subscriptions.append(
+                await nats_store.subscribe_approval_events(_handle_approval_event)
+            )
+            _subscriptions.append(
+                await nats_store.subscribe_change_control_events(
+                    _handle_change_control_event
+                )
+            )
+            _subscriptions.append(
+                await nats_store.subscribe_approval_decision_events(
+                    _handle_approval_decision_event
+                )
+            )
+            _subscriptions.append(
+                await nats_store.subscribe_approval_audit_events(
+                    _handle_approval_audit_event
+                )
+            )
+            _subscriptions.append(
+                await nats_store.subscribe_audit_events(_handle_audit_event)
+            )
+            _subscriptions.append(
+                await nats_store.subscribe_cdc_events(_handle_cdc_event)
+            )
+            _subscriptions.append(
+                await nats_store.subscribe_integration_raw_events(
+                    _handle_integration_raw_event
+                )
+            )
             for event_type in nats_store.configured_event_types():
                 _subscriptions.append(
                     await nats_store.subscribe_events(

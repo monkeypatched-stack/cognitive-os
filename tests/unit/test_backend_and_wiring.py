@@ -7,6 +7,7 @@ since cupy mirrors the numpy API. GPU itself can't be exercised without a GPU ho
 Wiring: observe_execution folds a completed execution into the world tensor, but only
 when MB_WORLD_TENSOR is enabled (inert by default).
 """
+
 from __future__ import annotations
 
 import os
@@ -34,6 +35,7 @@ def _restore_backend():
 
 # ── backend equivalence (verifies the vectorized path) ───────────────────────────
 
+
 def test_numpy_spmv_matches_pure_python():
     # diamond: A→B(.5) A→C(.5) B→D C→D ; propagate a unit source from A
     indptr = [0, 2, 3, 4, 4]
@@ -50,7 +52,7 @@ def test_numpy_spmv_matches_pure_python():
     assert backend.backend_name() == "numpy"
 
     assert [round(v, 12) for v in py] == [round(v, 12) for v in np_]
-    assert [round(v, 6) for v in py] == [0.0, 0.5, 0.5, 0.0]     # B and C each get 0.5
+    assert [round(v, 6) for v in py] == [0.0, 0.5, 0.5, 0.0]  # B and C each get 0.5
 
 
 def test_numpy_l1_diff_matches_pure_python():
@@ -60,7 +62,7 @@ def test_numpy_l1_diff_matches_pure_python():
     py = backend.l1_diff(a, b)
     _force("numpy")
     np_ = backend.l1_diff(a, b)
-    assert round(py, 12) == round(np_, 12) == 3.0                # |1|+|0|+|1|+|1|
+    assert round(py, 12) == round(np_, 12) == 3.0  # |1|+|0|+|1|+|1|
 
 
 def test_empty_operator_is_safe():
@@ -70,11 +72,12 @@ def test_empty_operator_is_safe():
 
 # ── runtime wiring (observe_execution) ───────────────────────────────────────────
 
+
 def test_observe_execution_noop_when_disabled(monkeypatch):
     monkeypatch.delenv("MB_WORLD_TENSOR", raising=False)
     world_tensor.reset_for_test()
     n = world_tensor.observe_execution(["A", "B"], [("A", "B")])
-    assert n == 0                                                # inert by default
+    assert n == 0  # inert by default
 
 
 def test_observe_execution_folds_into_world_when_enabled(monkeypatch):
@@ -88,7 +91,8 @@ def test_observe_execution_folds_into_world_when_enabled(monkeypatch):
     n = world_tensor.observe_execution(
         ["Inspect", "Detect", "Treat"],
         [("Inspect", "Detect"), ("Detect", "Treat")],
-        domain="beekeeping", reward=1.0,
+        domain="beekeeping",
+        reward=1.0,
     )
     assert n == 2
     w = world_tensor.get_world()

@@ -14,6 +14,7 @@ return_order() instead. The symmetric complement of return_order()'s
 own "must have shipped" guard, and a dedicated test for the happy path
 this ticket names: cancelling a real order before it ships.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.grocery import cancel_order
@@ -24,13 +25,26 @@ ORDER_ID = "ORD-1"
 
 def _seed_paid_order(status: str = "confirmed") -> KnowledgeGraph:
     kg = KnowledgeGraph()
-    kg.add_entity("wallet_1", EntityType.ACCOUNT, "Alice Wallet", {"account_type": "debit", "balance": 20.0})
+    kg.add_entity(
+        "wallet_1",
+        EntityType.ACCOUNT,
+        "Alice Wallet",
+        {"account_type": "debit", "balance": 20.0},
+    )
     kg.add_entity("prod_1", EntityType.ASSET, "Oat Milk", {"price": 4.5, "quantity": 5})
-    kg.add_entity(ORDER_ID, EntityType.EVENT, "Grocery Order", {
-        "items": [{"product_id": "prod_1", "qty": 2}],
-        "total": 9.0, "status": status,
-        "paid_wallet_id": "wallet_1", "paid_amount": 9.0, "payment_status": "paid",
-    })
+    kg.add_entity(
+        ORDER_ID,
+        EntityType.EVENT,
+        "Grocery Order",
+        {
+            "items": [{"product_id": "prod_1", "qty": 2}],
+            "total": 9.0,
+            "status": status,
+            "paid_wallet_id": "wallet_1",
+            "paid_amount": 9.0,
+            "payment_status": "paid",
+        },
+    )
     return kg
 
 

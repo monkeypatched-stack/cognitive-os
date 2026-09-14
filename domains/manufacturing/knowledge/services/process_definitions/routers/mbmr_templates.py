@@ -11,7 +11,6 @@ from services.process_definitions.models.mbmr_templates import (
     PaginatedMbmrTemplateResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -33,7 +32,9 @@ async def list_mbmr_templates(
         bom_id=bom_id,
         status=status_filter,
     )
-    return PaginatedMbmrTemplateResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedMbmrTemplateResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{mbmr_template_id}", response_model=MbmrTemplateResponse)
@@ -44,18 +45,26 @@ async def get_mbmr_template(
 ):
     record = await crud.get_by_id(db, mbmr_template_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"MBMR template '{mbmr_template_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"MBMR template '{mbmr_template_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=MbmrTemplateResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=MbmrTemplateResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_mbmr_template(
     data: MbmrTemplateCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-process-definitions")),
 ):
     if await crud.get_by_id(db, data.mbmr_template_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"MBMR template '{data.mbmr_template_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"MBMR template '{data.mbmr_template_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
@@ -70,7 +79,10 @@ async def update_mbmr_template(
 ):
     updated = await crud.update(db, mbmr_template_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"MBMR template '{mbmr_template_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"MBMR template '{mbmr_template_id}' not found",
+        )
     return updated
 
 
@@ -81,4 +93,7 @@ async def delete_mbmr_template(
     _: dict = Depends(require_permission("perm-delete-process-definitions")),
 ):
     if not await crud.delete(db, mbmr_template_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"MBMR template '{mbmr_template_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"MBMR template '{mbmr_template_id}' not found",
+        )

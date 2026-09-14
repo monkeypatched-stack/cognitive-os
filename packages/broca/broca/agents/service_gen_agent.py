@@ -2,6 +2,7 @@
 
 Wraps CodeGenAgent.generate_ddd_service(). Called by soma_codegen.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,7 +38,10 @@ class ServiceGenAgent(BaseETASSAgent):
         if context.get("question_source") == "simulation":
             self._reward(False, 0.0)
             return self._result(
-                payload={"generated": False, "error": "codegen blocked in simulation context"},
+                payload={
+                    "generated": False,
+                    "error": "codegen blocked in simulation context",
+                },
                 observations=["ServiceGenAgent must not run during simulation — dry_run path only"],
             )
         service_slug = str(context.get("service_slug", "")).strip()
@@ -60,7 +64,10 @@ class ServiceGenAgent(BaseETASSAgent):
                 else:
                     self._reward(False, 0.0)
                     return self._result(
-                        payload={"generated": False, "error": f"prompt not found: {prompt_path}"},
+                        payload={
+                            "generated": False,
+                            "error": f"prompt not found: {prompt_path}",
+                        },
                         observations=[f"no compiled prompt for {service_slug}"],
                     )
 

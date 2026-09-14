@@ -85,9 +85,18 @@ class CppCqaRegistryEntry(BaseModel):
         self.effective_from = ensure_utc(self.effective_from)
         self.retired_at = ensure_utc(self.retired_at)
 
-        if self.status in {CppCqaStatus.APPROVED, CppCqaStatus.EFFECTIVE} and not self.approved_by:
-            raise ValueError("approved/effective CPP/CQA registry entries must include approved_by.")
-        if self.retired_at and self.effective_from and self.retired_at < self.effective_from:
+        if (
+            self.status in {CppCqaStatus.APPROVED, CppCqaStatus.EFFECTIVE}
+            and not self.approved_by
+        ):
+            raise ValueError(
+                "approved/effective CPP/CQA registry entries must include approved_by."
+            )
+        if (
+            self.retired_at
+            and self.effective_from
+            and self.retired_at < self.effective_from
+        ):
             raise ValueError("retired_at cannot be before effective_from.")
         return self
 

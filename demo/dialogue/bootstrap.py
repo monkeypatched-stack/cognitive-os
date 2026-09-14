@@ -12,6 +12,7 @@ is the SAME world, a stronger claim about it. Where
 demo/conversation/run_conversation.py's script picked every recipient,
 here the Support Agent picks its own.
 """
+
 from __future__ import annotations
 
 import os
@@ -77,8 +78,15 @@ def build_geography(client: httpx.Client) -> dict[str, str]:
         space = _create_geo(client, "space", f"{label} Floor", building)
         spaces[key] = space
 
-    return {"planet": planet, "country": country, "state": state,
-            "county": county, "city": city, "street": street, **spaces}
+    return {
+        "planet": planet,
+        "country": country,
+        "state": state,
+        "county": county,
+        "city": city,
+        "street": street,
+        **spaces,
+    }
 
 
 SOCIETY_DEFS = (
@@ -93,10 +101,20 @@ SOCIETY_DEFS = (
 def build_societies(client: httpx.Client, spaces: dict[str, str]) -> dict[str, str]:
     societies: dict[str, str] = {}
     for key, name, description in SOCIETY_DEFS:
-        result = _call(client, "POST", "/societies", json={"name": name, "description": description})
+        result = _call(
+            client,
+            "POST",
+            "/societies",
+            json={"name": name, "description": description},
+        )
         society_id = result["society_id"]
         societies[key] = society_id
-        _call(client, "POST", f"/planet/geo/{spaces[key]}/host", json={"society_id": society_id})
+        _call(
+            client,
+            "POST",
+            f"/planet/geo/{spaces[key]}/host",
+            json={"society_id": society_id},
+        )
     return societies
 
 
@@ -104,47 +122,109 @@ def build_societies(client: httpx.Client, spaces: dict[str, str]) -> dict[str, s
 # real registered data (the actor's own goals, in prose) surfaced to
 # OTHER actors as a real contacts directory entry, not fabricated color.
 ACTOR_DEFS = (
-    ("customer", "Customer", "human", ["browse_and_purchase"], "the person who placed the order"),
-    ("warehouse", "Warehouse Worker", "human", ["pack_orders"], "packs orders, knows packing/dispatch status"),
-    ("inventory", "Inventory Robot", "robot", ["manage_inventory"], "manages stock, knows inventory/reservation status"),
-    ("logistics", "Driver", "human", ["deliver_package"], "delivers packages, knows delivery timing"),
-    ("support", "Support Agent", "human", ["assist_customers"], "handles customer inquiries"),
+    (
+        "customer",
+        "Customer",
+        "human",
+        ["browse_and_purchase"],
+        "the person who placed the order",
+    ),
+    (
+        "warehouse",
+        "Warehouse Worker",
+        "human",
+        ["pack_orders"],
+        "packs orders, knows packing/dispatch status",
+    ),
+    (
+        "inventory",
+        "Inventory Robot",
+        "robot",
+        ["manage_inventory"],
+        "manages stock, knows inventory/reservation status",
+    ),
+    (
+        "logistics",
+        "Driver",
+        "human",
+        ["deliver_package"],
+        "delivers packages, knows delivery timing",
+    ),
+    (
+        "support",
+        "Support Agent",
+        "human",
+        ["assist_customers"],
+        "handles customer inquiries",
+    ),
 )
 
 
 def build_actors(client: httpx.Client, societies: dict[str, str]) -> dict[str, str]:
     actors: dict[str, str] = {}
     for society_key, name, actor_type, goals, _role_summary in ACTOR_DEFS:
-        result = _call(client, "POST", "/actors", json={
-            "name": name, "actor_type": actor_type, "goals": goals,
-            "society_id": societies[society_key],
-            "capabilities": [{"name": "general"}],
-        })
+        result = _call(
+            client,
+            "POST",
+            "/actors",
+            json={
+                "name": name,
+                "actor_type": actor_type,
+                "goals": goals,
+                "society_id": societies[society_key],
+                "capabilities": [{"name": "general"}],
+            },
+        )
         actors[name] = result["actor_id"]
 
-    _call(client, "POST", f"/actors/{actors['Customer']}/addresses", json={
-        "actor_id": actors["Customer"], "address_type": "physical",
-        "value": "500 Customer Ave, San Francisco, CA 94103", "is_primary": True,
-    })
+    _call(
+        client,
+        "POST",
+        f"/actors/{actors['Customer']}/addresses",
+        json={
+            "actor_id": actors["Customer"],
+            "address_type": "physical",
+            "value": "500 Customer Ave, San Francisco, CA 94103",
+            "is_primary": True,
+        },
+    )
 
     return actors
 
 
 def build_commerce(client: httpx.Client) -> dict[str, Any]:
-    merchant = _call(client, "POST", "/merchants", json={
-        "merchant_id": "merchant_bob", "store_name": "Bob's Electronics", "delivery_fee": 4.99,
-        "address": "742 Market Street, San Francisco, CA 94102",
-    })
+    merchant = _call(
+        client,
+        "POST",
+        "/merchants",
+        json={
+            "merchant_id": "merchant_bob",
+            "store_name": "Bob's Electronics",
+            "delivery_fee": 4.99,
+            "address": "742 Market Street, San Francisco, CA 94102",
+        },
+    )
     store_id = merchant["store_id"]
 
-    product = _call(client, "POST", "/products", json={
-        "store_id": store_id, "merchant_id": "merchant_bob",
-        "name": TRACKED_PRODUCT_NAME, "price": TRACKED_PRODUCT_PRICE, "quantity": TRACKED_PRODUCT_QUANTITY,
-    })
+    product = _call(
+        client,
+        "POST",
+        "/products",
+        json={
+            "store_id": store_id,
+            "merchant_id": "merchant_bob",
+            "name": TRACKED_PRODUCT_NAME,
+            "price": TRACKED_PRODUCT_PRICE,
+            "quantity": TRACKED_PRODUCT_QUANTITY,
+        },
+    )
     product_id = product.get("product_id", product.get("id", ""))
 
-    return {"store_id": store_id, "merchant_id": "merchant_bob",
-            "products": {TRACKED_PRODUCT_NAME: product_id}}
+    return {
+        "store_id": store_id,
+        "merchant_id": "merchant_bob",
+        "products": {TRACKED_PRODUCT_NAME: product_id},
+    }
 
 
 def build_rider(client: httpx.Client) -> str:
@@ -160,9 +240,7 @@ def verify_world(client: httpx.Client, attempts: int = 4, delay_seconds: float =
             return result
         last_result = result
         violations = result.get("violations", [])
-        only_presence = bool(violations) and all(
-            v.get("category") == "presence_consistency" for v in violations
-        )
+        only_presence = bool(violations) and all(v.get("category") == "presence_consistency" for v in violations)
         if not only_presence or attempt == attempts - 1:
             break
         time.sleep(delay_seconds)
@@ -180,8 +258,12 @@ def bootstrap_world(client: httpx.Client | None = None) -> dict[str, Any]:
         rider_id = build_rider(client)
         verification = verify_world(client)
         return {
-            "spaces": spaces, "societies": societies, "actors": actors,
-            "commerce": commerce, "rider_id": rider_id, "verification": verification,
+            "spaces": spaces,
+            "societies": societies,
+            "actors": actors,
+            "commerce": commerce,
+            "rider_id": rider_id,
+            "verification": verification,
         }
     finally:
         if owns_client:

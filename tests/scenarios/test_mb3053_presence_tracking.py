@@ -19,12 +19,17 @@ history(), and occupants() (including occupants() at a PAST timestamp,
 proving its time-travel semantics) all agree with what actually
 happened.
 """
+
 from __future__ import annotations
 
 import time
 
 from src.monkey_brain.kernel.geography.entity import GeographicEntityType
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 
@@ -36,7 +41,9 @@ def _seed_two_actors_and_a_second_space():
     default_space_id = marketplace.default_bootstrap_space_id
     building = marketplace.geo_registry.parent_of(default_space_id)
     second_space = marketplace.geo_registry.create(
-        GeographicEntityType.SPACE, "Warehouse Floor", parent_id=building.entity_id,
+        GeographicEntityType.SPACE,
+        "Warehouse Floor",
+        parent_id=building.entity_id,
     )
     return marketplace, alice, bob, default_space_id, second_space.entity_id
 

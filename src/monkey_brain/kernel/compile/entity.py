@@ -17,6 +17,7 @@ Hierarchy:
            ├── Vehicle
            └── AutonomousSystem
 """
+
 from __future__ import annotations
 
 import time
@@ -93,9 +94,11 @@ class RelationType(Enum):
 
 # ── Base Entity ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Entity:
     """Base entity — everything in the world."""
+
     id: str
     entity_type: EntityType = EntityType.ENTITY
     domain: str = "default"
@@ -116,9 +119,11 @@ class Entity:
 
 # ── Passive Entities (never execute cognition) ───────────────────────────────
 
+
 @dataclass
 class PassiveEntity(Entity):
     """A passive entity that never executes cognition."""
+
     pass
 
 
@@ -172,6 +177,7 @@ class Document(PassiveEntity):
 
 # ── Organization ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Organization(PassiveEntity):
     entity_type: EntityType = EntityType.ENTERPRISE
@@ -209,6 +215,7 @@ class Institution(Organization):
 
 
 # ── Location ─────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class Location(PassiveEntity):
@@ -255,6 +262,7 @@ class Port(Location):
 
 # ── Digital Entities ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class DigitalEntity(PassiveEntity):
     entity_type: EntityType = EntityType.AI_AGENT
@@ -280,9 +288,11 @@ class DigitalTwin(DigitalEntity):
 
 # ── Actors (own cognitive state) ─────────────────────────────────────────────
 
+
 @dataclass
 class Actor(Entity):
     """Abstract actor — owns cognition. Every autonomous entity derives from this."""
+
     entity_type: EntityType = EntityType.ENTITY
     is_actor: bool = True
 
@@ -371,9 +381,11 @@ class AutonomousSystem(Actor):
 
 # ── Relationship ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Relationship:
     """First-class typed relationship between two entities."""
+
     id: str
     source_id: str
     target_id: str
@@ -388,6 +400,7 @@ class Relationship:
 
 
 # ── Entity Registry ──────────────────────────────────────────────────────────
+
 
 class EntityRegistry:
     """Registry for entity instances. Lookup-or-create."""
@@ -405,8 +418,7 @@ class EntityRegistry:
     def get(self, entity_id: str) -> Entity | None:
         return self._entities.get(entity_id)
 
-    def get_or_create(self, entity_id: str, entity_type: EntityType = EntityType.ENTITY,
-                      **kwargs: Any) -> Entity:
+    def get_or_create(self, entity_id: str, entity_type: EntityType = EntityType.ENTITY, **kwargs: Any) -> Entity:
         entity = self._entities.get(entity_id)
         if entity is None:
             entity = Entity(id=entity_id, entity_type=entity_type, **kwargs)

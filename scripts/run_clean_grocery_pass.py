@@ -3,6 +3,7 @@
 
 Requires MODEL_BACKEND=dev_bridge on agentos and AGENTOS_AUTH_REQUIRED=false.
 """
+
 from __future__ import annotations
 
 import json
@@ -117,9 +118,21 @@ def _api(method: str, path: str, body: dict | None = None, timeout: int = 600) -
 
 def reset_priya_learning_state() -> None:
     """Clear stale transition models and plan hysteresis that block execution."""
-    _redis("DEL", f"monkeybrain:transition_model:{PRIYA}", f"monkeybrain:transition_model:{PRIYA}:meta")
+    _redis(
+        "DEL",
+        f"monkeybrain:transition_model:{PRIYA}",
+        f"monkeybrain:transition_model:{PRIYA}:meta",
+    )
     scan = subprocess.run(
-        ["docker", "exec", REDIS_CONTAINER, "redis-cli", "--scan", "--pattern", f"monkeybrain:current_plan:{PRIYA}:*"],
+        [
+            "docker",
+            "exec",
+            REDIS_CONTAINER,
+            "redis-cli",
+            "--scan",
+            "--pattern",
+            f"monkeybrain:current_plan:{PRIYA}:*",
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -141,12 +154,16 @@ def reset_priya_learning_state() -> None:
 def ensure_debit_wallet(balance: float = 500.0) -> None:
     """Add a debit wallet so Payment uses synchronous wallet debit, not UPI pause."""
     try:
-        _api("POST", "/wallets", {
-            "owner": PRIYA,
-            "balance": balance,
-            "account_type": "debit",
-            "name": "Priya Sharma Debit Wallet",
-        })
+        _api(
+            "POST",
+            "/wallets",
+            {
+                "owner": PRIYA,
+                "balance": balance,
+                "account_type": "debit",
+                "name": "Priya Sharma Debit Wallet",
+            },
+        )
         print(f"created debit wallet with balance ${balance:.2f}")
     except urllib.error.HTTPError as exc:
         if exc.code in (400, 409, 422):
@@ -223,10 +240,13 @@ def main() -> int:
         goal = ex.get("outcome") == "success"
 
     print(f"Completed in {elapsed:.1f}s | bridge_answers={len(answered)} | goal_achieved={goal}")
-    print("plan:", [s.get("action") if isinstance(s, dict) else s for s in plan.get("steps", [])])
+    print(
+        "plan:",
+        [s.get("action") if isinstance(s, dict) else s for s in plan.get("steps", [])],
+    )
     for i, a in enumerate(actions):
         if isinstance(a, dict):
-            print(f"  {i+1}. {a.get('action')} success={a.get('success')}")
+            print(f"  {i + 1}. {a.get('action')} success={a.get('success')}")
 
     hist = _api("GET", f"/actors/{PRIYA}/execution-history", timeout=30)
     ex = hist.get("executions", [{}])[0]

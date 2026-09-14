@@ -47,29 +47,63 @@ def _influx_to_calibration_record(row: dict) -> dict:
     except json.JSONDecodeError:
         payload = {}
 
-    cal_type_map = {"Standard": "Routine", "Routine": "Routine", "Post-Repair": "Post-Repair",
-                    "Validation": "Validation", "Verification": "Verification", "Emergency": "Emergency"}
-    std_map = {"OIML R 76": "OIML", "OIML": "OIML", "USP": "USP", "ISO 17025": "ISO 17025", "ISO 6789": "ISO 17025",
-               "NIST traceable": "NIST", "NIST": "NIST", "OEM": "OEM", "OEM standard": "OEM",
-               "OEM SOP": "OEM", "OEM / NIST": "NIST"}
+    cal_type_map = {
+        "Standard": "Routine",
+        "Routine": "Routine",
+        "Post-Repair": "Post-Repair",
+        "Validation": "Validation",
+        "Verification": "Verification",
+        "Emergency": "Emergency",
+    }
+    std_map = {
+        "OIML R 76": "OIML",
+        "OIML": "OIML",
+        "USP": "USP",
+        "ISO 17025": "ISO 17025",
+        "ISO 6789": "ISO 17025",
+        "NIST traceable": "NIST",
+        "NIST": "NIST",
+        "OEM": "OEM",
+        "OEM standard": "OEM",
+        "OEM SOP": "OEM",
+        "OEM / NIST": "NIST",
+    }
     raw_type = payload.get("cal_type", "Routine")
-    cal_type = cal_type_map.get(raw_type, "Routine") if raw_type in cal_type_map else "Routine"
+    cal_type = (
+        cal_type_map.get(raw_type, "Routine") if raw_type in cal_type_map else "Routine"
+    )
     raw_std = payload.get("standard", "")
     standard = std_map.get(raw_std, "Other") if raw_std in std_map else "Other"
     raw_status = row.get("status", payload.get("status", "Scheduled"))
-    status_val = raw_status if raw_status in ("Scheduled", "Completed", "Failed", "Passed") else "Scheduled"
+    status_val = (
+        raw_status
+        if raw_status in ("Scheduled", "Completed", "Failed", "Passed")
+        else "Scheduled"
+    )
 
     # Compute next_due_date from frequency
-    freq_map = {"6-monthly": 182, "Annual": 365, "Monthly": 30, "Weekly": 7, "Quarterly": 91}
+    freq_map = {
+        "6-monthly": 182,
+        "Annual": 365,
+        "Monthly": 30,
+        "Weekly": 7,
+        "Quarterly": 91,
+    }
     freq = payload.get("frequency", "")
     interval_days = freq_map.get(freq, 365)
-    performed = row.get("time", payload.get("date", ""))[:10] if row.get("time", payload.get("date", "")) else None
+    performed = (
+        row.get("time", payload.get("date", ""))[:10]
+        if row.get("time", payload.get("date", ""))
+        else None
+    )
     next_due = ""
     if performed:
         from datetime import datetime as dt
+
         try:
             p_date = dt.strptime(performed, "%Y-%m-%d")
             from datetime import timedelta
+
             next_due = (p_date + timedelta(days=interval_days)).strftime("%Y-%m-%d")
         except (ValueError, TypeError):
             pass
@@ -114,6 +148,7 @@ def _influx_to_calibration_record(row: dict) -> dict:
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=PaginatedCalibrationResponse)
 async def list_calibration_records(
     page: int = Query(1, ge=1),
@@ -125,13 +160,14 @@ async def list_calibration_records(
     records = [_influx_to_calibration_record(row) for row in rows]
     total = len(records)
     start = (page - 1) * page_size
-    page_records = records[start:start + page_size]
+    page_records = records[start : start + page_size]
     return PaginatedCalibrationResponse(
         total=total, page=page, page_size=page_size, results=page_records
     )
 
 
 # ── Get by machine ────────────────────────────────────────────────────────────
+
 
 @router.get("/by-machine/{machine_id}", response_model=list[CalibrationRecordResponse])
 async def list_records_by_machine(
@@ -140,11 +176,16 @@ async def list_records_by_machine(
     _: dict = Depends(require_permission("perm-view-calibrations")),
 ):
     rows = _query_influx_calibrations()
-    records = [_influx_to_calibration_record(row) for row in rows if row.get("machine_id") == machine_id]
+    records = [
+        _influx_to_calibration_record(row)
+        for row in rows
+        if row.get("machine_id") == machine_id
+    ]
     return records
 
 
 # ── Get by status ─────────────────────────────────────────────────────────────
+
 
 @router.get("/by-status/{status}", response_model=list[CalibrationRecordResponse])
 async def list_records_by_status(
@@ -157,7 +198,10 @@ async def list_records_by_status(
 
 # ── Get by work order ─────────────────────────────────────────────────────────
 
-@router.get("/by-work-order/{work_order_id}", response_model=list[CalibrationRecordResponse])
+
+@router.get(
+    "/by-work-order/{work_order_id}", response_model=list[CalibrationRecordResponse]
+)
 async def list_records_by_work_order(
     work_order_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -167,6 +211,7 @@ async def list_records_by_work_order(
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────
+
 
 @router.get("/{record_id}", response_model=CalibrationRecordResponse)
 async def get_calibration_record(
@@ -185,7 +230,10 @@ async def get_calibration_record(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=CalibrationRecordResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=CalibrationRecordResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_calibration_record(
     data: CalibrationRecordCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -200,6 +248,7 @@ async def create_calibration_record(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{record_id}", response_model=CalibrationRecordResponse)
 async def update_calibration_record(
@@ -218,6 +267,7 @@ async def update_calibration_record(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_calibration_record(

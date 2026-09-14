@@ -12,6 +12,7 @@ DO NOT create new implementations here. Import from:
 - services/common/opa.py (OPA policy)
 - services/common/agent_auth.py (zero-trust principal)
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,10 +47,10 @@ from src.monkey_brain.kernel.identity import (
     RuntimeIdentity,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Unified Auth/Policy/Security Interface
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class AuthPolicySecurity:
     """Unified interface for authN, authZ, policy, and security.
@@ -76,7 +77,7 @@ class AuthPolicySecurity:
     def validate_request(self, request: Any) -> tuple[bool, str]:
         """Validate incoming request."""
         # Rate limiting
-        client_ip = getattr(request, 'client', None)
+        client_ip = getattr(request, "client", None)
         ip = client_ip.host if client_ip else "unknown"
         if not self._rate_limiter.allow(ip):
             return False, "Rate limit exceeded"

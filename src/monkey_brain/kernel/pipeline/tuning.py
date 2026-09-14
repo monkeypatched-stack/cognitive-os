@@ -19,6 +19,7 @@ Usage:
     await tuning.save()                    # persist back to Redis
     config = tuning.to_dict()              # export for API / logging
 """
+
 from __future__ import annotations
 
 import json
@@ -27,7 +28,9 @@ import os
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from src.monkey_brain.kernel.pipeline.prediction.scenarios import DEFAULT_REJECTION_THRESHOLD
+from src.monkey_brain.kernel.pipeline.prediction.scenarios import (
+    DEFAULT_REJECTION_THRESHOLD,
+)
 
 logger = logging.getLogger("agentos.pipeline.tuning")
 
@@ -155,6 +158,7 @@ class PipelineTuning:
         # Replace frozen LearningPolicy with new instance using tuned values
         if hasattr(policy, "_learning_policy"):
             from src.monkey_brain.kernel.pipeline.learning.domain import LearningPolicy
+
             policy._learning_policy = LearningPolicy(
                 strategy=self.learning.strategy,
                 parameters={"confidence_threshold": self.learning.confidence_threshold},
@@ -169,14 +173,19 @@ class PipelineTuning:
     def apply_to_reward_engine(self, engine: Any) -> None:
         """Apply tuning to an ExperienceRewardEngine."""
         from src.monkey_brain.kernel.pipeline.learning.reward import RewardWeights
+
         if hasattr(engine, "_weights"):
-            object.__setattr__(engine, "_weights", RewardWeights(
-                goal_achieved=self.reward.goal_achieved,
-                partial_credit=self.reward.partial_credit,
-                speed_bonus=self.reward.speed_bonus,
-                budget_bonus=self.reward.budget_bonus,
-                error_penalty=self.reward.error_penalty,
-            ))
+            object.__setattr__(
+                engine,
+                "_weights",
+                RewardWeights(
+                    goal_achieved=self.reward.goal_achieved,
+                    partial_credit=self.reward.partial_credit,
+                    speed_bonus=self.reward.speed_bonus,
+                    budget_bonus=self.reward.budget_bonus,
+                    error_penalty=self.reward.error_penalty,
+                ),
+            )
 
     def apply_to_risk_engine(self, engine: Any) -> None:
         """Apply tuning to a RiskEngine."""
@@ -185,7 +194,11 @@ class PipelineTuning:
         if hasattr(engine, "_utility_if_failure"):
             object.__setattr__(engine, "_utility_if_failure", self.risk.utility_if_failure)
         if hasattr(engine, "_low_probability_threshold"):
-            object.__setattr__(engine, "_low_probability_threshold", self.risk.low_probability_threshold)
+            object.__setattr__(
+                engine,
+                "_low_probability_threshold",
+                self.risk.low_probability_threshold,
+            )
 
     def apply_to_executor(self, executor: Any) -> None:
         """Apply tuning to an ActionExecutor."""
@@ -205,6 +218,7 @@ class PipelineTuning:
         """Persist tuning to Redis."""
         try:
             import redis as _redis
+
             r = _redis.Redis(
                 host=os.getenv("REDIS_HOST", "localhost"),
                 port=int(os.getenv("REDIS_PORT", "6379")),
@@ -219,6 +233,7 @@ class PipelineTuning:
         """Load tuning from Redis. Returns True if loaded successfully."""
         try:
             import redis as _redis
+
             r = _redis.Redis(
                 host=os.getenv("REDIS_HOST", "localhost"),
                 port=int(os.getenv("REDIS_PORT", "6379")),
@@ -238,6 +253,7 @@ class PipelineTuning:
     def _from_dict(self, data: dict[str, Any]) -> None:
         """Apply a config dict to this instance."""
         from dataclasses import fields as dc_fields
+
         config_map = {
             "reward": (self.reward, RewardConfig),
             "learning": (self.learning, LearningConfig),
@@ -268,6 +284,7 @@ def get_tuning() -> PipelineTuning:
         _tuning_singleton._loaded = True  # type: ignore[name-defined]
         try:
             import redis as _redis
+
             r = _redis.Redis(
                 host=os.getenv("REDIS_HOST", "localhost"),
                 port=int(os.getenv("REDIS_PORT", "6379")),

@@ -8,6 +8,7 @@ engine/runtime/thread helpers and common library calls (redis pipeline).
 
 Usage: python3 scripts/find_inline_pipeline_execs.py
 """
+
 import re
 import os
 from pathlib import Path
@@ -53,6 +54,7 @@ SKIP_VAR_NAMES = {
     "entry",
 }
 
+
 def is_safe_path(relpath: str) -> bool:
     if relpath.replace("\\", "/") in SAFE_PATHS:
         return True
@@ -61,8 +63,10 @@ def is_safe_path(relpath: str) -> bool:
         return True
     return False
 
+
 def file_contains_redis_pipe(text: str) -> bool:
     return any(s in text for s in REDIS_PIPELINE_SIGNS)
+
 
 def scan() -> list[dict]:
     results = []
@@ -91,15 +95,18 @@ def scan() -> list[dict]:
             if lower in SKIP_VAR_NAMES:
                 continue
 
-            results.append({
-                "file": rel,
-                "line": text.count("\n", 0, m.start()) + 1,
-                "match": m.group(0).strip(),
-                "var": var,
-                "likely_safe": False,
-            })
+            results.append(
+                {
+                    "file": rel,
+                    "line": text.count("\n", 0, m.start()) + 1,
+                    "match": m.group(0).strip(),
+                    "var": var,
+                    "likely_safe": False,
+                }
+            )
 
     return results
+
 
 def main():
     hits = scan()
@@ -111,5 +118,6 @@ def main():
     for h in hits:
         print(f"{h['file']}:{h['line']}: {h['match']}  var={h['var']} likely_safe={h['likely_safe']}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

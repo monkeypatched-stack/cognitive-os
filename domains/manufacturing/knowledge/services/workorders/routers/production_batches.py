@@ -11,7 +11,6 @@ from services.workorders.models.production_batches import (
     ProductionBatchUpdate,
 )
 
-
 router = APIRouter()
 
 
@@ -35,7 +34,9 @@ async def list_production_batches(
         process_definition_id=process_definition_id,
         status=status_filter,
     )
-    return PaginatedProductionBatchResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedProductionBatchResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{batch_id}", response_model=ProductionBatchResponse)
@@ -46,18 +47,25 @@ async def get_production_batch(
 ):
     record = await crud.get_by_id(db, batch_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Production batch '{batch_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Production batch '{batch_id}' not found"
+        )
     return record
 
 
-@router.post("/", response_model=ProductionBatchResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=ProductionBatchResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_production_batch(
     data: ProductionBatchCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-tasks")),
 ):
     if await crud.get_by_id(db, data.batch_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Production batch '{data.batch_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Production batch '{data.batch_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
@@ -72,7 +80,9 @@ async def update_production_batch(
 ):
     updated = await crud.update(db, batch_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Production batch '{batch_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Production batch '{batch_id}' not found"
+        )
     return updated
 
 
@@ -83,4 +93,6 @@ async def delete_production_batch(
     _: dict = Depends(require_permission("perm-delete-tasks")),
 ):
     if not await crud.delete(db, batch_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Production batch '{batch_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"Production batch '{batch_id}' not found"
+        )

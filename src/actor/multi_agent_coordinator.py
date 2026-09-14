@@ -13,6 +13,7 @@ from enum import Enum
 
 class CoordinationMessageType(str, Enum):
     """Types of inter-actor coordination messages"""
+
     GOAL_PROPOSAL = "goal_proposal"
     GOAL_ACCEPTANCE = "goal_acceptance"
     GOAL_REJECTION = "goal_rejection"
@@ -26,6 +27,7 @@ class CoordinationMessageType(str, Enum):
 @dataclass
 class ActorCapability:
     """Describes what an actor can do"""
+
     capability_id: str
     description: str
     success_rate: float  # 0.0 to 1.0
@@ -42,6 +44,7 @@ class ActorCapability:
 @dataclass
 class TrustScore:
     """Tracks trust between actors"""
+
     actor_a: str
     actor_b: str
     score: float = 0.5  # 0.0 to 1.0 (neutral start)
@@ -72,6 +75,7 @@ class TrustScore:
 @dataclass
 class SharedGoal:
     """Goal shared among multiple actors"""
+
     goal_id: str
     description: str
     participants: Set[str]  # Actor IDs participating
@@ -96,6 +100,7 @@ class SharedGoal:
 @dataclass
 class CoordinationMessage:
     """Message between actors for coordination"""
+
     message_type: CoordinationMessageType
     sender_actor_id: str
     recipient_actor_ids: List[str]
@@ -132,11 +137,7 @@ class MultiAgentCoordinator:
         self._message_queues[actor_id] = asyncio.Queue()
         self._actor_peers[actor_id] = set()
 
-    def broadcast_capability(
-        self,
-        actor_id: str,
-        capability: ActorCapability
-    ) -> None:
+    def broadcast_capability(self, actor_id: str, capability: ActorCapability) -> None:
         """Actor broadcasts its capabilities"""
         if actor_id not in self._actors_capabilities:
             self.register_actor(actor_id)
@@ -144,9 +145,7 @@ class MultiAgentCoordinator:
         self._actors_capabilities[actor_id].append(capability)
 
     def discover_capabilities(
-        self,
-        querying_actor_id: str,
-        required_capabilities: List[str]
+        self, querying_actor_id: str, required_capabilities: List[str]
     ) -> Dict[str, List[ActorCapability]]:
         """Discover which actors have required capabilities"""
         results = {}
@@ -158,19 +157,13 @@ class MultiAgentCoordinator:
                 if actor_id == querying_actor_id:
                     continue
 
-                matching = [
-                    cap for cap in capabilities
-                    if cap.capability_id == capability_id and cap.is_available()
-                ]
+                matching = [cap for cap in capabilities if cap.capability_id == capability_id and cap.is_available()]
 
                 results[capability_id].extend(matching)
 
         return results
 
-    async def propose_shared_goal(
-        self,
-        goal: SharedGoal
-    ) -> bool:
+    async def propose_shared_goal(self, goal: SharedGoal) -> bool:
         """Propose shared goal to participants"""
         if not goal.participants:
             return False
@@ -183,21 +176,17 @@ class MultiAgentCoordinator:
             sender_actor_id=goal.leader_actor_id,
             recipient_actor_ids=list(goal.participants),
             payload={
-                'goal_id': goal.goal_id,
-                'description': goal.description,
-                'deadline': goal.deadline,
-                'required_capabilities': goal.required_capabilities,
-            }
+                "goal_id": goal.goal_id,
+                "description": goal.description,
+                "deadline": goal.deadline,
+                "required_capabilities": goal.required_capabilities,
+            },
         )
 
         await self._broadcast_message(message)
         return True
 
-    async def accept_shared_goal(
-        self,
-        actor_id: str,
-        goal_id: str
-    ) -> bool:
+    async def accept_shared_goal(self, actor_id: str, goal_id: str) -> bool:
         """Actor accepts participation in shared goal"""
         if goal_id not in self._shared_goals:
             return False
@@ -211,7 +200,7 @@ class MultiAgentCoordinator:
             message_type=CoordinationMessageType.GOAL_ACCEPTANCE,
             sender_actor_id=actor_id,
             recipient_actor_ids=[goal.leader_actor_id],
-            payload={'goal_id': goal_id}
+            payload={"goal_id": goal_id},
         )
 
         await self._send_message(message)
@@ -222,12 +211,7 @@ class MultiAgentCoordinator:
 
         return True
 
-    async def reject_shared_goal(
-        self,
-        actor_id: str,
-        goal_id: str,
-        reason: str
-    ) -> bool:
+    async def reject_shared_goal(self, actor_id: str, goal_id: str, reason: str) -> bool:
         """Actor rejects shared goal"""
         if goal_id not in self._shared_goals:
             return False
@@ -237,7 +221,7 @@ class MultiAgentCoordinator:
             message_type=CoordinationMessageType.GOAL_REJECTION,
             sender_actor_id=actor_id,
             recipient_actor_ids=[goal.leader_actor_id],
-            payload={'goal_id': goal_id, 'reason': reason}
+            payload={"goal_id": goal_id, "reason": reason},
         )
 
         await self._send_message(message)
@@ -262,20 +246,17 @@ class MultiAgentCoordinator:
             sender_actor_id=goal.leader_actor_id,
             recipient_actor_ids=list(goal.participants),
             payload={
-                'goal_id': goal_id,
-                'status': 'executing',
-                'shared_context': goal.shared_context,
-            }
+                "goal_id": goal_id,
+                "status": "executing",
+                "shared_context": goal.shared_context,
+            },
         )
 
         await self._broadcast_message(message)
         return True
 
     async def update_shared_goal_status(
-        self,
-        goal_id: str,
-        status: str,
-        context_updates: Optional[Dict] = None
+        self, goal_id: str, status: str, context_updates: Optional[Dict] = None
     ) -> None:
         """Update status of shared goal"""
         if goal_id not in self._shared_goals:
@@ -293,28 +274,20 @@ class MultiAgentCoordinator:
             sender_actor_id=goal.leader_actor_id,
             recipient_actor_ids=list(goal.participants),
             payload={
-                'goal_id': goal_id,
-                'status': status,
-                'context': goal.shared_context,
-            }
+                "goal_id": goal_id,
+                "status": status,
+                "context": goal.shared_context,
+            },
         )
 
         await self._broadcast_message(message)
 
-    def update_trust(
-        self,
-        actor_a: str,
-        actor_b: str,
-        success: bool
-    ) -> None:
+    def update_trust(self, actor_a: str, actor_b: str, success: bool) -> None:
         """Update trust between two actors"""
         trust_key = tuple(sorted([actor_a, actor_b]))
 
         if trust_key not in self._trust_matrix:
-            self._trust_matrix[trust_key] = TrustScore(
-                actor_a=actor_a,
-                actor_b=actor_b
-            )
+            self._trust_matrix[trust_key] = TrustScore(actor_a=actor_a, actor_b=actor_b)
 
         trust = self._trust_matrix[trust_key]
 
@@ -328,11 +301,7 @@ class MultiAgentCoordinator:
         trust_key = tuple(sorted([actor_a, actor_b]))
         return self._trust_matrix.get(trust_key)
 
-    def get_trusted_partners(
-        self,
-        actor_id: str,
-        threshold: float = 0.6
-    ) -> List[str]:
+    def get_trusted_partners(self, actor_id: str, threshold: float = 0.6) -> List[str]:
         """Get list of trusted partners for actor"""
         trusted = []
 
@@ -354,20 +323,13 @@ class MultiAgentCoordinator:
         except asyncio.QueueEmpty:
             return None
 
-    async def receive_message_blocking(
-        self,
-        actor_id: str,
-        timeout: float = 5.0
-    ) -> Optional[CoordinationMessage]:
+    async def receive_message_blocking(self, actor_id: str, timeout: float = 5.0) -> Optional[CoordinationMessage]:
         """Block until message received (with timeout)"""
         if actor_id not in self._message_queues:
             return None
 
         try:
-            return await asyncio.wait_for(
-                self._message_queues[actor_id].get(),
-                timeout=timeout
-            )
+            return await asyncio.wait_for(self._message_queues[actor_id].get(), timeout=timeout)
         except asyncio.TimeoutError:
             return None
 
@@ -377,24 +339,18 @@ class MultiAgentCoordinator:
 
     def get_actor_goals(self, actor_id: str) -> List[SharedGoal]:
         """Get all shared goals involving actor"""
-        return [
-            goal for goal in self._shared_goals.values()
-            if actor_id in goal.participants
-        ]
+        return [goal for goal in self._shared_goals.values() if actor_id in goal.participants]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get coordination statistics"""
         return {
-            'registered_actors': len(self._actors_capabilities),
-            'total_capabilities_broadcast': sum(
-                len(caps) for caps in self._actors_capabilities.values()
+            "registered_actors": len(self._actors_capabilities),
+            "total_capabilities_broadcast": sum(len(caps) for caps in self._actors_capabilities.values()),
+            "active_shared_goals": len(
+                [g for g in self._shared_goals.values() if g.status in ["proposed", "accepted", "executing"]]
             ),
-            'active_shared_goals': len([
-                g for g in self._shared_goals.values()
-                if g.status in ['proposed', 'accepted', 'executing']
-            ]),
-            'trust_relationships': len(self._trust_matrix),
-            'coordination_messages_sent': len(self._coordination_history),
+            "trust_relationships": len(self._trust_matrix),
+            "coordination_messages_sent": len(self._coordination_history),
         }
 
     # Private methods
@@ -447,25 +403,19 @@ class CollaborativeActor:
         self._my_capabilities.append(capability)
         self._coordinator.broadcast_capability(self.id, capability)
 
-    async def discover_collaborators(
-        self,
-        required_capabilities: List[str]
-    ) -> Dict[str, List[ActorCapability]]:
+    async def discover_collaborators(self, required_capabilities: List[str]) -> Dict[str, List[ActorCapability]]:
         """Find actors with needed capabilities"""
         if not self._coordinator:
             return {}
 
-        return self._coordinator.discover_capabilities(
-            self.id,
-            required_capabilities
-        )
+        return self._coordinator.discover_capabilities(self.id, required_capabilities)
 
     async def propose_collaboration(
         self,
         goal_description: str,
         collaborator_ids: List[str],
         required_capabilities: List[str],
-        deadline: Optional[datetime] = None
+        deadline: Optional[datetime] = None,
     ) -> Optional[SharedGoal]:
         """Propose shared goal to other actors"""
         if not self._coordinator:
@@ -477,7 +427,7 @@ class CollaborativeActor:
             participants=set(collaborator_ids) | {self.id},
             leader_actor_id=self.id,
             deadline=deadline,
-            required_capabilities=required_capabilities
+            required_capabilities=required_capabilities,
         )
 
         await self._coordinator.propose_shared_goal(goal)
@@ -498,7 +448,7 @@ class CollaborativeActor:
         if message.message_type != CoordinationMessageType.GOAL_PROPOSAL:
             return None
 
-        goal_id = message.payload['goal_id']
+        goal_id = message.payload["goal_id"]
         goal = self._coordinator.get_shared_goal(goal_id)
 
         return goal
@@ -554,8 +504,8 @@ class CollaborativeActor:
     def get_collaboration_stats(self) -> Dict[str, Any]:
         """Get collaboration statistics"""
         return {
-            'actor_id': self.id,
-            'capabilities': len(self._my_capabilities),
-            'active_collaborations': len(self._active_collaborations),
-            'trusted_partners': len(self.get_trusted_collaborators()),
+            "actor_id": self.id,
+            "capabilities": len(self._my_capabilities),
+            "active_collaborations": len(self._active_collaborations),
+            "trusted_partners": len(self.get_trusted_collaborators()),
         }

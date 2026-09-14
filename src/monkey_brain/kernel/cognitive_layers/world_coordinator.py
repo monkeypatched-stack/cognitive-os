@@ -3,6 +3,7 @@
 Responsibility: Context Stream publication, world mutation, graph updates.
 Depends on: context stream, gpu world, engine, semantic graph
 """
+
 from __future__ import annotations
 
 import logging
@@ -60,7 +61,11 @@ class WorldCoordinator:
         INVARIANT: All world mutations MUST go through this method.
         """
         if self._context_stream is not None and hasattr(self._context_stream, "publish"):
-            from src.monkey_brain.kernel.compile.context_stream import ContextEvent, EventType
+            from src.monkey_brain.kernel.compile.context_stream import (
+                ContextEvent,
+                EventType,
+            )
+
             event = ContextEvent(
                 timestamp=time.time(),
                 entity=src,

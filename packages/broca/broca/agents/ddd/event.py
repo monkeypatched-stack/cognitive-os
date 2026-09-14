@@ -1,6 +1,8 @@
 """EventAgent — captures domain events, detects patterns, drives temporal causality."""
+
 from __future__ import annotations
-import logging, time
+import logging
+import time
 from typing import Any, Callable
 from broca.agents.ddd._base_ddd import BaseDDDAgent
 
@@ -17,7 +19,9 @@ class EventAgent(BaseDDDAgent):
     """
 
     agent_type = "event"
-    description = "Event agent — captures domain events, correlates sequences, detects patterns, drives temporal causality"
+    description = (
+        "Event agent — captures domain events, correlates sequences, detects patterns, drives temporal causality"
+    )
     ddd_layer = "event"
     workload_spec = "self_healing"
 

@@ -12,7 +12,7 @@ from services.facilities.models.locations import (
     LocationResponse,
     PaginatedLocationResponse,
     LocationHierarchyResponse,
-    LocationWithChildrenResponse
+    LocationWithChildrenResponse,
 )
 from services.facilities.helpers import locations as crud
 
@@ -32,17 +32,14 @@ async def list_locations(
     parent_id: Optional[str] = Query(None, description="Filter by parent ID"),
     level: Optional[int] = Query(None, description="Filter by hierarchy level"),
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-view-locations"))
+    _: dict = Depends(require_permission("perm-view-locations")),
 ) -> PaginatedLocationResponse:
     """List all locations with filtering and pagination."""
     locations, total = await crud.get_all_locations(
         db, page, page_size, location_type, parent_id, level
     )
     return PaginatedLocationResponse(
-        total=total,
-        page=page,
-        page_size=page_size,
-        results=locations
+        total=total, page=page, page_size=page_size, results=locations
     )
 
 
@@ -50,7 +47,7 @@ async def list_locations(
 async def create_location(
     location_data: LocationCreate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-create-locations"))
+    _: dict = Depends(require_permission("perm-create-locations")),
 ) -> LocationResponse:
     """Create a new location."""
     try:
@@ -58,7 +55,7 @@ async def create_location(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to create location: {str(e)}"
+            detail=f"Failed to create location: {str(e)}",
         )
 
 
@@ -66,14 +63,13 @@ async def create_location(
 async def get_location(
     location_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-view-locations"))
+    _: dict = Depends(require_permission("perm-view-locations")),
 ) -> LocationResponse:
     """Get a specific location by ID."""
     location = await crud.get_location_by_id(db, location_id)
     if not location:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
         )
     return location
 
@@ -83,14 +79,14 @@ async def update_location(
     location_id: str,
     update_data: LocationUpdate,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-update-locations"))
+    _: dict = Depends(require_permission("perm-update-locations")),
 ) -> LocationResponse:
     """Update a location."""
     location = await crud.update_location(db, location_id, update_data)
     if not location:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found or no changes made"
+            detail="Location not found or no changes made",
         )
     return location
 
@@ -99,14 +95,13 @@ async def update_location(
 async def delete_location(
     location_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-delete-locations"))
+    _: dict = Depends(require_permission("perm-delete-locations")),
 ) -> None:
     """Delete a location."""
     success = await crud.delete_location(db, location_id)
     if not success:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
         )
 
 
@@ -114,16 +109,15 @@ async def delete_location(
 async def get_location_hierarchy(
     location_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-view-locations"))
+    _: dict = Depends(require_permission("perm-view-locations")),
 ) -> LocationHierarchyResponse:
     """Get the complete hierarchy for a location."""
     hierarchy = await crud.get_location_hierarchy(db, location_id)
     if not hierarchy:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
         )
-    
+
     # Organize hierarchy into response structure
     response = LocationHierarchyResponse()
     for location in hierarchy:
@@ -137,7 +131,7 @@ async def get_location_hierarchy(
             response.room = location
         elif location["type"] == "bay":
             response.bay = location
-    
+
     return response
 
 
@@ -145,14 +139,13 @@ async def get_location_hierarchy(
 async def get_location_children(
     location_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-view-locations"))
+    _: dict = Depends(require_permission("perm-view-locations")),
 ) -> LocationWithChildrenResponse:
     """Get a location with its children."""
     result = await crud.get_location_with_children(db, location_id)
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
         )
     return result
 
@@ -161,14 +154,13 @@ async def get_location_children(
 async def get_location_by_location_id(
     location_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-view-locations"))
+    _: dict = Depends(require_permission("perm-view-locations")),
 ) -> LocationResponse:
     """Get a location by its location_id (not MongoDB ID)."""
     location = await crud.get_location_by_location_id(db, location_id)
     if not location:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
         )
     return location
 
@@ -179,21 +171,18 @@ async def get_locations_by_type(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-view-locations"))
+    _: dict = Depends(require_permission("perm-view-locations")),
 ) -> PaginatedLocationResponse:
     """Get all locations of a specific type."""
     locations = await crud.get_locations_by_type(db, location_type)
-    
+
     # Apply pagination
     start = (page - 1) * page_size
     end = start + page_size
     paginated_results = locations[start:end]
-    
+
     return PaginatedLocationResponse(
-        total=len(locations),
-        page=page,
-        page_size=page_size,
-        results=paginated_results
+        total=len(locations), page=page, page_size=page_size, results=paginated_results
     )
 
 
@@ -202,7 +191,7 @@ async def search_locations(
     search_term: str = Query(..., min_length=1, description="Search term"),
     limit: int = Query(10, ge=1, le=50, description="Maximum results"),
     db: AsyncIOMotorDatabase = Depends(get_db),
-    _: dict = Depends(require_permission("perm-view-locations"))
+    _: dict = Depends(require_permission("perm-view-locations")),
 ) -> list[LocationResponse]:
     """Search locations by name, location_id, or path."""
     return await crud.search_locations(db, search_term, limit)

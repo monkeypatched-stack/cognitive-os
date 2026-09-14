@@ -9,8 +9,12 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from services.common.config import settings
-from services.common.event_types import configured_event_type_slugs, infer_event_type, measurement_suffix, slugify_event_type
-
+from services.common.event_types import (
+    configured_event_type_slugs,
+    infer_event_type,
+    measurement_suffix,
+    slugify_event_type,
+)
 
 log = logging.getLogger("uvicorn.error")
 
@@ -38,7 +42,12 @@ def _sensor_summary(reading: dict[str, Any]) -> dict[str, Any]:
 
 
 def _escape_key(value: str) -> str:
-    return value.replace("\\", "\\\\").replace(" ", "\\ ").replace(",", "\\,").replace("=", "\\=")
+    return (
+        value.replace("\\", "\\\\")
+        .replace(" ", "\\ ")
+        .replace(",", "\\,")
+        .replace("=", "\\=")
+    )
 
 
 def _escape_string_field(value: str) -> str:
@@ -69,7 +78,10 @@ def subject_for_event_type(event_type: str) -> str:
 
 
 def measurement_for_event_type(event_type: str) -> str:
-    prefix = str(settings.INFLUXDB_EVENT_TYPE_MEASUREMENT_PREFIX or "events").strip() or "events"
+    prefix = (
+        str(settings.INFLUXDB_EVENT_TYPE_MEASUREMENT_PREFIX or "events").strip()
+        or "events"
+    )
     return f"{prefix}_{measurement_suffix(event_type)}"
 
 
@@ -86,15 +98,26 @@ def measurement_for_subject(subject: str, event: dict[str, Any] | None = None) -
     if event_type:
         return measurement_for_event_type(event_type)
     if event is not None:
-        inferred_event_type = slugify_event_type(event.get("event_type") or infer_event_type(event))
+        inferred_event_type = slugify_event_type(
+            event.get("event_type") or infer_event_type(event)
+        )
         if inferred_event_type != "generic":
             return measurement_for_event_type(inferred_event_type)
-    return str(subject or settings.INFLUXDB_EVENTS_MEASUREMENT or settings.NATS_EVENTS_SUBJECT).strip() or settings.NATS_EVENTS_SUBJECT
+    return (
+        str(
+            subject
+            or settings.INFLUXDB_EVENTS_MEASUREMENT
+            or settings.NATS_EVENTS_SUBJECT
+        ).strip()
+        or settings.NATS_EVENTS_SUBJECT
+    )
 
 
 def known_event_measurements() -> list[str]:
     measurements = [settings.NATS_EVENTS_SUBJECT, settings.INFLUXDB_EVENTS_MEASUREMENT]
-    for event_type in configured_event_type_slugs(settings.INFLUXDB_EVENT_TYPE_MEASUREMENTS):
+    for event_type in configured_event_type_slugs(
+        settings.INFLUXDB_EVENT_TYPE_MEASUREMENTS
+    ):
         measurements.append(measurement_for_event_type(event_type))
         measurements.append(subject_for_event_type(event_type))
     return list(dict.fromkeys(measurements))
@@ -122,8 +145,7 @@ def _line_protocol(event: dict[str, Any], subject: str, measurement: str) -> str
         "event_json": json.dumps(event),
     }
     field_set = ",".join(
-        f"{_escape_key(key)}={_field_value(value)}"
-        for key, value in fields.items()
+        f"{_escape_key(key)}={_field_value(value)}" for key, value in fields.items()
     )
 
     point = f"{_escape_key(measurement)},{tag_set} {field_set}"
@@ -141,7 +163,14 @@ def _sensor_line_protocol(reading: dict[str, Any], subject: str) -> str:
         "subject": subject,
         "source": str(reading.get("source") or "mqtt"),
     }
-    for key in ("sensor_type", "unit", "machine_id", "equipment_id", "edge_server_id", "topic"):
+    for key in (
+        "sensor_type",
+        "unit",
+        "machine_id",
+        "equipment_id",
+        "edge_server_id",
+        "topic",
+    ):
         value = reading.get(key)
         if value not in (None, ""):
             tags[key] = str(value)
@@ -171,8 +200,7 @@ def _sensor_line_protocol(reading: dict[str, Any], subject: str) -> str:
             fields[key] = str(value)
 
     field_set = ",".join(
-        f"{_escape_key(key)}={_field_value(value)}"
-        for key, value in fields.items()
+        f"{_escape_key(key)}={_field_value(value)}" for key, value in fields.items()
     )
     point = f"{_escape_key(measurement)},{tag_set} {field_set}"
     timestamp = _parse_time(reading.get("timestamp") or reading.get("received_at"))
@@ -201,11 +229,17 @@ def _write_line_protocol(line_protocol: str) -> None:
             response.read()
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"InfluxDB write failed with status {exc.code}: {detail}") from exc
+        raise RuntimeError(
+            f"InfluxDB write failed with status {exc.code}: {detail}"
+        ) from exc
     except URLError as exc:
-        raise RuntimeError(f"Unable to connect to InfluxDB at {settings.INFLUXDB_URL}: {exc}") from exc
+        raise RuntimeError(
+            f"Unable to connect to InfluxDB at {settings.INFLUXDB_URL}: {exc}"
+        ) from exc
     except (ConnectionResetError, TimeoutError, socket.timeout) as exc:
-        raise RuntimeError(f"InfluxDB write failed at {settings.INFLUXDB_URL}: {exc}") from exc
+        raise RuntimeError(
+            f"InfluxDB write failed at {settings.INFLUXDB_URL}: {exc}"
+        ) from exc
 
 
 async def write_websocket_event(event: dict[str, Any], subject: str) -> None:
@@ -260,7 +294,11 @@ async def ensure_event_measurements() -> None:
     now = datetime.now(timezone.utc).isoformat()
     lines = []
     for measurement in known_event_measurements():
-        event_type = measurement.rsplit(".", 1)[-1] if measurement.startswith(f"{settings.NATS_EVENT_TYPE_SUBJECT_PREFIX}.") else "legacy"
+        event_type = (
+            measurement.rsplit(".", 1)[-1]
+            if measurement.startswith(f"{settings.NATS_EVENT_TYPE_SUBJECT_PREFIX}.")
+            else "legacy"
+        )
         event = {
             "event_id": f"bootstrap-{measurement}",
             "received_at": now,

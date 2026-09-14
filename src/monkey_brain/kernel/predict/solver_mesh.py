@@ -5,6 +5,7 @@ Responsibilities:
   - Route each problem dict to the highest-confidence solver (can_solve score).
   - Dispatch a batch of problems, returning one SolverResult per problem.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -63,7 +64,7 @@ class SolverMesh:
     def get_jepa(self):
         """Return the JEPA solver if registered, else None."""
         for solver in self._solvers:
-            if hasattr(solver, 'solver_class') and solver.solver_class.value == 'jepa':
+            if hasattr(solver, "solver_class") and solver.solver_class.value == "jepa":
                 return solver
         return None
 
@@ -74,7 +75,9 @@ def build_default_mesh() -> SolverMesh:
     from src.monkey_brain.kernel.predict.constraint.constraint import ConstraintSolver
     from src.monkey_brain.kernel.predict.constraint.sat import SATSolver
     from src.monkey_brain.kernel.predict.constraint.rules import RuleEngineSolver
-    from src.monkey_brain.kernel.predict.model_checker.model_checker import ModelCheckerSolver
+    from src.monkey_brain.kernel.predict.model_checker.model_checker import (
+        ModelCheckerSolver,
+    )
     from src.monkey_brain.kernel.predict.optimizer.optimizer import OptimizerSolver
     from src.monkey_brain.kernel.predict.mcts.monte_carlo import MonteCarloSolver
 
@@ -90,6 +93,7 @@ def build_default_mesh() -> SolverMesh:
     # JEPA is optional — numpy dependency; skip gracefully on import failure
     try:
         from src.monkey_brain.kernel.predict.jepa.jepa import JEPAWorldModel
+
         mesh.register(JEPAWorldModel())
     except Exception as e:
         logger.debug("[mesh] JEPA not available: %s", e)

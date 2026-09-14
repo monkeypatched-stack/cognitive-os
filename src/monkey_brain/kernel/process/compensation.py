@@ -11,6 +11,7 @@ coordinator (not the same as NONE) — "we don't know" must never be silently
 treated as "nothing to do." This is a conservative default for retrofitting
 onto capabilities that predate this subsystem.
 """
+
 from __future__ import annotations
 
 import logging
@@ -129,17 +130,24 @@ async def compensate(
 
         if spec.type == CompensationType.IRREVERSIBLE:
             all_recovered = False
-            records.append(CompensationRecord(
-                node_id=node.id,
-                capability_name=capability_name,
-                compensating_capability=None,
-                success=False,
-                detail="irreversible or undeclared — cannot be automatically compensated" if not spec.declared
-                       else "irreversible — cannot be automatically compensated",
-            ))
+            records.append(
+                CompensationRecord(
+                    node_id=node.id,
+                    capability_name=capability_name,
+                    compensating_capability=None,
+                    success=False,
+                    detail=(
+                        "irreversible or undeclared — cannot be automatically compensated"
+                        if not spec.declared
+                        else "irreversible — cannot be automatically compensated"
+                    ),
+                )
+            )
             logger.warning(
                 "compensation: node=%s capability=%s cannot be undone (declared=%s)",
-                node.id, capability_name, spec.declared,
+                node.id,
+                capability_name,
+                spec.declared,
             )
             continue
 
@@ -149,23 +157,32 @@ async def compensate(
                 raise RuntimeError("no execute_capability callback provided")
             inputs = spec.compensation_inputs(graph.get_result(node.id)) if spec.compensation_inputs else {}
             result = await execute_capability(spec.compensating_capability, inputs)
-            records.append(CompensationRecord(
-                node_id=node.id,
-                capability_name=capability_name,
-                compensating_capability=spec.compensating_capability,
-                success=True,
-                detail=str(result),
-            ))
+            records.append(
+                CompensationRecord(
+                    node_id=node.id,
+                    capability_name=capability_name,
+                    compensating_capability=spec.compensating_capability,
+                    success=True,
+                    detail=str(result),
+                )
+            )
         except Exception as exc:
             all_recovered = False
-            records.append(CompensationRecord(
-                node_id=node.id,
-                capability_name=capability_name,
-                compensating_capability=spec.compensating_capability,
-                success=False,
-                detail=str(exc),
-            ))
-            logger.error("compensation failed: node=%s capability=%s error=%s", node.id, capability_name, exc)
+            records.append(
+                CompensationRecord(
+                    node_id=node.id,
+                    capability_name=capability_name,
+                    compensating_capability=spec.compensating_capability,
+                    success=False,
+                    detail=str(exc),
+                )
+            )
+            logger.error(
+                "compensation failed: node=%s capability=%s error=%s",
+                node.id,
+                capability_name,
+                exc,
+            )
 
     return all_recovered, records
 

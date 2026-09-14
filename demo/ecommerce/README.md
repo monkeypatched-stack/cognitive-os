@@ -65,7 +65,7 @@ actual captured run showing exactly this (`SocietyQuery` becomes
   provider `MODEL_BACKEND` resolves to — see
   `src/monkey_brain/kernel/execute/provider/model_backend.py`). Prompt
   reasoning is real; there is no mock backend in this demo.
-- Python deps: `httpx` (already in `requirements.txt`).
+- Python deps: `httpx` (already in `pyproject.toml`'s dependencies).
 
 **Run against a fresh environment for a clean, fast, reproducible
 transcript.** A server that already has many actors from unrelated

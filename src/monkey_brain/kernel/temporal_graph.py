@@ -29,9 +29,7 @@ def assert_same_topology(
     }
     for name, (left, right) in checks.items():
         if left != right:
-            raise GraphTopologyError(
-                f"{context} changed planner graph {name}: expected={left!r} actual={right!r}"
-            )
+            raise GraphTopologyError(f"{context} changed planner graph {name}: expected={left!r} actual={right!r}")
 
 
 def _graph_id(graph: dict[str, Any]) -> str:
@@ -66,10 +64,11 @@ def _edge_ids(graph: dict[str, Any]) -> list[tuple[str, str, str]]:
 
 def _execution_order(graph: dict[str, Any]) -> list[str]:
     import json
+
     metadata = graph.get("metadata", {}) if isinstance(graph, dict) else {}
     order = graph.get("execution_order", metadata.get("execution_order", []))
     if order is None:
         return []
     if isinstance(order, list):
-        return [json.dumps(item, sort_keys=True) if isinstance(item, (list, dict)) else str(item) for item in order]
+        return [(json.dumps(item, sort_keys=True) if isinstance(item, (list, dict)) else str(item)) for item in order]
     return [str(order)]

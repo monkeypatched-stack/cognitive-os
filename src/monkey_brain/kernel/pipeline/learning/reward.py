@@ -20,18 +20,23 @@ LearningExperience is frozen, so evaluate() returns a *new* experience with
 reward populated, the same replace-not-mutate idiom Step 8.6's plan scoring
 used for PlanCandidate.
 """
+
 from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
 
-from src.monkey_brain.kernel.pipeline.learning.domain import LearningExperience, LearningOutcome
+from src.monkey_brain.kernel.pipeline.learning.domain import (
+    LearningExperience,
+    LearningOutcome,
+)
 
 
 @dataclass(frozen=True)
 class RewardWeights:
     """Configurable contribution of each factor to the final reward, all on
     a comparable [0, 1]-ish scale so total() naturally lands near [0, 1]."""
+
     goal_achieved: float = 0.7
     partial_credit: float = 0.3
     speed_bonus: float = 0.2
@@ -43,6 +48,7 @@ class RewardWeights:
 class RewardBreakdown:
     """Explains a reward as the sum of its parts — Step 10.9's trace consumes
     this directly rather than re-deriving "why" from a bare float."""
+
     base: float = 0.0
     speed_bonus: float = 0.0
     budget_bonus: float = 0.0
@@ -107,8 +113,12 @@ def compute_reward(
         rationale += f", {len(outcome.errors)} error(s) penalized"
 
     return RewardBreakdown(
-        base=base, speed_bonus=speed_bonus, budget_bonus=budget_bonus,
-        error_penalty=error_penalty, total=total, rationale=rationale,
+        base=base,
+        speed_bonus=speed_bonus,
+        budget_bonus=budget_bonus,
+        error_penalty=error_penalty,
+        total=total,
+        rationale=rationale,
     )
 
 
@@ -130,7 +140,8 @@ class ExperienceRewardEngine:
 
     def evaluate(self, experience: LearningExperience) -> LearningExperience:
         breakdown = compute_reward(
-            experience.outcome, self._weights,
+            experience.outcome,
+            self._weights,
             duration_budget_seconds=self._duration_budget_seconds,
             cost_budget=self._cost_budget,
         )

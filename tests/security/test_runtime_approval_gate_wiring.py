@@ -20,6 +20,7 @@ directly) under insecure-dev, the same OPA-response pass-through
 GovernanceEngine now surfaces, and the NATS actor-inbox receiving side's
 principal binding.
 """
+
 from __future__ import annotations
 
 import json
@@ -95,9 +96,7 @@ class TestEnsureGovernedNoLongerBypassesInsecureDev:
                 "requires_hitl": False,
             }
 
-        monkeypatch.setattr(
-            "src.monkey_brain.kernel.security_boundary._authorize", mock_authorize
-        )
+        monkeypatch.setattr("src.monkey_brain.kernel.security_boundary._authorize", mock_authorize)
 
         result = await ensure_governed("capability.ProductSelection", "milk", mutate)
 
@@ -108,10 +107,7 @@ class TestEnsureGovernedNoLongerBypassesInsecureDev:
         # entirely -- no artifact, no audit trail, nothing to inspect.
         # Now every SECURITY_CRITICAL capability call leaves a record.
         store = get_approval_store()
-        artifacts = [
-            a for a in store._artifacts.values()
-            if a.target_operation == "capability.ProductSelection"
-        ]
+        artifacts = [a for a in store._artifacts.values() if a.target_operation == "capability.ProductSelection"]
         assert len(artifacts) == 1
         assert artifacts[0].approval_mode == ApprovalMode.AUTO_APPROVE
         assert artifacts[0].approval_source == ApprovalSource.POLICY_AUTOMATIC
@@ -142,9 +138,7 @@ class TestEnsureGovernedNoLongerBypassesInsecureDev:
                 "requires_hitl": True,
             }
 
-        monkeypatch.setattr(
-            "src.monkey_brain.kernel.security_boundary._authorize", mock_authorize
-        )
+        monkeypatch.setattr("src.monkey_brain.kernel.security_boundary._authorize", mock_authorize)
         bind_trusted_auth(make_trusted_auth("agent:processor", "service"))
 
         with pytest.raises(HumanApprovalRequired):
@@ -173,9 +167,7 @@ class TestEnsureGovernedNoLongerBypassesInsecureDev:
                 "requires_hitl": False,
             }
 
-        monkeypatch.setattr(
-            "src.monkey_brain.kernel.security_boundary._authorize", mock_authorize
-        )
+        monkeypatch.setattr("src.monkey_brain.kernel.security_boundary._authorize", mock_authorize)
 
         with pytest.raises(SecurityBoundaryDenied):
             await ensure_governed("capability.DeleteAccount", "account:1", mutate)
@@ -220,6 +212,7 @@ class TestSelfApprovalPrevention:
         the only way to reach APPROVED is POST /runtime-approvals/{id}/approve,
         which itself 403s when the caller's authenticated principal equals
         requesting_principal (api/routes/approval.py: self-approval check)."""
+
         async def mutate():
             return "should not execute"
 
@@ -234,9 +227,7 @@ class TestSelfApprovalPrevention:
             }
 
         monkeypatch.setenv("OPA_REQUIRED", "true")
-        monkeypatch.setattr(
-            "src.monkey_brain.kernel.security_boundary._authorize", mock_authorize
-        )
+        monkeypatch.setattr("src.monkey_brain.kernel.security_boundary._authorize", mock_authorize)
         bind_trusted_auth(make_trusted_auth("agent:requester", "service"))
 
         with pytest.raises(HumanApprovalRequired) as exc_info:

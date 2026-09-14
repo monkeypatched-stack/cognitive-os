@@ -17,6 +17,7 @@ from src.shared.actor_protocols import AutonomousActorProtocol
 @dataclass
 class ActorTickConfig:
     """Configuration for actor's cognitive ticking"""
+
     actor_id: str
     tick_interval: float = 0.1  # 100ms default
     enabled: bool = True
@@ -110,9 +111,7 @@ class ActorScheduler:
                 self._executor_task.cancel()
 
         # Shutdown all actors
-        shutdown_tasks = [
-            actor.shutdown() for actor in self._actors.values()
-        ]
+        shutdown_tasks = [actor.shutdown() for actor in self._actors.values()]
         if shutdown_tasks:
             await asyncio.gather(*shutdown_tasks, return_exceptions=True)
 
@@ -186,9 +185,7 @@ class ActorScheduler:
                 config.enabled = False
             else:
                 # Increase backoff interval
-                backoff_interval = (
-                    config.tick_interval * (config.backoff_multiplier ** self._error_counts[actor_id])
-                )
+                backoff_interval = config.tick_interval * (config.backoff_multiplier ** self._error_counts[actor_id])
                 self._last_tick[actor_id] = datetime.now() + timedelta(seconds=backoff_interval)
 
     async def _run_cognitive_cycle(self, actor: AutonomousActorProtocol) -> None:
@@ -209,27 +206,22 @@ class ActorScheduler:
         config = self._configs[actor_id]
 
         return {
-            'actor_id': actor_id,
-            'tick_count': actor._cognitive_state.tick_count,
-            'last_tick': actor._cognitive_state.last_tick,
-            'enabled': config.enabled,
-            'tick_interval': config.tick_interval,
-            'error_count': self._error_counts[actor_id],
-            'converged': actor._cognitive_state.converged,
+            "actor_id": actor_id,
+            "tick_count": actor._cognitive_state.tick_count,
+            "last_tick": actor._cognitive_state.last_tick,
+            "enabled": config.enabled,
+            "tick_interval": config.tick_interval,
+            "error_count": self._error_counts[actor_id],
+            "converged": actor._cognitive_state.converged,
         }
 
     def get_all_stats(self) -> Dict[str, Dict]:
         """Get statistics for all registered actors"""
-        return {
-            actor_id: self.get_actor_stats(actor_id)
-            for actor_id in self._actors.keys()
-        }
+        return {actor_id: self.get_actor_stats(actor_id) for actor_id in self._actors.keys()}
 
     def get_active_actor_count(self) -> int:
         """Number of actors currently enabled"""
-        return sum(
-            1 for config in self._configs.values() if config.enabled
-        )
+        return sum(1 for config in self._configs.values() if config.enabled)
 
     def get_total_actor_count(self) -> int:
         """Total number of registered actors"""

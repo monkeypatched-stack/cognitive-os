@@ -12,6 +12,7 @@ The cost includes:
     - Compute cost (embedding, ranking)
     - Staleness risk (retrieving old knowledge may hurt)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -24,29 +25,34 @@ from src.knowledge.pack import KnowledgePack
 @dataclass
 class RetrievalCost:
     """Cost of retrieving and using knowledge."""
-    latency_ms: float = 100.0       # time cost
-    token_cost: float = 0.0         # LLM token cost
-    compute_cost: float = 0.0       # embedding/ranking cost
+
+    latency_ms: float = 100.0  # time cost
+    token_cost: float = 0.0  # LLM token cost
+    compute_cost: float = 0.0  # embedding/ranking cost
     staleness_penalty: float = 0.0  # risk of stale knowledge
 
     @property
     def total(self) -> float:
         """Normalized total cost [0, 1]."""
-        return min(1.0, (
-            0.3 * min(self.latency_ms / 1000, 1.0) +
-            0.3 * min(self.token_cost / 1000, 1.0) +
-            0.2 * min(self.compute_cost / 100, 1.0) +
-            0.2 * self.staleness_penalty
-        ))
+        return min(
+            1.0,
+            (
+                0.3 * min(self.latency_ms / 1000, 1.0)
+                + 0.3 * min(self.token_cost / 1000, 1.0)
+                + 0.2 * min(self.compute_cost / 100, 1.0)
+                + 0.2 * self.staleness_penalty
+            ),
+        )
 
 
 @dataclass
 class RetrievalDecision:
     """Outcome of a retrieval decision."""
+
     should_retrieve: bool = False
     expected_information_gain: float = 0.0
     retrieval_cost: float = 0.0
-    net_benefit: float = 0.0         # gain - cost
+    net_benefit: float = 0.0  # gain - cost
     confidence_improvement: float = 0.0
     items_to_retrieve: list[str] = field(default_factory=list)
     reason: str = ""
@@ -133,7 +139,7 @@ class HeuristicRetrievalPolicy:
             scored_candidates.append((item, improvement))
 
         scored_candidates.sort(key=lambda x: x[1], reverse=True)
-        top_candidates = scored_candidates[:self.max_items_per_retrieval]
+        top_candidates = scored_candidates[: self.max_items_per_retrieval]
 
         # Expected information gain from top candidates
         total_improvement = sum(imp for _, imp in top_candidates)
@@ -153,10 +159,7 @@ class HeuristicRetrievalPolicy:
         net_benefit = expected_info_gain - cost_score
 
         # Decision
-        should_retrieve = (
-            net_benefit >= self.min_net_benefit and
-            expected_info_gain >= self.min_information_gain
-        )
+        should_retrieve = net_benefit >= self.min_net_benefit and expected_info_gain >= self.min_information_gain
 
         # Confidence improvement estimate
         conf_improvement = pack_improvement if should_retrieve else 0.0
@@ -169,8 +172,7 @@ class HeuristicRetrievalPolicy:
                 reason = f"net benefit {net_benefit:.3f} < min {self.min_net_benefit}"
         else:
             reason = (
-                f"gain={expected_info_gain:.3f} cost={cost_score:.3f} "
-                f"net={net_benefit:.3f} items={len(top_candidates)}"
+                f"gain={expected_info_gain:.3f} cost={cost_score:.3f} net={net_benefit:.3f} items={len(top_candidates)}"
             )
 
         decision = RetrievalDecision(
@@ -185,7 +187,7 @@ class HeuristicRetrievalPolicy:
 
         self._decisions.append(decision)
         if len(self._decisions) > self._max_decisions:
-            self._decisions = self._decisions[-self._max_decisions:]
+            self._decisions = self._decisions[-self._max_decisions :]
         return decision
 
     def update(self, cost: float, gained: int) -> None:
@@ -199,9 +201,7 @@ class HeuristicRetrievalPolicy:
         # Adaptive alpha: higher when cost is high relative to gain
         ratio = cost / max(gained, 1)
         alpha = min(0.3, max(0.02, ratio * 0.1))
-        self.min_net_benefit = round(
-            (1 - alpha) * self.min_net_benefit + alpha * cost, 4
-        )
+        self.min_net_benefit = round((1 - alpha) * self.min_net_benefit + alpha * cost, 4)
 
     def get_stats(self) -> dict[str, Any]:
         """Get statistics over past decisions."""

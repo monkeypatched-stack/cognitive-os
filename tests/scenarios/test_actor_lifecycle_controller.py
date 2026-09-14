@@ -48,6 +48,7 @@ Per this repo's session convention, this file is written but not executed
 by the assistant. Run with:
     python -m pytest tests/scenarios/test_actor_lifecycle_controller.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -62,12 +63,17 @@ os.environ["RATE_LIMIT_RPS"] = "100000"
 os.environ["RATE_LIMIT_BURST"] = "200000"
 
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorProfile, ActorIdentity, ActorType, ActorStatus
+from src.monkey_brain.kernel.society.domain import (
+    ActorProfile,
+    ActorIdentity,
+    ActorType,
+    ActorStatus,
+)
 from src.monkey_brain.kernel.society.actor_lifecycle import ActorDesiredState
 from src.monkey_brain.kernel.society.context_stream import ContextEventType
 
-
 # ── Test doubles ─────────────────────────────────────────────────────────
+
 
 class _FakeRedis:
     """Minimal in-memory stand-in for the subset of redis-py's API
@@ -154,7 +160,8 @@ class _FakeRedis:
 
 def _register(pr: PlanetaryRuntime, name: str, **kwargs):
     return pr.register_actor(
-        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)), **kwargs,
+        ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.AI_AGENT)),
+        **kwargs,
     )
 
 
@@ -168,12 +175,14 @@ def _planetary_with_fake_redis() -> PlanetaryRuntime:
 
 def _lifecycle_events(pr: PlanetaryRuntime, actor_id: str) -> list[dict]:
     return [
-        e.payload for e in pr.context_stream._events
+        e.payload
+        for e in pr.context_stream._events
         if e.event_type == ContextEventType.ACTOR_LIFECYCLE and e.actor_id == actor_id
     ]
 
 
 # ── 1: Actor creation ────────────────────────────────────────────────────
+
 
 def test_01_actor_creation_registers_with_registered_status():
     pr = PlanetaryRuntime()
@@ -186,6 +195,7 @@ def test_01_actor_creation_registers_with_registered_status():
 
 
 # ── 2: Actor startup ─────────────────────────────────────────────────────
+
 
 def test_02_start_actor_activates_and_restores_belief():
     pr = PlanetaryRuntime()
@@ -202,6 +212,7 @@ def test_02_start_actor_activates_and_restores_belief():
 
 # ── 3: Actor readiness (event ordering) ─────────────────────────────────
 
+
 def test_03_start_actor_publishes_starting_ready_started_events_in_order():
     pr = PlanetaryRuntime()
     state = _register(pr, "carol")
@@ -212,6 +223,7 @@ def test_03_start_actor_publishes_starting_ready_started_events_in_order():
 
 
 # ── 4: Actor already running ────────────────────────────────────────────
+
 
 def test_04_reconcile_running_desired_active_observed_is_noop():
     pr = PlanetaryRuntime()
@@ -225,6 +237,7 @@ def test_04_reconcile_running_desired_active_observed_is_noop():
 
 
 # ── 5: Actor suspension ─────────────────────────────────────────────────
+
 
 def test_05_suspend_actor_checkpoints_and_sets_suspended():
     pr = PlanetaryRuntime()
@@ -245,6 +258,7 @@ def test_05_suspend_actor_checkpoints_and_sets_suspended():
 
 # ── 6: Actor resume ──────────────────────────────────────────────────────
 
+
 def test_06_resume_actor_restores_and_reactivates():
     pr = PlanetaryRuntime()
     state = _register(pr, "frank")
@@ -264,6 +278,7 @@ def test_06_resume_actor_restores_and_reactivates():
 
 # ── 7: Actor termination ────────────────────────────────────────────────
 
+
 def test_07_terminate_actor_checkpoints_before_unregistering():
     pr = PlanetaryRuntime()
     state = _register(pr, "grace")
@@ -281,6 +296,7 @@ def test_07_terminate_actor_checkpoints_before_unregistering():
 
 # ── 8: Actor crash (simulated via staleness + no lease held) ───────────
 
+
 def test_08_stale_running_actor_with_no_lease_is_observed_as_stale():
     pr = _planetary_with_fake_redis()
     state = _register(pr, "heidi")
@@ -293,6 +309,7 @@ def test_08_stale_running_actor_with_no_lease_is_observed_as_stale():
 
 
 # ── 9: Automatic recovery ───────────────────────────────────────────────
+
 
 def test_09_reconcile_recovers_stale_actor_back_to_active():
     pr = _planetary_with_fake_redis()
@@ -311,6 +328,7 @@ def test_09_reconcile_recovers_stale_actor_back_to_active():
 
 # ── 10: Duplicate reconciliation ────────────────────────────────────────
 
+
 def test_10_reconcile_twice_in_a_row_does_not_double_start():
     pr = PlanetaryRuntime()
     state = _register(pr, "judy")
@@ -323,6 +341,7 @@ def test_10_reconcile_twice_in_a_row_does_not_double_start():
 
 
 # ── 11: Concurrent reconciliation ───────────────────────────────────────
+
 
 def test_11_concurrent_reconcile_calls_only_one_acts():
     pr = _planetary_with_fake_redis()
@@ -347,6 +366,7 @@ def test_11_concurrent_reconcile_calls_only_one_acts():
 
 # ── 12: Restart during startup ──────────────────────────────────────────
 
+
 def test_12_reconcile_during_registered_state_does_not_duplicate():
     pr = PlanetaryRuntime()
     state = _register(pr, "laura")
@@ -362,6 +382,7 @@ def test_12_reconcile_during_registered_state_does_not_duplicate():
 
 # ── 13: Restart during suspension ───────────────────────────────────────
 
+
 def test_13_reconcile_suspend_twice_is_idempotent():
     pr = PlanetaryRuntime()
     state = _register(pr, "mallory")
@@ -376,6 +397,7 @@ def test_13_reconcile_suspend_twice_is_idempotent():
 
 
 # ── 14: Persistent state recovery ───────────────────────────────────────
+
 
 def test_14_actor_id_and_profile_survive_a_full_suspend_resume_cycle():
     """Full belief-CONTENT round-trip additionally requires a reachable
@@ -402,18 +424,24 @@ def test_14_actor_id_and_profile_survive_a_full_suspend_resume_cycle():
 
 # ── 15: Identity preservation ────────────────────────────────────────────
 
+
 def test_15_actor_id_never_changes_across_any_lifecycle_transition():
     pr = PlanetaryRuntime()
     state = _register(pr, "olivia")
     actor_id = state.actor_id
-    for desired in (ActorDesiredState.RUNNING, ActorDesiredState.SUSPENDED,
-                    ActorDesiredState.RUNNING, ActorDesiredState.TERMINATED):
+    for desired in (
+        ActorDesiredState.RUNNING,
+        ActorDesiredState.SUSPENDED,
+        ActorDesiredState.RUNNING,
+        ActorDesiredState.TERMINATED,
+    ):
         pr.lifecycle.set_desired_state(actor_id, desired)
         result = pr.lifecycle.reconcile(actor_id)
         assert result.actor_id == actor_id  # every ReconciliationResult names the SAME identity
 
 
 # ── 16: Authority preservation ───────────────────────────────────────────
+
 
 def test_16_lifecycle_actions_never_touch_capability_or_governance_state():
     """The controller must never call anything that mutates authority
@@ -432,6 +460,7 @@ def test_16_lifecycle_actions_never_touch_capability_or_governance_state():
 
 
 # ── 17: Actor A failure does not affect Actor B ─────────────────────────
+
 
 def test_17_actor_a_lifecycle_actions_do_not_affect_actor_b():
     pr = PlanetaryRuntime()
@@ -455,6 +484,7 @@ def test_17_actor_a_lifecycle_actions_do_not_affect_actor_b():
 
 # ── 18: Lifecycle event generation ──────────────────────────────────────
 
+
 def test_18_lifecycle_transitions_publish_context_stream_events_with_required_fields():
     pr = PlanetaryRuntime()
     state = _register(pr, "rachel")
@@ -470,6 +500,7 @@ def test_18_lifecycle_transitions_publish_context_stream_events_with_required_fi
 
 
 # ── 19: Invalid state transitions ───────────────────────────────────────
+
 
 def test_19_invalid_desired_state_string_is_rejected():
     with pytest.raises(ValueError):
@@ -493,6 +524,7 @@ def test_19b_terminated_actor_is_not_resurrected_by_setting_desired_running():
 
 # ── 20: Consequential action not replayed after crash ───────────────────
 
+
 def test_20_recover_actor_does_not_increment_cycle_count_or_execute_capabilities():
     pr = _planetary_with_fake_redis()
     state = _register(pr, "tina")
@@ -510,13 +542,16 @@ def test_20_recover_actor_does_not_increment_cycle_count_or_execute_capabilities
 
 # ── 21: Controller restart ──────────────────────────────────────────────
 
+
 def test_21_a_fresh_controller_instance_observes_and_reconciles_correctly():
     """The controller holds no state of its own beyond a PlanetaryRuntime
     back-reference -- "controller restart" is simulated by constructing a
     brand-new ActorLifecycleController against the SAME PlanetaryRuntime
     (the real state lives in the registry/PlanetaryRuntime, not the
     controller object)."""
-    from src.monkey_brain.kernel.society.actor_lifecycle_controller import ActorLifecycleController
+    from src.monkey_brain.kernel.society.actor_lifecycle_controller import (
+        ActorLifecycleController,
+    )
 
     pr = PlanetaryRuntime()
     state = _register(pr, "ulf")
@@ -530,6 +565,7 @@ def test_21_a_fresh_controller_instance_observes_and_reconciles_correctly():
 
 
 # ── 22: Actor restart (re-registration after termination) ──────────────
+
 
 def test_22_actor_reregistered_after_termination_starts_fresh_with_no_duplicate():
     pr = PlanetaryRuntime()
@@ -548,6 +584,7 @@ def test_22_actor_reregistered_after_termination_starts_fresh_with_no_duplicate(
 
 # ── 23: Persistence/database failure ────────────────────────────────────
 
+
 def test_23_reconcile_survives_actor_state_store_being_unavailable(monkeypatch):
     pr = PlanetaryRuntime()
     state = _register(pr, "walt")
@@ -562,6 +599,7 @@ def test_23_reconcile_survives_actor_state_store_being_unavailable(monkeypatch):
 
 # ── 24: Communication/NATS failure ──────────────────────────────────────
 
+
 def test_24_lifecycle_actions_do_not_depend_on_nats():
     pr = PlanetaryRuntime()
     assert pr._nats_client is None  # connect_nats() was never awaited in this test
@@ -572,6 +610,7 @@ def test_24_lifecycle_actions_do_not_depend_on_nats():
 
 
 # ── 25: Readiness vs. process liveness ───────────────────────────────────
+
 
 def test_25_observe_distinguishes_resident_from_stale_from_lease_held():
     pr = _planetary_with_fake_redis()
@@ -601,6 +640,7 @@ def test_25_observe_distinguishes_resident_from_stale_from_lease_held():
 #        directly — the fix must live at the source, not only inside the
 #        lifecycle controller's own terminate_actor) ────────────────────
 
+
 def test_26_unregister_actor_checkpoints_before_removing(monkeypatch):
     pr = PlanetaryRuntime()
     state = _register(pr, "zeke")
@@ -625,7 +665,10 @@ def test_26_unregister_actor_checkpoints_before_removing(monkeypatch):
     result = pr.unregister_actor(state.actor_id)
 
     assert result is True
-    assert call_order == ["checkpoint", "unregister"]  # checkpoint strictly before removal
+    assert call_order == [
+        "checkpoint",
+        "unregister",
+    ]  # checkpoint strictly before removal
     assert pr.get_actor_runtime(state.actor_id) is None  # actually gone
 
 
@@ -646,6 +689,7 @@ def test_26b_delete_route_semantics_go_through_the_same_fixed_method():
 
 
 # ── 27: unregister_actor finds cognition in a non-default society ──────
+
 
 def test_27_unregister_actor_finds_actor_registered_to_a_non_default_society():
     pr = PlanetaryRuntime()

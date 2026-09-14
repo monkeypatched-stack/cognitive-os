@@ -15,13 +15,14 @@ Covers the 10 required scenarios from the architectural hardening sprint:
 Written, not executed, per project convention (write test files; don't run
 pytest as part of a fix/feature change).
 """
+
 import asyncio
 import sys
 import os
 from dataclasses import FrozenInstanceError
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -48,6 +49,7 @@ def _make_ir(goal_type=GoalType.QUERY, run_id="run-1", intent_type="work_order_q
 
 # ── 1. schema version mismatch ──────────────────────────────────────────────
 
+
 def test_schema_version_mismatch_rejected():
     ir = _make_ir()
     d = ir.to_dict()
@@ -65,6 +67,7 @@ def test_current_schema_version_is_supported():
 
 # ── 2. malformed intent ─────────────────────────────────────────────────────
 
+
 def test_malformed_intent_ir_dict_raises():
     malformed = {"schema_version": "1.0"}  # missing everything else
     try:
@@ -76,6 +79,7 @@ def test_malformed_intent_ir_dict_raises():
 
 
 # ── 3. missing required fields ──────────────────────────────────────────────
+
 
 def test_missing_goal_name_rejected():
     ir = _make_ir()
@@ -97,6 +101,7 @@ def test_missing_execution_metadata_question_rejected():
 
 # ── 4. tampered intent ──────────────────────────────────────────────────────
 
+
 def test_tampered_goal_fails_signature_verification():
     ir = _make_ir()
     d = ir.to_dict()
@@ -115,6 +120,7 @@ def test_untampered_roundtrip_verifies():
 
 
 # ── 5. immutable intent enforcement ─────────────────────────────────────────
+
 
 def test_intent_ir_frozen_dataclass():
     ir = _make_ir()
@@ -149,9 +155,15 @@ def test_execution_context_frozen_dataclass():
 
 # ── 6. ExecutionContext propagation ─────────────────────────────────────────
 
+
 def test_execution_context_log_extra_carries_ir_fields():
     ir = _make_ir(run_id="run-42")
-    ctx = ExecutionContext.create(run_id="run-42", execution_mode=ExecutionMode.EXECUTE, intent_ir=ir, user_id="u1")
+    ctx = ExecutionContext.create(
+        run_id="run-42",
+        execution_mode=ExecutionMode.EXECUTE,
+        intent_ir=ir,
+        user_id="u1",
+    )
     extra = ctx.log_extra()
     assert extra["run_id"] == "run-42"
     assert extra["intent_id"] == ir.intent_ir_id
@@ -171,6 +183,7 @@ def test_execute_context_uses_context_run_id_not_kwarg():
 
 
 # ── 7. replay execution ─────────────────────────────────────────────────────
+
 
 def test_replay_missing_run_id_reports_error_not_exception():
     store = get_run_store()
@@ -195,6 +208,7 @@ def test_replay_reexecutes_stored_intent_ir_without_reclassifying():
     # that the stored IntentIR's own goal name reaches the answer
     # unchanged, not that execution actually succeeds.
     from src.monkey_brain.kernel.cognitive_runtime import CognitiveRuntime
+
     answer, *_ = asyncio.run(replay("replay-run", None, runtime=CognitiveRuntime()))
     # Must reference the exact goal from the stored IntentIR, not something
     # re-derived from a (nonexistent, since replay has no raw question input
@@ -203,6 +217,7 @@ def test_replay_reexecutes_stored_intent_ir_without_reclassifying():
 
 
 # ── 8. validation failure paths ─────────────────────────────────────────────
+
 
 def test_execute_context_stops_immediately_on_validation_failure():
     ir = _make_ir()
@@ -227,6 +242,7 @@ def test_execute_context_with_no_intent_ir_is_an_error_not_a_fallback():
 
 # ── 9. deterministic execution ──────────────────────────────────────────────
 
+
 def test_same_intent_ir_produces_same_read_only_refusal_every_time():
     ir = _make_ir(goal_type=GoalType.DELETE, run_id="det-run")
     ge = GoalExecutor()
@@ -240,14 +256,19 @@ def test_same_intent_ir_produces_same_read_only_refusal_every_time():
 
 # ── 10. planner/runtime compatibility ───────────────────────────────────────
 
+
 def test_runtime_never_reclassifies_a_planner_supplied_goal():
     """Build an IntentIR whose goal name deliberately would NOT match what
     fresh classification of `question` would produce, and confirm the
     runtime still executes the IntentIR's goal verbatim."""
     goal = Goal(name="totally_custom_goal_xyz", goal_type=GoalType.QUERY, required_outputs=["x"])
     intent = {"intent": "totally_custom_goal_xyz", "confidence": 0.99}
-    ir = build_intent_ir(intent=intent, goal=goal, run_id="compat-run",
-                          question="this text has nothing to do with the goal name")
+    ir = build_intent_ir(
+        intent=intent,
+        goal=goal,
+        run_id="compat-run",
+        question="this text has nothing to do with the goal name",
+    )
     ctx = ExecutionContext.create(run_id="compat-run", execution_mode=ExecutionMode.EXECUTE, intent_ir=ir)
     ge = GoalExecutor()
     answer, *_ = asyncio.run(ge.execute_context(ctx, mongo_client=None))
@@ -255,7 +276,12 @@ def test_runtime_never_reclassifies_a_planner_supplied_goal():
 
 
 def test_goal_from_dict_roundtrips_through_intent_ir():
-    goal = Goal(name="g", goal_type=GoalType.ANALYZE, required_outputs=["a", "b"], entities=["e1"])
+    goal = Goal(
+        name="g",
+        goal_type=GoalType.ANALYZE,
+        required_outputs=["a", "b"],
+        entities=["e1"],
+    )
     ir = build_intent_ir(intent={"intent": "g", "confidence": 0.7}, goal=goal, run_id="r", question="q")
     rebuilt = Goal.from_dict(dict(ir.goal))
     assert rebuilt.name == goal.name

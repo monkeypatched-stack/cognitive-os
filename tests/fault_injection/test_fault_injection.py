@@ -36,17 +36,20 @@ class TestCDCWatcherStatusAPI:
 
     def test_cdc_watcher_status_is_dict(self):
         from services.common.mongo_cdc_watcher import cdc_watcher_status
+
         status = cdc_watcher_status()
         assert isinstance(status, dict)
 
     def test_cdc_watcher_status_callable_repeatedly(self):
         from services.common.mongo_cdc_watcher import cdc_watcher_status
+
         for _ in range(100):
             status = cdc_watcher_status()
             assert isinstance(status, dict)
 
     def test_cdc_watcher_fields_present(self):
         from services.common.mongo_cdc_watcher import cdc_watcher_status
+
         status = cdc_watcher_status()
         assert "enabled" in status
         assert "database" in status
@@ -65,12 +68,14 @@ class TestInMemoryStateReset:
 
     def test_learning_reinstantiates_cleanly(self):
         from src.monkey_brain.kernel.learn.learning import Learning
+
         L1 = Learning()
         assert L1 is not None
-        assert hasattr(L1, 'get_transitions')
+        assert hasattr(L1, "get_transitions")
 
     def test_sync_manager_instances_are_independent(self):
         from src.sync.sync_manager import SyncManager
+
         sm1 = SyncManager()
         sm2 = SyncManager()
         assert sm1 is not sm2
@@ -84,6 +89,7 @@ class TestSecretRotation:
         import jose.jwt
         from jose import JWTError
         from datetime import datetime, timezone, timedelta
+
         secret_v1 = "secret-version-1"
         secret_v2 = "secret-version-2"
         token_v1 = jose.jwt.encode(
@@ -99,6 +105,7 @@ class TestSecretRotation:
     def test_keystore_survives_master_key_rotation(self, tmp_path):
         from cerebellum.keystore import SecureKeystore
         from cryptography.fernet import InvalidToken
+
         key_v1 = "master-key-version-1-32bytes!!!!"
         key_v2 = "master-key-version-2-32bytes!!!!"
         db = str(tmp_path / "ks.json")
@@ -117,6 +124,7 @@ class TestSecretRotation:
         import jose.jwt
         from jose import JWTError
         from datetime import datetime, timezone, timedelta
+
         access_secret = "access-secret-123"
         refresh_secret = "refresh-secret-456"
         token = jose.jwt.encode(
@@ -140,6 +148,7 @@ class TestNATSErrorState:
 
     def test_nats_consumer_error_field_is_writable(self):
         from services.auth.helpers import nats_consumer
+
         nats_consumer._last_connect_error = "Connection refused"
         nats_consumer._task = None
         assert nats_consumer._last_connect_error == "Connection refused"
@@ -151,6 +160,7 @@ class TestKeystoreIOStress:
     def test_keystore_persists_during_io_stress(self):
         from cerebellum.keystore import SecureKeystore
         import threading
+
         ks = SecureKeystore(
             master_key="test-key-32-bytes-long!!!!!!!!",
             db_path=os.path.join(tempfile.mkdtemp(), "stress.json"),

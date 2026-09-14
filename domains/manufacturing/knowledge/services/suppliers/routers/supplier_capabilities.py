@@ -45,7 +45,11 @@ async def get_supplier_capabilities(
     return record
 
 
-@router.post("/", response_model=SupplierCapabilitiesResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=SupplierCapabilitiesResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_supplier_capabilities(
     data: SupplierCapabilitiesCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

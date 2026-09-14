@@ -22,15 +22,29 @@ hosted_society_ids carries NO such restriction — a Society may be hosted at
 any tier (Country, Building, Space, ...), which is the actual decoupling
 mechanism the whole refactor is about.
 """
+
 from __future__ import annotations
 
 import dataclasses
 from typing import Any
 
 from src.monkey_brain.kernel.geography.entity import (
-    GeographicEntity, GeographicEntityType, PARENT_TIER, ROOT_ELIGIBLE,
-    Universe, Planet, Region, Country, State, County, City, Street,
-    Building, Floor, Space, Coordinate,
+    GeographicEntity,
+    GeographicEntityType,
+    PARENT_TIER,
+    ROOT_ELIGIBLE,
+    Universe,
+    Planet,
+    Region,
+    Country,
+    State,
+    County,
+    City,
+    Street,
+    Building,
+    Floor,
+    Space,
+    Coordinate,
 )
 
 # entity_type -> the concrete dataclass to construct. Kept here, not in
@@ -94,8 +108,12 @@ class GeographicRegistry:
         return self.register(entity_cls.from_dict(d))
 
     def create(
-        self, entity_type: GeographicEntityType, name: str, description: str = "",
-        parent_id: str | None = None, **type_kwargs: Any,
+        self,
+        entity_type: GeographicEntityType,
+        name: str,
+        description: str = "",
+        parent_id: str | None = None,
+        **type_kwargs: Any,
     ) -> GeographicEntity | None:
         """Construct + register (+ attach to parent_id, if given) in one
         step — the sole entry point for creating a Planet/Country/.../Space
@@ -121,7 +139,10 @@ class GeographicRegistry:
         return self.get(entity.entity_id)
 
     def find_or_create(
-        self, entity_type: GeographicEntityType, name: str, parent_id: str | None = None,
+        self,
+        entity_type: GeographicEntityType,
+        name: str,
+        parent_id: str | None = None,
         description: str = "",
     ) -> GeographicEntity | None:
         """Real-world address ingestion (e.g. a geocoded street address)
@@ -261,7 +282,8 @@ class GeographicRegistry:
         if entity is None:
             return None
         updated = dataclasses.replace(
-            entity, hosted_society_ids=tuple(s for s in entity.hosted_society_ids if s != society_id),
+            entity,
+            hosted_society_ids=tuple(s for s in entity.hosted_society_ids if s != society_id),
         )
         self._entities[entity_id] = updated
         return updated

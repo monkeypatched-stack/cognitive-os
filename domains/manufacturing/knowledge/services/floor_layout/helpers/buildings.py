@@ -23,8 +23,11 @@ async def get_all(
 
 
 async def get_by_id(db: AsyncIOMotorDatabase, building_id: str) -> Optional[dict]:
-    doc = await db[COLLECTION].find_one({"building_id": building_id, "type": "building"})
+    doc = await db[COLLECTION].find_one(
+        {"building_id": building_id, "type": "building"}
+    )
     return _serialize(doc) if doc else None
+
 
 async def create(db: AsyncIOMotorDatabase, data: BuildingCreate) -> dict:
     doc = data.model_dump()
@@ -50,5 +53,7 @@ async def update(
 
 
 async def delete(db: AsyncIOMotorDatabase, building_id: str) -> bool:
-    result = await db[COLLECTION].delete_one({"building_id": building_id, "type": "building"})
+    result = await db[COLLECTION].delete_one(
+        {"building_id": building_id, "type": "building"}
+    )
     return result.deleted_count == 1

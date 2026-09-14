@@ -5,15 +5,22 @@ Predicted State" against fake, deliberately mutable world/belief stand-ins
 -- proving simulation never mutates them (identity checks, not just
 equality) and that step trajectories accumulate correctly.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.prediction.transitions import (
-    TransitionKind, TransitionModel, TransitionPredictionEngine, WorldTransition,
+    TransitionKind,
+    TransitionModel,
+    TransitionPredictionEngine,
+    WorldTransition,
 )
 from src.monkey_brain.kernel.pipeline.prediction.simulation import (
-    SimulationEngine, SimulationState, SimulationTrajectory, clone_state,
+    SimulationEngine,
+    SimulationState,
+    SimulationTrajectory,
+    clone_state,
 )
 
 
@@ -43,18 +50,35 @@ class _FakePlan:
 
 
 def _milk_model() -> TransitionModel:
-    return TransitionModel(known_transitions={
-        ("", "drive_to_store_a"): (
-            WorldTransition(description="Arrived, store open", probability=0.9, confidence=0.85,
-                             resulting_world_delta={"actor.location": "store_a", "store_a.open": True}),
-            WorldTransition(description="Traffic delay", probability=0.1, confidence=0.85,
-                             resulting_world_delta={"actor.location": "en_route"}),
-        ),
-        ("", "purchase_milk"): (
-            WorldTransition(description="Milk purchased", probability=0.96, confidence=0.9,
-                             resulting_world_delta={"actor.has_milk": True}),
-        ),
-    })
+    return TransitionModel(
+        known_transitions={
+            ("", "drive_to_store_a"): (
+                WorldTransition(
+                    description="Arrived, store open",
+                    probability=0.9,
+                    confidence=0.85,
+                    resulting_world_delta={
+                        "actor.location": "store_a",
+                        "store_a.open": True,
+                    },
+                ),
+                WorldTransition(
+                    description="Traffic delay",
+                    probability=0.1,
+                    confidence=0.85,
+                    resulting_world_delta={"actor.location": "en_route"},
+                ),
+            ),
+            ("", "purchase_milk"): (
+                WorldTransition(
+                    description="Milk purchased",
+                    probability=0.96,
+                    confidence=0.9,
+                    resulting_world_delta={"actor.has_milk": True},
+                ),
+            ),
+        }
+    )
 
 
 def _engine() -> SimulationEngine:
@@ -65,9 +89,14 @@ def _engine() -> SimulationEngine:
 # Step-by-step trajectory: Current State -> Step 1 -> Step 2 -> Predicted State
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestTrajectory:
     def test_produces_a_state_per_step_plus_the_initial_state(self):
-        trajectory = _engine().simulate(_MutableWorld(), _MutableBelief(), (_Step("drive_to_store_a"), _Step("purchase_milk")))
+        trajectory = _engine().simulate(
+            _MutableWorld(),
+            _MutableBelief(),
+            (_Step("drive_to_store_a"), _Step("purchase_milk")),
+        )
         assert len(trajectory.states) == 3
 
     def test_initial_state_has_index_negative_one_and_empty_world(self):
@@ -76,14 +105,24 @@ class TestTrajectory:
         assert trajectory.states[0].world_state == {}
 
     def test_states_indexed_in_step_order(self):
-        trajectory = _engine().simulate(_MutableWorld(), _MutableBelief(), (_Step("drive_to_store_a"), _Step("purchase_milk")))
+        trajectory = _engine().simulate(
+            _MutableWorld(),
+            _MutableBelief(),
+            (_Step("drive_to_store_a"), _Step("purchase_milk")),
+        )
         assert trajectory.states[1].step_index == 0
         assert trajectory.states[2].step_index == 1
 
     def test_world_state_accumulates_across_steps(self):
-        trajectory = _engine().simulate(_MutableWorld(), _MutableBelief(), (_Step("drive_to_store_a"), _Step("purchase_milk")))
+        trajectory = _engine().simulate(
+            _MutableWorld(),
+            _MutableBelief(),
+            (_Step("drive_to_store_a"), _Step("purchase_milk")),
+        )
         assert trajectory.final_state.world_state == {
-            "actor.location": "store_a", "store_a.open": True, "actor.has_milk": True,
+            "actor.location": "store_a",
+            "store_a.open": True,
+            "actor.has_milk": True,
         }
 
     def test_final_state_is_the_last_state(self):
@@ -105,13 +144,22 @@ class TestTrajectory:
 # succeeded — reflects whether every applied transition was confident and known
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestSucceeded:
     def test_all_known_confident_steps_succeed(self):
-        trajectory = _engine().simulate(_MutableWorld(), _MutableBelief(), (_Step("drive_to_store_a"), _Step("purchase_milk")))
+        trajectory = _engine().simulate(
+            _MutableWorld(),
+            _MutableBelief(),
+            (_Step("drive_to_store_a"), _Step("purchase_milk")),
+        )
         assert trajectory.succeeded is True
 
     def test_unknown_step_fails_the_trajectory(self):
-        trajectory = _engine().simulate(_MutableWorld(), _MutableBelief(), (_Step("drive_to_store_a"), _Step("teleport_home")))
+        trajectory = _engine().simulate(
+            _MutableWorld(),
+            _MutableBelief(),
+            (_Step("drive_to_store_a"), _Step("teleport_home")),
+        )
         assert trajectory.succeeded is False
         assert trajectory.states[-1].applied_transition.kind == TransitionKind.UNKNOWN
 
@@ -124,6 +172,7 @@ class TestSucceeded:
 # ═══════════════════════════════════════════════════════════════════════════
 # State cloning — the explicit Step 11.3 deliverable
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestStateCloning:
     def test_trajectory_stores_clones_not_original_references(self):
@@ -163,6 +212,7 @@ class TestStateCloning:
         back to returning the value as-is, still never mutated by this
         module since nothing here calls methods on it."""
         import threading
+
         lock = threading.Lock()
         assert clone_state(lock) is lock  # deepcopy fails on locks; fallback returns as-is
 
@@ -170,6 +220,7 @@ class TestStateCloning:
 # ═══════════════════════════════════════════════════════════════════════════
 # simulate_plan / simulate_candidates — duck-typed plan extraction
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSimulatePlan:
     def test_extracts_steps_from_a_plan_like_object(self):
@@ -206,15 +257,18 @@ class TestSimulateCandidates:
 # SimulationState / SimulationTrajectory — immutability
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestImmutability:
     def test_state_frozen(self):
         from dataclasses import FrozenInstanceError
+
         state = SimulationState()
         with pytest.raises(FrozenInstanceError):
             state.world_state = {}
 
     def test_trajectory_frozen(self):
         from dataclasses import FrozenInstanceError
+
         trajectory = SimulationTrajectory()
         with pytest.raises(FrozenInstanceError):
             trajectory.succeeded = True
@@ -227,9 +281,11 @@ class TestImmutability:
 # Ownership boundary — read-only, no execution coupling
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -243,12 +299,19 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_execution_or_runtime_coupling(self):
         import src.monkey_brain.kernel.pipeline.prediction.simulation as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "kernel.pipeline.execution", "action_executor", "learning."):
+        for forbidden in (
+            "belief_runtime",
+            "kernel.pipeline.execution",
+            "action_executor",
+            "learning.",
+        ):
             assert forbidden not in imports, f"simulation.py must not import: {forbidden}"
 
     def test_depends_only_on_prediction_transitions(self):
         import src.monkey_brain.kernel.pipeline.prediction.simulation as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         assert project_imports == ["src.monkey_brain.kernel.pipeline.prediction.transitions"]

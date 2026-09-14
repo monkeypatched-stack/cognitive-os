@@ -12,6 +12,7 @@ every query return empty. Run this once, verify, then enable enforcement.
 
 Idempotent: only documents MISSING tenant_id are touched.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,8 +26,11 @@ TENANT_FIELD = "tenant_id"
 async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="write changes (default: dry run)")
-    ap.add_argument("--tenant", default=os.getenv("DEFAULT_TENANT", "default"),
-                    help="tenant to stamp on untenanted documents")
+    ap.add_argument(
+        "--tenant",
+        default=os.getenv("DEFAULT_TENANT", "default"),
+        help="tenant to stamp on untenanted documents",
+    )
     ap.add_argument("--mongo-uri", default=os.getenv("MONGO_URI", "mongodb://localhost:27017"))
     ap.add_argument("--db", default=os.getenv("MONGO_DB", "monkeybrain"))
     args = ap.parse_args()
@@ -51,8 +55,10 @@ async def main() -> int:
             continue
         total_missing += missing
         if args.apply:
-            res = await col.update_many({TENANT_FIELD: {"$exists": False}},
-                                        {"$set": {TENANT_FIELD: args.tenant}})
+            res = await col.update_many(
+                {TENANT_FIELD: {"$exists": False}},
+                {"$set": {TENANT_FIELD: args.tenant}},
+            )
             total_updated += res.modified_count
             print(f"  {name:<40} stamped {res.modified_count:>8} / {missing}")
         else:
@@ -64,8 +70,10 @@ async def main() -> int:
         print(f"documents updated: {total_updated}")
         print("\nBackfill complete. You can now set AGENTOS_TENANCY_ENFORCE=1.")
     else:
-        print("\nDry run only — re-run with --apply to write. "
-              "Do NOT enable AGENTOS_TENANCY_ENFORCE until this is applied.")
+        print(
+            "\nDry run only — re-run with --apply to write. "
+            "Do NOT enable AGENTOS_TENANCY_ENFORCE until this is applied."
+        )
     return 0
 
 

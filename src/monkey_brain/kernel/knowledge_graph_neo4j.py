@@ -54,6 +54,7 @@ to — and every instance always hydrates from — a fixed, well-known
 public scope (_PUBLIC_CATALOG_SCOPE), so the catalog itself is visible
 regardless of which instance is asking.
 """
+
 from __future__ import annotations
 
 import json
@@ -63,7 +64,11 @@ import threading
 from typing import Any
 
 from src.monkey_brain.kernel.knowledge_graph import (
-    Entity, EntityType, KnowledgeGraph, Relationship, RelationshipType,
+    Entity,
+    EntityType,
+    KnowledgeGraph,
+    Relationship,
+    RelationshipType,
 )
 
 logger = logging.getLogger("agentos.knowledge_graph.neo4j")
@@ -119,6 +124,7 @@ def _is_public_marketplace_entity(entity: Entity) -> bool:
     """
     return entity.attributes.get("pantry") is True and entity.attributes.get("for_sale") is True
 
+
 # One driver per (uri, user, password), shared by every Neo4jBackedKnowledgeGraph
 # instance for the life of the process. _get_actor_kg (routes/prompt.py,
 # routes/knowledge_graph.py) constructs a fresh instance on EVERY request —
@@ -141,6 +147,7 @@ def _get_shared_driver(uri: str, user: str, password: str):
         driver = _driver_cache.get(key)
         if driver is None:
             from neo4j import GraphDatabase
+
             driver = GraphDatabase.driver(uri, auth=(user, password))
             driver.verify_connectivity()
             _driver_cache[key] = driver
@@ -190,7 +197,8 @@ def set_household_membership(person_id: str, household_id: str) -> None:
     with driver.session() as session:
         session.run(
             "MERGE (m:HouseholdMember {person_id: $pid}) SET m.household_id = $hid",
-            pid=person_id, hid=household_id,
+            pid=person_id,
+            hid=household_id,
         )
 
 
@@ -217,14 +225,25 @@ def set_household_role(person_id: str, household_id: str, role: str, kg: Any = N
         if kg is None:
             raise RuntimeError("Neo4j unavailable — cannot register household role")
         from src.monkey_brain.kernel.knowledge_graph import EntityType
-        kg.add_entity(_household_role_entity_id(person_id), EntityType.OTHER, f"Household role: {person_id}", {
-            "household_member": True, "person_id": person_id, "household_id": household_id, "role": role,
-        })
+
+        kg.add_entity(
+            _household_role_entity_id(person_id),
+            EntityType.OTHER,
+            f"Household role: {person_id}",
+            {
+                "household_member": True,
+                "person_id": person_id,
+                "household_id": household_id,
+                "role": role,
+            },
+        )
         return
     with driver.session() as session:
         session.run(
             "MERGE (m:HouseholdMember {person_id: $pid}) SET m.household_id = $hid, m.role = $role",
-            pid=person_id, hid=household_id, role=role,
+            pid=person_id,
+            hid=household_id,
+            role=role,
         )
 
 
@@ -278,14 +297,25 @@ def set_org_role(person_id: str, org_id: str, role: str, kg: Any = None) -> None
         if kg is None:
             raise RuntimeError("Neo4j unavailable — cannot register org role")
         from src.monkey_brain.kernel.knowledge_graph import EntityType
-        kg.add_entity(_org_role_entity_id(person_id, org_id), EntityType.OTHER, f"Org role: {person_id}/{org_id}", {
-            "org_member": True, "person_id": person_id, "org_id": org_id, "role": role,
-        })
+
+        kg.add_entity(
+            _org_role_entity_id(person_id, org_id),
+            EntityType.OTHER,
+            f"Org role: {person_id}/{org_id}",
+            {
+                "org_member": True,
+                "person_id": person_id,
+                "org_id": org_id,
+                "role": role,
+            },
+        )
         return
     with driver.session() as session:
         session.run(
             "MERGE (m:OrgMember {person_id: $pid, org_id: $oid}) SET m.role = $role",
-            pid=person_id, oid=org_id, role=role,
+            pid=person_id,
+            oid=org_id,
+            role=role,
         )
 
 
@@ -307,7 +337,8 @@ def org_role(person_id: str, org_id: str, kg: Any = None) -> str:
         with driver.session() as session:
             record = session.run(
                 "MATCH (m:OrgMember {person_id: $pid, org_id: $oid}) RETURN m.role AS role LIMIT 1",
-                pid=person_id, oid=org_id,
+                pid=person_id,
+                oid=org_id,
             ).single()
             return record["role"] if record and record["role"] else "staff"
     except Exception as exc:
@@ -354,7 +385,10 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
             self._driver = _get_shared_driver(self._uri, self._user, self._password)
             self._available = True
         except Exception as exc:
-            logger.warning("Neo4jBackedKnowledgeGraph connect failed (%s) — falling back to in-memory only", exc)
+            logger.warning(
+                "Neo4jBackedKnowledgeGraph connect failed (%s) — falling back to in-memory only",
+                exc,
+            )
             self._driver = None
             self._available = False
 
@@ -423,7 +457,10 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
 
         logger.info(
             "Neo4jBackedKnowledgeGraph[%s household=%s]: hydrated %d entities, %d relationships",
-            self.person_id, self._household_id, len(self._entities), len(self._relationships),
+            self.person_id,
+            self._household_id,
+            len(self._entities),
+            len(self._relationships),
         )
 
     def refresh(self) -> None:
@@ -481,8 +518,10 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
                 "SET n.entity_type = $etype, n.name = $name, n.attributes_json = $attrs, "
                 "n.version = coalesce(n.version, 0) + 1 "
                 "RETURN n.version AS version",
-                pid=scope, eid=entity.entity_id,
-                etype=entity.entity_type.value, name=entity.name,
+                pid=scope,
+                eid=entity.entity_id,
+                etype=entity.entity_type.value,
+                name=entity.name,
                 attrs=json.dumps(entity.attributes),
             ).single()
         self._entity_version[entity.entity_id] = record["version"] if record else 0
@@ -495,7 +534,9 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
         still has a sane number to start from)."""
         return self._entity_version.get(entity_id, 0)
 
-    def compare_and_swap(self, entity_id: str, expected_version: int, attribute_updates: dict) -> tuple[bool, Entity | None]:
+    def compare_and_swap(
+        self, entity_id: str, expected_version: int, attribute_updates: dict
+    ) -> tuple[bool, Entity | None]:
         """Atomically merge attribute_updates into entity_id's attributes
         ONLY if its Neo4j version still equals expected_version.
 
@@ -516,7 +557,10 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
         """
         if not self._available:
             return False, None
-        from src.monkey_brain.kernel.security_boundary import assert_state_mutation_allowed
+        from src.monkey_brain.kernel.security_boundary import (
+            assert_state_mutation_allowed,
+        )
+
         assert_state_mutation_allowed("knowledge_graph.compare_and_swap")
         entity = self._entities.get(entity_id)
         if entity is None:
@@ -551,7 +595,8 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
                 "MATCH (n:KGEntity {person_id: $pid, entity_id: $eid}) "
                 "SET n.lock_seq = coalesce(n.lock_seq, 0) + 1 "
                 "RETURN n.version AS version",
-                pid=scope, eid=entity_id,
+                pid=scope,
+                eid=entity_id,
             ).single()
             if locked is None or locked["version"] != expected_version:
                 return None
@@ -559,7 +604,10 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
                 "MATCH (n:KGEntity {person_id: $pid, entity_id: $eid}) "
                 "SET n.attributes_json = $attrs, n.version = $expected + 1 "
                 "RETURN n.version AS version",
-                pid=scope, eid=entity_id, expected=expected_version, attrs=json.dumps(merged),
+                pid=scope,
+                eid=entity_id,
+                expected=expected_version,
+                attrs=json.dumps(merged),
             ).single()
 
         with self._driver.session() as session:
@@ -576,7 +624,8 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
         with self._driver.session() as session:
             fresh = session.run(
                 "MATCH (n:KGEntity {person_id: $pid, entity_id: $eid}) RETURN n",
-                pid=scope, eid=entity_id,
+                pid=scope,
+                eid=entity_id,
             ).single()
         if fresh is None:
             return False, None
@@ -596,8 +645,14 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
         self._entity_version[entity_id] = n.get("version", 0)
         return False, current
 
-    def add_entity(self, entity_id: str, entity_type: EntityType = EntityType.OTHER,
-                   name: str = "", attributes: dict | None = None, **kwargs) -> Entity:
+    def add_entity(
+        self,
+        entity_id: str,
+        entity_type: EntityType = EntityType.OTHER,
+        name: str = "",
+        attributes: dict | None = None,
+        **kwargs,
+    ) -> Entity:
         entity = super().add_entity(entity_id, entity_type, name, attributes, **kwargs)
         self._write_entity(entity)
         return entity
@@ -621,13 +676,24 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
             self._write_entity(entity)
         return entity
 
-    def add_relationship(self, source_id: str, target_id: str,
-                         relationship_type: RelationshipType = RelationshipType.RELATED_TO,
-                         attributes: dict | None = None,
-                         start_date: str = "", end_date: str = "",
-                         confidence: float = 1.0) -> Relationship:
+    def add_relationship(
+        self,
+        source_id: str,
+        target_id: str,
+        relationship_type: RelationshipType = RelationshipType.RELATED_TO,
+        attributes: dict | None = None,
+        start_date: str = "",
+        end_date: str = "",
+        confidence: float = 1.0,
+    ) -> Relationship:
         rel = super().add_relationship(
-            source_id, target_id, relationship_type, attributes, start_date, end_date, confidence,
+            source_id,
+            target_id,
+            relationship_type,
+            attributes,
+            start_date,
+            end_date,
+            confidence,
         )
         if self._available:
             with self._driver.session() as session:
@@ -646,8 +712,12 @@ class Neo4jBackedKnowledgeGraph(KnowledgeGraph):
                     "ON CREATE SET t.entity_type = 'other', t.name = $tid, t.attributes_json = '{}' "
                     "MERGE (s)-[r:KG_REL {relationship_id: $rid}]->(t) "
                     "SET r.relationship_type = $rtype, r.attributes_json = $attrs, r.confidence = $conf",
-                    pid=self.person_id, sid=source_id, tid=target_id, rid=rel.relationship_id,
-                    rtype=rel.relationship_type.value, attrs=json.dumps(rel.attributes),
+                    pid=self.person_id,
+                    sid=source_id,
+                    tid=target_id,
+                    rid=rel.relationship_id,
+                    rtype=rel.relationship_type.value,
+                    attrs=json.dumps(rel.attributes),
                     conf=rel.confidence,
                 )
         return rel

@@ -7,7 +7,6 @@ from fastapi.encoders import jsonable_encoder
 
 from services.common.compliance import document_record_id, utc_now
 
-
 SUPPLY_CHAIN_COLLECTIONS = {
     "sales_orders",
     "purchase_orders",
@@ -171,12 +170,20 @@ WAREHOUSE_NODE_CONFIGS = {
     },
     "wh-task": {
         "source": "warehouse_operations",
-        "collections": ["goods_receipts", "inventory_items", "sales_orders", "work_orders"],
+        "collections": [
+            "goods_receipts",
+            "inventory_items",
+            "sales_orders",
+            "work_orders",
+        ],
         "output": "warehouse_task",
     },
     "wh-products": {"endpoint": "/api/v1/products", "output": "product_context"},
     "wh-bom": {"endpoint": "/api/v1/boms", "output": "bom_context"},
-    "wh-components": {"endpoint": "/api/v1/products/components", "output": "component_context"},
+    "wh-components": {
+        "endpoint": "/api/v1/products/components",
+        "output": "component_context",
+    },
     "wh-storage-req": {
         "endpoint": "/api/v1/warehouse/special-storage-requirements",
         "temperature_control_check": True,
@@ -189,10 +196,24 @@ WAREHOUSE_NODE_CONFIGS = {
         "robot_filter": {"machine_type": "Industrial Robot"},
         "output": "warehouse_machines_robots",
     },
-    "wh-equipment": {"equipment_endpoint": "/api/v1/equipment", "output": "warehouse_equipment"},
-    "wh-receiving": {"endpoint": "/api/v1/goods-receipts", "dock_check": True, "output": "receiving_event"},
-    "wh-grn": {"endpoint": "/api/v1/goods-receipts", "record_type": "GRN", "output": "grn_record"},
-    "wh-inward": {"endpoint": "/api/v1/warehouse/material-inward-logs", "output": "material_inward_log"},
+    "wh-equipment": {
+        "equipment_endpoint": "/api/v1/equipment",
+        "output": "warehouse_equipment",
+    },
+    "wh-receiving": {
+        "endpoint": "/api/v1/goods-receipts",
+        "dock_check": True,
+        "output": "receiving_event",
+    },
+    "wh-grn": {
+        "endpoint": "/api/v1/goods-receipts",
+        "record_type": "GRN",
+        "output": "grn_record",
+    },
+    "wh-inward": {
+        "endpoint": "/api/v1/warehouse/material-inward-logs",
+        "output": "material_inward_log",
+    },
     "wh-labels": {
         "endpoint": "/api/v1/warehouse/status-labels",
         "labels": ["Quarantine", "Release", "Rejection"],
@@ -221,7 +242,11 @@ WAREHOUSE_NODE_CONFIGS = {
         "location_hierarchy": ["zone", "area", "aisle", "rack", "bin"],
         "temperature_control_check": True,
     },
-    "wh-pick-pack": {"scan_required": True, "device_type": "Warehouse Scanner", "output": "picked_inventory"},
+    "wh-pick-pack": {
+        "scan_required": True,
+        "device_type": "Warehouse Scanner",
+        "output": "picked_inventory",
+    },
     "wh-cycle-count": {
         "endpoint": "/api/v1/warehouse-cycle-counts",
         "variance_check": True,
@@ -232,7 +257,11 @@ WAREHOUSE_NODE_CONFIGS = {
         "approval_required": True,
         "output": "stock_adjustment_request",
     },
-    "wh-dispatch": {"endpoint": "/api/v1/shipping-information", "handoff_to": "shipping", "output": "dispatch_ready"},
+    "wh-dispatch": {
+        "endpoint": "/api/v1/shipping-information",
+        "handoff_to": "shipping",
+        "output": "dispatch_ready",
+    },
 }
 
 
@@ -315,10 +344,27 @@ SHIPPING_ACTION_NODES = {
 
 
 SHIPPING_CANVAS_PATHS = {
-    "shipping information": ["Shipping Queue", "Shipping Intake", "Shipping Information"],
+    "shipping information": [
+        "Shipping Queue",
+        "Shipping Intake",
+        "Shipping Information",
+    ],
     "pallet": ["Shipping Queue", "Shipping Intake", "Shipping Information", "Pallet"],
-    "package": ["Shipping Queue", "Shipping Intake", "Shipping Information", "Pallet", "Package"],
-    "delivery note": ["Shipping Queue", "Shipping Intake", "Shipping Information", "Pallet", "Package", "Delivery Note"],
+    "package": [
+        "Shipping Queue",
+        "Shipping Intake",
+        "Shipping Information",
+        "Pallet",
+        "Package",
+    ],
+    "delivery note": [
+        "Shipping Queue",
+        "Shipping Intake",
+        "Shipping Information",
+        "Pallet",
+        "Package",
+        "Delivery Note",
+    ],
     "shipping route": [
         "Shipping Queue",
         "Shipping Intake",
@@ -358,20 +404,22 @@ def _document(event: dict[str, Any], key: str) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _record_id(collection: str, document: dict[str, Any], event: dict[str, Any]) -> str | None:
+def _record_id(
+    collection: str, document: dict[str, Any], event: dict[str, Any]
+) -> str | None:
     return (
         str(event.get("record_id"))
         if event.get("record_id")
-        else document_record_id(document)
-        or str(document.get("id") or "")
-        or None
+        else document_record_id(document) or str(document.get("id") or "") or None
     )
 
 
 def _workflow_route(event_type: str) -> dict[str, Any]:
     warehouse_action = WAREHOUSE_WORKFLOW_ACTIONS.get(event_type)
     if warehouse_action:
-        action_node_id, action_node = WAREHOUSE_ACTION_NODES.get(warehouse_action, ("wh-task", "Warehouse Task Intake"))
+        action_node_id, action_node = WAREHOUSE_ACTION_NODES.get(
+            warehouse_action, ("wh-task", "Warehouse Task Intake")
+        )
         return {
             "domain": "warehouse",
             "layout_id": "process_definition-warehouse-management-canvas",
@@ -383,14 +431,19 @@ def _workflow_route(event_type: str) -> dict[str, Any]:
             "action_node": action_node,
             "action_node_config": WAREHOUSE_NODE_CONFIGS.get(action_node_id, {}),
             "warehouse_action": warehouse_action,
-            "workflow_path": WAREHOUSE_CANVAS_PATHS.get(warehouse_action, ["Warehouse Queue", "Warehouse Task Intake", action_node]),
+            "workflow_path": WAREHOUSE_CANVAS_PATHS.get(
+                warehouse_action,
+                ["Warehouse Queue", "Warehouse Task Intake", action_node],
+            ),
             "supporting_nodes": WAREHOUSE_SUPPORTING_NODES.get(warehouse_action, []),
             "audit_node": "Warehouse Audit Log",
             "exception_node": "Warehouse Exception Queue",
         }
     shipping_action = SHIPPING_WORKFLOW_ACTIONS.get(event_type)
     if shipping_action:
-        action_node_id, action_node = SHIPPING_ACTION_NODES.get(shipping_action, ("ship-intake", "Shipping Intake"))
+        action_node_id, action_node = SHIPPING_ACTION_NODES.get(
+            shipping_action, ("ship-intake", "Shipping Intake")
+        )
         return {
             "domain": "shipping",
             "layout_id": "process_definition-shipping-management-canvas",
@@ -401,7 +454,9 @@ def _workflow_route(event_type: str) -> dict[str, Any]:
             "action_node_id": f"process_definition-shipping-management:{action_node_id}",
             "action_node": action_node,
             "shipping_action": shipping_action,
-            "workflow_path": SHIPPING_CANVAS_PATHS.get(shipping_action, ["Shipping Queue", "Shipping Intake", action_node]),
+            "workflow_path": SHIPPING_CANVAS_PATHS.get(
+                shipping_action, ["Shipping Queue", "Shipping Intake", action_node]
+            ),
             "audit_node": "Shipping Audit Log",
             "exception_node": "Shipping Exception Queue",
         }
@@ -424,7 +479,9 @@ def _changed_by_update_payload(event: dict[str, Any], field: str) -> bool:
     return field in update
 
 
-def _status_changed(event: dict[str, Any], before: dict[str, Any], after: dict[str, Any], field: str) -> bool:
+def _status_changed(
+    event: dict[str, Any], before: dict[str, Any], after: dict[str, Any], field: str
+) -> bool:
     if before:
         return _normalize_token(before.get(field)) != _normalize_token(after.get(field))
     operation = _normalize_token(event.get("operation"))
@@ -475,7 +532,12 @@ def _domain_event(
     return jsonable_encoder(event)
 
 
-def _derive_status_event(cdc_event: dict[str, Any], collection: str, before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any] | None:
+def _derive_status_event(
+    cdc_event: dict[str, Any],
+    collection: str,
+    before: dict[str, Any],
+    after: dict[str, Any],
+) -> dict[str, Any] | None:
     field = STATUS_FIELD_BY_COLLECTION.get(collection, "status")
     if not after or not _status_changed(cdc_event, before, after, field):
         return None
@@ -504,11 +566,15 @@ def _derive_status_event(cdc_event: dict[str, Any], collection: str, before: dic
     )
 
 
-def _derive_inventory_transaction_event(cdc_event: dict[str, Any], after: dict[str, Any]) -> dict[str, Any] | None:
+def _derive_inventory_transaction_event(
+    cdc_event: dict[str, Any], after: dict[str, Any]
+) -> dict[str, Any] | None:
     if not after:
         return None
     operation = _normalize_token(cdc_event.get("operation"))
-    if "insert" not in operation and not _changed_by_update_payload(cdc_event, "posted"):
+    if "insert" not in operation and not _changed_by_update_payload(
+        cdc_event, "posted"
+    ):
         return None
 
     transaction_type = _normalize_token(after.get("transaction_type"))
@@ -516,7 +582,9 @@ def _derive_inventory_transaction_event(cdc_event: dict[str, Any], after: dict[s
     if after.get("posted") is True:
         event_type = "inventory_transaction_posted"
     elif transaction_type:
-        event_type = INVENTORY_TRANSACTION_EVENT_ALIASES.get(transaction_type, event_type)
+        event_type = INVENTORY_TRANSACTION_EVENT_ALIASES.get(
+            transaction_type, event_type
+        )
 
     return _domain_event(
         cdc_event=cdc_event,
@@ -535,7 +603,9 @@ def _derive_inventory_transaction_event(cdc_event: dict[str, Any], after: dict[s
     )
 
 
-def derive_supply_chain_domain_events(cdc_event: dict[str, Any]) -> list[dict[str, Any]]:
+def derive_supply_chain_domain_events(
+    cdc_event: dict[str, Any],
+) -> list[dict[str, Any]]:
     collection = str(cdc_event.get("collection") or "").strip()
     if collection not in SUPPLY_CHAIN_COLLECTIONS:
         return []

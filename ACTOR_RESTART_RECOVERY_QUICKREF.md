@@ -79,19 +79,13 @@ grep "Rehydration complete" /var/log/agentosctl/runtime.log
 ### ✅ Actor Identity
 ```python
 actor_id = "alice"  # SAME after restart
-name = "Alice"      # SAME after restart
+name = "Alice"  # SAME after restart
 actor_type = "researcher"  # SAME
 ```
 
 ### ✅ Belief State
 ```python
-belief = {
-    "confidence": 0.95,
-    "knowledge": {
-        "physics": "expert",
-        "biology": "intermediate"
-    }
-}
+belief = {"confidence": 0.95, "knowledge": {"physics": "expert", "biology": "intermediate"}}
 # SAME after restart (no knowledge loss)
 ```
 

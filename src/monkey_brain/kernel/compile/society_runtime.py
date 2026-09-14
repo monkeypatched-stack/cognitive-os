@@ -19,6 +19,7 @@ Manages:
 The runtime coordinates cognition.
 It does not own cognition.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,14 +28,18 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from src.monkey_brain.kernel.compile.entity import (
-    Actor, EntityRegistry,
+    Actor,
+    EntityRegistry,
 )
 from src.monkey_brain.kernel.compile.global_world import GlobalWorld
 from src.monkey_brain.kernel.compile.context_stream import ContextStream, ContextEvent
 from src.monkey_brain.kernel.compile.event_bus import EventBus
 from src.monkey_brain.kernel.compile.runtime_services import RuntimeServices
 from src.monkey_brain.kernel.compile.actor_belief import ActorBelief
-from src.monkey_brain.kernel.compile.runtime_interface import SocietyRuntimeInterface, CognitiveRuntimeInterface
+from src.monkey_brain.kernel.compile.runtime_interface import (
+    SocietyRuntimeInterface,
+    CognitiveRuntimeInterface,
+)
 
 logger = logging.getLogger("agentos.society_runtime")
 
@@ -42,6 +47,7 @@ logger = logging.getLogger("agentos.society_runtime")
 @dataclass
 class ActorState:
     """Runtime state for an actor in the society."""
+
     actor_id: str
     entity: Actor
     belief: ActorBelief
@@ -84,10 +90,14 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
         self._context_stream.subscribe(self._on_world_update)
 
     @classmethod
-    async def boot(cls, app: Any, *,
-                   lemon: Any = None,
-                   persistence: Any = None,
-                   event_bus: Any = None) -> "CompileSocietyRuntime":
+    async def boot(
+        cls,
+        app: Any,
+        *,
+        lemon: Any = None,
+        persistence: Any = None,
+        event_bus: Any = None,
+    ) -> "CompileSocietyRuntime":
         """Phase 3: Boot CompileSocietyRuntime from Kernel.
 
         Initializes the runtime with Kernel-injected dependencies.
@@ -111,27 +121,31 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
 
     # ── Actor Management ──────────────────────────────────────────────────────
 
-    def register_actor(self, actor_id: str, entity: Actor | None = None,
-                       tenant_id: str = "default") -> ActorState:
+    def register_actor(self, actor_id: str, entity: Actor | None = None, tenant_id: str = "default") -> ActorState:
         """Lookup-or-create an actor."""
         if actor_id in self._actors:
             return self._actors[actor_id]
 
         if entity is None:
             from src.monkey_brain.kernel.compile.entity import Person
+
             entity = Person(id=actor_id, name=actor_id)
 
         self._registry.register(entity)
         belief = ActorBelief(actor_id, self._world)
         state = ActorState(
-            actor_id=actor_id, entity=entity, belief=belief,
+            actor_id=actor_id,
+            entity=entity,
+            belief=belief,
             tenant_id=tenant_id,
         )
         self._actors[actor_id] = state
 
-        self._event_bus.publish("actor.registered",
-                                {"actor_id": actor_id, "tenant": tenant_id},
-                                source="society_runtime")
+        self._event_bus.publish(
+            "actor.registered",
+            {"actor_id": actor_id, "tenant": tenant_id},
+            source="society_runtime",
+        )
         logger.info("[society] registered actor %s (tenant=%s)", actor_id, tenant_id)
         return state
 
@@ -142,9 +156,7 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
         """Remove an actor from the society. Returns True if removed."""
         if actor_id in self._actors:
             del self._actors[actor_id]
-            self._event_bus.publish("actor.unregistered",
-                                    {"actor_id": actor_id},
-                                    source="society_runtime")
+            self._event_bus.publish("actor.unregistered", {"actor_id": actor_id}, source="society_runtime")
             logger.info("[society] unregistered actor %s", actor_id)
             return True
         return False
@@ -207,11 +219,15 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
             actor_id=work.get("actor_id", "default"),
             start=work.get("start", ""),
             goal=work.get("goal", ""),
-            reward=work.get("reward", 1.0)
+            reward=work.get("reward", 1.0),
         )
 
-    def bulk_register_actors(self, actor_ids: list[str], tenant_id: str = "default",
-                             batch_event_publish: bool = True) -> list[ActorState]:
+    def bulk_register_actors(
+        self,
+        actor_ids: list[str],
+        tenant_id: str = "default",
+        batch_event_publish: bool = True,
+    ) -> list[ActorState]:
         """Phase 4: Bulk register multiple actors efficiently.
 
         Registers multiple actors with single event publish (vs one per actor).
@@ -230,11 +246,14 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
             # Reuse register_actor logic but suppress individual events
             if actor_id not in self._actors:
                 from src.monkey_brain.kernel.compile.entity import Person
+
                 entity = Person(id=actor_id, name=actor_id)
                 self._registry.register(entity)
                 belief = ActorBelief(actor_id, self._world)
                 state = ActorState(
-                    actor_id=actor_id, entity=entity, belief=belief,
+                    actor_id=actor_id,
+                    entity=entity,
+                    belief=belief,
                     tenant_id=tenant_id,
                 )
                 self._actors[actor_id] = state
@@ -244,27 +263,45 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
 
         # Publish single bulk event if requested (reduces event queue pressure)
         if batch_event_publish and states:
-            self._event_bus.publish("actors.bulk_registered",
-                                    {"actor_ids": actor_ids, "count": len(states), "tenant": tenant_id},
-                                    source="society_runtime")
-            logger.info("[society] bulk registered %d actors (tenant=%s)", len(states), tenant_id)
+            self._event_bus.publish(
+                "actors.bulk_registered",
+                {"actor_ids": actor_ids, "count": len(states), "tenant": tenant_id},
+                source="society_runtime",
+            )
+            logger.info(
+                "[society] bulk registered %d actors (tenant=%s)",
+                len(states),
+                tenant_id,
+            )
         else:
             # Publish individual events
             for state in states:
-                self._event_bus.publish("actor.registered",
-                                        {"actor_id": state.actor_id, "tenant": tenant_id},
-                                        source="society_runtime")
+                self._event_bus.publish(
+                    "actor.registered",
+                    {"actor_id": state.actor_id, "tenant": tenant_id},
+                    source="society_runtime",
+                )
 
         return states
 
     # ── Context Stream ────────────────────────────────────────────────────────
 
-    def publish_event(self, entity: str, attribute: str, value: Any,
-                      source: str = "", domain: str = "default") -> None:
+    def publish_event(
+        self,
+        entity: str,
+        attribute: str,
+        value: Any,
+        source: str = "",
+        domain: str = "default",
+    ) -> None:
         """Publish a context event. Updates the world and notifies actors."""
         event = ContextEvent(
-            timestamp=time.time(), entity=entity, attribute=attribute,
-            previous_value=None, current_value=value, source=source,
+            timestamp=time.time(),
+            entity=entity,
+            attribute=attribute,
+            previous_value=None,
+            current_value=value,
+            source=source,
             metadata={"domain": domain},
         )
         self._context_stream.publish(event)
@@ -272,15 +309,19 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
     def _on_world_update(self, event: ContextEvent, version: Any) -> None:
         """Handle world update — notify all actors."""
         self._version += 1
-        self._event_bus.publish("world.updated",
-                                {"entity": event.entity, "attribute": event.attribute,
-                                 "version": self._version},
-                                source="context_stream")
+        self._event_bus.publish(
+            "world.updated",
+            {
+                "entity": event.entity,
+                "attribute": event.attribute,
+                "version": self._version,
+            },
+            source="context_stream",
+        )
 
     # ── Cognitive Cycle ───────────────────────────────────────────────────────
 
-    def cognitive_cycle(self, actor_id: str, start: str, goal: str,
-                        *, reward: float = 1.0) -> dict:
+    def cognitive_cycle(self, actor_id: str, start: str, goal: str, *, reward: float = 1.0) -> dict:
         """Run a full cognitive cycle for one actor.
 
         Observe → Believe → Plan → Execute → Learn → Compile Φ → Predict → Commit
@@ -299,8 +340,7 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
 
         # Plan (using world + belief + Φ)
         phi = self._services.learning.compile_phi(belief)
-        plan = self._services.planner.plan(
-            start, goal, self._world, belief=belief, phi=phi)
+        plan = self._services.planner.plan(start, goal, self._world, belief=belief, phi=phi)
 
         # Execute
         observed = []
@@ -321,14 +361,18 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
 
         # Learn (Bellman update)
         for obs in observed:
-            self._services.learning.bellman_update(
-                belief, obs["from"], obs["to"], reward, obs["to"])
+            self._services.learning.bellman_update(belief, obs["from"], obs["to"], reward, obs["to"])
 
             # Store in memory
-            self._services.memory.store({
-                "actor": actor_id, "action": obs["from"], "result": obs["to"],
-                "reward": reward, "cycle": state.cycle_count,
-            })
+            self._services.memory.store(
+                {
+                    "actor": actor_id,
+                    "action": obs["from"],
+                    "result": obs["to"],
+                    "reward": reward,
+                    "cycle": state.cycle_count,
+                }
+            )
 
         # Compile Φ
         phi = self._services.learning.compile_phi(belief)
@@ -341,7 +385,8 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
 
         result = {
             "actor_id": actor_id,
-            "start": start, "goal": goal,
+            "start": start,
+            "goal": goal,
             "reached_goal": current == goal,
             "steps": len(observed),
             "belief_nnz": len(belief._beliefs),
@@ -363,8 +408,7 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
             return
         for src, dst in world._tensor:
             if not belief._beliefs.get((src, dst)):
-                belief.observe(src, dst, source="observation",
-                               domain=world._tensor.domain_of(src))
+                belief.observe(src, dst, source="observation", domain=world._tensor.domain_of(src))
 
     # ── Multi-Actor Execution ─────────────────────────────────────────────────
 
@@ -372,23 +416,21 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
         """Run cognitive cycle for all active actors."""
         results = {}
         for state in self.active_actors():
-            results[state.actor_id] = self.cognitive_cycle(
-                state.actor_id, start, goal, reward=reward)
+            results[state.actor_id] = self.cognitive_cycle(state.actor_id, start, goal, reward=reward)
         return results
 
     def schedule(self, callback: Callable) -> None:
         """Register a scheduling callback."""
         self._schedules.append(callback)
 
-    def run_concurrent(self, start: str, goal: str, *, reward: float = 1.0,
-                       max_workers: int = 4) -> dict[str, dict]:
+    def run_concurrent(self, start: str, goal: str, *, reward: float = 1.0, max_workers: int = 4) -> dict[str, dict]:
         """Run cognitive cycle for all active actors concurrently."""
         import concurrent.futures
+
         results = {}
 
         def _run_actor(state: ActorState) -> tuple[str, dict]:
-            return state.actor_id, self.cognitive_cycle(
-                state.actor_id, start, goal, reward=reward)
+            return state.actor_id, self.cognitive_cycle(state.actor_id, start, goal, reward=reward)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {pool.submit(_run_actor, s): s for s in self.active_actors()}
@@ -408,6 +450,7 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
         """Checkpoint all runtime state."""
         import json
         import os
+
         os.makedirs(base_path, exist_ok=True)
 
         # Save world
@@ -430,7 +473,11 @@ class CompileSocietyRuntime(SocietyRuntimeInterface):
 
         # Save meta
         with open(os.path.join(base_path, "meta.json"), "w") as f:
-            json.dump({"version": self._version, "actor_count": len(self._actors)}, f, indent=2)
+            json.dump(
+                {"version": self._version, "actor_count": len(self._actors)},
+                f,
+                indent=2,
+            )
 
         logger.info("[society] checkpointed to %s (%d actors)", base_path, len(self._actors))
 

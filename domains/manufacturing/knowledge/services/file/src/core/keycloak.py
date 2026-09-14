@@ -23,10 +23,11 @@ load_dotenv()
 #   - K8s: Deployment.spec.containers[].env with valueFrom.secretKeyRef
 #   - Local dev: .env file (never committed)
 
+
 def _require_keycloak_config(var_name: str) -> str:
     """
     Load a required Keycloak configuration variable.
-    
+
     Fails closed: raises RuntimeError if the variable is missing or empty.
     This forces deployment teams to explicitly provide the value.
     """
@@ -53,6 +54,7 @@ try:
 except RuntimeError as e:
     # Fail at import time, before any requests can be made
     import sys
+
     print(f"FATAL: {e}", file=sys.stderr)
     raise
 
@@ -93,6 +95,7 @@ def get_jwks():
         _jwks_cache["expires"] = now + JWKS_CACHE_TTL
     return _jwks_cache["keys"]
 
+
 # -------------------------------------------------------------------
 # JWT Verification
 # -------------------------------------------------------------------
@@ -120,7 +123,7 @@ def verify_jwt(
                         "verify_aud": False,
                         "verify_exp": True,
                         "verify_iss": False,
-                    }
+                    },
                 )
 
                 # Enforce client identity explicitly
@@ -140,6 +143,7 @@ def verify_jwt(
 
     raise HTTPException(status_code=401, detail="Unknown signing key")
 
+
 # -------------------------------------------------------------------
 # Token Introspection (Revocation)
 # -------------------------------------------------------------------
@@ -154,6 +158,7 @@ def introspect_token(token: str) -> bool:
     resp.raise_for_status()
     return resp.json().get("active", False)
 
+
 def require_active_token(
     claims: Dict = Depends(verify_jwt),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -167,6 +172,7 @@ def require_active_token(
 
     return claims
 
+
 # -------------------------------------------------------------------
 # Token Replay Detection
 # -------------------------------------------------------------------
@@ -177,6 +183,7 @@ def detect_replay(jti: str, ttl: int = 300):
         raise HTTPException(status_code=401, detail="Token replay detected")
 
     redis_client.setex(key, ttl, "used")
+
 
 def anti_replay_guard(
     claims: Dict = Depends(require_active_token),

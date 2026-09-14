@@ -16,6 +16,7 @@ recommendations, so "cart updated" means a real, durable state change a
 later request can read back — not an in-memory list that disappears
 between calls.
 """
+
 from __future__ import annotations
 
 from src.monkey_brain.kernel.domains.commerce import (

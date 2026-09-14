@@ -77,8 +77,7 @@ class MQTTConnectionPool(ConnectionPool):
             import paho.mqtt.client as mqtt
         except ImportError as exc:
             raise ImportError(
-                "paho-mqtt is required for MQTTConnectionPool. "
-                "Install with: pip install paho-mqtt"
+                "paho-mqtt is required for MQTTConnectionPool. Install with: pip install paho-mqtt"
             ) from exc
 
         self._client_counter += 1
@@ -110,9 +109,7 @@ class MQTTConnectionPool(ConnectionPool):
             await asyncio.wait_for(connected_event.wait(), timeout=self.timeout)
         except asyncio.TimeoutError:
             client.loop_stop()
-            raise ConnectionError(
-                f"MQTT connection to {self.broker}:{self.port} timed out."
-            )
+            raise ConnectionError(f"MQTT connection to {self.broker}:{self.port} timed out.")
 
         return client
 

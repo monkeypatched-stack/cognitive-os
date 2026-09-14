@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 @dataclass
 class IndustryConfig:
     """Configuration for an industry domain."""
+
     name: str
     description: str
     questions: List[str]
@@ -32,6 +33,7 @@ class IndustryConfig:
 @dataclass
 class ValidationResult:
     """Result of validating a single industry."""
+
     industry: str
     passed: bool
     checks: Dict[str, bool] = field(default_factory=dict)
@@ -205,7 +207,11 @@ INDUSTRIES = [
             "equipment scheduling",
             "site inspection",
         ],
-        capabilities=["project_management", "equipment_scheduling", "safety_inspection"],
+        capabilities=[
+            "project_management",
+            "equipment_scheduling",
+            "safety_inspection",
+        ],
         expected_intents=["construction_project", "equipment_scheduling"],
     ),
     IndustryConfig(
@@ -382,10 +388,16 @@ class CrossIndustryValidator:
         print("=" * 80)
 
         success_criteria = [
-            ("Runtime architecture identical across all industries", passed == len(self.results)),
+            (
+                "Runtime architecture identical across all industries",
+                passed == len(self.results),
+            ),
             ("Only capabilities, domain knowledge, and graph topology differ", True),
             ("Planner, execution, simulation, and learning runtimes unchanged", True),
-            ("Same cognitive loop adapts to every business domain", passed == len(self.results)),
+            (
+                "Same cognitive loop adapts to every business domain",
+                passed == len(self.results),
+            ),
         ]
 
         all_success = True

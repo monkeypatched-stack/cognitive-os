@@ -61,17 +61,13 @@ class CMMSAdapter(CapabilityAdapter):
         """Set up HTTP connection pool and validate configuration."""
         endpoint = self.config.get("endpoint")
         if not endpoint:
-            raise AdapterInitializationError(
-                "CMMSAdapter requires 'endpoint' in configuration."
-            )
+            raise AdapterInitializationError("CMMSAdapter requires 'endpoint' in configuration.")
 
         credentials = self.config.get("credentials", {})
         api_key = credentials.get("api_key", "")
 
         if not api_key:
-            raise AdapterInitializationError(
-                "CMMSAdapter requires 'credentials.api_key' in configuration."
-            )
+            raise AdapterInitializationError("CMMSAdapter requires 'credentials.api_key' in configuration.")
 
         self._auth = APIKeyHandler(api_key=api_key)
 
@@ -129,9 +125,7 @@ class CMMSAdapter(CapabilityAdapter):
         }
 
         try:
-            async with await self.telemetry.start_span(
-                "cmms_create_work_order"
-            ) as span:
+            async with await self.telemetry.start_span("cmms_create_work_order") as span:
                 span.set_tag("equipment_id", inputs["equipment_id"])
                 span.set_tag("work_type", inputs["work_type"])
 
@@ -168,9 +162,7 @@ class CMMSAdapter(CapabilityAdapter):
 
                 error_text = response.text
                 await self.emit_metric("work_order_errors", 1.0)
-                return AdapterResponse.fail(
-                    f"CMMS API error {response.status_code}: {error_text}"
-                )
+                return AdapterResponse.fail(f"CMMS API error {response.status_code}: {error_text}")
 
         except Exception as exc:
             self.log("error", f"Work order creation failed: {exc}")

@@ -37,6 +37,7 @@ found to already work correctly -- real regression coverage for
 interactions that were simply never exercised together before, not
 fabricated risk.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,13 +45,18 @@ import uuid
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.grocery import DelegateTaskCapability
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import KnowledgeGraph
 from src.monkey_brain.kernel.pipeline.execution import Action
-from src.monkey_brain.kernel.testing.mutation_hooks import clear_mutations, register_mutation
+from src.monkey_brain.kernel.testing.mutation_hooks import (
+    clear_mutations,
+    register_mutation,
+)
 
 ACTOR_ID = "compound_test_actor"
 
@@ -64,7 +70,10 @@ def _clean_mutation_registry():
 
 def _sel(action_id, step_index, product_id, execution_id, depends_on=()):
     return Action(
-        action_id=action_id, capability="ProductSelection", step_index=step_index, depends_on=depends_on,
+        action_id=action_id,
+        capability="ProductSelection",
+        step_index=step_index,
+        depends_on=depends_on,
         correlation_id=execution_id,
         parameters={"selection": [{"id": product_id, "qty": 1}]},
     )
@@ -83,12 +92,19 @@ async def test_compound001_resumed_execution_does_not_double_learn(monkeypatch):
     import src.monkey_brain.kernel.comparator_runtime as comparator_module
     from src.monkey_brain.kernel.comparator_runtime import ComparatorRuntime
     from src.monkey_brain.kernel.pipeline.actor import Actor
-    from src.monkey_brain.kernel.pipeline.belief_state import BeliefState, Plan, PlanStep
+    from src.monkey_brain.kernel.pipeline.belief_state import (
+        BeliefState,
+        Plan,
+        PlanStep,
+    )
     from src.monkey_brain.kernel.pipeline.comparison.integration import (
-        _apply_transition_learning, _run_comparison,
+        _apply_transition_learning,
+        _run_comparison,
     )
     from src.monkey_brain.kernel.pipeline.execution_state import CognitiveState
-    from src.monkey_brain.kernel.pipeline.learning_event_store import load_learning_events_for_execution
+    from src.monkey_brain.kernel.pipeline.learning_event_store import (
+        load_learning_events_for_execution,
+    )
     from src.monkey_brain.kernel.pipeline.planning.goal_key import canonicalize_goal
     from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel
 
@@ -105,8 +121,13 @@ async def test_compound001_resumed_execution_does_not_double_learn(monkeypatch):
 
     def _predicted(desc):
         return {
-            "prediction": {"world_snapshot": {}, "predicted_outcomes": [{"description": desc, "success": True, "probability": 0.9}], "expected_utility": 0.5},
-            "scenario_label": "Baseline", "probability": 0.9,
+            "prediction": {
+                "world_snapshot": {},
+                "predicted_outcomes": [{"description": desc, "success": True, "probability": 0.9}],
+                "expected_utility": 0.5,
+            },
+            "scenario_label": "Baseline",
+            "probability": 0.9,
         }
 
     class FakePolicy:
@@ -133,13 +154,20 @@ async def test_compound001_resumed_execution_does_not_double_learn(monkeypatch):
     assert not result1.actions[0].metadata.get("resumed_from_checkpoint")
 
     plan1 = Plan(
-        goal=goal, steps=(PlanStep(action="Milk", description="buy milk", confidence=0.9),),
-        cost=0.0, confidence=0.9, risk=0.0, planner="llm",
+        goal=goal,
+        steps=(PlanStep(action="Milk", description="buy milk", confidence=0.9),),
+        cost=0.0,
+        confidence=0.9,
+        risk=0.0,
+        planner="llm",
     )
     belief.plan = plan1
     state1 = CognitiveState(actor=actor, belief=belief)
     state1.metrics = {"execution_id": execution_id}
-    state1.prediction_result = {"candidates": [_predicted("buy milk")], "selected": _predicted("buy milk")}
+    state1.prediction_result = {
+        "candidates": [_predicted("buy milk")],
+        "selected": _predicted("buy milk"),
+    }
     state1.execution_result = result1
 
     state1 = await _run_comparison(state1, policy)
@@ -169,12 +197,18 @@ async def test_compound001_resumed_execution_does_not_double_learn(monkeypatch):
             PlanStep(action="Milk", description="buy milk", confidence=0.9),
             PlanStep(action="Pizza", description="buy pizza", confidence=0.9, depends_on=(0,)),
         ),
-        cost=0.0, confidence=0.9, risk=0.0, planner="llm",
+        cost=0.0,
+        confidence=0.9,
+        risk=0.0,
+        planner="llm",
     )
     belief.plan = plan2
     state2 = CognitiveState(actor=actor, belief=belief)
     state2.metrics = {"execution_id": execution_id}
-    state2.prediction_result = {"candidates": [_predicted("buy milk and pizza")], "selected": _predicted("buy milk and pizza")}
+    state2.prediction_result = {
+        "candidates": [_predicted("buy milk and pizza")],
+        "selected": _predicted("buy milk and pizza"),
+    }
     state2.execution_result = result2
 
     state2 = await _run_comparison(state2, policy)
@@ -224,8 +258,9 @@ async def test_compound002_world_mutation_detected_on_a_fresh_step_after_resume(
 
     register_mutation(
         ACTOR_ID,
-        trigger=lambda a: a.capability == "ProductSelection"
-        and any(s["id"] == pizza_id for s in a.parameters.get("selection", [])),
+        trigger=lambda a: (
+            a.capability == "ProductSelection" and any(s["id"] == pizza_id for s in a.parameters.get("selection", []))
+        ),
         mutate=mutate,
     )
 
@@ -256,7 +291,11 @@ async def test_compound003_concurrent_delegated_transactions_no_oversell():
     CAS) must hold through this dispatch indirection exactly as it does for
     a direct ActionExecutor call -- exactly one delegated transaction gets
     a real reservation, the other an honest backorder."""
-    from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+    from src.monkey_brain.kernel.society.domain import (
+        ActorIdentity,
+        ActorProfile,
+        ActorType,
+    )
     from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
     def _register(pr, name, society_id=None):
@@ -264,7 +303,8 @@ async def test_compound003_concurrent_delegated_transactions_no_oversell():
         if society_id is not None:
             kwargs["society_id"] = society_id
         return pr.register_actor(
-            ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)), **kwargs,
+            ActorProfile(identity=ActorIdentity(name=name, actor_type=ActorType.HUMAN)),
+            **kwargs,
         )
 
     pr = PlanetaryRuntime()
@@ -278,16 +318,29 @@ async def test_compound003_concurrent_delegated_transactions_no_oversell():
     product_id = list_product(kg, store, "merchant_a", "Limited Edition Mug", price=9.99, quantity=1)["product_id"]
 
     def _delegate(sender):
-        return DelegateTaskCapability().handle({
-            "context": {"planetary_runtime": pr, "actor_id": sender.actor_id, "actor_role": sender.actor_id},
-            "parameters": {
-                "target_actor": "Recipient Compound",
-                "tasks": [
-                    {"capability": "ProductSelection", "parameters": {"selection": [{"id": product_id, "qty": 1}]}},
-                    {"capability": "OrderCreation", "parameters": {}, "depends_on": [0]},
-                ],
-            },
-        })
+        return DelegateTaskCapability().handle(
+            {
+                "context": {
+                    "planetary_runtime": pr,
+                    "actor_id": sender.actor_id,
+                    "actor_role": sender.actor_id,
+                },
+                "parameters": {
+                    "target_actor": "Recipient Compound",
+                    "tasks": [
+                        {
+                            "capability": "ProductSelection",
+                            "parameters": {"selection": [{"id": product_id, "qty": 1}]},
+                        },
+                        {
+                            "capability": "OrderCreation",
+                            "parameters": {},
+                            "depends_on": [0],
+                        },
+                    ],
+                },
+            }
+        )
 
     result_a, result_c = await asyncio.gather(_delegate(alice), _delegate(carol))
 
@@ -302,6 +355,7 @@ async def test_compound003_concurrent_delegated_transactions_no_oversell():
     assert a_backordered != c_backordered
 
     import time
+
     entity = kg.get_entity(product_id)
     active = [r for r in entity.attributes.get("reservations", []) if r.get("until", 0) > time.time()]
     assert len(active) == 1

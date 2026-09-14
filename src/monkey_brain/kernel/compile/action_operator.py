@@ -18,6 +18,7 @@ Architectural invariant:
     Actions never duplicate transitions.
     Actions never own probabilities.
 """
+
 from __future__ import annotations
 
 import logging
@@ -101,7 +102,7 @@ class ActionOperator:
 
     def summary(self) -> dict:
         states = set()
-        for (src, dst) in self._mask:
+        for src, dst in self._mask:
             states.add(src)
             states.add(dst)
         return {
@@ -114,20 +115,26 @@ class ActionOperator:
 # Lazy import to avoid circular dependency
 _PROBABILITY_FEATURE = None
 
+
 def _get_probability_feature():
     global _PROBABILITY_FEATURE
     if _PROBABILITY_FEATURE is None:
         from src.monkey_brain.kernel.compile.tensor import Feature
+
         _PROBABILITY_FEATURE = Feature.PROBABILITY
     return _PROBABILITY_FEATURE
 
 
 # Patch ActionOperator to use the lazy feature
 _orig_apply = ActionOperator.apply
+
+
 def _patched_apply(self, state: str) -> dict[str, float]:
     global _PROBABILITY_FEATURE
     _PROBABILITY_FEATURE = _get_probability_feature()
     return _orig_apply(self, state)
+
+
 ActionOperator.apply = _patched_apply
 
 
@@ -170,8 +177,7 @@ class ActionLegality:
         # Start with actions that have transitions from this state
         if action_operators:
             candidates = {
-                name for name, op in action_operators.items()
-                if any(s == state for (s, _, _) in op.transitions())
+                name for name, op in action_operators.items() if any(s == state for (s, _, _) in op.transitions())
             }
         else:
             # No operators defined — use world successors as proxy
@@ -204,7 +210,7 @@ class ActionLegality:
         is a destination state, so the direct edge feature is correct.
         """
         if action_operators and candidate in action_operators:
-            dist = action_operators[candidate].apply(state)   # P(S'|S,a), normalized
+            dist = action_operators[candidate].apply(state)  # P(S'|S,a), normalized
             if not dist:
                 return 0.0
             return sum(p * self._world.feature(state, dst, feature) for dst, p in dist.items())
@@ -236,15 +242,15 @@ class ActionLegality:
         max_cost = constraints.get("max_cost")
         if max_cost is not None:
             filtered = {
-                a for a in filtered
-                if self._candidate_feature(state, a, _COST_FEATURE, action_operators) <= max_cost
+                a for a in filtered if self._candidate_feature(state, a, _COST_FEATURE, action_operators) <= max_cost
             }
 
         # Latency constraint
         max_latency = constraints.get("max_latency_ms")
         if max_latency is not None:
             filtered = {
-                a for a in filtered
+                a
+                for a in filtered
                 if self._candidate_feature(state, a, _LATENCY_FEATURE, action_operators) <= max_latency
             }
 
@@ -252,7 +258,8 @@ class ActionLegality:
         min_confidence = constraints.get("min_confidence", 0.0)
         if min_confidence > 0:
             filtered = {
-                a for a in filtered
+                a
+                for a in filtered
                 if self._candidate_feature(state, a, _CONFIDENCE_FEATURE, action_operators) >= min_confidence
             }
 
@@ -264,11 +271,14 @@ _COST_FEATURE = None
 _LATENCY_FEATURE = None
 _CONFIDENCE_FEATURE = None
 
+
 def _init_features():
     global _COST_FEATURE, _LATENCY_FEATURE, _CONFIDENCE_FEATURE
     from src.monkey_brain.kernel.compile.tensor import Feature
+
     _COST_FEATURE = Feature.COST
     _LATENCY_FEATURE = Feature.LATENCY
     _CONFIDENCE_FEATURE = Feature.CONFIDENCE
+
 
 _init_features()

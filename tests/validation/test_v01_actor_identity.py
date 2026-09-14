@@ -19,6 +19,7 @@ paths tests/scenarios/test_actor_scheduler.py's test_19/20/21 already
 proved for the happy path; this file adds the specific adversarial edge
 this task requires (old node attempting to act AFTER losing ownership).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,8 +33,8 @@ from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
 
 from .conftest import force_redis_authoritative, register
 
-
 # ── Test A: restart ─────────────────────────────────────────────────────
+
 
 class TestActorIdentitySurvivesRestart:
     def test_actor_id_unchanged_across_a_full_runtime_teardown_and_rebuild(self):
@@ -68,14 +69,22 @@ class TestActorIdentitySurvivesRestart:
 
 # ── Test B: migration ────────────────────────────────────────────────────
 
+
 class TestActorIdentitySurvivesMigration:
-    def test_migration_preserves_identity_belief_and_authority_old_node_cannot_continue(self):
+    def test_migration_preserves_identity_belief_and_authority_old_node_cannot_continue(
+        self,
+    ):
         from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
 
         from .conftest import FakeRedis
+
         shared = FakeRedis()
-        pr_a = PlanetaryRuntime(); pr_a._redis = shared; pr_a._node_id = "node-a"
-        pr_b = PlanetaryRuntime(); pr_b._redis = shared; pr_b._node_id = "node-b"
+        pr_a = PlanetaryRuntime()
+        pr_a._redis = shared
+        pr_a._node_id = "node-a"
+        pr_b = PlanetaryRuntime()
+        pr_b._redis = shared
+        pr_b._node_id = "node-b"
         # Real Mongo IS reachable in this environment and (from months of
         # prior session work) non-empty -- see conftest.py::
         # force_redis_authoritative's docstring for the real, separately-
@@ -103,7 +112,12 @@ class TestActorIdentitySurvivesMigration:
         runtime_a = pr_a.get_actor_runtime(actor_id)
         belief = runtime_a.actor.pipeline_belief()
         belief.update_goal(name="deliver package to node-b")
-        belief.add_fact(entity="package:123", attribute="status", value="in_transit", confidence=0.95)
+        belief.add_fact(
+            entity="package:123",
+            attribute="status",
+            value="in_transit",
+            confidence=0.95,
+        )
 
         # checkpoint_actor_belief() also refreshes the Redis registry
         # snapshot (_save_actor -> _actor_state_to_dict, which embeds
@@ -164,6 +178,7 @@ class TestActorIdentitySurvivesMigration:
         fact_survived = any(f.entity == "package:123" and f.value == "in_transit" for f in belief_b.facts)
         if not fact_survived:
             import warnings
+
             warnings.warn(
                 "Systems Validation finding: BeliefState.facts added via pipeline_belief() did NOT "
                 "survive a real migration in this environment, even though .goal did -- see this "
@@ -178,8 +193,7 @@ class TestActorIdentitySurvivesMigration:
         # RUNNING, but node-a is not where it's now placed.
         again_a = pr_a.lifecycle.reconcile(actor_id)
         assert sr_a.get_actor(actor_id).status != ActorStatus.ACTIVE, (
-            "node-a must never locally reactivate an actor it suspended for migration, "
-            "even on a later reconcile() pass"
+            "node-a must never locally reactivate an actor it suspended for migration, even on a later reconcile() pass"
         )
         # The lease-fence proof that a stale node's WRITE (not just its
         # status flag) is rejected after losing ownership is Test C below
@@ -188,6 +202,7 @@ class TestActorIdentitySurvivesMigration:
 
 
 # ── Test C: runtime identity spoof ───────────────────────────────────────
+
 
 class TestSecondRuntimeCannotBecomeAuthoritative:
     @pytest.mark.asyncio
@@ -199,9 +214,14 @@ class TestSecondRuntimeCannotBecomeAuthoritative:
         that invalidates the first's authority to persist further state,
         even though the first was never told to stop."""
         from .conftest import FakeRedis
+
         shared = FakeRedis()
-        pr_a = PlanetaryRuntime(); pr_a._redis = shared; pr_a._node_id = "node-a"
-        pr_b = PlanetaryRuntime(); pr_b._redis = shared; pr_b._node_id = "node-b"
+        pr_a = PlanetaryRuntime()
+        pr_a._redis = shared
+        pr_a._node_id = "node-a"
+        pr_b = PlanetaryRuntime()
+        pr_b._redis = shared
+        pr_b._node_id = "node-b"
 
         state = register(pr_a, "SpoofTarget")
         actor_id = state.actor_id
@@ -228,7 +248,9 @@ class TestSecondRuntimeCannotBecomeAuthoritative:
         registry_state_a = sr_a.get_actor(actor_id)
         registry_state_a.last_lease_fence = fence_after_a  # what node-a remembers
 
-        sr_b_side = PlanetaryRuntime(); sr_b_side._redis = shared; sr_b_side._node_id = "node-b"
+        sr_b_side = PlanetaryRuntime()
+        sr_b_side._redis = shared
+        sr_b_side._node_id = "node-b"
         # node-b doesn't have actor_id registered locally (it's a
         # different in-memory registry object standing in for a
         # different process) -- but it CAN still contend for the shared

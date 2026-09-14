@@ -1,5 +1,6 @@
 from typing import Optional
 
+
 class WriteBlogPostAboutCreated:
     def __init__(self, blog_post_id: str):
         self.blog_post_id = blog_post_id

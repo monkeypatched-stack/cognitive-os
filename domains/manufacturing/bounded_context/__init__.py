@@ -7,6 +7,7 @@ Owns the pharmaceutical manufacturing business capability:
 - Change control
 - Equipment management
 """
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -32,26 +33,44 @@ class ManufacturingContextAgent(BoundedContextAgent):
     def perceive(self, context: dict[str, Any]) -> dict[str, Any]:
         question = context.get("question", "").lower()
         active_aggregate = None
-        if any(w in question for w in ("work order", "calibration", "maintenance", "wo")):
+        if any(
+            w in question for w in ("work order", "calibration", "maintenance", "wo")
+        ):
             active_aggregate = "work_order"
-        elif any(w in question for w in ("batch", "yield", "release", "hold", "deviation")):
+        elif any(
+            w in question for w in ("batch", "yield", "release", "hold", "deviation")
+        ):
             active_aggregate = "batch"
-        elif any(w in question for w in ("change control", "change request", "validation")):
+        elif any(
+            w in question for w in ("change control", "change request", "validation")
+        ):
             active_aggregate = "change_control"
         elif any(w in question for w in ("sop", "procedure", "compliance")):
             active_aggregate = "sop"
-        return {"context": self.name, "active_aggregate": active_aggregate, "question": question}
+        return {
+            "context": self.name,
+            "active_aggregate": active_aggregate,
+            "question": question,
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         aggregate_name = perception.get("active_aggregate")
         aggregate = next((a for a in self.aggregates if a.name == aggregate_name), None)
-        return {"context": self.name, "delegate_to": aggregate_name, "aggregate": aggregate}
+        return {
+            "context": self.name,
+            "delegate_to": aggregate_name,
+            "aggregate": aggregate,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         aggregate = decision.get("aggregate")
         if aggregate:
             return aggregate.execute({"question": decision.get("question", "")})
-        return {"context": self.name, "action": "no_delegate", "result": "handled_at_context"}
+        return {
+            "context": self.name,
+            "action": "no_delegate",
+            "result": "handled_at_context",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._memory.append(outcome)
@@ -83,14 +102,28 @@ class WorkOrderAggregateAgent(AggregateAgent):
         violations = []
         if not perception.get("assigned_to"):
             violations.append("no_assigned_worker")
-        if perception.get("status") == "in_progress" and not perception.get("equipment_available"):
+        if perception.get("status") == "in_progress" and not perception.get(
+            "equipment_available"
+        ):
             violations.append("equipment_unavailable")
-        return {"aggregate": self.name, "violations": violations, "consistent": len(violations) == 0}
+        return {
+            "aggregate": self.name,
+            "violations": violations,
+            "consistent": len(violations) == 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("consistent"):
-            return {"aggregate": self.name, "action": "work_order_approved", "consistent": True}
-        return {"aggregate": self.name, "action": "work_order_blocked", "violations": decision.get("violations")}
+            return {
+                "aggregate": self.name,
+                "action": "work_order_approved",
+                "consistent": True,
+            }
+        return {
+            "aggregate": self.name,
+            "action": "work_order_blocked",
+            "violations": decision.get("violations"),
+        }
 
 
 class BatchAggregateAgent(AggregateAgent):
@@ -118,15 +151,29 @@ class BatchAggregateAgent(AggregateAgent):
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         violations = []
         if perception.get("yield_pct", 0.0) < self.min_yield_pct:
-            violations.append(f"yield_{perception["yield_pct"]:.1f}%_below_threshold_{self.min_yield_pct}%")
+            violations.append(
+                f"yield_{perception["yield_pct"]:.1f}%_below_threshold_{self.min_yield_pct}%"
+            )
         if perception.get("status") == "releasing" and not perception.get("qa_signed"):
             violations.append("missing_qa_sign_off")
-        return {"aggregate": self.name, "violations": violations, "consistent": len(violations) == 0}
+        return {
+            "aggregate": self.name,
+            "violations": violations,
+            "consistent": len(violations) == 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("consistent"):
-            return {"aggregate": self.name, "action": "batch_released", "consistent": True}
-        return {"aggregate": self.name, "action": "batch_held", "violations": decision.get("violations")}
+            return {
+                "aggregate": self.name,
+                "action": "batch_released",
+                "consistent": True,
+            }
+        return {
+            "aggregate": self.name,
+            "action": "batch_held",
+            "violations": decision.get("violations"),
+        }
 
 
 class ChangeControlAggregateAgent(AggregateAgent):
@@ -157,9 +204,21 @@ class ChangeControlAggregateAgent(AggregateAgent):
         change_type = perception.get("change_type", "standard")
         if change_type == "production" and not perception.get("validation_protocol"):
             violations.append("production_change_requires_validation_protocol")
-        return {"aggregate": self.name, "violations": violations, "consistent": len(violations) == 0}
+        return {
+            "aggregate": self.name,
+            "violations": violations,
+            "consistent": len(violations) == 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("consistent"):
-            return {"aggregate": self.name, "action": "change_approved", "consistent": True}
-        return {"aggregate": self.name, "action": "change_blocked", "violations": decision.get("violations")}
+            return {
+                "aggregate": self.name,
+                "action": "change_approved",
+                "consistent": True,
+            }
+        return {
+            "aggregate": self.name,
+            "action": "change_blocked",
+            "violations": decision.get("violations"),
+        }

@@ -33,10 +33,7 @@ class TestLLMWiring:
         mock_llm.complete = AsyncMock(return_value="Mocked response")
 
         mock_session_mgr = Mock()
-        handler = ConversationalHandler(
-            session_manager=mock_session_mgr,
-            llm_provider=mock_llm
-        )
+        handler = ConversationalHandler(session_manager=mock_session_mgr, llm_provider=mock_llm)
 
         assert handler.llm == mock_llm
         print("✓ ConversationalHandler accepts LLM provider")
@@ -65,10 +62,7 @@ class TestLLMWiring:
         session_mgr = SessionManager()
 
         # Create handler
-        handler = ConversationalHandler(
-            session_manager=session_mgr,
-            llm_provider=mock_llm
-        )
+        handler = ConversationalHandler(session_manager=session_mgr, llm_provider=mock_llm)
 
         # Create session
         session = session_mgr.create_session("user_123")
@@ -79,10 +73,7 @@ class TestLLMWiring:
         session_mgr.add_message(session_id, "assistant", "Python is a programming language")
 
         # Process follow-up
-        response = await handler.handle(
-            "Tell me more",
-            context={"session_id": session_id}
-        )
+        response = await handler.handle("Tell me more", context={"session_id": session_id})
 
         assert response.status != "error"
         print(f"✓ ConversationalHandler with session: {response.response_text[:50]}...")
@@ -125,7 +116,11 @@ class TestLLMConfiguration:
     @pytest.mark.asyncio
     async def test_provider_factory_selection(self):
         """Verify LLMProviderFactory selects correct provider"""
-        from src.llm.llm_provider import LLMProviderFactory, ClaudeProvider, OllamaProvider
+        from src.llm.llm_provider import (
+            LLMProviderFactory,
+            ClaudeProvider,
+            OllamaProvider,
+        )
 
         # Test Claude selection
         os.environ["LLM_PROVIDER"] = "claude"
@@ -155,7 +150,7 @@ class TestHybridRouterLLMIntegration:
         router = HybridRouter(
             pipeline_orchestrator=mock_pipeline,
             knowledge_base=mock_kb,
-            llm_provider=mock_llm
+            llm_provider=mock_llm,
         )
 
         # Verify handlers have LLM wired
@@ -172,18 +167,13 @@ class TestHybridRouterLLMIntegration:
         """Verify reasoning query uses wired LLM"""
         # Create mock LLM
         mock_llm = Mock()
-        mock_llm.complete = AsyncMock(
-            return_value="People form bonds because of shared experiences and mutual benefit"
-        )
+        mock_llm.complete = AsyncMock(return_value="People form bonds because of shared experiences and mutual benefit")
 
         # Create router with mock LLM
         router = HybridRouter(llm_provider=mock_llm)
 
         # Process reasoning query
-        response = await router.process(
-            question="Why do people form social bonds?",
-            actor_id="user_123"
-        )
+        response = await router.process(question="Why do people form social bonds?", actor_id="user_123")
 
         assert response.status != "error"
         assert response.routing_decision.query_type == QueryType.REASONING
@@ -200,18 +190,11 @@ class TestHybridRouterLLMIntegration:
         router = HybridRouter(llm_provider=mock_llm)
 
         # First query
-        r1 = await router.process(
-            question="What is Python?",
-            actor_id="user_123"
-        )
+        r1 = await router.process(question="What is Python?", actor_id="user_123")
         session_id = r1.session_id
 
         # Follow-up query
-        r2 = await router.process(
-            question="Tell me more",
-            actor_id="user_123",
-            session_id=session_id
-        )
+        r2 = await router.process(question="Tell me more", actor_id="user_123", session_id=session_id)
 
         assert r2.status != "error"
         assert r2.routing_decision.query_type == QueryType.CONVERSATIONAL
@@ -246,16 +229,10 @@ class TestLLMFallback:
         session_mgr = SessionManager()
         session = session_mgr.create_session("user_123")
 
-        handler = ConversationalHandler(
-            session_manager=session_mgr,
-            llm_provider=mock_llm
-        )
+        handler = ConversationalHandler(session_manager=session_mgr, llm_provider=mock_llm)
 
         # Should handle gracefully
-        response = await handler.handle(
-            "Tell me more",
-            context={"session_id": session.session_id}
-        )
+        response = await handler.handle("Tell me more", context={"session_id": session.session_id})
 
         assert response.status != "error"  # Should not error
         print(f"✓ ConversationalHandler fallback on LLM error")
@@ -297,9 +274,9 @@ def test_llm_wiring_checklist():
 
 
 if __name__ == "__main__":
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("HYBRID ROUTER LLM WIRING TESTS")
-    print("="*70)
+    print("=" * 70)
 
     # Synchronous tests
     print("\nTesting LLM Configuration:")
@@ -323,7 +300,7 @@ if __name__ == "__main__":
     print("-" * 70)
     test_llm_wiring_checklist()
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("RUN WITH PYTEST FOR ASYNC TESTS")
-    print("="*70)
+    print("=" * 70)
     print("pytest tests/test_hybrid_llm_wiring.py -v\n")

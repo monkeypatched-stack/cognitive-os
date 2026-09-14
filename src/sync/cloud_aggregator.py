@@ -7,6 +7,7 @@ The CloudAggregator:
 - Updates the global world tensor via WorldLearner
 - Provides world snapshots for edge synchronization
 """
+
 from __future__ import annotations
 
 import logging
@@ -74,13 +75,17 @@ class CloudAggregator:
             dst = obs.get("dst", "")
             if src and dst:
                 self._world_learner.observe_transition(
-                    src, dst,
+                    src,
+                    dst,
                     domain=obs.get("domain", "default"),
                     origin=node_id,
                 )
 
-        logger.info("CloudAggregator: received %d observations from %s",
-                     len(observations), node_id)
+        logger.info(
+            "CloudAggregator: received %d observations from %s",
+            len(observations),
+            node_id,
+        )
 
     # ── Cloud → Edge sync ────────────────────────────────────────────────
 
@@ -90,14 +95,16 @@ class CloudAggregator:
         Returns a snapshot of the current world state.
         """
         transitions = []
-        for (src, dst) in self._world:
+        for src, dst in self._world:
             prob = self._world.feature(src, dst, Feature.PROBABILITY)
-            transitions.append({
-                "src": src,
-                "dst": dst,
-                "domain": self._world.domain_of(src),
-                "probability": prob,
-            })
+            transitions.append(
+                {
+                    "src": src,
+                    "dst": dst,
+                    "domain": self._world.domain_of(src),
+                    "probability": prob,
+                }
+            )
 
         return {
             "revision": self._world.revision,

@@ -10,7 +10,6 @@ from typing import Any
 
 import yaml
 
-
 REGISTRY_DIR = Path.home() / ".sittingface" / "registry"
 INDEX_FILE = REGISTRY_DIR / "index.json"
 
@@ -90,9 +89,24 @@ class SittingFaceRegistry:
             raise FileNotFoundError(f"No values.yaml in {chart_dir}")
 
         values = yaml.safe_load(values_file.read_text()) or {}
-        name = values.get("module", {}).get("name") or values.get("capability", {}).get("name") or values.get("agent", {}).get("name") or chart_dir.name
-        version = values.get("module", {}).get("version") or values.get("capability", {}).get("version") or values.get("agent", {}).get("version") or "1.0.0"
-        description = values.get("module", {}).get("softwareRole") or values.get("capability", {}).get("description") or values.get("agent", {}).get("description") or ""
+        name = (
+            values.get("module", {}).get("name")
+            or values.get("capability", {}).get("name")
+            or values.get("agent", {}).get("name")
+            or chart_dir.name
+        )
+        version = (
+            values.get("module", {}).get("version")
+            or values.get("capability", {}).get("version")
+            or values.get("agent", {}).get("version")
+            or "1.0.0"
+        )
+        description = (
+            values.get("module", {}).get("softwareRole")
+            or values.get("capability", {}).get("description")
+            or values.get("agent", {}).get("description")
+            or ""
+        )
 
         checksum = self._checksum(values_file)
 
@@ -120,6 +134,7 @@ class SittingFaceRegistry:
 
         # Copy values and templates
         import shutil
+
         shutil.copy2(values_file, chart_dest / "values.yaml")
         templates_dir = chart_dir / "templates"
         if templates_dir.exists():
@@ -173,9 +188,11 @@ class SittingFaceRegistry:
         query_lower = query.lower()
         for name, meta_dict in self.index.items():
             meta = ChartMeta.from_dict(meta_dict)
-            if (query_lower in meta.name.lower() or
-                query_lower in meta.description.lower() or
-                any(query_lower in tag.lower() for tag in meta.tags)):
+            if (
+                query_lower in meta.name.lower()
+                or query_lower in meta.description.lower()
+                or any(query_lower in tag.lower() for tag in meta.tags)
+            ):
                 results.append(meta)
         return results
 
@@ -187,6 +204,7 @@ class SittingFaceRegistry:
         chart_dir = self.registry_dir / name
         if chart_dir.exists():
             import shutil
+
             shutil.rmtree(chart_dir)
 
         del self.index[name]

@@ -18,6 +18,7 @@ orchestrates the full multi-stage SDLC pipeline (requirements through
 deploy) as a Runtime Process, reusing the same ProcessManager every other
 runtime's Runtime Processes share.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,7 +33,10 @@ from pydantic import BaseModel
 from src.monkey_brain.kernel.codegen_runtime import CodeGenRuntime
 from src.monkey_brain.runtime.routers import get_mongo_client
 from src.monkey_brain.api.dependencies import require_permission
-from src.monkey_brain.api.helpers.run_helpers import get_codegen_runtime, get_process_manager
+from src.monkey_brain.api.helpers.run_helpers import (
+    get_codegen_runtime,
+    get_process_manager,
+)
 from src.monkey_brain.api.idempotency import idempotent
 
 logger = logging.getLogger("agentos.sdlc")
@@ -85,10 +89,14 @@ async def sdlc_run(
         if ir is None:
             return JSONResponse(
                 status_code=422,
-                content={"error": "could not compile intent for SDLC pipeline", "question": payload.question},
+                content={
+                    "error": "could not compile intent for SDLC pipeline",
+                    "question": payload.question,
+                },
             )
         run_id = await runtime.start_run(
-            ir, mongo_client,
+            ir,
+            mongo_client,
             user_id=user_id,
             compliance_domains=compliance_domains,
             execution_mode=payload.execution_mode,
@@ -97,13 +105,23 @@ async def sdlc_run(
         logger.error("[sdlc] run failed to start for user=%r: %s", user_id, e)
         return JSONResponse(
             status_code=500,
-            content={"error": "SDLC run failed to start", "detail": str(e), "question": payload.question, "user_id": user_id},
+            content={
+                "error": "SDLC run failed to start",
+                "detail": str(e),
+                "question": payload.question,
+                "user_id": user_id,
+            },
         )
 
     asyncio.create_task(_tick_in_background(runtime, run_id))
 
     elapsed_ms = (time.monotonic() - t0) * 1000
-    return {"run_id": run_id, "state": "running", "user_id": user_id, "elapsed_ms": round(elapsed_ms, 2)}
+    return {
+        "run_id": run_id,
+        "state": "running",
+        "user_id": user_id,
+        "elapsed_ms": round(elapsed_ms, 2),
+    }
 
 
 @router.get("/sdlc/{run_id}")
@@ -118,7 +136,13 @@ async def sdlc_status(
     """
     rpcb = pm.get_process(run_id)
     if rpcb is None:
-        return JSONResponse(status_code=404, content={"error": f"no SDLC run found for run_id={run_id!r}", "user_id": user_id})
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": f"no SDLC run found for run_id={run_id!r}",
+                "user_id": user_id,
+            },
+        )
 
     response: dict[str, Any] = {
         "run_id": run_id,
@@ -162,18 +186,30 @@ async def sdlc_approve(
     """
     rpcb = pm.get_process(run_id)
     if rpcb is None:
-        return JSONResponse(status_code=404, content={"error": f"no SDLC run found for run_id={run_id!r}", "user_id": user_id})
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": f"no SDLC run found for run_id={run_id!r}",
+                "user_id": user_id,
+            },
+        )
     if rpcb.approval_gate is None:
         return JSONResponse(
             status_code=409,
-            content={"error": f"run_id={run_id!r} has no pending approval gate (state={rpcb.state.value})", "user_id": user_id},
+            content={
+                "error": f"run_id={run_id!r} has no pending approval gate (state={rpcb.state.value})",
+                "user_id": user_id,
+            },
         )
 
     try:
         await pm.approve(run_id, approver=user_id, decision=payload.decision, note=payload.note)
     except Exception as e:
         logger.error("[sdlc] approve failed for run_id=%r: %s", run_id, e)
-        return JSONResponse(status_code=500, content={"error": "approval failed", "detail": str(e), "user_id": user_id})
+        return JSONResponse(
+            status_code=500,
+            content={"error": "approval failed", "detail": str(e), "user_id": user_id},
+        )
 
     # Resume ticking in the background rather than blocking this request —
     # the remaining stages are the same serial LLM-call chain sdlc_run

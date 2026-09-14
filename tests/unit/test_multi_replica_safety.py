@@ -1,4 +1,5 @@
 """Lease fence + capability dispatch dedup production safety tests."""
+
 from __future__ import annotations
 
 import src.monkey_brain.kernel.domains.grocery  # noqa: F401
@@ -16,7 +17,11 @@ from src.monkey_brain.kernel.pipeline.capability_dispatch_store import (
 from src.monkey_brain.kernel.pipeline.execution import Action
 from src.monkey_brain.kernel.pipeline.action_executor import ActionExecutor
 from src.monkey_brain.kernel.society.integration import PlanetaryRuntime
-from src.monkey_brain.kernel.society.domain import ActorIdentity, ActorProfile, ActorType
+from src.monkey_brain.kernel.society.domain import (
+    ActorIdentity,
+    ActorProfile,
+    ActorType,
+)
 from src.monkey_brain.persistence.actor_state_store import PersistedActorState
 
 
@@ -73,13 +78,17 @@ class TestCapabilityDispatchStore:
             lambda: fake,
         )
         assert reserve_dispatch("exec-1", "act-1") == "fresh"
-        complete_dispatch("exec-1", "act-1", {
-            "action_id": "act-1",
-            "success": True,
-            "result": {"charged": True},
-            "error": "",
-            "latency_ms": 1.0,
-        })
+        complete_dispatch(
+            "exec-1",
+            "act-1",
+            {
+                "action_id": "act-1",
+                "success": True,
+                "result": {"charged": True},
+                "error": "",
+                "latency_ms": 1.0,
+            },
+        )
         assert reserve_dispatch("exec-1", "act-1") == "cached"
         cached = load_cached_outcome("exec-1", "act-1")
         assert cached is not None
@@ -99,9 +108,7 @@ class TestCapabilityDispatchStore:
 class TestLeaseFenceCheckpoint:
     def test_checkpoint_skipped_when_fence_superseded(self):
         pr = PlanetaryRuntime()
-        state = pr.register_actor(
-            ActorProfile(identity=ActorIdentity(name="FenceTest", actor_type=ActorType.HUMAN))
-        )
+        state = pr.register_actor(ActorProfile(identity=ActorIdentity(name="FenceTest", actor_type=ActorType.HUMAN)))
         sr = pr._home_society_runtime(state.actor_id)
         registry_state = sr.get_actor(state.actor_id)
         registry_state.last_lease_fence = 1
@@ -128,9 +135,7 @@ class TestObserveActorReconcileLease:
         pr = PlanetaryRuntime()
         pr._redis = redis
         pr._node_id = "node-a"
-        state = pr.register_actor(
-            ActorProfile(identity=ActorIdentity(name="Stale", actor_type=ActorType.HUMAN))
-        )
+        state = pr.register_actor(ActorProfile(identity=ActorIdentity(name="Stale", actor_type=ActorType.HUMAN)))
         aid = state.actor_id
         pr.lifecycle.reconcile(aid)
 
@@ -157,13 +162,17 @@ class TestActionExecutorDispatchDedup:
             "src.monkey_brain.kernel.pipeline.capability_dispatch_store._get_client",
             lambda: fake,
         )
-        complete_dispatch("exec-3", "act-3", {
-            "action_id": "act-3",
-            "success": True,
-            "result": {"from_cache": True},
-            "error": "",
-            "latency_ms": 0.5,
-        })
+        complete_dispatch(
+            "exec-3",
+            "act-3",
+            {
+                "action_id": "act-3",
+                "success": True,
+                "result": {"from_cache": True},
+                "error": "",
+                "latency_ms": 0.5,
+            },
+        )
 
         bus = MagicMock()
         bus.discover.return_value = MagicMock(handle=lambda _args: {"success": True, "from_live": True})

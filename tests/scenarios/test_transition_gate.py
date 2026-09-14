@@ -12,6 +12,7 @@ kernel/pipeline/negotiation_store.py) is exercised directly, the same way
 tests/scenarios/test_human_approval.py already exercises the sibling
 approval pause/resume mechanism.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,14 +21,17 @@ import uuid
 
 import pytest
 
-from src.monkey_brain.kernel.domains import grocery  # noqa: F401 -- registers the grocery vertical
+from src.monkey_brain.kernel.domains import (
+    grocery,
+)  # noqa: F401 -- registers the grocery vertical
 from src.monkey_brain.kernel.domains.commerce import list_product, onboard_merchant
 from src.monkey_brain.kernel.domains.grocery import create_shared_budget
 from src.monkey_brain.kernel.domains.vertical_router import build_execution_engine
 from src.monkey_brain.kernel.knowledge_graph import EntityType, KnowledgeGraph
 from src.monkey_brain.kernel.pipeline.execution import Action
 from src.monkey_brain.kernel.pipeline.negotiation_store import (
-    load_pending_negotiation, resolve_pending_negotiation,
+    load_pending_negotiation,
+    resolve_pending_negotiation,
 )
 
 
@@ -39,24 +43,47 @@ def _seed(price: float, quantity: int = 10):
 
 
 def _fund_wallet(kg, actor_id: str, balance: float) -> None:
-    kg.add_entity(f"wallet_{actor_id}", EntityType.ACCOUNT, f"{actor_id} Wallet",
-                  {"owner": actor_id, "balance": balance})
+    kg.add_entity(
+        f"wallet_{actor_id}",
+        EntityType.ACCOUNT,
+        f"{actor_id} Wallet",
+        {"owner": actor_id, "balance": balance},
+    )
 
 
 def _actions(product_id: str, execution_id: str = "", with_payment: bool = True) -> tuple[Action, ...]:
     steps = [
-        Action(action_id="a0", capability="ProductSelection", step_index=0, depends_on=(),
-               correlation_id=execution_id, parameters={"selection": [{"id": product_id, "qty": 1}]}),
-        Action(action_id="a1", capability="OrderCreation", step_index=1, depends_on=(0,),
-               correlation_id=execution_id),
+        Action(
+            action_id="a0",
+            capability="ProductSelection",
+            step_index=0,
+            depends_on=(),
+            correlation_id=execution_id,
+            parameters={"selection": [{"id": product_id, "qty": 1}]},
+        ),
+        Action(
+            action_id="a1",
+            capability="OrderCreation",
+            step_index=1,
+            depends_on=(0,),
+            correlation_id=execution_id,
+        ),
     ]
     if with_payment:
-        steps.append(Action(action_id="a2", capability="Payment", step_index=2, depends_on=(1,),
-                             correlation_id=execution_id))
+        steps.append(
+            Action(
+                action_id="a2",
+                capability="Payment",
+                step_index=2,
+                depends_on=(1,),
+                correlation_id=execution_id,
+            )
+        )
     return tuple(steps)
 
 
 # ── Test 1: simple milk purchase — no contention, no unnecessary negotiation ──
+
 
 @pytest.mark.asyncio
 async def test_gate001_simple_milk_purchase_gate_evaluated_no_unnecessary_negotiation():
@@ -86,6 +113,7 @@ async def test_gate001_simple_milk_purchase_gate_evaluated_no_unnecessary_negoti
 
 
 # ── Test 2: contended milk — two buyers, last unit ──
+
 
 @pytest.mark.asyncio
 async def test_gate002a_a_live_claim_is_visible_before_the_second_buyer_commits():
@@ -160,21 +188,30 @@ async def test_gate002b_concurrent_last_unit_never_oversold_or_double_committed(
 
 # ── Test 3: independent resources — no contention, no negotiation ──
 
+
 @pytest.mark.asyncio
 async def test_gate003_independent_resources_both_commit_no_negotiation():
     kg, product_a = _seed(price=5.00, quantity=5)
     product_b = list_product(
-        kg, onboard_merchant(kg, "merchant_b", "Whole Foods", delivery_fee=0.0)["store_id"],
-        "merchant_b", "Eggs", price=4.00, quantity=5,
+        kg,
+        onboard_merchant(kg, "merchant_b", "Whole Foods", delivery_fee=0.0)["store_id"],
+        "merchant_b",
+        "Eggs",
+        price=4.00,
+        quantity=5,
     )["product_id"]
     _fund_wallet(kg, "buyer_a", 1000.0)
     _fund_wallet(kg, "buyer_b", 1000.0)
     executor = build_execution_engine("grocery")
 
     result_a = await executor.execute(
-        _actions(product_a), {"knowledge_graph": kg, "actor_id": "buyer_a", "question": ""})
+        _actions(product_a),
+        {"knowledge_graph": kg, "actor_id": "buyer_a", "question": ""},
+    )
     result_b = await executor.execute(
-        _actions(product_b), {"knowledge_graph": kg, "actor_id": "buyer_b", "question": ""})
+        _actions(product_b),
+        {"knowledge_graph": kg, "actor_id": "buyer_b", "question": ""},
+    )
 
     assert result_a.goal_achieved is True
     assert result_b.goal_achieved is True
@@ -185,6 +222,7 @@ async def test_gate003_independent_resources_both_commit_no_negotiation():
 
 
 # ── Test 4: shared state, no conflict — co-spending within capacity ──
+
 
 @pytest.mark.asyncio
 async def test_gate004_shared_budget_compatible_spends_no_artificial_negotiation():
@@ -197,8 +235,18 @@ async def test_gate004_shared_budget_compatible_spends_no_artificial_negotiation
     budget_id = create_shared_budget(kg, ceiling=20.00, owner_ids=("buyer_a", "buyer_b"))
     executor = build_execution_engine("grocery")
 
-    context_a = {"knowledge_graph": kg, "actor_id": "buyer_a", "question": "", "shared_budget_id": budget_id}
-    context_b = {"knowledge_graph": kg, "actor_id": "buyer_b", "question": "", "shared_budget_id": budget_id}
+    context_a = {
+        "knowledge_graph": kg,
+        "actor_id": "buyer_a",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
+    context_b = {
+        "knowledge_graph": kg,
+        "actor_id": "buyer_b",
+        "question": "",
+        "shared_budget_id": budget_id,
+    }
 
     result_a = await executor.execute(_actions(product_id, with_payment=False), context_a)
     result_b = await executor.execute(_actions(product_id, with_payment=False), context_b)
@@ -212,6 +260,7 @@ async def test_gate004_shared_budget_compatible_spends_no_artificial_negotiation
 
 # ── Test 5: conflicting constraints — real pause, real resume ──
 
+
 @pytest.mark.asyncio
 async def test_gate005_declared_incompatible_constraint_pauses_then_resolves():
     """Buyer declares max_price=10, the resource declares min_price=12 —
@@ -221,16 +270,22 @@ async def test_gate005_declared_incompatible_constraint_pauses_then_resolves():
     aborts with no mutation at all; a fresh accepted negotiation commits
     exactly once."""
     kg, product_id = _seed(price=13.00, quantity=5)
-    kg.update_entity(product_id, attributes={
-        "constraints": {"min_price": 12.0}, "owner_id": "store_owner_1",
-    })
+    kg.update_entity(
+        product_id,
+        attributes={
+            "constraints": {"min_price": 12.0},
+            "owner_id": "store_owner_1",
+        },
+    )
     _fund_wallet(kg, "buyer_a", balance=1000.0)
     executor = build_execution_engine("grocery")
 
     # -- Reject path: no mutation at all --
     execution_id_reject = uuid.uuid4().hex
     context_reject = {
-        "knowledge_graph": kg, "actor_id": "buyer_a", "question": "",
+        "knowledge_graph": kg,
+        "actor_id": "buyer_a",
+        "question": "",
         "max_price": 10.0,
     }
     first = await executor.execute(_actions(product_id, execution_id_reject, with_payment=False), context_reject)
@@ -250,7 +305,10 @@ async def test_gate005_declared_incompatible_constraint_pauses_then_resolves():
 
     resolve_pending_negotiation(execution_id_reject, False)
     context_reject_2 = {
-        "knowledge_graph": kg, "actor_id": "buyer_a", "question": "", "max_price": 10.0,
+        "knowledge_graph": kg,
+        "actor_id": "buyer_a",
+        "question": "",
+        "max_price": 10.0,
     }
     second = await executor.execute(_actions(product_id, execution_id_reject, with_payment=False), context_reject_2)
     assert second.goal_achieved is False
@@ -262,14 +320,20 @@ async def test_gate005_declared_incompatible_constraint_pauses_then_resolves():
     # -- Accept path: commits exactly once, only after agreement --
     execution_id_accept = uuid.uuid4().hex
     context_accept = {
-        "knowledge_graph": kg, "actor_id": "buyer_a", "question": "", "max_price": 10.0,
+        "knowledge_graph": kg,
+        "actor_id": "buyer_a",
+        "question": "",
+        "max_price": 10.0,
     }
     paused = await executor.execute(_actions(product_id, execution_id_accept, with_payment=False), context_accept)
     assert paused.status == "waiting_for_negotiation"
 
     resolve_pending_negotiation(execution_id_accept, True)
     context_accept_2 = {
-        "knowledge_graph": kg, "actor_id": "buyer_a", "question": "", "max_price": 10.0,
+        "knowledge_graph": kg,
+        "actor_id": "buyer_a",
+        "question": "",
+        "max_price": 10.0,
     }
     resumed = await executor.execute(_actions(product_id, execution_id_accept, with_payment=False), context_accept_2)
 
@@ -280,6 +344,7 @@ async def test_gate005_declared_incompatible_constraint_pauses_then_resolves():
 
 
 # ── Test 6: stale local belief — no fabricated negotiation ──
+
 
 @pytest.mark.asyncio
 async def test_gate006_stale_belief_does_not_fabricate_negotiation():
@@ -307,13 +372,19 @@ async def test_gate006_stale_belief_does_not_fabricate_negotiation():
 
 # ── Test 7: commit ordering ──
 
+
 @pytest.mark.asyncio
-async def test_gate007_commit_ordering_proposal_before_negotiation_before_commit(monkeypatch):
+async def test_gate007_commit_ordering_proposal_before_negotiation_before_commit(
+    monkeypatch,
+):
     """Instruments the real proposal/negotiation-store/reservation call
     sites and asserts: proposal_created < negotiation_started <
     negotiation_completed < state_commit."""
     kg, product_id = _seed(price=13.00, quantity=5)
-    kg.update_entity(product_id, attributes={"constraints": {"min_price": 12.0}, "owner_id": "store_owner_1"})
+    kg.update_entity(
+        product_id,
+        attributes={"constraints": {"min_price": 12.0}, "owner_id": "store_owner_1"},
+    )
     _fund_wallet(kg, "buyer_a", balance=1000.0)
     executor = build_execution_engine("grocery")
     execution_id = uuid.uuid4().hex
@@ -344,7 +415,12 @@ async def test_gate007_commit_ordering_proposal_before_negotiation_before_commit
 
     monkeypatch.setattr(grocery, "try_reserve", spy_try_reserve)
 
-    context = {"knowledge_graph": kg, "actor_id": "buyer_a", "question": "", "max_price": 10.0}
+    context = {
+        "knowledge_graph": kg,
+        "actor_id": "buyer_a",
+        "question": "",
+        "max_price": 10.0,
+    }
     paused = await executor.execute(_actions(product_id, execution_id, with_payment=False), context)
     assert paused.status == "waiting_for_negotiation"
 
@@ -358,7 +434,12 @@ async def test_gate007_commit_ordering_proposal_before_negotiation_before_commit
     assert negotiation_completed > timestamps["negotiation_started"]
 
     time.sleep(0.01)
-    context2 = {"knowledge_graph": kg, "actor_id": "buyer_a", "question": "", "max_price": 10.0}
+    context2 = {
+        "knowledge_graph": kg,
+        "actor_id": "buyer_a",
+        "question": "",
+        "max_price": 10.0,
+    }
     resumed = await executor.execute(_actions(product_id, execution_id, with_payment=False), context2)
     assert resumed.goal_achieved is True
 
@@ -378,19 +459,34 @@ async def test_gate007_commit_ordering_proposal_before_negotiation_before_commit
 # path Order/Payment use now also covers both mutation functions: no
 # commit before the resource owner accepts, exactly one commit after.
 
+
 def _seed_shareable_asset(name: str, owner_id: str, quantity: int = 5) -> tuple[KnowledgeGraph, str]:
     kg = KnowledgeGraph()
     entity_id = f"asset_{name.lower()}"
-    kg.add_entity(entity_id, EntityType.ASSET, name, {
-        "owner_id": owner_id, "pantry": True, "shareable": True,
-        "quantity": quantity, "loans": [],
-    })
+    kg.add_entity(
+        entity_id,
+        EntityType.ASSET,
+        name,
+        {
+            "owner_id": owner_id,
+            "pantry": True,
+            "shareable": True,
+            "quantity": quantity,
+            "loans": [],
+        },
+    )
     return kg, entity_id
 
 
 def _social_action(execution_id: str) -> Action:
-    return Action(action_id="a0", capability="SocialSourcing", step_index=0, depends_on=(),
-                  correlation_id=execution_id, parameters={})
+    return Action(
+        action_id="a0",
+        capability="SocialSourcing",
+        step_index=0,
+        depends_on=(),
+        correlation_id=execution_id,
+        parameters={},
+    )
 
 
 @pytest.mark.asyncio
@@ -438,10 +534,19 @@ async def test_gate008a_social_borrow_pauses_for_owner_consent_then_resolves():
 @pytest.mark.asyncio
 async def test_gate008b_social_purchase_pauses_for_seller_consent_then_resolves():
     kg = KnowledgeGraph()
-    kg.add_entity("asset_bread", EntityType.ASSET, "Bread", {
-        "owner_id": "neighbor_c", "pantry": True, "for_sale": True,
-        "price": 3.0, "min_price": 2.0, "quantity": 5,
-    })
+    kg.add_entity(
+        "asset_bread",
+        EntityType.ASSET,
+        "Bread",
+        {
+            "owner_id": "neighbor_c",
+            "pantry": True,
+            "for_sale": True,
+            "price": 3.0,
+            "min_price": 2.0,
+            "quantity": 5,
+        },
+    )
     _fund_wallet(kg, "buyer_a", balance=1000.0)
     _fund_wallet(kg, "neighbor_c", balance=0.0)
     executor = build_execution_engine("grocery")

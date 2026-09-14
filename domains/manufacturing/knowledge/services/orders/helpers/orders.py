@@ -38,7 +38,9 @@ async def get_all(
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[OrderResponse], int]:
-    detail_records, total = await details_crud.get_all(db, page=page, page_size=page_size)
+    detail_records, total = await details_crud.get_all(
+        db, page=page, page_size=page_size
+    )
     return [await _build_response(db, details) for details in detail_records], total
 
 
@@ -89,7 +91,9 @@ async def update(
         else:
             await metadata_crud.create(
                 db,
-                OrderMetadataCreate(order_id=order_id, **data.metadata.model_dump(exclude_unset=True)),
+                OrderMetadataCreate(
+                    order_id=order_id, **data.metadata.model_dump(exclude_unset=True)
+                ),
             )
     if data.payment is not None:
         if await payment_crud.get_by_order_id(db, order_id):
@@ -97,7 +101,9 @@ async def update(
         else:
             await payment_crud.create(
                 db,
-                OrderPaymentMetadataCreate(order_id=order_id, **data.payment.model_dump(exclude_unset=True)),
+                OrderPaymentMetadataCreate(
+                    order_id=order_id, **data.payment.model_dump(exclude_unset=True)
+                ),
             )
     if data.metrics is not None:
         if await metrics_crud.get_by_order_id(db, order_id):
@@ -105,7 +111,9 @@ async def update(
         else:
             await metrics_crud.create(
                 db,
-                CustomerOrderMetricsCreate(order_id=order_id, **data.metrics.model_dump(exclude_unset=True)),
+                CustomerOrderMetricsCreate(
+                    order_id=order_id, **data.metrics.model_dump(exclude_unset=True)
+                ),
             )
 
     return await get_by_order_id(db, order_id)

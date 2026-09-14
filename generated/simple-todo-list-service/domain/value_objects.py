@@ -14,7 +14,7 @@ class Status(str, Enum):
     COMPLETED = "completed"
 
     @classmethod
-    def from_str(cls, value: str) -> 'Status':
+    def from_str(cls, value: str) -> "Status":
         try:
             return cls(value.upper())
         except ValueError:

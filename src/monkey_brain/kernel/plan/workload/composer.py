@@ -3,6 +3,7 @@
 Takes a list of step definitions or workload template names,
 wires dependencies, and returns a composed Workload.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,14 +56,16 @@ class WorkloadComposer:
         # 2. Add explicit steps
         if steps:
             for s in steps:
-                all_steps.append(WorkloadStep(
-                    step_id=s.get("step_id", ""),
-                    capability_name=s.get("capability_name", ""),
-                    inputs=s.get("inputs", []),
-                    outputs=s.get("outputs", []),
-                    dependencies=s.get("dependencies", []),
-                    metadata=s.get("metadata", {}),
-                ))
+                all_steps.append(
+                    WorkloadStep(
+                        step_id=s.get("step_id", ""),
+                        capability_name=s.get("capability_name", ""),
+                        inputs=s.get("inputs", []),
+                        outputs=s.get("outputs", []),
+                        dependencies=s.get("dependencies", []),
+                        metadata=s.get("metadata", {}),
+                    )
+                )
 
         # 3. Auto-wire linear chain if no explicit dependencies
         if auto_wire and all_steps:
@@ -102,7 +105,10 @@ class WorkloadComposer:
         """Load a workload template by name."""
         templates: dict[str, Any] = {}
         try:
-            from src.monkey_brain.kernel.fix.self_healing.workload import create_self_healing_workload
+            from src.monkey_brain.kernel.fix.self_healing.workload import (
+                create_self_healing_workload,
+            )
+
             templates["self-healing"] = create_self_healing_workload
         except ImportError:
             logger.debug("_load_template: suppressed exception", exc_info=True)
@@ -127,7 +133,8 @@ class WorkloadComposer:
                 if dep not in step_ids:
                     logger.warning(
                         "Step %s depends on unknown step %s — ignoring",
-                        step.step_id, dep,
+                        step.step_id,
+                        dep,
                     )
             # Check for self-dependency
             if step.step_id in step.dependencies:

@@ -11,7 +11,6 @@ from services.workorders.models.executed_bmr_records import (
     PaginatedExecutedBmrRecordResponse,
 )
 
-
 router = APIRouter()
 
 
@@ -35,7 +34,9 @@ async def list_executed_bmr_records(
         status=status_filter,
         mbmr_template_id=mbmr_template_id,
     )
-    return PaginatedExecutedBmrRecordResponse(total=total, page=page, page_size=page_size, results=records)
+    return PaginatedExecutedBmrRecordResponse(
+        total=total, page=page, page_size=page_size, results=records
+    )
 
 
 @router.get("/{executed_bmr_record_id}", response_model=ExecutedBmrRecordResponse)
@@ -46,18 +47,26 @@ async def get_executed_bmr_record(
 ):
     record = await crud.get_by_id(db, executed_bmr_record_id)
     if not record:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Executed BMR record '{executed_bmr_record_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Executed BMR record '{executed_bmr_record_id}' not found",
+        )
     return record
 
 
-@router.post("/", response_model=ExecutedBmrRecordResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=ExecutedBmrRecordResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_executed_bmr_record(
     data: ExecutedBmrRecordCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: dict = Depends(require_permission("perm-create-tasks")),
 ):
     if await crud.get_by_id(db, data.executed_bmr_record_id):
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=f"Executed BMR record '{data.executed_bmr_record_id}' already exists")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=f"Executed BMR record '{data.executed_bmr_record_id}' already exists",
+        )
     if data.created_by is None:
         data.created_by = current_user.get("sub")
     return await crud.create(db, data)
@@ -72,7 +81,10 @@ async def update_executed_bmr_record(
 ):
     updated = await crud.update(db, executed_bmr_record_id, data)
     if not updated:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Executed BMR record '{executed_bmr_record_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Executed BMR record '{executed_bmr_record_id}' not found",
+        )
     return updated
 
 
@@ -83,4 +95,7 @@ async def delete_executed_bmr_record(
     _: dict = Depends(require_permission("perm-delete-tasks")),
 ):
     if not await crud.delete(db, executed_bmr_record_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"Executed BMR record '{executed_bmr_record_id}' not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"Executed BMR record '{executed_bmr_record_id}' not found",
+        )

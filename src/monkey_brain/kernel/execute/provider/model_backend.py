@@ -32,6 +32,7 @@ asyncio.to_thread as before, unaffected by this change and carrying the
 same fire-and-forget limitation MODEL_BACKEND=ollama used to have before
 its own fix.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,17 +44,17 @@ logger = logging.getLogger("monkey_brain.model_backend")
 
 _DEFAULT_PROVIDER = os.environ.get("MODEL_BACKEND", "ollama")
 _DEFAULT_MODEL_MAP: dict[str, str] = {
-    "claude":     "claude-sonnet-4-6",
+    "claude": "claude-sonnet-4-6",
     "openrouter": os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
-    "gpt":        "gpt-4o",
-    "gemini":     "gemini-1.5-pro",
-    "qwen":       "qwen2.5-72b-instruct",
-    "ollama":     os.environ.get("OLLAMA_MODEL", "gemma3:latest"),
+    "gpt": "gpt-4o",
+    "gemini": "gemini-1.5-pro",
+    "qwen": "qwen2.5-72b-instruct",
+    "ollama": os.environ.get("OLLAMA_MODEL", "gemma3:latest"),
     # llama-server serves exactly one model per process (whatever -m
     # pointed at on startup) -- this "model" field is only ever echoed
     # back in its OpenAI-compatible response, never used for routing, so
     # it's descriptive/observability metadata, not a live selector.
-    "llamacpp":   os.environ.get("LLAMACPP_MODEL", "gemma-3-4b-it-Q4_K_M"),
+    "llamacpp": os.environ.get("LLAMACPP_MODEL", "gemma-3-4b-it-Q4_K_M"),
 }
 
 
@@ -115,7 +116,12 @@ class ModelBackend:
         raise ValueError(f"Unknown MODEL_BACKEND provider: {self._provider!r}")
 
     def stats(self) -> dict[str, Any]:
-        return {"provider": self._provider, "model": self._model, "calls": self._call_count, "total_tokens": self._total_tokens}
+        return {
+            "provider": self._provider,
+            "model": self._model,
+            "calls": self._call_count,
+            "total_tokens": self._total_tokens,
+        }
 
     # ------------------------------------------------------------------
     # Provider implementations
@@ -126,6 +132,7 @@ class ModelBackend:
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
         import anthropic
+
         client = anthropic.Anthropic(api_key=api_key)
         messages = [{"role": "user", "content": prompt}]
         resp = client.messages.create(
@@ -153,13 +160,15 @@ class ModelBackend:
         if not api_key:
             raise RuntimeError("OPENROUTER_API_KEY not set")
         base_url = os.environ.get("OPENROUTER_API_BASE_URL") or os.environ.get(
-            "OPENROUTER_API_URL", "https://openrouter.ai/api/v1",
+            "OPENROUTER_API_URL",
+            "https://openrouter.ai/api/v1",
         )
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
         import httpx
+
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
                 f"{base_url}/chat/completions",
@@ -168,7 +177,11 @@ class ModelBackend:
                     "HTTP-Referer": os.environ.get("APP_URL", "https://github.com/monkeypatched"),
                     "X-Title": os.environ.get("APP_NAME", "MonkeyBrain"),
                 },
-                json={"model": self._model, "messages": messages, "max_tokens": max_tokens},
+                json={
+                    "model": self._model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                },
             )
         resp.raise_for_status()
         data = resp.json()
@@ -183,6 +196,7 @@ class ModelBackend:
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY not set")
         import openai
+
         client = openai.OpenAI(api_key=api_key)
         messages = []
         if system:
@@ -197,6 +211,7 @@ class ModelBackend:
         if not api_key:
             raise RuntimeError("GOOGLE_API_KEY not set")
         import google.generativeai as genai
+
         genai.configure(api_key=api_key)
         full = f"{system}\n\n{prompt}" if system else prompt
         model = genai.GenerativeModel(self._model)
@@ -210,6 +225,7 @@ class ModelBackend:
         if not api_key:
             raise RuntimeError("DASHSCOPE_API_KEY not set")
         import openai
+
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
         messages = []
         if system:
@@ -235,6 +251,7 @@ class ModelBackend:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
         import httpx
+
         # Real gap this closes: Ollama's own default context window is
         # 4096 tokens when no override is given -- confirmed live via the
         # running llama-server process args ("-c 4096"). llm_planner.py's
@@ -255,7 +272,9 @@ class ModelBackend:
             resp = await client.post(
                 f"{base_url}/api/chat",
                 json={
-                    "model": self._model, "messages": messages, "stream": False,
+                    "model": self._model,
+                    "messages": messages,
+                    "stream": False,
                     "options": {"num_ctx": 8192},
                 },
             )
@@ -279,10 +298,15 @@ class ModelBackend:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
         import httpx
+
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
                 f"{base_url}/v1/chat/completions",
-                json={"model": self._model, "messages": messages, "max_tokens": max_tokens},
+                json={
+                    "model": self._model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                },
             )
         resp.raise_for_status()
         data = resp.json()

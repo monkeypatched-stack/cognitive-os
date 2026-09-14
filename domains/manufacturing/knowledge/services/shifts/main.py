@@ -11,8 +11,8 @@ from services.shifts.routers.shift_templates import router as shift_templates_ro
 from services.shifts.routers.shifts import router as shifts_router
 from services.shifts.routers.timesheets import router as timesheets_router
 
-
 logger = configure_service_logging("shifts")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,13 +32,17 @@ install_route_tracing(app, "shifts")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(shift_templates_router, prefix="/api/v1/shift-templates", tags=["Shift Templates"])
+app.include_router(
+    shift_templates_router, prefix="/api/v1/shift-templates", tags=["Shift Templates"]
+)
 app.include_router(shifts_router, prefix="/api/v1/shifts", tags=["Shifts"])
 app.include_router(timesheets_router, prefix="/api/v1/timesheets", tags=["Timesheets"])
 

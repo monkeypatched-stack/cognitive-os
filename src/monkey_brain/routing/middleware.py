@@ -4,6 +4,7 @@ The middleware uses the learned DataRoutingPolicy to select the best
 database for each business entity query. Business agents never know
 which database was selected.
 """
+
 from __future__ import annotations
 
 import logging
@@ -11,7 +12,10 @@ import time
 from typing import Any
 
 from src.monkey_brain.routing.policy import (
-    DataRoutingPolicy, RoutingCandidate, RoutingObservation, RoutingEntry,
+    DataRoutingPolicy,
+    RoutingCandidate,
+    RoutingObservation,
+    RoutingEntry,
 )
 from src.monkey_brain.routing.adapters import (
     RepositoryAdapter,
@@ -42,9 +46,19 @@ class DataRoutingMiddleware:
         self._adapters[adapter.adapter_type] = adapter
         connected = await adapter.connect()
         self._connected[adapter.adapter_type] = connected
-        logger.info("[routing] Registered adapter: %s (connected=%s)", adapter.adapter_type, connected)
+        logger.info(
+            "[routing] Registered adapter: %s (connected=%s)",
+            adapter.adapter_type,
+            connected,
+        )
 
-    async def resolve(self, capability: str, entity: str, entity_id: str | None = None, filters: dict | None = None) -> dict[str, Any]:
+    async def resolve(
+        self,
+        capability: str,
+        entity: str,
+        entity_id: str | None = None,
+        filters: dict | None = None,
+    ) -> dict[str, Any]:
         """Resolve an entity query to the best data source.
 
         Args:
@@ -74,17 +88,19 @@ class DataRoutingMiddleware:
             results = await adapter.query(entity, entity_id, filters)
             latency_ms = (time.time() - t0) * 1000
 
-            self._policy.observe(RoutingObservation(
-                capability=capability,
-                entity=entity,
-                database=selected.database,
-                repository=selected.repository,
-                latency_ms=latency_ms,
-                confidence=0.9 if results else 0.1,
-                completeness=1.0 if results else 0.0,
-                freshness=1.0,
-                success=bool(results),
-            ))
+            self._policy.observe(
+                RoutingObservation(
+                    capability=capability,
+                    entity=entity,
+                    database=selected.database,
+                    repository=selected.repository,
+                    latency_ms=latency_ms,
+                    confidence=0.9 if results else 0.1,
+                    completeness=1.0 if results else 0.0,
+                    freshness=1.0,
+                    success=bool(results),
+                )
+            )
 
             return {
                 "results": results,
@@ -98,17 +114,19 @@ class DataRoutingMiddleware:
 
         except Exception as e:
             latency_ms = (time.time() - t0) * 1000
-            self._policy.observe(RoutingObservation(
-                capability=capability,
-                entity=entity,
-                database=selected.database,
-                repository=selected.repository,
-                latency_ms=latency_ms,
-                confidence=0.0,
-                completeness=0.0,
-                freshness=0.0,
-                success=False,
-            ))
+            self._policy.observe(
+                RoutingObservation(
+                    capability=capability,
+                    entity=entity,
+                    database=selected.database,
+                    repository=selected.repository,
+                    latency_ms=latency_ms,
+                    confidence=0.0,
+                    completeness=0.0,
+                    freshness=0.0,
+                    success=False,
+                )
+            )
 
             self._policy.invalidate(capability, entity, selected.database)
 
@@ -120,35 +138,49 @@ class DataRoutingMiddleware:
                         try:
                             results = await alt_adapter.query(entity, entity_id, filters)
                             if results:
-                                self._policy.observe(RoutingObservation(
-                                    capability=capability,
-                                    entity=entity,
-                                    database=alt.database,
-                                    repository=alt.repository,
-                                    latency_ms=(time.time() - t0) * 1000,
-                                    confidence=0.8,
-                                    completeness=1.0,
-                                    freshness=1.0,
-                                    success=True,
-                                ))
-                                return {"results": results, "source": alt.database, "repository": alt.repository, "confidence": 0.8}
+                                self._policy.observe(
+                                    RoutingObservation(
+                                        capability=capability,
+                                        entity=entity,
+                                        database=alt.database,
+                                        repository=alt.repository,
+                                        latency_ms=(time.time() - t0) * 1000,
+                                        confidence=0.8,
+                                        completeness=1.0,
+                                        freshness=1.0,
+                                        success=True,
+                                    )
+                                )
+                                return {
+                                    "results": results,
+                                    "source": alt.database,
+                                    "repository": alt.repository,
+                                    "confidence": 0.8,
+                                }
                         except Exception:
                             continue
 
-            return {"results": [], "source": selected.database, "confidence": 0.0, "error": str(e)}
+            return {
+                "results": [],
+                "source": selected.database,
+                "confidence": 0.0,
+                "error": str(e),
+            }
 
     def _discover_candidates(self, capability: str) -> list[RoutingCandidate]:
         """Discover candidate data sources for a capability."""
         candidates = []
         for adapter_type, adapter in self._adapters.items():
             if capability in adapter.capabilities():
-                candidates.append(RoutingCandidate(
-                    database=adapter_type,
-                    repository=f"{adapter_type}.{capability}",
-                    capability=capability,
-                    advertised=True,
-                    available=self._connected.get(adapter_type, False),
-                ))
+                candidates.append(
+                    RoutingCandidate(
+                        database=adapter_type,
+                        repository=f"{adapter_type}.{capability}",
+                        capability=capability,
+                        advertised=True,
+                        available=self._connected.get(adapter_type, False),
+                    )
+                )
         return candidates
 
     def get_routing_table(self) -> list[RoutingEntry]:

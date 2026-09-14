@@ -1,13 +1,14 @@
 """Unit tests for CognitiveKernel — the central cognitive loop."""
+
 import asyncio
 import pytest
 
 from monkey_brain.kernel.cognitive_kernel import CognitiveKernel
 
-
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
+
 
 def test_kernel_initialises_without_error():
     k = CognitiveKernel()
@@ -32,6 +33,7 @@ def test_kernel_state_has_epa_fields():
 # set_goal
 # ---------------------------------------------------------------------------
 
+
 def test_set_goal_updates_objective():
     k = CognitiveKernel()
     k.set_goal("minimise equipment downtime")
@@ -55,6 +57,7 @@ def test_set_goal_replaces_previous_goal():
 # get_state
 # ---------------------------------------------------------------------------
 
+
 def test_get_state_returns_expected_keys():
     k = CognitiveKernel()
     state = k.get_state()
@@ -70,6 +73,7 @@ def test_get_state_step_zero_on_fresh_kernel():
 # ---------------------------------------------------------------------------
 # step() — planner drives action selection
 # ---------------------------------------------------------------------------
+
 
 def test_step_returns_required_keys():
     k = CognitiveKernel()
@@ -109,6 +113,7 @@ def test_step_updates_epa_state():
 # Learning loop (Law 4 — all three components update)
 # ---------------------------------------------------------------------------
 
+
 def test_planner_policy_updated_after_step():
     k = CognitiveKernel()
     k.set_goal("learn goal")
@@ -133,6 +138,7 @@ def test_capability_utility_populated_after_step():
 # ---------------------------------------------------------------------------
 # History
 # ---------------------------------------------------------------------------
+
 
 def test_history_grows_with_steps():
     k = CognitiveKernel()

@@ -17,8 +17,8 @@ from services.facilities.routers.floors import router as floors_router
 from services.facilities.routers.rooms import router as rooms_router
 from services.facilities.routers.bays import router as bays_router
 
-
 logger = configure_service_logging("facilities")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,7 +38,9 @@ install_route_tracing(app, "facilities")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=__import__("services.common.config", fromlist=["cors_allow_origins"]).cors_allow_origins(),
+    allow_origins=__import__(
+        "services.common.config", fromlist=["cors_allow_origins"]
+    ).cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,7 +49,9 @@ app.add_middleware(
 app.include_router(plants_router, prefix="/api/v1/plants", tags=["Plants"])
 app.include_router(lines_router, prefix="/api/v1/lines", tags=["Lines"])
 app.include_router(stages_router, prefix="/api/v1/stages", tags=["Stages"])
-app.include_router(workstations_router, prefix="/api/v1/workstations", tags=["Workstations"])
+app.include_router(
+    workstations_router, prefix="/api/v1/workstations", tags=["Workstations"]
+)
 app.include_router(locations_router, prefix="/api/v1/locations", tags=["Locations"])
 app.include_router(buildings_router, prefix="/api/v1/buildings", tags=["Buildings"])
 app.include_router(floors_router, prefix="/api/v1/floors", tags=["Floors"])

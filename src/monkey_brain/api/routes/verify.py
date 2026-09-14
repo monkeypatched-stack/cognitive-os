@@ -10,6 +10,7 @@ POST /verify/world        — canonical entry point (Gate 3)
 POST /verify               — same report (kept for backward compatibility)
 GET  /verify/invariants    — same report (GET alias, since it's read-only)
 """
+
 from __future__ import annotations
 
 import logging

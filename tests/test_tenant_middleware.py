@@ -2,11 +2,16 @@
 
 Tests for tenant context enforcement throughout pipeline.
 """
+
 import pytest
 from unittest.mock import Mock
 from src.actor.tenant_middleware import (
-    TenantContext, require_tenant, validate_response_tenant,
-    tenant_scoped_query, TenantMiddleware, get_tenant_middleware
+    TenantContext,
+    require_tenant,
+    validate_response_tenant,
+    tenant_scoped_query,
+    TenantMiddleware,
+    get_tenant_middleware,
 )
 
 
@@ -48,6 +53,7 @@ class TestRequireTenantDecorator:
 
     def test_require_tenant_validates_request(self):
         """@require_tenant validates tenant_id."""
+
         @require_tenant
         def process(request):
             return {"status": "ok", "tenant": TenantContext.get_tenant()}
@@ -61,6 +67,7 @@ class TestRequireTenantDecorator:
 
     def test_require_tenant_rejects_missing_tenant_id(self):
         """@require_tenant raises if tenant_id missing."""
+
         @require_tenant
         def process(request):
             return {"status": "ok"}
@@ -72,6 +79,7 @@ class TestRequireTenantDecorator:
 
     def test_require_tenant_rejects_invalid_tenant_id(self):
         """@require_tenant raises if tenant_id invalid."""
+
         @require_tenant
         def process(request):
             return {"status": "ok"}
@@ -269,6 +277,7 @@ class TestGlobalMiddlewareInstance:
 # ──────────────────────────────────────────────────────────────
 # PHASE 2.2 COMPLETION
 # ──────────────────────────────────────────────────────────────
+
 
 class TestPhase2Deliverable22Complete:
     """Verify tenant middleware enforcement complete."""

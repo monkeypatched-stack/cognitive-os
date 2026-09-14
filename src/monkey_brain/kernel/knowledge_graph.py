@@ -12,6 +12,7 @@ Usage:
     kg.add_entity("employer", "Acme Corp", {"salary": 100000})
     kg.add_relationship("alice", "WORKS_FOR", "employer")
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,8 +42,10 @@ def _index_keywords(name: str) -> set[str]:
 # Entity Types
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class EntityType(str, Enum):
     """Types of entities in the knowledge graph."""
+
     PERSON = "person"
     ORGANIZATION = "organization"
     ADDRESS = "address"
@@ -72,6 +75,7 @@ class EntityType(str, Enum):
 
 class RelationshipType(str, Enum):
     """Types of relationships in the knowledge graph."""
+
     # Identity
     LIVES_AT = "LIVES_AT"
     BORN_ON = "BORN_ON"
@@ -153,9 +157,11 @@ class RelationshipType(str, Enum):
 # Data Classes
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class Entity:
     """An entity in the knowledge graph."""
+
     entity_id: str
     entity_type: EntityType = EntityType.OTHER
     name: str = ""
@@ -200,6 +206,7 @@ class Entity:
 @dataclass
 class Relationship:
     """A relationship between two entities."""
+
     relationship_id: str = ""
     source_id: str = ""
     target_id: str = ""
@@ -244,6 +251,7 @@ class Relationship:
 @dataclass
 class TemporalSnapshot:
     """A point-in-time snapshot of entity state."""
+
     snapshot_id: str = ""
     entity_id: str = ""
     year: int = 0
@@ -277,9 +285,11 @@ class TemporalSnapshot:
 # Domain-Specific Entity Classes
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class PersonEntity(Entity):
     """Person entity with identity metadata."""
+
     ssn: str = ""
     dob: str = ""
     gender: str = ""
@@ -294,6 +304,7 @@ class PersonEntity(Entity):
 @dataclass
 class AddressEntity(Entity):
     """Address entity."""
+
     street: str = ""
     city: str = ""
     state: str = ""
@@ -309,6 +320,7 @@ class AddressEntity(Entity):
 @dataclass
 class OrganizationEntity(Entity):
     """Organization entity."""
+
     ein: str = ""
     industry: str = ""
     size: str = ""
@@ -324,6 +336,7 @@ class OrganizationEntity(Entity):
 @dataclass
 class AssetEntity(Entity):
     """Asset entity."""
+
     asset_type: str = ""
     purchase_date: str = ""
     purchase_price: float = 0.0
@@ -339,6 +352,7 @@ class AssetEntity(Entity):
 @dataclass
 class InvestmentEntity(Entity):
     """Investment entity."""
+
     investment_type: str = ""  # stock, bond, crypto, mutual_fund, etf
     ticker: str = ""
     shares: float = 0.0
@@ -354,6 +368,7 @@ class InvestmentEntity(Entity):
 @dataclass
 class IncomeEntity(Entity):
     """Income entity."""
+
     income_type: str = ""  # salary, wages, interest, dividend, capital_gain, rental, self_employment
     amount: float = 0.0
     frequency: str = ""  # annual, monthly, weekly, one_time
@@ -368,6 +383,7 @@ class IncomeEntity(Entity):
 @dataclass
 class ExpenseEntity(Entity):
     """Expense entity."""
+
     expense_type: str = ""  # mortgage, tuition, medical, charitable, business, personal
     amount: float = 0.0
     frequency: str = ""
@@ -381,6 +397,7 @@ class ExpenseEntity(Entity):
 @dataclass
 class LiabilityEntity(Entity):
     """Liability entity."""
+
     liability_type: str = ""  # mortgage, student_loan, car_loan, credit_card, personal_loan
     original_amount: float = 0.0
     current_balance: float = 0.0
@@ -396,6 +413,7 @@ class LiabilityEntity(Entity):
 @dataclass
 class InsuranceEntity(Entity):
     """Insurance entity."""
+
     insurance_type: str = ""  # health, life, auto, home, umbrella, disability
     provider: str = ""
     policy_number: str = ""
@@ -412,6 +430,7 @@ class InsuranceEntity(Entity):
 @dataclass
 class RetirementEntity(Entity):
     """Retirement account entity."""
+
     account_type: str = ""  # ira, roth_ira, 401k, 403b, pension, sep_ira
     provider: str = ""
     balance: float = 0.0
@@ -426,6 +445,7 @@ class RetirementEntity(Entity):
 @dataclass
 class TrustEntity(Entity):
     """Trust entity."""
+
     trust_type: str = ""  # revocable, irrevocable, living, testamentary
     trustee: str = ""
     beneficiaries: list[str] = field(default_factory=list)
@@ -440,6 +460,7 @@ class TrustEntity(Entity):
 @dataclass
 class EducationEntity(Entity):
     """Education entity."""
+
     institution: str = ""
     degree: str = ""
     field_of_study: str = ""
@@ -457,6 +478,7 @@ class EducationEntity(Entity):
 @dataclass
 class HealthEntity(Entity):
     """Health-related entity."""
+
     health_type: str = ""  # hsa, medical_expense, provider, condition
     provider: str = ""
     amount: float = 0.0
@@ -470,6 +492,7 @@ class HealthEntity(Entity):
 @dataclass
 class BusinessEntity(Entity):
     """Business entity."""
+
     business_type: str = ""  # llc, s_corp, c_corp, sole_proprietorship, partnership
     ein: str = ""
     industry: str = ""
@@ -486,6 +509,7 @@ class BusinessEntity(Entity):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Knowledge Graph
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 class KnowledgeGraph:
     """Comprehensive knowledge graph for domain metadata.
@@ -542,7 +566,12 @@ class KnowledgeGraph:
             try:
                 self._on_change(kind, obj_id, action)
             except Exception:
-                logger.debug("KnowledgeGraph on_change callback failed for %s %s %s", kind, obj_id, action)
+                logger.debug(
+                    "KnowledgeGraph on_change callback failed for %s %s %s",
+                    kind,
+                    obj_id,
+                    action,
+                )
 
     # ── Indexing (internal) ──────────────────────────────────────
 
@@ -568,9 +597,18 @@ class KnowledgeGraph:
 
     # ── Entity Operations ───────────────────────────────────────
 
-    def add_entity(self, entity_id: str, entity_type: EntityType = EntityType.OTHER,
-                   name: str = "", attributes: dict | None = None, **kwargs) -> Entity:
-        from src.monkey_brain.kernel.security_boundary import assert_state_mutation_allowed
+    def add_entity(
+        self,
+        entity_id: str,
+        entity_type: EntityType = EntityType.OTHER,
+        name: str = "",
+        attributes: dict | None = None,
+        **kwargs,
+    ) -> Entity:
+        from src.monkey_brain.kernel.security_boundary import (
+            assert_state_mutation_allowed,
+        )
+
         assert_state_mutation_allowed("knowledge_graph.add_entity")
         """Add an entity to the graph. Calling this again with an
         entity_id that already exists overwrites it (some callers rely on
@@ -617,7 +655,10 @@ class KnowledgeGraph:
 
     def update_entity(self, entity_id: str, **kwargs) -> Entity | None:
         """Update an entity."""
-        from src.monkey_brain.kernel.security_boundary import assert_state_mutation_allowed
+        from src.monkey_brain.kernel.security_boundary import (
+            assert_state_mutation_allowed,
+        )
+
         assert_state_mutation_allowed("knowledge_graph.update_entity")
         entity = self._entities.get(entity_id)
         if entity:
@@ -640,7 +681,9 @@ class KnowledgeGraph:
         Neo4jBackedKnowledgeGraph.version_of. 0 if never updated."""
         return self._entity_version.get(entity_id, 0)
 
-    def compare_and_swap(self, entity_id: str, expected_version: int, attribute_updates: dict) -> tuple[bool, Entity | None]:
+    def compare_and_swap(
+        self, entity_id: str, expected_version: int, attribute_updates: dict
+    ) -> tuple[bool, Entity | None]:
         """In-process analog of Neo4jBackedKnowledgeGraph.compare_and_swap.
 
         This graph has no separate persistence layer to race against, but
@@ -652,7 +695,10 @@ class KnowledgeGraph:
         preempted mid-call — so this dict mutation cannot interleave with
         another task's.
         """
-        from src.monkey_brain.kernel.security_boundary import assert_state_mutation_allowed
+        from src.monkey_brain.kernel.security_boundary import (
+            assert_state_mutation_allowed,
+        )
+
         assert_state_mutation_allowed("knowledge_graph.compare_and_swap")
         entity = self._entities.get(entity_id)
         if entity is None:
@@ -683,7 +729,10 @@ class KnowledgeGraph:
 
     def remove_entity(self, entity_id: str) -> bool:
         """Remove an entity and its relationships."""
-        from src.monkey_brain.kernel.security_boundary import assert_state_mutation_allowed
+        from src.monkey_brain.kernel.security_boundary import (
+            assert_state_mutation_allowed,
+        )
+
         assert_state_mutation_allowed("knowledge_graph.remove_entity")
         if entity_id not in self._entities:
             return False
@@ -747,15 +796,24 @@ class KnowledgeGraph:
 
     # ── Relationship Operations ─────────────────────────────────
 
-    def add_relationship(self, source_id: str, target_id: str,
-                         relationship_type: RelationshipType = RelationshipType.RELATED_TO,
-                         attributes: dict | None = None,
-                         start_date: str = "", end_date: str = "",
-                         confidence: float = 1.0) -> Relationship:
+    def add_relationship(
+        self,
+        source_id: str,
+        target_id: str,
+        relationship_type: RelationshipType = RelationshipType.RELATED_TO,
+        attributes: dict | None = None,
+        start_date: str = "",
+        end_date: str = "",
+        confidence: float = 1.0,
+    ) -> Relationship:
         """Add a relationship between two entities."""
-        from src.monkey_brain.kernel.security_boundary import assert_state_mutation_allowed
+        from src.monkey_brain.kernel.security_boundary import (
+            assert_state_mutation_allowed,
+        )
+
         assert_state_mutation_allowed("knowledge_graph.add_relationship")
         import uuid
+
         rel = Relationship(
             relationship_id=str(uuid.uuid4()),
             source_id=source_id,
@@ -771,9 +829,14 @@ class KnowledgeGraph:
         self._reverse_adjacency.setdefault(target_id, []).append(rel.relationship_id)
 
         # Structured logging
-        rel_type = relationship_type.value if hasattr(relationship_type, 'value') else str(relationship_type)
-        logger.info("RELATIONSHIP_ADDED: %s --[%s]--> %s (id=%s)",
-                    source_id, rel_type, target_id, rel.relationship_id[:8])
+        rel_type = relationship_type.value if hasattr(relationship_type, "value") else str(relationship_type)
+        logger.info(
+            "RELATIONSHIP_ADDED: %s --[%s]--> %s (id=%s)",
+            source_id,
+            rel_type,
+            target_id,
+            rel.relationship_id[:8],
+        )
         self._notify_change("relationship", rel.relationship_id, "upsert")
 
         return rel
@@ -784,7 +847,10 @@ class KnowledgeGraph:
 
     def remove_relationship(self, relationship_id: str) -> bool:
         """Remove a relationship."""
-        from src.monkey_brain.kernel.security_boundary import assert_state_mutation_allowed
+        from src.monkey_brain.kernel.security_boundary import (
+            assert_state_mutation_allowed,
+        )
+
         assert_state_mutation_allowed("knowledge_graph.remove_relationship")
         rel = self._relationships.pop(relationship_id, None)
         if rel is None:
@@ -827,8 +893,7 @@ class KnowledgeGraph:
 
     def relationships_between(self, source_id: str, target_id: str) -> list[Relationship]:
         """Get all relationships between two entities."""
-        return [r for r in self._relationships.values()
-                if r.source_id == source_id and r.target_id == target_id]
+        return [r for r in self._relationships.values() if r.source_id == source_id and r.target_id == target_id]
 
     @property
     def relationship_count(self) -> int:
@@ -839,6 +904,7 @@ class KnowledgeGraph:
     def create_snapshot(self, year: int) -> TemporalSnapshot:
         """Create a temporal snapshot."""
         import uuid
+
         snapshot = TemporalSnapshot(
             snapshot_id=str(uuid.uuid4()),
             entity_id=self.person_id,
@@ -882,6 +948,7 @@ class KnowledgeGraph:
             return []
 
         from collections import deque
+
         queue = deque([(source_id, [])])
         visited = {source_id}
 
@@ -935,51 +1002,83 @@ class KnowledgeGraph:
 
     def get_employers(self) -> list[Entity]:
         """Get employers."""
-        return [self._entities[r.target_id] for r in self._relationships.values()
-                if r.source_id == self.person_id and r.relationship_type == RelationshipType.WORKS_FOR
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._relationships.values()
+            if r.source_id == self.person_id
+            and r.relationship_type == RelationshipType.WORKS_FOR
+            and r.target_id in self._entities
+        ]
 
     def get_assets(self) -> list[Entity]:
         """Get owned assets."""
-        return [self._entities[r.target_id] for r in self._relationships.values()
-                if r.source_id == self.person_id and r.relationship_type in (RelationshipType.OWNS, RelationshipType.POSSESSES)
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._relationships.values()
+            if r.source_id == self.person_id
+            and r.relationship_type in (RelationshipType.OWNS, RelationshipType.POSSESSES)
+            and r.target_id in self._entities
+        ]
 
     def get_investments(self) -> list[Entity]:
         """Get investments."""
-        return [self._entities[r.target_id] for r in self._relationships.values()
-                if r.source_id == self.person_id and r.relationship_type == RelationshipType.HOLDINGS
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._relationships.values()
+            if r.source_id == self.person_id
+            and r.relationship_type == RelationshipType.HOLDINGS
+            and r.target_id in self._entities
+        ]
 
     def get_income_sources(self) -> list[Entity]:
         """Get income sources."""
-        return [self._entities[r.target_id] for r in self._relationships.values()
-                if r.source_id == self.person_id and r.relationship_type == RelationshipType.RECEIVES_INCOME
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._relationships.values()
+            if r.source_id == self.person_id
+            and r.relationship_type == RelationshipType.RECEIVES_INCOME
+            and r.target_id in self._entities
+        ]
 
     def get_liabilities(self) -> list[Entity]:
         """Get liabilities (debts)."""
-        return [self._entities[r.target_id] for r in self._relationships.values()
-                if r.source_id == self.person_id and r.relationship_type == RelationshipType.PAYS_EXPENSE
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._relationships.values()
+            if r.source_id == self.person_id
+            and r.relationship_type == RelationshipType.PAYS_EXPENSE
+            and r.target_id in self._entities
+        ]
 
     def get_insurance(self) -> list[Entity]:
         """Get insurance policies."""
-        return [self._entities[r.target_id] for r in self._relationships.values()
-                if r.source_id == self.person_id and r.relationship_type == RelationshipType.INSURED_BY
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._relationships.values()
+            if r.source_id == self.person_id
+            and r.relationship_type == RelationshipType.INSURED_BY
+            and r.target_id in self._entities
+        ]
 
     def get_retirement_accounts(self) -> list[Entity]:
         """Get retirement accounts."""
-        return [self._entities[r.target_id] for r in self._relationships.values()
-                if r.source_id == self.person_id and r.relationship_type == RelationshipType.CONTRIBUTES_TO
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._relationships.values()
+            if r.source_id == self.person_id
+            and r.relationship_type == RelationshipType.CONTRIBUTES_TO
+            and r.target_id in self._entities
+        ]
 
     def get_businesses(self) -> list[Entity]:
         """Get businesses."""
-        return [self._entities[r.target_id] for r in self._relationships.values()
-                if r.source_id == self.person_id and r.relationship_type == RelationshipType.OWNS_BUSINESS
-                and r.target_id in self._entities]
+        return [
+            self._entities[r.target_id]
+            for r in self._relationships.values()
+            if r.source_id == self.person_id
+            and r.relationship_type == RelationshipType.OWNS_BUSINESS
+            and r.target_id in self._entities
+        ]
 
     # ── Statistics ──────────────────────────────────────────────
 

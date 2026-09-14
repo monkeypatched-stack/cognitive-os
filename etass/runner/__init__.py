@@ -2,6 +2,7 @@
 
 MonkeyBrain owns the pipeline.  ETASS is the specification.
 """
+
 from .prompt import ETASS_PROMPT
 from .submit import submit_to_monkeybrain
 

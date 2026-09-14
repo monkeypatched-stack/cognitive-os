@@ -44,6 +44,7 @@ FAILED/CaptureResult with an explicit "not configured" reason), the same
 fail-closed-on-misconfiguration posture services/common/opa.py already
 uses for OPA.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -63,11 +64,15 @@ from src.monkey_brain.kernel.domains.payment_provider import (
 
 logger = logging.getLogger("agentos.domains.razorpay_upi_provider")
 
-_RAZORPAY_API_BASE = os.getenv("RAZORPAY_API_BASE", "https://api.razorpay.com/v1").rstrip("/")
+_RAZORPAY_API_BASE = os.getenv(
+    "RAZORPAY_API_BASE", "https://api.razorpay.com/v1"
+).rstrip("/")
 _RAZORPAY_TIMEOUT_SECONDS = float(os.getenv("RAZORPAY_TIMEOUT_SECONDS", "10"))
 
 
-def verify_webhook_signature(raw_body: bytes, signature: str, webhook_secret: str) -> bool:
+def verify_webhook_signature(
+    raw_body: bytes, signature: str, webhook_secret: str
+) -> bool:
     """Real Razorpay webhook verification: HMAC-SHA256 over the RAW request
     body (never the parsed/re-serialized JSON — a re-serialized body can
     byte-differ from what was signed and fail verification even for a
@@ -105,7 +110,9 @@ class RazorpayUPIProvider(PaymentProvider):
     ) -> None:
         self._key_id = key_id or os.getenv("RAZORPAY_KEY_ID", "")
         self._key_secret = key_secret or os.getenv("RAZORPAY_KEY_SECRET", "")
-        self._webhook_secret = webhook_secret or os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+        self._webhook_secret = webhook_secret or os.getenv(
+            "RAZORPAY_WEBHOOK_SECRET", ""
+        )
         self._currency = currency
         # order_id -> _AuthorizedPayment, populated only by
         # record_authorization() once Razorpay's payment.authorized
@@ -148,17 +155,33 @@ class RazorpayUPIProvider(PaymentProvider):
     def _auth(self) -> tuple[str, str]:
         return (self._key_id, self._key_secret)
 
-    async def reserve(self, amount: float, payer_ref: str, idempotency_key: str) -> ReservationResult:
+    async def reserve(
+        self, amount: float, payer_ref: str, idempotency_key: str
+    ) -> ReservationResult:
         if not self.is_configured():
-            return ReservationResult(False, "", ReservationStatus.FAILED, amount, "RazorpayUPIProvider is not configured (missing RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET)")
+            return ReservationResult(
+                False,
+                "",
+                ReservationStatus.FAILED,
+                amount,
+                "RazorpayUPIProvider is not configured (missing RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET)",
+            )
         if amount <= 0:
-            return ReservationResult(False, "", ReservationStatus.FAILED, amount, "amount must be positive")
+            return ReservationResult(
+                False, "", ReservationStatus.FAILED, amount, "amount must be positive"
+            )
 
         existing_order_id = self._idempotency_index.get(idempotency_key)
         if existing_order_id is not None:
             status = await self.get_reservation(existing_order_id)
             if status is not None:
-                return ReservationResult(True, existing_order_id, status.status, status.amount or amount, "idempotent replay")
+                return ReservationResult(
+                    True,
+                    existing_order_id,
+                    status.status,
+                    status.amount or amount,
+                    "idempotent replay",
+                )
 
         # amount_paise: Razorpay takes the smallest currency sub-unit
         # (paise for INR), never rupees directly.
@@ -178,37 +201,77 @@ class RazorpayUPIProvider(PaymentProvider):
                         "currency": self._currency,
                         "receipt": receipt,
                         "payment_capture": 0,
-                        "notes": {"payer_ref": payer_ref, "idempotency_key": idempotency_key},
+                        "notes": {
+                            "payer_ref": payer_ref,
+                            "idempotency_key": idempotency_key,
+                        },
                     },
                 )
         except httpx.TimeoutException as exc:
-            logger.warning("RazorpayUPIProvider.reserve: timeout after possible submission: %s", exc)
-            return ReservationResult(False, "", ReservationStatus.UNKNOWN, amount, f"order creation outcome unknown: {exc}")
+            logger.warning(
+                "RazorpayUPIProvider.reserve: timeout after possible submission: %s",
+                exc,
+            )
+            return ReservationResult(
+                False,
+                "",
+                ReservationStatus.UNKNOWN,
+                amount,
+                f"order creation outcome unknown: {exc}",
+            )
         except httpx.ConnectError as exc:
             logger.warning("RazorpayUPIProvider.reserve: request failed: %s", exc)
-            return ReservationResult(False, "", ReservationStatus.FAILED, amount, f"order creation request failed: {exc}")
+            return ReservationResult(
+                False,
+                "",
+                ReservationStatus.FAILED,
+                amount,
+                f"order creation request failed: {exc}",
+            )
         except Exception as exc:
             logger.warning("RazorpayUPIProvider.reserve: request failed: %s", exc)
-            return ReservationResult(False, "", ReservationStatus.FAILED, amount, f"order creation request failed: {exc}")
+            return ReservationResult(
+                False,
+                "",
+                ReservationStatus.FAILED,
+                amount,
+                f"order creation request failed: {exc}",
+            )
 
         if r.status_code not in (200, 201):
             reason = _extract_error(r)
-            logger.warning("RazorpayUPIProvider.reserve: order creation failed (%d): %s", r.status_code, reason)
-            return ReservationResult(False, "", ReservationStatus.FAILED, amount, reason)
+            logger.warning(
+                "RazorpayUPIProvider.reserve: order creation failed (%d): %s",
+                r.status_code,
+                reason,
+            )
+            return ReservationResult(
+                False, "", ReservationStatus.FAILED, amount, reason
+            )
 
         order = r.json()
         order_id = order.get("id", "")
         if not order_id:
-            return ReservationResult(False, "", ReservationStatus.FAILED, amount, "Razorpay response had no order id")
+            return ReservationResult(
+                False,
+                "",
+                ReservationStatus.FAILED,
+                amount,
+                "Razorpay response had no order id",
+            )
 
         self._idempotency_index[idempotency_key] = order_id
         self._order_amounts[order_id] = amount
 
         # PENDING_AUTHORIZATION, not RESERVED — see module docstring
         # constraint 1. No funds are held yet; the payer hasn't acted.
-        return ReservationResult(True, order_id, ReservationStatus.PENDING_AUTHORIZATION, amount)
+        return ReservationResult(
+            True, order_id, ReservationStatus.PENDING_AUTHORIZATION, amount
+        )
 
-    def record_authorization(self, order_id: str, payment_id: str, amount: float) -> None:
+    def record_authorization(
+        self, order_id: str, payment_id: str, amount: float
+    ) -> None:
         """Called by the webhook handler when Razorpay's payment.authorized
         event confirms a real hold now exists for this order — the ONLY
         place this provider learns an order_id maps to a real payment_id.
@@ -217,7 +280,9 @@ class RazorpayUPIProvider(PaymentProvider):
         existing = self._authorizations.get(order_id)
         if existing is not None and existing.payment_id == payment_id:
             return
-        self._authorizations[order_id] = _AuthorizedPayment(payment_id=payment_id, amount=amount)
+        self._authorizations[order_id] = _AuthorizedPayment(
+            payment_id=payment_id, amount=amount
+        )
 
     def force_capture(self, reservation_id: str) -> CaptureResult:
         """Dev/demo-only: marks a reservation captured LOCALLY, without
@@ -239,24 +304,53 @@ class RazorpayUPIProvider(PaymentProvider):
         branch already handles."""
         authorized = self._authorizations.get(reservation_id)
         if authorized is None:
-            return CaptureResult(False, reservation_id, ReservationStatus.PENDING_AUTHORIZATION, 0.0,
-                                  "no authorized payment yet for this order — cannot force-capture something never authorized")
+            return CaptureResult(
+                False,
+                reservation_id,
+                ReservationStatus.PENDING_AUTHORIZATION,
+                0.0,
+                "no authorized payment yet for this order — cannot force-capture something never authorized",
+            )
         authorized.captured = True
-        logger.warning("RazorpayUPIProvider.force_capture: %s marked captured LOCALLY — no real Razorpay capture call was made", reservation_id)
-        return CaptureResult(True, reservation_id, ReservationStatus.CAPTURED, authorized.amount, "locally simulated capture (dev/demo only)")
+        logger.warning(
+            "RazorpayUPIProvider.force_capture: %s marked captured LOCALLY — no real Razorpay capture call was made",
+            reservation_id,
+        )
+        return CaptureResult(
+            True,
+            reservation_id,
+            ReservationStatus.CAPTURED,
+            authorized.amount,
+            "locally simulated capture (dev/demo only)",
+        )
 
     async def capture(self, reservation_id: str, idempotency_key: str) -> CaptureResult:
         if not self.is_configured():
-            return CaptureResult(False, reservation_id, ReservationStatus.FAILED, 0.0, "RazorpayUPIProvider is not configured")
+            return CaptureResult(
+                False,
+                reservation_id,
+                ReservationStatus.FAILED,
+                0.0,
+                "RazorpayUPIProvider is not configured",
+            )
 
         authorized = self._authorizations.get(reservation_id)
         if authorized is None:
             return CaptureResult(
-                False, reservation_id, ReservationStatus.PENDING_AUTHORIZATION, 0.0,
+                False,
+                reservation_id,
+                ReservationStatus.PENDING_AUTHORIZATION,
+                0.0,
                 "no authorized payment yet for this order — the payer has not approved (or the webhook hasn't arrived)",
             )
         if authorized.captured:
-            return CaptureResult(True, reservation_id, ReservationStatus.CAPTURED, authorized.amount, "idempotent replay")
+            return CaptureResult(
+                True,
+                reservation_id,
+                ReservationStatus.CAPTURED,
+                authorized.amount,
+                "idempotent replay",
+            )
 
         amount_paise = int(round(authorized.amount * 100))
         try:
@@ -267,15 +361,32 @@ class RazorpayUPIProvider(PaymentProvider):
                     json={"amount": amount_paise, "currency": self._currency},
                 )
         except httpx.TimeoutException as exc:
-            logger.warning("RazorpayUPIProvider.capture: timeout after possible submission: %s", exc)
-            return CaptureResult(False, reservation_id, ReservationStatus.UNKNOWN, 0.0, f"capture outcome unknown: {exc}")
+            logger.warning(
+                "RazorpayUPIProvider.capture: timeout after possible submission: %s",
+                exc,
+            )
+            return CaptureResult(
+                False,
+                reservation_id,
+                ReservationStatus.UNKNOWN,
+                0.0,
+                f"capture outcome unknown: {exc}",
+            )
         except Exception as exc:
             logger.warning("RazorpayUPIProvider.capture: request failed: %s", exc)
-            return CaptureResult(False, reservation_id, ReservationStatus.FAILED, 0.0, f"capture request failed: {exc}")
+            return CaptureResult(
+                False,
+                reservation_id,
+                ReservationStatus.FAILED,
+                0.0,
+                f"capture request failed: {exc}",
+            )
 
         if r.status_code in (200, 201):
             authorized.captured = True
-            return CaptureResult(True, reservation_id, ReservationStatus.CAPTURED, authorized.amount)
+            return CaptureResult(
+                True, reservation_id, ReservationStatus.CAPTURED, authorized.amount
+            )
 
         reason = _extract_error(r)
         # "already captured" is Razorpay's own idempotency signal for a
@@ -283,19 +394,39 @@ class RazorpayUPIProvider(PaymentProvider):
         # idempotent-replay contract FakePaymentProvider gives for free.
         if "already been captured" in reason.lower():
             authorized.captured = True
-            return CaptureResult(True, reservation_id, ReservationStatus.CAPTURED, authorized.amount, "idempotent replay (already captured)")
+            return CaptureResult(
+                True,
+                reservation_id,
+                ReservationStatus.CAPTURED,
+                authorized.amount,
+                "idempotent replay (already captured)",
+            )
 
-        logger.warning("RazorpayUPIProvider.capture: capture failed (%d): %s", r.status_code, reason)
-        return CaptureResult(False, reservation_id, ReservationStatus.FAILED, 0.0, reason)
+        logger.warning(
+            "RazorpayUPIProvider.capture: capture failed (%d): %s",
+            r.status_code,
+            reason,
+        )
+        return CaptureResult(
+            False, reservation_id, ReservationStatus.FAILED, 0.0, reason
+        )
 
     async def release(self, reservation_id: str) -> ReservationResult:
         authorized = self._authorizations.get(reservation_id)
         if authorized is None:
             # Nothing was ever authorized for this order — a real,
             # honest release: there is no hold to cancel.
-            return ReservationResult(True, reservation_id, ReservationStatus.RELEASED, 0.0)
+            return ReservationResult(
+                True, reservation_id, ReservationStatus.RELEASED, 0.0
+            )
         if authorized.captured:
-            return ReservationResult(False, reservation_id, ReservationStatus.CAPTURED, authorized.amount, "cannot release an already-captured reservation")
+            return ReservationResult(
+                False,
+                reservation_id,
+                ReservationStatus.CAPTURED,
+                authorized.amount,
+                "cannot release an already-captured reservation",
+            )
         # See module docstring constraint 3: Razorpay has no active void
         # for a real authorized-but-uncaptured UPI payment. Reporting
         # success here would be fabricating a cancellation that did not
@@ -304,7 +435,10 @@ class RazorpayUPIProvider(PaymentProvider):
         # named explicitly so a caller doesn't retry expecting a
         # different result.
         return ReservationResult(
-            False, reservation_id, ReservationStatus.RESERVED, authorized.amount,
+            False,
+            reservation_id,
+            ReservationStatus.RESERVED,
+            authorized.amount,
             "Razorpay has no immediate-void API for an authorized UPI payment; "
             "it will auto-refund on its own once the account's configured "
             "manual-capture expiry window elapses",
@@ -314,10 +448,16 @@ class RazorpayUPIProvider(PaymentProvider):
         authorized = self._authorizations.get(reservation_id)
         if authorized is None:
             amount = self._order_amounts.get(reservation_id, 0.0)
-            return ReservationResult(True, reservation_id, ReservationStatus.PENDING_AUTHORIZATION, amount)
+            return ReservationResult(
+                True, reservation_id, ReservationStatus.PENDING_AUTHORIZATION, amount
+            )
         if authorized.captured:
-            return ReservationResult(True, reservation_id, ReservationStatus.CAPTURED, authorized.amount)
-        return ReservationResult(True, reservation_id, ReservationStatus.RESERVED, authorized.amount)
+            return ReservationResult(
+                True, reservation_id, ReservationStatus.CAPTURED, authorized.amount
+            )
+        return ReservationResult(
+            True, reservation_id, ReservationStatus.RESERVED, authorized.amount
+        )
 
 
 _default_provider: "RazorpayUPIProvider | None" = None
@@ -398,19 +538,29 @@ def schedule_auto_approval(order_id: str, amount: float) -> None:
 
     def _fire() -> None:
         import asyncio
-        from src.monkey_brain.api.routes.payments import get_default_planetary_runtime, resolve_and_resume_payment
+        from src.monkey_brain.api.routes.payments import (
+            get_default_planetary_runtime,
+            resolve_and_resume_payment,
+        )
 
         pr = get_default_planetary_runtime()
         try:
-            asyncio.run(resolve_and_resume_payment(
-                order_id=order_id,
-                payment_id=f"pay_auto_{order_id}",
-                amount=amount,
-                event="payment.authorized",
-                pr=pr,
-            ))
+            asyncio.run(
+                resolve_and_resume_payment(
+                    order_id=order_id,
+                    payment_id=f"pay_auto_{order_id}",
+                    amount=amount,
+                    event="payment.authorized",
+                    pr=pr,
+                )
+            )
         except Exception:
-            logger.warning("schedule_auto_approval: auto-approve for order %s failed (non-fatal)", order_id, exc_info=True)
+            logger.warning(
+                "schedule_auto_approval: auto-approve for order %s failed (non-fatal)",
+                order_id,
+                exc_info=True,
+            )
 
     import threading
+
     threading.Timer(_AUTO_APPROVE_SECONDS, _fire).start()

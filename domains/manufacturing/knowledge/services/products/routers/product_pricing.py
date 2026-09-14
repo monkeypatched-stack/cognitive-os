@@ -17,6 +17,7 @@ router = APIRouter()
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/")
 async def list_pricing(
     page: int = Query(1, ge=1),
@@ -30,6 +31,7 @@ async def list_pricing(
 
 # ── Filtered Queries ──────────────────────────────────────────────────────────
 
+
 @router.get("/by-product/{product_id}", response_model=list[ProductPricingRecord])
 async def list_pricing_by_product(
     product_id: str,
@@ -39,7 +41,9 @@ async def list_pricing_by_product(
     return await crud.get_by_product(db, product_id)
 
 
-@router.get("/by-product/{product_id}/active", response_model=list[ProductPricingRecord])
+@router.get(
+    "/by-product/{product_id}/active", response_model=list[ProductPricingRecord]
+)
 async def list_active_pricing_by_product(
     product_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -68,6 +72,7 @@ async def list_pricing_by_currency(
 
 # ── Get One ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/{pricing_id}", response_model=ProductPricingRecord)
 async def get_pricing(
     pricing_id: str,
@@ -85,7 +90,10 @@ async def get_pricing(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=ProductPricingRecord, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/", response_model=ProductPricingRecord, status_code=status.HTTP_201_CREATED
+)
 async def create_pricing(
     data: ProductPricingCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -95,6 +103,7 @@ async def create_pricing(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/{pricing_id}", response_model=ProductPricingRecord)
 async def update_pricing(
@@ -113,6 +122,7 @@ async def update_pricing(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/{pricing_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_pricing(

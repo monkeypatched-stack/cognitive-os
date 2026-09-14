@@ -4,7 +4,10 @@ from uuid import uuid4
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ReturnDocument
 
-from services.customers.models.customer_metadata import CustomerMetadataCreate, CustomerMetadataUpdate
+from services.customers.models.customer_metadata import (
+    CustomerMetadataCreate,
+    CustomerMetadataUpdate,
+)
 
 COLLECTION = "customer_metadata"
 

@@ -3,6 +3,7 @@
 Single-pass render of layer-by-layer execution with status indicators,
 progress bars, and timing. No cursor manipulation.
 """
+
 from __future__ import annotations
 
 import json
@@ -87,10 +88,7 @@ def render_execution_result(result: dict) -> str:
 
     # Layers
     for li, layer in enumerate(execution_order):
-        layer_done = all(
-            _node_status(node_map.get(nid, {})) in ("complete", "failed")
-            for nid in layer
-        )
+        layer_done = all(_node_status(node_map.get(nid, {})) in ("complete", "failed") for nid in layer)
         layer_sym = " \033[32m✔\033[0m" if layer_done else ""
 
         lines.append(f"  \033[1mLayer {li + 1}{layer_sym}\033[0m")
@@ -138,9 +136,9 @@ def render_execution_result(result: dict) -> str:
     # and errored, and may well succeed on retry — so it does not earn the line.
     if unimplemented > 0:
         from repl import persona
+
         missing = [
-            (n.get("name") or n.get("agent") or n.get("id", ""))
-            for n in nodes if _node_status(n) == "unimplemented"
+            (n.get("name") or n.get("agent") or n.get("id", "")) for n in nodes if _node_status(n) == "unimplemented"
         ]
         noun = "capability is" if len(missing) == 1 else "capabilities are"
         lines.append("")
@@ -199,10 +197,17 @@ def stream_execute(base_url: str, plan_response: dict, auth_headers: dict) -> di
             for attempt in range(2):
                 with client.stream("POST", url, json=plan_response, headers=headers) as resp:
                     if resp.status_code == 401 and attempt == 0:
-                        from repl._helpers import _refresh_access_token, _auth_headers as _fresh_auth_headers
+                        from repl._helpers import (
+                            _refresh_access_token,
+                            _auth_headers as _fresh_auth_headers,
+                        )
+
                         if not _refresh_access_token():
                             return {}
-                        headers = {**_fresh_auth_headers(), "Accept": "text/event-stream"}
+                        headers = {
+                            **_fresh_auth_headers(),
+                            "Accept": "text/event-stream",
+                        }
                         continue
 
                     if resp.status_code != 200:
@@ -221,5 +226,8 @@ def stream_execute(base_url: str, plan_response: dict, auth_headers: dict) -> di
         }
     except Exception as e:
         if started:
-            return {"_stream_started": True, "_stream_error": str(e) or type(e).__name__}
+            return {
+                "_stream_started": True,
+                "_stream_error": str(e) or type(e).__name__,
+            }
         return {}

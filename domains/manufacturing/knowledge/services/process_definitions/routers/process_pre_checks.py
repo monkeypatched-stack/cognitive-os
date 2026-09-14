@@ -26,6 +26,7 @@ bearer_scheme = HTTPBearer()
 
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
+
 @router.get("/process_definition", response_model=PaginatedProcessPrechecksResponse)
 async def list_process_definition_prechecks(
     page: int = Query(1, ge=1),
@@ -45,7 +46,11 @@ async def list_process_definition_prechecks(
 
 # ── Filtered reads ────────────────────────────────────────────────────────────
 
-@router.get("/process_definition/by-process_definition/{process_definition_id}", response_model=ProcessPrechecksResponse)
+
+@router.get(
+    "/process_definition/by-process_definition/{process_definition_id}",
+    response_model=ProcessPrechecksResponse,
+)
 async def get_process_definition_prechecks_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -61,7 +66,10 @@ async def get_process_definition_prechecks_by_process_definition(
     return record
 
 
-@router.get("/process_definition/{prechecks_id}/conditions/by-severity/{severity}", response_model=list[PreCheckConditionResponse])
+@router.get(
+    "/process_definition/{prechecks_id}/conditions/by-severity/{severity}",
+    response_model=list[PreCheckConditionResponse],
+)
 async def list_process_definition_conditions_by_severity(
     prechecks_id: str,
     severity: str,
@@ -72,7 +80,10 @@ async def list_process_definition_conditions_by_severity(
     return await crud.get_conditions_by_severity(db, prechecks_id, severity)
 
 
-@router.get("/process_definition/{prechecks_id}/conditions/mandatory", response_model=list[PreCheckConditionResponse])
+@router.get(
+    "/process_definition/{prechecks_id}/conditions/mandatory",
+    response_model=list[PreCheckConditionResponse],
+)
 async def list_mandatory_process_definition_conditions(
     prechecks_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -84,7 +95,10 @@ async def list_mandatory_process_definition_conditions(
 
 # ── Single record ─────────────────────────────────────────────────────────────
 
-@router.get("/process_definition/{prechecks_id}", response_model=ProcessPrechecksResponse)
+
+@router.get(
+    "/process_definition/{prechecks_id}", response_model=ProcessPrechecksResponse
+)
 async def get_process_definition_prechecks(
     prechecks_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -102,7 +116,12 @@ async def get_process_definition_prechecks(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/process_definition", response_model=ProcessPrechecksResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/process_definition",
+    response_model=ProcessPrechecksResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_process_definition_prechecks(
     data: ProcessPrechecksCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -119,7 +138,10 @@ async def create_process_definition_prechecks(
 
 # ── Update ────────────────────────────────────────────────────────────────────
 
-@router.patch("/process_definition/{prechecks_id}", response_model=ProcessPrechecksResponse)
+
+@router.patch(
+    "/process_definition/{prechecks_id}", response_model=ProcessPrechecksResponse
+)
 async def update_process_definition_prechecks(
     prechecks_id: str,
     data: ProcessPrechecksUpdate,
@@ -138,7 +160,12 @@ async def update_process_definition_prechecks(
 
 # ── Condition mutations ───────────────────────────────────────────────────────
 
-@router.post("/process_definition/{prechecks_id}/conditions", response_model=ProcessPrechecksResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/process_definition/{prechecks_id}/conditions",
+    response_model=ProcessPrechecksResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_process_definition_condition(
     prechecks_id: str,
     data: PreCheckConditionCreate,
@@ -155,7 +182,10 @@ async def add_process_definition_condition(
     return updated
 
 
-@router.patch("/process_definition/{prechecks_id}/conditions/{condition_id}", response_model=ProcessPrechecksResponse)
+@router.patch(
+    "/process_definition/{prechecks_id}/conditions/{condition_id}",
+    response_model=ProcessPrechecksResponse,
+)
 async def update_process_definition_condition(
     prechecks_id: str,
     condition_id: str,
@@ -173,7 +203,10 @@ async def update_process_definition_condition(
     return updated
 
 
-@router.delete("/process_definition/{prechecks_id}/conditions/{condition_id}", response_model=ProcessPrechecksResponse)
+@router.delete(
+    "/process_definition/{prechecks_id}/conditions/{condition_id}",
+    response_model=ProcessPrechecksResponse,
+)
 async def remove_process_definition_condition(
     prechecks_id: str,
     condition_id: str,
@@ -192,7 +225,11 @@ async def remove_process_definition_condition(
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
-@router.delete("/process_definition/by-process_definition/{process_definition_id}", status_code=status.HTTP_204_NO_CONTENT)
+
+@router.delete(
+    "/process_definition/by-process_definition/{process_definition_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_process_definition_prechecks_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -206,7 +243,9 @@ async def delete_process_definition_prechecks_by_process_definition(
         )
 
 
-@router.delete("/process_definition/{prechecks_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/process_definition/{prechecks_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_process_definition_prechecks(
     prechecks_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -226,6 +265,7 @@ async def delete_process_definition_prechecks(
 
 # ── Filtered reads ────────────────────────────────────────────────────────────
 
+
 @router.get("/steps/by-step/{step_id}", response_model=ProcessStepPrechecksResponse)
 async def get_step_prechecks_by_step(
     step_id: str,
@@ -242,17 +282,25 @@ async def get_step_prechecks_by_step(
     return record
 
 
-@router.get("/steps/by-process_definition/{process_definition_id}", response_model=list[ProcessStepPrechecksResponse])
+@router.get(
+    "/steps/by-process_definition/{process_definition_id}",
+    response_model=list[ProcessStepPrechecksResponse],
+)
 async def list_step_prechecks_by_process_definition(
     process_definition_id: str,
     db: AsyncIOMotorDatabase = Depends(get_database),
     _: dict = Depends(get_current_user),
 ):
     """Return all step-level prechecks containers that share the given process_definition_id."""
-    return await crud.get_step_prechecks_by_process_definition_id(db, process_definition_id)
+    return await crud.get_step_prechecks_by_process_definition_id(
+        db, process_definition_id
+    )
 
 
-@router.get("/steps/{prechecks_id}/conditions/by-severity/{severity}", response_model=list[PreCheckConditionResponse])
+@router.get(
+    "/steps/{prechecks_id}/conditions/by-severity/{severity}",
+    response_model=list[PreCheckConditionResponse],
+)
 async def list_step_conditions_by_severity(
     prechecks_id: str,
     severity: str,
@@ -264,6 +312,7 @@ async def list_step_conditions_by_severity(
 
 
 # ── Single record ─────────────────────────────────────────────────────────────
+
 
 @router.get("/steps/{prechecks_id}", response_model=ProcessStepPrechecksResponse)
 async def get_step_prechecks(
@@ -283,7 +332,12 @@ async def get_step_prechecks(
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-@router.post("/steps", response_model=ProcessStepPrechecksResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/steps",
+    response_model=ProcessStepPrechecksResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_step_prechecks(
     data: ProcessStepPrechecksCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -299,6 +353,7 @@ async def create_step_prechecks(
 
 
 # ── Update ────────────────────────────────────────────────────────────────────
+
 
 @router.patch("/steps/{prechecks_id}", response_model=ProcessStepPrechecksResponse)
 async def update_step_prechecks(
@@ -319,7 +374,12 @@ async def update_step_prechecks(
 
 # ── Condition mutations ───────────────────────────────────────────────────────
 
-@router.post("/steps/{prechecks_id}/conditions", response_model=ProcessStepPrechecksResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/steps/{prechecks_id}/conditions",
+    response_model=ProcessStepPrechecksResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def add_step_condition(
     prechecks_id: str,
     data: PreCheckConditionCreate,
@@ -336,7 +396,10 @@ async def add_step_condition(
     return updated
 
 
-@router.patch("/steps/{prechecks_id}/conditions/{condition_id}", response_model=ProcessStepPrechecksResponse)
+@router.patch(
+    "/steps/{prechecks_id}/conditions/{condition_id}",
+    response_model=ProcessStepPrechecksResponse,
+)
 async def update_step_condition(
     prechecks_id: str,
     condition_id: str,
@@ -354,7 +417,10 @@ async def update_step_condition(
     return updated
 
 
-@router.delete("/steps/{prechecks_id}/conditions/{condition_id}", response_model=ProcessStepPrechecksResponse)
+@router.delete(
+    "/steps/{prechecks_id}/conditions/{condition_id}",
+    response_model=ProcessStepPrechecksResponse,
+)
 async def remove_step_condition(
     prechecks_id: str,
     condition_id: str,
@@ -372,6 +438,7 @@ async def remove_step_condition(
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
+
 
 @router.delete("/steps/by-step/{step_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_step_prechecks_by_step(

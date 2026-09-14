@@ -22,16 +22,22 @@ Written, not executed, per project convention (write test files; don't run
 pytest as part of a fix/feature change) — each scenario here was
 independently verified via standalone scripts during development.
 """
+
 import asyncio
 import sys
 import os
 
 _repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-for _p in (_repo, os.path.join(_repo, 'src')):
+for _p in (_repo, os.path.join(_repo, "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from src.monkey_brain.kernel.codegen_runtime import CodeGenRuntime, BrocaCapabilityBus, _DEFAULT_COMPLIANCE_DOMAINS, _DDD_CONSTRUCT_AGENTS
+from src.monkey_brain.kernel.codegen_runtime import (
+    CodeGenRuntime,
+    BrocaCapabilityBus,
+    _DEFAULT_COMPLIANCE_DOMAINS,
+    _DDD_CONSTRUCT_AGENTS,
+)
 from src.monkey_brain.kernel.process.manager import ProcessManager
 from src.monkey_brain.kernel.process.models import RuntimeProcessState
 from src.monkey_brain.kernel.execute.graph import NodeState
@@ -102,6 +108,7 @@ def test_broca_capability_bus_successful_dispatch():
         assert result.success is True
         assert result.output == FakeAgentResult.payload
         assert result.error == ""
+
     asyncio.run(scenario())
 
 
@@ -115,6 +122,7 @@ def test_broca_capability_bus_unknown_capability_is_graceful():
         result = await bus.execute("nonexistent_capability", {})
         assert result.success is False
         assert "no Broca agent registered" in result.error
+
     asyncio.run(scenario())
 
 
@@ -132,6 +140,7 @@ def test_broca_capability_bus_agent_exception_is_graceful():
         result = await bus.execute("cap", {})
         assert result.success is False
         assert "boom" in result.error
+
     asyncio.run(scenario())
 
 
@@ -145,9 +154,11 @@ def test_broca_capability_bus_accumulates_context_across_stages():
 
             async def handle(self, context):
                 calls.append((self.name, dict(context)))
+
                 class R:
                     success = True
                     payload = {f"{self.name}_output": True}
+
                 return R()
 
         class Registry:
@@ -161,6 +172,7 @@ def test_broca_capability_bus_accumulates_context_across_stages():
         # stage_b's call should see stage_a's output merged into context
         _, stage_b_context = calls[1]
         assert stage_b_context.get("stage_a_output") is True
+
     asyncio.run(scenario())
 
 
@@ -174,6 +186,7 @@ def test_full_sdlc_happy_path_via_stub_registry():
                 class R:
                     success = True
                     payload = {f"{self.name}_done": True}
+
                 return R()
 
         class StubRegistry:
@@ -192,13 +205,26 @@ def test_full_sdlc_happy_path_via_stub_registry():
         question = "build a work order tracking service"
         ir = build_intent_ir(
             intent={"intent": "build_service", "confidence": 0.9},
-            goal=type("G", (), {
-                "to_dict": lambda self: {"name": "build_service", "goal_type": "create"},
-                "entities": (),
-            })(),
-            run_id=run_id, question=question,
+            goal=type(
+                "G",
+                (),
+                {
+                    "to_dict": lambda self: {
+                        "name": "build_service",
+                        "goal_type": "create",
+                    },
+                    "entities": (),
+                },
+            )(),
+            run_id=run_id,
+            question=question,
         )
-        context = ExecutionContext.create(run_id=run_id, execution_mode=ExecutionMode.EXECUTE, intent_ir=ir, user_id="u1")
+        context = ExecutionContext.create(
+            run_id=run_id,
+            execution_mode=ExecutionMode.EXECUTE,
+            intent_ir=ir,
+            user_id="u1",
+        )
         graph = rt.build_sdlc_graph(question)
         bus = BrocaCapabilityBus(registry=StubRegistry(), base_context={"question": question})
 
@@ -214,6 +240,7 @@ def test_full_sdlc_happy_path_via_stub_registry():
         assert final.state == RuntimeProcessState.COMPLETED
         summary = final.graph.get_execution_summary()
         assert summary["states"].get("complete") == summary["total_nodes"]
+
     asyncio.run(scenario())
 
 

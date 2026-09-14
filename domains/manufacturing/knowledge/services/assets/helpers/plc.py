@@ -6,7 +6,6 @@ from pymongo import ReturnDocument
 
 from services.assets.models.plc import PLCResponse, PLCCreate, PLCUpdate, utc_now
 
-
 COLLECTION = "plcs"
 
 
@@ -59,7 +58,9 @@ def _normalize_status(value: object, is_online: object = None) -> str:
 def _normalize_cpu(value: object, record: dict) -> dict:
     cpu = dict(value) if isinstance(value, dict) else {}
     cpu.setdefault("manufacturer", record.get("manufacturer") or record.get("vendor"))
-    cpu.setdefault("model", record.get("cpu_model") or record.get("model") or "Unknown CPU")
+    cpu.setdefault(
+        "model", record.get("cpu_model") or record.get("model") or "Unknown CPU"
+    )
     cpu.setdefault("serial_number", record.get("serial_number"))
     cpu.setdefault("firmware_version", record.get("firmware_version"))
     return cpu
@@ -70,21 +71,36 @@ def _normalize_plc_record(doc: Optional[dict]) -> Optional[dict]:
         return None
 
     record = _serialize(doc)
-    plc_id = str(record.get("plc_id") or record.get("id") or record.get("asset_tag") or "PLC")
+    plc_id = str(
+        record.get("plc_id") or record.get("id") or record.get("asset_tag") or "PLC"
+    )
     record["plc_id"] = plc_id
     record.setdefault("name", plc_id)
-    record["is_online"] = bool(record.get("is_online")) if record.get("is_online") is not None else _normalize_status(record.get("status")) == "online"
+    record["is_online"] = (
+        bool(record.get("is_online"))
+        if record.get("is_online") is not None
+        else _normalize_status(record.get("status")) == "online"
+    )
     record["status"] = _normalize_status(record.get("status"), record.get("is_online"))
     record["cpu"] = _normalize_cpu(record.get("cpu"), record)
 
-    for list_field in ("io_modules", "programs", "tags", "communication_ports", "connected_devices", "diagnostic_events"):
+    for list_field in (
+        "io_modules",
+        "programs",
+        "tags",
+        "communication_ports",
+        "connected_devices",
+        "diagnostic_events",
+    ):
         if not isinstance(record.get(list_field), list):
             record[list_field] = []
 
     return PLCResponse.model_validate(record).model_dump()
 
 
-async def get_all(db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20) -> tuple[list[dict], int]:
+async def get_all(
+    db: AsyncIOMotorDatabase, page: int = 1, page_size: int = 20
+) -> tuple[list[dict], int]:
     query: dict = {}
     total = await db[COLLECTION].count_documents(query)
     cursor = db[COLLECTION].find(query).skip((page - 1) * page_size).limit(page_size)
@@ -116,7 +132,9 @@ async def create(db: AsyncIOMotorDatabase, data: PLCCreate) -> dict:
     return _normalize_plc_record(doc)
 
 
-async def update(db: AsyncIOMotorDatabase, plc_id: str, data: PLCUpdate) -> Optional[dict]:
+async def update(
+    db: AsyncIOMotorDatabase, plc_id: str, data: PLCUpdate
+) -> Optional[dict]:
     fields = _prepare(data.model_dump(mode="python", exclude_unset=True))
     if not fields:
         return await get_by_id(db, plc_id)

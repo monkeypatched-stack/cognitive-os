@@ -10,6 +10,7 @@ require_self_or_permission("perm-manage-actors", id_param="person_id")
 (api/dependencies.py) — the actor themselves is always allowed for their
 own graph; anyone else needs perm-manage-actors.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,13 +56,21 @@ def _get_actor_kg(request: Request, person_id: str):
     is unreachable.
     """
     try:
-        from src.monkey_brain.kernel.knowledge_graph_neo4j import Neo4jBackedKnowledgeGraph, resolve_household_id
+        from src.monkey_brain.kernel.knowledge_graph_neo4j import (
+            Neo4jBackedKnowledgeGraph,
+            resolve_household_id,
+        )
+
         household_id = resolve_household_id(person_id)
         neo4j_kg = Neo4jBackedKnowledgeGraph(person_id=person_id, household_id=household_id)
         if neo4j_kg._available:
             return neo4j_kg
     except Exception:
-        logger.debug("Neo4j-backed KG unavailable for %s, falling back to in-memory graph", person_id, exc_info=True)
+        logger.debug(
+            "Neo4j-backed KG unavailable for %s, falling back to in-memory graph",
+            person_id,
+            exc_info=True,
+        )
 
     try:
         pr = getattr(request.app.state, "planetary_runtime", None)
@@ -71,7 +80,7 @@ def _get_actor_kg(request: Request, person_id: str):
             state = sr.get_actor(person_id)
             if state is not None:
                 actor = state.actor
-                if actor and hasattr(actor, 'knowledge_graph'):
+                if actor and hasattr(actor, "knowledge_graph"):
                     return actor.knowledge_graph
         return None
     except Exception:
@@ -80,7 +89,8 @@ def _get_actor_kg(request: Request, person_id: str):
 
 @router.get("/{person_id}")
 async def get_knowledge_graph(
-    person_id: str, request: Request,
+    person_id: str,
+    request: Request,
     user_id: str = Depends(require_self_or_permission("perm-manage-actors", id_param="person_id")),
 ):
     kg = _get_actor_kg(request, person_id)
@@ -96,10 +106,13 @@ async def get_knowledge_graph(
 @router.post("/{person_id}/entities")
 @idempotent("knowledge_graph.add_entity")
 async def add_entity(
-    person_id: str, request: Request, body: EntityRequest,
+    person_id: str,
+    request: Request,
+    body: EntityRequest,
     user_id: str = Depends(require_self_or_permission("perm-manage-actors", id_param="person_id")),
 ):
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg = _get_actor_kg(request, person_id)
     if kg is None:
         raise HTTPException(status_code=404, detail=f"Knowledge graph not found for {person_id}")
@@ -108,15 +121,23 @@ async def add_entity(
     entity_type = type_map.get(body.entity_type, EntityType.OTHER)
 
     entity = kg.add_entity(body.entity_id, entity_type, body.name, body.attributes)
-    return {"status": "created", "entity_id": entity.entity_id, "entity_type": entity.entity_type.value, "name": entity.name}
+    return {
+        "status": "created",
+        "entity_id": entity.entity_id,
+        "entity_type": entity.entity_type.value,
+        "name": entity.name,
+    }
 
 
 @router.get("/{person_id}/entities")
 async def list_entities(
-    person_id: str, request: Request, entity_type: str | None = None,
+    person_id: str,
+    request: Request,
+    entity_type: str | None = None,
     user_id: str = Depends(require_self_or_permission("perm-manage-actors", id_param="person_id")),
 ):
     from src.monkey_brain.kernel.knowledge_graph import EntityType
+
     kg = _get_actor_kg(request, person_id)
     if kg is None:
         raise HTTPException(status_code=404, detail=f"Knowledge graph not found for {person_id}")
@@ -126,12 +147,17 @@ async def list_entities(
         et = type_map.get(entity_type, EntityType.OTHER)
         entities = kg.entities_by_type(et)
     else:
-        entities = list(kg._entities.values()) if hasattr(kg, '_entities') else []
+        entities = list(kg._entities.values()) if hasattr(kg, "_entities") else []
 
     return {
         "person_id": person_id,
         "entities": [
-            {"entity_id": e.entity_id, "entity_type": e.entity_type.value, "name": e.name, "attributes": e.attributes}
+            {
+                "entity_id": e.entity_id,
+                "entity_type": e.entity_type.value,
+                "name": e.name,
+                "attributes": e.attributes,
+            }
             for e in entities
         ],
     }
@@ -140,10 +166,13 @@ async def list_entities(
 @router.post("/{person_id}/relationships")
 @idempotent("knowledge_graph.add_relationship")
 async def add_relationship(
-    person_id: str, request: Request, body: RelationshipRequest,
+    person_id: str,
+    request: Request,
+    body: RelationshipRequest,
     user_id: str = Depends(require_self_or_permission("perm-manage-actors", id_param="person_id")),
 ):
     from src.monkey_brain.kernel.knowledge_graph import RelationshipType
+
     kg = _get_actor_kg(request, person_id)
     if kg is None:
         raise HTTPException(status_code=404, detail=f"Knowledge graph not found for {person_id}")
@@ -157,22 +186,29 @@ async def add_relationship(
 
 @router.get("/{person_id}/relationships")
 async def list_relationships(
-    person_id: str, request: Request, relationship_type: str | None = None,
+    person_id: str,
+    request: Request,
+    relationship_type: str | None = None,
     user_id: str = Depends(require_self_or_permission("perm-manage-actors", id_param="person_id")),
 ):
     kg = _get_actor_kg(request, person_id)
     if kg is None:
         raise HTTPException(status_code=404, detail=f"Knowledge graph not found for {person_id}")
 
-    rels = list(kg._relationships.values()) if hasattr(kg, '_relationships') else []
+    rels = list(kg._relationships.values()) if hasattr(kg, "_relationships") else []
     if relationship_type:
         rels = [r for r in rels if r.relationship_type.value == relationship_type]
 
     return {
         "person_id": person_id,
         "relationships": [
-            {"relationship_id": r.relationship_id, "source_id": r.source_id, "target_id": r.target_id,
-             "relationship_type": r.relationship_type.value, "attributes": r.attributes}
+            {
+                "relationship_id": r.relationship_id,
+                "source_id": r.source_id,
+                "target_id": r.target_id,
+                "relationship_type": r.relationship_type.value,
+                "attributes": r.attributes,
+            }
             for r in rels
         ],
     }
@@ -181,7 +217,8 @@ async def list_relationships(
 @router.post("/{person_id}/snapshot")
 @idempotent("knowledge_graph.create_snapshot")
 async def create_snapshot(
-    person_id: str, request: Request,
+    person_id: str,
+    request: Request,
     user_id: str = Depends(require_self_or_permission("perm-manage-actors", id_param="person_id")),
 ):
     # Gate 3 (ADR-010) — before save: this is the one persistence-adjacent
@@ -193,10 +230,14 @@ async def create_snapshot(
     # exists — a future whole-world persistence operation should call the
     # same validate_world() this does.
     import os
+
     if os.getenv("WORLD_VALIDATION_GATE_SAVE", "true").strip().lower() != "false":
         pr = getattr(request.app.state, "planetary_runtime", None)
         if pr is not None:
-            from src.monkey_brain.kernel.validation.world_validator import validate_world
+            from src.monkey_brain.kernel.validation.world_validator import (
+                validate_world,
+            )
+
             report = validate_world(pr)
             if not report["ok"]:
                 raise HTTPException(
@@ -211,4 +252,7 @@ async def create_snapshot(
     if kg is None:
         raise HTTPException(status_code=404, detail=f"Knowledge graph not found for {person_id}")
     snapshot = kg.create_snapshot()
-    return {"status": "created", "snapshot_id": snapshot.snapshot_id if hasattr(snapshot, 'snapshot_id') else "ok"}
+    return {
+        "status": "created",
+        "snapshot_id": (snapshot.snapshot_id if hasattr(snapshot, "snapshot_id") else "ok"),
+    }

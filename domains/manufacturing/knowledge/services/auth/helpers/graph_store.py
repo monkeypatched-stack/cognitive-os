@@ -9,7 +9,6 @@ from fastapi import HTTPException, status
 from services.common.config import settings
 from services.common.neo4j_mirror import _neo4j_label, _singular, cleanup_neo4j_bloat
 
-
 _driver = None
 CANVAS_MONGO_ENTITY_MAP = {
     "plants": ("industrial_plants", "plant_id"),
@@ -84,7 +83,8 @@ async def _raise_neo4j_http_error(exc: Exception) -> None:
 
 def is_graph_key(key: str) -> bool:
     return (
-        key in {
+        key
+        in {
             "factory-layout-symbol-canvas",
             "factory-layout-symbol-canvas:seed-version",
             "document-management-cad-canvas",
@@ -148,7 +148,10 @@ def state_type_for_key(key: str) -> str:
         return "seed_version"
     if key.endswith("-canvas"):
         return "canvas"
-    if key.startswith("indus-dashboard-process-definition-") or key == "indus-dashboard-corrective-actions":
+    if (
+        key.startswith("indus-dashboard-process-definition-")
+        or key == "indus-dashboard-corrective-actions"
+    ):
         return "canvas"
     return "state"
 
@@ -181,7 +184,10 @@ def _edge_endpoints(item: dict) -> tuple[str | None, str | None]:
         or item.get("toId")
         or item.get("end")
     )
-    return (str(source) if source is not None else None, str(target) if target is not None else None)
+    return (
+        str(source) if source is not None else None,
+        str(target) if target is not None else None,
+    )
 
 
 def _canvas_node_id(item: Any) -> str | None:
@@ -218,7 +224,12 @@ def _canvas_entity_ref(node_id: str) -> tuple[str, str, str] | None:
 
 def _canvas_edge_id(item: dict) -> str:
     source, target = _edge_endpoints(item)
-    return str(item.get("edge_id") or item.get("id") or item.get("linkId") or f"{source}->{target}")
+    return str(
+        item.get("edge_id")
+        or item.get("id")
+        or item.get("linkId")
+        or f"{source}->{target}"
+    )
 
 
 def _canvas_nodes(value: Any) -> dict[str, dict[str, Any]]:
@@ -301,7 +312,13 @@ async def _hydrate_canvas_nodes(nodes: dict[str, dict[str, Any]]) -> None:
         collection, id_field, entity_id = ref
         try:
             doc = await db[collection].find_one(
-                {"$or": [{id_field: entity_id}, {"id": entity_id}, {"group_id": entity_id}]}
+                {
+                    "$or": [
+                        {id_field: entity_id},
+                        {"id": entity_id},
+                        {"group_id": entity_id},
+                    ]
+                }
             )
         except Exception:
             continue
@@ -319,7 +336,14 @@ def _iter_items(value: Any) -> list[Any]:
             nested = value.get(nested_key)
             if isinstance(nested, list):
                 return nested
-        return [{"id": key, **item} if isinstance(item, dict) else {"id": key, "value": item} for key, item in value.items()]
+        return [
+            (
+                {"id": key, **item}
+                if isinstance(item, dict)
+                else {"id": key, "value": item}
+            )
+            for key, item in value.items()
+        ]
     return []
 
 
@@ -348,13 +372,16 @@ async def save_graph_state(user_id: str, key: str, value: Any) -> None:
                 updated_at,
             )
             if state_type in {"visual_nodes", "rows", "positions"}:
-                await session.execute_write(_sync_nodes_tx, user_id, graph_id, state_type, value, updated_at)
+                await session.execute_write(
+                    _sync_nodes_tx, user_id, graph_id, state_type, value, updated_at
+                )
             elif state_type == "links":
                 links = _canvas_links(value)
-                existing_node_ids = await session.execute_read(_existing_canvas_node_ids_tx, user_id, graph_id)
+                existing_node_ids = await session.execute_read(
+                    _existing_canvas_node_ids_tx, user_id, graph_id
+                )
                 endpoint_nodes: dict[str, dict[str, Any]] = {
-                    node_id: {}
-                    for node_id in existing_node_ids
+                    node_id: {} for node_id in existing_node_ids
                 }
                 await session.execute_write(
                     _sync_links_tx,
@@ -364,12 +391,21 @@ async def save_graph_state(user_id: str, key: str, value: Any) -> None:
                     updated_at,
                     set(existing_node_ids),
                 )
-                await session.execute_write(_sync_canvas_links_tx, user_id, graph_id, links, endpoint_nodes, updated_at)
+                await session.execute_write(
+                    _sync_canvas_links_tx,
+                    user_id,
+                    graph_id,
+                    links,
+                    endpoint_nodes,
+                    updated_at,
+                )
             elif state_type == "canvas":
                 nodes = _canvas_nodes(value)
                 links = _canvas_links(value)
                 await _hydrate_canvas_nodes(nodes)
-                await session.execute_write(_sync_canvas_tx, user_id, graph_id, nodes, links, updated_at)
+                await session.execute_write(
+                    _sync_canvas_tx, user_id, graph_id, nodes, links, updated_at
+                )
             await cleanup_neo4j_bloat()
     except HTTPException:
         raise
@@ -404,9 +440,13 @@ async def delete_canvas_node(canvas_node_id: str) -> bool:
     driver = _get_driver()
     try:
         async with driver.session() as session:
-            deleted = await session.execute_write(_delete_canvas_node_tx, canvas_node_id)
+            deleted = await session.execute_write(
+                _delete_canvas_node_tx, canvas_node_id
+            )
             if deleted:
-                await session.execute_write(_remove_canvas_node_from_states_tx, canvas_node_id)
+                await session.execute_write(
+                    _remove_canvas_node_from_states_tx, canvas_node_id
+                )
         await cleanup_neo4j_bloat()
         return deleted
     except HTTPException:
@@ -415,7 +455,15 @@ async def delete_canvas_node(canvas_node_id: str) -> bool:
         await _raise_neo4j_http_error(exc)
 
 
-async def _save_state_tx(tx, user_id: str, graph_id: str, key: str, state_type: str, value_json: str, updated_at: str) -> None:
+async def _save_state_tx(
+    tx,
+    user_id: str,
+    graph_id: str,
+    key: str,
+    state_type: str,
+    value_json: str,
+    updated_at: str,
+) -> None:
     await tx.run(
         """
         MERGE (u:User {id: $user_id})
@@ -521,7 +569,9 @@ def _references_canvas_node(value: Any, canvas_node_id: str) -> bool:
     if isinstance(value, str):
         return value == canvas_node_id or value.endswith(f":{canvas_node_id}")
     if isinstance(value, dict):
-        return any(_references_canvas_node(item, canvas_node_id) for item in value.values())
+        return any(
+            _references_canvas_node(item, canvas_node_id) for item in value.values()
+        )
     if isinstance(value, list):
         return any(_references_canvas_node(item, canvas_node_id) for item in value)
     return str(value) == canvas_node_id
@@ -550,7 +600,9 @@ def _remove_canvas_node_from_value(value: Any, canvas_node_id: str) -> Any:
     for key, item in value.items():
         if _references_canvas_node(key, canvas_node_id):
             continue
-        if key in {"nodes", "links", "edges", "items", "rows"} and isinstance(item, list):
+        if key in {"nodes", "links", "edges", "items", "rows"} and isinstance(
+            item, list
+        ):
             cleaned[key] = _remove_canvas_node_from_value(item, canvas_node_id)
             continue
         if key == "positions" and isinstance(item, dict):
@@ -564,7 +616,9 @@ def _remove_canvas_node_from_value(value: Any, canvas_node_id: str) -> Any:
     return cleaned
 
 
-async def _sync_nodes_tx(tx, user_id: str, graph_id: str, state_type: str, value: Any, updated_at: str) -> None:
+async def _sync_nodes_tx(
+    tx, user_id: str, graph_id: str, state_type: str, value: Any, updated_at: str
+) -> None:
     if state_type == "positions" and isinstance(value, dict):
         for node_id, position in value.items():
             await tx.run(
@@ -620,7 +674,9 @@ async def _sync_links_tx(
         source, target = _edge_endpoints(item)
         if not source or not target:
             continue
-        if valid_node_ids is not None and (source not in valid_node_ids or target not in valid_node_ids):
+        if valid_node_ids is not None and (
+            source not in valid_node_ids or target not in valid_node_ids
+        ):
             continue
         link_id = str(item.get("id") or item.get("linkId") or f"{source}->{target}")
         await tx.run(
@@ -655,7 +711,9 @@ async def _sync_canvas_tx(
     await _prune_canvas_nodes_tx(tx, user_id, graph_id, sorted(nodes))
 
     for node_id, node_data in nodes.items():
-        await _upsert_canvas_node_tx(tx, user_id, graph_id, node_id, node_data, updated_at)
+        await _upsert_canvas_node_tx(
+            tx, user_id, graph_id, node_id, node_data, updated_at
+        )
     await _sync_canvas_links_tx(tx, user_id, graph_id, links, nodes, updated_at)
 
 
@@ -676,7 +734,9 @@ async def _existing_canvas_node_ids_tx(tx, user_id: str, graph_id: str) -> list[
     return list(record["node_ids"] or []) if record else []
 
 
-async def _prune_canvas_nodes_tx(tx, user_id: str, graph_id: str, current_node_ids: list[str]) -> None:
+async def _prune_canvas_nodes_tx(
+    tx, user_id: str, graph_id: str, current_node_ids: list[str]
+) -> None:
     await tx.run(
         """
         MATCH (n)
@@ -722,9 +782,15 @@ async def _sync_canvas_links_tx(
             continue
         if source not in endpoint_nodes or target not in endpoint_nodes:
             continue
-        await _upsert_canvas_node_tx(tx, user_id, graph_id, source, endpoint_nodes.get(source, {}), updated_at)
-        await _upsert_canvas_node_tx(tx, user_id, graph_id, target, endpoint_nodes.get(target, {}), updated_at)
-        await _upsert_canvas_link_tx(tx, user_id, graph_id, item, source, target, updated_at)
+        await _upsert_canvas_node_tx(
+            tx, user_id, graph_id, source, endpoint_nodes.get(source, {}), updated_at
+        )
+        await _upsert_canvas_node_tx(
+            tx, user_id, graph_id, target, endpoint_nodes.get(target, {}), updated_at
+        )
+        await _upsert_canvas_link_tx(
+            tx, user_id, graph_id, item, source, target, updated_at
+        )
 
 
 async def _upsert_canvas_node_tx(

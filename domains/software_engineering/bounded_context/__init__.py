@@ -7,6 +7,7 @@ Owns the software engineering business capability:
 - Code review
 - Deployment
 """
+
 from __future__ import annotations
 import logging
 from typing import Any
@@ -38,18 +39,30 @@ class SoftwareEngineeringContextAgent(BoundedContextAgent):
             active_aggregate = "test_suite"
         elif any(w in question for w in ("deploy", "release", "canary", "rollout")):
             active_aggregate = "deployment"
-        return {"context": self.name, "active_aggregate": active_aggregate, "question": question}
+        return {
+            "context": self.name,
+            "active_aggregate": active_aggregate,
+            "question": question,
+        }
 
     def reason(self, perception: dict[str, Any]) -> dict[str, Any]:
         aggregate_name = perception.get("active_aggregate")
         aggregate = next((a for a in self.aggregates if a.name == aggregate_name), None)
-        return {"context": self.name, "delegate_to": aggregate_name, "aggregate": aggregate}
+        return {
+            "context": self.name,
+            "delegate_to": aggregate_name,
+            "aggregate": aggregate,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         aggregate = decision.get("aggregate")
         if aggregate:
             return aggregate.execute({"question": decision.get("question", "")})
-        return {"context": self.name, "action": "no_delegate", "result": "handled_at_context"}
+        return {
+            "context": self.name,
+            "action": "no_delegate",
+            "result": "handled_at_context",
+        }
 
     def learn(self, outcome: dict[str, Any]) -> None:
         self._memory.append(outcome)
@@ -92,8 +105,17 @@ class PullRequestAggregateAgent(AggregateAgent):
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("can_merge"):
-            return {"aggregate": self.name, "action": "approved_for_merge", "consistent": True}
-        return {"aggregate": self.name, "action": "merge_blocked", "violations": decision.get("violations"), "consistent": False}
+            return {
+                "aggregate": self.name,
+                "action": "approved_for_merge",
+                "consistent": True,
+            }
+        return {
+            "aggregate": self.name,
+            "action": "merge_blocked",
+            "violations": decision.get("violations"),
+            "consistent": False,
+        }
 
 
 class TestSuiteAggregateAgent(AggregateAgent):
@@ -123,13 +145,23 @@ class TestSuiteAggregateAgent(AggregateAgent):
         if failures > 0:
             violations.append(f"{failures}_tests_failing")
         if coverage < self.coverage_threshold:
-            violations.append(f"coverage_{coverage:.0%}_below_threshold_{self.coverage_threshold:.0%}")
-        return {"aggregate": self.name, "violations": violations, "consistent": len(violations) == 0}
+            violations.append(
+                f"coverage_{coverage:.0%}_below_threshold_{self.coverage_threshold:.0%}"
+            )
+        return {
+            "aggregate": self.name,
+            "violations": violations,
+            "consistent": len(violations) == 0,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("consistent"):
             return {"aggregate": self.name, "action": "suite_passes_invariants"}
-        return {"aggregate": self.name, "action": "suite_violations", "violations": decision.get("violations")}
+        return {
+            "aggregate": self.name,
+            "action": "suite_violations",
+            "violations": decision.get("violations"),
+        }
 
 
 class DeploymentAggregateAgent(AggregateAgent):
@@ -159,9 +191,22 @@ class DeploymentAggregateAgent(AggregateAgent):
             violations.append("failing_build")
         if env == "production" and not perception.get("staging_passing"):
             violations.append("staging_not_passing")
-        return {"aggregate": self.name, "violations": violations, "consistent": len(violations) == 0, "environment": env}
+        return {
+            "aggregate": self.name,
+            "violations": violations,
+            "consistent": len(violations) == 0,
+            "environment": env,
+        }
 
     def act(self, decision: dict[str, Any]) -> dict[str, Any]:
         if decision.get("consistent"):
-            return {"aggregate": self.name, "action": "deployment_approved", "environment": decision.get("environment")}
-        return {"aggregate": self.name, "action": "deployment_blocked", "violations": decision.get("violations")}
+            return {
+                "aggregate": self.name,
+                "action": "deployment_approved",
+                "environment": decision.get("environment"),
+            }
+        return {
+            "aggregate": self.name,
+            "action": "deployment_blocked",
+            "violations": decision.get("violations"),
+        }

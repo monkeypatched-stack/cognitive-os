@@ -45,7 +45,11 @@ async def get_customer_order_metrics(
     return record
 
 
-@router.post("/", response_model=CustomerOrderMetricsResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=CustomerOrderMetricsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_customer_order_metrics(
     data: CustomerOrderMetricsCreate,
     db: AsyncIOMotorDatabase = Depends(get_database),

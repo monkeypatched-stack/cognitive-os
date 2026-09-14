@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
-sys.path.insert(0, '/Users/prashunjaveri/Code/monkeypatched')
+sys.path.insert(0, "/Users/prashunjaveri/Code/monkeypatched")
 
 from services.common.config import settings
 from services.common.embeddings import build_embedding
@@ -21,9 +21,23 @@ def utc_now():
 WORK_ORDER_TYPES = ["Maintenance", "Inspection", "Calibration", "Cleaning", "Repair"]
 WORK_ORDER_STATUSES = ["Todo", "In Progress", "Completed", "On Hold"]
 WORK_ORDER_PRIORITIES = ["Low", "Medium", "High", "Critical"]
-PART_CATEGORIES = ["Mechanical", "Electrical", "Hydraulic", "Pneumatic", "Electronic", "Consumable"]
+PART_CATEGORIES = [
+    "Mechanical",
+    "Electrical",
+    "Hydraulic",
+    "Pneumatic",
+    "Electronic",
+    "Consumable",
+]
 PART_STATUSES = ["In Stock", "Low Stock", "Out of Stock", "On Order"]
-MATERIAL_TYPES = ["Raw Material", "Excipient", "Solvent", "API", "Lubricant", "Packaging Material"]
+MATERIAL_TYPES = [
+    "Raw Material",
+    "Excipient",
+    "Solvent",
+    "API",
+    "Lubricant",
+    "Packaging Material",
+]
 
 
 async def seed_work_orders(db, machines, equipment):
@@ -93,13 +107,41 @@ async def seed_spare_parts(db, machines):
 
     part_templates = [
         {"part_name": "Impeller", "category": "Mechanical", "manufacturer": "GEA"},
-        {"part_name": "Heating Element", "category": "Electrical", "manufacturer": "Watlow"},
-        {"part_name": "Pressure Sensor", "category": "Electronic", "manufacturer": "Endress+Hauser"},
-        {"part_name": "Pneumatic Valve", "category": "Pneumatic", "manufacturer": "SMC"},
-        {"part_name": "Hydraulic Pump", "category": "Hydraulic", "manufacturer": "Bosch"},
-        {"part_name": "Filter Cartridge", "category": "Consumable", "manufacturer": "Pall"},
-        {"part_name": "Bearing Assembly", "category": "Mechanical", "manufacturer": "SKF"},
-        {"part_name": "Motor Controller", "category": "Electrical", "manufacturer": "Siemens"},
+        {
+            "part_name": "Heating Element",
+            "category": "Electrical",
+            "manufacturer": "Watlow",
+        },
+        {
+            "part_name": "Pressure Sensor",
+            "category": "Electronic",
+            "manufacturer": "Endress+Hauser",
+        },
+        {
+            "part_name": "Pneumatic Valve",
+            "category": "Pneumatic",
+            "manufacturer": "SMC",
+        },
+        {
+            "part_name": "Hydraulic Pump",
+            "category": "Hydraulic",
+            "manufacturer": "Bosch",
+        },
+        {
+            "part_name": "Filter Cartridge",
+            "category": "Consumable",
+            "manufacturer": "Pall",
+        },
+        {
+            "part_name": "Bearing Assembly",
+            "category": "Mechanical",
+            "manufacturer": "SKF",
+        },
+        {
+            "part_name": "Motor Controller",
+            "category": "Electrical",
+            "manufacturer": "Siemens",
+        },
     ]
 
     for machine in machines:
@@ -136,21 +178,81 @@ async def seed_raw_materials(db):
     materials = []
 
     raw_materials_data = [
-        {"name": "Paracetamol (Acetaminophen)", "type": "API", "grade": "USP", "unit": "kg"},
-        {"name": "Microcrystalline Cellulose", "type": "Excipient", "grade": "PH-102", "unit": "kg"},
-        {"name": "Lactose Monohydrate", "type": "Excipient", "grade": "Spray Dried", "unit": "kg"},
-        {"name": "Magnesium Stearate", "type": "Lubricant", "grade": "Vegetable", "unit": "kg"},
-        {"name": "Povidone (PVP K30)", "type": "Excipient", "grade": "Pharma", "unit": "kg"},
-        {"name": "Starch (Maize)", "type": "Excipient", "grade": "Native", "unit": "kg"},
-        {"name": "Colloidal Silicon Dioxide", "type": "Glidant", "grade": "Aerosil 200", "unit": "kg"},
+        {
+            "name": "Paracetamol (Acetaminophen)",
+            "type": "API",
+            "grade": "USP",
+            "unit": "kg",
+        },
+        {
+            "name": "Microcrystalline Cellulose",
+            "type": "Excipient",
+            "grade": "PH-102",
+            "unit": "kg",
+        },
+        {
+            "name": "Lactose Monohydrate",
+            "type": "Excipient",
+            "grade": "Spray Dried",
+            "unit": "kg",
+        },
+        {
+            "name": "Magnesium Stearate",
+            "type": "Lubricant",
+            "grade": "Vegetable",
+            "unit": "kg",
+        },
+        {
+            "name": "Povidone (PVP K30)",
+            "type": "Excipient",
+            "grade": "Pharma",
+            "unit": "kg",
+        },
+        {
+            "name": "Starch (Maize)",
+            "type": "Excipient",
+            "grade": "Native",
+            "unit": "kg",
+        },
+        {
+            "name": "Colloidal Silicon Dioxide",
+            "type": "Glidant",
+            "grade": "Aerosil 200",
+            "unit": "kg",
+        },
         {"name": "Talc", "type": "Lubricant", "grade": "Pharma", "unit": "kg"},
-        {"name": "Hydroxypropyl Methylcellulose", "type": "Coating Agent", "grade": "HPMC E5", "unit": "kg"},
-        {"name": "Polyethylene Glycol", "type": "Plasticizer", "grade": "PEG 6000", "unit": "kg"},
+        {
+            "name": "Hydroxypropyl Methylcellulose",
+            "type": "Coating Agent",
+            "grade": "HPMC E5",
+            "unit": "kg",
+        },
+        {
+            "name": "Polyethylene Glycol",
+            "type": "Plasticizer",
+            "grade": "PEG 6000",
+            "unit": "kg",
+        },
         {"name": "Purified Water", "type": "Solvent", "grade": "Pharma", "unit": "L"},
         {"name": "Isopropyl Alcohol", "type": "Solvent", "grade": "99%", "unit": "L"},
-        {"name": "Titanium Dioxide", "type": "Coating Agent", "grade": "Pharma", "unit": "kg"},
-        {"name": "Iron Oxide Yellow", "type": "Colorant", "grade": "Pharma", "unit": "kg"},
-        {"name": "Ethyl Cellulose", "type": "Film Former", "grade": "N-200", "unit": "kg"},
+        {
+            "name": "Titanium Dioxide",
+            "type": "Coating Agent",
+            "grade": "Pharma",
+            "unit": "kg",
+        },
+        {
+            "name": "Iron Oxide Yellow",
+            "type": "Colorant",
+            "grade": "Pharma",
+            "unit": "kg",
+        },
+        {
+            "name": "Ethyl Cellulose",
+            "type": "Film Former",
+            "grade": "N-200",
+            "unit": "kg",
+        },
     ]
 
     for i, rm in enumerate(raw_materials_data, 1):
@@ -279,6 +381,7 @@ async def main():
 
     print("\nSyncing to Neo4j...")
     from neo4j import AsyncGraphDatabase
+
     driver = AsyncGraphDatabase.driver(settings.NEO4J_URI, auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD))
     await sync_to_neo4j(db, driver)
     await driver.close()

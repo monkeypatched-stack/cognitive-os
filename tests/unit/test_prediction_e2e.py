@@ -14,28 +14,42 @@ Scenario C: Traffic delay, Success 81%
     ↓
 Recommendation: Execute Scenario A
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.prediction.compiler import (
-    PredictionCompiler, prediction_summary_to_dict, compile_prediction,
+    PredictionCompiler,
+    prediction_summary_to_dict,
+    compile_prediction,
 )
 from src.monkey_brain.kernel.pipeline.prediction.trace import (
-    build_prediction_trace, predict_with_trace,
+    build_prediction_trace,
+    predict_with_trace,
 )
 from src.monkey_brain.kernel.pipeline.prediction.policies import (
-    DeterministicPredictionPolicy, PredictionPolicyInput, PredictionPolicyRegistry,
+    DeterministicPredictionPolicy,
+    PredictionPolicyInput,
+    PredictionPolicyRegistry,
 )
 from src.monkey_brain.kernel.pipeline.prediction.domain import (
-    Prediction, PredictionCandidate, PredictionConfidence, PredictionOutcome, PredictionResult,
+    Prediction,
+    PredictionCandidate,
+    PredictionConfidence,
+    PredictionOutcome,
+    PredictionResult,
 )
 from src.monkey_brain.kernel.pipeline.prediction.transitions import (
-    TransitionModel, WorldTransition,
+    TransitionModel,
+    WorldTransition,
 )
-from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption
+from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+    CounterfactualAssumption,
+)
 from src.monkey_brain.kernel.pipeline.prediction.integration import (
-    PredictionIntegratedPolicy, prediction_result_to_dict,
+    PredictionIntegratedPolicy,
+    prediction_result_to_dict,
 )
 
 
@@ -50,39 +64,64 @@ class _Plan:
 
 
 def _acceptance_plan():
-    return _Plan(steps=(_Step("Drive to Store A"), _Step("Purchase 2 liters of milk"),))
+    return _Plan(
+        steps=(
+            _Step("Drive to Store A"),
+            _Step("Purchase 2 liters of milk"),
+        )
+    )
 
 
 def _acceptance_model():
-    return TransitionModel(known_transitions={
-        ("", "Drive to Store A"): (
-            WorldTransition(description="Arrived at Store A", probability=1.0, confidence=0.95,
-                            resulting_world_delta={"at_store_a": True}),
-        ),
-        ("", "Purchase 2 liters of milk"): (
-            WorldTransition(description="Milk purchased successfully", probability=0.96, confidence=0.9,
-                            resulting_world_delta={"has_milk": True, "milk_liters": 2}),
-        ),
-    })
+    return TransitionModel(
+        known_transitions={
+            ("", "Drive to Store A"): (
+                WorldTransition(
+                    description="Arrived at Store A",
+                    probability=1.0,
+                    confidence=0.95,
+                    resulting_world_delta={"at_store_a": True},
+                ),
+            ),
+            ("", "Purchase 2 liters of milk"): (
+                WorldTransition(
+                    description="Milk purchased successfully",
+                    probability=0.96,
+                    confidence=0.9,
+                    resulting_world_delta={"has_milk": True, "milk_liters": 2},
+                ),
+            ),
+        }
+    )
 
 
 def _acceptance_assumptions():
     return (
         CounterfactualAssumption(
-            description="Store closed", category="availability",
+            description="Store closed",
+            category="availability",
             transition_overrides={
                 "Purchase 2 liters of milk": (
-                    WorldTransition(description="Store closed, purchase failed", probability=0.12, confidence=0.7,
-                                    resulting_world_delta={"has_milk": False}),
+                    WorldTransition(
+                        description="Store closed, purchase failed",
+                        probability=0.12,
+                        confidence=0.7,
+                        resulting_world_delta={"has_milk": False},
+                    ),
                 ),
             },
         ),
         CounterfactualAssumption(
-            description="Traffic delay", category="transportation",
+            description="Traffic delay",
+            category="transportation",
             transition_overrides={
                 "Drive to Store A": (
-                    WorldTransition(description="Arrived at Store A (delayed)", probability=0.81, confidence=0.8,
-                                    resulting_world_delta={"at_store_a": True, "delayed": True}),
+                    WorldTransition(
+                        description="Arrived at Store A (delayed)",
+                        probability=0.81,
+                        confidence=0.8,
+                        resulting_world_delta={"at_store_a": True, "delayed": True},
+                    ),
                 ),
             },
         ),
@@ -92,6 +131,7 @@ def _acceptance_assumptions():
 # ═══════════════════════════════════════════════════════════════════════════
 # Full acceptance criteria: "Get 2 liters of milk"
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAcceptanceCriteria:
     def test_full_lifecycle_produces_recommendation(self):
@@ -210,6 +250,7 @@ class TestAcceptanceCriteria:
 # Backward compatibility — existing PredictionIntegratedPolicy still works
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBackwardCompatibility:
     def test_prediction_result_to_dict_still_works(self):
         a = PredictionCandidate(scenario_label="A", probability=0.9)
@@ -223,8 +264,13 @@ class TestBackwardCompatibility:
 
     def test_domain_types_still_importable(self):
         from src.monkey_brain.kernel.pipeline.prediction import (
-            PredictionConfidence, PredictionOutcome, Prediction,
-            PredictionRequest, PredictionContext, PredictionCandidate,
+            PredictionConfidence,
+            PredictionOutcome,
+            Prediction,
+            PredictionRequest,
+            PredictionContext,
+            PredictionCandidate,
             PredictionResult,
         )
+
         assert PredictionConfidence().point_estimate == 0.5

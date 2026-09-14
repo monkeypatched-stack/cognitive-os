@@ -23,6 +23,7 @@ together since this test was last updated; this rewrite captures what
 the system actually does today rather than what it did when this test
 was written.
 """
+
 from __future__ import annotations
 
 import pytest

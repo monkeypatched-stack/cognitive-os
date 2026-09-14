@@ -51,6 +51,7 @@ resolution strategy; a distributed public-key registry is a separate PKI
 concern this module does not solve) can verify without contacting the
 issuer's process.
 """
+
 from __future__ import annotations
 
 import json
@@ -80,9 +81,15 @@ DEFAULT_MAX_DELEGATION_TTL_SECONDS = 24 * 3600
 # -- an agent's own authority never includes the right to grant them, so
 # no attenuation logic could ever legitimately produce them either.
 _FORBIDDEN_CAPABILITY_MARKERS = (
-    "human_approval", "approve_as_human", "mfa", "operator_identity",
-    "human_session", "human_authorization", "approval.grant",
-    "approval.override", "self_approve",
+    "human_approval",
+    "approve_as_human",
+    "mfa",
+    "operator_identity",
+    "human_session",
+    "human_authorization",
+    "approval.grant",
+    "approval.override",
+    "self_approve",
 )
 
 
@@ -106,8 +113,14 @@ class DelegationDeniedError(DelegationError):
 
 
 def _audit_delegation_event(
-    event: str, *, delegation_id: str = "", issuer: str = "", delegate: str = "",
-    parent_delegation_id: str = "", outcome: str = "success", details: dict[str, Any] | None = None,
+    event: str,
+    *,
+    delegation_id: str = "",
+    issuer: str = "",
+    delegate: str = "",
+    parent_delegation_id: str = "",
+    outcome: str = "success",
+    details: dict[str, Any] | None = None,
 ) -> None:
     """Section 23. Best-effort: a delegation lifecycle record failing to
     persist must not itself block the caller (the SAME "supplementary
@@ -118,6 +131,7 @@ def _audit_delegation_event(
     capability/timing fields."""
     try:
         from src.monkey_brain.kernel.audit import get_audit_log
+
         get_audit_log().record(
             runtime_id=issuer or "unknown",
             event_type="delegation",
@@ -130,7 +144,12 @@ def _audit_delegation_event(
             correlation_id=delegation_id,
         )
     except Exception:
-        logger.warning("delegation audit event %s failed to persist for %s", event, delegation_id, exc_info=True)
+        logger.warning(
+            "delegation audit event %s failed to persist for %s",
+            event,
+            delegation_id,
+            exc_info=True,
+        )
 
 
 def _canonical_json(obj: Any) -> bytes:
@@ -156,6 +175,7 @@ class DelegationScope:
     given capability; this dataclass only tracks what was stated and
     enforces that it never widens.
     """
+
     resources: tuple[str, ...] = ()
     actions: tuple[str, ...] = ()
 
@@ -165,7 +185,10 @@ class DelegationScope:
     @classmethod
     def from_dict(cls, d: dict[str, Any] | None) -> "DelegationScope":
         d = d or {}
-        return cls(resources=tuple(d.get("resources") or ()), actions=tuple(d.get("actions") or ()))
+        return cls(
+            resources=tuple(d.get("resources") or ()),
+            actions=tuple(d.get("actions") or ()),
+        )
 
 
 def _dimension_is_narrower_or_equal(child: tuple[str, ...], parent: tuple[str, ...]) -> bool:
@@ -222,6 +245,7 @@ class DelegationCredential:
     the issuer's identity STRING and a signature over this content.
     Presenting this credential never requires possessing Agent A's keys.
     """
+
     delegation_id: str = field(default_factory=lambda: uuid4().hex)
     artifact_version: str = ARTIFACT_VERSION
     issuer: str = ""
@@ -327,6 +351,7 @@ class DelegationCredential:
 
 # ── Issuance / proof ─────────────────────────────────────────────────────
 
+
 def issue_delegation(
     *,
     issuer: str,
@@ -381,25 +406,36 @@ def issue_delegation(
         result = _validate_attenuation(parent=parent, child=credential)
         if not result.authorized:
             _audit_delegation_event(
-                "delegation_rejected", delegation_id=credential.delegation_id, issuer=issuer,
-                delegate=delegate, parent_delegation_id=parent.delegation_id, outcome="denied",
+                "delegation_rejected",
+                delegation_id=credential.delegation_id,
+                issuer=issuer,
+                delegate=delegate,
+                parent_delegation_id=parent.delegation_id,
+                outcome="denied",
                 details={"reason": result.failure_reason},
             )
             raise DelegationDeniedError(
-                f"cannot issue delegation: {result.failure_reason}", result=result,
+                f"cannot issue delegation: {result.failure_reason}",
+                result=result,
             )
 
     km = get_key_manager()
     private_key = km.get_or_create(issuer)
     from src.monkey_brain.kernel.identity import sign_bytes
+
     proof = sign_bytes(credential.signing_bytes(), private_key)
     signed = credential.with_proof(proof)
     _audit_delegation_event(
         "delegation_attenuated" if parent is not None else "delegation_created",
-        delegation_id=signed.delegation_id, issuer=issuer, delegate=delegate,
+        delegation_id=signed.delegation_id,
+        issuer=issuer,
+        delegate=delegate,
         parent_delegation_id=signed.parent_delegation_id,
-        details={"capabilities": list(signed.capabilities), "expires_at": signed.expires_at,
-                  "delegation_depth": signed.delegation_depth},
+        details={
+            "capabilities": list(signed.capabilities),
+            "expires_at": signed.expires_at,
+            "delegation_depth": signed.delegation_depth,
+        },
     )
     return signed
 
@@ -412,6 +448,7 @@ def resolve_issuer_public_key_pem(issuer: str) -> str:
     swap this for a published-key registry / SPIFFE-bundle-embedded key
     without changing verify_delegation_proof's signature."""
     from src.monkey_brain.kernel.identity import get_key_manager
+
     return get_key_manager().get_public_key_pem(issuer)
 
 
@@ -436,6 +473,7 @@ def verify_delegation_proof(
 
 # ── Attenuation / validation ─────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class DelegationValidationResult:
     issuer_valid: bool = False
@@ -454,12 +492,18 @@ class DelegationValidationResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "issuer_valid": self.issuer_valid, "delegate_valid": self.delegate_valid,
-            "proof_valid": self.proof_valid, "parent_valid": self.parent_valid,
-            "scope_valid": self.scope_valid, "capability_valid": self.capability_valid,
-            "constraints_valid": self.constraints_valid, "expiration_valid": self.expiration_valid,
-            "audience_valid": self.audience_valid, "depth_valid": self.depth_valid,
-            "revocation_valid": self.revocation_valid, "authorized": self.authorized,
+            "issuer_valid": self.issuer_valid,
+            "delegate_valid": self.delegate_valid,
+            "proof_valid": self.proof_valid,
+            "parent_valid": self.parent_valid,
+            "scope_valid": self.scope_valid,
+            "capability_valid": self.capability_valid,
+            "constraints_valid": self.constraints_valid,
+            "expiration_valid": self.expiration_valid,
+            "audience_valid": self.audience_valid,
+            "depth_valid": self.depth_valid,
+            "revocation_valid": self.revocation_valid,
+            "authorized": self.authorized,
             "failure_reason": self.failure_reason,
         }
 
@@ -476,33 +520,48 @@ def _validate_attenuation(*, parent: DelegationCredential, child: DelegationCred
     if child.parent_delegation_id != parent.delegation_id:
         return _deny("child.parent_delegation_id does not reference this parent")
     if child.delegation_depth != parent.delegation_depth + 1:
-        return _deny("child.delegation_depth must be parent.delegation_depth + 1", depth_valid=False)
+        return _deny(
+            "child.delegation_depth must be parent.delegation_depth + 1",
+            depth_valid=False,
+        )
     depth_valid = True
 
-    capability_valid = _dimension_is_narrower_or_equal(child.capabilities, parent.capabilities) and bool(parent.capabilities)
-    if not capability_valid:
-        return _deny("child capabilities are not a subset of parent capabilities", depth_valid=depth_valid)
-
-    scope_valid = (
-        _dimension_is_narrower_or_equal(child.scope.resources, parent.scope.resources)
-        and _dimension_is_narrower_or_equal(child.scope.actions, parent.scope.actions)
+    capability_valid = _dimension_is_narrower_or_equal(child.capabilities, parent.capabilities) and bool(
+        parent.capabilities
     )
+    if not capability_valid:
+        return _deny(
+            "child capabilities are not a subset of parent capabilities",
+            depth_valid=depth_valid,
+        )
+
+    scope_valid = _dimension_is_narrower_or_equal(
+        child.scope.resources, parent.scope.resources
+    ) and _dimension_is_narrower_or_equal(child.scope.actions, parent.scope.actions)
     if not scope_valid:
-        return _deny("child scope escapes parent scope", depth_valid=depth_valid, capability_valid=capability_valid)
+        return _deny(
+            "child scope escapes parent scope",
+            depth_valid=depth_valid,
+            capability_valid=capability_valid,
+        )
 
     constraints_valid = _constraints_are_narrower_or_equal(child.constraints, parent.constraints)
     if not constraints_valid:
         return _deny(
             "child constraints are broader than (or drop) a parent constraint",
-            depth_valid=depth_valid, capability_valid=capability_valid, scope_valid=scope_valid,
+            depth_valid=depth_valid,
+            capability_valid=capability_valid,
+            scope_valid=scope_valid,
         )
 
     expiration_valid = child.expires_at <= parent.expires_at
     if not expiration_valid:
         return _deny(
             "child cannot outlive parent (child.expires_at > parent.expires_at)",
-            depth_valid=depth_valid, capability_valid=capability_valid,
-            scope_valid=scope_valid, constraints_valid=constraints_valid,
+            depth_valid=depth_valid,
+            capability_valid=capability_valid,
+            scope_valid=scope_valid,
+            constraints_valid=constraints_valid,
         )
 
     # Section 5: delegate at hop N must be the issuer at hop N+1 -- a
@@ -511,13 +570,20 @@ def _validate_attenuation(*, parent: DelegationCredential, child: DelegationCred
     if parent.delegate != child.issuer:
         return _deny(
             "child.issuer is not the parent's delegate -- delegation was re-issued by an unauthorized party",
-            depth_valid=depth_valid, capability_valid=capability_valid,
-            scope_valid=scope_valid, constraints_valid=constraints_valid, expiration_valid=expiration_valid,
+            depth_valid=depth_valid,
+            capability_valid=capability_valid,
+            scope_valid=scope_valid,
+            constraints_valid=constraints_valid,
+            expiration_valid=expiration_valid,
         )
 
     return DelegationValidationResult(
-        depth_valid=depth_valid, capability_valid=capability_valid, scope_valid=scope_valid,
-        constraints_valid=constraints_valid, expiration_valid=expiration_valid, authorized=True,
+        depth_valid=depth_valid,
+        capability_valid=capability_valid,
+        scope_valid=scope_valid,
+        constraints_valid=constraints_valid,
+        expiration_valid=expiration_valid,
+        authorized=True,
     )
 
 
@@ -533,13 +599,20 @@ def validate_delegation(
     now: float | None = None,
 ) -> DelegationValidationResult:
     result = _validate_delegation_inner(
-        child=child, parent=parent, authenticated_issuer=authenticated_issuer,
-        authenticated_delegate=authenticated_delegate, is_revoked=is_revoked,
-        public_key_resolver=public_key_resolver, max_depth=max_depth, now=now,
+        child=child,
+        parent=parent,
+        authenticated_issuer=authenticated_issuer,
+        authenticated_delegate=authenticated_delegate,
+        is_revoked=is_revoked,
+        public_key_resolver=public_key_resolver,
+        max_depth=max_depth,
+        now=now,
     )
     _audit_delegation_event(
         "delegation_verified" if result.authorized else "delegation_rejected",
-        delegation_id=child.delegation_id, issuer=child.issuer, delegate=child.delegate,
+        delegation_id=child.delegation_id,
+        issuer=child.issuer,
+        delegate=child.delegate,
         parent_delegation_id=child.parent_delegation_id,
         outcome="allowed" if result.authorized else "denied",
         details={} if result.authorized else {"reason": result.failure_reason},
@@ -571,67 +644,124 @@ def _validate_delegation_inner(
     issuer_valid = True
 
     if child.delegate != authenticated_delegate:
-        return _deny("credential.delegate does not match the authenticated recipient", issuer_valid=issuer_valid)
+        return _deny(
+            "credential.delegate does not match the authenticated recipient",
+            issuer_valid=issuer_valid,
+        )
     delegate_valid = True
 
     if child.audience and child.audience != authenticated_delegate:
-        return _deny("credential.audience does not match the authenticated recipient",
-                     issuer_valid=issuer_valid, delegate_valid=delegate_valid)
+        return _deny(
+            "credential.audience does not match the authenticated recipient",
+            issuer_valid=issuer_valid,
+            delegate_valid=delegate_valid,
+        )
     audience_valid = True
 
     if child.delegation_depth > max_depth:
-        return _deny(f"delegation_depth {child.delegation_depth} exceeds max_delegation_depth {max_depth}",
-                     issuer_valid=issuer_valid, delegate_valid=delegate_valid, audience_valid=audience_valid)
+        return _deny(
+            f"delegation_depth {child.delegation_depth} exceeds max_delegation_depth {max_depth}",
+            issuer_valid=issuer_valid,
+            delegate_valid=delegate_valid,
+            audience_valid=audience_valid,
+        )
     depth_valid = True
 
     if not verify_delegation_proof(child, public_key_resolver=public_key_resolver):
-        return _deny("delegation proof does not verify (forged or tampered)",
-                     issuer_valid=issuer_valid, delegate_valid=delegate_valid,
-                     audience_valid=audience_valid, depth_valid=depth_valid)
+        return _deny(
+            "delegation proof does not verify (forged or tampered)",
+            issuer_valid=issuer_valid,
+            delegate_valid=delegate_valid,
+            audience_valid=audience_valid,
+            depth_valid=depth_valid,
+        )
     proof_valid = True
 
     if now > child.expires_at:
-        return _deny("delegation has expired",
-                     issuer_valid=issuer_valid, delegate_valid=delegate_valid, audience_valid=audience_valid,
-                     depth_valid=depth_valid, proof_valid=proof_valid)
+        return _deny(
+            "delegation has expired",
+            issuer_valid=issuer_valid,
+            delegate_valid=delegate_valid,
+            audience_valid=audience_valid,
+            depth_valid=depth_valid,
+            proof_valid=proof_valid,
+        )
     expiration_valid = True
 
     if is_revoked is not None and is_revoked(child.delegation_id):
-        return _deny("delegation has been revoked",
-                     issuer_valid=issuer_valid, delegate_valid=delegate_valid, audience_valid=audience_valid,
-                     depth_valid=depth_valid, proof_valid=proof_valid, expiration_valid=expiration_valid)
+        return _deny(
+            "delegation has been revoked",
+            issuer_valid=issuer_valid,
+            delegate_valid=delegate_valid,
+            audience_valid=audience_valid,
+            depth_valid=depth_valid,
+            proof_valid=proof_valid,
+            expiration_valid=expiration_valid,
+        )
     revocation_valid = True
 
     if child.parent_delegation_id:
         if parent is None:
-            return _deny("child references a parent delegation that was not supplied for verification",
-                         issuer_valid=issuer_valid, delegate_valid=delegate_valid, audience_valid=audience_valid,
-                         depth_valid=depth_valid, proof_valid=proof_valid, expiration_valid=expiration_valid,
-                         revocation_valid=revocation_valid)
+            return _deny(
+                "child references a parent delegation that was not supplied for verification",
+                issuer_valid=issuer_valid,
+                delegate_valid=delegate_valid,
+                audience_valid=audience_valid,
+                depth_valid=depth_valid,
+                proof_valid=proof_valid,
+                expiration_valid=expiration_valid,
+                revocation_valid=revocation_valid,
+            )
         if not verify_delegation_proof(parent, public_key_resolver=public_key_resolver):
-            return _deny("parent delegation proof does not verify",
-                         issuer_valid=issuer_valid, delegate_valid=delegate_valid, audience_valid=audience_valid,
-                         depth_valid=depth_valid, proof_valid=proof_valid, expiration_valid=expiration_valid,
-                         revocation_valid=revocation_valid)
+            return _deny(
+                "parent delegation proof does not verify",
+                issuer_valid=issuer_valid,
+                delegate_valid=delegate_valid,
+                audience_valid=audience_valid,
+                depth_valid=depth_valid,
+                proof_valid=proof_valid,
+                expiration_valid=expiration_valid,
+                revocation_valid=revocation_valid,
+            )
         if now > parent.expires_at:
-            return _deny("parent delegation has expired",
-                         issuer_valid=issuer_valid, delegate_valid=delegate_valid, audience_valid=audience_valid,
-                         depth_valid=depth_valid, proof_valid=proof_valid, expiration_valid=expiration_valid,
-                         revocation_valid=revocation_valid)
+            return _deny(
+                "parent delegation has expired",
+                issuer_valid=issuer_valid,
+                delegate_valid=delegate_valid,
+                audience_valid=audience_valid,
+                depth_valid=depth_valid,
+                proof_valid=proof_valid,
+                expiration_valid=expiration_valid,
+                revocation_valid=revocation_valid,
+            )
         if is_revoked is not None and is_revoked(parent.delegation_id):
-            return _deny("parent delegation has been revoked",
-                         issuer_valid=issuer_valid, delegate_valid=delegate_valid, audience_valid=audience_valid,
-                         depth_valid=depth_valid, proof_valid=proof_valid, expiration_valid=expiration_valid,
-                         revocation_valid=revocation_valid)
+            return _deny(
+                "parent delegation has been revoked",
+                issuer_valid=issuer_valid,
+                delegate_valid=delegate_valid,
+                audience_valid=audience_valid,
+                depth_valid=depth_valid,
+                proof_valid=proof_valid,
+                expiration_valid=expiration_valid,
+                revocation_valid=revocation_valid,
+            )
         parent_valid = True
         attenuation = _validate_attenuation(parent=parent, child=child)
         if not attenuation.authorized:
-            return _deny(attenuation.failure_reason,
-                         issuer_valid=issuer_valid, delegate_valid=delegate_valid, audience_valid=audience_valid,
-                         depth_valid=depth_valid, proof_valid=proof_valid, expiration_valid=expiration_valid,
-                         revocation_valid=revocation_valid, parent_valid=parent_valid,
-                         scope_valid=attenuation.scope_valid, capability_valid=attenuation.capability_valid,
-                         constraints_valid=attenuation.constraints_valid)
+            return _deny(
+                attenuation.failure_reason,
+                issuer_valid=issuer_valid,
+                delegate_valid=delegate_valid,
+                audience_valid=audience_valid,
+                depth_valid=depth_valid,
+                proof_valid=proof_valid,
+                expiration_valid=expiration_valid,
+                revocation_valid=revocation_valid,
+                parent_valid=parent_valid,
+                scope_valid=attenuation.scope_valid,
+                capability_valid=attenuation.capability_valid,
+                constraints_valid=attenuation.constraints_valid,
+            )
         scope_valid, capability_valid, constraints_valid = True, True, True
     else:
         # Root delegation: no parent to attenuate against. Its capability
@@ -645,10 +775,17 @@ def _validate_delegation_inner(
         scope_valid, capability_valid, constraints_valid = True, True, True
 
     return DelegationValidationResult(
-        issuer_valid=issuer_valid, delegate_valid=delegate_valid, proof_valid=proof_valid,
-        parent_valid=parent_valid, scope_valid=scope_valid, capability_valid=capability_valid,
-        constraints_valid=constraints_valid, expiration_valid=expiration_valid,
-        audience_valid=audience_valid, depth_valid=depth_valid, revocation_valid=revocation_valid,
+        issuer_valid=issuer_valid,
+        delegate_valid=delegate_valid,
+        proof_valid=proof_valid,
+        parent_valid=parent_valid,
+        scope_valid=scope_valid,
+        capability_valid=capability_valid,
+        constraints_valid=constraints_valid,
+        expiration_valid=expiration_valid,
+        audience_valid=audience_valid,
+        depth_valid=depth_valid,
+        revocation_valid=revocation_valid,
         authorized=True,
     )
 
@@ -699,9 +836,14 @@ def verify_delegation_chain(
     issuers = authenticated_issuers_by_depth or {}
     root_issuer = issuers.get(0, chain[0].issuer)
     result = validate_delegation(
-        child=chain[0], parent=None, authenticated_issuer=root_issuer,
-        authenticated_delegate=chain[0].delegate, is_revoked=is_revoked,
-        public_key_resolver=public_key_resolver, max_depth=max_depth, now=now,
+        child=chain[0],
+        parent=None,
+        authenticated_issuer=root_issuer,
+        authenticated_delegate=chain[0].delegate,
+        is_revoked=is_revoked,
+        public_key_resolver=public_key_resolver,
+        max_depth=max_depth,
+        now=now,
     )
     if not result.authorized:
         return result
@@ -709,10 +851,14 @@ def verify_delegation_chain(
     for i in range(1, len(chain)):
         hop_issuer = issuers.get(i, chain[i].issuer)
         result = validate_delegation(
-            child=chain[i], parent=chain[i - 1], authenticated_issuer=hop_issuer,
-            authenticated_delegate=chain[i].delegate if i < len(chain) - 1 else authenticated_delegate,
-            is_revoked=is_revoked, public_key_resolver=public_key_resolver,
-            max_depth=max_depth, now=now,
+            child=chain[i],
+            parent=chain[i - 1],
+            authenticated_issuer=hop_issuer,
+            authenticated_delegate=(chain[i].delegate if i < len(chain) - 1 else authenticated_delegate),
+            is_revoked=is_revoked,
+            public_key_resolver=public_key_resolver,
+            max_depth=max_depth,
+            now=now,
         )
         if not result.authorized:
             return result
@@ -720,7 +866,9 @@ def verify_delegation_chain(
     return result
 
 
-def to_opa_delegation_context(chain: tuple[DelegationCredential, ...]) -> dict[str, Any]:
+def to_opa_delegation_context(
+    chain: tuple[DelegationCredential, ...],
+) -> dict[str, Any]:
     """The ONLY sanctioned shape for OPA's `delegation` input key (Section
     21) -- built exclusively from a chain that has ALREADY passed
     verify_delegation_chain, never from agent-supplied claims. Callers
@@ -743,6 +891,7 @@ def to_opa_delegation_context(chain: tuple[DelegationCredential, ...]) -> dict[s
 
 
 # ── Revocation store (Section 16) ────────────────────────────────────────
+
 
 class DelegationStore:
     """In-memory delegation registry + revocation tracking, mirroring the
@@ -774,8 +923,11 @@ class DelegationStore:
             return False
         self._revoked[delegation_id] = reason or "revoked"
         _audit_delegation_event(
-            "delegation_revoked", delegation_id=delegation_id, issuer=credential.issuer,
-            delegate=credential.delegate, parent_delegation_id=credential.parent_delegation_id,
+            "delegation_revoked",
+            delegation_id=delegation_id,
+            issuer=credential.issuer,
+            delegate=credential.delegate,
+            parent_delegation_id=credential.parent_delegation_id,
             details={"reason": reason or "revoked"},
         )
         for child_id in self._children.get(delegation_id, ()):

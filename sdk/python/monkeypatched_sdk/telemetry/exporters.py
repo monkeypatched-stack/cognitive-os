@@ -90,9 +90,7 @@ class LoggingExporter(TelemetryExporter):
         tags: Dict[str, str],
         timestamp: float,
     ) -> None:
-        logger.debug(
-            "METRIC %s=%s type=%s tags=%s", name, value, metric_type.value, tags
-        )
+        logger.debug("METRIC %s=%s type=%s tags=%s", name, value, metric_type.value, tags)
 
     async def export_trace(
         self,
@@ -276,11 +274,7 @@ class InfluxExporter(TelemetryExporter):
         try:
             from influxdb_client import Point, WritePrecision
 
-            point = (
-                Point(self.measurement)
-                .field(name, value)
-                .time(int(timestamp * 1e9), WritePrecision.NANOSECONDS)
-            )
+            point = Point(self.measurement).field(name, value).time(int(timestamp * 1e9), WritePrecision.NANOSECONDS)
             for tag_key, tag_value in tags.items():
                 point = point.tag(tag_key, tag_value)
             point = point.tag("metric_type", metric_type.value)
@@ -346,17 +340,15 @@ class JaegerExporter(TelemetryExporter):
             return True
         try:
             from opentelemetry import trace
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                OTLPSpanExporter,
+            )
             from opentelemetry.sdk.resources import SERVICE_NAME, Resource
             from opentelemetry.sdk.trace import TracerProvider
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-            provider = TracerProvider(
-                resource=Resource.create({SERVICE_NAME: self.service_name})
-            )
-            provider.add_span_processor(
-                BatchSpanProcessor(OTLPSpanExporter(endpoint=self.endpoint))
-            )
+            provider = TracerProvider(resource=Resource.create({SERVICE_NAME: self.service_name}))
+            provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=self.endpoint)))
             trace.set_tracer_provider(provider)
             self._tracer = trace.get_tracer(self.service_name)
             return True

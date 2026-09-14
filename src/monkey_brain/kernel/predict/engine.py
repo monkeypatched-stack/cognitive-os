@@ -12,6 +12,7 @@ Predict does NOT:
   - Update policies or Q-values.
   - Compute EPA Loss (that happens in Learn, after observation).
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,6 +35,7 @@ class PredictEngine:
     def __init__(self, mesh: Any = None) -> None:
         if mesh is None:
             from src.monkey_brain.kernel.predict.solver_mesh import build_default_mesh
+
             mesh = build_default_mesh()
         self._mesh = mesh
         self._graph_solver = self._find_graph_solver()
@@ -41,6 +43,7 @@ class PredictEngine:
 
     def _find_graph_solver(self) -> Any:
         from src.monkey_brain.kernel.predict.graph_solver.graph import GraphSolver
+
         for s in self._mesh._solvers:
             if isinstance(s, GraphSolver):
                 return s
@@ -51,6 +54,7 @@ class PredictEngine:
         try:
             from src.monkey_brain.kernel.predict.jepa.jepa import JEPAWorldModel
             from src.monkey_brain.kernel.predict.jepa.predictor import JEPAPredictor
+
             for s in self._mesh._solvers:
                 if isinstance(s, JEPAWorldModel):
                     return JEPAPredictor(s)
@@ -130,14 +134,19 @@ class PredictEngine:
     def _build_problems(self, graph: Any, ga: GraphAnalysis) -> list[dict]:
         """Convert ExecutionGraph state into solver problem dicts."""
         from src.monkey_brain.kernel.execute.graph import NodeState
+
         nodes = graph.get_step_nodes()
         node_states = {n.id: graph.get_state(n.id) for n in nodes}
 
         # World state: node_id → completion probability (current known state)
         current_state = {
-            n.id: (1.0 if node_states[n.id] == NodeState.COMPLETE
-                   else 0.0 if node_states[n.id] == NodeState.FAILED
-                   else 0.5)
+            n.id: (
+                1.0
+                if node_states[n.id] == NodeState.COMPLETE
+                else 0.0
+                if node_states[n.id] == NodeState.FAILED
+                else 0.5
+            )
             for n in nodes
         }
 
@@ -161,7 +170,12 @@ class PredictEngine:
                     "has_cycle": ga.has_cycle,
                 },
                 "invariants": [
-                    {"type": "range", "variable": "failed_count", "min": 0, "max": len(nodes)},
+                    {
+                        "type": "range",
+                        "variable": "failed_count",
+                        "min": 0,
+                        "max": len(nodes),
+                    },
                 ],
                 "properties": [],
             },
@@ -275,7 +289,8 @@ class PredictEngine:
         if jepa_prediction is not None and jepa_prediction.trained:
             w = jepa_prediction.prediction_confidence
             goal_progress = round(
-                w * jepa_prediction.predicted_goal_progress + (1 - w) * graph_goal_progress, 4
+                w * jepa_prediction.predicted_goal_progress + (1 - w) * graph_goal_progress,
+                4,
             )
         else:
             goal_progress = round(graph_goal_progress, 4)
@@ -287,14 +302,13 @@ class PredictEngine:
         opt_result = solver_results.get("optimizer")
         knowledge_expectation = 0.5
         if opt_result is not None:
-            knowledge_expectation = max(0.0, min(1.0,
-                round(1.0 - abs(opt_result.solution.get("value", 0.5)), 3)
-            ))
+            knowledge_expectation = max(
+                0.0,
+                min(1.0, round(1.0 - abs(opt_result.solution.get("value", 0.5)), 3)),
+            )
         if jepa_prediction is not None and jepa_prediction.trained:
             k_sig = jepa_prediction.component_signals.get("latent_signal_K", 0.0)
-            knowledge_expectation = round(
-                0.5 * knowledge_expectation + 0.5 * float((1.0 + k_sig) / 2.0), 4
-            )
+            knowledge_expectation = round(0.5 * knowledge_expectation + 0.5 * float((1.0 + k_sig) / 2.0), 4)
 
         # ── Solver contributions for diagnostics ─────────────────────────────
         contributions: dict[str, Any] = {name: r.proof for name, r in solver_results.items()}
@@ -311,7 +325,6 @@ class PredictEngine:
             knowledge_expectation=knowledge_expectation,
             solver_contributions=contributions,
         )
-
 
     def _extract_predicted_constraints(self, solver_results: dict[str, Any]) -> dict[str, Any]:
         """Extract constraint prediction from model checker and SAT solver results."""
@@ -332,25 +345,41 @@ class PredictEngine:
 
 # ── Issue derivation (supplementary, for backward compat) ────────────────────
 
+
 def _derive_issues(ga: GraphAnalysis | None) -> list[Any]:
     if ga is None:
         return []
     from src.monkey_brain.kernel.predict.simulation import Issue, IssueKind
+
     issues: list[Any] = []
     for nid in ga.failed_nodes:
-        issues.append(Issue(kind=IssueKind.FAILED_NODE, node_id=nid,
-                            detail="node state is FAILED"))
+        issues.append(Issue(kind=IssueKind.FAILED_NODE, node_id=nid, detail="node state is FAILED"))
     for nid in ga.unreachable_nodes:
-        issues.append(Issue(kind=IssueKind.UNREACHABLE_NODE, node_id=nid,
-                            detail="all upstream deps are FAILED"))
+        issues.append(
+            Issue(
+                kind=IssueKind.UNREACHABLE_NODE,
+                node_id=nid,
+                detail="all upstream deps are FAILED",
+            )
+        )
     for nid in ga.critical_path:
         if nid in ga.failed_nodes:
-            issues.append(Issue(kind=IssueKind.CRITICAL_PATH_SLOW, node_id=nid,
-                                detail="failed node on critical path",
-                                metadata={"critical_path": ga.critical_path}))
+            issues.append(
+                Issue(
+                    kind=IssueKind.CRITICAL_PATH_SLOW,
+                    node_id=nid,
+                    detail="failed node on critical path",
+                    metadata={"critical_path": ga.critical_path},
+                )
+            )
     if ga.has_cycle:
-        issues.append(Issue(kind=IssueKind.CYCLE_DETECTED, node_id="*",
-                            detail="cycle detected in dependency graph"))
+        issues.append(
+            Issue(
+                kind=IssueKind.CYCLE_DETECTED,
+                node_id="*",
+                detail="cycle detected in dependency graph",
+            )
+        )
     return issues
 
 

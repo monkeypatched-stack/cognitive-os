@@ -3,6 +3,7 @@
 Verifies that PolicyStore produces identical Q-values to the existing QTable
 when given the same inputs. This is the mirror-write validation.
 """
+
 from __future__ import annotations
 
 import json
@@ -197,6 +198,7 @@ class TestPolicyStoreConcurrency:
 
     def test_concurrent_updates(self):
         import threading
+
         store = PolicyStore()
         errors = []
 
@@ -379,5 +381,6 @@ class TestPolicyStoreOwnershipEnforcement:
         per-actor construction sites — must actually pass owner_id
         through, not just have the parameter available unused."""
         from src.monkey_brain.kernel.compile.actor_belief import ActorBelief
+
         belief = ActorBelief("owner-check-actor")
         assert belief._policy_store.owner_id == "owner-check-actor"

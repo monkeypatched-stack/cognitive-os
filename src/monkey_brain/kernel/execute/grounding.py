@@ -65,7 +65,12 @@ def mode() -> str:
     """Current grounding mode. An unrecognised value must not silently disable the check."""
     raw = (os.getenv("MB_GROUNDING") or WARN).strip().lower()
     if raw not in _VALID_MODES:
-        logger.warning("MB_GROUNDING=%r is not one of %s — falling back to %r", raw, _VALID_MODES, WARN)
+        logger.warning(
+            "MB_GROUNDING=%r is not one of %s — falling back to %r",
+            raw,
+            _VALID_MODES,
+            WARN,
+        )
         return WARN
     return raw
 
@@ -168,7 +173,9 @@ def enforce(answer: str, report: Dict[str, Any], run_id: str = "") -> str:
     if report.get("answer_withheld"):
         logger.error(
             "run=%r WITHHELD an ungrounded answer (%d chars, zero evidence): %.120s",
-            run_id, len(answer), answer,
+            run_id,
+            len(answer),
+            answer,
         )
         return REFUSAL
 
@@ -176,6 +183,8 @@ def enforce(answer: str, report: Dict[str, Any], run_id: str = "") -> str:
         "run=%r answer is UNGROUNDED — zero semantic hits, zero graph paths, zero cited "
         "sources. It is being returned as-is because MB_GROUNDING=%s; treat it as the "
         "model's prior, not as fact: %.120s",
-        run_id, report.get("mode"), answer,
+        run_id,
+        report.get("mode"),
+        answer,
     )
     return answer

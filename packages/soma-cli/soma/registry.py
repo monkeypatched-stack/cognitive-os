@@ -16,7 +16,6 @@ from soma.models import (
     SomaRelease,
 )
 
-
 CHART_FILE = "Chart.yaml"
 VALUES_FILE = "values.yaml"
 TEMPLATES_DIR = "templates"
@@ -78,7 +77,9 @@ class SomaRegistry:
 
         return Chart(metadata=metadata, values=merged, resources=resources)
 
-    def _parse_templates(self, templates_dir: Path, values: dict[str, Any]) -> list[ConstitutionalResource]:
+    def _parse_templates(
+        self, templates_dir: Path, values: dict[str, Any]
+    ) -> list[ConstitutionalResource]:
         resources: list[ConstitutionalResource] = []
         if not templates_dir.exists():
             return resources
@@ -93,7 +94,9 @@ class SomaRegistry:
                     resources.append(resource)
         return resources
 
-    def _parse_resource(self, doc: dict[str, Any], values: dict[str, Any]) -> ConstitutionalResource | None:
+    def _parse_resource(
+        self, doc: dict[str, Any], values: dict[str, Any]
+    ) -> ConstitutionalResource | None:
         try:
             kind_str = doc.get("kind", "")
             try:
@@ -108,9 +111,9 @@ class SomaRegistry:
                 layer=raw_meta.get("layer") or values.get("module", {}).get("layer"),
                 alias=raw_meta.get("alias") or values.get("module", {}).get("alias"),
                 biologicalRole=raw_meta.get("biologicalRole")
-                    or values.get("module", {}).get("biologicalRole"),
+                or values.get("module", {}).get("biologicalRole"),
                 softwareRole=raw_meta.get("softwareRole")
-                    or values.get("module", {}).get("softwareRole"),
+                or values.get("module", {}).get("softwareRole"),
                 phase=raw_meta.get("phase"),
                 source=raw_meta.get("source") or values.get("module", {}).get("source"),
                 id=raw_meta.get("id"),

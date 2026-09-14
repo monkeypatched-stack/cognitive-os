@@ -27,8 +27,13 @@ except Exception:
     pass
 
 _root = os.path.dirname(os.path.dirname(__file__))
-for p in ("src", "packages/cerebellum", "packages/broca", "packages/soma-cli",
-          "domains/manufacturing/knowledge"):
+for p in (
+    "src",
+    "packages/cerebellum",
+    "packages/broca",
+    "packages/soma-cli",
+    "domains/manufacturing/knowledge",
+):
     _full = os.path.join(_root, p)
     if _full not in sys.path:
         sys.path.insert(0, _full)
@@ -39,6 +44,7 @@ for p in ("src", "packages/cerebellum", "packages/broca", "packages/soma-cli",
 # import depending on which test ran first.
 try:  # pragma: no cover
     import broca  # noqa: F401
+
     if not hasattr(broca, "agents"):
         for _m in [k for k in list(sys.modules) if k == "broca" or k.startswith("broca.")]:
             del sys.modules[_m]
@@ -55,8 +61,12 @@ except Exception:
 # by default so `pytest tests/` is deterministic; run them with RUN_INTEGRATION=1 against a
 # started stack.
 _INTEGRATION_PATHS = (
-    "e2e/test_soma_compile", "e2e/test_software_engineering", "e2e/test_e2e",
-    "e2e/cognitive_loop", "load/test_load_and_soak", "security/test_api_fuzz",
+    "e2e/test_soma_compile",
+    "e2e/test_software_engineering",
+    "e2e/test_e2e",
+    "e2e/cognitive_loop",
+    "load/test_load_and_soak",
+    "security/test_api_fuzz",
     "benchmarks/",
     "test_phase8_autonomous_actors.py",
     "test_phase9_event_driven_observation.py",
@@ -94,6 +104,7 @@ def _reset_tenant_context():
     real isolation failure."""
     try:
         from services.common.tenant_scope import set_tenant, _unscoped
+
         set_tenant("")
         _unscoped.set(False)
     except Exception:
@@ -152,10 +163,19 @@ def _flush_shared_redis():
     try:
         import os
         import subprocess
+
         subprocess.run(
-            ["redis-cli", "-h", os.getenv("REDIS_HOST", "localhost"),
-             "-p", os.getenv("REDIS_PORT", "6379"), "flushdb"],
-            timeout=2, capture_output=True, check=False,
+            [
+                "redis-cli",
+                "-h",
+                os.getenv("REDIS_HOST", "localhost"),
+                "-p",
+                os.getenv("REDIS_PORT", "6379"),
+                "flushdb",
+            ],
+            timeout=2,
+            capture_output=True,
+            check=False,
         )
     except Exception:
         pass
@@ -172,6 +192,7 @@ def _reset_timeline_store():
     _reset_tenant_context above."""
     try:
         from src.monkey_brain.kernel.timeline.store import TimelineStore
+
         TimelineStore.reset_for_testing()
     except Exception:
         pass
@@ -199,15 +220,24 @@ class _GenericPlanningBackend:
         # test_ec001_simple_purchase.py -- a plain actor.tick() call, no
         # custom backend injected, hit this on every run).
         import re
+
         match = re.search(r"Goal:\s*(\S+)", prompt)
         goal_name = match.group(1) if match else "goal"
-        return json.dumps({
-            "steps": [{
-                "action": f"achieve_{goal_name}", "description": f"Achieve {goal_name}",
-                "expected_outcome": goal_name, "cost": 0.1, "confidence": 0.8,
-            }],
-            "summary": f"Plan to achieve {goal_name}", "confidence": 0.8,
-        })
+        return json.dumps(
+            {
+                "steps": [
+                    {
+                        "action": f"achieve_{goal_name}",
+                        "description": f"Achieve {goal_name}",
+                        "expected_outcome": goal_name,
+                        "cost": 0.1,
+                        "confidence": 0.8,
+                    }
+                ],
+                "summary": f"Plan to achieve {goal_name}",
+                "confidence": 0.8,
+            }
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -235,6 +265,7 @@ def event_loop():
 @pytest.fixture
 def tmp_keystore(tmp_path):
     from cerebellum.keystore import SecureKeystore
+
     return SecureKeystore(
         master_key="test-master-key-for-testing-only-32b!",
         db_path=str(tmp_path / "keystore.json"),
@@ -245,8 +276,10 @@ def tmp_keystore(tmp_path):
 def fake_settings():
     # Patch both the config module AND every module that has already bound
     # `settings` from it via `from services.common.config import settings`.
-    with patch("services.common.config.settings") as s, \
-         patch("services.auth.helpers.tokens.settings", s):
+    with (
+        patch("services.common.config.settings") as s,
+        patch("services.auth.helpers.tokens.settings", s),
+    ):
         s.ACCESS_TOKEN_SECRET = "test-access-secret"
         s.REFRESH_TOKEN_SECRET = "test-refresh-secret"
         s.ALGORITHM = "HS256"
@@ -263,4 +296,5 @@ def fake_settings():
 @pytest.fixture
 def make_token(fake_settings):
     from services.auth.helpers.tokens import create_access_token
+
     return create_access_token

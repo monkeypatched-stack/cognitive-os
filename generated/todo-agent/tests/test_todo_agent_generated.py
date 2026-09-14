@@ -20,7 +20,9 @@ def test_create_new_todos():
     try:
         todo_agent.create_todo(title=title, description=description)
         assert todo_agent.list_todos()  # Verify the todo was created
-        created_todo = todo_agent.get_todo(todo_agent.last_todo_id()) # Retrieve the newly created todo
+        created_todo = todo_agent.get_todo(
+            todo_agent.last_todo_id()
+        )  # Retrieve the newly created todo
         assert created_todo.title == title
         assert created_todo.description == description
 
@@ -35,7 +37,9 @@ def test_mark_todos_complete():
         todo_agent.create_todo(title=title)
         todo_agent.mark_complete(title=title)
         assert todo_agent.list_todos()  # Verify the todo still exists
-        completed_todo = todo_agent.get_todo(todo_agent.last_todo_id()) # Retrieve the newly created todo
+        completed_todo = todo_agent.get_todo(
+            todo_agent.last_todo_id()
+        )  # Retrieve the newly created todo
         assert completed_todo.completed == True
 
     finally:
@@ -54,7 +58,9 @@ def test_list_todos():
         todos = todo_agent.list_todos()
         assert len(todos) == 2
         for todo in todos:
-            assert todo.completed == False # ensure that all the lists are not marked as complete
+            assert (
+                todo.completed == False
+            )  # ensure that all the lists are not marked as complete
 
     finally:
         todo_agent.delete_all_todos()

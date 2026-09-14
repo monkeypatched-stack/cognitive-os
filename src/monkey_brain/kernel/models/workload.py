@@ -8,42 +8,50 @@ from typing import Any
 
 @dataclass
 class HealingResult:
-    outcome: str        # "success" | "failure" | "skipped"
-    passes:  int = 0
-    reason:  str = ""
+    outcome: str  # "success" | "failure" | "skipped"
+    passes: int = 0
+    reason: str = ""
 
 
 @dataclass
 class StabilityResult:
-    outcome:    str               # "complete" | "spec_review" | "skipped"
+    outcome: str  # "complete" | "spec_review" | "skipped"
     conditions: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class WorkloadOutcome:
-    run_type:  str
-    healing:   HealingResult | None   = None
+    run_type: str
+    healing: HealingResult | None = None
     stability: StabilityResult | None = None
 
     @property
     def final_status(self) -> str:
         if self.stability:
-            return self.stability.outcome          # "complete" | "spec_review"
+            return self.stability.outcome  # "complete" | "spec_review"
         if self.healing:
             return "healing_" + self.healing.outcome
         return "codegen"
 
     def to_dict(self) -> dict:
         return {
-            "run_type":     self.run_type,
+            "run_type": self.run_type,
             "final_status": self.final_status,
-            "healing": {
-                "outcome": self.healing.outcome,
-                "passes":  self.healing.passes,
-                "reason":  self.healing.reason,
-            } if self.healing else None,
-            "stability": {
-                "outcome":    self.stability.outcome,
-                "conditions": self.stability.conditions,
-            } if self.stability else None,
+            "healing": (
+                {
+                    "outcome": self.healing.outcome,
+                    "passes": self.healing.passes,
+                    "reason": self.healing.reason,
+                }
+                if self.healing
+                else None
+            ),
+            "stability": (
+                {
+                    "outcome": self.stability.outcome,
+                    "conditions": self.stability.conditions,
+                }
+                if self.stability
+                else None
+            ),
         }

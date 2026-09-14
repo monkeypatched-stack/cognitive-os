@@ -8,6 +8,7 @@ Each solver produces Evidence. The fusion engine:
 
 This is Layer 7 + Layer 8 of the Cognitive Knowledge Framework.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,14 +17,18 @@ from typing import Any
 from src.knowledge.interface import Evidence
 from src.knowledge.item import Modality
 from src.knowledge.pack import KnowledgePack
-from src.monkey_brain.kernel.learn.epa.epistemic import EpistemicState, KnowledgeConfidence
+from src.monkey_brain.kernel.learn.epa.epistemic import (
+    EpistemicState,
+    KnowledgeConfidence,
+)
 
 
 @dataclass
 class SolverReliability:
     """Reliability of a solver type."""
+
     name: str = ""
-    base_reliability: float = 0.5   # prior reliability [0,1]
+    base_reliability: float = 0.5  # prior reliability [0,1]
     success_count: int = 0
     failure_count: int = 0
     avg_confidence_delta: float = 0.0
@@ -40,14 +45,13 @@ class SolverReliability:
             self.success_count += 1
         else:
             self.failure_count += 1
-        self.avg_confidence_delta = (
-            self.avg_confidence_delta * 0.9 + confidence_delta * 0.1
-        )
+        self.avg_confidence_delta = self.avg_confidence_delta * 0.9 + confidence_delta * 0.1
 
 
 @dataclass
 class FusionResult:
     """Result of evidence fusion."""
+
     updated_confidence: KnowledgeConfidence = field(default_factory=KnowledgeConfidence)
     evidence_applied: int = 0
     contradictions_resolved: int = 0
@@ -75,14 +79,14 @@ class EvidenceFusionEngine:
 
     # Solver type → base reliability
     SOLVER_RELIABILITY: dict[str, float] = {
-        "graph": 0.85,       # graph reachability is exact
-        "sat": 0.90,         # SAT proofs are definitive
+        "graph": 0.85,  # graph reachability is exact
+        "sat": 0.90,  # SAT proofs are definitive
         "monte_carlo": 0.7,  # statistical, variance
-        "coherence": 0.75,   # coherence check (status embedding)
+        "coherence": 0.75,  # coherence check (status embedding)
         "rule_engine": 0.8,  # deterministic rules
-        "llm": 0.5,          # semantic hypothesis, uncertain
-        "simulator": 0.8,    # behavioral evidence
-        "sensor": 0.9,       # direct observation
+        "llm": 0.5,  # semantic hypothesis, uncertain
+        "simulator": 0.8,  # behavioral evidence
+        "sensor": 0.9,  # direct observation
     }
 
     def __init__(self):
@@ -94,7 +98,8 @@ class EvidenceFusionEngine:
         if solver_name not in self._solver_reliabilities:
             base = self.SOLVER_RELIABILITY.get(solver_name, 0.5)
             self._solver_reliabilities[solver_name] = SolverReliability(
-                name=solver_name, base_reliability=base,
+                name=solver_name,
+                base_reliability=base,
             )
         return self._solver_reliabilities[solver_name]
 
@@ -160,10 +165,16 @@ class EvidenceFusionEngine:
         # Blend prior and posterior
         blend = 0.7  # 70% posterior, 30% prior
         posterior = KnowledgeConfidence(
-            provenance=max(prior_confidence.provenance * (1 - blend) + fusion.fused_confidence * blend, 0),
+            provenance=max(
+                prior_confidence.provenance * (1 - blend) + fusion.fused_confidence * blend,
+                0,
+            ),
             semantic_consistency=prior_confidence.semantic_consistency,
             freshness=prior_confidence.freshness,
-            completeness=max(prior_confidence.completeness * (1 - blend) + fusion.agreement * blend, 0),
+            completeness=max(
+                prior_confidence.completeness * (1 - blend) + fusion.agreement * blend,
+                0,
+            ),
             validation=prior_confidence.validation,
             simulation_success=prior_confidence.simulation_success,
         )
@@ -173,28 +184,24 @@ class EvidenceFusionEngine:
             evidence_applied=evidence_applied,
             contradictions_resolved=contradictions,
             net_confidence_change=posterior.composite - prior_confidence.composite,
-            solver_reliabilities={
-                name: r.empirical_reliability
-                for name, r in self._solver_reliabilities.items()
-            },
+            solver_reliabilities={name: r.empirical_reliability for name, r in self._solver_reliabilities.items()},
             dominant_evidence=best_evidence,
         )
 
-        self._evidence_log.append({
-            "evidence_count": len(evidence_list),
-            "applied": evidence_applied,
-            "net_change": result.net_confidence_change,
-        })
+        self._evidence_log.append(
+            {
+                "evidence_count": len(evidence_list),
+                "applied": evidence_applied,
+                "net_change": result.net_confidence_change,
+            }
+        )
         if len(self._evidence_log) > self._max_log:
-            self._evidence_log = self._evidence_log[-self._max_log:]
+            self._evidence_log = self._evidence_log[-self._max_log :]
 
         return result
 
     def get_stats(self) -> dict[str, Any]:
         return {
             "total_fusions": len(self._evidence_log),
-            "solver_reliabilities": {
-                name: r.empirical_reliability
-                for name, r in self._solver_reliabilities.items()
-            },
+            "solver_reliabilities": {name: r.empirical_reliability for name, r in self._solver_reliabilities.items()},
         }

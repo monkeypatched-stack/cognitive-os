@@ -20,7 +20,11 @@ def cdc_event(
     update: Any = None,
     result: Any = None,
 ) -> dict[str, Any]:
-    record_id = document_record_id(record) if isinstance(record, dict) else document_record_id(after) if isinstance(after, dict) else None
+    record_id = (
+        document_record_id(record)
+        if isinstance(record, dict)
+        else document_record_id(after) if isinstance(after, dict) else None
+    )
     return jsonable_encoder(
         {
             "event_id": f"cdc-{uuid4().hex}",

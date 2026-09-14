@@ -17,6 +17,7 @@ that lost its response goes through) with a literal counter, per this
 section's own literal request -- not a duplicate of the state-machine
 tests, a different layer of the same stack.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -78,12 +79,20 @@ class TestCounterIncrementsExactlyOnceAcrossALostResponseRetry:
         # observed -- this test doesn't need to simulate that beyond not
         # looking at r1 before retrying, since the SAME Idempotency-Key
         # is what a real client retry would resend).
-        r1 = client.post("/counter/increment", json={"amount": 5}, headers={"Idempotency-Key": "retry-key-1"})
+        r1 = client.post(
+            "/counter/increment",
+            json={"amount": 5},
+            headers={"Idempotency-Key": "retry-key-1"},
+        )
         assert r1.status_code == 200
 
         # Attempt 2: the client, having not seen attempt 1's response,
         # retries with the SAME Idempotency-Key and body.
-        r2 = client.post("/counter/increment", json={"amount": 5}, headers={"Idempotency-Key": "retry-key-1"})
+        r2 = client.post(
+            "/counter/increment",
+            json={"amount": 5},
+            headers={"Idempotency-Key": "retry-key-1"},
+        )
         assert r2.status_code == 200
 
         assert r1.json() == r2.json(), "the retry must be served the FIRST attempt's cached result"
@@ -111,7 +120,11 @@ class TestCounterIncrementsExactlyOnceAcrossALostResponseRetry:
         lock = threading.Lock()
 
         def _post():
-            r = client.post("/counter/increment", json={"amount": 5}, headers={"Idempotency-Key": "retry-key-concurrent"})
+            r = client.post(
+                "/counter/increment",
+                json={"amount": 5},
+                headers={"Idempotency-Key": "retry-key-concurrent"},
+            )
             with lock:
                 results.append(r.status_code)
 
@@ -121,7 +134,9 @@ class TestCounterIncrementsExactlyOnceAcrossALostResponseRetry:
         for t in threads:
             t.join()
 
-        assert counter.value == 5, f"expected exactly one real increment across 10 concurrent identical retries, got value={counter.value}"
+        assert counter.value == 5, (
+            f"expected exactly one real increment across 10 concurrent identical retries, got value={counter.value}"
+        )
         assert len(counter.call_log) == 1
 
     def test_a_genuinely_different_operation_is_not_suppressed(self):
@@ -138,8 +153,16 @@ class TestCounterIncrementsExactlyOnceAcrossALostResponseRetry:
             return {"value": new_value}
 
         client = TestClient(app)
-        r1 = client.post("/counter/increment", json={"amount": 5}, headers={"Idempotency-Key": "op-a"})
-        r2 = client.post("/counter/increment", json={"amount": 5}, headers={"Idempotency-Key": "op-b"})
+        r1 = client.post(
+            "/counter/increment",
+            json={"amount": 5},
+            headers={"Idempotency-Key": "op-a"},
+        )
+        r2 = client.post(
+            "/counter/increment",
+            json={"amount": 5},
+            headers={"Idempotency-Key": "op-b"},
+        )
 
         assert r1.json() != r2.json()
         assert counter.value == 10
@@ -155,33 +178,58 @@ class TestNonIdempotentCapabilityInventory:
 
     CLASSIFICATION = {
         # capability_name: (classification, evidence)
-        "OrderCreation": ("explicitly_deduplicated", "idempotency_key + IdempotencyStore reserve/complete, "
-                           "plus execution_attempt.py's own attempt-state machine for the network-ambiguity case"),
-        "PaymentAuthorization/PaymentCharge": ("explicitly_deduplicated", "same @idempotent + execution_attempt "
-                                                "coverage as OrderCreation -- see tests/scenarios/test_mb3012_payment_authorization.py"),
-        "ProductSelection (reservation)": ("explicitly_deduplicated", "try_reserve's compare-and-swap on the "
-                                            "KnowledgeGraph entity -- tests/scenarios/test_transition_gate.py"),
-        "DelegateTaskCapability (message send)": ("not_safe_to_retry_without_key", "a retried delegated-task "
-                                                    "dispatch with no idempotency key re-executes the underlying "
-                                                    "tasks; safety depends entirely on those tasks' OWN idempotency "
-                                                    "(OrderCreation etc.), not on delegation itself"),
-        "AskActorCapability (message send)": ("not_naturally_idempotent", "each call records a new episodic "
-                                                "memory entry on both sides (test_D in test_actor_isolation_audit.py) "
-                                                "-- a retried ask is a SECOND real memory, not deduplicated"),
-        "BroadcastToAffiliationCapability": ("not_naturally_idempotent", "records a new memory_manager entry per "
-                                               "delivery, same as AskActor -- see test_v09_messaging.py's own finding "
-                                               "that the recipient-side handler has no idempotency key at all"),
-        "physical ROS movement (RosExecutionAdapter.invoke)": ("unknown", "run_ros_action_if_governed has no "
-                                                                  "idempotency-key parameter and no replay/sequence "
-                                                                  "protection -- see test_v13_ros_governance.py; a "
-                                                                  "REAL rclpy adapter's safety under a duplicate "
-                                                                  "command is genuinely untested (no ROS 2 install "
-                                                                  "in this environment)"),
+        "OrderCreation": (
+            "explicitly_deduplicated",
+            "idempotency_key + IdempotencyStore reserve/complete, "
+            "plus execution_attempt.py's own attempt-state machine for the network-ambiguity case",
+        ),
+        "PaymentAuthorization/PaymentCharge": (
+            "explicitly_deduplicated",
+            "same @idempotent + execution_attempt "
+            "coverage as OrderCreation -- see tests/scenarios/test_mb3012_payment_authorization.py",
+        ),
+        "ProductSelection (reservation)": (
+            "explicitly_deduplicated",
+            "try_reserve's compare-and-swap on the KnowledgeGraph entity -- tests/scenarios/test_transition_gate.py",
+        ),
+        "DelegateTaskCapability (message send)": (
+            "not_safe_to_retry_without_key",
+            "a retried delegated-task "
+            "dispatch with no idempotency key re-executes the underlying "
+            "tasks; safety depends entirely on those tasks' OWN idempotency "
+            "(OrderCreation etc.), not on delegation itself",
+        ),
+        "AskActorCapability (message send)": (
+            "not_naturally_idempotent",
+            "each call records a new episodic "
+            "memory entry on both sides (test_D in test_actor_isolation_audit.py) "
+            "-- a retried ask is a SECOND real memory, not deduplicated",
+        ),
+        "BroadcastToAffiliationCapability": (
+            "not_naturally_idempotent",
+            "records a new memory_manager entry per "
+            "delivery, same as AskActor -- see test_v09_messaging.py's own finding "
+            "that the recipient-side handler has no idempotency key at all",
+        ),
+        "physical ROS movement (RosExecutionAdapter.invoke)": (
+            "unknown",
+            "run_ros_action_if_governed has no "
+            "idempotency-key parameter and no replay/sequence "
+            "protection -- see test_v13_ros_governance.py; a "
+            "REAL rclpy adapter's safety under a duplicate "
+            "command is genuinely untested (no ROS 2 install "
+            "in this environment)",
+        ),
     }
 
     def test_every_capability_in_the_inventory_has_a_named_classification(self):
-        valid = {"explicitly_deduplicated", "naturally_idempotent", "not_naturally_idempotent",
-                 "not_safe_to_retry_without_key", "unknown"}
+        valid = {
+            "explicitly_deduplicated",
+            "naturally_idempotent",
+            "not_naturally_idempotent",
+            "not_safe_to_retry_without_key",
+            "unknown",
+        }
         for name, (classification, _evidence) in self.CLASSIFICATION.items():
             assert classification in valid, f"{name}: {classification!r} is not a recognized classification"
 
@@ -190,6 +238,9 @@ class TestNonIdempotentCapabilityInventory:
         time without a real re-audit -- Section 28 explicitly requires
         reporting every `unknown`, not converging them to a reassuring
         default."""
-        flagged = {n for n, (c, _e) in self.CLASSIFICATION.items()
-                   if c in ("unknown", "not_safe_to_retry_without_key", "not_naturally_idempotent")}
+        flagged = {
+            n
+            for n, (c, _e) in self.CLASSIFICATION.items()
+            if c in ("unknown", "not_safe_to_retry_without_key", "not_naturally_idempotent")
+        }
         assert flagged, "expected at least one capability to be a genuine, reported gap"

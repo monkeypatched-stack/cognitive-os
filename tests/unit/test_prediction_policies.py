@@ -5,15 +5,22 @@ DeterministicPredictionPolicy produces correct results, and PredictionPolicyRegi
 works for named policy lookup. Follows the same testing patterns as the
 other prediction test files.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.monkey_brain.kernel.pipeline.prediction.policies import (
-    PredictionPolicy, PredictionPolicyInput, PredictionPolicyResult,
-    DeterministicPredictionPolicy, PredictionPolicyRegistry,
+    PredictionPolicy,
+    PredictionPolicyInput,
+    PredictionPolicyResult,
+    DeterministicPredictionPolicy,
+    PredictionPolicyRegistry,
 )
-from src.monkey_brain.kernel.pipeline.prediction.transitions import TransitionModel, WorldTransition
+from src.monkey_brain.kernel.pipeline.prediction.transitions import (
+    TransitionModel,
+    WorldTransition,
+)
 
 
 class _Step:
@@ -27,25 +34,41 @@ class _Plan:
 
 
 def _milk_plan():
-    return _Plan(steps=(_Step("drive_to_store"), _Step("purchase_milk"),))
+    return _Plan(
+        steps=(
+            _Step("drive_to_store"),
+            _Step("purchase_milk"),
+        )
+    )
 
 
 def _milk_model(open_probability: float = 0.96) -> TransitionModel:
-    return TransitionModel(known_transitions={
-        ("", "drive_to_store"): (
-            WorldTransition(description="Arrived at store", probability=1.0, confidence=0.95,
-                            resulting_world_delta={"at_store": True}),
-        ),
-        ("", "purchase_milk"): (
-            WorldTransition(description="Milk purchased", probability=open_probability, confidence=0.9,
-                            resulting_world_delta={"has_milk": True}),
-        ),
-    })
+    return TransitionModel(
+        known_transitions={
+            ("", "drive_to_store"): (
+                WorldTransition(
+                    description="Arrived at store",
+                    probability=1.0,
+                    confidence=0.95,
+                    resulting_world_delta={"at_store": True},
+                ),
+            ),
+            ("", "purchase_milk"): (
+                WorldTransition(
+                    description="Milk purchased",
+                    probability=open_probability,
+                    confidence=0.9,
+                    resulting_world_delta={"has_milk": True},
+                ),
+            ),
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PredictionPolicy protocol
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPredictionPolicyProtocol:
     def test_deterministic_policy_satisfies_protocol(self):
@@ -56,12 +79,14 @@ class TestPredictionPolicyProtocol:
         class MockPolicy:
             def predict(self, input: PredictionPolicyInput) -> PredictionPolicyResult:
                 return PredictionPolicyResult()
+
         assert isinstance(MockPolicy(), PredictionPolicy)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PredictionPolicyInput / PredictionPolicyResult
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPolicyTypes:
     def test_input_defaults(self):
@@ -79,6 +104,7 @@ class TestPolicyTypes:
 # ═══════════════════════════════════════════════════════════════════════════
 # DeterministicPredictionPolicy
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDeterministicPredictionPolicy:
     def test_produces_prediction_result(self):
@@ -107,12 +133,22 @@ class TestDeterministicPredictionPolicy:
         assert result.metadata["policy"] == "deterministic"
 
     def test_with_counterfactual_assumptions(self):
-        from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption
+        from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+            CounterfactualAssumption,
+        )
+
         assumption = CounterfactualAssumption(
-            description="Store closed", category="availability",
+            description="Store closed",
+            category="availability",
             transition_overrides={
-                "purchase_milk": (WorldTransition(description="Store closed", probability=0.12, confidence=0.7,
-                                                   resulting_world_delta={"has_milk": False}),),
+                "purchase_milk": (
+                    WorldTransition(
+                        description="Store closed",
+                        probability=0.12,
+                        confidence=0.7,
+                        resulting_world_delta={"has_milk": False},
+                    ),
+                ),
             },
         )
         policy = DeterministicPredictionPolicy(
@@ -133,12 +169,20 @@ class TestDeterministicPredictionPolicy:
         assert result.result.recommendation == "Execute Baseline"
 
     def test_rejection_threshold_affects_result(self):
-        from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import CounterfactualAssumption
+        from src.monkey_brain.kernel.pipeline.prediction.counterfactuals import (
+            CounterfactualAssumption,
+        )
+
         assumption = CounterfactualAssumption(
             description="Store closed",
             transition_overrides={
-                "purchase_milk": (WorldTransition(probability=0.12, confidence=0.7,
-                                                   resulting_world_delta={"has_milk": False}),),
+                "purchase_milk": (
+                    WorldTransition(
+                        probability=0.12,
+                        confidence=0.7,
+                        resulting_world_delta={"has_milk": False},
+                    ),
+                ),
             },
         )
         strict = DeterministicPredictionPolicy(
@@ -162,6 +206,7 @@ class TestDeterministicPredictionPolicy:
 # ═══════════════════════════════════════════════════════════════════════════
 # PredictionPolicyRegistry
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPredictionPolicyRegistry:
     def test_register_and_get(self):
@@ -191,9 +236,11 @@ class TestPredictionPolicyRegistry:
 # Ownership boundary
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _imported_modules(mod) -> list[str]:
     import ast
     import inspect
+
     tree = ast.parse(inspect.getsource(mod))
     modules: list[str] = []
     for node in ast.walk(tree):
@@ -207,12 +254,19 @@ def _imported_modules(mod) -> list[str]:
 class TestOwnershipBoundary:
     def test_no_runtime_or_execution_coupling(self):
         import src.monkey_brain.kernel.pipeline.prediction.policies as mod
+
         imports = " ".join(_imported_modules(mod))
-        for forbidden in ("belief_runtime", "kernel.pipeline.execution", "action_executor", "learning."):
+        for forbidden in (
+            "belief_runtime",
+            "kernel.pipeline.execution",
+            "action_executor",
+            "learning.",
+        ):
             assert forbidden not in imports, f"policies.py must not import: {forbidden}"
 
     def test_depends_only_on_prediction_subpackage(self):
         import src.monkey_brain.kernel.pipeline.prediction.policies as mod
+
         imports = _imported_modules(mod)
         project_imports = [m for m in imports if m.startswith("src.monkey_brain")]
         for module_name in project_imports:

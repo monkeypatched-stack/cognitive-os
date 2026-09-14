@@ -3,6 +3,7 @@
 All encoder output dimensions are EMBEDDING_DIM (32).
 These are pure functions — no model state, no side effects.
 """
+
 from __future__ import annotations
 
 import json as _json
@@ -33,7 +34,7 @@ def _bow_project(text: str) -> np.ndarray:
     """
     text = text.lower()
     tokens = _re.findall(r"[a-z0-9_]+", text)
-    bigrams = [text[i:i+2] for i in range(len(text)-1) if text[i:i+2].strip()]
+    bigrams = [text[i : i + 2] for i in range(len(text) - 1) if text[i : i + 2].strip()]
     all_tokens = tokens + bigrams
     if not all_tokens:
         return np.zeros(EMBEDDING_DIM, dtype=np.float32)
@@ -74,10 +75,10 @@ def _ts_features(arr: np.ndarray) -> np.ndarray:
     n = len(arr)
     if n == 0:
         return feat
-    mu  = float(np.mean(arr))
+    mu = float(np.mean(arr))
     sig = float(np.std(arr)) + 1e-8
-    mn  = float(np.min(arr))
-    mx  = float(np.max(arr))
+    mn = float(np.min(arr))
+    mx = float(np.max(arr))
     scale = max(abs(mu), abs(mn), abs(mx), 1.0)
     feat[0] = mu / scale
     feat[1] = sig / scale
@@ -105,7 +106,7 @@ def _ts_features(arr: np.ndarray) -> np.ndarray:
     if n >= 2:
         signs = np.sign(arr[:-1]) != np.sign(arr[1:])
         feat[11] = float(np.sum(signs)) / (n - 1)
-    rms = float(np.sqrt(np.mean(arr ** 2))) + 1e-8
+    rms = float(np.sqrt(np.mean(arr**2))) + 1e-8
     feat[12] = rms / scale
     feat[13] = float(np.clip(mx / rms, 0, 10)) / 10.0
     feat[14] = sig / (abs(mu) + 1e-8)
@@ -167,6 +168,7 @@ def _graph_features(content: str) -> np.ndarray:
         logger.debug("Clustering coefficient failed: %s", e)
     try:
         from collections import deque
+
         total_hops, sample_count = 0, 0
         for src in nodes[:5]:
             visited = {src: 0}

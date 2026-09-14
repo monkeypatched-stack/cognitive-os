@@ -40,7 +40,6 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
 INSTALL_DIR = Path.home() / ".monkeybrain"
@@ -57,6 +56,7 @@ SOURCE_DIR = Path(__file__).resolve().parent
 
 # ── Service Definitions ────────────────────────────────────────────────────────
 
+
 @dataclass
 class DBService:
     name: str
@@ -72,54 +72,83 @@ class DBService:
 
 SERVICES: list[DBService] = [
     DBService(
-        name="mongodb", default_port=27017,
-        env_url_var="MONGODB_URL", default_url="mongodb://localhost:27017",
-        package_brew="mongodb-community@7.0", package_apt="mongosh",
-        service_name_brew="mongodb-community@7.0", service_name_apt="mongod",
+        name="mongodb",
+        default_port=27017,
+        env_url_var="MONGODB_URL",
+        default_url="mongodb://localhost:27017",
+        package_brew="mongodb-community@7.0",
+        package_apt="mongosh",
+        service_name_brew="mongodb-community@7.0",
+        service_name_apt="mongod",
     ),
     DBService(
-        name="redis", default_port=6379,
-        env_url_var="REDIS_URL", default_url="redis://localhost:6379",
-        package_brew="redis", package_apt="redis-server",
-        service_name_brew="redis", service_name_apt="redis-server",
+        name="redis",
+        default_port=6379,
+        env_url_var="REDIS_URL",
+        default_url="redis://localhost:6379",
+        package_brew="redis",
+        package_apt="redis-server",
+        service_name_brew="redis",
+        service_name_apt="redis-server",
     ),
     DBService(
-        name="neo4j", default_port=7687,
-        env_url_var="NEO4J_URI", default_url="bolt://localhost:7687",
-        package_brew="neo4j", package_apt="neo4j",
-        service_name_brew="neo4j", service_name_apt="neo4j",
+        name="neo4j",
+        default_port=7687,
+        env_url_var="NEO4J_URI",
+        default_url="bolt://localhost:7687",
+        package_brew="neo4j",
+        package_apt="neo4j",
+        service_name_brew="neo4j",
+        service_name_apt="neo4j",
         optional=True,
     ),
     DBService(
-        name="influxdb", default_port=8181,
-        env_url_var="INFLUXDB_URL", default_url="http://localhost:8181",
-        package_brew="influxdb3", package_apt="influxdb3",
-        service_name_brew="influxdb", service_name_apt="influxdb3",
+        name="influxdb",
+        default_port=8181,
+        env_url_var="INFLUXDB_URL",
+        default_url="http://localhost:8181",
+        package_brew="influxdb3",
+        package_apt="influxdb3",
+        service_name_brew="influxdb",
+        service_name_apt="influxdb3",
     ),
     DBService(
-        name="elasticsearch", default_port=9200,
-        env_url_var="AUDIT_ELASTICSEARCH_URL", default_url="http://localhost:9200",
-        package_brew="elasticsearch", package_apt="elasticsearch",
-        service_name_brew="elasticsearch-full", service_name_apt="elasticsearch",
+        name="elasticsearch",
+        default_port=9200,
+        env_url_var="AUDIT_ELASTICSEARCH_URL",
+        default_url="http://localhost:9200",
+        package_brew="elasticsearch",
+        package_apt="elasticsearch",
+        service_name_brew="elasticsearch-full",
+        service_name_apt="elasticsearch",
         optional=True,
     ),
     DBService(
-        name="nats", default_port=4222,
-        env_url_var="NATS_URL", default_url="nats://localhost:4222",
-        package_brew="nats-server", package_apt="nats-server",
-        service_name_brew="nats-server", service_name_apt="nats-server",
+        name="nats",
+        default_port=4222,
+        env_url_var="NATS_URL",
+        default_url="nats://localhost:4222",
+        package_brew="nats-server",
+        package_apt="nats-server",
+        service_name_brew="nats-server",
+        service_name_apt="nats-server",
     ),
     DBService(
-        name="ollama", default_port=11434,
-        env_url_var="OLLAMA_BASE_URL", default_url="http://localhost:11434",
-        package_brew="ollama", package_apt="ollama",
-        service_name_brew="ollama", service_name_apt="ollama",
+        name="ollama",
+        default_port=11434,
+        env_url_var="OLLAMA_BASE_URL",
+        default_url="http://localhost:11434",
+        package_brew="ollama",
+        package_apt="ollama",
+        service_name_brew="ollama",
+        service_name_apt="ollama",
         optional=True,
     ),
 ]
 
 
 # ── Console ────────────────────────────────────────────────────────────────────
+
 
 class C:
     R = "\033[0m"
@@ -153,13 +182,16 @@ class C:
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
 
+
 def port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def run(cmd: list[str], *, check: bool = True, capture: bool = True, env: dict | None = None) -> subprocess.CompletedProcess:
+def run(
+    cmd: list[str], *, check: bool = True, capture: bool = True, env: dict | None = None
+) -> subprocess.CompletedProcess:
     merged_env = {**os.environ, **(env or {})}
     return subprocess.run(cmd, check=check, capture_output=capture, text=True, env=merged_env)
 
@@ -224,6 +256,7 @@ def load_secrets() -> dict:
 
 # ── Service Detection ─────────────────────────────────────────────────────────
 
+
 def detect_running_services() -> dict[str, bool]:
     result = {}
     for svc in SERVICES:
@@ -236,6 +269,7 @@ def is_service_running(svc: DBService) -> bool:
 
 
 # ── Package Manager ────────────────────────────────────────────────────────────
+
 
 def ensure_brew() -> None:
     if not shutil.which("brew"):
@@ -268,7 +302,10 @@ def _start_mongodb_direct() -> None:
     log = Path("/opt/homebrew/var/log/mongodb/mongo.log")
     log.parent.mkdir(parents=True, exist_ok=True)
     if conf.exists():
-        result = run(["mongod", "--config", str(conf), "--fork", "--logpath", str(log)], check=False)
+        result = run(
+            ["mongod", "--config", str(conf), "--fork", "--logpath", str(log)],
+            check=False,
+        )
     else:
         data = DATA_DIR / "mongodb"
         data.mkdir(parents=True, exist_ok=True)
@@ -306,7 +343,14 @@ def start_service(svc: DBService) -> None:
             influx_data.mkdir(parents=True, exist_ok=True)
             log = LOG_DIR / "influxdb.log"
             pid_file = PID_DIR / "influxdb.pid"
-            cmd = ["influxd3", "serve", "--data-dir", str(influx_data), "--http-bind", f":{svc.default_port}"]
+            cmd = [
+                "influxd3",
+                "serve",
+                "--data-dir",
+                str(influx_data),
+                "--http-bind",
+                f":{svc.default_port}",
+            ]
             with open(log, "w") as log_fh:
                 proc = subprocess.Popen(cmd, stdout=log_fh, stderr=subprocess.STDOUT)
             pid_file.write_text(str(proc.pid))
@@ -387,6 +431,7 @@ def stop_service(svc: DBService) -> None:
 
 # ── Installation Steps ────────────────────────────────────────────────────────
 
+
 def step_check_python() -> None:
     v = sys.version_info[:2]
     if v < (3, 11):
@@ -419,24 +464,39 @@ def step_install_deps() -> None:
     import shutil
 
     uv_bin = shutil.which("uv")
-    if uv_bin:
+    lock_file = SOURCE_DIR / "uv.lock"
+    if uv_bin and lock_file.exists():
         C.info("Using uv for fast installs")
-        run([uv_bin, "pip", "install", "--python", str(VENV_DIR / "bin" / "python"), "-r", str(SOURCE_DIR / "requirements.txt")], check=False)
+        req_file = VENV_DIR / "requirements.lock.txt"
+        run(
+            [
+                uv_bin,
+                "export",
+                "--frozen",
+                "--no-dev",
+                "--no-hashes",
+                "--no-emit-project",
+                "--project",
+                str(SOURCE_DIR),
+                "-o",
+                str(req_file),
+            ],
+            check=False,
+        )
+        run(
+            [
+                uv_bin,
+                "pip",
+                "install",
+                "--python",
+                str(VENV_DIR / "bin" / "python"),
+                "-r",
+                str(req_file),
+            ],
+            check=False,
+        )
     else:
-        pip = str(VENV_DIR / "bin" / "pip")
-        run([pip, "install", "--upgrade", "pip"], check=False)
-        req_file = SOURCE_DIR / "requirements.txt"
-        if req_file.exists():
-            run([pip, "install", "-r", str(req_file)])
-        else:
-            pkgs = [
-                "fastapi", "uvicorn[standard]", "motor", "pydantic", "pydantic-settings",
-                "pymongo", "python-jose[cryptography]", "redis[asyncio]", "neo4j",
-                "nats-py", "influxdb-client", "paho-mqtt", "python-multipart", "bcrypt",
-                "boto3", "httpx", "mem0ai", "PyYAML", "spacy",
-                "httpx[http2]", "elasticsearch[async]", "aiohttp",
-            ]
-            run([pip, "install", *pkgs])
+        raise RuntimeError("uv and uv.lock are required for reproducible installation; install uv and retry")
     C.ok("Dependencies installed")
 
 
@@ -514,15 +574,33 @@ def step_create_config(args: argparse.Namespace) -> None:
     es_url = args.elasticsearch_url or f"http://localhost:{args.elasticsearch_port}"
     nats_url = args.nats_url or f"nats://localhost:{args.nats_port}"
 
-    db_config["mongodb"] = {"url": mongo_url, "database": args.db_name, "port": args.mongo_port}
+    db_config["mongodb"] = {
+        "url": mongo_url,
+        "database": args.db_name,
+        "port": args.mongo_port,
+    }
     db_config["redis"] = {"url": redis_url, "port": args.redis_port}
-    db_config["neo4j"] = {"uri": neo4j_uri, "user": args.neo4j_user, "password": args.neo4j_password, "port": args.neo4j_port}
-    db_config["influxdb"] = {"url": influx_url, "org": args.influxdb_org, "bucket": args.influxdb_bucket, "port": args.influxdb_port}
+    db_config["neo4j"] = {
+        "uri": neo4j_uri,
+        "user": args.neo4j_user,
+        "password": args.neo4j_password,
+        "port": args.neo4j_port,
+    }
+    db_config["influxdb"] = {
+        "url": influx_url,
+        "org": args.influxdb_org,
+        "bucket": args.influxdb_bucket,
+        "port": args.influxdb_port,
+    }
     db_config["elasticsearch"] = {"url": es_url, "port": args.elasticsearch_port}
     db_config["nats"] = {"url": nats_url, "port": args.nats_port}
 
     ollama_url = args.ollama_url or f"http://localhost:{args.ollama_port}"
-    db_config["ollama"] = {"url": ollama_url, "port": args.ollama_port, "model": args.ollama_model}
+    db_config["ollama"] = {
+        "url": ollama_url,
+        "port": args.ollama_port,
+        "model": args.ollama_model,
+    }
 
     config["model"] = f"ollama/{args.ollama_model}"
     config["provider"] = "ollama"
@@ -598,6 +676,7 @@ def step_init_db() -> None:
 
     try:
         from pymongo import MongoClient
+
         client = MongoClient(mongo_url, serverSelectionTimeoutMS=3000)
         client.admin.command("ping")
         db = client[db_name]
@@ -617,19 +696,23 @@ def step_create_scripts() -> None:
     BIN_DIR.mkdir(parents=True, exist_ok=True)
 
     start_script = BIN_DIR / "monkeybrain"
-    start_script.write_text(textwrap.dedent(f"""\
+    start_script.write_text(
+        textwrap.dedent(f"""\
         #!/bin/bash
         cd "{SOURCE_DIR}"
-        exec "{VENV_DIR / 'bin' / 'python'}" main.py "$@"
-    """))
+        exec "{VENV_DIR / "bin" / "python"}" main.py "$@"
+    """)
+    )
     start_script.chmod(0o755)
 
     status_script = BIN_DIR / "monkeybrain-status"
-    status_script.write_text(textwrap.dedent(f"""\
+    status_script.write_text(
+        textwrap.dedent(f"""\
         #!/bin/bash
         cd "{SOURCE_DIR}"
-        exec "{VENV_DIR / 'bin' / 'python'}" install_agentos.py status "$@"
-    """))
+        exec "{VENV_DIR / "bin" / "python"}" install_agentos.py status "$@"
+    """)
+    )
     status_script.chmod(0o755)
 
     if get_platform().startswith("macos"):
@@ -638,11 +721,7 @@ def step_create_scripts() -> None:
         # `monkeypatched start` launches, but typeable directly without
         # first having an active login session (the Typer app's login
         # gate only applies inside the REPL, not to opening it).
-        inner_cmd = (
-            f'cd "{SOURCE_DIR}" && '
-            f'PYTHONPATH="{SOURCE_DIR / "src"}" "{VENV_DIR / "bin" / "python"}" '
-            f'-m repl'
-        )
+        inner_cmd = f'cd "{SOURCE_DIR}" && PYTHONPATH="{SOURCE_DIR / "src"}" "{VENV_DIR / "bin" / "python"}" -m repl'
         inner_cmd_escaped = inner_cmd.replace("\\", "\\\\").replace('"', '\\"')
         applescript = f'tell application "Terminal" to do script "{inner_cmd_escaped}"'
         monkeypatch_script = BIN_DIR / "monkeypatch"
@@ -677,12 +756,18 @@ def _ensure_bin_dir_on_path() -> None:
 
 # ── Commands ───────────────────────────────────────────────────────────────────
 
+
 def cmd_install(args: argparse.Namespace) -> int:
     # Normalize --skip-<name> flags into the args.skip list
     flag_map = {
-        "skip_mongo": "mongodb", "skip_redis": "redis", "skip_neo4j": "neo4j",
-        "skip_influxdb": "influxdb", "skip_elasticsearch": "elasticsearch",
-        "skip_nats": "nats", "skip_ollama": "ollama", "skip_api": "api",
+        "skip_mongo": "mongodb",
+        "skip_redis": "redis",
+        "skip_neo4j": "neo4j",
+        "skip_influxdb": "influxdb",
+        "skip_elasticsearch": "elasticsearch",
+        "skip_nats": "nats",
+        "skip_ollama": "ollama",
+        "skip_api": "api",
     }
     skip_set = set(args.skip or [])
     for attr, svc_name in flag_map.items():
@@ -951,6 +1036,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
                 C.warn("Aborted — install directory kept")
                 return 0
         import shutil
+
         shutil.rmtree(INSTALL_DIR, ignore_errors=True)
         C.ok(f"Removed {INSTALL_DIR}")
     else:
@@ -1011,6 +1097,7 @@ def cmd_logs(args: argparse.Namespace) -> int:
 
 # ── CLI Parser ─────────────────────────────────────────────────────────────────
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="monkeybrain",
@@ -1038,31 +1125,75 @@ def build_parser() -> argparse.ArgumentParser:
     db = db_group.add_argument_group("Database configuration")
     db.add_argument("--mongo-port", type=int, default=27017, help="MongoDB port (default: 27017)")
     db.add_argument("--mongo-url", type=str, default=None, help="MongoDB full URL")
-    db.add_argument("--db-name", type=str, default="demo", help="MongoDB database name (default: demo)")
+    db.add_argument(
+        "--db-name",
+        type=str,
+        default="demo",
+        help="MongoDB database name (default: demo)",
+    )
     db.add_argument("--redis-port", type=int, default=6379, help="Redis port (default: 6379)")
     db.add_argument("--redis-url", type=str, default=None, help="Redis full URL")
     db.add_argument("--neo4j-port", type=int, default=7687, help="Neo4j Bolt port (default: 7687)")
     db.add_argument("--neo4j-uri", type=str, default=None, help="Neo4j full URI")
-    db.add_argument("--neo4j-user", type=str, default="neo4j", help="Neo4j username (default: neo4j)")
+    db.add_argument(
+        "--neo4j-user",
+        type=str,
+        default="neo4j",
+        help="Neo4j username (default: neo4j)",
+    )
     db.add_argument("--neo4j-password", type=str, default="password", help="Neo4j password")
     db.add_argument("--influxdb-port", type=int, default=8181, help="InfluxDB port (default: 8181)")
     db.add_argument("--influxdb-url", type=str, default=None, help="InfluxDB full URL")
-    db.add_argument("--influxdb-org", type=str, default="indus", help="InfluxDB org (default: indus)")
-    db.add_argument("--influxdb-bucket", type=str, default="events", help="InfluxDB bucket (default: events)")
-    db.add_argument("--influxdb-token", type=str, default=os.environ.get("INFLUXDB_TOKEN", ""), help="InfluxDB token (or set INFLUXDB_TOKEN env var)")
-    db.add_argument("--elasticsearch-port", type=int, default=9200, help="Elasticsearch port (default: 9200)")
+    db.add_argument(
+        "--influxdb-org",
+        type=str,
+        default="indus",
+        help="InfluxDB org (default: indus)",
+    )
+    db.add_argument(
+        "--influxdb-bucket",
+        type=str,
+        default="events",
+        help="InfluxDB bucket (default: events)",
+    )
+    db.add_argument(
+        "--influxdb-token",
+        type=str,
+        default=os.environ.get("INFLUXDB_TOKEN", ""),
+        help="InfluxDB token (or set INFLUXDB_TOKEN env var)",
+    )
+    db.add_argument(
+        "--elasticsearch-port",
+        type=int,
+        default=9200,
+        help="Elasticsearch port (default: 9200)",
+    )
     db.add_argument("--elasticsearch-url", type=str, default=None, help="Elasticsearch full URL")
     db.add_argument("--nats-port", type=int, default=4222, help="NATS port (default: 4222)")
     db.add_argument("--nats-url", type=str, default=None, help="NATS full URL")
     db.add_argument("--ollama-port", type=int, default=11434, help="Ollama port (default: 11434)")
     db.add_argument("--ollama-url", type=str, default=None, help="Ollama full URL")
-    db.add_argument("--ollama-model", type=str, default="gemma3:latest", help="Ollama model (default: gemma3:latest)")
+    db.add_argument(
+        "--ollama-model",
+        type=str,
+        default="gemma3:latest",
+        help="Ollama model (default: gemma3:latest)",
+    )
     db.add_argument("--port", type=int, default=8031, help="MonkeyBrain API port (default: 8031)")
 
     install_p = sub.add_parser("install", parents=[db_group], help="Full installation")
-    install_p.add_argument("--auto-install", action="store_true", help="Auto-install missing database services")
-    install_p.add_argument("--skip", nargs="*", default=[], metavar="SERVICE",
-                           help="Services to skip (e.g. --skip neo4j elasticsearch)")
+    install_p.add_argument(
+        "--auto-install",
+        action="store_true",
+        help="Auto-install missing database services",
+    )
+    install_p.add_argument(
+        "--skip",
+        nargs="*",
+        default=[],
+        metavar="SERVICE",
+        help="Services to skip (e.g. --skip neo4j elasticsearch)",
+    )
     install_p.add_argument("--skip-mongo", action="store_true", help=argparse.SUPPRESS)
     install_p.add_argument("--skip-redis", action="store_true", help=argparse.SUPPRESS)
     install_p.add_argument("--skip-neo4j", action="store_true", help=argparse.SUPPRESS)
@@ -1073,15 +1204,18 @@ def build_parser() -> argparse.ArgumentParser:
     install_p.add_argument("--skip-api", action="store_true", help=argparse.SUPPRESS)
 
     start_p = sub.add_parser("start", parents=[db_group], help="Start all services")
-    start_p.add_argument("--skip", nargs="*", default=[], metavar="SERVICE",
-                         help="Services to skip")
+    start_p.add_argument("--skip", nargs="*", default=[], metavar="SERVICE", help="Services to skip")
 
     sub.add_parser("stop", help="Stop all services")
     sub.add_parser("status", help="Show status of all services")
 
     uninstall_p = sub.add_parser("uninstall", help="Remove MonkeyBrain installation")
     uninstall_p.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
-    uninstall_p.add_argument("--purge", action="store_true", help="Also uninstall database services (MongoDB, Redis, NATS)")
+    uninstall_p.add_argument(
+        "--purge",
+        action="store_true",
+        help="Also uninstall database services (MongoDB, Redis, NATS)",
+    )
 
     configure_p = sub.add_parser("configure", parents=[db_group], help="Reconfigure database connections")
 
@@ -1101,13 +1235,13 @@ def main() -> int:
         return 0
 
     commands = {
-        "install":   cmd_install,
-        "start":     cmd_start,
-        "stop":      cmd_stop,
-        "status":    cmd_status,
+        "install": cmd_install,
+        "start": cmd_start,
+        "stop": cmd_stop,
+        "status": cmd_status,
         "configure": cmd_configure,
-        "seed":      cmd_seed,
-        "logs":      cmd_logs,
+        "seed": cmd_seed,
+        "logs": cmd_logs,
         "uninstall": cmd_uninstall,
     }
 

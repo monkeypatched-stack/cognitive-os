@@ -225,25 +225,38 @@ system was:
 
 ```python
 comparison_score = round(
-    max(0.0, 1.0 - (
-        ((1.0 - graph_diff["score"])           * 0.227)
-        + ((1.0 - execution_order_diff["score"]) * 0.136)
-        + ((1.0 - state_diff["score"])           * 0.182)
-        + ((1.0 - operation_diff["score"])       * 0.091)
-        + ((1.0 - event_diff["score"])           * 0.091)
-        + ((1.0 - artifact_diff["score"])        * 0.091)
-        + (latency_diff                          * 0.0)
-        + (reward_diff                           * 0.091)
-        + (confidence_diff                       * 0.091)
-    )), 4,
+    max(
+        0.0,
+        1.0
+        - (
+            ((1.0 - graph_diff["score"]) * 0.227)
+            + ((1.0 - execution_order_diff["score"]) * 0.136)
+            + ((1.0 - state_diff["score"]) * 0.182)
+            + ((1.0 - operation_diff["score"]) * 0.091)
+            + ((1.0 - event_diff["score"]) * 0.091)
+            + ((1.0 - artifact_diff["score"]) * 0.091)
+            + (latency_diff * 0.0)
+            + (reward_diff * 0.091)
+            + (confidence_diff * 0.091)
+        ),
+    ),
+    4,
 )
 
-topology_loss  = round(1.0 - ((graph_diff["score"] * 0.5) + (execution_order_diff["score"] * 0.5)), 4)
-epistemic_loss = round(1.0 - ((state_diff["score"] * 0.4) + (operation_diff["score"] * 0.2)
-                               + (event_diff["score"] * 0.2) + ((1.0 - confidence_diff) * 0.2)), 4)
-world_loss     = round(min(1.0, topology_loss + epistemic_loss), 4)
-policy_loss    = round(reward_diff, 4)
-actor_loss     = round(min(1.0, world_loss * 0.7 + policy_loss * 0.3), 4)
+topology_loss = round(1.0 - ((graph_diff["score"] * 0.5) + (execution_order_diff["score"] * 0.5)), 4)
+epistemic_loss = round(
+    1.0
+    - (
+        (state_diff["score"] * 0.4)
+        + (operation_diff["score"] * 0.2)
+        + (event_diff["score"] * 0.2)
+        + ((1.0 - confidence_diff) * 0.2)
+    ),
+    4,
+)
+world_loss = round(min(1.0, topology_loss + epistemic_loss), 4)
+policy_loss = round(reward_diff, 4)
+actor_loss = round(min(1.0, world_loss * 0.7 + policy_loss * 0.3), 4)
 ```
 
 `latency_diff`, `reward_diff`, and `confidence_diff` are each just

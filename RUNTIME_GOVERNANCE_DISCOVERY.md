@@ -373,30 +373,23 @@ execute(name: str, state: dict)
 
 **Extend the policy decision from:**
 ```python
-{
-  "allowed": bool,
-  "reason": str,
-  "violations": list
-}
+{"allowed": bool, "reason": str, "violations": list}
 ```
 
 **To:**
 ```python
 {
-  "allowed": bool,
-  "reason": str,
-  "violations": list,
-  
-  # NEW: Approval mode
-  "approval_mode": "AUTO_APPROVE" | "HUMAN_APPROVAL_REQUIRED" | "DENY",
-  
-  # NEW: Approval source
-  "approval_source": "POLICY_AUTOMATIC" | "HUMAN" | "NONE",
-  
-  # NEW: Policy decision details
-  "policy_rule": str,  # which OPA rule matched
-  "requires_hitl": bool,  # policy requires HITL
-  "risk_level": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+    "allowed": bool,
+    "reason": str,
+    "violations": list,
+    # NEW: Approval mode
+    "approval_mode": "AUTO_APPROVE" | "HUMAN_APPROVAL_REQUIRED" | "DENY",
+    # NEW: Approval source
+    "approval_source": "POLICY_AUTOMATIC" | "HUMAN" | "NONE",
+    # NEW: Policy decision details
+    "policy_rule": str,  # which OPA rule matched
+    "requires_hitl": bool,  # policy requires HITL
+    "risk_level": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
 }
 ```
 
