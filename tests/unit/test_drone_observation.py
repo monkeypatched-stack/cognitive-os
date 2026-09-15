@@ -172,3 +172,83 @@ def test_register_then_get_round_trips():
     unregister_drone_adapter("drone1")
 
     assert get_drone_adapter("drone1") is None
+
+
+# ── Simulator-only crash-test collision (kernel/edge/px4_ros_adapter.py's
+# "CrashTest" branch, kernel/domains/robot.py::CrashTestCapability) ────────
+
+
+def _collision_state(**overrides) -> DroneState:
+    fields = dict(
+        actor_id="drone1",
+        namespace="px4_1",
+        armed=True,
+        position_x=8.25,
+        position_y=0.0,
+        position_z=-3.0,
+        timestamp=time.time(),
+        collision_event={"target_landmark": "house_alpha", "simulation_only": True, "crash_test": True},
+        disabled=True,
+    )
+    fields.update(overrides)
+    return DroneState(**fields)
+
+
+def test_collision_event_produces_its_own_observation_with_simulator_provenance():
+    register_drone_adapter("drone1", _FakeDroneAdapter(_collision_state()))
+    obs_set = WorldPollingProvider().observe("drone1", None)
+
+    collision_obs = [o for o in obs_set.observations if o.attribute == "collision_event"]
+    assert len(collision_obs) == 1
+    obs = collision_obs[0]
+    assert obs.entity == "drone1"
+    assert obs.value == {"target_landmark": "house_alpha", "simulation_only": True, "crash_test": True}
+    assert obs.confidence == 1.0
+    assert obs.provenance.source == "simulator"
+    assert obs.provenance.method == "collision_detection"
+    assert obs.provenance.reliability == 1.0
+
+
+def test_collision_event_absent_when_no_collision_has_occurred():
+    register_drone_adapter("drone1", _FakeDroneAdapter(_state()))  # collision_event defaults to None
+    obs_set = WorldPollingProvider().observe("drone1", None)
+
+    assert all(o.attribute != "collision_event" for o in obs_set.observations)
+
+
+def test_disabled_true_is_reported_alongside_other_telemetry():
+    register_drone_adapter("drone1", _FakeDroneAdapter(_collision_state()))
+    obs_set = WorldPollingProvider().observe("drone1", None)
+
+    by_attr = {o.attribute: o.value for o in obs_set.observations}
+    assert by_attr["disabled"] is True
+
+
+def test_disabled_field_defaulting_none_never_appears_as_an_observation():
+    """DroneState(...) constructed without mentioning `disabled` at all
+    (every pre-existing test fixture, and any future caller that hasn't
+    been updated) must not silently start reporting disabled=False --
+    None means "not populated," matching every other optional field."""
+    register_drone_adapter("drone1", _FakeDroneAdapter(_state()))
+    obs_set = WorldPollingProvider().observe("drone1", None)
+
+    assert all(o.attribute != "disabled" for o in obs_set.observations)
+
+
+def test_collision_event_enters_belief_facts_via_belief_fusion():
+    """The collision Observation reaches belief through the SAME
+    BeliefFusion.update() every other observation uses -- no special
+    crash-specific fusion logic."""
+    from src.monkey_brain.kernel.pipeline.belief_state import BeliefState
+    from src.monkey_brain.kernel.pipeline.observations import BeliefFusion
+
+    register_drone_adapter("drone1", _FakeDroneAdapter(_collision_state()))
+    obs_set = WorldPollingProvider().observe("drone1", None)
+
+    belief = BeliefState(actor_id="drone1")
+    BeliefFusion().update(belief, obs_set)
+
+    collision_facts = [f for f in belief.facts if f.attribute == "collision_event"]
+    assert len(collision_facts) == 1
+    assert collision_facts[0].entity == "drone1"
+    assert collision_facts[0].value == {"target_landmark": "house_alpha", "simulation_only": True, "crash_test": True}

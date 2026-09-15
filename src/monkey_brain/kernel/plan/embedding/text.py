@@ -41,7 +41,13 @@ class BOWEmbedder(EmbeddingEmbedder):
         return "bow"
 
     def embed(self, item: Any) -> Embedding:
-        content = str(getattr(item, "content", item) or "")
+        # `x or ""` would call bool(x) when .content is absent and item
+        # itself is the fallback (e.g. CLIPImageEmbedder handing a raw
+        # HxWxC frame array to this embedder on an embedding failure) --
+        # numpy raises ValueError("truth value of an array with more than
+        # one element is ambiguous") rather than treating it as falsy.
+        _raw_content = getattr(item, "content", item)
+        content = "" if _raw_content is None else str(_raw_content)
         meta = np.zeros(EMBEDDING_DIM, dtype=np.float32)
         meta[0] = float(getattr(item, "provenance", 0.5))
         meta[1] = float(getattr(item, "freshness", 0.5))
@@ -87,7 +93,13 @@ class SBERTEmbedder(EmbeddingEmbedder):
         self._proj = np.random.default_rng(2024).normal(0, 1.0 / np.sqrt(d), (EMBEDDING_DIM, d)).astype(np.float32)
 
     def embed(self, item: Any) -> Embedding:
-        content = str(getattr(item, "content", item) or "")
+        # `x or ""` would call bool(x) when .content is absent and item
+        # itself is the fallback (e.g. CLIPImageEmbedder handing a raw
+        # HxWxC frame array to this embedder on an embedding failure) --
+        # numpy raises ValueError("truth value of an array with more than
+        # one element is ambiguous") rather than treating it as falsy.
+        _raw_content = getattr(item, "content", item)
+        content = "" if _raw_content is None else str(_raw_content)
         try:
             if self._model is None:
                 self._load()
@@ -145,7 +157,13 @@ class CLIPTextEmbedder(EmbeddingEmbedder):
         self._proj = np.random.default_rng(2025).normal(0, 1.0 / np.sqrt(512), (EMBEDDING_DIM, 512)).astype(np.float32)
 
     def embed(self, item: Any) -> Embedding:
-        content = str(getattr(item, "content", item) or "")
+        # `x or ""` would call bool(x) when .content is absent and item
+        # itself is the fallback (e.g. CLIPImageEmbedder handing a raw
+        # HxWxC frame array to this embedder on an embedding failure) --
+        # numpy raises ValueError("truth value of an array with more than
+        # one element is ambiguous") rather than treating it as falsy.
+        _raw_content = getattr(item, "content", item)
+        content = "" if _raw_content is None else str(_raw_content)
         try:
             if self._model is None:
                 self._load()

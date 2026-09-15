@@ -186,15 +186,37 @@ async def run_ros_action_if_governed(
             return await _invoke_idempotent(idempotency_key, capability, parameters, adapter)
         return await adapter.invoke(capability=capability, parameters=parameters)
 
+    extra: dict[str, Any] = {
+        "capability": capability,
+        "parameters": parameters,
+        "actor_id": actor_id,
+    }
+    if capability == "CrashTest":
+        # Kernel-computed governance signals, deliberately NOT sourced from
+        # the capability's own call (build_opa_input's own docstring:
+        # "OPA input from kernel evidence only. Agent extra cannot set
+        # auth."). This function is the ONE chokepoint every PX4 capability
+        # passes through, so it is trusted kernel plumbing, not "agent
+        # extra" -- it reads os.environ and the adapter's own hardcoded
+        # is_simulation attribute itself, here, overriding anything a
+        # caller might have tried to pass for these specific keys, rather
+        # than re-trusting a claim the capability layer already made. Only
+        # computed for capability=="CrashTest" -- zero overhead on the
+        # Arm/Takeoff/Waypoint/Land hot path. opa/policies/
+        # agentos_governance.rego's crash_test_unsafe rule reads these
+        # under input.context.signals.*, the same sub-key
+        # GovernanceEngine.evaluate() already uses for bias-audit signals.
+        extra["signals"] = {
+            "simulation_only": os.environ.get("SIMULATION_ONLY", "").strip().lower() == "true",
+            "crash_test_mode": os.environ.get("CRASH_TEST_MODE", "").strip().lower() == "true",
+            "is_simulation": bool(getattr(adapter, "is_simulation", False)),
+        }
+
     return await ensure_governed(
         f"capability.{capability}",
         resource,
         _invoke,
-        extra={
-            "capability": capability,
-            "parameters": parameters,
-            "actor_id": actor_id,
-        },
+        extra=extra,
         force_authorize=True,
         local_policy_decision=local_policy_decision,
         verified_delegation=verified_delegation,

@@ -17,6 +17,8 @@ export function NavBar() {
         <Link href="/goals">Goals</Link>
         <Link href="/approvals">Approvals</Link>
         <Link href="/voice">Voice</Link>
+        <Link href="/drone-flight">Drone Flight</Link>
+        <Link href="/drone-mission">Drone Mission</Link>
       </div>
       <div className="navbar-user">
         <span>{user?.email}</span>

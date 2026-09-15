@@ -138,7 +138,10 @@ spec:
             # llama-server (llama.cpp) replaced Ollama as the default
             # provider (configmap.yaml's MODEL_BACKEND).
             - name: LLAMACPP_BASE_URL
-              value: "${LLAMACPP_BASE_URL}"
+              # Each actor has its own llama.cpp sidecar below.  Loopback is
+              # intentional: an actor must never silently share another
+              # actor's model server.
+              value: "http://127.0.0.1:8080"
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -159,6 +162,9 @@ spec:
                 secretKeyRef:
                   name: agentos-secrets
                   key: internal-service-token
+          volumeMounts:
+            - name: actor-llm-model
+              mountPath: /models
           resources:
             requests:
               cpu: "100m"
@@ -200,6 +206,52 @@ spec:
             periodSeconds: 5
             failureThreshold: 20
             timeoutSeconds: 5
+        - name: llama-cpp
+          image: ghcr.io/ggml-org/llama.cpp:server
+          imagePullPolicy: IfNotPresent
+          command: ["/app/llama-server"]
+          args:
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8080"
+            - "--model"
+            - "/models/model.gguf"
+            - "--ctx-size"
+            - "4096"
+          ports:
+            - containerPort: 8080
+              name: llama-cpp
+          volumeMounts:
+            - name: actor-llm-model
+              mountPath: /models
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "6Gi"
+      volumes:
+        - name: actor-llm-model
+          hostPath:
+            path: /var/lib/cognitiveos/models/${LLAMACPP_MODEL_FILE}
+            type: File
 ---
 apiVersion: v1
 kind: Service

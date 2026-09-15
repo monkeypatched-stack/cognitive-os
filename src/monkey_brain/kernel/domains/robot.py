@@ -23,7 +23,10 @@ dispatch path.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger("agentos.domains.robot")
 
 
 class HeartbeatCapability:
@@ -197,3 +200,159 @@ class LandCapability(_Px4MissionCapabilityBase):
     Px4RosExecutionAdapter's VEHICLE_CMD_NAV_LAND exactly."""
 
     name = "Land"
+
+
+def _find_actor_belief(context: dict, actor_id: str) -> Any:
+    """Same tiny actor-state lookup kernel/edge/video_command_runtime.py's
+    own _find_actor_state does -- duplicated rather than imported (routes/
+    kernel edge modules depend on kernel, never the reverse; three lines,
+    not a second architecture). Returns None if the planetary_runtime
+    isn't in context or the actor can't be found -- never raises.
+
+    Prefers state.actor.pipeline_belief() over state.belief_state --
+    exactly the precedent api/routes/actors.py's own GET /actors/{id}/
+    beliefs route already established: state.belief_state (ActorRuntimeState's
+    own field, the OLDER kernel/society/belief.py::BeliefState) is only
+    ever written by POST /actors/{id}/observe and the society-level
+    coordinated-tick path -- the REAL per-actor cognitive tick that LoFTR
+    observations flow through (WorldPollingProvider -> BeliefFusion) never
+    touches it. The canonical, actually-live belief is
+    state.actor.pipeline_belief() (kernel/pipeline/belief_state.py::
+    BeliefState) -- checking the wrong one here would mean a landmark that
+    IS visually verified could never satisfy this check."""
+    pr = context.get("planetary_runtime")
+    if pr is None:
+        return None
+    for sr in pr.all_societies():
+        state = sr.get_actor(actor_id)
+        if state is None:
+            continue
+        pipeline_belief = getattr(getattr(state, "actor", None), "pipeline_belief", None)
+        if callable(pipeline_belief):
+            return pipeline_belief()
+        return getattr(state, "belief_state", None)
+    return None
+
+
+class CrashTestCapability:
+    """SIMULATOR-ONLY. Deliberate crash-test demo behavior: flies the
+    simulated vehicle into an already visually-identified landmark to
+    demonstrate the full perception (LoFTR) -> cognition (belief) ->
+    action (this capability) -> consequence (simulated collision) ->
+    observation (kernel/pipeline/observations.py's WorldPollingProvider)
+    loop end-to-end, inside Gazebo SITL only.
+
+    This is ONE of four independent safety layers (the others: kernel/edge/
+    ros_integration.py::run_ros_action_if_governed recomputing simulation
+    signals from kernel-trusted evidence, opa/policies/agentos_governance.rego's
+    crash_test_unsafe deny rule, and Px4RosExecutionAdapter.is_simulation).
+    Every check below runs BEFORE governance is even asked, matching
+    _Px4MissionCapabilityBase's own "an unsafe/malformed request never
+    produces a governance decision" contract -- but this class does NOT
+    subclass it, because it needs context["planetary_runtime"] (for the
+    belief check below) which that base class's parameter-only _validate()
+    has no way to reach.
+
+    Never accepts an arbitrary real-world target: `landmark_id` is only an
+    intent selector -- the actual authority is whether that landmark is
+    ALREADY recorded as a geometric_verified=True visual_landmark_match
+    fact in THIS actor's own belief state (populated by LoFTR via
+    kernel/edge/loftr_landmarks.py -> kernel/edge/video_command_runtime.py
+    -> WorldPollingProvider, never trusted from this capability's own
+    caller-supplied parameters). A plain camera observation that never
+    passed LoFTR's geometric verification can never satisfy this."""
+
+    name = "CrashTest"
+
+    async def handle(self, args: dict) -> dict[str, Any]:
+        context = args.get("context", {}) or {}
+        actor_id = context.get("actor_id", "")
+        adapter = context.get("ros_adapter")
+        if adapter is None:
+            return {"success": False, "error": "no ROS adapter bound to this actor"}
+
+        from src.introspection.otel_bridge import get_bridge
+        from src.monkey_brain.kernel.edge.crash_test_config import load_crash_test_config_from_env
+
+        config = load_crash_test_config_from_env()
+        bridge = get_bridge()
+
+        # Layer 1: SIMULATION_ONLY + CRASH_TEST_MODE + adapter.is_simulation
+        # must ALL be true. No mechanism exists anywhere to bypass this --
+        # a real vehicle (a future adapter with is_simulation=False) is
+        # refused here regardless of env vars.
+        if not (config.enabled and config.simulation_only and getattr(adapter, "is_simulation", False)):
+            bridge.emit_counter("crash_test_rejected", actor_id=actor_id, reason="not_armed_for_simulation")
+            return {
+                "success": False,
+                "error": "crash-test not armed: requires CRASH_TEST_MODE=true, SIMULATION_ONLY=true, "
+                "and a simulation-backed adapter",
+            }
+
+        parameters = args.get("parameters") or {}
+        landmark_id = str(parameters.get("landmark_id", "")).strip()
+        if not landmark_id:
+            bridge.emit_counter("crash_test_rejected", actor_id=actor_id, reason="missing_landmark_id")
+            return {"success": False, "error": "landmark_id is required"}
+
+        # Layer 1, continued: the target must already be visually verified
+        # in belief -- never trust the parameter alone.
+        belief = _find_actor_belief(context, actor_id)
+        verified = False
+        if belief is not None:
+            for fact in belief.facts:
+                if (
+                    fact.entity == actor_id
+                    and fact.attribute == "visual_landmark_match"
+                    and isinstance(fact.value, dict)
+                    and fact.value.get("landmark_id") == landmark_id
+                    and fact.value.get("geometric_verified") is True
+                    and fact.confidence >= config.min_landmark_confidence
+                ):
+                    verified = True
+                    break
+        if not verified:
+            bridge.emit_counter(
+                "crash_test_rejected", actor_id=actor_id, landmark_id=landmark_id, reason="landmark_not_verified"
+            )
+            return {
+                "success": False,
+                "error": f"landmark {landmark_id!r} is not a geometric_verified visual_landmark_match "
+                f"fact (confidence >= {config.min_landmark_confidence}) in this actor's belief state",
+            }
+
+        # VISION identified WHAT structure; this ACTION layer resolves the
+        # corresponding simulator target -- never the other way around, and
+        # never hard-coded inside the perception module.
+        target = config.targets.get(landmark_id)
+        if target is None:
+            bridge.emit_counter(
+                "crash_test_rejected", actor_id=actor_id, landmark_id=landmark_id, reason="no_target_mapping"
+            )
+            return {"success": False, "error": f"no simulator target configured for landmark {landmark_id!r}"}
+
+        bridge.emit_counter("crash_test_target_verified", actor_id=actor_id, landmark_id=landmark_id)
+        bridge.emit_counter("crash_test_armed", actor_id=actor_id, landmark_id=landmark_id)
+        logger.info(
+            "crash-test armed for actor=%s landmark=%s config=%s", actor_id, landmark_id, config.to_dict()
+        )
+
+        from src.monkey_brain.kernel.edge.ros_integration import run_ros_action_if_governed
+
+        target_x, target_y, target_z = target
+        return await run_ros_action_if_governed(
+            capability=self.name,
+            resource=f"px4:{actor_id}" if actor_id else "px4",
+            parameters={
+                "landmark_id": landmark_id,
+                "target_x": target_x,
+                "target_y": target_y,
+                "target_z": target_z,
+                "max_velocity": config.max_velocity,
+                "acceleration": config.acceleration,
+                "target_distance": config.target_distance,
+                "collision_radius": config.collision_radius,
+            },
+            adapter=adapter,
+            actor_id=actor_id,
+        )

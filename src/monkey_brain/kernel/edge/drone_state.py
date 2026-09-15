@@ -117,6 +117,23 @@ class DroneState:
     flight_mode: str | None = None
     gps_state: str | None = None
     sim_timestamp: float | None = None
+    # Simulator-only crash-test support (kernel/domains/robot.py::
+    # CrashTestCapability, kernel/edge/px4_ros_adapter.py's "CrashTest"
+    # branch). collision_event mirrors the exact dict shape that becomes a
+    # collision_event Observation's value (kernel/pipeline/observations.py::
+    # WorldPollingProvider.observe()) -- None means no collision has
+    # occurred for this adapter's lifetime, never fabricated.
+    collision_event: dict[str, Any] | None = None
+    # bool | None (not a plain bool defaulting False): matches the
+    # "None = not populated" convention every other optional field on this
+    # dataclass already uses -- a plain False default would silently appear
+    # in every EXISTING DroneState(...) test fixture that doesn't mention
+    # this field at all (dataclass defaults apply even when a caller never
+    # asked for it), breaking exact by-attribute assertions elsewhere in
+    # this codebase. Px4RosExecutionAdapter.latest_state() always passes a
+    # concrete True/False explicitly regardless of this default, so real
+    # telemetry is unaffected.
+    disabled: bool | None = None
 
 
 _registry_lock = threading.Lock()

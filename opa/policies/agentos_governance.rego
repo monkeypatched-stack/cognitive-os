@@ -145,6 +145,7 @@ allow if {
 	not recipient_mismatch
 	not delegation_capability_mismatch
 	not bias_detected
+	not crash_test_unsafe
 }
 
 # Structured deny reason for audit logs / the API's {"reason": ...} field.
@@ -197,6 +198,44 @@ deny_reason := sprintf("bias audit flagged action %q for protected attribute %q 
 	not recipient_mismatch
 	not delegation_capability_mismatch
 	bias_detected
+}
+
+deny_reason := "crash_test_unsafe" if {
+	not allow
+	not runtime_blocked
+	not action_blocked
+	not charter_denies
+	not recipient_mismatch
+	not delegation_capability_mismatch
+	not bias_detected
+	crash_test_unsafe
+}
+
+# ─── Simulator-Only Crash Test ──────────────────────────────────────────
+# kernel/edge/ros_integration.py::run_ros_action_if_governed computes
+# input.context.signals.{simulation_only,crash_test_mode,is_simulation}
+# itself, from os.environ / the actor-bound adapter's own is_simulation
+# attribute (kernel-trusted evidence, never taken from the calling
+# capability's own claim -- same "agent extra cannot set auth" posture
+# build_opa_input's docstring states, same input.context.signals.* subkey
+# the Bias Audit block above already uses). This is real, evaluated
+# governance -- action_class == "capability.CrashTest" is denied unless
+# ALL THREE signals are present and true, independent of anything else in
+# this file (runtime_blocked/charter_denies/etc. can still deny it too;
+# this only ever ADDS a reason to deny, never removes one).
+crash_test_unsafe if {
+	input.action == "capability.CrashTest"
+	not input.context.signals.simulation_only == true
+}
+
+crash_test_unsafe if {
+	input.action == "capability.CrashTest"
+	not input.context.signals.crash_test_mode == true
+}
+
+crash_test_unsafe if {
+	input.action == "capability.CrashTest"
+	not input.context.signals.is_simulation == true
 }
 
 # ─── Runtime Approval Gate ────────────────────────────────────────────────

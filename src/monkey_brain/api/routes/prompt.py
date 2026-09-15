@@ -67,7 +67,8 @@ def _actor_pod_node_id(planetary_runtime: Any, actor_id: str) -> str | None:
     attempting local execution for a dedicated-Pod actor) and
     _try_forward_to_actor_pod's own reactive fallback, so the two can
     never disagree on what "dedicated-Pod-placed" means."""
-    entry = planetary_runtime.locate_actor(actor_id) if planetary_runtime is not None else None
+    locate_actor = getattr(planetary_runtime, "locate_actor", None) if planetary_runtime is not None else None
+    entry = locate_actor(actor_id) if callable(locate_actor) else None
     node_id = getattr(entry, "node_id", "") or ""
     if node_id.startswith(f"cognitiveos-actor-{actor_id}"):
         return node_id

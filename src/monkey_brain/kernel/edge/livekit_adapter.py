@@ -40,6 +40,7 @@ import threading
 import time
 from typing import Any
 
+from src.introspection.otel_bridge import get_bridge
 from src.monkey_brain.kernel.pipeline.observations import (
     Observation,
     ObservationSet,
@@ -198,28 +199,53 @@ class LiveKitVoiceObservationProvider:
     async def _transcribe_window(self, frames: list[Any], participant: Any) -> None:
         if not frames:
             return
-        try:
-            waveform = _frames_to_waveform(frames, _TARGET_SAMPLE_RATE)
-            if waveform is None or waveform.size == 0:
-                return
+        # voice.transcription (spec's own event name) -- one span per
+        # _AUDIO_WINDOW_SECONDS (4s) window, never per audio frame/sample.
+        # No raw audio in the span (only a duration and a transcript
+        # LENGTH, never transcript text itself, matching "don't put
+        # sensitive raw prompts/transcripts into telemetry by default").
+        with get_bridge().span(
+            "voice.transcription",
+            layer="realtime",
+            participant=str(getattr(participant, "identity", self._participant_identity)),
+        ) as span:
+            try:
+                waveform = _frames_to_waveform(frames, _TARGET_SAMPLE_RATE)
+                if waveform is None or waveform.size == 0:
+                    span.set_attribute("outcome", "empty_waveform")
+                    return
 
-            loop = asyncio.get_running_loop()
-            transcript = await loop.run_in_executor(None, self._transcribe_sync, waveform)
-            transcript = (transcript or "").strip()
-            if not transcript:
-                return
+                loop = asyncio.get_running_loop()
+                transcript = await loop.run_in_executor(None, self._transcribe_sync, waveform)
+                transcript = (transcript or "").strip()
+                span.set_attribute("transcript_length", len(transcript))
+                if not transcript:
+                    span.set_attribute("outcome", "empty_transcript")
+                    return
 
-            observation = Observation(
-                entity=getattr(participant, "identity", self._participant_identity),
-                attribute="voice_transcript",
-                value=transcript,
-                confidence=0.7,
-                provenance=Provenance(source="livekit_voice", method="whisper_transcribe", reliability=0.7),
-            )
-            with self._lock:
-                self._buffer.append(observation)
-        except Exception:
-            logger.exception("LiveKitVoiceObservationProvider transcription failed")
+                observation = Observation(
+                    entity=getattr(participant, "identity", self._participant_identity),
+                    attribute="voice_transcript",
+                    value=transcript,
+                    confidence=0.7,
+                    provenance=Provenance(source="livekit_voice", method="whisper_transcribe", reliability=0.7),
+                )
+                with self._lock:
+                    self._buffer.append(observation)
+                span.set_attribute("outcome", "ok")
+            except Exception as exc:
+                # Deliberately NOT re-raised — matches this method's own
+                # pre-existing "never crash the runtime" contract:
+                # _consume_audio_track's own try/except would otherwise see
+                # this propagate and abort the WHOLE audio stream for this
+                # participant, not just skip one window. Recorded on the
+                # span directly (not via letting get_bridge().span()'s own
+                # exception path re-raise) so the span still shows as
+                # failed without changing that contract.
+                logger.exception("LiveKitVoiceObservationProvider transcription failed")
+                span.set_attribute("outcome", "error")
+                span.record_exception(exc)
+                get_bridge().emit_counter("voice.transcription.failed")
 
     def _transcribe_sync(self, waveform: Any) -> str:
         """Runs in a worker thread (via run_in_executor) — Whisper's
