@@ -154,10 +154,14 @@ async def test_actionable_voice_command_adds_goal_and_ticks_never_touches_ros():
     actor_runtime.add_goal.assert_called_once_with("Take drone one to waypoint Alpha. (x=8.0, y=0.0)")
     sr.tick_one_actor.assert_awaited_once_with(ACTOR_ID)
     assert session.status == "listening"
-    # Neither fake exposes a ROS adapter or governance call -- voice
-    # literally cannot reach PX4 except through the tick this proves it
-    # triggers.
-    assert not hasattr(sr, "ros_adapter")
+    # add_goal() + tick_one_actor() are the ONLY two calls VoiceCommandRuntime
+    # itself ever makes (per voice_command_runtime.py's own module docstring
+    # and confirmed by reading _handle_transcript's actionable branch) --
+    # there is no third call site here for a ROS adapter or governance
+    # function to reach, so the "voice never touches PX4 directly" claim is
+    # proven by there being no such call in the source, not re-asserted
+    # against a MagicMock here (hasattr() on a bare MagicMock is always
+    # True regardless of attribute name, so it can't actually prove absence).
 
 
 @pytest.mark.asyncio

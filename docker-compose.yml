@@ -508,6 +508,36 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
+  # ── Frontend (Next.js workspace) ─────────────────────────────────────────
+  # Production build (`next build` + `next start`, docker/services/
+  # workspace/Dockerfile) -- same image this docker-compose-based path and
+  # deploy/k8s/workspace-deployment.yaml (kind cluster path,
+  # scripts/workspace_demo_stack.sh) both build from. NEXT_PUBLIC_API_TARGET
+  # is read server-side only (next.config.ts's rewrites()), so the
+  # docker-internal hostname "kong" resolves correctly even though the var
+  # is NEXT_PUBLIC_-prefixed; NEXT_PUBLIC_LIVEKIT_URL, by contrast, is read
+  # client-side (the browser connects to LiveKit directly) and must be a
+  # host-reachable URL -- left unset here since no LiveKit server is part
+  # of this compose file (see docs/VOICE_DRONE_FLIGHT_DEMO.md).
+  workspace:
+    build:
+      context: .
+      dockerfile: docker/services/workspace/Dockerfile
+      # NEXT_PUBLIC_* vars are resolved once, at `next build` time -- a
+      # plain `environment:` entry below would have no effect on an
+      # already-built image (confirmed live against the kind-cluster
+      # deployment path, deploy/k8s/workspace-deployment.yaml /
+      # scripts/workspace_demo_stack.sh). Must be a build arg.
+      args:
+        NEXT_PUBLIC_API_TARGET: http://kong:8000
+        NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      kong:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   mongodb_data:
   redis_data:

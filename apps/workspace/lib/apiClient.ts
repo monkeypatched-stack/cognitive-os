@@ -21,10 +21,25 @@ export class ApiError extends Error {
   }
 }
 
+// Mutating methods the backend's @idempotent decorator (api/idempotency.py)
+// can be applied to -- outside insecure-dev mode, a request with no
+// Idempotency-Key header on a decorated route is fail-closed (400).
+// Confirmed live against /voice/sessions and /video/sessions. One fresh
+// UUID per call is the correct client behavior here (not a bug to route
+// around): this client has no request-retry logic of its own, so one
+// fetch() call is always exactly one logical operation -- a real retry of
+// the SAME operation would need to reuse the same key, but nothing here
+// does that yet.
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
 async function request<T>(base: string, path: string, init?: RequestInit): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers = new Headers(init?.headers);
   if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (MUTATING_METHODS.has(method) && !headers.has("Idempotency-Key")) {
+    headers.set("Idempotency-Key", crypto.randomUUID());
+  }
   const res = await fetch(`${base}${path}`, { ...init, headers });
   if (!res.ok) {
     throw new ApiError(`${init?.method ?? "GET"} ${path} -> ${res.status}`, res.status);

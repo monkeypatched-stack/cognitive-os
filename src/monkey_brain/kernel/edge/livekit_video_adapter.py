@@ -115,13 +115,22 @@ class RosCameraToLiveKitBridge:
         contract for the video side."""
         from livekit import rtc
 
-        from src.monkey_brain.kernel.edge.livekit_adapter import create_livekit_room_token
+        from src.monkey_brain.kernel.edge.livekit_adapter import LIVEKIT_URL, create_livekit_room_token
 
+        if not LIVEKIT_URL:
+            raise RuntimeError("LIVEKIT_URL not set -- RosCameraToLiveKitBridge cannot connect")
         token = create_livekit_room_token(self._room_name, participant_identity, can_publish=True, can_subscribe=False)
         self._room = rtc.Room()
-        await self._room.connect_url(token) if hasattr(self._room, "connect_url") else await self._room.connect(
-            "", token
-        )
+        # Confirmed live (2026-09-15): the previous `connect_url(token) if
+        # hasattr(...) else connect("", token)` branch always hit the
+        # `else`, since no installed livekit-python Room has a connect_url
+        # method -- and passed an EMPTY STRING as the server URL, which
+        # ConnectError'd every single time ("relative URL without a base").
+        # This bridge had never actually been run against a real LiveKit
+        # server before that test. room.connect(url, token) is the same
+        # correct call LiveKitVideoObservationProvider._run() already makes
+        # a few lines below in this same file.
+        await self._room.connect(LIVEKIT_URL, token)
         # Video source dimensions are set from the first real ROS Image
         # message's own width/height (_on_ros_image below) -- not
         # hardcoded, since the spec requires the CognitiveOS/transport side

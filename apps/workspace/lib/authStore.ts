@@ -32,6 +32,8 @@ interface AuthState {
   mfaChallengeToken: string | null;
   mfaEnrollment: MfaEnrollment | null;
   error: string;
+  hydrated: boolean;
+  hydrate: () => void;
   login: (email: string, password: string) => Promise<void>;
   verifyMfaChallenge: (code: string) => Promise<void>;
   enrollMfa: (password: string) => Promise<void>;
@@ -85,15 +87,40 @@ async function authPost<T>(path: string, body: unknown, bearerToken?: string): P
   return data as T;
 }
 
-const persisted = loadPersisted();
-
+// Deliberately NOT read at module-eval time for the store's initial state
+// (a prior version did `const persisted = loadPersisted()` here and seeded
+// status/token/user from it directly) -- confirmed live via a headless-
+// browser check that this causes a real SSR/CSR hydration mismatch (React
+// error #418): Next.js server-renders every page with no `window`, so
+// loadPersisted() returns null there and RequireAuth renders nothing, but
+// this module's FIRST client-side evaluation already has `window`/
+// localStorage available, so the very first hydration pass tried to
+// render already-authenticated content the server never sent. Always
+// start anonymous (matching what the server actually rendered) and
+// hydrate from localStorage in an explicit post-mount effect instead
+// (NavBar.tsx calls hydrate() once on mount, covering every page since
+// layout.tsx always renders it) -- hydration's diff then matches on the
+// first pass, and the real persisted session applies a moment later via
+// a normal (non-hydration) re-render.
 export const useAuthStore = create<AuthState>((set, get) => ({
-  status: persisted ? "authenticated" : "anonymous",
-  token: persisted?.token ?? null,
-  user: persisted?.user ?? null,
+  status: "anonymous",
+  token: null,
+  user: null,
   mfaChallengeToken: null,
   mfaEnrollment: null,
   error: "",
+  hydrated: false,
+
+  hydrate: () => {
+    if (get().hydrated) return;
+    const persisted = loadPersisted();
+    set({
+      hydrated: true,
+      status: persisted ? "authenticated" : "anonymous",
+      token: persisted?.token ?? null,
+      user: persisted?.user ?? null,
+    });
+  },
 
   login: async (email, password) => {
     pendingEmail = email;

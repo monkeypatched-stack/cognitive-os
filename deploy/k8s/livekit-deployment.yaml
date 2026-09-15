@@ -1,0 +1,105 @@
+# LiveKit server for the voice/camera demo (docs/VOICE_DRONE_FLIGHT_DEMO.md).
+# SIMULATION/DEMO-ONLY dev credentials (LIVEKIT_KEYS below) -- same
+# "insecure dev mode, explicit and documented" posture already established
+# for this cluster's other demo-only config, never meant for a real
+# deployment. Additive to the namespace: does not touch agentos/auth/
+# mongodb/kong/drones -- only the agentos Deployment's own env (LIVEKIT_URL/
+# LIVEKIT_API_KEY/LIVEKIT_API_SECRET, applied separately via `kubectl set
+# env`, matching these same devkey/devsecret values) needs to agree with
+# this server's keys to mint tokens it will actually accept.
+#
+# Known limitation: kubectl port-forward (how the browser reaches this
+# cluster, see scripts/livekit_demo_stack.sh) only forwards TCP. WebRTC
+# media normally prefers UDP/ICE; --dev mode plus forcing TCP below
+# (RTC_FORCE_TCP) makes the SIGNALING connection and, best-effort, media
+# work through that TCP-only tunnel, but this network path (kind cluster ->
+# port-forward -> browser) was never a production LiveKit deployment
+# topology -- verify actual audio/video flow live, don't assume it from
+# this manifest alone.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit
+  namespace: monkeybrain
+  labels:
+    app: livekit
+    component: voice-drone-flight-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: livekit
+  template:
+    metadata:
+      labels:
+        app: livekit
+    spec:
+      # Kubernetes auto-injects a LIVEKIT_PORT=tcp://<cluster-ip>:7880 env
+      # var into every pod in this namespace once the Service below exists
+      # (the standard <SVCNAME>_PORT convention) -- LiveKit server ALSO
+      # reads LIVEKIT_PORT as its own --port flag's env override, so the
+      # two collide (confirmed live: "could not parse tcp://... as uint
+      # value... for flag port", crash-looping). enableServiceLinks: false
+      # is the standard fix, not a workaround specific to this one name.
+      enableServiceLinks: false
+      containers:
+        - name: livekit
+          image: livekit/livekit-server:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--dev"
+            - "--bind"
+            - "0.0.0.0"
+          env:
+            # SIMULATION/DEMO-ONLY -- see module header. LiveKit's own
+            # "key: secret" format, one pair per line.
+            - name: LIVEKIT_KEYS
+              value: "devkey: devsecret_at_least_32_characters_long"
+            # Forces WebRTC media over the same TCP port ICE-TCP/signaling
+            # already uses, since kubectl port-forward cannot carry the
+            # UDP media LiveKit prefers by default in this topology.
+            - name: LIVEKIT_RTC_FORCE_TCP
+              value: "true"
+          ports:
+            - containerPort: 7880
+              name: signaling
+            - containerPort: 7881
+              name: rtc-tcp
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            tcpSocket:
+              port: 7880
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 7880
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: livekit
+  namespace: monkeybrain
+  labels:
+    app: livekit
+spec:
+  selector:
+    app: livekit
+  ports:
+    - port: 7880
+      targetPort: 7880
+      protocol: TCP
+      name: signaling
+    - port: 7881
+      targetPort: 7881
+      protocol: TCP
+      name: rtc-tcp
+  type: ClusterIP
