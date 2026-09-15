@@ -29,8 +29,19 @@ RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.lo
         -r requirements.lock.txt
 
 COPY src/ ./src/
-COPY services/common/ ./services/common/
-COPY services/pm/ ./services/pm/
+# services/common/ and every service EXCEPT file/ live under
+# domains/manufacturing/knowledge/services/ (see tests/conftest.py's own
+# sys.path setup for the same reason, and docker/services/agentos/
+# Dockerfile's own comment on this exact split) -- the repo-root
+# services/{name}/ path only has REAL, tracked content for common's
+# sibling "file" (a deliberate lightweight stub per that service's own
+# Dockerfile comment). Confirmed live: every other repo-root services/
+# subdirectory has zero git-tracked files (just local __pycache__/build
+# leftovers), so `COPY services/<name>/` failed outright with
+# "not found" the moment an earlier, unrelated build failure (torch's
+# CPU-index pin) stopped masking it.
+COPY domains/manufacturing/knowledge/services/common/ ./services/common/
+COPY domains/manufacturing/knowledge/services/pm/ ./services/pm/
 
 EXPOSE 8019
 
