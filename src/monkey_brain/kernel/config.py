@@ -47,3 +47,12 @@ PLANNER_LEARNING_RATE: float = 0.1
 PLANNER_EXPLORATION_RATE: float = 0.2
 PLANNER_EXPLORATION_DECAY: float = 0.99
 PLANNER_MIN_EXPLORATION_RATE: float = 0.05
+
+# ── Bias audit (kernel/bias_audit.py) — disparate-impact ("80% rule") check
+#    GovernanceEngine.evaluate() runs against an action's own recorded
+#    decision history, only when the caller supplies a protected-attribute
+#    group in context and the action is in BIAS_AUDITED_ACTIONS below ──────────
+BIAS_DISPARITY_THRESHOLD: float = 0.8  # selection-rate ratio below this vs. the best-performing group is flagged
+BIAS_MIN_SAMPLE_SIZE: int = 20  # fewer than this many prior decisions for the action+attribute: too little data to flag
+BIAS_HISTORY_WINDOW: int = 1000  # how many recent bias_audit entries to pull from the audit log per check
+BIAS_AUDITED_ACTIONS: frozenset[str] = frozenset()  # empty by default — opt an action in explicitly, e.g. {"execute"}

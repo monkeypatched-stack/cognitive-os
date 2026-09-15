@@ -92,6 +92,37 @@ class ApprovalArtifactResponse(BaseModel):
     revocation_reason: str = ""
 
 
+@router.get("/runtime-approvals", tags=["Runtime Approval Gate"])
+async def list_pending_approvals(
+    user_id: str = Depends(require_permission("perm-view-learn")),
+) -> dict[str, Any]:
+    """List every approval artifact currently awaiting a human decision,
+    across all operations — the discovery endpoint a UI needs before it can
+    show anything, since every other endpoint here requires already knowing
+    an approval_id or operation_id."""
+    store = get_approval_store()
+    artifacts = store.list_pending()
+
+    return {
+        "approvals": [
+            {
+                "approval_id": a.approval_id,
+                "operation_id": a.operation_id,
+                "approval_status": a.approval_status.value,
+                "risk_level": a.risk_level,
+                "requesting_principal": a.requesting_principal,
+                "target_operation": a.target_operation,
+                "target_resource": a.target_resource,
+                "policy_rule": a.policy_rule,
+                "created_at": a.created_at,
+                "expires_at": a.expires_at,
+            }
+            for a in artifacts
+        ],
+        "total": len(artifacts),
+    }
+
+
 @router.get("/runtime-approvals/{approval_id}", tags=["Runtime Approval Gate"])
 async def inspect_approval(
     approval_id: str,

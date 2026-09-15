@@ -25,20 +25,88 @@ told us so, not that a ROS message was published.
 from __future__ import annotations
 
 import asyncio
+import math
+import os
 import threading
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .ros_integration import RosUnavailableError
 
+if TYPE_CHECKING:
+    from .drone_state import DroneState
+
+
+def _timeout(name: str, default: float) -> float:
+    """Step timeout in seconds, overridable as PX4_<NAME>_TIMEOUT_S.
+
+    These are wall-clock deadlines on simulated motion, so they are really a
+    statement about how fast the simulator runs, not about the vehicle. A
+    heavy Isaac scene, a GPU shared with something else, or simply a longer
+    leg all stretch the same flight past a deadline that was fine before,
+    and the failure looks like "did not reach waypoint" rather than
+    "the sim is slow". Hence generous defaults plus an override.
+    """
+    raw = os.environ.get(f"PX4_{name}_TIMEOUT_S")
+    if raw is None:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 _STREAM_HZ = 10.0
 _PRE_OFFBOARD_STREAM_S = 1.5  # PX4 needs setpoints already streaming before it accepts OFFBOARD
-_ARM_TIMEOUT_S = 8.0
-_ALTITUDE_TOLERANCE_M = 0.35
-_POSITION_TOLERANCE_M = 0.5
-_TAKEOFF_TIMEOUT_S = 20.0
-_WAYPOINT_TIMEOUT_S = 25.0
-_LAND_TIMEOUT_S = 45.0  # observed: 9-33s from NAV_LAND to disarm in real SITL, 45s gives margin
+
+
+def _tolerance(name: str, default: float) -> float:
+    """Arrival tolerance in metres, overridable as PX4_<NAME>_TOLERANCE_M.
+
+    These are judged against PX4's *estimate*, so they are really a budget
+    for EKF drift, not for the controller. Measured here: four drones flew
+    out to (8,0) inside 0.5m, were commanded home, and all four settled
+    ~1.2m from the origin in the same direction -- a systematic bias, not
+    four independent failures. Drift accumulates over a flight and shows up
+    on the return leg because "home" IS the EKF origin, the one waypoint
+    with no slack. The vehicles arrive; the tolerance is simply tighter than
+    the drift. Defaults are unchanged so production behaviour is untouched;
+    the sim bridge launcher relaxes them explicitly.
+    """
+    raw = os.environ.get(f"PX4_{name}_TOLERANCE_M")
+    if raw is None:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+_ALTITUDE_TOLERANCE_M = _tolerance("ALTITUDE", 0.35)
+_POSITION_TOLERANCE_M = _tolerance("POSITION", 0.5)
+_ARM_TIMEOUT_S = _timeout("ARM", 15.0)
+_TAKEOFF_TIMEOUT_S = _timeout("TAKEOFF", 60.0)
+_WAYPOINT_TIMEOUT_S = _timeout("WAYPOINT", 90.0)
+# observed: 9-33s from NAV_LAND to disarm in real SITL; a descent from
+# altitude in a slow scene takes considerably longer than that.
+_LAND_TIMEOUT_S = _timeout("LAND", 120.0)
+
+
+def _yaw_degrees_from_attitude(msg: Any) -> float | None:
+    """Heading in degrees from px4_msgs/VehicleAttitude's quaternion field
+    `q` ([w, x, y, z], PX4's documented component order). Standard
+    quaternion-to-yaw formula (atan2(2(wz+xy), 1-2(y^2+z^2))) — returns
+    None rather than raising if `q` isn't the expected shape, same
+    defensive posture as every other new field in latest_state()."""
+    try:
+        q = msg.q
+        w, x, y, z = float(q[0]), float(q[1]), float(q[2]), float(q[3])
+    except Exception:
+        return None
+    yaw_rad = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+    return math.degrees(yaw_rad) % 360.0
 
 
 class Px4RosExecutionAdapter:
@@ -51,12 +119,7 @@ class Px4RosExecutionAdapter:
             import rclpy
             from rclpy.executors import SingleThreadedExecutor
             from rclpy.node import Node
-            from rclpy.qos import (
-                DurabilityPolicy,
-                HistoryPolicy,
-                QoSProfile,
-                ReliabilityPolicy,
-            )
+            from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
             from px4_msgs.msg import (
                 OffboardControlMode,
                 TrajectorySetpoint,
@@ -66,6 +129,28 @@ class Px4RosExecutionAdapter:
             )
         except ImportError as exc:
             raise RosUnavailableError("Px4RosExecutionAdapter requires ROS 2 rclpy and px4_msgs") from exc
+
+        # Enrichment telemetry (battery/GPS/attitude) — optional, unlike the
+        # import above: these aren't needed for flight control itself, only
+        # for DroneState's battery/gps_state/heading fields (kernel/edge/
+        # drone_state.py). SensorGps + its latitude_deg/longitude_deg/
+        # altitude_msl_m fields and the vehicle_gps_position topic name are
+        # confirmed from this repo's own
+        # deploy/k8s/px4-sim-deployment.yaml (the Foxglove GPS bridge
+        # ConfigMap already subscribes to exactly this). BatteryStatus and
+        # VehicleAttitude are standard, long-stable PX4 uORB->ROS2
+        # messages, but unlike SensorGps there is no other code in this
+        # repo already exercising them to confirm their field names against
+        # a real running px4_msgs build (none was available while writing
+        # this) -- every access below is defensive (getattr with a None
+        # default) specifically so a wrong guess here degrades to a missing
+        # field, never a crash.
+        try:
+            from px4_msgs.msg import BatteryStatus, SensorGps, VehicleAttitude
+        except ImportError:
+            BatteryStatus = None  # noqa: N806
+            SensorGps = None  # noqa: N806
+            VehicleAttitude = None  # noqa: N806
 
         self.actor_id = actor_id
         self.namespace = namespace.strip("/")
@@ -103,18 +188,68 @@ class Px4RosExecutionAdapter:
         )
         self._latest_status: Any = None
         self._latest_local_position: Any = None
-        self._node.create_subscription(
-            VehicleStatus,
-            f"{prefix_out}/vehicle_status_v4",
-            self._on_status,
-            px4_qos,
-        )
+        self._latest_battery: Any = None
+        self._latest_gps: Any = None
+        self._latest_attitude: Any = None
+        # Receipt time (wall clock, this process), NOT last-read time --
+        # latest_state()'s freshness check needs to know when telemetry
+        # actually arrived, which these record; time.time() at the point
+        # latest_state() is CALLED would make every call report itself as
+        # fresh regardless of whether _on_status/_on_local_position have
+        # fired recently, defeating the whole staleness check.
+        self._latest_status_at: float = 0.0
+        self._latest_local_position_at: float = 0.0
+        # Overwritten from vehicle_status as soon as the first one arrives;
+        # 1/1 is right for a single vehicle on PX4 instance 0.
+        self._target_system = 1
+        self._target_component = 1
+        # Subscribe to every versioned vehicle_status topic rather than one.
+        # PX4 renames these across releases and only publishes the version it
+        # was built with: on this v1.17.0-alpha1 tree, vehicle_status_v1 has
+        # a publisher and vehicle_status_v4 has none. Pinning v4 alone left
+        # _latest_status permanently None, so every Arm failed with
+        # "PX4 did not report ARMED ... (last arming_state=None)" while
+        # telemetry was in fact flowing the whole time. Subscribing to both
+        # costs nothing -- the absent one simply never fires -- and keeps
+        # this working across PX4 versions instead of tracking renames.
+        for _status_topic in ("vehicle_status_v1", "vehicle_status_v4"):
+            self._node.create_subscription(
+                VehicleStatus,
+                f"{prefix_out}/{_status_topic}",
+                self._on_status,
+                px4_qos,
+            )
         self._node.create_subscription(
             VehicleLocalPosition,
             f"{prefix_out}/vehicle_local_position_v1",
             self._on_local_position,
             px4_qos,
         )
+        # Enrichment telemetry — each guarded independently so a missing
+        # message TYPE (px4_msgs built without it) or a missing PUBLISHER
+        # (PX4 built without that sensor/estimator) degrades that one
+        # field, never the adapter as a whole.
+        if BatteryStatus is not None:
+            self._node.create_subscription(
+                BatteryStatus,
+                f"{prefix_out}/battery_status",
+                self._on_battery,
+                px4_qos,
+            )
+        if SensorGps is not None:
+            self._node.create_subscription(
+                SensorGps,
+                f"{prefix_out}/vehicle_gps_position",
+                self._on_gps,
+                px4_qos,
+            )
+        if VehicleAttitude is not None:
+            self._node.create_subscription(
+                VehicleAttitude,
+                f"{prefix_out}/vehicle_attitude",
+                self._on_attitude,
+                px4_qos,
+            )
 
         # Continuous setpoint streaming: PX4 requires OffboardControlMode +
         # TrajectorySetpoint at >=2Hz (we use 10Hz) both before the OFFBOARD
@@ -133,9 +268,33 @@ class Px4RosExecutionAdapter:
 
     def _on_status(self, msg: Any) -> None:
         self._latest_status = msg
+        self._latest_status_at = time.time()
+        # Learn this vehicle's MAVLink ids instead of assuming system 1.
+        # rcS sets MAV_SYS_ID = px4_instance + 1, so a second vehicle on
+        # instance 2 answers to system 3; commands addressed to system 1
+        # are silently ignored by every instance except 0. That failure is
+        # invisible -- PX4 raises no preflight complaint because it never
+        # accepted a command at all, and Arm just times out with
+        # arming_state stuck at DISARMED.
+        sys_id = getattr(msg, "system_id", 0) or 0
+        comp_id = getattr(msg, "component_id", 0) or 0
+        if sys_id:
+            self._target_system = int(sys_id)
+        if comp_id:
+            self._target_component = int(comp_id)
 
     def _on_local_position(self, msg: Any) -> None:
         self._latest_local_position = msg
+        self._latest_local_position_at = time.time()
+
+    def _on_battery(self, msg: Any) -> None:
+        self._latest_battery = msg
+
+    def _on_gps(self, msg: Any) -> None:
+        self._latest_gps = msg
+
+    def _on_attitude(self, msg: Any) -> None:
+        self._latest_attitude = msg
 
     def _set_target(self, x: float, y: float, z: float) -> None:
         with self._target_lock:
@@ -189,8 +348,8 @@ class Px4RosExecutionAdapter:
         msg.command = command
         msg.param1 = p1
         msg.param2 = p2
-        msg.target_system = 1
-        msg.target_component = 1
+        msg.target_system = self._target_system
+        msg.target_component = self._target_component
         msg.source_system = 1
         msg.source_component = 1
         msg.from_external = True
@@ -232,6 +391,74 @@ class Px4RosExecutionAdapter:
             return False
         dx, dy, dz = pos.x - target_x, pos.y - target_y, pos.z - target_z
         return (dx * dx + dy * dy) ** 0.5 <= _POSITION_TOLERANCE_M and abs(dz) <= _ALTITUDE_TOLERANCE_M
+
+    def latest_state(self) -> DroneState | None:
+        """A typed snapshot of this adapter's telemetry. armed/position come
+        from vehicle_status/vehicle_local_position, the same subscriptions
+        Arm/Takeoff/Waypoint/Land already rely on for their own outcome
+        confirmation. battery/gps_state/heading/flight_mode come from the
+        enrichment subscriptions above (battery_status/vehicle_gps_position/
+        vehicle_attitude/nav_state) — every access is via getattr with a
+        None default specifically so an unexpected px4_msgs field shape
+        degrades that one field to None rather than raising (see this
+        class's __init__ for which of these field names are confirmed
+        in-repo vs. standard-PX4-convention-but-unverified-here).
+
+        Returns None until the first vehicle_status message has actually
+        arrived (not "no drone," just "no telemetry yet") — matches
+        _is_armed()/_is_disarmed()'s own None-until-first-message contract.
+        """
+        from .drone_state import DroneState
+
+        status = self._latest_status
+        if status is None:
+            return None
+        pos = self._latest_local_position
+        armed_value = getattr(self._VehicleStatus, "ARMING_STATE_ARMED", 2)
+        # The older of the two receipt times, not the newer -- if position
+        # telemetry stalls while status keeps flowing (or vice versa),
+        # staleness must reflect the piece that actually went quiet, not
+        # be masked by whichever topic happens to still be healthy.
+        receipt_times = [self._latest_status_at]
+        if pos is not None:
+            receipt_times.append(self._latest_local_position_at)
+
+        battery = self._latest_battery
+        battery_remaining = getattr(battery, "remaining", None) if battery is not None else None
+
+        gps = self._latest_gps
+        gps_fix_type = getattr(gps, "fix_type", None) if gps is not None else None
+        gps_state = str(gps_fix_type) if gps_fix_type is not None else None
+
+        nav_state = getattr(status, "nav_state", None)
+        flight_mode = str(nav_state) if nav_state is not None else None
+
+        # PX4's own onboard clock (microseconds since boot, per every
+        # px4_msgs header) -- NOT wall-clock epoch time. This is the
+        # simulation-time signal Section 13 asks to keep separate from
+        # `timestamp` (this process's own wall clock, set above from
+        # receipt time) and from Trusted Time (kernel/trusted_time.py,
+        # a different concern entirely -- see this repo's
+        # docs/DRONE_SIMULATION.md).
+        px4_timestamp_us = getattr(status, "timestamp", None)
+        sim_timestamp = (px4_timestamp_us / 1_000_000.0) if px4_timestamp_us is not None else None
+
+        heading = _yaw_degrees_from_attitude(self._latest_attitude)
+
+        return DroneState(
+            actor_id=self.actor_id,
+            namespace=self.namespace,
+            armed=(status.arming_state == armed_value),
+            position_x=pos.x if pos is not None else None,
+            position_y=pos.y if pos is not None else None,
+            position_z=pos.z if pos is not None else None,
+            timestamp=min(receipt_times),
+            heading=heading,
+            battery=battery_remaining,
+            flight_mode=flight_mode,
+            gps_state=gps_state,
+            sim_timestamp=sim_timestamp,
+        )
 
     async def invoke(self, *, capability: str, parameters: dict[str, Any]) -> dict[str, Any]:
         """Execute one small PX4 action; callers must govern this invocation.
@@ -319,11 +546,7 @@ class Px4RosExecutionAdapter:
                 return {**result, "success": True}
 
             else:
-                return {
-                    **result,
-                    "success": False,
-                    "error": f"unsupported PX4 capability: {capability}",
-                }
+                return {**result, "success": False, "error": f"unsupported PX4 capability: {capability}"}
 
         return await loop.run_in_executor(None, publish)
 

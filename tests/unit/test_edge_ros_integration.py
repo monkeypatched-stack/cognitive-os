@@ -97,4 +97,89 @@ class TestRosOnlyExecutesThroughGovernance:
                 parameters={"angle": 90},
                 adapter=adapter,
             )
+
+
+class TestRosIdempotency:
+    """idempotency_key closes the gap tests/validation/test_v13_ros_governance.py
+    documents and deliberately leaves open: an identical command sent twice
+    moved the vehicle twice. Governance itself must still re-run on every
+    call — only the physical effect (adapter.invoke()) is deduplicated."""
+
+    @pytest.mark.asyncio
+    async def test_same_key_invokes_the_adapter_only_once(self):
+        adapter = _FakeAdapter()
+        kwargs = dict(
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 90},
+            adapter=adapter,
+            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
+            idempotency_key="plan-step-7",
+        )
+
+        first = await run_ros_action_if_governed(**kwargs)
+        adapter.called = False  # reset the flag; a second real invoke would flip it back
+        second = await run_ros_action_if_governed(**kwargs)
+
+        assert first == second == {"success": True, "moved": True}
+        assert adapter.called is False  # replayed the cached result, never called invoke() again
+
+    @pytest.mark.asyncio
+    async def test_different_key_invokes_the_adapter_again(self):
+        adapter = _FakeAdapter()
+        kwargs = dict(
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 90},
+            adapter=adapter,
+            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
+        )
+
+        await run_ros_action_if_governed(**kwargs, idempotency_key="plan-step-7")
+        adapter.called = False
+        await run_ros_action_if_governed(**kwargs, idempotency_key="plan-step-8")
+
+        assert adapter.called is True
+
+    @pytest.mark.asyncio
+    async def test_no_key_preserves_prior_always_invoke_behavior(self):
+        adapter = _FakeAdapter()
+        kwargs = dict(
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 90},
+            adapter=adapter,
+            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
+        )
+
+        await run_ros_action_if_governed(**kwargs)
+        adapter.called = False
+        await run_ros_action_if_governed(**kwargs)
+
+        assert adapter.called is True
+
+    @pytest.mark.asyncio
+    async def test_same_key_different_parameters_is_a_conflict_not_a_replay(self):
+        adapter = _FakeAdapter()
+        await run_ros_action_if_governed(
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 90},
+            adapter=adapter,
+            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
+            idempotency_key="plan-step-7",
+        )
+        adapter.called = False
+        result = await run_ros_action_if_governed(
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 45},  # different payload, same key -- a caller bug, not a retry
+            adapter=adapter,
+            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
+            idempotency_key="plan-step-7",
+        )
+
+        assert result["success"] is False
+        assert "different" in result["error"]
+        assert adapter.called is False  # never touched the vehicle for the conflicting request
         assert adapter.called is False

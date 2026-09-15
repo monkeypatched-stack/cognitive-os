@@ -94,11 +94,11 @@ data:
                 history=HistoryPolicy.KEEP_LAST,
                 depth=5,
             )
-            self.pub = self.create_publisher(NavSatFix, "/drone/gps/fix", 10)
+            self.pub = self.create_publisher(NavSatFix, "/${PX4_NAMESPACE}/drone/gps/fix", 10)
             self.sub = self.create_subscription(
-                SensorGps, "/px4_1/fmu/out/vehicle_gps_position", self.on_gps, qos,
+                SensorGps, "/${PX4_NAMESPACE}/fmu/out/vehicle_gps_position", self.on_gps, qos,
             )
-            self.get_logger().info("GPS bridge started: vehicle_gps_position -> /drone/gps/fix")
+            self.get_logger().info("GPS bridge started: vehicle_gps_position -> /${PX4_NAMESPACE}/drone/gps/fix")
 
         def on_gps(self, msg: SensorGps) -> None:
             out = NavSatFix()
@@ -137,6 +137,8 @@ metadata:
     actor-id: "${ACTOR_ID}"
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: px4-sim
@@ -148,6 +150,10 @@ spec:
         actor-id: "${ACTOR_ID}"
     spec:
       terminationGracePeriodSeconds: 60
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      # Gazebo is owned by gazebo-shared. This pod owns only one PX4
+      # controller and its ROS/DDS bridge.
       hostAliases:
         - ip: "127.0.0.1"
           hostnames: ["host.docker.internal"]
@@ -157,13 +163,23 @@ spec:
           imagePullPolicy: IfNotPresent
           tty: true
           stdin: true
+          command: ["/opt/px4-gazebo/bin/px4"]
+          args: ["-i", "${PX4_INSTANCE}"]
           env:
+            - name: PX4_GZ_STANDALONE
+              value: "1"
+            - name: PX4_GZ_WORLD
+              value: "default"
+            - name: GZ_PARTITION
+              value: "cognitiveos-shared"
+            - name: PX4_UXRCE_DDS_PORT
+              value: "${PX4_UXRCE_DDS_PORT}"
             - name: PX4_UXRCE_DDS_NS
               value: "${PX4_NAMESPACE}"
           resources:
             requests:
               cpu: "500m"
-              memory: "1Gi"
+              memory: "256Mi"
             limits:
               cpu: "2000m"
               memory: "3Gi"
@@ -171,7 +187,10 @@ spec:
         - name: xrce-agent
           image: cognitiveos-px4-ros2:latest
           imagePullPolicy: IfNotPresent
-          command: ["bash", "-lc", "MicroXRCEAgent udp4 -p 8888"]
+          env:
+            - name: PX4_UXRCE_DDS_PORT
+              value: "${PX4_UXRCE_DDS_PORT}"
+          command: ["bash", "-lc", "MicroXRCEAgent udp4 -p \"${PX4_UXRCE_DDS_PORT}\""]
           resources:
             requests:
               cpu: "100m"
@@ -183,10 +202,13 @@ spec:
         - name: mavlink-heartbeat
           image: cognitiveos-px4-ros2:latest
           imagePullPolicy: IfNotPresent
+          env:
+            - name: PX4_GCS_PORT
+              value: "${PX4_GCS_PORT}"
           command: ["python3", "-c"]
           args:
             - |
-              import socket, time
+              import os, socket, time
               MAV_TYPE_GCS, MAV_AUTOPILOT_INVALID, MAV_STATE_ACTIVE = 6, 8, 4
               CRC_EXTRA = 50
               def x25crc(data):
@@ -201,10 +223,11 @@ spec:
                   header = bytes([0xFD, len(payload), 0, 0, seq & 0xFF, 255, 190, 0, 0, 0])
                   crc = x25crc(header[1:] + payload + bytes([CRC_EXTRA]))
                   return header + payload + crc.to_bytes(2, "little")
+              port = int(os.environ["PX4_GCS_PORT"])
               sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
               seq = 0
               while True:
-                  sock.sendto(heartbeat(seq), ("127.0.0.1", 18570))
+                  sock.sendto(heartbeat(seq), ("127.0.0.1", port))
                   seq += 1
                   time.sleep(1.0)
           resources:
@@ -216,10 +239,17 @@ spec:
               memory: "128Mi"
 
         - name: ros-bridge
-          image: monkeybrain/ros-bridge:latest
+          image: monkeybrain/ros-bridge:runtime
           imagePullPolicy: IfNotPresent
+          command: ["bash", "-lc"]
+          args:
+            - >-
+              source /opt/ros/jazzy/setup.bash &&
+              source /opt/px4_ws/install/setup.bash &&
+              exec python3 -m uvicorn src.monkey_brain.kernel.edge.ros_bridge_server:app
+              --host 0.0.0.0 --port "${ROS_BRIDGE_PORT}"
           ports:
-            - containerPort: 9000
+            - containerPort: ${ROS_BRIDGE_PORT}
               name: http
           env:
             - name: ACTOR_ID
@@ -236,14 +266,14 @@ spec:
           livenessProbe:
             httpGet:
               path: /live
-              port: 9000
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 30
             timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /live
-              port: 9000
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
@@ -262,9 +292,9 @@ spec:
               source /opt/ros/jazzy/setup.bash
               source /opt/px4_ws/install/setup.bash
               python3 /scripts/gps_bridge.py &
-              exec ros2 run foxglove_bridge foxglove_bridge --ros-args -p port:=8765
+              exec ros2 run foxglove_bridge foxglove_bridge --ros-args -p port:=${FOXGLOVE_PORT}
           ports:
-            - containerPort: 8765
+            - containerPort: ${FOXGLOVE_PORT}
               name: foxglove-ws
           volumeMounts:
             - name: foxglove-gps-bridge-script
@@ -299,12 +329,12 @@ spec:
     app: px4-sim
     actor-id: "${ACTOR_ID}"
   ports:
-    - port: 9000
-      targetPort: 9000
+    - port: ${ROS_BRIDGE_PORT}
+      targetPort: ${ROS_BRIDGE_PORT}
       protocol: TCP
       name: http
-    - port: 8765
-      targetPort: 8765
+    - port: ${FOXGLOVE_PORT}
+      targetPort: ${FOXGLOVE_PORT}
       protocol: TCP
       name: foxglove-ws
   type: ClusterIP

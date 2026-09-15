@@ -24,7 +24,6 @@ import hmac
 import logging
 import os
 import threading
-import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -34,10 +33,20 @@ from src.monkey_brain.kernel.execute.models import ExecutionMode
 from src.monkey_brain.kernel.fix.scheduler.graph_scheduler import GraphScheduler
 from src.monkey_brain.kernel.fix.self_healing.workload import SelfHealingPolicy
 from src.monkey_brain.kernel.plan.goals.intent_ir import IntentIR
+from src.monkey_brain.kernel.trusted_time import get_trusted_timestamp
 
 logger = logging.getLogger("agentos.process.checkpoint")
 
-CHECKPOINT_SCHEMA_VERSION = "1.0"
+# 1.1 (Trusted Time): _signing_payload() now includes created_at and
+# trusted_timestamp, which it previously omitted. A checkpoint signed under
+# 1.0 will fail verify() under this code — an intentional, narrow breaking
+# change (unlike intent_ir.py/audit.py, checkpoints are short-lived
+# operational state with a 7-day default cleanup window, not long-lived
+# audit/replay records other systems depend on staying verifiable
+# indefinitely). Failure mode is safe: restore_from_checkpoint() just
+# refuses to restore from a stale-signature checkpoint, the same as any
+# other tampered one.
+CHECKPOINT_SCHEMA_VERSION = "1.1"
 
 
 def _is_production() -> bool:
@@ -91,6 +100,15 @@ class Checkpoint:
     retry_budget: dict[str, int]
     compensation_log: list[dict[str, Any]]
     approval_gate: dict[str, Any] | None
+    # Trusted Time (kernel/trusted_time.py): created_at itself was NOT part
+    # of this checkpoint's own signing payload before this field existed —
+    # a real, separate pre-existing gap. trusted_timestamp carries the
+    # Trusted Time service's own attestation for created_at (or an
+    # attested=False local-clock fallback if that service was unreachable
+    # when this checkpoint was built — see get_trusted_timestamp's
+    # fail-open design), and, unlike created_at historically, IS included
+    # in what gets signed below.
+    trusted_timestamp: dict[str, Any] | None = None
     integrity: str = ""
 
     def _signing_payload(self) -> str:
@@ -101,6 +119,8 @@ class Checkpoint:
                 self.schema_version,
                 self.checkpoint_id,
                 self.run_id,
+                f"{self.created_at:.6f}",
+                json.dumps(self.trusted_timestamp, sort_keys=True),
                 json.dumps(self.context, sort_keys=True),
                 json.dumps(self.intent_ir, sort_keys=True),
                 json.dumps(self.graph_snapshot, sort_keys=True),
@@ -165,6 +185,7 @@ class Checkpoint:
             "retry_budget": self.retry_budget,
             "compensation_log": self.compensation_log,
             "approval_gate": self.approval_gate,
+            "trusted_timestamp": self.trusted_timestamp,
             "integrity": self.integrity,
         }
 
@@ -181,22 +202,35 @@ class Checkpoint:
             retry_budget=d.get("retry_budget", {}),
             compensation_log=d.get("compensation_log", []),
             approval_gate=d.get("approval_gate"),
+            trusted_timestamp=d.get("trusted_timestamp"),
             integrity=d.get("integrity", ""),
         )
 
 
-def build_checkpoint(rpcb: Any, checkpoint_id: str) -> Checkpoint:
+async def build_checkpoint(rpcb: Any, checkpoint_id: str) -> Checkpoint:
     """rpcb: RuntimeProcessControlBlock (typed as Any to avoid a circular
     import — models.py does not need this module).
+
+    async only because of get_trusted_timestamp()'s HTTP call — that call
+    never blocks longer than TRUSTED_TIME_TIMEOUT_SECONDS and never raises
+    (see kernel/trusted_time.py), so this stays as cheap as the rest of
+    checkpointing even when the Trusted Time service is unreachable.
     """
     from dataclasses import asdict
 
+    ts = await get_trusted_timestamp()
     ir_dict = rpcb.context.intent_ir.to_dict() if rpcb.context.intent_ir is not None else None
     ckpt = Checkpoint(
         checkpoint_id=checkpoint_id,
         run_id=rpcb.run_id,
         schema_version=CHECKPOINT_SCHEMA_VERSION,
-        created_at=time.time(),
+        created_at=ts.timestamp,
+        trusted_timestamp={
+            "timestamp": ts.timestamp,
+            "signature": ts.signature,
+            "key_id": ts.key_id,
+            "attested": ts.attested,
+        },
         context={
             "run_id": rpcb.context.run_id,
             "trace_id": rpcb.context.trace_id,
@@ -394,7 +428,7 @@ class CheckpointOpsMixin:
 
         rpcb = self._require(run_id)
         checkpoint_id = f"ckpt-{run_id}-{len(rpcb.checkpoints)}"
-        ckpt = build_checkpoint(rpcb, checkpoint_id)
+        ckpt = await build_checkpoint(rpcb, checkpoint_id)
         save_result = self._checkpoint_store.save(ckpt)
         if asyncio.iscoroutine(save_result):
             await save_result

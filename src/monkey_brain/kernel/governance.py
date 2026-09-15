@@ -185,6 +185,27 @@ class GovernanceEngine:
         ctx["trusted_auth"] = trusted
         ctx["auth"] = trusted
 
+        # Bias audit (kernel/bias_audit.py): opt-in per action (config.
+        # BIAS_AUDITED_ACTIONS) AND per call (context must supply
+        # bias_group). Neither is set by any caller today, so this is
+        # inert until a route handler deliberately opts an action in.
+        from src.monkey_brain.kernel.bias_audit import get_bias_auditor
+        from src.monkey_brain.kernel.config import BIAS_AUDITED_ACTIONS
+
+        bias_group = ctx.get("bias_group") if action in BIAS_AUDITED_ACTIONS else None
+        bias_attribute = bias_group.get("attribute") if isinstance(bias_group, dict) else None
+        bias_value = bias_group.get("value") if isinstance(bias_group, dict) else None
+        if isinstance(bias_attribute, str) and bias_attribute and isinstance(bias_value, str) and bias_value:
+            bias_result = get_bias_auditor().evaluate(action, bias_attribute, bias_value)
+            ctx["signals"] = {
+                **ctx.get("signals", {}),
+                "bias_detected": bias_result.bias_detected,
+                "bias_disparity_ratio": bias_result.disparity_ratio,
+                "bias_protected_attribute": bias_attribute,
+            }
+        else:
+            bias_result = None
+
         if require_opa() and not self.is_configured():
             decision = {
                 "allowed": False,
@@ -313,6 +334,10 @@ class GovernanceEngine:
             "policy_rule": policy_rule,
             "requires_hitl": requires_hitl,
         }
+        if bias_result is not None:
+            get_bias_auditor().record(
+                runtime_id, action, bias_result.protected_attribute, bias_result.group_value, allowed
+            )
         return self._record_and_return_decision(runtime_id, action, decision)
 
     def audit_decisions(self, runtime_id: str | None = None, limit: int = 100) -> list[dict]:

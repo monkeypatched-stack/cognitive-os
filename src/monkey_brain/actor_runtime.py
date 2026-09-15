@@ -472,6 +472,24 @@ class ActorRuntime:
                     exc_info=True,
                 )
 
+            # Drone telemetry (kernel/edge/drone_state.py): register this
+            # Pod's own adapter so WorldPollingProvider.observe() can find
+            # it by actor_id and fold PX4 telemetry into this actor's
+            # belief state every tick. Same best-effort, non-fatal posture
+            # as the ActorCell attachment above -- a registration failure
+            # means this actor's ticks just carry no drone observations,
+            # not a boot failure.
+            try:
+                from src.monkey_brain.kernel.edge.drone_state import register_drone_adapter
+
+                register_drone_adapter(self.config.actor_id, self.ros_adapter)
+            except Exception:
+                logger.debug(
+                    "ActorRuntime.start: drone adapter registration skipped for %s (non-fatal)",
+                    self.config.actor_id,
+                    exc_info=True,
+                )
+
         if self.state == ReadinessState.READY:
             pr.start_auto_tick(interval_seconds=self.config.tick_interval)
 

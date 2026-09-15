@@ -1,0 +1,68 @@
+# One shared Gazebo Transport server for the three standalone PX4 pods.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gazebo-shared
+  namespace: monkeybrain
+  labels:
+    app: gazebo-shared
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gazebo-shared
+  template:
+    metadata:
+      labels:
+        app: gazebo-shared
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: gazebo
+          image: px4-sitl-flat:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GZ_PARTITION
+              value: "cognitiveos-shared"
+          command: ["/usr/bin/gz"]
+          args: ["sim", "--verbose=1", "-r", "-s", "/opt/px4-gazebo/share/gz/worlds/default.sdf"]
+          ports:
+            - name: discovery
+              containerPort: 10317
+              protocol: UDP
+            - name: transport
+              containerPort: 11345
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "gz topic -l | grep -q '^/world/default/clock$'"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gazebo-shared
+  namespace: monkeybrain
+  labels:
+    app: gazebo-shared
+spec:
+  selector:
+    app: gazebo-shared
+  ports:
+    - name: discovery
+      port: 10317
+      targetPort: 10317
+      protocol: UDP
+    - name: transport
+      port: 11345
+      targetPort: 11345
+      protocol: TCP

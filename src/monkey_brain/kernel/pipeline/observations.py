@@ -147,8 +147,46 @@ class WorldPollingProvider:
         observations = []
         provenance = Provenance(source="world_polling", method="tensor_read", reliability=0.9)
 
+        # Drone telemetry (kernel/edge/drone_state.py): independent of the
+        # world tensor below, so this runs even when world is None — a
+        # robot actor's own telemetry is not part of the shared world
+        # state, it's this specific actor's own sensed reality. Never
+        # raises, never fabricates: no adapter registered for this
+        # actor_id, or its telemetry has gone stale, means no drone
+        # observations this tick, not fake ones.
+        try:
+            from src.monkey_brain.kernel.edge.drone_state import get_drone_adapter, is_fresh
+
+            adapter = get_drone_adapter(actor_id)
+            if adapter is not None:
+                state = adapter.latest_state()
+                if is_fresh(state):
+                    drone_provenance = Provenance(source="px4_ros", method="telemetry", reliability=0.95)
+                    for attribute, value in (
+                        ("armed", state.armed),
+                        ("position_x", state.position_x),
+                        ("position_y", state.position_y),
+                        ("position_z", state.position_z),
+                        ("heading", state.heading),
+                        ("battery", state.battery),
+                        ("flight_mode", state.flight_mode),
+                        ("gps_state", state.gps_state),
+                    ):
+                        if value is not None:
+                            observations.append(
+                                Observation(
+                                    entity=actor_id,
+                                    attribute=attribute,
+                                    value=value,
+                                    confidence=drone_provenance.reliability,
+                                    provenance=drone_provenance,
+                                )
+                            )
+        except Exception:
+            logger.debug("observe: drone telemetry suppressed exception", exc_info=True)
+
         if world is None:
-            return ObservationSet(actor_id=actor_id)
+            return ObservationSet(observations=tuple(observations), actor_id=actor_id)
 
         try:
             if hasattr(world, "entities"):
