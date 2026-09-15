@@ -1,0 +1,89 @@
+# Trusted Time — Layer 5 (Trust & Infrastructure), same weight/pattern as
+# spire-server.yaml/spire-agent.yaml: a real, standalone manifest, NOT
+# included in kustomization.yaml's base resource list (same reason SPIRE's
+# manifests aren't — apply it deliberately when this deployment actually
+# wants attested timestamps, not unconditionally on every `kubectl apply -k`).
+#
+# Deliberately no initContainer waiting on redis/mongodb/nats — this
+# service has no dependency on any of them (see main.py's own docstring):
+# it signs a timestamp with a shared secret and nothing else, so it has
+# nothing else to wait on and nothing else to be down for.
+#
+# kernel/trusted_time.py's client reaches this via TRUSTED_TIME_URL, which
+# should be set to http://trusted-time:8040 (this Service's in-cluster DNS
+# name) on any Deployment that wants attested timestamps — same pattern as
+# OPA_URL/SPIFFE_ENDPOINT_SOCKET are already wired on agentos elsewhere in
+# this directory.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trusted-time
+  namespace: monkeybrain
+  labels:
+    app: trusted-time
+    component: trust-infrastructure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trusted-time
+  template:
+    metadata:
+      labels:
+        app: trusted-time
+    spec:
+      containers:
+        - name: trusted-time
+          image: monkeybrain/trusted-time:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8040
+              name: http
+          env:
+            - name: TRUSTED_TIME_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentos-secrets
+                  key: trusted-time-signing-key
+                  optional: true
+            - name: TRUSTED_TIME_KEY_ID
+              value: "trusted-time-production"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8040
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8040
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trusted-time
+  namespace: monkeybrain
+  labels:
+    app: trusted-time
+spec:
+  selector:
+    app: trusted-time
+  ports:
+    - port: 8040
+      targetPort: 8040
+      protocol: TCP
+      name: http
+  type: ClusterIP

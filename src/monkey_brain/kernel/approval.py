@@ -543,6 +543,15 @@ class ApprovalArtifactStore:
         approval_ids = self._principal_to_approvals.get(principal_id, [])
         return [self._artifacts[aid] for aid in approval_ids if aid in self._artifacts]
 
+    def list_pending(self) -> list[ApprovalArtifact]:
+        """Retrieve every artifact currently awaiting a human decision."""
+        return [
+            artifact
+            for artifact in self._artifacts.values()
+            if artifact.approval_mode == ApprovalMode.HUMAN_APPROVAL_REQUIRED
+            and artifact.approval_status == ApprovalStatus.ACTIVE
+        ]
+
     def validate(
         self,
         approval_id: str,

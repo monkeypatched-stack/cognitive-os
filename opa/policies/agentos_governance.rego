@@ -125,12 +125,26 @@ delegation_capability_mismatch if {
 	not requested in input.context.delegation.capabilities
 }
 
+# ─── Bias Audit ─────────────────────────────────────────────────────────
+# input.context.signals.bias_detected is computed in Python, not here --
+# OPA has no statistical capability, it only branches on the pre-computed
+# disparate-impact verdict kernel/bias_audit.py::BiasAuditor.evaluate()
+# already produced (see kernel/governance.py::evaluate's bias_group
+# handling). Absent input.context.signals (every caller today, since
+# config.BIAS_AUDITED_ACTIONS is empty by default) means this never fires
+# -- same "additive, opt-in" shape as delegation above.
+
+bias_detected if {
+	input.context.signals.bias_detected == true
+}
+
 allow if {
 	not runtime_blocked
 	not action_blocked
 	not charter_denies
 	not recipient_mismatch
 	not delegation_capability_mismatch
+	not bias_detected
 }
 
 # Structured deny reason for audit logs / the API's {"reason": ...} field.
@@ -171,6 +185,18 @@ deny_reason := sprintf("delegation %q does not grant capability %q", [
 	not charter_denies
 	not recipient_mismatch
 	delegation_capability_mismatch
+}
+
+deny_reason := sprintf("bias audit flagged action %q for protected attribute %q (disparity ratio %v)", [
+	input.action, input.context.signals.bias_protected_attribute, input.context.signals.bias_disparity_ratio,
+]) if {
+	not allow
+	not runtime_blocked
+	not action_blocked
+	not charter_denies
+	not recipient_mismatch
+	not delegation_capability_mismatch
+	bias_detected
 }
 
 # ─── Runtime Approval Gate ────────────────────────────────────────────────
@@ -261,6 +287,16 @@ policy_rule := "delegation_capability_mismatch" if {
 	not charter_denies
 	not recipient_mismatch
 	delegation_capability_mismatch
+}
+
+policy_rule := "bias_detected" if {
+	not allow
+	not runtime_blocked
+	not action_blocked
+	not charter_denies
+	not recipient_mismatch
+	not delegation_capability_mismatch
+	bias_detected
 }
 
 policy_rule := "high_risk_action" if {

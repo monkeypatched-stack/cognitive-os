@@ -563,7 +563,7 @@ class ProcessManager(CheckpointOpsMixin):
             return
         try:
             checkpoint_id = f"ckpt-{rpcb.run_id}-{len(rpcb.checkpoints)}"[:80]
-            ckpt = build_checkpoint(rpcb, checkpoint_id)
+            ckpt = await build_checkpoint(rpcb, checkpoint_id)
             save_result = self._checkpoint_store.save(ckpt)
             if asyncio.iscoroutine(save_result):
                 await save_result

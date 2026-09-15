@@ -1,0 +1,13 @@
+FROM cognitiveos-px4-ros2:latest
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+RUN python3 -m pip install --no-cache-dir --break-system-packages fastapi uvicorn
+
+COPY src/ ./src/
+
+EXPOSE 9000

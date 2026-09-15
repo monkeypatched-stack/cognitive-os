@@ -1,0 +1,14 @@
+.lwe-approvals-panel { height: 100%; overflow: auto; padding: 10px; }
+.lwe-approvals-empty { padding: 18px 10px; color: var(--lwe-text-muted); font-size: 12px; font-style: italic; }
+.lwe-approvals-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.lwe-approvals-table th { text-align: left; padding: 6px 8px; color: var(--lwe-text-muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border-bottom: 1px solid var(--lwe-border); }
+.lwe-approvals-table td { padding: 6px 8px; border-bottom: 1px solid color-mix(in srgb, var(--lwe-border) 60%, transparent); vertical-align: middle; }
+.lwe-approvals-risk { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; background: var(--lwe-surface-alt); }
+.lwe-approvals-risk-high, .lwe-approvals-risk-critical { color: #b91c1c; }
+.lwe-approvals-risk-medium { color: #b45309; }
+.lwe-approvals-risk-low { color: #159447; }
+.lwe-approvals-actions { display: flex; gap: 5px; white-space: nowrap; }
+.lwe-approvals-actions button { border: 1px solid var(--lwe-border); border-radius: 5px; padding: 4px 9px; background: var(--lwe-surface-alt); color: var(--lwe-text); cursor: pointer; font-size: 11px; }
+.lwe-approvals-actions button:disabled { opacity: .5; cursor: default; }
+.lwe-approvals-actions button:first-child { border-color: #159447; color: #159447; }
+.lwe-approvals-actions button:last-child { border-color: #dc2626; color: #dc2626; }

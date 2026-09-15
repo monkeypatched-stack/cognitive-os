@@ -30,6 +30,7 @@ SECURITY_CRITICAL_EVENT_TYPES = frozenset(
         "login",
         "token",
         "delegation",
+        "bias_audit",
     }
 )
 

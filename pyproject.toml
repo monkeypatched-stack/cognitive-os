@@ -77,6 +77,17 @@ dependencies = [
     # these deployments, so the package must be present in the image for
     # that configuration to actually work rather than silently degrading.
     "moss==1.7.3",
+    # OTel bridge (src/introspection/otel_bridge.py), consumed by lemon.py's
+    # observability layer. Always installed, same precedent as moss above --
+    # otel_bridge.py's own OTEL_EXPORTER_OTLP_ENDPOINT check is what gates
+    # whether it actually exports anywhere; before this it was missing
+    # entirely, so the bridge silently no-op'd (ImportError, swallowed) even
+    # when that env var WAS set -- the opt-in path could never work. Must be
+    # the HTTP exporter, not gRPC: otel_bridge.py imports
+    # opentelemetry.exporter.otlp.proto.http, not .grpc (sdk/python's own
+    # unrelated "jaeger" extra pulls the grpc one -- doesn't satisfy this).
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp-proto-http",
 ]
 
 [dependency-groups]
@@ -100,6 +111,13 @@ soma = []
 # and only needs this extra to signal that dependency in tooling/CI that
 # inspects pyproject.toml.
 ros = []
+# Realtime voice perception (kernel/edge/livekit_adapter.py). Both are real,
+# separately-published PyPI packages -- `livekit` (the rtc client SDK,
+# LiveKitVoiceObservationProvider's room connection) and `livekit-api`
+# (server-side AccessToken minting, create_livekit_room_token). Optional,
+# same "guarded import at construction" pattern as the ros extra above --
+# most deployments never touch LiveKit at all.
+livekit = ["livekit", "livekit-api"]
 
 [project.scripts]
 monkeybrain = "monkey_brain.cli.main:main"

@@ -1,0 +1,30 @@
+# Trusted Time local development overlay — layered on top of
+# docker-compose.yml, never merged into it (same convention
+# docker-compose.spire.yml/docker-compose.actors.yml already establish).
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.trusted-time.yml up -d
+#
+# kernel/trusted_time.py's client reaches this via TRUSTED_TIME_URL
+# (defaults to http://trusted-time:8040, i.e. this service's Compose DNS
+# name — set it on any other service in docker-compose.yml that needs to
+# fetch an attested timestamp, same as OPA_URL/SPIFFE_ENDPOINT_SOCKET are
+# already wired). No shared volume, no dependency on any other container —
+# this service signs with an env-provided secret and nothing else.
+
+services:
+  trusted-time:
+    build:
+      context: .
+      dockerfile: docker/services/trusted-time/Dockerfile
+    container_name: trusted-time
+    ports:
+      - "8040:8040"
+    environment:
+      - TRUSTED_TIME_SIGNING_KEY=${TRUSTED_TIME_SIGNING_KEY:-${AGENTOS_MASTER_KEY:-}}
+      - TRUSTED_TIME_KEY_ID=trusted-time-dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8040/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

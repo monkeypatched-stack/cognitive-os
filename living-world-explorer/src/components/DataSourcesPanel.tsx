@@ -20,6 +20,7 @@ import { MapPanel } from './MapPanel'
 import { OntologyExplorerPanel } from './OntologyExplorerPanel'
 import { SittingFacePanel } from './SittingFacePanel'
 import { SecurityPanel } from './SecurityPanel'
+import { ApprovalsPanel } from './ApprovalsPanel'
 import { OrdersWalletPanel } from './OrdersWalletPanel'
 import { ProvidersPanel } from './ProvidersPanel'
 import { GroundingGraphPanel } from './GroundingGraphPanel'
@@ -48,7 +49,7 @@ const NAV_ROUTES: Record<string, string> = {
   Debugger: '/execution-debugger/grounding', 'Plan Analyzer': '/plan-analyzer',
   Negotiations: '/negotiations', 'Knowledge Graph': '/knowledge-graph', 'Grounding Graph': '/grounding-graph', 'Context Stream': '/context-stream',
   Memories: '/memories', Affiliations: '/affiliations', 'Lemon Metrics': '/lemon-metrics', Providers: '/provider-registry', Capabilities: '/providers',
-  Communication: '/communication', Security: '/security', 'Orders & Wallet': '/orders-wallet', Settings: '/settings',
+  Communication: '/communication', Security: '/security', Approvals: '/approvals', 'Orders & Wallet': '/orders-wallet', Settings: '/settings',
 }
 const TAB_ROUTES: Record<string, string> = { Plan: 'plan', Grounding: 'grounding', Conversations: 'conversations', Metrics: 'metrics', Logs: 'logs' }
 
@@ -94,7 +95,7 @@ function DashboardFrame({ dashboard, children, onExport, debuggerPage = true }: 
       <div className="lwe-dashboard-nav-label">DATA</div>
       {['⌘  Knowledge Graph', '◈  Grounding Graph', '▤  Context Stream', '◉  Memories', '♧  Affiliations'].map((item) => <button key={item} type="button" onClick={() => nav(item.slice(3))} className={`lwe-dashboard-nav-item${activeNav === item.slice(3) ? ' active' : ''}`}>{item}</button>)}
       <div className="lwe-dashboard-nav-label">SYSTEM</div>
-      {['⛓  Providers', '◉  Capabilities', '☎  Communication', '⛨  Security', '⌁  Lemon Metrics', '⚙  Settings'].map((item) => <button key={item} type="button" onClick={() => nav(item.slice(3))} className={`lwe-dashboard-nav-item${activeNav === item.slice(3) ? ' active' : ''}`}>{item}</button>)}
+      {['⛓  Providers', '◉  Capabilities', '☎  Communication', '⛨  Security', '✓  Approvals', '⌁  Lemon Metrics', '⚙  Settings'].map((item) => <button key={item} type="button" onClick={() => nav(item.slice(3))} className={`lwe-dashboard-nav-item${activeNav === item.slice(3) ? ' active' : ''}`}>{item}</button>)}
     </aside>
     <main className="lwe-dashboard-main">
       <header className="lwe-dashboard-header">
@@ -359,6 +360,11 @@ export function DataSourcesPanel({ dashboard = false }: { dashboard?: boolean })
     if (location.pathname === '/security') {
       return <DashboardFrame dashboard debuggerPage={false}>
         <div className="lwe-plan-page" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}><SecurityPanel /></div>
+      </DashboardFrame>
+    }
+    if (location.pathname === '/approvals') {
+      return <DashboardFrame dashboard debuggerPage={false}>
+        <div className="lwe-plan-page" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}><ApprovalsPanel /></div>
       </DashboardFrame>
     }
     if (location.pathname === '/orders-wallet') {

@@ -82,6 +82,61 @@ class RosExecutionAdapter(Protocol):
         ...
 
 
+async def _invoke_idempotent(
+    idempotency_key: str,
+    capability: str,
+    parameters: dict[str, Any],
+    adapter: "RosExecutionAdapter",
+) -> dict[str, Any]:
+    """Physical-effect-level idempotency: a caller-supplied key that, if
+    reused, replays the cached PHYSICAL result instead of calling
+    adapter.invoke() again — closes the gap
+    tests/validation/test_v13_ros_governance.py documents and deliberately
+    leaves open (an identical command sent twice moved the vehicle twice).
+
+    Deliberately does NOT skip governance — this wraps only the effect
+    (adapter.invoke()), called from inside run_ros_action_if_governed's own
+    `_invoke` closure, which still runs through ensure_governed on every
+    call. Deduplication belongs at the effect boundary, not the
+    authorization boundary: a retried command should still be re-authorized
+    (permissions/policy may have changed since the first attempt), it just
+    must not move the vehicle a second time if the first attempt already
+    did.
+
+    Reuses api/idempotency.py's IdempotencyStore/request_fingerprint
+    directly (not the `@idempotent` HTTP route decorator, which is shaped
+    around FastAPI's Request/Depends — this call site has neither).
+    """
+    from src.monkey_brain.api.idempotency import get_idempotency_store, request_fingerprint
+
+    scoped_key = f"ros_action:{capability}:{idempotency_key}"
+    request_hash = request_fingerprint("ROS", capability, parameters)
+    store = get_idempotency_store()
+    claimed, existing = store.reserve(scoped_key, request_hash)
+    if not claimed:
+        if existing is not None and existing.state == "completed":
+            if existing.request_hash == request_hash:
+                return existing.response_body or {}
+            return {
+                "success": False,
+                "error": f"idempotency key {idempotency_key!r} was already used for a different {capability} request",
+            }
+        return {
+            "success": False,
+            "error": f"a request with idempotency key {idempotency_key!r} is already being processed",
+        }
+    try:
+        result = await adapter.invoke(capability=capability, parameters=parameters)
+    except BaseException:
+        store.release(scoped_key)
+        raise
+    if isinstance(result, dict):
+        store.complete(scoped_key, request_hash, result)
+    else:
+        store.release(scoped_key)
+    return result
+
+
 async def run_ros_action_if_governed(
     *,
     capability: str,
@@ -91,6 +146,7 @@ async def run_ros_action_if_governed(
     actor_id: str = "",
     local_policy_decision: dict[str, Any] | None = None,
     verified_delegation: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     """The ONLY sanctioned entry point from a robot actor's committed
     plan into the ROS execution layer. Routes through the exact same
@@ -108,6 +164,13 @@ async def run_ros_action_if_governed(
     actor B's ROS adapter. Omitting actor_id (the default, "") preserves
     prior behavior exactly for any existing caller/adapter that doesn't
     bind one yet.
+
+    idempotency_key: optional, caller-supplied (e.g. a plan step id) —
+    when given, a retried call with the same key replays the cached
+    physical result instead of re-invoking the adapter (see
+    _invoke_idempotent above). Omitting it (the default) preserves prior
+    behavior exactly — every existing caller that doesn't pass one keeps
+    executing every call, same as before this parameter existed.
     """
     bound_actor_id = getattr(adapter, "actor_id", "") or ""
     if actor_id and bound_actor_id and actor_id != bound_actor_id:
@@ -119,6 +182,8 @@ async def run_ros_action_if_governed(
     from src.monkey_brain.kernel.security_boundary import ensure_governed
 
     async def _invoke() -> dict[str, Any]:
+        if idempotency_key:
+            return await _invoke_idempotent(idempotency_key, capability, parameters, adapter)
         return await adapter.invoke(capability=capability, parameters=parameters)
 
     return await ensure_governed(

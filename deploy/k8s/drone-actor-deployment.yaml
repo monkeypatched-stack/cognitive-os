@@ -128,7 +128,7 @@ spec:
             - name: ROS_REQUIRE_REAL
               value: "true"
             - name: ROS_BRIDGE_URL
-              value: "http://px4-sim-${ACTOR_ID}.monkeybrain.svc.cluster.local:9000"
+              value: "http://px4-sim-${ACTOR_ID}.monkeybrain.svc.cluster.local:${ROS_BRIDGE_PORT}"
             # See actor-deployment.yaml's identical env var comment — a
             # containerized Ollama sidecar failed four times in this
             # environment. Points at this host's own native Ollama.
@@ -138,7 +138,7 @@ spec:
             # llama-server (llama.cpp) replaced Ollama as the default
             # provider (configmap.yaml's MODEL_BACKEND).
             - name: LLAMACPP_BASE_URL
-              value: "http://host.docker.internal:8090"
+              value: "${LLAMACPP_BASE_URL}"
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
