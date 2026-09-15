@@ -1,9 +1,9 @@
 """ModelBackend — routes StructuredPromptIR to the right LLM provider.
 
-Currently implements Claude, OpenRouter, GPT, Gemini, Qwen, Ollama,
-llama.cpp (a local `llama-server` process, distinct from Ollama) — all
-share the same interface. Provider is selected via MODEL_BACKEND env var
-(default: ollama).
+Currently implements Claude, OpenRouter, Gemma (routed via OpenRouter, small
+~8K native context window), GPT, Gemini, Qwen, Ollama, llama.cpp (a local
+`llama-server` process, distinct from Ollama) — all share the same
+interface. Provider is selected via MODEL_BACKEND env var (default: ollama).
 
 The PromptCompilerAgent produces a StructuredPromptIR.
 ModelBackend.complete() takes it and returns the raw model response string.
@@ -46,6 +46,10 @@ _DEFAULT_PROVIDER = os.environ.get("MODEL_BACKEND", "ollama")
 _DEFAULT_MODEL_MAP: dict[str, str] = {
     "claude": "claude-sonnet-4-6",
     "openrouter": os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+    # Gemma-2-9B-it's native context window (~8K tokens) is small by design
+    # -- routed through the same OpenRouter path as "openrouter" above, not
+    # a new provider implementation.
+    "gemma": os.environ.get("GEMMA_MODEL", "google/gemma-2-9b-it"),
     "gpt": "gpt-4o",
     "gemini": "gemini-1.5-pro",
     "qwen": "qwen2.5-72b-instruct",
@@ -100,6 +104,8 @@ class ModelBackend:
         if self._provider == "claude":
             return await asyncio.to_thread(self._claude, prompt, system, tokens, **kwargs)
         if self._provider == "openrouter":
+            return await self._openrouter(prompt, system, tokens, **kwargs)
+        if self._provider == "gemma":
             return await self._openrouter(prompt, system, tokens, **kwargs)
         if self._provider == "gpt":
             return await asyncio.to_thread(self._gpt, prompt, system, tokens, **kwargs)

@@ -138,6 +138,7 @@ def build_default_capability_bus() -> "GroceryCapabilityBus":
     # for any actor with no bound ROS adapter (i.e. every non-robot actor).
     from src.monkey_brain.kernel.domains.robot import (
         ArmCapability,
+        CrashTestCapability,
         HeartbeatCapability,
         LandCapability,
         TakeoffCapability,
@@ -153,6 +154,13 @@ def build_default_capability_bus() -> "GroceryCapabilityBus":
     bus.register(TakeoffCapability())
     bus.register(WaypointCapability())
     bus.register(LandCapability())
+    # SIMULATOR-ONLY crash-test demo capability (kernel/domains/robot.py::
+    # CrashTestCapability's own docstring has the full safety architecture).
+    # Registered unconditionally -- like every other capability here, it is
+    # always discoverable/selectable by the planner, but disarmed by
+    # default (CRASH_TEST_MODE/SIMULATION_ONLY env vars default false) and
+    # gated by governance regardless of what the planner selects.
+    bus.register(CrashTestCapability())
     grocery_capability_bundle(bus).validate()
     return bus
 

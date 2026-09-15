@@ -76,7 +76,9 @@ import time
 from typing import Any
 
 from src.introspection.otel_bridge import get_bridge
+from src.monkey_brain.kernel.edge.landmark_config import get_shared_landmark_resources
 from src.monkey_brain.kernel.edge.livekit_video_adapter import LiveKitVideoObservationProvider
+from src.monkey_brain.kernel.edge.loftr_landmarks import LandmarkMatcher
 from src.monkey_brain.kernel.edge.video_session import VideoSession, get_video_session_store
 from src.monkey_brain.kernel.pipeline.observations import (
     ObservationSet,
@@ -121,6 +123,35 @@ class VideoCommandRuntime:
     ) -> None:
         self._session = session
         self._pr = planetary_runtime
+        # Visual landmark matching (kernel/edge/loftr_landmarks.py): shared
+        # LoFTRMatcher model + reference images are loaded once per process
+        # (landmark_config.py's own singleton); each session gets its own
+        # cheap LandmarkMatcher wrapper so per-actor confirmation history and
+        # Observation.entity stay session-scoped without reloading the model
+        # or reference images. Best-effort -- a construction failure here
+        # must never block video session start.
+        landmark_matcher: LandmarkMatcher | None = None
+        try:
+            shared = get_shared_landmark_resources()
+            if shared is not None:
+                references, matcher, config = shared
+                landmark_matcher = LandmarkMatcher(
+                    list(references),
+                    matcher,
+                    min_matches=config.min_matches,
+                    min_inliers=config.min_inliers,
+                    min_inlier_ratio=config.min_inlier_ratio,
+                    min_score=config.min_score,
+                    confirmations=config.confirmations,
+                    max_confirmation_gap_seconds=config.max_confirmation_gap_seconds,
+                    actor_id=session.actor_id,
+                )
+        except Exception:
+            logger.exception(
+                "VideoCommandRuntime: landmark matcher construction failed for session %s -- continuing without it",
+                session.session_id,
+            )
+            landmark_matcher = None
         # Distinct listener identity, scoped to this session -- never the
         # human operator's own identity, mirroring VoiceCommandRuntime's
         # "cognitiveos-listener-{session_id}" precedent exactly.
@@ -129,6 +160,7 @@ class VideoCommandRuntime:
             session.camera_track_name,
             participant_identity=f"cognitiveos-video-listener-{session.session_id}",
             perception_fps=perception_fps,
+            landmark_matcher=landmark_matcher,
         )
         self._task: asyncio.Task | None = None
         self._store = get_video_session_store()

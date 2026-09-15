@@ -11,22 +11,17 @@ Two distinct pieces, matching the spec's own PATH A / PATH B split:
     the raw feed in a browser. Pure transport -- never touches CognitiveOS
     observations, belief, or the planner.
 
-    HONEST GAP, found during repository inspection, not fabricated around:
-    the currently-running 3-drone Gazebo/PX4 SITL sim (deploy/k8s/
-    px4-sim-deployment.yaml) has NO camera sensor on the spawned vehicle at
-    all. PX4_SIM_MODEL/PX4_GZ_MODEL is never set in that manifest, so PX4
-    SITL boots its plain default airframe (no camera). There is also no
-    ros_gz_image / image_transport bridge container in that Pod publishing
-    any image topic onto ROS 2 today. This class is written against the
-    STANDARD topic name a camera-equipped Gazebo model would publish once
-    one is configured (see TOPIC_TEMPLATE below) -- it is real, working
-    code against the real ROS 2/rclpy and livekit-python APIs, but it has
-    not been exercised against an actual frame in this environment, because
-    no frame source currently exists. Fixing that is a sim/deployment
-    change (switch to a camera-equipped PX4 airframe, e.g. gz_x500_mono_cam,
-    and add a ros_gz_image bridge to px4-sim-deployment.yaml), not a
-    CognitiveOS code change, and is out of this task's scope per its own
-    "do not create simulator-specific CognitiveOS logic" rule.
+    UPDATE (was previously an HONEST GAP note -- now partially closed):
+    deploy/k8s/px4-sim-deployment.yaml now supports a camera-equipped
+    airframe (PX4_SIM_MODEL=gz_x500_mono_cam) and includes a `camera-bridge`
+    container that runs `ros2 run ros_gz_image image_bridge`, remapping
+    Gazebo's camera topic onto CAMERA_TOPIC_TEMPLATE below. This is opt-in
+    per drone -- a drone launched without that model (the deployment's own
+    default) has no camera sensor, and the bridge container harmlessly does
+    nothing for it. `RosCameraToLiveKitBridge` itself is started from
+    actor_runtime.py::ActorRuntime.start() (best-effort, gated on the
+    DRONE_CAMERA_ENABLED env var alongside camera identity registration in
+    kernel/edge/camera_state.py) only for drones that opt in.
 
   - `LiveKitVideoObservationProvider` (PATH B -- COGNITIVE PERCEPTION):
     implements the SAME kernel/pipeline/observations.py ObservationProvider

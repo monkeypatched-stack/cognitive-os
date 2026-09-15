@@ -337,6 +337,11 @@ class ActorRuntime:
         # other node class -- no ROS relevance for a cloud/edge/device
         # actor, matching today's "one per Pod" convention.
         self.ros_adapter: Any = None
+        # RosCameraToLiveKitBridge (kernel/edge/livekit_video_adapter.py),
+        # only set when DRONE_CAMERA_ENABLED opts this actor in below --
+        # kept so shutdown() can stop the ROS node/spin thread and LiveKit
+        # room connection it opens, instead of leaking them.
+        self._camera_bridge: Any = None
 
     async def start(self) -> None:
         # Cloud/Edge Actor Convergence, Section 11/31: an edge/device/robot
@@ -431,6 +436,77 @@ class ActorRuntime:
                 actor_id=self.config.actor_id,
                 require_real=require_real,
             )
+
+            # Drone camera identity + video publish bridge (kernel/edge/
+            # camera_state.py, kernel/edge/livekit_video_adapter.py::
+            # RosCameraToLiveKitBridge): opt-in via DRONE_CAMERA_ENABLED
+            # (default false -- most drones in the sim have no camera
+            # sensor; an operator sets this only for a camera-equipped
+            # PX4_SIM_MODEL, e.g. gz_x500_mono_cam). Same best-effort,
+            # non-fatal posture as the drone adapter registration below --
+            # a camera wiring failure degrades only this drone's video,
+            # never boot. Mirrors register_drone_adapter's own
+            # actor_id-keyed, this-Pod-hosts-exactly-one-actor pattern.
+            if os.getenv("DRONE_CAMERA_ENABLED", "false").strip().lower() in ("true", "1", "yes"):
+                namespace = os.getenv("PX4_NAMESPACE", "").strip()
+                if namespace:
+                    try:
+                        from src.monkey_brain.kernel.edge.camera_state import (
+                            CameraIdentity,
+                            register_camera_identity,
+                        )
+                        from src.monkey_brain.kernel.edge.livekit_video_adapter import (
+                            RosCameraToLiveKitBridge,
+                        )
+
+                        actor_id = self.config.actor_id
+                        identity = CameraIdentity(
+                            actor_id=actor_id,
+                            vehicle_id=f"px4/{actor_id}",
+                            ros_namespace=namespace,
+                            livekit_room=os.getenv("LIVEKIT_MISSION_ROOM", "mission-room"),
+                            livekit_participant_identity=f"{actor_id}-camera",
+                            camera_track_name=f"{actor_id}-camera-track",
+                        )
+                        # Construct (validates rclpy/livekit are actually
+                        # importable) BEFORE registering the identity -- a
+                        # construction failure must not leave a phantom
+                        # identity registered with no bridge behind it,
+                        # since api/routes/video.py's POST /video/sessions
+                        # trusts get_camera_identity() to mean a real feed.
+                        bridge = RosCameraToLiveKitBridge(
+                            namespace,
+                            livekit_room=identity.livekit_room,
+                            camera_track_name=identity.camera_track_name,
+                        )
+                        register_camera_identity(identity)
+                        self._camera_bridge = bridge
+
+                        async def _start_camera_bridge() -> None:
+                            # bridge.start() is not guaranteed never to raise
+                            # (e.g. an unreachable LIVEKIT_URL) -- a bare
+                            # create_task() would let that exception vanish
+                            # as an "exception was never retrieved" warning
+                            # instead of the same best-effort, logged-and-
+                            # degraded posture as every other camera wiring
+                            # step here.
+                            try:
+                                await bridge.start(participant_identity=identity.livekit_participant_identity)
+                            except Exception:
+                                logger.warning(
+                                    "ActorRuntime.start: camera publish bridge failed to start for %s (video degraded)",
+                                    actor_id,
+                                    exc_info=True,
+                                )
+
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(_start_camera_bridge())
+                    except Exception:
+                        logger.debug(
+                            "ActorRuntime.start: camera wiring skipped for %s (non-fatal)",
+                            self.config.actor_id,
+                            exc_info=True,
+                        )
 
         if self.config.claim_placement:
             # Explicit operator intent: this deployment IS the placement
@@ -597,6 +673,25 @@ class ActorRuntime:
             pr.deregister_node(pr._node_id)
         except Exception as exc:
             logger.warning("deregister_node() failed during shutdown (non-fatal): %s", exc)
+        if self.ros_adapter is not None:
+            try:
+                from src.monkey_brain.kernel.edge.drone_state import unregister_drone_adapter
+
+                unregister_drone_adapter(self.config.actor_id)
+            except Exception as exc:
+                logger.warning("unregister_drone_adapter() failed during shutdown (non-fatal): %s", exc)
+        try:
+            from src.monkey_brain.kernel.edge.camera_state import unregister_camera_identity
+
+            unregister_camera_identity(self.config.actor_id)
+        except Exception as exc:
+            logger.warning("unregister_camera_identity() failed during shutdown (non-fatal): %s", exc)
+        if self._camera_bridge is not None:
+            try:
+                await self._camera_bridge.stop()
+            except Exception as exc:
+                logger.warning("camera bridge stop() failed during shutdown (non-fatal): %s", exc)
+            self._camera_bridge = None
         self.state = ReadinessState.STARTING
         self.ready_since = None
 

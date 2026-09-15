@@ -76,17 +76,3 @@ def get_camera_identity(actor_id: str) -> CameraIdentity | None:
 def unregister_camera_identity(actor_id: str) -> None:
     with _lock:
         _registry.pop(actor_id, None)
-
-
-def camera_identity_for_track(room: str, track_name: str) -> CameraIdentity | None:
-    """Reverse lookup: an incoming LiveKit `track_subscribed` event carries
-    a room + track name, not an actor_id -- this is the one place that
-    translates transport-level identity back to the authoritative actor_id,
-    so nothing downstream ever has to (spec: "Do not rely on display names
-    or implicit ordering"). Returns None for an unrecognized (room, track)
-    pair rather than guessing -- an unmapped track is simply not observed."""
-    with _lock:
-        for identity in _registry.values():
-            if identity.livekit_room == room and identity.camera_track_name == track_name:
-                return identity
-    return None

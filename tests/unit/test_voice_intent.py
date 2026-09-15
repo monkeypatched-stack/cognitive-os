@@ -11,8 +11,18 @@ from src.monkey_brain.kernel.edge.voice_intent import interpret_voice_transcript
 def test_valid_command_with_named_waypoint_is_actionable():
     result = interpret_voice_transcript("Send drone one to waypoint Alpha.")
     assert result.kind == "actionable"
-    assert result.goal_text == "Send drone one to waypoint Alpha."
+    # "Alpha" is a known test/demo waypoint (_TEST_WAYPOINT_COORDINATES) --
+    # its coordinates are appended so the existing planner-side backfill
+    # (kernel/pipeline/llm_planner.py::_backfill_px4_parameters) has a
+    # literal x=/y= to resolve deterministically instead of guessing.
+    assert result.goal_text == "Send drone one to waypoint Alpha. (x=8.0, y=0.0)"
     assert result.clarification_reason is None
+
+
+def test_valid_command_with_unknown_named_waypoint_is_left_unedited():
+    result = interpret_voice_transcript("Send drone one to waypoint Zulu.")
+    assert result.kind == "actionable"
+    assert result.goal_text == "Send drone one to waypoint Zulu."
 
 
 def test_valid_command_with_coordinates_is_actionable():

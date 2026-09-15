@@ -224,6 +224,7 @@ class WorldPollingProvider:
                         ("battery", state.battery),
                         ("flight_mode", state.flight_mode),
                         ("gps_state", state.gps_state),
+                        ("disabled", state.disabled),
                     ):
                         if value is not None:
                             observations.append(
@@ -235,6 +236,28 @@ class WorldPollingProvider:
                                     provenance=drone_provenance,
                                 )
                             )
+
+                    # Simulator-only crash-test collision (kernel/edge/
+                    # px4_ros_adapter.py's "CrashTest" branch): its own,
+                    # distinct Provenance (source="simulator", not
+                    # "px4_ros") -- this is a discrete simulated event, not
+                    # routine telemetry. Reuses this SAME per-tick polling
+                    # pipeline rather than a proactive push, so no special
+                    # crash-specific cognitive runtime is needed: the
+                    # actor's normal recurring tick picks it up exactly like
+                    # every other drone-telemetry attribute above.
+                    if state.collision_event is not None:
+                        observations.append(
+                            Observation(
+                                entity=actor_id,
+                                attribute="collision_event",
+                                value=state.collision_event,
+                                confidence=1.0,
+                                provenance=Provenance(
+                                    source="simulator", method="collision_detection", reliability=1.0
+                                ),
+                            )
+                        )
         except Exception:
             logger.debug("observe: drone telemetry suppressed exception", exc_info=True)
 

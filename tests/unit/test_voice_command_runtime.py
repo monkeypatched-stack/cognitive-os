@@ -58,10 +58,14 @@ async def test_actionable_transcript_adds_goal_and_ticks():
 
     await runtime._handle_transcript("Send drone one to waypoint Alpha.")
 
-    actor_runtime.add_goal.assert_called_once_with("Send drone one to waypoint Alpha.")
+    # "Alpha" is a known test/demo waypoint (kernel/edge/voice_intent.py::
+    # _TEST_WAYPOINT_COORDINATES) -- its coordinates are appended so the
+    # existing planner-side backfill resolves them deterministically.
+    enriched = "Send drone one to waypoint Alpha. (x=8.0, y=0.0)"
+    actor_runtime.add_goal.assert_called_once_with(enriched)
     sr.tick_one_actor.assert_awaited_once_with("drone-a")
     assert session.status == "listening"
-    assert session.last_goal_text == "Send drone one to waypoint Alpha."
+    assert session.last_goal_text == enriched
 
 
 @pytest.mark.asyncio

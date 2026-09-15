@@ -31,6 +31,8 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any
 
+from src.introspection.otel_bridge import get_bridge
+
 from .ros_integration import RosUnavailableError
 
 if TYPE_CHECKING:
@@ -92,6 +94,78 @@ _WAYPOINT_TIMEOUT_S = _timeout("WAYPOINT", 90.0)
 # observed: 9-33s from NAV_LAND to disarm in real SITL; a descent from
 # altitude in a slow scene takes considerably longer than that.
 _LAND_TIMEOUT_S = _timeout("LAND", 120.0)
+# Hard backstop on the crash-test kinematic loop, independent of its own
+# computed target_distance/max_velocity duration -- guarantees boundedness
+# even if telemetry stalls or a misconfigured profile would otherwise loop
+# indefinitely. Generous default; override like every other PX4_*_TIMEOUT_S.
+_CRASHTEST_TIMEOUT_S = _timeout("CRASHTEST", 60.0)
+_CRASHTEST_CONTROL_HZ = 10.0
+
+
+def run_crash_test_kinematics(
+    *,
+    start: tuple[float, float, float],
+    target: tuple[float, float, float],
+    max_velocity: float,
+    acceleration: float,
+    target_distance: float,
+    collision_radius: float,
+    get_position: Any,
+    set_target: Any,
+    control_hz: float = _CRASHTEST_CONTROL_HZ,
+    timeout_s: float = _CRASHTEST_TIMEOUT_S,
+    sleep: Any = time.sleep,
+    monotonic: Any = time.monotonic,
+) -> dict[str, Any]:
+    """Bounded, deterministic straight-line kinematics for the simulator-
+    only crash-test behavior -- a pure function taking `get_position`
+    (returns real telemetry position, or None) and `set_target` (advances
+    the EXISTING position-setpoint stream, kernel/edge/px4_ros_adapter.py::
+    Px4RosExecutionAdapter._set_target) as plain callables, so it needs no
+    live ROS 2/rclpy environment to construct or unit-test (rclpy is not
+    pip-installable, see this module's own docstring).
+
+    Ramps a scalar speed from 0 up to `max_velocity` at `acceleration`
+    m/s^2, advances the streamed setpoint along the straight line from
+    `start` toward `target` each control tick, and checks REAL position
+    (never the setpoint itself) for distance-to-target each tick. Stops
+    the moment real position is within `collision_radius` of `target`
+    (collision), once `target_distance` of travel is exhausted without
+    impact, or after `timeout_s` regardless (hard backstop independent of
+    the computed profile) -- always returns, never loops unboundedly.
+
+    Returns {"collided": bool, "traveled": float}.
+    """
+    start_x, start_y, start_z = start
+    target_x, target_y, target_z = target
+    dx, dy, dz = target_x - start_x, target_y - start_y, target_z - start_z
+    distance_to_target = (dx * dx + dy * dy + dz * dz) ** 0.5
+    if distance_to_target < 1e-6:
+        ux, uy, uz = 0.0, 0.0, 0.0
+    else:
+        ux, uy, uz = dx / distance_to_target, dy / distance_to_target, dz / distance_to_target
+
+    period = 1.0 / control_hz
+    speed = 0.0
+    traveled = 0.0
+    deadline = monotonic() + timeout_s
+    collided = False
+    while monotonic() < deadline:
+        speed = min(max_velocity, speed + acceleration * period)
+        traveled = min(target_distance, traveled + speed * period)
+        set_target(start_x + ux * traveled, start_y + uy * traveled, start_z + uz * traveled)
+
+        live_pos = get_position()
+        if live_pos is not None:
+            rdx, rdy, rdz = live_pos[0] - target_x, live_pos[1] - target_y, live_pos[2] - target_z
+            if (rdx * rdx + rdy * rdy + rdz * rdz) ** 0.5 <= collision_radius:
+                collided = True
+                break
+        if traveled >= target_distance:
+            break
+        sleep(period)
+
+    return {"collided": collided, "traveled": traveled}
 
 
 def _yaw_degrees_from_attitude(msg: Any) -> float | None:
@@ -265,6 +339,19 @@ class Px4RosExecutionAdapter:
         self._publish_setpoints = threading.Event()
         self._publish_setpoints.set()
         self._stream_thread: threading.Thread | None = None
+
+        # Simulator-only crash-test support (kernel/domains/robot.py::
+        # CrashTestCapability). is_simulation is hardcoded True: this is the
+        # ONLY backend implemented in this codebase today (Gazebo SITL via
+        # ROS 2/px4_msgs) -- there is no real-hardware adapter class. A
+        # future real-hardware adapter MUST set this to False; both
+        # CrashTestCapability and run_ros_action_if_governed (ros_integration.py)
+        # refuse to run a crash-test unless this is True, and this is one of
+        # several independent gates (see docs on those two call sites), not
+        # the only one -- do not rely on this attribute alone.
+        self.is_simulation: bool = True
+        self._collision_event: dict[str, Any] | None = None
+        self._disabled: bool = False
 
     def _on_status(self, msg: Any) -> None:
         self._latest_status = msg
@@ -458,6 +545,8 @@ class Px4RosExecutionAdapter:
             flight_mode=flight_mode,
             gps_state=gps_state,
             sim_timestamp=sim_timestamp,
+            collision_event=self._collision_event,
+            disabled=self._disabled,
         )
 
     async def invoke(self, *, capability: str, parameters: dict[str, Any]) -> dict[str, Any]:
@@ -472,6 +561,14 @@ class Px4RosExecutionAdapter:
         result = dict(actor_id=self.actor_id, namespace=self.namespace)
 
         def publish() -> dict[str, Any]:
+            if self._disabled:
+                # A crash-test collision already disabled this simulated
+                # vehicle -- no further command of ANY kind is accepted,
+                # matching "mark the simulated vehicle as crashed/disabled"
+                # (crash-test cannot be bypassed by going around it a second
+                # time with a different capability either).
+                return {**result, "success": False, "error": "vehicle disabled after crash-test collision"}
+
             if capability == "Arm":
                 # Hold the current position (0,0,0 relative to arm point) so
                 # a real setpoint stream is already flowing before OFFBOARD
@@ -544,6 +641,87 @@ class Px4RosExecutionAdapter:
                         f"(last arming_state={getattr(status, 'arming_state', None)})",
                     }
                 return {**result, "success": True}
+
+            elif capability == "CrashTest":
+                # SIMULATOR-ONLY. Reached only through CrashTestCapability's
+                # own pre-governance checks + run_ros_action_if_governed's
+                # kernel-computed simulation_only/crash_test_mode/is_simulation
+                # signals + the OPA crash_test_unsafe deny rule -- this branch
+                # itself adds no new gate, it trusts the caller was already
+                # verified by all of that (same posture Arm/Takeoff/Waypoint/
+                # Land already take toward their own governed callers).
+                #
+                # Bounded, deterministic kinematics reusing the EXISTING
+                # _set_target/_stream_loop position-setpoint machinery (no
+                # second control system) -- the actual ramp/straight-line/
+                # collision-check logic lives in the standalone
+                # run_crash_test_kinematics() above (pure function, no
+                # rclpy dependency, directly unit-testable).
+                target_x = float(parameters.get("target_x", 0.0))
+                target_y = float(parameters.get("target_y", 0.0))
+                target_z = float(parameters.get("target_z", 0.0))
+                max_velocity = max(0.1, float(parameters.get("max_velocity", 3.0)))
+                acceleration = max(0.1, float(parameters.get("acceleration", 1.0)))
+                target_distance = max(0.1, float(parameters.get("target_distance", 15.0)))
+                collision_radius = max(0.1, float(parameters.get("collision_radius", 2.0)))
+                landmark_id = str(parameters.get("landmark_id", ""))
+
+                self._start_streaming()
+                pos = self._latest_local_position
+                start = (pos.x, pos.y, pos.z) if pos is not None else (0.0, 0.0, 0.0)
+
+                def _get_position() -> tuple[float, float, float] | None:
+                    live_pos = self._latest_local_position
+                    return (live_pos.x, live_pos.y, live_pos.z) if live_pos is not None else None
+
+                # One span for the whole bounded kinematic loop, not one per
+                # tick -- matches "do not generate spans for every
+                # simulation tick." crash_test_started/completed are this
+                # span's own start/end; crash_test_collision is a separate
+                # counter fired once, only on actual impact.
+                with get_bridge().span(
+                    "crash_test_started",
+                    layer="action",
+                    actor_id=self.actor_id,
+                    landmark_id=landmark_id,
+                ):
+                    outcome = run_crash_test_kinematics(
+                        start=start,
+                        target=(target_x, target_y, target_z),
+                        max_velocity=max_velocity,
+                        acceleration=acceleration,
+                        target_distance=target_distance,
+                        collision_radius=collision_radius,
+                        get_position=_get_position,
+                        set_target=self._set_target,
+                    )
+                    collided = outcome["collided"]
+
+                    get_bridge().emit_counter(
+                        "crash_test_collision" if collided else "crash_test_completed",
+                        actor_id=self.actor_id,
+                        landmark_id=landmark_id,
+                    )
+
+                if collided:
+                    self._collision_event = {
+                        "target_landmark": landmark_id,
+                        "simulation_only": True,
+                        "crash_test": True,
+                    }
+                    self._disabled = True
+                    # Stop competing with the simulated impact -- same
+                    # "stop pushing an OFFBOARD setpoint" posture Land
+                    # already takes once its own terminal condition fires.
+                    self._pause_setpoint_publishing()
+                    return {**result, "success": True, "collision": True, "landmark_id": landmark_id}
+
+                return {
+                    **result,
+                    "success": False,
+                    "error": f"crash-test did not reach collision_radius={collision_radius}m of target "
+                    f"within target_distance={target_distance}m / timeout={_CRASHTEST_TIMEOUT_S}s",
+                }
 
             else:
                 return {**result, "success": False, "error": f"unsupported PX4 capability: {capability}"}

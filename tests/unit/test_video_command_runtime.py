@@ -25,6 +25,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.monkey_brain.kernel.edge.loftr_landmarks import LandmarkMatcher, LandmarkReference
 from src.monkey_brain.kernel.edge.video_command_runtime import VideoCommandRuntime
 from src.monkey_brain.kernel.edge.video_session import VideoSession
 from src.monkey_brain.kernel.pipeline.observations import Observation, Provenance
@@ -158,3 +159,90 @@ async def test_tick_failure_is_caught_and_recorded_not_raised(ensure_governed_mo
     await runtime._handle_observation(_obs("obstacle_detected", True))  # must not raise
 
     assert session.error == "boom"
+
+
+def _landmark_obs(match_score: float, landmark_id: str = "house_alpha") -> Observation:
+    return Observation(
+        entity="drone-a",
+        attribute="visual_landmark_match",
+        value={
+            "landmark_id": landmark_id,
+            "match_score": round(match_score, 2),
+            "inlier_ratio": 0.8,
+            "geometric_verified": True,
+        },
+        confidence=match_score,
+        provenance=Provenance(source="drone_camera", method="loftr_geometric_match", reliability=match_score),
+    )
+
+
+def _shared_resources():
+    from src.monkey_brain.kernel.edge.landmark_config import LandmarkMatcherConfig
+
+    references = (LandmarkReference(landmark_id="house_alpha", name="ref_01", image="img"),)
+    matcher = MagicMock()
+    config = LandmarkMatcherConfig(reference_directory="/tmp/landmarks")
+    return references, matcher, config
+
+
+def test_landmark_matcher_constructed_from_shared_resources_when_available():
+    with patch(
+        "src.monkey_brain.kernel.edge.video_command_runtime.get_shared_landmark_resources",
+        return_value=_shared_resources(),
+    ):
+        session = _session()
+        pr, _sr = _fake_pr()
+        runtime = VideoCommandRuntime(session, pr)
+
+    landmark_matcher = runtime._provider._landmark_matcher
+    assert isinstance(landmark_matcher, LandmarkMatcher)
+    assert landmark_matcher.actor_id == "drone-a"
+
+
+def test_landmark_matcher_none_when_shared_resources_unavailable():
+    with patch("src.monkey_brain.kernel.edge.video_command_runtime.get_shared_landmark_resources", return_value=None):
+        session = _session()
+        pr, _sr = _fake_pr()
+        runtime = VideoCommandRuntime(session, pr)
+
+    assert runtime._provider._landmark_matcher is None
+
+
+def test_landmark_matcher_construction_failure_does_not_abort_session_start():
+    with patch(
+        "src.monkey_brain.kernel.edge.video_command_runtime.get_shared_landmark_resources",
+        side_effect=RuntimeError("boom"),
+    ):
+        session = _session()
+        pr, _sr = _fake_pr()
+        runtime = VideoCommandRuntime(session, pr)  # must not raise
+
+    assert runtime._provider._landmark_matcher is None
+
+
+@pytest.mark.asyncio
+async def test_landmark_observation_flows_through_belief_buffer_and_tick(ensure_governed_mock):
+    session = _session()
+    pr, sr = _fake_pr()
+    runtime = VideoCommandRuntime(session, pr)
+
+    await runtime._handle_observation(_landmark_obs(0.91))
+
+    sr.world.record_event.assert_called_once()
+    event = sr.world.record_event.call_args[0][0]
+    assert event.entity_id == "drone-a"
+    assert event.attributes["visual_landmark_match"]["landmark_id"] == "house_alpha"
+    sr.tick_one_actor.assert_awaited_once_with("drone-a")
+
+
+@pytest.mark.asyncio
+async def test_landmark_observation_debounces_on_rounded_score(ensure_governed_mock):
+    session = _session()
+    pr, sr = _fake_pr()
+    runtime = VideoCommandRuntime(session, pr)
+
+    await runtime._handle_observation(_landmark_obs(0.910))
+    await runtime._handle_observation(_landmark_obs(0.913))  # rounds to the same 0.91
+
+    assert sr.tick_one_actor.await_count == 1
+    assert sr.world.record_event.call_count == 1

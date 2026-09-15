@@ -190,6 +190,38 @@ Requires `PX4_MSGS_WS` set to your own px4_msgs colcon workspace (see
 `run_px4_bridge.sh`'s own error message — this is inherently
 machine-specific, there's no correct universal default).
 
+## Camera + visual landmark matching
+
+Opt-in per drone. Requires a camera-equipped airframe and three env vars:
+
+```bash
+# On the PX4 sim side: use a camera-equipped model instead of the default.
+export PX4_SIM_MODEL=gz_x500_mono_cam
+
+# On the drone actor Pod (actor_runtime.py): register camera identity and
+# start the ROS2 -> LiveKit publish bridge for this drone.
+export DRONE_CAMERA_ENABLED=true
+export PX4_NAMESPACE=px4_1          # must match the sim side's namespace
+export LIVEKIT_URL="wss://your-livekit-host"
+
+# Point at a directory of reference images to enable LoFTR landmark
+# matching (kernel/edge/loftr_landmarks.py). No default is shipped --
+# supply your own <landmark_id>/*.jpg folders, e.g.:
+#   data/landmarks/house_alpha/reference_01.jpg
+#   data/landmarks/house_alpha/reference_02.jpg
+export LANDMARK_REFERENCE_DIR=/path/to/landmarks
+```
+
+`POST /video/sessions` (api/routes/video.py) then lets a caller watch the
+drone's camera; once `LANDMARK_REFERENCE_DIR` is set, sampled frames are
+also matched against every registered landmark and verified matches surface
+as `visual_landmark_match` Observations in the actor's belief state, exactly
+like any other observation — never bypassing planning or governance. See
+`.env.example`'s "Drone camera / visual landmark matching" section for the
+full list of tunable thresholds (`LANDMARK_MIN_MATCHES`, `LANDMARK_MIN_INLIERS`,
+`LANDMARK_MIN_INLIER_RATIO`, `LANDMARK_MIN_SCORE`, `LANDMARK_CONFIRMATIONS`,
+`LANDMARK_MAX_CONFIRMATION_GAP_SECONDS`, `LANDMARK_DEVICE`).
+
 ## Troubleshooting
 
 - **Arm times out, `arming_state` stuck at DISARMED**: usually a

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from src.monkey_brain.kernel.edge.camera_state import (
     CameraIdentity,
-    camera_identity_for_track,
     get_camera_identity,
     register_camera_identity,
     unregister_camera_identity,
@@ -61,26 +60,3 @@ def test_multiple_drones_do_not_collide():
     finally:
         unregister_camera_identity("drone-a")
         unregister_camera_identity("drone-b")
-
-
-def test_camera_identity_for_track_resolves_room_and_track_to_actor():
-    identity = _identity(actor_id="drone-a", room="mission-room", track="drone-a-camera-track")
-    register_camera_identity(identity)
-    try:
-        found = camera_identity_for_track("mission-room", "drone-a-camera-track")
-        assert found is not None
-        assert found.actor_id == "drone-a"
-    finally:
-        unregister_camera_identity("drone-a")
-
-
-def test_camera_identity_for_track_unknown_pair_returns_none_not_a_guess():
-    identity = _identity(actor_id="drone-a", room="mission-room", track="drone-a-camera-track")
-    register_camera_identity(identity)
-    try:
-        # Right room, wrong track name -- must not fall back to "the only
-        # drone in this room" or any other implicit-ordering guess.
-        assert camera_identity_for_track("mission-room", "some-other-track") is None
-        assert camera_identity_for_track("other-room", "drone-a-camera-track") is None
-    finally:
-        unregister_camera_identity("drone-a")

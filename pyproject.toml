@@ -113,13 +113,27 @@ soma = []
 # and only needs this extra to signal that dependency in tooling/CI that
 # inspects pyproject.toml.
 ros = []
-# Realtime voice perception (kernel/edge/livekit_adapter.py). Both are real,
+# Realtime voice perception (kernel/edge/livekit_adapter.py). Real,
 # separately-published PyPI packages -- `livekit` (the rtc client SDK,
-# LiveKitVoiceObservationProvider's room connection) and `livekit-api`
-# (server-side AccessToken minting, create_livekit_room_token). Optional,
-# same "guarded import at construction" pattern as the ros extra above --
-# most deployments never touch LiveKit at all.
-livekit = ["livekit", "livekit-api"]
+# LiveKitVoiceObservationProvider's room connection), `livekit-api`
+# (server-side AccessToken minting, create_livekit_room_token),
+# `openai-whisper` (module name `whisper` -- `_transcribe_sync`'s actual
+# transcription call; this was previously undeclared here despite being a
+# real, non-optional import for that code path -- confirmed missing/not
+# installed, transcription silently never succeeds without it) and
+# `resampy` (audio resampling to 16kHz; genuinely optional -- guarded by
+# its own try/except in `_frames_to_waveform`, degrades to source sample
+# rate if absent). Optional, same "guarded import at construction" pattern
+# as the ros extra above -- most deployments never touch LiveKit at all.
+livekit = ["livekit", "livekit-api", "openai-whisper", "resampy"]
+# Visual landmark matching (kernel/edge/loftr_landmarks.py). kornia (LoFTR
+# model), opencv-python (cv2, RANSAC homography verification), and Pillow
+# (reference-image loading) are real, separately-published PyPI packages,
+# guarded-imported only when LANDMARK_REFERENCE_DIR is set (kernel/edge/
+# landmark_config.py) -- most deployments never load them. torch is already
+# a core dependency (>=2.14.0); kornia's own version floor should be
+# checked against it at `uv lock` time.
+vision = ["kornia", "opencv-python", "Pillow"]
 
 [project.scripts]
 monkeybrain = "monkey_brain.cli.main:main"

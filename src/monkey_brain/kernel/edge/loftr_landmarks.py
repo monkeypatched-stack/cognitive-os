@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -69,9 +70,15 @@ class LoFTRMatcher:
             from kornia.feature import LoFTR
         except ImportError as exc:
             raise LoFTRUnavailableError("LoFTR requires torch and kornia") from exc
-        target = "cuda" if self.device == "auto" and torch.cuda.is_available() else self.device
-        if target == "auto":
-            target = "cpu"
+        if self.device == "auto":
+            if torch.cuda.is_available():
+                target = "cuda"
+            elif getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+                target = "mps"
+            else:
+                target = "cpu"
+        else:
+            target = self.device
         with self._lock:
             if self._model is None:
                 self._model = LoFTR(pretrained="outdoor").eval().to(target)
@@ -144,6 +151,7 @@ class LandmarkMatcher:
         min_inlier_ratio: float = 0.45,
         min_score: float = 0.55,
         confirmations: int = 1,
+        max_confirmation_gap_seconds: float = 10.0,
         actor_id: str = "",
     ) -> None:
         self.references = tuple(references)
@@ -151,14 +159,16 @@ class LandmarkMatcher:
         self.min_matches, self.min_inliers = min_matches, min_inliers
         self.min_inlier_ratio, self.min_score = min_inlier_ratio, min_score
         self.confirmations = max(1, confirmations)
+        self.max_confirmation_gap_seconds = max_confirmation_gap_seconds
         self.actor_id = actor_id
         self._history: dict[str, deque[bool]] = defaultdict(lambda: deque(maxlen=self.confirmations))
+        self._last_seen: dict[str, float] = {}
 
     def match_frame(self, frame: Any) -> list[MatchResult]:
         best: dict[str, MatchResult] = {}
         for ref in self.references:
             try:
-                with get_bridge().span("visual_match", layer="perception", landmark_id=ref.landmark_id):
+                with get_bridge().span("visual_match", layer="perception", landmark_id=ref.landmark_id) as otel_span:
                     result = self.matcher.match(frame, ref.image)
             except Exception:
                 logger.exception("landmark match failed for %s", ref.landmark_id)
@@ -185,14 +195,26 @@ class LandmarkMatcher:
                     and score >= self.min_score,
                 }
             )
+            otel_span.set_attribute("verified", result.verified)
+            otel_span.set_attribute("score", result.score)
+            otel_span.set_attribute("candidate_matches", result.candidate_matches)
+            otel_span.set_attribute("geometric_inliers", result.geometric_inliers)
+            get_bridge().emit_counter(
+                "landmark_verified" if result.verified else "landmark_rejected", landmark_id=ref.landmark_id
+            )
             if result.verified and (result.landmark_id not in best or result.score > best[result.landmark_id].score):
                 best[result.landmark_id] = result
         return list(best.values())
 
     def observations(self, frame: Any) -> tuple[Observation, ...]:
         observations = []
+        now = time.monotonic()
         for result in self.match_frame(frame):
+            last_seen = self._last_seen.get(result.landmark_id)
             history = self._history[result.landmark_id]
+            if last_seen is not None and now - last_seen > self.max_confirmation_gap_seconds:
+                history.clear()
+            self._last_seen[result.landmark_id] = now
             history.append(True)
             if len(history) < self.confirmations:
                 continue
@@ -202,8 +224,8 @@ class LandmarkMatcher:
                     attribute="visual_landmark_match",
                     value={
                         "landmark_id": result.landmark_id,
-                        "match_score": result.score,
-                        "inlier_ratio": result.inlier_ratio,
+                        "match_score": round(result.score, 2),
+                        "inlier_ratio": round(result.inlier_ratio, 2),
                         "geometric_verified": True,
                     },
                     confidence=result.score,
