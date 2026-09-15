@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.monkey_brain.api.dependencies import require_permission
+from src.monkey_brain.api.idempotency import idempotent
 from src.monkey_brain.kernel.edge.livekit_adapter import (
     LiveKitUnavailableError,
     create_livekit_room_token,
@@ -37,6 +38,7 @@ class LiveKitTokenResponse(BaseModel):
 
 
 @router.post("/livekit/token", tags=["LiveKit"])
+@idempotent("livekit.issue_token")
 async def issue_livekit_token(
     body: LiveKitTokenRequest,
     user_id: str = Depends(require_permission("perm-execute-action")),
