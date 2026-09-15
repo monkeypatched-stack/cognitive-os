@@ -88,6 +88,8 @@ dependencies = [
     # unrelated "jaeger" extra pulls the grpc one -- doesn't satisfy this).
     "opentelemetry-sdk",
     "opentelemetry-exporter-otlp-proto-http",
+    "torch>=2.14.0",
+    "transformers>=5.17.0",
 ]
 
 [dependency-groups]

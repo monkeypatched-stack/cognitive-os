@@ -17,6 +17,7 @@ The runtime must depend only on interfaces, never implementations.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Protocol, Any
@@ -134,12 +135,64 @@ class ObservationProvider(Protocol):
         ...
 
 
+_aux_registry_lock = threading.Lock()
+_aux_providers: dict[tuple[str, str], Any] = {}
+"""Auxiliary per-actor observation sources, keyed by (actor_id, source_id).
+
+Real gap this closes: CognitiveRuntime (kernel/pipeline/belief_runtime.py)
+takes exactly ONE `observation_provider` — the canonical per-actor tick
+(SocietyRuntime.tick_one_actor -> CognitiveActor.tick -> BeliefFormation ->
+build_comparison_integrated_runtime(), see that factory's own docstring for
+the exact call chain) always defaults it to a bare WorldPollingProvider(),
+constructed once and cached on the actor's CognitiveActor for the actor's
+whole lifetime. A LiveKitVoiceObservationProvider or
+LiveKitVideoObservationProvider (both, like this class, real
+ObservationProvider Protocol implementations — kernel/edge/livekit_adapter.py,
+kernel/edge/livekit_video_adapter.py) starts LATER, dynamically, tied to an
+already-running actor_id when a human joins a LiveKit room — there is no
+constructor-time hook left to swap in a composite provider for an actor
+whose engine was already lazily built and cached. This registry is the
+runtime attachment point instead, the exact same shape
+kernel/edge/drone_state.py's actor_id -> adapter registry already uses for
+the identical problem (telemetry that starts flowing after the actor
+exists) — extended to (actor_id, source_id) since, unlike one drone adapter
+per actor, an actor can have voice AND video active at once.
+"""
+
+
+def register_observation_source(actor_id: str, source_id: str, provider: Any) -> None:
+    """Attach an additional ObservationProvider-shaped object (must expose
+    `observe(actor_id, world) -> ObservationSet`, duck-typed against the
+    Protocol above, not isinstance-checked) whose output WorldPollingProvider
+    will fold into every observe() call for this actor from now on. Called by
+    VoiceCommandRuntime.start()/VideoCommandRuntime.start() with their own
+    LiveKit*ObservationProvider instance; unregistered on stop()."""
+    with _aux_registry_lock:
+        _aux_providers[(actor_id, source_id)] = provider
+
+
+def unregister_observation_source(actor_id: str, source_id: str) -> None:
+    with _aux_registry_lock:
+        _aux_providers.pop((actor_id, source_id), None)
+
+
+def _aux_providers_for(actor_id: str) -> list[Any]:
+    with _aux_registry_lock:
+        return [p for (aid, _sid), p in _aux_providers.items() if aid == actor_id]
+
+
 class WorldPollingProvider:
     """Default observation provider that polls the world tensor.
 
     Reads world states and transitions as observations.
     Sufficient for basic reasoning; real implementations will
     use cameras, sensors, LLMs, etc.
+
+    Also folds in any auxiliary sources registered for this actor via
+    register_observation_source() above (voice/video/future sensors) — this
+    is the ONE observation_provider a real actor's canonical CognitiveRuntime
+    actually consults every tick, so this is the one place a new source must
+    reach to influence live belief/replanning, not a parallel pipeline.
     """
 
     def observe(self, actor_id: str, world: Any) -> ObservationSet:
@@ -184,6 +237,18 @@ class WorldPollingProvider:
                             )
         except Exception:
             logger.debug("observe: drone telemetry suppressed exception", exc_info=True)
+
+        # Auxiliary sources (voice/video/future sensors), registered
+        # dynamically via register_observation_source() above — same
+        # never-crash contract as drone telemetry: one broken source is
+        # logged and skipped, never allowed to blank out every other
+        # source or fail the tick.
+        for source in _aux_providers_for(actor_id):
+            try:
+                aux_set = source.observe(actor_id, world)
+                observations.extend(aux_set.observations)
+            except Exception:
+                logger.debug("observe: auxiliary source suppressed exception", exc_info=True)
 
         if world is None:
             return ObservationSet(observations=tuple(observations), actor_id=actor_id)

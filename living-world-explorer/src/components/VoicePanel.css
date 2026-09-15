@@ -1,0 +1,106 @@
+.lwe-voice-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.lwe-voice-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.lwe-voice-setup label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.lwe-voice-active {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.lwe-voice-indicators {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.lwe-voice-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.lwe-voice-dot-on {
+  background: #2ecc71;
+}
+
+.lwe-voice-dot-off {
+  background: #999;
+}
+
+.lwe-voice-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.lwe-voice-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.6;
+}
+
+.lwe-voice-value {
+  font-size: 0.85rem;
+}
+
+.lwe-voice-status {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  width: fit-content;
+}
+
+.lwe-voice-status-listening {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.lwe-voice-status-planning {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.lwe-voice-status-clarification_required {
+  background: #fff3e0;
+  color: #ef6c00;
+}
+
+.lwe-voice-status-idle {
+  background: #eceff1;
+  color: #546e7a;
+}
+
+.lwe-voice-clarification {
+  background: #fff3e0;
+  color: #ef6c00;
+  padding: 0.5rem;
+  border-radius: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.lwe-voice-error {
+  color: #c62828;
+  font-size: 0.8rem;
+}

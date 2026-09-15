@@ -176,6 +176,16 @@ spec:
               value: "${PX4_UXRCE_DDS_PORT}"
             - name: PX4_UXRCE_DDS_NS
               value: "${PX4_NAMESPACE}"
+            # Selects the spawned airframe (matches a file under
+            # etc/init.d-posix/airframes/NNNN_${PX4_SIM_MODEL} in the
+            # px4-sitl-flat image). gz_x500_mono_cam is the same base x500
+            # frame plus a camera sensor (model.sdf: x500 + mono_cam,
+            # verified present in the running image's
+            # share/gz/models/x500_mono_cam); gz_x500 has no camera. Set
+            # explicitly per drone at render time -- no implicit default,
+            # matching every other var in this template.
+            - name: PX4_SIM_MODEL
+              value: "${PX4_SIM_MODEL}"
           resources:
             requests:
               cpu: "500m"
@@ -195,6 +205,64 @@ spec:
             requests:
               cpu: "100m"
               memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+        - name: camera-bridge
+          # Bridges the drone's Gazebo camera sensor topic onto ROS2 as
+          # sensor_msgs/Image, same "subscribe and republish" shape this
+          # file's own gps_bridge.py ConfigMap already uses for GPS.
+          # Waits for the real gz topic rather than assuming its exact
+          # name (the spawned model name follows PX4_SIM_MODEL, e.g.
+          # gz_x500_mono_cam -> a model matching *x500_mono_cam*, verified
+          # live against the running gazebo-shared world: plain gz_x500
+          # spawns as x500_<instance>) -- only relevant when PX4_SIM_MODEL
+          # actually has a camera (gz_x500 has none, so this waits forever
+          # and harmlessly does nothing on drone-b/c today).
+          image: camera-bridge:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GZ_PARTITION
+              value: "cognitiveos-shared"
+            - name: PX4_NAMESPACE
+              value: "${PX4_NAMESPACE}"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              source /opt/ros/jazzy/setup.bash
+              echo "camera-bridge: waiting for a camera image topic..."
+              TOPIC=""
+              while [ -z "$TOPIC" ]; do
+                TOPIC=$(gz topic -l 2>/dev/null | grep -E '/sensor/camera/image$' | head -1)
+                [ -n "$TOPIC" ] || sleep 2
+              done
+              echo "camera-bridge: found $TOPIC -> /${PX4_NAMESPACE}/camera/image_raw"
+              exec ros2 run ros_gz_image image_bridge "$TOPIC" \
+                --ros-args -r "${TOPIC}:=/${PX4_NAMESPACE}/camera/image_raw"
+          # Two distinct problems, confirmed live via `kubectl describe` on
+          # the real pod (not guessed): (1) at the original 100m/128Mi
+          # request, drone-a's pod couldn't be SCHEDULED at all
+          # (Pending) -- this cluster is dense (full platform + 3x
+          # 5-container px4-sim pods + 3 ActorCell pods on one kind node),
+          # and requests are what the scheduler checks. (2) after trimming
+          # the request low, the pod scheduled fine but this container then
+          # OOMKilled (exit 137) against a 256Mi LIMIT -- the bash/`gz
+          # topic` polling loop is cheap, but `ros2 run ros_gz_image
+          # image_bridge` (what it execs into once it finds the topic) is a
+          # real rclcpp/DDS node, and DDS participant discovery alone
+          # typically needs more than 256Mi to start. Limits are only
+          # enforced once running, not at scheduling time, so request and
+          # limit can differ substantially (Burstable QoS, same pattern
+          # every other container here already uses) -- low request keeps
+          # scheduling easy, higher limit keeps the real DDS node alive.
+          # 512Mi matches xrce-agent's limit here for a comparably modest
+          # ROS-adjacent process (foxglove-bridge, a much heavier
+          # multi-topic bridge, needs 1536Mi).
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"

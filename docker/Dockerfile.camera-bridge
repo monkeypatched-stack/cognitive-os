@@ -1,0 +1,21 @@
+# Bridges the simulated drone's Gazebo camera sensor topic onto ROS2 as a
+# real sensor_msgs/Image topic, same "subscribe and republish" shape this
+# repo's own gps_bridge.py already establishes for GPS
+# (deploy/k8s/px4-sim-deployment.yaml's ConfigMap) -- not a new
+# architecture, just the image equivalent.
+#
+# FROM cognitiveos-px4-ros2:latest (same base xrce-agent/mavlink-heartbeat/
+# foxglove-bridge already use in px4-sim-deployment.yaml) rather than
+# rebuilding that base from scratch -- no source Dockerfile for it exists
+# in this repo (built ad hoc in an earlier session, same precedent
+# docker/Dockerfile.ros-bridge-runtime's own header describes), and this
+# only needs one extra apt layer on top of it: ros-gz-image/ros-gz-bridge,
+# the packages that actually speak Gazebo Transport from inside a ROS2
+# container (confirmed absent from the running cognitiveos-px4-ros2:latest
+# via `ros2 pkg list` -- zero gz-prefixed packages).
+FROM cognitiveos-px4-ros2:latest
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ros-jazzy-ros-gz-image \
+        ros-jazzy-ros-gz-bridge \
+    && rm -rf /var/lib/apt/lists/*
