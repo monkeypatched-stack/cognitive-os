@@ -120,7 +120,22 @@ jobs:
         run: |
           pip install uv
           uv export --frozen --group dev --no-hashes --no-emit-project -o requirements.lock.txt
-          uv pip install --system -r requirements.lock.txt
+          # --index / --index-strategy: torch is pinned to PyTorch's CPU-only
+          # wheel index (pyproject.toml's [tool.uv.sources]) to avoid pulling
+          # ~5GB of unused CUDA/nvidia-* libraries into images/CI that never
+          # touch a GPU. `uv export`'s requirements.txt output drops that
+          # per-package index annotation, so `uv pip install` needs the same
+          # index passed explicitly here too -- confirmed live this CI step
+          # broke with "no solution found... no version of torch==2.14.0+cpu"
+          # once that pin landed, same fix already applied to every Dockerfile
+          # that installs from this lockfile (docker/services/agentos/
+          # Dockerfile, docker/Dockerfile.ros-bridge). unsafe-best-match is
+          # required alongside it: uv's default first-index strategy would
+          # otherwise lock every OTHER package onto that index too (broke
+          # certifi, also mirrored there, but not at the pinned version).
+          uv pip install --system \
+              --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
+              -r requirements.lock.txt
       - name: mypy (full kernel/, informational)
         run: mypy --config-file pyproject.toml --follow-imports=silent src/monkey_brain/kernel
 
@@ -135,7 +150,22 @@ jobs:
         run: |
           pip install uv
           uv export --frozen --group dev --no-hashes --no-emit-project -o requirements.lock.txt
-          uv pip install --system -r requirements.lock.txt
+          # --index / --index-strategy: torch is pinned to PyTorch's CPU-only
+          # wheel index (pyproject.toml's [tool.uv.sources]) to avoid pulling
+          # ~5GB of unused CUDA/nvidia-* libraries into images/CI that never
+          # touch a GPU. `uv export`'s requirements.txt output drops that
+          # per-package index annotation, so `uv pip install` needs the same
+          # index passed explicitly here too -- confirmed live this CI step
+          # broke with "no solution found... no version of torch==2.14.0+cpu"
+          # once that pin landed, same fix already applied to every Dockerfile
+          # that installs from this lockfile (docker/services/agentos/
+          # Dockerfile, docker/Dockerfile.ros-bridge). unsafe-best-match is
+          # required alongside it: uv's default first-index strategy would
+          # otherwise lock every OTHER package onto that index too (broke
+          # certifi, also mirrored there, but not at the pinned version).
+          uv pip install --system \
+              --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
+              -r requirements.lock.txt
       - name: Run test suite with coverage
         env:
           ACCESS_TOKEN_SECRET: unit-test-hmac-key-not-a-placeholder!!
@@ -182,7 +212,22 @@ jobs:
         run: |
           pip install uv
           uv export --frozen --group dev --no-hashes --no-emit-project -o requirements.lock.txt
-          uv pip install --system -r requirements.lock.txt
+          # --index / --index-strategy: torch is pinned to PyTorch's CPU-only
+          # wheel index (pyproject.toml's [tool.uv.sources]) to avoid pulling
+          # ~5GB of unused CUDA/nvidia-* libraries into images/CI that never
+          # touch a GPU. `uv export`'s requirements.txt output drops that
+          # per-package index annotation, so `uv pip install` needs the same
+          # index passed explicitly here too -- confirmed live this CI step
+          # broke with "no solution found... no version of torch==2.14.0+cpu"
+          # once that pin landed, same fix already applied to every Dockerfile
+          # that installs from this lockfile (docker/services/agentos/
+          # Dockerfile, docker/Dockerfile.ros-bridge). unsafe-best-match is
+          # required alongside it: uv's default first-index strategy would
+          # otherwise lock every OTHER package onto that index too (broke
+          # certifi, also mirrored there, but not at the pinned version).
+          uv pip install --system \
+              --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
+              -r requirements.lock.txt
       - name: Security control tests (blocking)
         env:
           ACCESS_TOKEN_SECRET: unit-test-hmac-key-not-a-placeholder!!
