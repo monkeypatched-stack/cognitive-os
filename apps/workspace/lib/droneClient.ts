@@ -70,3 +70,58 @@ export function deriveMissionStatus(facts: BeliefFact[]): DroneMissionStatus {
 
   return { landmark, collision, disabled };
 }
+
+// Flight telemetry (kernel/pipeline/observations.py's WorldPollingProvider,
+// backed by kernel/edge/drone_state.py's DroneState) reaches belief as the
+// SAME facts array deriveMissionStatus reads above -- armed/position_x/
+// position_y/position_z/heading/battery/flight_mode/gps_state, gated by a
+// 5s freshness check server-side, so a field is simply absent from `facts`
+// (not zeroed) whenever PX4 isn't actively reporting. null here means "no
+// current reading", never a fabricated value -- render it as "--", not 0.
+export interface DroneTelemetry {
+  armed: boolean | null;
+  positionX: number | null;
+  positionY: number | null;
+  positionZ: number | null;
+  heading: number | null;
+  battery: number | null;
+  flightMode: string | null;
+  gpsState: string | null;
+}
+
+const TELEMETRY_ATTRIBUTES: Record<string, keyof DroneTelemetry> = {
+  armed: "armed",
+  position_x: "positionX",
+  position_y: "positionY",
+  position_z: "positionZ",
+  heading: "heading",
+  battery: "battery",
+  flight_mode: "flightMode",
+  gps_state: "gpsState",
+};
+
+export function deriveTelemetry(facts: BeliefFact[]): DroneTelemetry {
+  const telemetry: DroneTelemetry = {
+    armed: null,
+    positionX: null,
+    positionY: null,
+    positionZ: null,
+    heading: null,
+    battery: null,
+    flightMode: null,
+    gpsState: null,
+  };
+  const latestAt: Partial<Record<keyof DroneTelemetry, number>> = {};
+
+  for (const fact of facts) {
+    const key = TELEMETRY_ATTRIBUTES[fact.attribute];
+    if (!key) continue;
+    const prior = latestAt[key] ?? -Infinity;
+    if (fact.observed_at >= prior) {
+      latestAt[key] = fact.observed_at;
+      (telemetry[key] as unknown) = fact.value;
+    }
+  }
+
+  return telemetry;
+}

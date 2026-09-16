@@ -559,6 +559,18 @@ class ActorRuntime:
                 from src.monkey_brain.kernel.edge.drone_state import register_drone_adapter
 
                 register_drone_adapter(self.config.actor_id, self.ros_adapter)
+                # ROS_ADAPTER_KIND=remote_http's own RemoteRosExecutionAdapter
+                # (kernel/edge/ros_integration.py) needs a background poller
+                # STARTED before its latest_state() can ever return
+                # anything -- see that class's own start()/latest_state()
+                # docstrings for the gap this closes. Px4RosExecutionAdapter
+                # (the rclpy case) has no start() at all: its telemetry is
+                # already live via rclpy subscription callbacks, nothing to
+                # poll -- hasattr guards that case rather than special-
+                # casing ROS_ADAPTER_KIND here too.
+                start_polling = getattr(self.ros_adapter, "start", None)
+                if callable(start_polling):
+                    start_polling()
             except Exception:
                 logger.debug(
                     "ActorRuntime.start: drone adapter registration skipped for %s (non-fatal)",

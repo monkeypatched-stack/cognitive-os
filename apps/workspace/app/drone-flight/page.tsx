@@ -24,8 +24,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, type RemoteTrack, type RemoteTrackPublication } from "livekit-client";
 import { RequireAuth } from "../../components/RequireAuth";
-import { fetchAllActors, type Actor } from "../../lib/actorClient";
-import { deriveMissionStatus, fetchActorBeliefs, type DroneMissionStatus } from "../../lib/droneClient";
+import { fetchActorGoals, fetchAllActors, promptActor, type Actor } from "../../lib/actorClient";
+import {
+  approveRuntimeApproval,
+  fetchPendingRuntimeApprovals,
+  rejectRuntimeApproval,
+  type PendingRuntimeApproval,
+} from "../../lib/approvalClient";
+import {
+  deriveMissionStatus,
+  deriveTelemetry,
+  fetchActorBeliefs,
+  type DroneMissionStatus,
+  type DroneTelemetry,
+} from "../../lib/droneClient";
 import { LIVEKIT_URL } from "../../lib/livekitClient";
 import {
   createVideoSession,
@@ -67,6 +79,27 @@ function missionPhase(status: DroneMissionStatus): string {
   return "Awaiting visual identification";
 }
 
+const EMPTY_TELEMETRY: DroneTelemetry = {
+  armed: null,
+  positionX: null,
+  positionY: null,
+  positionZ: null,
+  heading: null,
+  battery: null,
+  flightMode: null,
+  gpsState: null,
+};
+
+// null means "no fresh PX4 reading" (server-side 5s staleness gate,
+// droneClient.ts's own deriveTelemetry) -- render that as "—", never as 0
+// or "false", so a stale/disconnected drone never looks like a real state.
+function fmt(value: number | string | boolean | null, digits?: number): string {
+  if (value === null) return "—";
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  if (typeof value === "number" && digits !== undefined) return value.toFixed(digits);
+  return String(value);
+}
+
 function DroneFlightContent() {
   const [actors, setActors] = useState<Actor[]>([]);
   const [selectedActorId, setSelectedActorId] = useState("");
@@ -94,6 +127,37 @@ function DroneFlightContent() {
     collision: null,
     disabled: false,
   });
+
+  // Flight telemetry -- SAME belief-fact poll as missionStatus below (one
+  // fetchActorBeliefs call, two derivations), not a second network request.
+  const [telemetry, setTelemetry] = useState<DroneTelemetry>(EMPTY_TELEMETRY);
+
+  // Goals -- folded in from the former standalone /goals tab, scoped to
+  // whichever actor is selected above.
+  const [goals, setGoals] = useState<string[]>([]);
+  const [goalsError, setGoalsError] = useState("");
+
+  // Approvals -- folded in from the former standalone /approvals tab.
+  // Global (not actor-scoped), same as that page.
+  const [approvals, setApprovals] = useState<PendingRuntimeApproval[]>([]);
+  const [approvalsError, setApprovalsError] = useState("");
+  const [busyApprovalId, setBusyApprovalId] = useState<string | null>(null);
+
+  // Chat -- lets a spoken command be corrected before it's actually acted
+  // on. Whisper's transcript still lands in voiceState.last_transcript
+  // exactly as before (VoiceCommandRuntime keeps auto-acting on it
+  // server-side, unchanged); this is a SEPARATE, parallel path: each new
+  // transcript is logged here and pre-fills the editable draft below, but
+  // nothing is sent from here until the operator explicitly hits Send --
+  // at which point it goes through addActorGoal() (POST /actors/{id}/
+  // goals), the same real CognitiveActor.add_goal() mechanism, just
+  // typed/edited rather than spoken verbatim.
+  type ChatMessage = { id: string; role: "transcript" | "sent" | "error"; text: string; at: number };
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [draftText, setDraftText] = useState("");
+  const [sendingDraft, setSendingDraft] = useState(false);
+  const lastTranscriptRef = useRef<string | null>(null);
+  const chatLogRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,6 +200,24 @@ function DroneFlightContent() {
     };
   }, [voiceSession]);
 
+  // New transcript -> chat log entry + pre-fill the editable draft. Keyed
+  // off the transcript text itself (not voiceState as a whole) so this
+  // fires once per genuinely new utterance, not every 2s poll tick.
+  useEffect(() => {
+    const transcript = voiceState?.last_transcript;
+    if (!transcript || transcript === lastTranscriptRef.current) return;
+    lastTranscriptRef.current = transcript;
+    setChatMessages((current) => [
+      ...current,
+      { id: `t-${Date.now()}`, role: "transcript", text: transcript, at: Date.now() },
+    ]);
+    setDraftText(transcript);
+  }, [voiceState?.last_transcript]);
+
+  useEffect(() => {
+    chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight });
+  }, [chatMessages]);
+
   // Camera stream-availability polling -- runs whether or not voice is
   // connected, proving the two are independent.
   useEffect(() => {
@@ -169,7 +251,9 @@ function DroneFlightContent() {
       fetchActorBeliefs(selectedActorId)
         .then((result) => {
           if (cancelled) return;
-          setMissionStatus(deriveMissionStatus(result.beliefs.facts ?? []));
+          const facts = result.beliefs.facts ?? [];
+          setMissionStatus(deriveMissionStatus(facts));
+          setTelemetry(deriveTelemetry(facts));
         })
         .catch(() => {
           /* transient polling failure -- keep last known mission status */
@@ -183,6 +267,88 @@ function DroneFlightContent() {
     };
   }, [selectedActorId]);
 
+  // Goals polling -- same fetchActorGoals the former /goals page used,
+  // scoped to whichever actor is selected in the topbar picker above.
+  useEffect(() => {
+    if (!selectedActorId) {
+      setGoals([]);
+      return;
+    }
+    let cancelled = false;
+    const poll = () => {
+      fetchActorGoals(selectedActorId)
+        .then((result) => {
+          if (!cancelled) setGoals(result.goals);
+        })
+        .catch((err) => {
+          if (!cancelled) setGoalsError(err instanceof Error ? err.message : String(err));
+        });
+    };
+    poll();
+    const interval = setInterval(poll, STATUS_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [selectedActorId]);
+
+  // Approvals polling -- global queue, independent of the selected actor.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      fetchPendingRuntimeApprovals()
+        .then((result) => {
+          if (!cancelled) setApprovals(result.approvals);
+        })
+        .catch((err) => {
+          if (!cancelled) setApprovalsError(err instanceof Error ? err.message : String(err));
+        });
+    };
+    poll();
+    const interval = setInterval(poll, STATUS_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const sendDraft = async () => {
+    const text = draftText.trim();
+    if (!text || !selectedActorId) return;
+    setSendingDraft(true);
+    try {
+      // promptActor forwards straight to the actor's own dedicated Pod
+      // (POST /prompt) -- the same call a spoken command triggers -- so
+      // this actually flies the mission, not just queues it.
+      await promptActor(selectedActorId, text);
+      setChatMessages((current) => [...current, { id: `s-${Date.now()}`, role: "sent", text, at: Date.now() }]);
+      setDraftText("");
+      lastTranscriptRef.current = null;
+      const result = await fetchActorGoals(selectedActorId);
+      setGoals(result.goals);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setChatMessages((current) => [...current, { id: `e-${Date.now()}`, role: "error", text: message, at: Date.now() }]);
+    } finally {
+      setSendingDraft(false);
+    }
+  };
+
+  const decideApproval = async (approvalId: string, action: "approve" | "reject") => {
+    const reason = window.prompt(action === "approve" ? "Reason for approval (optional):" : "Reason for rejection:") ?? "";
+    if (action === "reject" && !reason) return;
+    setBusyApprovalId(approvalId);
+    try {
+      if (action === "approve") await approveRuntimeApproval(approvalId, reason);
+      else await rejectRuntimeApproval(approvalId, reason);
+      setApprovals((current) => current.filter((a) => a.approval_id !== approvalId));
+    } catch (err) {
+      setApprovalsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyApprovalId(null);
+    }
+  };
+
   useEffect(() => {
     return () => {
       voiceRoomRef.current?.disconnect();
@@ -190,7 +356,12 @@ function DroneFlightContent() {
     };
   }, []);
 
-  const connectVoice = async () => {
+  // autoUnmute: the mic button's own "cold start" path -- clicking it while
+  // disconnected should connect AND start listening in one action, rather
+  // than making the operator click Connect, wait, then click Unmute
+  // separately. liveKitRoom.connect() only resolves once the room is
+  // actually connected, so enabling the mic right after it is safe.
+  const connectVoice = async (autoUnmute = false) => {
     if (!LIVEKIT_URL) {
       setError("NEXT_PUBLIC_LIVEKIT_URL is not set — no LiveKit server configured for this deployment.");
       return;
@@ -206,6 +377,10 @@ function DroneFlightContent() {
       await liveKitRoom.connect(LIVEKIT_URL, session.token);
       voiceRoomRef.current = liveKitRoom;
       setVoiceSession(session);
+      if (autoUnmute) {
+        await liveKitRoom.localParticipant.setMicrophoneEnabled(true);
+        setMicEnabled(true);
+      }
     } catch (err) {
       setVoiceStatus("disconnected");
       setError(err instanceof Error ? err.message : String(err));
@@ -235,6 +410,16 @@ function DroneFlightContent() {
     const next = !micEnabled;
     await liveKitRoom.localParticipant.setMicrophoneEnabled(next);
     setMicEnabled(next);
+  };
+
+  // Single entry point for the mic button below: cold-start (connect +
+  // unmute) when disconnected, plain mute/unmute toggle once connected.
+  const handleMicClick = () => {
+    if (voiceStatus === "disconnected") {
+      connectVoice(true);
+    } else if (voiceStatus === "connected") {
+      toggleMic();
+    }
   };
 
   const connectCamera = async () => {
@@ -369,6 +554,11 @@ function DroneFlightContent() {
             <span className="fg-topic-name">collision_event</span>
             <span className="fg-topic-type">struct</span>
           </div>
+          <div className="fg-topic-row">
+            <span className={`fg-dot ${telemetry.armed !== null ? "fg-dot--ok" : ""}`} />
+            <span className="fg-topic-name">drone_telemetry</span>
+            <span className="fg-topic-type">struct</span>
+          </div>
         </aside>
 
         <div className="fg-main">
@@ -404,6 +594,9 @@ function DroneFlightContent() {
           <div className="fg-panel">
             <div className="fg-panel-header">
               <span>Flight State</span>
+              <span className={`fg-badge ${telemetry.armed ? "fg-badge--ok" : "fg-badge--muted"}`}>
+                {telemetry.armed === null ? "no telemetry" : telemetry.armed ? "ARMED" : "disarmed"}
+              </span>
             </div>
             <div className="fg-panel-body">
               <dl className="fg-kv">
@@ -411,11 +604,43 @@ function DroneFlightContent() {
                 <dd>{selectedActorId || "—"}</dd>
                 <dt>flight_state</dt>
                 <dd>{flightPhase}</dd>
+                <dt>flight_mode</dt>
+                <dd>{fmt(telemetry.flightMode)}</dd>
                 <dt>voice</dt>
                 <dd>{voiceStatus}</dd>
                 <dt>camera</dt>
                 <dd>{cameraLive ? "live" : "idle"}</dd>
               </dl>
+            </div>
+          </div>
+
+          <div className="fg-panel">
+            <div className="fg-panel-header">
+              <span>Telemetry</span>
+              <span className={`fg-badge ${telemetry.armed !== null ? "fg-badge--ok" : "fg-badge--muted"}`}>
+                {telemetry.armed !== null ? "live" : "no signal"}
+              </span>
+            </div>
+            <div className="fg-panel-body">
+              <dl className="fg-kv">
+                <dt>position (x, y, z)</dt>
+                <dd>
+                  {fmt(telemetry.positionX, 2)}, {fmt(telemetry.positionY, 2)}, {fmt(telemetry.positionZ, 2)}
+                </dd>
+                <dt>heading</dt>
+                <dd>{telemetry.heading !== null ? `${fmt(telemetry.heading, 1)}°` : "—"}</dd>
+                <dt>battery</dt>
+                <dd>{telemetry.battery !== null ? `${fmt(telemetry.battery, 0)}%` : "—"}</dd>
+                <dt>gps_state</dt>
+                <dd>{fmt(telemetry.gpsState)}</dd>
+              </dl>
+              {telemetry.armed === null && (
+                <div className="fg-console" style={{ marginTop: 10 }}>
+                  <span className="fg-console--empty">
+                    No fresh PX4 telemetry — the drone isn&apos;t reporting state right now.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -460,25 +685,41 @@ function DroneFlightContent() {
                 />
               </label>
               <div className="fg-row" style={{ marginTop: 8 }}>
-                {voiceStatus === "disconnected" && (
-                  <button type="button" className="fg-btn fg-btn--primary" onClick={connectVoice} disabled={!selectedActorId}>
-                    Connect voice
-                  </button>
-                )}
-                {voiceStatus === "connecting" && (
-                  <button type="button" className="fg-btn" disabled>
-                    Connecting…
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleMicClick}
+                  disabled={!selectedActorId || voiceStatus === "connecting"}
+                  className={`fg-mic-btn ${
+                    voiceStatus === "connected" ? (micEnabled ? "fg-mic-btn--live" : "fg-mic-btn--muted") : ""
+                  }`}
+                  aria-label={
+                    voiceStatus !== "connected"
+                      ? "Connect and speak a mission command"
+                      : micEnabled
+                        ? "Mute microphone"
+                        : "Unmute microphone"
+                  }
+                  title={
+                    voiceStatus === "disconnected"
+                      ? "Click to speak a mission command"
+                      : voiceStatus === "connecting"
+                        ? "Connecting…"
+                        : micEnabled
+                          ? "Listening — click to mute"
+                          : "Muted — click to unmute"
+                  }
+                >
+                  🎤
+                </button>
+                <span className="fg-mic-status">
+                  {voiceStatus === "disconnected" && "Click the mic to speak a command"}
+                  {voiceStatus === "connecting" && "Connecting…"}
+                  {voiceStatus === "connected" && (micEnabled ? "Listening…" : "Muted")}
+                </span>
                 {voiceStatus === "connected" && (
-                  <>
-                    <button type="button" className="fg-btn" onClick={toggleMic}>
-                      {micEnabled ? "Mute" : "Unmute"}
-                    </button>
-                    <button type="button" className="fg-btn" onClick={disconnectVoice}>
-                      Disconnect voice
-                    </button>
-                  </>
+                  <button type="button" className="fg-btn" onClick={disconnectVoice}>
+                    Disconnect
+                  </button>
                 )}
               </div>
               <div className="fg-console" style={{ marginTop: 10 }}>
@@ -492,6 +733,115 @@ function DroneFlightContent() {
                 <p style={{ color: "var(--fg-warn)", fontSize: 12 }}>{voiceState.clarification_reason}</p>
               )}
               {voiceState?.error && <p style={{ color: "var(--fg-danger)", fontSize: 12 }}>{voiceState.error}</p>}
+            </div>
+          </div>
+
+          <div className="fg-panel">
+            <div className="fg-panel-header">
+              <span>Chat{selectedActorId ? ` · ${selectedActorId}` : ""}</span>
+            </div>
+            <div className="fg-panel-body">
+              <div className="fg-chat-log" ref={chatLogRef}>
+                {chatMessages.length === 0 && (
+                  <div className="fg-console">
+                    <span className="fg-console--empty">Spoken commands will appear here — edit before sending.</span>
+                  </div>
+                )}
+                {chatMessages.map((m) => (
+                  <div key={m.id} className={`fg-chat-msg fg-chat-msg--${m.role}`}>
+                    <span className="fg-chat-msg-label">
+                      {m.role === "transcript" ? "heard" : m.role === "sent" ? "sent" : "error"}
+                    </span>
+                    <span>{m.text}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="fg-row" style={{ marginTop: 8 }}>
+                <input
+                  className="fg-input"
+                  style={{ flex: 1 }}
+                  placeholder="Speak, or type a mission command…"
+                  value={draftText}
+                  onChange={(e) => setDraftText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !sendingDraft) sendDraft();
+                  }}
+                />
+                <button
+                  type="button"
+                  className="fg-btn fg-btn--primary"
+                  onClick={sendDraft}
+                  disabled={!draftText.trim() || !selectedActorId || sendingDraft}
+                >
+                  {sendingDraft ? "Sending…" : "Send"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="fg-panel">
+            <div className="fg-panel-header">
+              <span>Goals{selectedActorId ? ` · ${selectedActorId}` : ""}</span>
+            </div>
+            <div className="fg-panel-body">
+              {goalsError && <p style={{ color: "var(--fg-danger)", fontSize: 12 }}>{goalsError}</p>}
+              {!goalsError && goals.length === 0 && (
+                <div className="fg-console">
+                  <span className="fg-console--empty">No goals recorded for this actor.</span>
+                </div>
+              )}
+              {goals.length > 0 && (
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {goals.map((goal, i) => (
+                    <li key={`${goal}-${i}`}>{goal}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          <div className="fg-panel">
+            <div className="fg-panel-header">
+              <span>Approvals</span>
+              <span className={`fg-badge ${approvals.length > 0 ? "fg-badge--danger" : "fg-badge--muted"}`}>
+                {approvals.length > 0 ? `${approvals.length} pending` : "none pending"}
+              </span>
+            </div>
+            <div className="fg-panel-body">
+              {approvalsError && <p style={{ color: "var(--fg-danger)", fontSize: 12 }}>{approvalsError}</p>}
+              {!approvalsError && approvals.length === 0 && (
+                <div className="fg-console">
+                  <span className="fg-console--empty">No operations awaiting approval.</span>
+                </div>
+              )}
+              {approvals.map((a) => (
+                <div key={a.approval_id} className="fg-console" style={{ marginTop: 8 }}>
+                  <div>
+                    <strong>{a.target_operation}</strong> on {a.target_resource}
+                  </div>
+                  <div style={{ color: "var(--fg-muted)", fontSize: 11 }}>
+                    requested by {a.requesting_principal} · risk {a.risk_level} · rule {a.policy_rule}
+                  </div>
+                  <div className="fg-row" style={{ marginTop: 6 }}>
+                    <button
+                      type="button"
+                      className="fg-btn fg-btn--primary"
+                      disabled={busyApprovalId === a.approval_id}
+                      onClick={() => decideApproval(a.approval_id, "approve")}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      className="fg-btn"
+                      disabled={busyApprovalId === a.approval_id}
+                      onClick={() => decideApproval(a.approval_id, "reject")}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

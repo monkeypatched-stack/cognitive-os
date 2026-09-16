@@ -916,9 +916,23 @@ class CognitiveActor(Entity):
         # completion, and a local Ollama model can take 15-60s per call —
         # 60s total left no room for more than one attempt before this
         # fired, turning a slow-but-working model into a hard failure on
-        # anything past the simplest plan. 240s comfortably covers 3
-        # attempts even at the slower end.
-        formation_result = await formation.from_state(state, timeout_seconds=240.0)
+        # anything past the simplest plan. 240s comfortably covered 3
+        # attempts even at the slower end -- but this same budget also
+        # covers the Execute stage's real, sequential ROS action calls for
+        # a robot actor (kernel/edge/ros_integration.py's
+        # RemoteRosExecutionAdapter.invoke(), one per plan step), which
+        # didn't exist when 240s was chosen. Confirmed live: a real 5-step
+        # PX4 mission (Arm/Takeoff/Waypoint/Waypoint/Land) blew through
+        # 240s on Takeoff alone taking ~90s, well before Waypoint/Land even
+        # got a turn -- "Belief formation timed out after 240s" followed by
+        # a confusing downstream "Actor was not reached by its effective
+        # societies", not an informative per-step failure. 420s keeps the
+        # original 3-attempt planning margin AND leaves genuine room for a
+        # multi-step flight's real, sequential execution time, while
+        # staying under actor_prompt_forwarder.py's own DEFAULT_TIMEOUT_SEC
+        # (450s) with margin, same "inner < outer" principle as every other
+        # timeout in this call chain.
+        formation_result = await formation.from_state(state, timeout_seconds=420.0)
 
         if not formation_result.success:
             # from_state() catches timeouts/exceptions internally and reports

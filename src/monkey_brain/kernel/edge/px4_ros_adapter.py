@@ -353,6 +353,32 @@ class Px4RosExecutionAdapter:
         self._collision_event: dict[str, Any] | None = None
         self._disabled: bool = False
 
+        # Always-on telemetry spin -- confirmed live this was the actual
+        # gap behind latest_state() staying None outside an active flight,
+        # even with PX4 genuinely publishing the whole time (a standalone
+        # rclpy probe in the same process received messages instantly):
+        # _stream_loop below used to be the ONLY thing that ever called
+        # self._executor.spin_once() for this node, and it only runs while
+        # Arm has started it and Land/a failed Arm hasn't stopped it yet --
+        # so subscription callbacks (_on_status/_on_local_position/etc.)
+        # simply never fired at any other time, including before the
+        # first-ever Arm and after every Land. WorldPollingProvider
+        # (kernel/pipeline/observations.py) and ros_bridge_server.py's own
+        # GET /state both call latest_state() as a passive, independent
+        # read with no relation to whether a flight is in progress, so
+        # spinning must not be tied to _stream_loop's lifecycle either.
+        # This thread starts here, once, and only stops in shutdown() --
+        # _stream_loop (below) no longer spins at all, only publishes
+        # setpoints while flying, so the two never race on the same
+        # executor from two threads at once.
+        self._telemetry_spin_stop = threading.Event()
+        self._telemetry_spin_thread = threading.Thread(target=self._telemetry_spin_loop, daemon=True)
+        self._telemetry_spin_thread.start()
+
+    def _telemetry_spin_loop(self) -> None:
+        while not self._telemetry_spin_stop.is_set():
+            self._executor.spin_once(timeout_sec=0.1)
+
     def _on_status(self, msg: Any) -> None:
         self._latest_status = msg
         self._latest_status_at = time.time()
@@ -396,21 +422,19 @@ class Px4RosExecutionAdapter:
         self._stream_thread.start()
 
     def _stream_loop(self) -> None:
-        # This thread is the ONLY thing that calls spin_once() for this
-        # adapter -- it must keep running (spinning) for as long as we need
-        # fresh vehicle_status/vehicle_local_position, even once we no
-        # longer want it PUBLISHING setpoints (e.g. during Land, where
-        # continuing to hold an OFFBOARD position setpoint fights PX4's own
-        # AUTO_LAND control law). _publish_setpoints gates the publish side
-        # only; spinning (and therefore telemetry) never stops until
-        # _stop_streaming() is called.
+        # Setpoint PUBLISHING only -- spinning (and therefore telemetry) is
+        # now __init__'s own always-on _telemetry_spin_loop thread's job,
+        # for as long as this adapter exists, not tied to whether a flight
+        # is in progress (see __init__'s own comment for why). Calling
+        # self._executor.spin_once() from here too, on the same executor
+        # from a second thread, would race _telemetry_spin_loop -- rclpy
+        # executors are not safe to spin concurrently from two threads.
         period = 1.0 / _STREAM_HZ
         while not self._stream_stop.is_set():
             if self._publish_setpoints.is_set():
                 with self._target_lock:
                     x, y, z = self._target
                 self._position_setpoint(x, y, z)
-            self._executor.spin_once(timeout_sec=0.0)
             self._stream_stop.wait(period)
 
     def _pause_setpoint_publishing(self) -> None:
@@ -730,6 +754,8 @@ class Px4RosExecutionAdapter:
 
     def shutdown(self) -> None:
         self._stop_streaming()
+        self._telemetry_spin_stop.set()
+        self._telemetry_spin_thread.join(timeout=2.0)
         self._executor.shutdown()
         self._node.destroy_node()
         if self._context.ok():

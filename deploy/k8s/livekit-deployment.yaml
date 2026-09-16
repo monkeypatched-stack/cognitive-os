@@ -47,19 +47,64 @@ spec:
           image: livekit/livekit-server:latest
           imagePullPolicy: IfNotPresent
           args:
-            - "--dev"
             - "--bind"
             - "0.0.0.0"
           env:
-            # SIMULATION/DEMO-ONLY -- see module header. LiveKit's own
-            # "key: secret" format, one pair per line.
-            - name: LIVEKIT_KEYS
-              value: "devkey: devsecret_at_least_32_characters_long"
-            # Forces WebRTC media over the same TCP port ICE-TCP/signaling
-            # already uses, since kubectl port-forward cannot carry the
-            # UDP media LiveKit prefers by default in this topology.
-            - name: LIVEKIT_RTC_FORCE_TCP
-              value: "true"
+            # Single source of truth for keys/rtc/turn below -- kept as one
+            # config-body rather than split across LIVEKIT_KEYS/
+            # LIVEKIT_RTC_FORCE_TCP env vars (the previous approach) so the
+            # turn: section isn't fighting a separately-set force_tcp flag
+            # for the same rtc struct.
+            #
+            # WHY turn_servers exists at all -- confirmed live that a
+            # direct host ICE-TCP candidate (this Deployment's own
+            # signaling/rtc-tcp ports, reached via kubectl port-forward)
+            # can NEVER work for an external browser here: LiveKit can only
+            # advertise ONE node address for host candidates, and that
+            # address is either the pod's cluster-internal IP (works for
+            # agentos's in-cluster LiveKitVoiceObservationProvider and the
+            # drone's camera-bridge, NOT reachable from the Mac browser at
+            # all -- verified live, Docker Desktop does not route pod/
+            # kind-node IPs to the host) or 127.0.0.1 (works for the
+            # port-forwarded browser, but then means the pod itself for
+            # every in-cluster caller -- verified live this breaks BOTH the
+            # voice listener, "wait_pc_connection timed out", and would
+            # equally break the camera publisher on its next reconnect). No
+            # single node_ip satisfies both.
+            #
+            # This SFU's own EMBEDDED turn: block (tried first) sidesteps
+            # that node_ip conflict but hits a different, confirmed-live
+            # dead end: the embedded TURN server shares this same pod/
+            # process, so the SFU's connectivity checks against its own
+            # relay candidate are a same-pod hairpin -- allocation succeeds
+            # (relay candidate gathered fine) but the SFU's STUN checks
+            # against it get zero responses every time (pion-turn
+            # limitation, not a network issue -- raw UDP hairpin to this
+            # pod's own IP on a different port works fine at the OS level,
+            # confirmed live). A genuinely separate pod (coturn-
+            # deployment.yaml) doesn't have that problem: the SFU reaches
+            # coturn's relay over ordinary pod-to-pod networking, and the
+            # browser only ever needs coturn's own control-channel address
+            # (port-forwarded turn.localhost:5350 below), never a second
+            # "relay candidate" address the way peer-to-peer TURN would.
+            - name: LIVEKIT_CONFIG
+              value: |
+                port: 7880
+                rtc:
+                  tcp_port: 7881
+                  use_external_ip: false
+                  turn_servers:
+                    - host: turn.localhost
+                      port: 5350
+                      protocol: tls
+                      # SIMULATION/DEMO-ONLY -- must match coturn-
+                      # deployment.yaml's own coturn-config ConfigMap's
+                      # `user=` line exactly.
+                      username: devturnuser
+                      credential: devturnpass
+                keys:
+                  # SIMULATION/DEMO-ONLY -- see module header.
+                  devkey: devsecret_at_least_32_characters_long
           ports:
             - containerPort: 7880
               name: signaling

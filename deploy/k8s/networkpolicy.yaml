@@ -224,7 +224,13 @@ spec:
 # same host) -- stable for a given Docker Desktop install, not something
 # this cluster invents. Port 8090 (llama-server, the default provider —
 # see configmap.yaml's MODEL_BACKEND) added alongside 11434 (Ollama, kept
-# reachable as a fallback provider, not removed).
+# reachable as a fallback provider, not removed). Port 8091 added for the
+# same reason as 8090: scripts/voice_service/transcription_service.py is
+# ANOTHER native-Mac process (mlx-whisper needs Metal/MPS, which Docker
+# Desktop's Linux VM can't pass through to a container any more than it
+# can for llama-server's own GPU use) that agentos's
+# LiveKitVoiceObservationProvider (kernel/edge/livekit_adapter.py) now
+# calls over HTTP instead of running Whisper in-process.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -249,3 +255,94 @@ spec:
           port: 11434
         - protocol: TCP
           port: 8090
+        - protocol: TCP
+          port: 8091
+---
+# LiveKit Cloud egress -- switched to this from the self-hosted in-cluster
+# livekit-deployment.yaml/coturn-deployment.yaml after confirming live that
+# no combination of node_ip/embedded TURN/standalone coturn could make a
+# kubectl-port-forwarded external browser's WebRTC media reach a
+# kind-cluster-hosted LiveKit reliably (see those two files' own header
+# comments for the full history: embedded-TURN same-pod hairpin fails
+# pion-turn's own connectivity checks; standalone coturn fixed that but a
+# non-Mac client, e.g. a phone on the LAN, has no way to resolve
+# `localhost`/`turn.localhost` to the Mac's port-forward at all). LiveKit
+# Cloud is a normal publicly-reachable wss:// endpoint, so every client
+# (Mac browser, phone, in-cluster pods) reaches the exact same real address
+# with no NAT/hairpin/port-forward involved.
+#
+# Broad 0.0.0.0/0:443 rather than a pinned ipBlock (contrast the Ollama
+# rule above) because LiveKit Cloud is a multi-tenant hosted service behind
+# a CDN/load balancer -- its resolved IPs are not fixed the way a single
+# Docker Desktop host gateway address is, so there is no single IP to pin
+# without this breaking on LiveKit's own infrastructure changes.
+# cognitiveos-actor pods (e.g. cognitiveos-actor-drone-a) run
+# run_ros_action_if_governed's real flight calls against ROS_BRIDGE_URL --
+# px4-sim-<actor-id>'s own ros-bridge container, on THIS SAME single-node
+# kind cluster's node (hostNetwork: true, deploy/k8s/px4-sim-deployment
+# .yaml's own comment on why). Confirmed live: allow-intra-namespace's
+# podSelector-based rule does NOT cover this -- a hostNetwork Pod has no
+# real pod IP of its own for a podSelector-based NetworkPolicy to match
+# against (it shares the node's network namespace entirely), so egress to
+# it needs an ipBlock rule keyed on the NODE's IP instead, same shape as
+# allow-llm-egress-to-ollama-host above. A curl from inside
+# cognitiveos-actor-drone-a to px4-sim-drone-a's own ros-bridge port timed
+# out completely before this rule existed, hanging every flight command
+# indefinitely (governance passed, then nothing -- no error, no
+# completion) even though that same port answered fine to itself.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-actor-egress-to-px4-sim
+  namespace: monkeybrain
+spec:
+  podSelector:
+    matchLabels:
+      app: cognitiveos-actor
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 172.19.0.2/32
+      ports:
+        - protocol: TCP
+          port: 9000
+        - protocol: TCP
+          port: 9001
+        - protocol: TCP
+          port: 9002
+        - protocol: TCP
+          port: 9003
+        - protocol: TCP
+          port: 8761
+        - protocol: TCP
+          port: 8762
+        - protocol: TCP
+          port: 8763
+        - protocol: TCP
+          port: 8765
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-livekit-cloud-egress
+  namespace: monkeybrain
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - agentos
+          - cognitiveos-actor
+          - px4-sim
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443

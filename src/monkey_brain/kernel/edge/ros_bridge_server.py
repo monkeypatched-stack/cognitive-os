@@ -137,6 +137,32 @@ def _build_app() -> FastAPI:
             "camera_bridge_active": "bridge" in camera_holder,
         }
 
+    @app.get("/state")
+    def state() -> dict[str, Any]:
+        """The real, in-process Px4RosExecutionAdapter's own latest_state()
+        (armed/position/heading/battery/flight_mode/gps_state/etc.), as
+        plain JSON -- confirmed live this was the missing half of the
+        remote_http split: kernel/edge/ros_integration.py::
+        RemoteRosExecutionAdapter already lets the actor Pod SEND commands
+        here over HTTP (POST /invoke), but had no equivalent way to READ
+        telemetry back, so kernel/pipeline/observations.py::
+        WorldPollingProvider.observe() always called .latest_state() on an
+        object that didn't have one and silently produced zero telemetry
+        facts, no matter how healthy this process's own PX4 subscriptions
+        actually were. {"state": null} (not a 404) when nothing has
+        arrived yet -- matches Px4RosExecutionAdapter.latest_state()'s own
+        "None means no telemetry yet, not an error" contract.
+        """
+        adapter = adapter_holder.get("adapter")
+        if adapter is None:
+            return {"state": None}
+        drone_state = adapter.latest_state()
+        if drone_state is None:
+            return {"state": None}
+        from dataclasses import asdict
+
+        return {"state": asdict(drone_state)}
+
     @app.post("/invoke")
     async def invoke(body: InvokeRequest) -> dict[str, Any]:
         adapter = adapter_holder.get("adapter")

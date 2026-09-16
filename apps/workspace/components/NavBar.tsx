@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "../lib/authStore";
 
@@ -33,12 +32,6 @@ export function NavBar() {
   return (
     <nav className={isDarkShell ? "navbar navbar--dark" : "navbar"}>
       <span className="navbar-brand">CognitiveOS Workspace</span>
-      <div className="navbar-links">
-        <Link href="/goals">Goals</Link>
-        <Link href="/approvals">Approvals</Link>
-        <Link href="/voice">Voice</Link>
-        <Link href="/drone-flight">Drone Flight</Link>
-      </div>
       <div className="navbar-user">
         <span>{user?.email}</span>
         <button type="button" onClick={logout}>

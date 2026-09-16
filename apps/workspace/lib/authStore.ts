@@ -38,6 +38,7 @@ interface AuthState {
   verifyMfaChallenge: (code: string) => Promise<void>;
   enrollMfa: (password: string) => Promise<void>;
   enableMfa: (code: string) => Promise<void>;
+  refreshAccessToken: () => Promise<string>;
   logout: () => void;
 }
 
@@ -212,6 +213,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ error: err instanceof Error ? err.message : "Could not enable MFA" });
       throw err;
     }
+  },
+
+  // Exchanges the httpOnly refresh-token cookie /login already set
+  // (_issue_login_tokens -> response.set_cookie) for a new short-lived
+  // access token -- ACCESS_TOKEN_EXPIRE_MINUTES=15 (services/auth/.env)
+  // means any session left idle that long otherwise 401s on its very next
+  // API call with no recovery (apiClient.ts calls this on exactly that
+  // 401, deduped so N concurrent pollers trigger one refresh, not N racing
+  // rotations of the same single-use refresh token). Same-origin fetch
+  // sends the cookie automatically -- no credentials/body plumbing needed.
+  refreshAccessToken: async () => {
+    const data = await authPost<{ access_token: string }>("/refresh", {});
+    const claims = decodeJwtClaims(data.access_token) as { email?: string; role?: string };
+    const user: AuthUser = get().user ?? { email: claims.email ?? "", role: claims.role ?? "" };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: data.access_token, user }));
+    set({ status: "authenticated", token: data.access_token, user });
+    return data.access_token;
   },
 
   logout: () => {

@@ -418,10 +418,24 @@ services:
     # Real LLM planning calls (model_backend.py's Ollama path, 120s httpx
     # client timeout) can legitimately exceed Kong's 60s default when the
     # model needs a cold load — raised with margin above that 120s so a
-    # slow-but-genuine completion isn't cut off with a 504.
+    # slow-but-genuine completion isn't cut off with a 504. Raised again
+    # (180000 -> 480000) once POST /actors/{id}/prompt started forwarding
+    # straight to a robot actor's own dedicated Pod and blocking on the
+    # real flight (api/routes/prompt.py's own _ACTOR_POD_FORWARD_TIMEOUT_SEC
+    # / kernel/edge/actor_prompt_forwarder.py's DEFAULT_TIMEOUT_SEC, both
+    # raised in step with this one -- see that module's own comment for the
+    # full timeout chain, currently 450.0s) — confirmed live twice: first
+    # that a real multi-step PX4 mission genuinely ran past 180s (fixed by
+    # raising to 330000), then that adding the plan's previously-missing
+    # Arm step (kernel/domains/robot.py's ArmCapability.description fix)
+    # pushed real mission time past 330s too. 480000 clears the current
+    # 450s inner timeout with margin, same principle as this comment's own
+    # 120s+margin reasoning above -- keep this above
+    # DEFAULT_TIMEOUT_SEC/_ACTOR_POD_FORWARD_TIMEOUT_SEC if those move
+    # again rather than letting Kong become the tightest link.
     connect_timeout: 180000
-    write_timeout: 180000
-    read_timeout: 180000
+    write_timeout: 480000
+    read_timeout: 480000
     routes:
       - name: agentos-api
         strip_path: false
