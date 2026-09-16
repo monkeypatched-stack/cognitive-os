@@ -36,6 +36,19 @@ RUN git clone -b v2.4.3 --depth 1 https://github.com/eProsima/Micro-XRCE-DDS-Age
     && cd /opt/Micro-XRCE-DDS-Agent && mkdir build && cd build \
     && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j$(nproc) && make install && ldconfig
 
+# CACHE_BUST: forces this layer and everything after it to get a genuinely
+# new content digest on every build, regardless of Docker's own layer
+# cache. Confirmed live and necessary: a previous build of this exact
+# layer produced 0-byte .so files under kind's containerd content store
+# (disk-exhaustion corruption during an earlier `kind load`), and because
+# containerd addresses layers by content digest, a later `docker commit`-
+# based image that reused this SAME (uncorrupted-looking, but actually
+# already-cached-corrupted) layer digest caused every subsequent `kind
+# load` to silently reuse the bad cached blob instead of re-transferring
+# it -- even with a fresh top-level image ID and healthy disk. Only a
+# genuinely different digest for THIS layer forces containerd to treat it
+# as new content.
+ARG CACHE_BUST=1
 RUN mkdir -p /opt/px4_ws/src && cd /opt/px4_ws/src \
     && git clone --depth 1 https://github.com/PX4/px4_msgs.git
 RUN . /opt/ros/jazzy/setup.sh && cd /opt/px4_ws && colcon build --packages-select px4_msgs
@@ -43,8 +56,26 @@ RUN . /opt/ros/jazzy/setup.sh && cd /opt/px4_ws && colcon build --packages-selec
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock .
-RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.lock.txt && \
-    uv pip install --system --break-system-packages -r requirements.lock.txt
+# --extra livekit: this container now also hosts RosCameraToLiveKitBridge
+# (kernel/edge/livekit_video_adapter.py, started from ros_bridge_server.py's
+# own startup hook) -- needs the livekit/livekit-api packages, same real gap
+# docker/services/agentos/Dockerfile's own comment already documents for
+# that image (this one never had the extra at all).
+#
+# --index / --index-strategy: torch is a CORE dependency of this project
+# (pyproject.toml [project.dependencies]), pinned to PyTorch's CPU-only
+# wheel index (see pyproject.toml's [tool.uv.sources] comment -- avoids
+# downloading ~5GB of unused CUDA/nvidia-* libraries into an image with no
+# GPU). `uv export`'s requirements.txt output drops that per-package index
+# annotation, so `uv pip install` needs the same index passed explicitly,
+# plus unsafe-best-match so it doesn't lock every OTHER package onto that
+# index too (confirmed live against docker/services/agentos/Dockerfile --
+# same fix, same reason, required here now for the same reason: torch's
+# source changed for the whole project, not per-image).
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project --extra livekit -o requirements.lock.txt && \
+    uv pip install --system --break-system-packages \
+        --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
+        -r requirements.lock.txt
 
 COPY src/ ./src/
 

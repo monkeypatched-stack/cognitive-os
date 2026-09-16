@@ -208,3 +208,309 @@ select.actor-picker {
   font-size: 13px;
   margin-bottom: 16px;
 }
+
+/* ── Telemetry shell (Foxglove-style dark panel grid) ────────────────────
+   Scoped to .fg-shell (drone-flight / drone-mission only, via a wrapper
+   class on those pages' root element, and .navbar--dark applied
+   conditionally by NavBar.tsx on those same routes) -- deliberately does
+   NOT touch :root/body, so goals/voice/approvals/login keep the app's
+   normal light/auto theme untouched. Fixed dark palette (not
+   prefers-color-scheme-driven) matches Foxglove Studio's own always-dark
+   operator UI convention -- a robotics telemetry view, unlike a form/
+   dashboard page, reads better against a dark, low-glare background. */
+.fg-shell {
+  --fg-bg: #121217;
+  --fg-panel: #191b20;
+  --fg-panel-header: #21242b;
+  --fg-border: #32353e;
+  --fg-text: #d7d9dd;
+  --fg-muted: #7d8189;
+  --fg-accent: #9b6bf2;
+  --fg-ok: #4caf6a;
+  --fg-warn: #e0a83e;
+  --fg-danger: #e0524b;
+  --fg-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  background: var(--fg-bg);
+  color: var(--fg-text);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  font-family: var(--fg-mono);
+}
+
+.navbar--dark {
+  background: var(--fg-bg, #121217);
+  border-bottom: 1px solid var(--fg-border, #32353e);
+  color: var(--fg-text, #d7d9dd);
+}
+
+.navbar--dark a {
+  color: var(--fg-text, #d7d9dd);
+}
+
+.navbar--dark a:hover {
+  color: var(--fg-accent, #9b6bf2);
+}
+
+.navbar--dark .navbar-user {
+  color: var(--fg-muted, #7d8189);
+}
+
+.navbar--dark .navbar-user button {
+  background: var(--fg-panel, #191b20);
+  border-color: var(--fg-border, #32353e);
+  color: var(--fg-text, #d7d9dd);
+}
+
+.fg-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--fg-border);
+}
+
+.fg-topbar h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fg-topbar p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.fg-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 1px;
+  background: var(--fg-border);
+  min-height: calc(100vh - 57px);
+}
+
+.fg-sidebar {
+  background: var(--fg-bg);
+  padding: 10px 0;
+}
+
+.fg-sidebar-label {
+  padding: 4px 14px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.fg-topic-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+
+.fg-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.fg-dot--ok {
+  background: var(--fg-ok);
+  box-shadow: 0 0 6px var(--fg-ok);
+}
+
+.fg-dot--danger {
+  background: var(--fg-danger);
+  box-shadow: 0 0 6px var(--fg-danger);
+}
+
+.fg-topic-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fg-topic-type {
+  color: var(--fg-muted);
+  font-size: 10px;
+}
+
+.fg-main {
+  background: var(--fg-bg);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-auto-rows: auto;
+  gap: 12px;
+  align-content: start;
+}
+
+.fg-panel {
+  background: var(--fg-panel);
+  border: 1px solid var(--fg-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Spans every row the side panels (Flight State / Mission Status / Voice)
+   occupy -- however many there are, without hardcoding a row count that
+   drifts every time a panel is added or removed. */
+.fg-panel--camera {
+  grid-row: 1 / -1;
+}
+
+.fg-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--fg-panel-header);
+  border-bottom: 1px solid var(--fg-border);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+}
+
+.fg-panel-body {
+  padding: 10px;
+}
+
+.fg-video {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  display: block;
+}
+
+.fg-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: 12px;
+  margin: 0;
+}
+
+.fg-kv dt {
+  color: var(--fg-muted);
+}
+
+.fg-kv dd {
+  margin: 0;
+  text-align: right;
+}
+
+.fg-console {
+  font-size: 12px;
+  background: #0d0e11;
+  border: 1px solid var(--fg-border);
+  border-radius: 4px;
+  padding: 10px;
+  min-height: 60px;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.fg-console--empty {
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+.fg-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.fg-badge--ok {
+  background: rgba(76, 175, 106, 0.15);
+  color: var(--fg-ok);
+}
+
+.fg-badge--muted {
+  background: rgba(125, 129, 137, 0.15);
+  color: var(--fg-muted);
+}
+
+.fg-badge--danger {
+  background: rgba(224, 82, 75, 0.15);
+  color: var(--fg-danger);
+}
+
+.fg-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fg-btn {
+  font-family: var(--fg-mono);
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 3px;
+  border: 1px solid var(--fg-border);
+  background: #22252c;
+  color: var(--fg-text);
+  cursor: pointer;
+}
+
+.fg-btn:hover:not(:disabled) {
+  border-color: var(--fg-accent);
+}
+
+.fg-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.fg-btn--primary {
+  background: var(--fg-accent);
+  border-color: var(--fg-accent);
+  color: #fff;
+}
+
+.fg-input {
+  font-family: var(--fg-mono);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--fg-border);
+  background: #0d0e11;
+  color: var(--fg-text);
+}
+
+.fg-error {
+  font-size: 12px;
+  color: var(--fg-danger);
+  padding: 8px 20px;
+}
+
+@media (max-width: 860px) {
+  .fg-grid {
+    grid-template-columns: 1fr;
+  }
+  .fg-main {
+    grid-template-columns: 1fr;
+  }
+  .fg-panel--camera {
+    grid-row: auto;
+  }
+}

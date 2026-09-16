@@ -223,6 +223,18 @@ class VoiceCommandRuntime:
             self._update_session(status="idle", error="intent interpretation failed")
             return
 
+        # voice.transcription (spec's own causal-chain event name): one
+        # event per completed transcript classification, never per audio
+        # packet. session_id is the correlation key a human/trace tool can
+        # follow through the matching actor.goal event below and into
+        # last_goal_text on this same session.
+        get_bridge().emit_counter(
+            "voice.transcription",
+            actor_id=self._session.actor_id,
+            session_id=self._session.session_id,
+            kind=result.kind,
+        )
+
         if result.kind == "non_actionable":
             self._update_session(last_transcript=result.transcript)
             return
@@ -248,6 +260,20 @@ class VoiceCommandRuntime:
             last_transcript=result.transcript,
             last_goal_text=result.goal_text,
             clarification_reason=None,
+        )
+        # actor.goal (spec's own causal-chain event name): fired exactly
+        # once per actionable transcript, right before add_goal() --
+        # preserves the human-command -> goal link even though nothing
+        # downstream (SocietyRuntime.tick_one_actor -> LLMPlanner ->
+        # governance -> run_ros_action_if_governed) threads a shared
+        # correlation id into OTel today (kernel/society/context_stream.py's
+        # own _validate_causal_lineage() already documents that as a known,
+        # currently-unaddressed gap this session doesn't attempt to close in
+        # full -- session_id is the correlation key available here).
+        get_bridge().emit_counter(
+            "actor.goal",
+            actor_id=self._session.actor_id,
+            session_id=self._session.session_id,
         )
         try:
             found = _find_actor_state(self._pr, self._session.actor_id)

@@ -60,9 +60,23 @@
 # actor's own HTTP call to ros-bridge's Service crosses a Pod boundary,
 # which needs no such discovery mechanism (plain unicast TCP).
 #
-#   ACTOR_ID=drone-a PX4_NAMESPACE=px4_a \
-#     envsubst '${ACTOR_ID} ${PX4_NAMESPACE}' \
+#   ACTOR_ID=drone-a PX4_NAMESPACE=px4_a DRONE_CAMERA_ENABLED=true \
+#     LIVEKIT_URL=ws://livekit.monkeybrain.svc.cluster.local:7880 \
+#     LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=devsecret_at_least_32_characters_long \
+#     envsubst '${ACTOR_ID} ${PX4_NAMESPACE} ${DRONE_CAMERA_ENABLED} ${LIVEKIT_URL} ${LIVEKIT_API_KEY} ${LIVEKIT_API_SECRET}' \
 #     < deploy/k8s/px4-sim-deployment.yaml | kubectl apply -f -
+#
+# DRONE_CAMERA_ENABLED/LIVEKIT_* (ros-bridge container only, below): opt-in,
+# same env var actor_runtime.py's OWN camera block already reads for
+# docker/Dockerfile.robot's different (embedded-rclpy) deployment mode --
+# here it drives kernel/edge/ros_bridge_server.py's own camera-bridge
+# startup instead, since THIS topology's actor Pod has no ROS 2 installed
+# (see that file's module docstring). Set DRONE_CAMERA_ENABLED=true only
+# for a drone actually rendered with a camera-equipped PX4_SIM_MODEL (e.g.
+# gz_x500_mono_cam) -- harmless but pointless for one without a camera
+# sensor (the ROS topic this bridge subscribes to would simply never
+# publish, same "waits forever, does nothing" precedent the camera-bridge
+# container above already establishes).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -324,6 +338,14 @@ spec:
               value: "${ACTOR_ID}"
             - name: PX4_NAMESPACE
               value: "${PX4_NAMESPACE}"
+            - name: DRONE_CAMERA_ENABLED
+              value: "${DRONE_CAMERA_ENABLED}"
+            - name: LIVEKIT_URL
+              value: "${LIVEKIT_URL}"
+            - name: LIVEKIT_API_KEY
+              value: "${LIVEKIT_API_KEY}"
+            - name: LIVEKIT_API_SECRET
+              value: "${LIVEKIT_API_SECRET}"
           resources:
             requests:
               cpu: "100m"

@@ -26,8 +26,37 @@ RUN apt-get update && \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock .
-RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.lock.txt && \
-    uv pip install --system -r requirements.lock.txt
+# --extra livekit: pyproject.toml's `livekit` extra (livekit, livekit-api,
+# openai-whisper, resampy) is NOT in `uv export`'s default set (extras are
+# opt-in) -- confirmed live the base image had no `livekit` module at all,
+# so api/routes/livekit.py's create_livekit_room_token() (and therefore
+# every /voice/sessions, /video/sessions, /livekit/token call) always
+# raised. Real, non-optional dependency for this image now that voice/
+# camera telemetry is a real, exercised feature, not the "most deployments
+# never touch LiveKit at all" case that extra's own pyproject.toml comment
+# describes.
+#
+# --index https://download.pytorch.org/whl/cpu: pyproject.toml's
+# [tool.uv.sources] pins torch to that index's CPU-only wheel (no bundled
+# CUDA/nvidia-* packages -- see that file's own comment; this alone cut
+# ~4-6GB of unused GPU libs that were driving repeated Docker Desktop VM
+# disk-exhaustion crashes during this exact build). But `uv export`'s
+# requirements.txt output does NOT carry per-package index annotations
+# (confirmed live: the exported line is a bare
+# `torch==2.14.0+cpu ; sys_platform != 'darwin'`, no URL/index) -- so
+# `uv pip install` from that flat file has no way to know this version
+# lives on download.pytorch.org rather than PyPI, and fails with "no
+# solution found... no version of torch==2.14.0+cpu" (PyPI itself has no
+# such build tag). Passing the same index explicitly to the install step
+# closes that gap. --index-strategy unsafe-best-match is also required:
+# uv's default "first-index" strategy (anti dependency-confusion) locks
+# onto whichever index a package name is FIRST found on for every
+# package, not just torch -- confirmed live this broke certifi (also
+# mirrored on download.pytorch.org, but not at the pinned version) once
+# that index was added. Both indexes here are well-known, trusted
+# publishers (PyPI, pytorch.org), so relaxing to best-match is safe.
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project --extra livekit -o requirements.lock.txt && \
+    uv pip install --system --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match -r requirements.lock.txt
 
 COPY src/ ./src/
 # monkeypatched_sdk is its own top-level package (repo root, sibling to

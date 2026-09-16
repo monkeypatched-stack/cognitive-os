@@ -151,6 +151,28 @@ cognitiveos-actor = "monkey_brain.actor_runtime:main"
 # client against the Control API; never starts an Actor process itself.
 cogctl = "monkey_brain.cogctl:main"
 
+# torch's default PyPI wheel bundles the full NVIDIA CUDA runtime as
+# separate nvidia-*/cuda-bindings dependencies (nvidia-cublas ~518MB,
+# plus nvidia-cuda-nvrtc/nvidia-curand/nvidia-cufile/nvidia-nvjitlink/
+# nvidia-nvshmem-cu13/cuda-bindings -- several GB total) even though
+# every image that installs this project (docker/services/agentos/
+# Dockerfile is `python:3.12-slim`, no GPU passthrough configured
+# anywhere in deploy/) only ever runs torch on CPU. Confirmed live: this
+# was the actual root cause of repeated Docker Desktop VM disk
+# exhaustion crashes during agentos image builds ("no space left on
+# device" mid-download, then "VM has stopped: Internal Virtualization
+# error"), not merely the build being "big" in general. Pinning to
+# PyTorch's own official CPU-only wheel index removes those unused
+# packages entirely -- functionally identical for CPU inference, just
+# without the dead weight.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.setuptools]
 py-modules = ["install_agentos"]
 
