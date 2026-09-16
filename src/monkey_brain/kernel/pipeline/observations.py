@@ -211,8 +211,10 @@ class WorldPollingProvider:
             from src.monkey_brain.kernel.edge.drone_state import get_drone_adapter, is_fresh
 
             adapter = get_drone_adapter(actor_id)
+            logger.info("DIAG drone telemetry: actor_id=%r adapter=%r", actor_id, adapter)
             if adapter is not None:
                 state = adapter.latest_state()
+                logger.info("DIAG drone telemetry: state=%r is_fresh=%r", state, is_fresh(state))
                 if is_fresh(state):
                     drone_provenance = Provenance(source="px4_ros", method="telemetry", reliability=0.95)
                     for attribute, value in (
@@ -259,7 +261,7 @@ class WorldPollingProvider:
                             )
                         )
         except Exception:
-            logger.debug("observe: drone telemetry suppressed exception", exc_info=True)
+            logger.info("observe: drone telemetry suppressed exception", exc_info=True)
 
         # Auxiliary sources (voice/video/future sensors), registered
         # dynamically via register_observation_source() above — same

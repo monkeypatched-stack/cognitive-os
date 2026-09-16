@@ -45,11 +45,12 @@ router = APIRouter()
 _background_tasks: set[asyncio.Task] = set()
 
 # How long the internal forward (below) waits for a dedicated actor Pod's
-# own /prompt to finish a real planning+execution cycle — matches
-# model_backend.py's own Ollama httpx timeout (120s) with margin, not the
-# short per-call timeouts used for plain health/liveness checks elsewhere
-# in this file.
-_ACTOR_POD_FORWARD_TIMEOUT_SEC = 150.0
+# own /prompt to finish a real planning+execution cycle -- confirmed live
+# a real multi-step mission took ~196s end-to-end (see
+# actor_prompt_forwarder.py's own DEFAULT_TIMEOUT_SEC comment), so this
+# just mirrors that constant rather than risking two different timeouts
+# drifting apart. Kept in step with that module's own 300.0 -> 450.0 raise.
+_ACTOR_POD_FORWARD_TIMEOUT_SEC = 450.0
 
 
 def _actor_pod_node_id(planetary_runtime: Any, actor_id: str) -> str | None:
@@ -112,7 +113,10 @@ async def _try_forward_to_actor_pod(planetary_runtime: Any, actor_id: str, quest
     (local execution, or the original error) still applies when there's
     truly nowhere else to try.
     """
-    import os
+    from src.monkey_brain.kernel.edge.actor_prompt_forwarder import (
+        ActorPromptForwardError,
+        forward_prompt_to_actor_pod,
+    )
 
     node_id = _actor_pod_node_id(planetary_runtime, actor_id)
     if node_id is None:
@@ -122,37 +126,16 @@ async def _try_forward_to_actor_pod(planetary_runtime: Any, actor_id: str, quest
         )
         return None
 
-    token = os.environ.get("INTERNAL_SERVICE_TOKEN", "")
-    if not token:
-        return None
-    import httpx
-
-    url = f"http://cognitiveos-actor-{actor_id}:8051/prompt"
     try:
-        async with httpx.AsyncClient(timeout=_ACTOR_POD_FORWARD_TIMEOUT_SEC) as client:
-            resp = await client.post(
-                url,
-                headers={
-                    "X-Internal-Service-Token": token,
-                    "Content-Type": "application/json",
-                },
-                json={"question": question},
-            )
-        resp.raise_for_status()
+        result = await forward_prompt_to_actor_pod(actor_id, question, timeout=_ACTOR_POD_FORWARD_TIMEOUT_SEC)
         logger.info(
-            "[prompt] forwarded to dedicated actor Pod for %r (registry node_id=%r, %s)",
+            "[prompt] forwarded to dedicated actor Pod for %r (registry node_id=%r)",
             actor_id,
             node_id,
-            url,
         )
-        return resp.json()
-    except Exception as exc:
-        logger.debug(
-            "[prompt] dedicated actor Pod unreachable for %r (%s): %s",
-            actor_id,
-            url,
-            exc,
-        )
+        return result
+    except ActorPromptForwardError as exc:
+        logger.debug("[prompt] dedicated actor Pod unreachable for %r: %s", actor_id, exc)
         return None
 
 

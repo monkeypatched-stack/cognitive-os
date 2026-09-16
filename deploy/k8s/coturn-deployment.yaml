@@ -1,0 +1,160 @@
+# Standalone coturn TURN server, replacing LiveKit's embedded turn: block.
+#
+# WHY this exists instead of the embedded server: confirmed live that the
+# embedded TURN server (co-located with the SFU in one process) can allocate
+# a relay fine, but the SFU's own STUN connectivity checks against that
+# relay's address get zero responses every time -- a pion-turn limitation
+# with same-process/same-pod relay traffic, not a network reachability
+# problem (verified live: raw UDP hairpin to the pod's own IP on a
+# different port works fine at the OS level). A genuinely separate pod
+# sidesteps this: the SFU reaches coturn's relay over normal pod-to-pod
+# networking (no hairpin/self-talk involved), same as any other real TURN
+# deployment.
+#
+# Only the CONTROL channel (tls-listening-port, below) needs external
+# reachability (kubectl port-forward, for the browser) -- the relay port
+# range is reached by the SFU via ordinary in-cluster networking, no
+# port-forward needed for that leg.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coturn-config
+  namespace: monkeybrain
+  labels:
+    app: coturn
+data:
+  turnserver.conf: |
+    listening-port=3478
+    tls-listening-port=5350
+    min-port=30100
+    max-port=30200
+    # SIMULATION/DEMO-ONLY dev credentials -- same posture as
+    # livekit-deployment.yaml's own LIVEKIT_KEYS, never meant for a real
+    # deployment. Must match rtc.turn_servers' username/credential in
+    # livekit-deployment.yaml's LIVEKIT_CONFIG.
+    user=devturnuser:devturnpass
+    realm=turn.localhost
+    cert=/etc/coturn/tls/turn.crt
+    pkey=/etc/coturn/tls/turn.key
+    no-cli
+    no-udp
+    no-dtls
+    fingerprint
+    lt-cred-mech
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coturn
+  namespace: monkeybrain
+  labels:
+    app: coturn
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coturn
+  template:
+    metadata:
+      labels:
+        app: coturn
+    spec:
+      containers:
+        - name: coturn
+          image: coturn/coturn:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            # Confirmed live: with no explicit listening/relay IP, coturn
+            # auto-discovers ALL local addresses (127.0.0.1, its real pod
+            # IP, ::1) and picked 127.0.0.1 as the relay address it hands
+            # out to clients -- useless to the SFU in a different pod,
+            # since 127.0.0.1 there means the SFU itself, not coturn.
+            # Pinning both explicitly to this pod's own real IP (via the
+            # downward API, since it changes every restart) removes the
+            # ambiguity entirely.
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          args:
+            - "-c"
+            - "/etc/coturn/turnserver.conf"
+            - "--listening-ip=$(POD_IP)"
+            - "--relay-ip=$(POD_IP)"
+          ports:
+            - containerPort: 3478
+              name: turn-tcp
+              protocol: TCP
+            - containerPort: 5350
+              name: turn-tls
+              protocol: TCP
+            - containerPort: 30100
+              name: relay-start
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/coturn
+              readOnly: true
+            - name: tls
+              mountPath: /etc/coturn/tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+      volumes:
+        - name: config
+          configMap:
+            name: coturn-config
+        - name: tls
+          secret:
+            secretName: livekit-turn-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coturn
+  namespace: monkeybrain
+  labels:
+    app: coturn
+spec:
+  selector:
+    app: coturn
+  ports:
+    - port: 3478
+      targetPort: 3478
+      protocol: TCP
+      name: turn-tcp
+    - port: 5350
+      targetPort: 5350
+      protocol: TCP
+      name: turn-tls
+    - port: 30100
+      targetPort: 30100
+      protocol: TCP
+      name: relay-start
+  type: ClusterIP
+---
+# External reachability for the browser's TURN control connection -- same
+# shape as livekit-deployment.yaml's own allow-external-to-* precedent
+# (networkpolicy.yaml).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-to-coturn
+  namespace: monkeybrain
+spec:
+  podSelector:
+    matchLabels:
+      app: coturn
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 5350
+        - protocol: TCP
+          port: 3478

@@ -84,28 +84,18 @@ _AUX_SOURCE_ID = "livekit_voice"
 logger = logging.getLogger("agentos.edge.voice_command_runtime")
 
 # Draining on a short interval, not per audio frame (spec section 14/15) --
-# the provider itself already only produces a transcript once per
-# _AUDIO_WINDOW_SECONDS (4s) window, so this just needs to be shorter than
-# that to pick each one up promptly without busy-polling.
+# the provider itself already produces at most one transcript per real
+# Silero-VAD-detected utterance (scripts/voice_service/
+# transcription_service.py), so this just needs to be short enough to pick
+# each one up promptly without busy-polling.
 _POLL_INTERVAL_SECONDS = 1.0
-
-
-def _find_actor_state(pr: Any, actor_id: str) -> tuple[Any, Any] | None:
-    """Same tiny lookup api/routes/actors.py's own _find_actor_state does --
-    not imported from there because routes depend on kernel, never the
-    reverse."""
-    for sr in pr.all_societies():
-        state = sr.get_actor(actor_id)
-        if state is not None:
-            return sr, state
-    return None
 
 
 class VoiceCommandRuntime:
     """One instance per active VoiceSession. Started by POST
     /voice/sessions, stopped by DELETE /voice/sessions/{id}."""
 
-    def __init__(self, session: VoiceSession, planetary_runtime: Any, *, whisper_model: str = "tiny") -> None:
+    def __init__(self, session: VoiceSession, planetary_runtime: Any) -> None:
         self._session = session
         self._pr = planetary_runtime
         # A distinct room identity for CognitiveOS's own listening
@@ -116,7 +106,6 @@ class VoiceCommandRuntime:
         self._provider = LiveKitVoiceObservationProvider(
             session.room,
             participant_identity=f"cognitiveos-listener-{session.session_id}",
-            whisper_model=whisper_model,
         )
         self._task: asyncio.Task | None = None
         self._store = get_voice_session_store()
@@ -252,9 +241,17 @@ class VoiceCommandRuntime:
             )
             return
 
-        # actionable — reuse the EXACT existing goal + tick path (POST
-        # /actors/{id}/goals + POST /actors/{id}/tick), never a shortcut
-        # into governance or the drone adapter.
+        # actionable — forwarded straight to actor_id's own dedicated
+        # actor Pod (POST /prompt, kernel/edge/actor_prompt_forwarder.py),
+        # the SAME call POST /actors/{id}/prompt makes for a typed/edited
+        # command (api/routes/actors.py::prompt_actor) — NOT the lower-
+        # level add_goal()+tick_one_actor() path against THIS process's
+        # own PlanetaryRuntime, which for a robot-class actor like a drone
+        # is a different process than the one that actually holds its
+        # ROS_ADAPTER_KIND/ROS_BRIDGE_URL bindings. Never a shortcut into
+        # governance or the drone adapter either way — that Pod's own
+        # /prompt still runs through ensure_governed exactly like every
+        # other entry point (see actor_runtime.py's own docstring).
         self._update_session(
             status="planning",
             last_transcript=result.transcript,
@@ -276,18 +273,17 @@ class VoiceCommandRuntime:
             session_id=self._session.session_id,
         )
         try:
-            found = _find_actor_state(self._pr, self._session.actor_id)
-            if found is None:
-                self._update_session(status="idle", error="actor not found")
-                return
-            sr, state = found
-            if state.actor_runtime is not None:
-                state.actor_runtime.add_goal(result.goal_text)
-            coordinated = await sr.tick_one_actor(self._session.actor_id)
-            self._update_session(
-                status="listening" if coordinated else "idle",
-                error=None if coordinated else "tick did not complete",
+            from src.monkey_brain.kernel.edge.actor_prompt_forwarder import (
+                ActorPromptForwardError,
+                forward_prompt_to_actor_pod,
             )
+
+            try:
+                await forward_prompt_to_actor_pod(self._session.actor_id, result.goal_text)
+            except ActorPromptForwardError as exc:
+                self._update_session(status="idle", error=str(exc))
+                return
+            self._update_session(status="listening", error=None)
         except Exception as exc:
-            logger.exception("VoiceCommandRuntime: goal/tick failed for session %s", self._session.session_id)
+            logger.exception("VoiceCommandRuntime: prompt forward failed for session %s", self._session.session_id)
             self._update_session(status="idle", error=str(exc))

@@ -390,15 +390,101 @@ class RemoteRosExecutionAdapter:
             raise ValueError("base_url is required")
         self.actor_id = actor_id
         self._base_url = base_url.rstrip("/")
+        # latest_state()'s own cache -- see that method and start() below.
+        self._cached_state: Any = None
+        self._poll_task: Any = None
+
+    def start(self) -> None:
+        """Launch the background telemetry poller on the CURRENT running
+        event loop -- same shape as kernel/edge/livekit_adapter.py::
+        LiveKitVoiceObservationProvider.start(), and for the same reason:
+        latest_state() below must stay synchronous and non-blocking to
+        satisfy kernel/pipeline/observations.py::WorldPollingProvider's
+        contract (Px4RosExecutionAdapter.latest_state() is a plain
+        attribute read, called from inside a tick), so the actual GET
+        /state HTTP call happens here, in a background task, not inline.
+        actor_runtime.py calls this right after register_drone_adapter()
+        registers this same object -- never raises; a failure to start
+        just means latest_state() stays None (no telemetry), matching
+        every other "no adapter registered" outcome observations.py
+        already handles.
+        """
+        if self._poll_task is not None:
+            return
+        try:
+            import asyncio
+
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.warning(
+                "RemoteRosExecutionAdapter.start() called outside a running event loop for actor %s — telemetry polling will not run",
+                self.actor_id,
+            )
+            return
+        self._poll_task = loop.create_task(self._poll_loop())
+
+    async def _poll_loop(self) -> None:
+        import asyncio
+
+        import httpx
+
+        try:
+            while True:
+                try:
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        resp = await client.get(f"{self._base_url}/state")
+                        resp.raise_for_status()
+                        raw = resp.json().get("state")
+                    self._cached_state = self._state_from_json(raw) if raw is not None else None
+                except Exception:
+                    # Transient poll failure -- never surfaced as a crash,
+                    # same "next poll tries again" posture as
+                    # LiveKitVoiceObservationProvider._poll_once(). The
+                    # last-known cached state simply goes stale and
+                    # is_fresh() (drone_state.py) naturally stops emitting
+                    # it once it's more than 5s old.
+                    logger.info("RemoteRosExecutionAdapter: telemetry poll failed", exc_info=True)
+                await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            raise
+
+    @staticmethod
+    def _state_from_json(raw: dict[str, Any]) -> Any:
+        from .drone_state import DroneState
+
+        # ros-bridge's own GET /state (ros_bridge_server.py) serializes a
+        # real DroneState via dataclasses.asdict() -- reconstructing by
+        # keyword here, not positionally, so an added/reordered field on
+        # either side can never silently swap two values.
+        return DroneState(**raw)
+
+    def latest_state(self) -> Any:
+        """Duck-types Px4RosExecutionAdapter.latest_state() (kernel/edge/
+        drone_state.py's DroneState | None contract) so this SAME adapter
+        object -- already registered via register_drone_adapter() for its
+        .invoke() capability -- also satisfies WorldPollingProvider's
+        telemetry read, closing the gap start()'s own docstring
+        describes. Returns whatever the last successful poll cached;
+        never blocks, never raises."""
+        return self._cached_state
 
     async def invoke(self, *, capability: str, parameters: dict[str, Any]) -> dict[str, Any]:
         import httpx
 
-        # Generous timeout: must cover Px4RosExecutionAdapter's own
-        # longest real wait (_LAND_TIMEOUT_S=45 in px4_ros_adapter.py) with
-        # margin, not just typical request latency.
+        # Generous timeout: must cover Px4RosExecutionAdapter's own longest
+        # real wait with margin, not just typical request latency. Confirmed
+        # live this margin was wrong: px4_ros_adapter.py's own defaults are
+        # _ARM_TIMEOUT_S=15, _TAKEOFF_TIMEOUT_S=60, _WAYPOINT_TIMEOUT_S=90,
+        # _LAND_TIMEOUT_S=120 (the "_LAND_TIMEOUT_S=45" this comment used to
+        # cite was stale) -- a client timeout equal to or below any of
+        # those turns a clean, informative server-side "did not reach
+        # altitude/waypoint/disarm within Ns" JSON response into an opaque
+        # httpx.ReadTimeout with an EMPTY message ("ros-bridge call failed:
+        # ") on the actor side, racing against the server's own wait
+        # instead of comfortably outlasting it. 150.0 clears the largest
+        # (120.0) with real margin.
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=150.0) as client:
                 response = await client.post(
                     f"{self._base_url}/invoke",
                     json={"capability": capability, "parameters": parameters},

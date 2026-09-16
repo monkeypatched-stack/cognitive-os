@@ -182,7 +182,14 @@ _SYSTEM_PROMPT = (
     'you can see on that entity in the facts (e.g. "quantity", '
     '"is_open"), never an invented field name. '
     "If 'Takeoff', 'Waypoint', and/or 'Land' are in the available actions "
-    "(a robot/drone actor), extract the REAL numbers the user actually "
+    "(a robot/drone actor): the vehicle starts DISARMED, and 'Takeoff' "
+    "does not arm it — 'Arm' is its own separate, required first step "
+    "whenever the goal involves flying at all (taking off, flying to a "
+    "waypoint, hovering, landing). Confirmed live: leaving 'Arm' out of "
+    "the plan means 'Takeoff' waits the full timeout for an altitude the "
+    "vehicle can never reach, because it was never armed — a plan that "
+    "flies MUST start with 'Arm', then 'Takeoff', before any 'Waypoint'. "
+    "Also extract the REAL numbers the user actually "
     'gave you and put them in that step\'s own "parameters" — do NOT '
     'leave "parameters" as {} for these the way you would for an '
     "action that genuinely takes none (like 'OrderCreation' above); a "

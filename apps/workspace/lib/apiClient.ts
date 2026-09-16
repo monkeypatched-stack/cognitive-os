@@ -32,6 +32,26 @@ export class ApiError extends Error {
 // does that yet.
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// Deduped across concurrent callers -- this page polls half a dozen
+// endpoints every couple seconds, and each would otherwise independently
+// hit the 401 below the same instant an access token expires (see
+// authStore.ts::refreshAccessToken's own comment on ACCESS_TOKEN_EXPIRE_
+// MINUTES=15), racing to rotate the same single-use refresh token. One
+// in-flight refresh is shared by all of them instead.
+let refreshPromise: Promise<string> | null = null;
+
+function refreshAccessTokenOnce(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = useAuthStore
+      .getState()
+      .refreshAccessToken()
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 async function request<T>(base: string, path: string, init?: RequestInit): Promise<T> {
   const token = useAuthStore.getState().token;
   const headers = new Headers(init?.headers);
@@ -40,7 +60,22 @@ async function request<T>(base: string, path: string, init?: RequestInit): Promi
   if (MUTATING_METHODS.has(method) && !headers.has("Idempotency-Key")) {
     headers.set("Idempotency-Key", crypto.randomUUID());
   }
-  const res = await fetch(`${base}${path}`, { ...init, headers });
+  let res = await fetch(`${base}${path}`, { ...init, headers });
+  // A 401 on an already-authenticated request means the access token
+  // aged out mid-session (15-minute TTL), not that the caller was never
+  // logged in -- try the real recovery (refresh cookie) once before
+  // giving up. Any failure there (cookie missing/revoked/expired) means
+  // the session is genuinely over: log out so RequireAuth bounces to
+  // /login instead of every poller silently failing forever.
+  if (res.status === 401 && token) {
+    try {
+      const freshToken = await refreshAccessTokenOnce();
+      headers.set("Authorization", `Bearer ${freshToken}`);
+      res = await fetch(`${base}${path}`, { ...init, headers });
+    } catch {
+      useAuthStore.getState().logout();
+    }
+  }
   if (!res.ok) {
     throw new ApiError(`${init?.method ?? "GET"} ${path} -> ${res.status}`, res.status);
   }

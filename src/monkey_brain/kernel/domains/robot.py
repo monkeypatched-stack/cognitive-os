@@ -140,6 +140,15 @@ class ArmCapability(_Px4MissionCapabilityBase):
     VEHICLE_CMD_COMPONENT_ARM_DISARM(p1=1.0) exactly."""
 
     name = "Arm"
+    # Surfaced in the planner's "Available actions" prompt (context_engine.py's
+    # _retrieve_available_capabilities) -- confirmed live that without this,
+    # a real plan for "take off and hover" never included an Arm step at
+    # all: Px4RosExecutionAdapter.invoke()'s own Takeoff branch never arms
+    # (that's Arm's job, a separately governed capability on purpose), so
+    # the vehicle sat disarmed for the plan's entire Takeoff wait budget.
+    # Nothing in the bare capability name told the model these are two
+    # required, ordered steps rather than one.
+    description = "arms the vehicle; required before Takeoff will climb"
 
 
 class TakeoffCapability(_Px4MissionCapabilityBase):
@@ -148,6 +157,7 @@ class TakeoffCapability(_Px4MissionCapabilityBase):
     envelope, so the cap is a sanity bound, not a certified limit)."""
 
     name = "Takeoff"
+    description = "climbs to altitude; the vehicle must already be armed (call Arm first)"
 
     def _validate(self, parameters: dict) -> tuple[dict, str]:
         height_m, error = _validate_number(
@@ -166,6 +176,7 @@ class WaypointCapability(_Px4MissionCapabilityBase):
     by Px4RosExecutionAdapter._position_setpoint) at a validated altitude."""
 
     name = "Waypoint"
+    description = "flies to an (x, y) offset at altitude; the vehicle must already be airborne (Takeoff first)"
 
     def _validate(self, parameters: dict) -> tuple[dict, str]:
         x, error = _validate_number(
@@ -200,6 +211,7 @@ class LandCapability(_Px4MissionCapabilityBase):
     Px4RosExecutionAdapter's VEHICLE_CMD_NAV_LAND exactly."""
 
     name = "Land"
+    description = "lands and disarms at the current position; ends the flight"
 
 
 def _find_actor_belief(context: dict, actor_id: str) -> Any:

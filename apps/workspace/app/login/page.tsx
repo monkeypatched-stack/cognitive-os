@@ -172,7 +172,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "authenticated") router.replace("/goals");
+    if (status === "authenticated") router.replace("/drone-flight");
   }, [status, router]);
 
   if (status === "authenticated") return null;

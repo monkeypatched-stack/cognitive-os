@@ -1149,12 +1149,31 @@ class ContextConstructionEngine:
                 bus = resolve_vertical("grocery").bus
             except Exception:
                 return ()
+
+        # Rendered verbatim in the prompt (llm_planner.py's own "a step's
+        # 'action' must be one of these, verbatim" instruction) -- append
+        # each capability's own optional .description class attribute
+        # ("Name: description") when it has one, bare "Name" otherwise, so
+        # plan-validation/step.action matching elsewhere (which compares
+        # against the bare name, e.g. robot.py's PX4 action classes'
+        # .name) is unaffected either way, since it never reads THIS
+        # tuple, only the plan the model returns. Confirmed live this was
+        # a real gap for the PX4 vertical specifically: a bare "Arm"/
+        # "Takeoff" name list gave the model no reason to think these were
+        # two required, ordered steps rather than one -- see robot.py's
+        # ArmCapability/TakeoffCapability .description text for the fix.
+        def _describe(n: str) -> str:
+            description = getattr(bus.discover(n), "description", None)
+            return f"{n}: {description}" if description else n
+
         names = (name for name in bus.names() if callable(getattr(bus.discover(name), "handle", None)))
         if os.environ.get("ACTOR_NODE_CLASS", "cloud") == "robot":
             return tuple(
-                n for n in names if n in _ROBOT_CAPABILITY_NAMES or n in _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES
+                _describe(n)
+                for n in names
+                if n in _ROBOT_CAPABILITY_NAMES or n in _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES
             )
-        return tuple(n for n in names if n not in _ROBOT_CAPABILITY_NAMES)
+        return tuple(_describe(n) for n in names if n not in _ROBOT_CAPABILITY_NAMES)
 
     def _retrieve_actor_profile(self, actor_id: str) -> Any:
         if self._planetary_runtime is None:

@@ -2850,14 +2850,22 @@ async def add_actor_goal(
     genuinely preempts on the very next tick) — this route is the
     thin, permission-gated adapter exposing it, mirroring PATCH's own
     goals-plus-_save_actors persistence pattern above so a newly added
-    goal survives a server restart, not just this process's lifetime."""
+    goal survives a server restart, not just this process's lifetime.
+
+    Also calls SocietyRuntime.tick_one_actor() right after add_goal(),
+    exactly like VoiceCommandRuntime._handle_transcript() does for a
+    spoken command (kernel/edge/voice_command_runtime.py) — confirmed
+    live that without this, a goal queued here just sits there: nothing
+    else in this deployment ticks a drone actor on its own cadence, so
+    add_goal() alone queues a mission that never actually flies until
+    something else happens to tick that actor."""
     pr = _get_planetary_runtime(request)
     if pr is None:
         raise HTTPException(status_code=503, detail="PlanetaryRuntime not available")
     found = _find_actor_state(pr, actor_id)
     if found is None:
         raise HTTPException(status_code=404, detail=f"Actor {actor_id} not found")
-    _, state = found
+    sr, state = found
     goal_text = body.goal.strip()
     existing_goals = list(state.profile.goals) if state.profile.goals else []
     changed = False
@@ -2876,7 +2884,53 @@ async def add_actor_goal(
     if changed:
         state.profile = dataclasses.replace(state.profile, goals=tuple(existing_goals))
         pr._save_actors()
+    if state.actor_runtime is not None:
+        await sr.tick_one_actor(actor_id)
     return ActorGoalsResponse(actor_id=actor_id, goals=existing_goals)
+
+
+class ActorPromptRequest(BaseModel):
+    question: str
+
+
+@router.post("/actors/{actor_id}/prompt", tags=["Actors"])
+@idempotent("actors.prompt_actor")
+async def prompt_actor(
+    actor_id: str,
+    body: ActorPromptRequest,
+    user_id: str = Depends(require_self_or_permission("perm-execute-actors")),
+    _agent: dict = Depends(require_opa("agentos/routes/allow", action="execute", resource="actor")),
+) -> dict[str, Any]:
+    """Sends a fresh natural-language mission straight to actor_id's own
+    dedicated actor Pod (actor_runtime.py's own POST /prompt,
+    kernel/edge/actor_prompt_forwarder.py) — the real front door for "give
+    this actor a new mission right now", same call
+    VoiceCommandRuntime._handle_transcript() now makes for a spoken
+    command (kernel/edge/voice_command_runtime.py), just reachable with
+    typed/edited text. Deliberately NOT the same mechanism POST
+    /actors/{id}/goals above uses (add_goal()+tick_one_actor() against
+    THIS process's own PlanetaryRuntime) — for a robot-class actor like a
+    drone, that process is a separate dedicated Pod with its own
+    ROS_ADAPTER_KIND/ROS_BRIDGE_URL bindings this shared control-plane
+    process doesn't have, so only that Pod's own PlanetaryRuntime can
+    actually fly it (see actor_prompt_forwarder.py's own module
+    docstring)."""
+    from src.monkey_brain.kernel.edge.actor_prompt_forwarder import (
+        ActorPromptForwardError,
+        forward_prompt_to_actor_pod,
+    )
+
+    try:
+        result = await forward_prompt_to_actor_pod(actor_id, body.question)
+    except ActorPromptForwardError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {
+        "actor_id": actor_id,
+        "question": body.question,
+        "goal_achieved": result.get("goal_achieved"),
+        "actions": result.get("actions") or [],
+        "plan": result.get("plan"),
+    }
 
 
 @router.get(

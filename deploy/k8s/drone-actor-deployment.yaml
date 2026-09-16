@@ -187,11 +187,17 @@ spec:
             # 137, kubelet-driven restart, not an OOM), aborting real PX4
             # execution partway through and making a genuinely-correct
             # plan (verified via direct log inspection) look like it flew
-            # nowhere. 10 gives 300s of tolerance -- matches the order of
-            # magnitude of _ACTOR_POD_FORWARD_TIMEOUT_SEC (prompt.py) and
-            # Kong's own agentos-service gateway timeout (kong.yml), not
-            # an arbitrarily large number.
-            failureThreshold: 10
+            # nowhere. Raised again (10 -> 16, 300s -> 480s tolerance) once
+            # a plan reliably started including the previously-missing Arm
+            # step (kernel/domains/robot.py's ArmCapability.description
+            # fix): a real Arm+Takeoff+2xWaypoint+Land mission now
+            # legitimately runs past 300s too. Still matches the order of
+            # magnitude of _ACTOR_POD_FORWARD_TIMEOUT_SEC (actor_prompt_
+            # forwarder.py, 450s) and Kong's own agentos-service gateway
+            # timeout (kong.yml, 480s), not an arbitrarily large number --
+            # see actor_prompt_forwarder.py's own DEFAULT_TIMEOUT_SEC
+            # comment for the full timeout chain this must stay above.
+            failureThreshold: 16
           readinessProbe:
             httpGet:
               path: /ready

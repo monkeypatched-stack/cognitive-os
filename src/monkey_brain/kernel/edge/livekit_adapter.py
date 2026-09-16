@@ -9,25 +9,27 @@ Two responsibilities, both real:
   - `LiveKitVoiceObservationProvider` implements kernel/pipeline/
     observations.py's `ObservationProvider` Protocol — the actor-side
     perception contract already existed (WorldPollingProvider was its only
-    implementation before this). It joins a LiveKit room, buffers incoming
-    audio in fixed windows, transcribes each window via the same Whisper
-    primitive WhisperAudioEmbedder already uses (kernel/plan/embedding/
-    audio.py) — reused directly here since this is a streaming observation,
-    not the batch/retrieval embedding use case that module's own wrapper is
-    shaped for — and emits one Observation per non-empty transcript.
+    implementation before this). It does NOT join the room or run Whisper
+    itself anymore — it's an HTTP client to a separate native macOS
+    process, scripts/voice_service/transcription_service.py, which does
+    the real work (LiveKit room join, Silero VAD utterance segmentation,
+    mlx-whisper inference on Metal). Moved out-of-process because Docker
+    Desktop's Linux VM has no GPU passthrough to Apple's Metal/MPS at all
+    — mlx-whisper's "medium" model needs it to be fast, same reason
+    llama-server (this pipeline's LLM planner backend) also runs natively
+    on the Mac rather than as a k8s sidecar. This class emits one
+    Observation per non-empty transcript the remote service reports.
   - `create_livekit_room_token()` mints a real LiveKit room-join token via
     the official livekit-api SDK (LiveKit's own server rejects anything not
     in its own signed JWT grant format — a home-grown token, even one
     shaped like kernel/security_boundary.py's, would not work here). The
     short-TTL, scoped-claims, spiffe-style-identity shape still follows
     domains/.../services/auth/helpers/agent_tokens.py::create_pipeline_token
-    — that's the pattern being mirrored, not the wire format.
-
-MVP scope (see the gap-fixing plan this was built from): one voice
-ObservationProvider, fixed-window transcription (not true VAD-based
-utterance detection), single audio track per room. Multi-track/video and
-composing this with other ObservationProviders for the same actor are
-explicitly out of scope here.
+    — that's the pattern being mirrored, not the wire format. Still used
+    for the browser's own join token (api/routes/voice.py) and by the
+    video adapter — the remote transcription service mints its own
+    listener-participant token directly against LIVEKIT_API_KEY/SECRET,
+    since it isn't this process and can't call this function.
 """
 
 from __future__ import annotations
@@ -37,7 +39,6 @@ import logging
 import os
 from datetime import timedelta
 import threading
-import time
 from typing import Any
 
 from src.introspection.otel_bridge import get_bridge
@@ -53,8 +54,16 @@ LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "")
 LIVEKIT_API_KEY = os.environ.get("LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "")
 
-_AUDIO_WINDOW_SECONDS = 4.0
-_TARGET_SAMPLE_RATE = 16000
+# scripts/voice_service/transcription_service.py's own base URL -- a
+# native macOS process (host.docker.internal from inside this pod), not
+# another in-cluster Service. See that module's own docstring for why.
+VOICE_TRANSCRIPTION_SERVICE_URL = os.environ.get("VOICE_TRANSCRIPTION_SERVICE_URL", "")
+
+# How often this class polls the remote service for freshly finished
+# utterances -- the remote service itself decides utterance boundaries via
+# Silero VAD, this is just the drain cadence, so it only needs to be
+# reasonably prompt, not aligned to any fixed window anymore.
+_REMOTE_POLL_INTERVAL_SECONDS = 1.0
 
 
 class LiveKitUnavailableError(RuntimeError):
@@ -98,36 +107,30 @@ def create_livekit_room_token(
 
 class LiveKitVoiceObservationProvider:
     """ObservationProvider (kernel/pipeline/observations.py) backed by a
-    live LiveKit room's audio.
+    live LiveKit room's audio, transcribed by a separate native macOS
+    process (scripts/voice_service/transcription_service.py) reached over
+    HTTP -- see this module's own docstring for why that's a separate
+    process rather than in-process Whisper here.
 
     `observe()` itself must stay synchronous and non-blocking to satisfy
     the Protocol (matching WorldPollingProvider's contract) — the actual
-    room connection and transcription run in a background asyncio task
+    remote-session lifecycle and polling run in a background asyncio task
     started by `start()`; `observe()` only drains whatever transcripts that
-    background task has already produced since the last call.
+    background task has already pulled from the remote service since the
+    last call.
     """
 
-    def __init__(
-        self, room_name: str, *, participant_identity: str = "cognitiveos-listener", whisper_model: str = "tiny"
-    ) -> None:
-        try:
-            from livekit import rtc  # noqa: F401  (import-availability check only)
-        except ImportError as exc:
-            raise LiveKitUnavailableError(
-                "LiveKitVoiceObservationProvider requires the livekit package (pyproject.toml's 'livekit' extra)"
-            ) from exc
-
+    def __init__(self, room_name: str, *, participant_identity: str = "cognitiveos-listener") -> None:
         self._room_name = room_name
         self._participant_identity = participant_identity
-        self._whisper_model_size = whisper_model
-        self._whisper_model: Any = None
         self._buffer: list[Observation] = []
         self._lock = threading.Lock()
         self._task: asyncio.Task | None = None
+        self._remote_session_id: str | None = None
 
     def start(self) -> None:
-        """Launch the background room listener on the CURRENT running event
-        loop. Must be called from async startup code (e.g. when an actor's
+        """Launch the background poller on the CURRENT running event loop.
+        Must be called from async startup code (e.g. when an actor's
         CognitiveRuntime is constructed inside an async route handler) —
         never raises; a failure to start just means observe() stays empty."""
         if self._task is not None:
@@ -145,124 +148,104 @@ class LiveKitVoiceObservationProvider:
         if self._task is not None:
             self._task.cancel()
             self._task = None
+        if self._remote_session_id is not None and VOICE_TRANSCRIPTION_SERVICE_URL:
+            import httpx
+
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    await client.delete(f"{VOICE_TRANSCRIPTION_SERVICE_URL}/sessions/{self._remote_session_id}")
+            except Exception:
+                logger.debug("LiveKitVoiceObservationProvider: remote session cleanup failed", exc_info=True)
+            self._remote_session_id = None
 
     async def _run(self) -> None:
-        from livekit import rtc
-
-        if not LIVEKIT_URL:
-            logger.error("LIVEKIT_URL not set — LiveKitVoiceObservationProvider cannot connect")
-            return
-
-        token = create_livekit_room_token(self._room_name, self._participant_identity, can_publish=False)
-        room = rtc.Room()
-
-        @room.on("track_subscribed")
-        def _on_track_subscribed(track: Any, publication: Any, participant: Any) -> None:
-            if track.kind == rtc.TrackKind.KIND_AUDIO:
-                asyncio.ensure_future(self._consume_audio_track(track, participant))
-
-        try:
-            await room.connect(LIVEKIT_URL, token)
-            logger.info("LiveKitVoiceObservationProvider connected to room %r", self._room_name)
-            while True:
-                await asyncio.sleep(3600)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("LiveKitVoiceObservationProvider room connection failed")
-        finally:
-            await room.disconnect()
-
-    async def _consume_audio_track(self, track: Any, participant: Any) -> None:
-        from livekit import rtc
-
-        audio_stream = rtc.AudioStream(track)
-        frames: list[Any] = []
-        window_started = time.monotonic()
-
-        try:
-            async for event in audio_stream:
-                frame = event.frame
-                frames.append(frame)
-                if time.monotonic() - window_started >= _AUDIO_WINDOW_SECONDS:
-                    await self._transcribe_window(frames, participant)
-                    frames = []
-                    window_started = time.monotonic()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception(
-                "LiveKitVoiceObservationProvider audio consumption failed for participant %r",
-                getattr(participant, "identity", "?"),
+        if not VOICE_TRANSCRIPTION_SERVICE_URL:
+            logger.error(
+                "VOICE_TRANSCRIPTION_SERVICE_URL not set — LiveKitVoiceObservationProvider cannot start a remote session"
             )
-
-    async def _transcribe_window(self, frames: list[Any], participant: Any) -> None:
-        if not frames:
             return
-        # voice.transcription (spec's own event name) -- one span per
-        # _AUDIO_WINDOW_SECONDS (4s) window, never per audio frame/sample.
-        # No raw audio in the span (only a duration and a transcript
-        # LENGTH, never transcript text itself, matching "don't put
-        # sensitive raw prompts/transcripts into telemetry by default").
+
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{VOICE_TRANSCRIPTION_SERVICE_URL}/sessions",
+                    json={"room": self._room_name, "participant_identity": self._participant_identity},
+                )
+                resp.raise_for_status()
+                self._remote_session_id = resp.json()["session_id"]
+            logger.info(
+                "LiveKitVoiceObservationProvider started remote transcription session %s for room %r",
+                self._remote_session_id,
+                self._room_name,
+            )
+            while True:
+                await asyncio.sleep(_REMOTE_POLL_INTERVAL_SECONDS)
+                await self._poll_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("LiveKitVoiceObservationProvider: failed to start remote transcription session")
+
+    async def _poll_once(self) -> None:
+        if self._remote_session_id is None:
+            return
+        import httpx
+
+        # voice.transcription (spec's own event name) -- one span per poll
+        # that actually finds new transcripts, not per audio frame/window
+        # anymore (utterance boundaries are the remote service's own Silero
+        # VAD decision now, not a fixed timer here). No raw audio or
+        # transcript text in the span, only counts/lengths, matching
+        # "don't put sensitive raw prompts/transcripts into telemetry by
+        # default".
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{VOICE_TRANSCRIPTION_SERVICE_URL}/sessions/{self._remote_session_id}/transcripts"
+                )
+                resp.raise_for_status()
+                transcripts = resp.json().get("transcripts", [])
+        except Exception:
+            # Transient poll failure -- never surfaced as a crash, matches
+            # this class's pre-existing "never raise" contract for its
+            # background task. The next poll tries again.
+            logger.debug("LiveKitVoiceObservationProvider: poll failed", exc_info=True)
+            return
+
+        if not transcripts:
+            return
+
         with get_bridge().span(
             "voice.transcription",
             layer="realtime",
-            participant=str(getattr(participant, "identity", self._participant_identity)),
+            participant=self._participant_identity,
         ) as span:
-            try:
-                waveform = _frames_to_waveform(frames, _TARGET_SAMPLE_RATE)
-                if waveform is None or waveform.size == 0:
-                    span.set_attribute("outcome", "empty_waveform")
-                    return
-
-                loop = asyncio.get_running_loop()
-                transcript = await loop.run_in_executor(None, self._transcribe_sync, waveform)
-                transcript = (transcript or "").strip()
-                span.set_attribute("transcript_length", len(transcript))
-                if not transcript:
-                    span.set_attribute("outcome", "empty_transcript")
-                    return
-
-                observation = Observation(
-                    entity=getattr(participant, "identity", self._participant_identity),
-                    attribute="voice_transcript",
-                    value=transcript,
-                    confidence=0.7,
-                    provenance=Provenance(source="livekit_voice", method="whisper_transcribe", reliability=0.7),
-                )
-                with self._lock:
-                    self._buffer.append(observation)
-                span.set_attribute("outcome", "ok")
-            except Exception as exc:
-                # Deliberately NOT re-raised — matches this method's own
-                # pre-existing "never crash the runtime" contract:
-                # _consume_audio_track's own try/except would otherwise see
-                # this propagate and abort the WHOLE audio stream for this
-                # participant, not just skip one window. Recorded on the
-                # span directly (not via letting get_bridge().span()'s own
-                # exception path re-raise) so the span still shows as
-                # failed without changing that contract.
-                logger.exception("LiveKitVoiceObservationProvider transcription failed")
-                span.set_attribute("outcome", "error")
-                span.record_exception(exc)
-                get_bridge().emit_counter("voice.transcription.failed")
-
-    def _transcribe_sync(self, waveform: Any) -> str:
-        """Runs in a worker thread (via run_in_executor) — Whisper's
-        transcribe() is a blocking call, same as WhisperAudioEmbedder's own
-        usage (kernel/plan/embedding/audio.py)."""
-        import whisper
-
-        if self._whisper_model is None:
-            self._whisper_model = whisper.load_model(self._whisper_model_size)
-        result = self._whisper_model.transcribe(waveform)
-        return str(result.get("text", ""))
+            span.set_attribute("transcript_count", len(transcripts))
+            with self._lock:
+                for item in transcripts:
+                    text = (item.get("text") or "").strip()
+                    if not text:
+                        continue
+                    self._buffer.append(
+                        Observation(
+                            entity=self._participant_identity,
+                            attribute="voice_transcript",
+                            value=text,
+                            confidence=0.7,
+                            provenance=Provenance(
+                                source="livekit_voice", method="mlx_whisper_transcribe", reliability=0.7
+                            ),
+                        )
+                    )
 
     def observe(self, actor_id: str, world: Any) -> ObservationSet:
         """Never raises — matches WorldPollingProvider's contract. Drains
-        whatever transcripts the background room listener has produced
-        since the last call; empty when nothing was said, the room isn't
-        connected yet, or livekit is unreachable."""
+        whatever transcripts the background poller has pulled from the
+        remote transcription service since the last call; empty when
+        nothing was said, the remote session isn't up yet, or that service
+        is unreachable."""
         try:
             with self._lock:
                 observations = tuple(self._buffer)
@@ -271,33 +254,3 @@ class LiveKitVoiceObservationProvider:
             logger.debug("observe: suppressed exception", exc_info=True)
             observations = ()
         return ObservationSet(observations=observations, actor_id=actor_id)
-
-
-def _frames_to_waveform(frames: list[Any], target_sr: int) -> Any:
-    """Concatenate LiveKit AudioFrame.data (int16 PCM) into one mono
-    float32 waveform, resampled to target_sr — same target_sr convention
-    kernel/plan/embedding/audio.py::_load_waveform uses."""
-    import numpy as np
-
-    chunks = []
-    source_sr = target_sr
-    for frame in frames:
-        data = np.frombuffer(frame.data, dtype=np.int16).astype(np.float32) / 32768.0
-        if getattr(frame, "num_channels", 1) > 1:
-            data = data.reshape(-1, frame.num_channels).mean(axis=1)
-        chunks.append(data)
-        source_sr = getattr(frame, "sample_rate", target_sr)
-
-    if not chunks:
-        return None
-    waveform = np.concatenate(chunks)
-
-    if source_sr != target_sr:
-        try:
-            import resampy
-
-            waveform = resampy.resample(waveform, source_sr, target_sr)
-        except ImportError:
-            logger.debug("resampy not available — transcribing at source sample rate %d", source_sr)
-
-    return waveform
