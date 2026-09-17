@@ -1,28 +1,29 @@
-# CognitiveOS Drone Actor — a robot-class Actor Cell. Same TEMPLATE
-# precedent as actor-deployment.yaml (render once PER drone actor_id via
-# envsubst, apply directly — not part of kustomization.yaml's static base).
+# CognitiveOS Ground Actor — a robot-class Actor Cell, the ground-vehicle
+# analog of deploy/k8s/drone-actor-deployment.yaml. Same TEMPLATE precedent
+# as actor-deployment.yaml (render once PER ground-robot actor_id via
+# envsubst, apply directly -- not part of kustomization.yaml's static base).
 #
-# The PX4 simulator (px4-sitl, xrce-agent, mavlink-heartbeat) and the ROS
-# 2/rclpy bridge to it (ros-bridge) now live in a SEPARATE Pod/Deployment
-# (deploy/k8s/px4-sim-deployment.yaml, same ACTOR_ID) — this Pod contains
-# ONLY the CognitiveOS actor itself, back on the plain, unmodified
+# The Nav2 simulator (Gazebo + TurtleBot3 + Nav2 bringup) and the ROS 2/
+# rclpy bridge to it (ros-bridge) live in a SEPARATE Pod/Deployment
+# (deploy/k8s/nav2-sim-deployment.yaml, same ACTOR_ID) -- this Pod contains
+# ONLY the CognitiveOS actor itself, the plain, unmodified
 # monkeybrain/agentos:latest image every non-robot actor already uses (no
 # ROS 2 baked in at all). It reaches the ROS bridge over plain HTTP via
 # that Deployment's own Service (kernel/edge/ros_integration.py::
-# RemoteRosExecutionAdapter, ROS_ADAPTER_KIND=remote_http below) — this
-# avoids ever needing cross-Pod ROS 2 DDS discovery (kindnet does not
-# guarantee multicast across Pods, and this repo has no Discovery-Server/
-# static-peers configuration to work around that); only the already-
-# governed HTTP call to ros-bridge crosses a Pod boundary, and plain
-# unicast TCP has no such discovery dependency.
+# RemoteRosExecutionAdapter, unchanged -- already vehicle-agnostic,
+# ROS_ADAPTER_KIND=remote_http below) -- same "avoids cross-Pod ROS 2 DDS
+# discovery entirely" reasoning drone-actor-deployment.yaml's own header
+# gives.
 #
-#   ACTOR_ID=drone-a ACTOR_ARTIFACT_VERSION=1.0.0 \
+#   ACTOR_ID=ground-a ACTOR_ARTIFACT_VERSION=1.0.0 \
 #     envsubst '${ACTOR_ID} ${ACTOR_ARTIFACT_VERSION}' \
-#     < deploy/k8s/drone-actor-deployment.yaml | kubectl apply -f -
+#     < deploy/k8s/ground-actor-deployment.yaml | kubectl apply -f -
 #
-# Must be applied for the SAME ACTOR_ID as a px4-sim-deployment.yaml
+# Must be applied for the SAME ACTOR_ID as a nav2-sim-deployment.yaml
 # rendering (ROS_BRIDGE_URL below points at that Deployment's Service by
-# name) — this Pod alone cannot fly anything.
+# name) -- this Pod alone cannot drive anything. Pick an ACTOR_ID distinct
+# from any drone actor's (e.g. "ground-a", not "drone-a") -- see
+# nav2-sim-deployment.yaml's own header for why.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,7 +31,7 @@ metadata:
   namespace: monkeybrain
   labels:
     app: cognitiveos-actor
-    component: drone-actor-runtime
+    component: ground-actor-runtime
     actor-id: "${ACTOR_ID}"
     node-class: "robot"
 spec:
@@ -65,20 +66,15 @@ spec:
               done
       containers:
         - name: cognitiveos-actor
-          # Back on the plain image (no ROS 2 baked in) — ROS execution
-          # now happens in the separate px4-sim-${ACTOR_ID} Pod's
-          # ros-bridge container, reached over HTTP (ROS_ADAPTER_KIND=
-          # remote_http below), so this container never imports rclpy at
-          # all. See this file's own header for why.
+          # Back on the plain image (no ROS 2 baked in) -- ROS execution
+          # happens in the separate nav2-sim-${ACTOR_ID} Pod's ros-bridge
+          # container, reached over HTTP (ROS_ADAPTER_KIND=remote_http
+          # below), so this container never imports rclpy at all.
           image: monkeybrain/agentos:latest
           imagePullPolicy: IfNotPresent
           # docker/Dockerfile.base's own default CMD runs the CLOUD
-          # control-plane app (src.monkey_brain.api.main:app), not the
-          # per-actor runtime -- same override actor-deployment.yaml
-          # already uses for this exact image. Needed here now that this
-          # container is back on the plain image (agentos-robot:latest's
-          # own CMD used to point at actor_runtime.py directly, which is
-          # why this override wasn't needed before the ROS split).
+          # control-plane app -- same override drone-actor-deployment.yaml
+          # already uses for this exact image.
           command:
             - python
             - -m
@@ -99,58 +95,52 @@ spec:
               value: "${ACTOR_ID}"
             - name: ACTOR_NODE_CLASS
               value: "robot"
-            # Narrows this actor's own planner prompt to PX4-only
+            # Narrows this actor's own planner prompt to Nav2-only
             # capability names (kernel/pipeline/planning/context_engine.py
-            # _retrieve_available_capabilities) -- added alongside the
-            # same fix on deploy/k8s/ground-actor-deployment.yaml, for the
-            # same reason in reverse: without this, a drone's planner also
-            # sees the ground robot's NavigateToPose/Stop names as
-            # "available" and could hallucinate one onto an otherwise-
-            # correct Arm/Takeoff/Waypoint/Land plan.
+            # _retrieve_available_capabilities) -- without this, a
+            # ground-robot planner also sees the PX4 drone's Arm/Takeoff/
+            # Waypoint/Land names as "available" and can hallucinate one
+            # onto an otherwise-correct NavigateToPose plan.
             - name: ROBOT_VEHICLE_KIND
-              value: "px4"
+              value: "nav2"
             - name: ACTOR_NODE_CAPACITY
               value: "1"
             - name: ACTOR_CLAIM_PLACEMENT
+              value: "true"
+            # First-time bring-up of this actor (see actor_runtime.py's own
+            # doc comment) -- ground-a has no existing Actor Registry
+            # record yet. Dev/test convenience, not for a real deployment
+            # re-registering an already-placed actor.
+            - name: ACTOR_BOOTSTRAP_IF_MISSING
               value: "true"
             - name: ACTOR_NODE_ID
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            # See actor-deployment.yaml's identical env var comment — a
-            # stable, deterministic node identity across restarts
-            # (PlanetaryRuntime otherwise generates a random one every
-            # restart, the real root cause of recurring lease-
-            # reconciliation churn on this exact actor).
+            # See drone-actor-deployment.yaml's identical env var comment --
+            # a stable, deterministic node identity across restarts.
             - name: COGNITIVEOS_NODE_ID
               value: "cognitiveos-actor-${ACTOR_ID}"
             - name: ACTOR_ARTIFACT_VERSION
               value: "${ACTOR_ARTIFACT_VERSION}"
-            # Real PX4 adapter selection (kernel/edge/ros_integration.py
+            # Real Nav2 adapter selection (kernel/edge/ros_integration.py
             # build_ros_execution_adapter) -- remote_http delegates
-            # invoke() over HTTP to the separate px4-sim-${ACTOR_ID} Pod's
-            # ros-bridge container instead of importing rclpy in-process
-            # (see this file's own header). ROS_BRIDGE_URL must match
-            # px4-sim-deployment.yaml's Service name for the SAME
-            # ACTOR_ID.
+            # invoke() over HTTP to the separate nav2-sim-${ACTOR_ID} Pod's
+            # ros-bridge container instead of importing rclpy in-process.
+            # ROS_BRIDGE_URL must match nav2-sim-deployment.yaml's Service
+            # name for the SAME ACTOR_ID.
             - name: ROS_ADAPTER_KIND
               value: "remote_http"
             - name: ROS_REQUIRE_REAL
               value: "true"
             - name: ROS_BRIDGE_URL
-              value: "http://px4-sim-${ACTOR_ID}.monkeybrain.svc.cluster.local:${ROS_BRIDGE_PORT}"
-            # See actor-deployment.yaml's identical env var comment — a
-            # containerized Ollama sidecar failed four times in this
+              value: "http://nav2-sim-${ACTOR_ID}.monkeybrain.svc.cluster.local:${ROS_BRIDGE_PORT}"
+            # See drone-actor-deployment.yaml's identical env var comment --
+            # a containerized Ollama sidecar failed repeatedly in this
             # environment. Points at this host's own native Ollama.
             - name: OLLAMA_BASE_URL
               value: "http://host.docker.internal:11434"
-            # See actor-deployment.yaml's identical env var comment --
-            # llama-server (llama.cpp) replaced Ollama as the default
-            # provider (configmap.yaml's MODEL_BACKEND).
             - name: LLAMACPP_BASE_URL
-              # Each actor has its own llama.cpp sidecar below.  Loopback is
-              # intentional: an actor must never silently share another
-              # actor's model server.
               value: "http://127.0.0.1:8080"
             - name: NEO4J_PASSWORD
               valueFrom:
@@ -173,8 +163,14 @@ spec:
                   name: agentos-secrets
                   key: internal-service-token
           volumeMounts:
+            # File-type hostPath bind-mounted onto the exact file path, NOT
+            # onto the /models directory -- confirmed live that mounting a
+            # file-type hostPath at mountPath: /models makes /models ITSELF
+            # become the file (matching the source), not a directory
+            # containing it, so llama-server's own --model /models/model.gguf
+            # failed with "failed to open GGUF file ... (Not a directory)".
             - name: actor-llm-model
-              mountPath: /models
+              mountPath: /models/model.gguf
           resources:
             requests:
               cpu: "100m"
@@ -189,24 +185,12 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 30
             timeoutSeconds: 5
-            # Confirmed live: a real multi-waypoint flight mission (climb
-            # to a real altitude, fly a real horizontal distance, return,
-            # land) legitimately runs 100-170+s end to end -- the generic
-            # actor-deployment.yaml's failureThreshold: 3 (90s tolerance)
-            # killed this Pod mid-mission via the liveness probe (exit
-            # 137, kubelet-driven restart, not an OOM), aborting real PX4
-            # execution partway through and making a genuinely-correct
-            # plan (verified via direct log inspection) look like it flew
-            # nowhere. Raised again (10 -> 16, 300s -> 480s tolerance) once
-            # a plan reliably started including the previously-missing Arm
-            # step (kernel/domains/robot.py's ArmCapability.description
-            # fix): a real Arm+Takeoff+2xWaypoint+Land mission now
-            # legitimately runs past 300s too. Still matches the order of
-            # magnitude of _ACTOR_POD_FORWARD_TIMEOUT_SEC (actor_prompt_
-            # forwarder.py, 450s) and Kong's own agentos-service gateway
-            # timeout (kong.yml, 480s), not an arbitrarily large number --
-            # see actor_prompt_forwarder.py's own DEFAULT_TIMEOUT_SEC
-            # comment for the full timeout chain this must stay above.
+            # See drone-actor-deployment.yaml's identical probe comment --
+            # a real multi-step mission (NavigateToPose can legitimately
+            # run to Nav2's own ~120s default timeout) needs the same
+            # generous tolerance a real PX4 mission needed, for the same
+            # reason: a legitimately-still-running action must never look
+            # like a hung Pod to the liveness probe.
             failureThreshold: 16
           readinessProbe:
             httpGet:
@@ -233,14 +217,36 @@ spec:
             - "8080"
             - "--model"
             - "/models/model.gguf"
+            # 4096 (drone-actor-deployment.yaml's own default) was too
+            # small -- confirmed live: this actor's real planner prompt
+            # (capability list + world facts + goal) is 4820 tokens,
+            # llama-server rejected it outright ("exceeds the available
+            # context size"), and planning silently produced an empty
+            # plan rather than a real capability call. gemma-3-4b-it
+            # supports up to 128K context; 8192 is a modest bump with
+            # real headroom, not the model's actual ceiling.
             - "--ctx-size"
-            - "4096"
+            - "8192"
+            # Confirmed live via this container's own startup log
+            # ("n_threads = 10"): llama-server defaults to one thread per
+            # host CPU, ignoring this container's own 2000m CPU limit
+            # below -- 10 threads contending for a 2-core cgroup quota is
+            # pure context-switch overhead, and (observed) starves
+            # concurrently-running pods (nav2-sim's real-time control
+            # loop) of scheduling latency even though llama-cpp's own
+            # cgroup CPU quota is what actually caps its throughput.
+            # Matching --threads to the CPU limit removes that overhead
+            # without changing llama-cpp's own throughput ceiling.
+            - "--threads"
+            - "2"
           ports:
             - containerPort: 8080
               name: llama-cpp
           volumeMounts:
+            # See the cognitiveos-actor container's own volumeMounts
+            # comment above -- same file-hostPath-onto-exact-path fix.
             - name: actor-llm-model
-              mountPath: /models
+              mountPath: /models/model.gguf
               readOnly: true
           readinessProbe:
             httpGet:

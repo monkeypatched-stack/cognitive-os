@@ -555,6 +555,24 @@ def build_ros_execution_adapter(*, actor_id: str = "", require_real: bool = Fals
             )
 
             return Px4RosExecutionAdapter(actor_id=actor_id, namespace=namespace)
+        if adapter_kind == "nav2":
+            # Ground-robot analog of the "px4" branch above, for a direct
+            # in-process rclpy deployment (docker/Dockerfile.robot's own
+            # embedded-rclpy topology). NAV2_NAMESPACE is optional (unlike
+            # PX4_NAMESPACE) -- Nav2RosExecutionAdapter defaults to the
+            # unnamespaced /navigate_to_pose action, which matches a
+            # single-robot nav2_bringup launch with no namespace configured.
+            # The k8s deployment this was built for (deploy/k8s/
+            # nav2-sim-deployment.yaml + ground-actor-deployment.yaml) uses
+            # ROS_ADAPTER_KIND=remote_http instead, same split-Pod pattern
+            # as the drone -- this branch exists for parity/future direct
+            # use, not because today's ground-robot deployment reaches it.
+            namespace = os.getenv("NAV2_NAMESPACE", "").strip()
+            from src.monkey_brain.kernel.edge.nav2_ros_adapter import (
+                Nav2RosExecutionAdapter,
+            )
+
+            return Nav2RosExecutionAdapter(actor_id=actor_id, namespace=namespace)
         return RclpyRosExecutionAdapter(actor_id=actor_id)
     except RosUnavailableError:
         raise

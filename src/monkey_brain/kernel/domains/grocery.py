@@ -141,6 +141,8 @@ def build_default_capability_bus() -> "GroceryCapabilityBus":
         CrashTestCapability,
         HeartbeatCapability,
         LandCapability,
+        NavigateToPoseCapability,
+        StopCapability,
         TakeoffCapability,
         WaypointCapability,
     )
@@ -161,6 +163,12 @@ def build_default_capability_bus() -> "GroceryCapabilityBus":
     # default (CRASH_TEST_MODE/SIMULATION_ONLY env vars default false) and
     # gated by governance regardless of what the planner selects.
     bus.register(CrashTestCapability())
+    # Ground-robot demo (Nav2, the tracked ground-vehicle analog of the PX4
+    # drone capabilities above): the two operations
+    # Nav2RosExecutionAdapter actually implements, selectable by the same
+    # LLM planner -- no invented capability, no separate dispatch path.
+    bus.register(NavigateToPoseCapability())
+    bus.register(StopCapability())
     grocery_capability_bundle(bus).validate()
     return bus
 

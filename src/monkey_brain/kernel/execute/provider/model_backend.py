@@ -305,7 +305,16 @@ class ModelBackend:
         messages.append({"role": "user", "content": prompt})
         import httpx
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        # 120.0 (this call's prior value) was too short -- confirmed live
+        # against a real robot-actor prompt (capability list + world
+        # facts, several thousand tokens of context): llama-server's own
+        # log showed the request cancelled by THIS client at exactly
+        # 120.0s mid-generation ("stop: cancel task"), not a server-side
+        # error. CPU prefill+generation for a 4B model over a multi-
+        # thousand-token prompt genuinely needs more headroom than that
+        # on modest hardware. 300.0 stays under CAPABILITY_TIMEOUT_SECONDS/
+        # KERNEL_PHASE_TIMEOUT's own much larger budgets (configmap.yaml).
+        async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(
                 f"{base_url}/v1/chat/completions",
                 json={
