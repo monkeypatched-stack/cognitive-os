@@ -42,6 +42,12 @@ COPY src/ ./src/
 # CPU-index pin) stopped masking it.
 COPY domains/manufacturing/knowledge/services/common/ ./services/common/
 COPY domains/manufacturing/knowledge/services/auth/ ./services/auth/
+# services/auth/routers/integration_config.py imports
+# services.module_control.helpers.integration_config -- that package lives
+# under this same domains/ path (see this file's own comment above) and was
+# missing from this COPY list, so the image built fine but crashed on
+# startup with ModuleNotFoundError: No module named 'services.module_control'.
+COPY domains/manufacturing/knowledge/services/module_control/ ./services/module_control/
 
 EXPOSE 8010
 

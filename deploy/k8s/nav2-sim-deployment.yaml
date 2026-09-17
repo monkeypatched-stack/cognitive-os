@@ -1,0 +1,231 @@
+# Nav2 Simulator — the physical (simulated) embodiment for one ground-robot
+# actor, the ground-vehicle analog of deploy/k8s/px4-sim-deployment.yaml.
+# Same TEMPLATE precedent as actor-deployment.yaml/px4-sim-deployment.yaml
+# (render once PER ground-robot actor_id via envsubst, apply directly --
+# not part of kustomization.yaml's static base).
+#
+#   nav2-sim    — Gazebo (headless, no GUI) + a stock TurtleBot3 spawned via
+#                 ros-jazzy-turtlebot3-gazebo + Nav2 bringup
+#                 (ros2 launch nav2_bringup tb3_simulation_launch.py),
+#                 using that launch file's own bundled default world/map --
+#                 no custom world authored for this first pass (see this
+#                 file's own "cut from the PX4 pattern" note below).
+#   ros-bridge  — the ROS 2/rclpy side of the actor, same split-Pod
+#                 reasoning as px4-sim-deployment.yaml's own ros-bridge:
+#                 the CognitiveOS actor Pod (deploy/k8s/
+#                 ground-actor-deployment.yaml) never needs ROS 2 installed.
+#                 Wraps kernel/edge/nav2_ros_adapter.py::
+#                 Nav2RosExecutionAdapter behind one HTTP endpoint
+#                 (kernel/edge/nav2_bridge_server.py,
+#                 docker/Dockerfile.ros-bridge-nav2) that the CognitiveOS
+#                 actor Pod calls via this file's own Service
+#                 (kernel/edge/ros_integration.py::RemoteRosExecutionAdapter,
+#                 unchanged -- already vehicle-agnostic, ROS_ADAPTER_KIND=
+#                 remote_http).
+#
+# Both containers share ONE Pod -- unlike px4-sim-deployment.yaml, this does
+# NOT need hostNetwork: true: that was a PX4-specific requirement (its own
+# docker-entrypoint.sh resolving host.docker.internal), not a general
+# same-Pod-ROS-DDS requirement -- containers in one Pod already share one
+# network namespace (plain localhost) regardless of hostNetwork, which is
+# what lets ros-bridge's rclpy action client reach nav2-sim's
+# navigate_to_pose action server with no cross-Pod DDS discovery involved.
+#
+# Cut from the PX4 pattern for this first pass (deliberately, per the
+# "single robot pod, keep it simple" scope this was built to): no camera
+# bridge, no foxglove-bridge, no mavlink-heartbeat-equivalent, no custom
+# Gazebo world -- just the launch file's own stock demo world/map. Real
+# follow-up work, not a stub pretending to be done.
+#
+# Honest scope: this manifest's exact resource sizing and the
+# tb3_simulation_launch.py flags below have NOT been exercised against a
+# live cluster in this codebase (same honest caveat kernel/edge/
+# nav2_ros_adapter.py's own docstring states for the adapter itself) --
+# LIBGL_ALWAYS_SOFTWARE=1 is a well-known, standard fix for headless Gazebo
+# classic sensor rendering inside a container with no GPU, included
+# preemptively, but real resource limits may need adjusting once this is
+# actually run (same iterative process px4-sim-deployment.yaml's own
+# comments document it went through for PX4).
+#
+#   kubectl create configmap nav2-params-ground-a \
+#     --from-file=nav2_params.yaml=deploy/k8s/nav2-params-override.yaml \
+#     -n monkeybrain
+#   ACTOR_ID=ground-a \
+#     envsubst '${ACTOR_ID}' \
+#     < deploy/k8s/nav2-sim-deployment.yaml | kubectl apply -f -
+#
+# Must be applied for the SAME ACTOR_ID as a ground-actor-deployment.yaml
+# rendering (ROS_BRIDGE_URL there points at this Deployment's Service by
+# name) -- this Pod alone cannot be commanded by any actor.
+#
+# Pick an ACTOR_ID distinct from any drone actor's (e.g. "ground-a", not
+# "drone-a") -- drone-actor-deployment.yaml and ground-actor-deployment.yaml
+# both name their Deployment/Service cognitiveos-actor-${ACTOR_ID}, so a
+# collision would mean two different vehicle kinds fighting over one name.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nav2-sim-${ACTOR_ID}
+  namespace: monkeybrain
+  labels:
+    app: nav2-sim
+    component: nav2-simulator
+    actor-id: "${ACTOR_ID}"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nav2-sim
+      actor-id: "${ACTOR_ID}"
+  template:
+    metadata:
+      labels:
+        app: nav2-sim
+        actor-id: "${ACTOR_ID}"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: nav2-sim
+          image: monkeybrain/ros-bridge-nav2:latest
+          imagePullPolicy: IfNotPresent
+          # Non-headless (headless:=False, inside docker/nav2-sim-vnc-launch.sh)
+          # against a virtual (Xvfb) display, streamed out over VNC/noVNC on
+          # port 6080 -- see that script's own header and docker/
+          # Dockerfile.ros-bridge-nav2's comment for why (native X11
+          # forwarding to a host X server, e.g. XQuartz, fails on GLX
+          # FBConfig negotiation for Gazebo's Qt5Quick/Ogre2 rendering;
+          # confirmed live). Port-forward 6080 and open
+          # http://localhost:6080/vnc.html to watch it.
+          #
+          # NOT the baked-in /nav2-sim-vnc-launch.sh directly -- inlined
+          # here (same script body) with one addition,
+          # params_file:=/etc/nav2/nav2_params.yaml, so a resource-
+          # contention mitigation (deploy/k8s/nav2-params-override.yaml)
+          # can be picked up without rebuilding the image. See that file's
+          # own header for what's overridden and why (controller_frequency,
+          # progress_checker's movement_time_allowance).
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -e
+              DISPLAY_NUM="${VNC_DISPLAY_NUM:-99}"
+              export DISPLAY=":${DISPLAY_NUM}"
+              Xtigervnc "$DISPLAY" -geometry 1280x800 -depth 24 -SecurityTypes None -rfbport 5900 &
+              for _ in $(seq 1 20); do
+                [ -e "/tmp/.X11-unix/X${DISPLAY_NUM}" ] && break
+                sleep 0.5
+              done
+              websockify --web=/usr/share/novnc/ 6080 localhost:5900 &
+              source /opt/ros/jazzy/setup.bash
+              exec ros2 launch nav2_bringup tb3_simulation_launch.py \
+                headless:=False use_rviz:=False \
+                params_file:=/etc/nav2/nav2_params.yaml
+          ports:
+            - containerPort: 6080
+              name: vnc-web
+          volumeMounts:
+            - name: nav2-params
+              mountPath: /etc/nav2/nav2_params.yaml
+              subPath: nav2_params.yaml
+              readOnly: true
+          env:
+            # ros-jazzy-turtlebot3-gazebo's own model selector -- burger is
+            # the smallest/lightest of the three stock TurtleBot3 models,
+            # matching this manifest's "keep it simple" scope.
+            - name: TURTLEBOT3_MODEL
+              value: "burger"
+            # Standard headless-Mesa-in-a-container workaround: gz-sim still
+            # loads a rendering engine (now genuinely for the GUI itself,
+            # not just sensors) and this container has no GPU.
+            - name: LIBGL_ALWAYS_SOFTWARE
+              value: "1"
+          resources:
+            # Deliberately generous, same lesson px4-sim-deployment.yaml's
+            # own comments document learning the hard way: Gazebo + Nav2's
+            # full stack (controller/planner/bt_navigator/amcl/map_server,
+            # each its own process) is genuinely heavy, and an
+            # under-provisioned limit here means an OOMKill mid-simulation,
+            # not a clean failure.
+            requests:
+              cpu: "1000m"
+              memory: "1Gi"
+            limits:
+              # Bumped from 3000m/4Gi for the headless-launch version: the
+              # GUI itself (Qt5Quick/Ogre2 rendering via software Mesa,
+              # plus Xvfb/x11vnc/websockify) is real additional overhead on
+              # top of the same physics/nav stack, not a free swap.
+              cpu: "4000m"
+              memory: "5Gi"
+
+        - name: ros-bridge
+          image: monkeybrain/ros-bridge-nav2:latest
+          imagePullPolicy: IfNotPresent
+          command: ["bash", "-lc"]
+          args:
+            - >-
+              source /opt/ros/jazzy/setup.bash &&
+              exec python3 -m uvicorn src.monkey_brain.kernel.edge.nav2_bridge_server:app
+              --host 0.0.0.0 --port "${ROS_BRIDGE_PORT}"
+          ports:
+            - containerPort: ${ROS_BRIDGE_PORT}
+              name: http
+          env:
+            - name: ACTOR_ID
+              value: "${ACTOR_ID}"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /live
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+      volumes:
+        # Created separately (NOT via configMapGenerator -- this manifest
+        # isn't part of kustomization.yaml's base, and the params file is
+        # ~500 lines, too large to comfortably inline as a ConfigMap data:
+        # block here): before applying this file, run
+        #   kubectl create configmap nav2-params-${ACTOR_ID} \
+        #     --from-file=nav2_params.yaml=deploy/k8s/nav2-params-override.yaml \
+        #     -n monkeybrain
+        - name: nav2-params
+          configMap:
+            name: nav2-params-${ACTOR_ID}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nav2-sim-${ACTOR_ID}
+  namespace: monkeybrain
+  labels:
+    app: nav2-sim
+    actor-id: "${ACTOR_ID}"
+spec:
+  selector:
+    app: nav2-sim
+    actor-id: "${ACTOR_ID}"
+  ports:
+    - port: ${ROS_BRIDGE_PORT}
+      targetPort: ${ROS_BRIDGE_PORT}
+      protocol: TCP
+      name: http
+    - port: 6080
+      targetPort: 6080
+      protocol: TCP
+      name: vnc-web
+  type: ClusterIP

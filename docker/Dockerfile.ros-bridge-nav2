@@ -1,0 +1,89 @@
+# nav2-bridge — the ROS 2/rclpy side of a ground-robot actor, split into its
+# own container (deploy/k8s/nav2-sim-deployment.yaml) so the CognitiveOS
+# actor container (docker/Dockerfile.base) never needs ROS 2 installed at
+# all. Wraps kernel/edge/nav2_ros_adapter.py::Nav2RosExecutionAdapter behind
+# one small FastAPI endpoint (kernel/edge/nav2_bridge_server.py) that
+# kernel/edge/ros_integration.py::RemoteRosExecutionAdapter (unchanged,
+# already vehicle-agnostic) calls into over plain HTTP from the separate
+# CognitiveOS actor Pod.
+#
+# Deliberately simpler than docker/Dockerfile.ros-bridge (the PX4/px4_msgs
+# image): nav2_msgs and the Nav2 stack are real, published ROS 2 apt
+# packages (ros-jazzy-navigation2, ros-jazzy-nav2-bringup), not a
+# from-source colcon build against a git checkout the way px4_msgs is --
+# no git clone, no cmake/make, no CACHE_BUST layer-corruption workaround
+# needed here.
+FROM ros:jazzy-ros-base
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+# ros-jazzy-navigation2 / ros-jazzy-nav2-bringup: the actual Nav2 stack
+# (nav2_msgs, the navigate_to_pose action server, controller/planner/bt
+# navigator, etc.) this adapter and the sim's own launch depend on.
+# ros-jazzy-turtlebot3-gazebo: the stock, simplest-available Nav2-compatible
+# ground robot + Gazebo world (deploy/k8s/nav2-sim-deployment.yaml's own
+# nav2-sim container launches this) -- installed here too so the SAME base
+# image can serve either container if this ever needs to be split further.
+#
+# xvfb/tigervnc-standalone-server (x0vncserver)/novnc/websockify: lets the
+# nav2-sim container run Gazebo's real GUI (headless:=False) against a
+# virtual display INSIDE the container and stream the rendered result out
+# as VNC-over-websockets, for actually watching the simulation in a
+# browser. Deliberately NOT native X11 forwarding to a host X server (e.g.
+# XQuartz on macOS) -- confirmed live that path fails with
+# GLXBadFBConfig/"failed to create drisw screen": Gazebo's Qt5Quick/Ogre2
+# rendering needs a modern GLX FBConfig XQuartz doesn't offer, and no
+# LIBGL_* env var fixes a protocol-level negotiation failure. Rendering
+# entirely inside the container (Xvfb, with LIBGL_ALWAYS_SOFTWARE for the
+# same headless-Mesa reason nav2-sim already needs it) and only ever
+# shipping already-rendered pixels out over VNC sidesteps that whole class
+# of problem.
+#
+# Xtigervnc (TigerVNC's own X server -- from tigervnc-standalone-server),
+# NOT Xvfb + x11vnc/x0vncserver: confirmed live x11vnc 0.9.16 (this base
+# image's apt version) is unstable against an Xvfb + actively-rendering
+# Ogre2/GL setup (its process died into a zombie; a fresh instance never
+# sent the RFB greeting despite reporting itself as listening), and
+# confirmed live this distro's tigervnc-standalone-server package doesn't
+# even ship x0vncserver. Xtigervnc IS both the X display and a native VNC
+# server in one process -- see docker/nav2-sim-vnc-launch.sh.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl python3-pip \
+        ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+        tigervnc-standalone-server novnc python3-websockify \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+COPY pyproject.toml uv.lock .
+# --index / --index-strategy: torch is a CORE dependency of this project
+# (pyproject.toml [project.dependencies]), pinned to PyTorch's CPU-only
+# wheel index -- same real gap docker/Dockerfile.ros-bridge's own comment
+# documents for the PX4 bridge image, required here for the same reason.
+RUN uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.lock.txt && \
+    uv pip install --system --break-system-packages \
+        --index https://download.pytorch.org/whl/cpu --index-strategy unsafe-best-match \
+        -r requirements.lock.txt
+
+COPY src/ ./src/
+
+COPY docker/nav2-sim-vnc-launch.sh /nav2-sim-vnc-launch.sh
+RUN chmod +x /nav2-sim-vnc-launch.sh
+
+EXPOSE 9001 6080
+
+# NOT docker/robot-entrypoint.sh -- that one also sources
+# /opt/px4_ws/install/setup.bash, a workspace this image never builds
+# (ros-jazzy-navigation2/nav2-bringup are stock apt packages, already fully
+# set up by sourcing /opt/ros/jazzy/setup.bash alone) -- sourcing a
+# nonexistent path under `set -e` would crash this container on every start.
+COPY docker/robot-entrypoint-nav2.sh /ros_entrypoint_robot.sh
+RUN chmod +x /ros_entrypoint_robot.sh
+ENTRYPOINT ["/ros_entrypoint_robot.sh"]
+CMD ["python3", "-m", "uvicorn", "src.monkey_brain.kernel.edge.nav2_bridge_server:app", "--host", "0.0.0.0", "--port", "9001"]

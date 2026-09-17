@@ -214,6 +214,101 @@ class LandCapability(_Px4MissionCapabilityBase):
     description = "lands and disarms at the current position; ends the flight"
 
 
+# ── Nav2 ground-robot capabilities ───────────────────────────────────────
+#
+# Ground-robot analog of the PX4 mission capabilities above: exposes exactly
+# the two operations kernel/edge/nav2_ros_adapter.py::Nav2RosExecutionAdapter.
+# invoke() implements (NavigateToPose/Stop) as real, governed, planner-
+# selectable capabilities, through the SAME ActionExecutor -> ensure_governed
+# -> run_ros_action_if_governed -> actor-bound adapter path every other
+# robot capability in this file already uses. No capability here is
+# invented: the adapter itself is the authority on what a "Nav2 capability"
+# is, and any name not handled here is refused before governance is even
+# asked, same defense-in-depth posture _Px4MissionCapabilityBase's own
+# comment describes.
+_MAX_GROUND_DISTANCE_M = 100.0
+
+
+class _Nav2MissionCapabilityBase:
+    """Shared context plumbing for every Nav2 mission capability -- same
+    shape as _Px4MissionCapabilityBase above, kept as a separate class
+    (not a shared base) so a future change to one vehicle kind's plumbing
+    can never accidentally change the other's."""
+
+    name = "Nav2MissionCapabilityBase"  # overridden by subclasses
+
+    def _validate(self, parameters: dict) -> tuple[dict, str]:
+        return parameters, ""
+
+    async def handle(self, args: dict) -> dict[str, Any]:
+        context = args.get("context", {}) or {}
+        actor_id = context.get("actor_id", "")
+        adapter = context.get("ros_adapter")
+        if adapter is None:
+            return {"success": False, "error": "no ROS adapter bound to this actor"}
+
+        parameters = args.get("parameters") or {}
+        validated, error = self._validate(parameters)
+        if error:
+            return {"success": False, "error": error}
+
+        from src.monkey_brain.kernel.edge.ros_integration import (
+            run_ros_action_if_governed,
+        )
+
+        return await run_ros_action_if_governed(
+            capability=self.name,
+            resource=f"nav2:{actor_id}" if actor_id else "nav2",
+            parameters=validated,
+            adapter=adapter,
+            actor_id=actor_id,
+        )
+
+
+class NavigateToPoseCapability(_Nav2MissionCapabilityBase):
+    """Drive to a validated (x, y) pose at a validated heading. Matches
+    Nav2RosExecutionAdapter's NavigateToPose branch (the stock Nav2
+    `navigate_to_pose` action) exactly."""
+
+    name = "NavigateToPose"
+    description = "drives to an (x, y) pose at a heading (yaw_deg); the robot must already be spawned in the map"
+
+    def _validate(self, parameters: dict) -> tuple[dict, str]:
+        x, error = _validate_number(
+            parameters.get("x", 0.0),
+            "x",
+            minimum=-_MAX_GROUND_DISTANCE_M,
+            maximum=_MAX_GROUND_DISTANCE_M,
+        )
+        if error:
+            return {}, error
+        y, error = _validate_number(
+            parameters.get("y", 0.0),
+            "y",
+            minimum=-_MAX_GROUND_DISTANCE_M,
+            maximum=_MAX_GROUND_DISTANCE_M,
+        )
+        if error:
+            return {}, error
+        yaw_deg, error = _validate_number(
+            parameters.get("yaw_deg", 0.0),
+            "yaw_deg",
+            minimum=-180.0,
+            maximum=180.0,
+        )
+        if error:
+            return {}, error
+        return {"x": x, "y": y, "yaw_deg": yaw_deg}, ""
+
+
+class StopCapability(_Nav2MissionCapabilityBase):
+    """Cancel any in-flight NavigateToPose goal. No parameters. Matches
+    Nav2RosExecutionAdapter's Stop branch exactly."""
+
+    name = "Stop"
+    description = "cancels the current navigation goal, if any, and halts the robot"
+
+
 def _find_actor_belief(context: dict, actor_id: str) -> Any:
     """Same tiny actor-state lookup kernel/edge/video_command_runtime.py's
     own _find_actor_state does -- duplicated rather than imported (routes/

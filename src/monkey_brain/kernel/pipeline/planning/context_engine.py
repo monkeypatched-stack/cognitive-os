@@ -63,7 +63,28 @@ logger = logging.getLogger("agentos.pipeline.planning.context_engine")
 # name. Left out of the offered set entirely: it isn't a flight action
 # this mission needs, and it isn't compatible with this specific
 # adapter regardless of what plan asks for it.
-_ROBOT_CAPABILITY_NAMES = frozenset({"Arm", "Takeoff", "Waypoint", "Land"})
+_PX4_CAPABILITY_NAMES = frozenset({"Arm", "Takeoff", "Waypoint", "Land"})
+# Ground-robot (Nav2) capabilities (kernel/domains/robot.py) -- confirmed
+# live these were registered on the capability bus but never reached a
+# robot actor's own planner prompt because the old, single
+# _ROBOT_CAPABILITY_NAMES allowlist predated them: a real NavigateToPose/
+# Stop call was registered and governed correctly end-to-end, but the
+# model never saw them as options at all, so a ground-robot actor's plan
+# always came back empty for any drive-somewhere goal.
+_NAV2_CAPABILITY_NAMES = frozenset({"NavigateToPose", "Stop"})
+# Was one combined frozenset (_ROBOT_CAPABILITY_NAMES) covering every
+# vehicle kind -- confirmed live that once NAV2 names were added to it, a
+# GROUND robot's planner started seeing Arm/Takeoff/Waypoint/Land as
+# "available" too (nothing here distinguished vehicle kind), and gemma-3-4b
+# duly hallucinated a "Land" step onto an otherwise-correct NavigateToPose
+# plan -- rejected by Nav2RosExecutionAdapter ("unsupported Nav2
+# capability: Land") same as any other invented step, but it still turned
+# a real, successful drive into a "goal_achieved: false" response. Kept as
+# the union for backward compatibility: any robot-class actor that
+# doesn't set ROBOT_VEHICLE_KIND (see _retrieve_available_capabilities
+# below) gets exactly the old combined behavior, never a narrower one it
+# didn't ask for.
+_ROBOT_CAPABILITY_NAMES = _PX4_CAPABILITY_NAMES | _NAV2_CAPABILITY_NAMES
 # Cross-domain primitives every actor legitimately needs regardless of
 # domain, split by whether they need a real counterparty to succeed.
 # SELF-CONTAINED ones never reference another actor by name/id, so
@@ -1132,12 +1153,12 @@ class ContextConstructionEngine:
         robot actor's cognition now always runs THERE, not on the shared
         central control plane, this env var reliably reflects the
         CURRENT actor's own domain at the exact point this method runs.
-        A robot process only ever sees robot + universal names; every
-        other process (grocery/human actors, the shared cloud control
-        plane) sees everything except the robot-only ones — see this
-        module's own _ROBOT_CAPABILITY_NAMES/_UNIVERSAL_CAPABILITY_NAMES
-        comment for why a real second VerticalRuntime wasn't needed to
-        fix this.
+        A robot process only ever sees its own vehicle's + universal
+        names (ROBOT_VEHICLE_KIND, see below); every other process
+        (grocery/human actors, the shared cloud control plane) sees
+        everything except every robot-only name — see this module's own
+        _ROBOT_CAPABILITY_NAMES/_UNIVERSAL_CAPABILITY_NAMES comment for
+        why a real second VerticalRuntime wasn't needed to fix this.
         """
         bus = self._capability_bus
         if bus is None:
@@ -1168,10 +1189,24 @@ class ContextConstructionEngine:
 
         names = (name for name in bus.names() if callable(getattr(bus.discover(name), "handle", None)))
         if os.environ.get("ACTOR_NODE_CLASS", "cloud") == "robot":
+            # ROBOT_VEHICLE_KIND (deploy/k8s/drone-actor-deployment.yaml=
+            # "px4", deploy/k8s/ground-actor-deployment.yaml="nav2")
+            # narrows to exactly that vehicle's own capability names --
+            # confirmed live a ground robot's planner otherwise still saw
+            # (and occasionally picked) the PX4-only Arm/Takeoff/Waypoint/
+            # Land names, since node_class=robot alone doesn't say which
+            # vehicle. Unset/unrecognized falls back to the old combined
+            # _ROBOT_CAPABILITY_NAMES (both vehicles' names) -- the exact
+            # prior behavior, so a robot-class deployment that hasn't been
+            # updated with this env var yet never loses a capability it
+            # already had.
+            vehicle_kind = os.environ.get("ROBOT_VEHICLE_KIND", "").strip().lower()
+            robot_names = {
+                "px4": _PX4_CAPABILITY_NAMES,
+                "nav2": _NAV2_CAPABILITY_NAMES,
+            }.get(vehicle_kind, _ROBOT_CAPABILITY_NAMES)
             return tuple(
-                _describe(n)
-                for n in names
-                if n in _ROBOT_CAPABILITY_NAMES or n in _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES
+                _describe(n) for n in names if n in robot_names or n in _SELF_CONTAINED_UNIVERSAL_CAPABILITY_NAMES
             )
         return tuple(_describe(n) for n in names if n not in _ROBOT_CAPABILITY_NAMES)
 
