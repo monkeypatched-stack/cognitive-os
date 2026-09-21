@@ -354,6 +354,13 @@ app.include_router(negotiation_router, prefix="/api/v1/agentos", tags=["Negotiat
 app.include_router(payments_router, prefix="/api/v1/agentos", tags=["Payments"])
 app.include_router(edge_router, prefix="/api/v1/agentos", tags=["Edge"])
 
+try:
+    from services.auth.routers.auth import router as auth_router
+    app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
+    app.include_router(auth_router, prefix="/api/v1/agentos/auth", tags=["Auth"])
+except Exception as exc:
+    logger.warning("Auth router import skipped: %s", exc)
+
 # ── Exchange Server (network transport for knowledge proposals) ──────────────
 try:
     from src.monkey_brain.kernel.compile.network import (

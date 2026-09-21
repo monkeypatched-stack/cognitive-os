@@ -8,7 +8,7 @@ import { apiClient } from "./apiClient";
 // client-supplied). NEXT_PUBLIC_LIVEKIT_URL is the LiveKit server's own
 // WebSocket URL (e.g. wss://your-livekit-host), separate from the
 // CognitiveOS API this app otherwise talks to.
-export const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL ?? "";
+export const LIVEKIT_URL = process.env.NEXT_PUBLIC_LIVEKIT_URL ?? "ws://localhost:7880";
 
 export interface LiveKitTokenResponse {
   token: string;

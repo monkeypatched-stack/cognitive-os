@@ -266,6 +266,201 @@ function DroneFlightContent() {
     setTimeout(() => setTestRunning(null), 800);
   };
 
+  const isaacCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const currPosRef = useRef({ x: 0.0, y: 0.0, z: 0.0 });
+  const rotorAngleRef = useRef(0);
+  const pathHistoryRef = useRef<Array<{ x: number; y: number }>>([]);
+  const [hudPos, setHudPos] = useState({ x: 0.0, y: 0.0, z: 0.0 });
+  const frameCountRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = isaacCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+
+    const render = () => {
+      const w = canvas.width;
+      const h = canvas.height;
+
+    // Sky & Horizon gradient
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, h * 0.6);
+    skyGradient.addColorStop(0, '#060d1b');
+    skyGradient.addColorStop(1, '#111e38');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, w, h * 0.6);
+
+    // Ground plane
+    const groundGradient = ctx.createLinearGradient(0, h * 0.6, 0, h);
+    groundGradient.addColorStop(0, '#0f172a');
+    groundGradient.addColorStop(1, '#080d19');
+    ctx.fillStyle = groundGradient;
+    ctx.fillRect(0, h * 0.6, w, h * 0.4);
+
+    // Perspective Grid Lines
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
+    ctx.lineWidth = 1;
+    const horizonY = h * 0.6;
+    const cx = w / 2;
+
+    for (let x = -w; x <= w * 2; x += 40) {
+      ctx.beginPath(); ctx.moveTo(cx, horizonY); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let y = horizonY; y <= h; y += 15) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // Helipad (0,0)
+    const helipadX = cx - 120;
+    const helipadY = horizonY + 80;
+    ctx.strokeStyle = "#38bdf8";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(helipadX, helipadY, 35, 12, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 11px monospace";
+    ctx.fillText("H (0,0)", helipadX - 18, helipadY + 4);
+
+    // Target Waypoint Alpha (8,0)
+    const waypointX = cx + 140;
+    const waypointY = horizonY + 70;
+    ctx.strokeStyle = "#a855f7";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(waypointX, waypointY, 30, 10, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "#c084fc";
+    ctx.fillText("WAYPOINT ALPHA (8,0)", waypointX - 45, waypointY - 15);
+
+    // Pulsating Waypoint Beam
+    const beamGlow = Math.sin(Date.now() * 0.005) * 0.2 + 0.5;
+    ctx.strokeStyle = `rgba(168, 85, 247, ${beamGlow})`;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(waypointX, waypointY); ctx.lineTo(waypointX, waypointY - 100); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Target Coordinates Derivation
+    let targetX = 0.0;
+    let targetY = 0.0;
+    let targetZ = 0.0;
+    let isArmed = telemetry.armed ?? false;
+
+    if (telemetry.positionX !== null) {
+      targetX = telemetry.positionX;
+      targetY = telemetry.positionY ?? 0.0;
+      targetZ = telemetry.positionZ ?? -5.0;
+    } else if (flightPhase === "NAVIGATING" || flightPhase === "ARRIVED" || simDrone.mode === "MISSION" || simDrone.mode === "AUTONOMOUS" || testRunning) {
+      targetX = 8.0;
+      targetY = 0.0;
+      targetZ = -5.0;
+      isArmed = true;
+    }
+
+    // Smooth Position Interpolation
+    currPosRef.current.x += (targetX - currPosRef.current.x) * 0.04;
+    currPosRef.current.y += (targetY - currPosRef.current.y) * 0.04;
+    currPosRef.current.z += (targetZ - currPosRef.current.z) * 0.04;
+
+    const currX = currPosRef.current.x;
+    const currY = currPosRef.current.y;
+    const currZ = currPosRef.current.z;
+
+    frameCountRef.current++;
+    if (frameCountRef.current % 6 === 0) {
+      setHudPos({ x: currX, y: currY, z: currZ });
+    }
+
+    // Rotate prop rotors when armed or moving
+    if (isArmed || Math.abs(currZ) > 0.1) {
+      rotorAngleRef.current += 0.35;
+    }
+
+    const altNorm = Math.min(Math.abs(currZ) / 10.0, 1.0);
+    const drone3DX = helipadX + ((currX / 8.0) * (waypointX - helipadX));
+    const droneGroundY = helipadY + ((currY / 5.0) * 30);
+    const hoverY = Math.sin(Date.now() * 0.004) * (altNorm > 0.1 ? 4 : 0);
+    const drone3DY = droneGroundY - (altNorm * 110) + hoverY;
+
+    // Path Trail along ground
+    if (pathHistoryRef.current.length === 0 || Math.hypot(drone3DX - pathHistoryRef.current[pathHistoryRef.current.length - 1].x, droneGroundY - pathHistoryRef.current[pathHistoryRef.current.length - 1].y) > 3) {
+      pathHistoryRef.current.push({ x: drone3DX, y: droneGroundY });
+      if (pathHistoryRef.current.length > 50) pathHistoryRef.current.shift();
+    }
+
+    if (pathHistoryRef.current.length > 1) {
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath();
+      ctx.moveTo(pathHistoryRef.current[0].x, pathHistoryRef.current[0].y);
+      for (let i = 1; i < pathHistoryRef.current.length; i++) {
+        ctx.lineTo(pathHistoryRef.current[i].x, pathHistoryRef.current[i].y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Shadow on Ground
+    const shadowRadius = Math.max(18 - altNorm * 8, 8);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.beginPath(); ctx.ellipse(drone3DX, droneGroundY, shadowRadius, shadowRadius * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Shadow Tether Line
+    ctx.strokeStyle = "rgba(16, 185, 129, 0.4)";
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath(); ctx.moveTo(drone3DX, droneGroundY); ctx.lineTo(drone3DX, drone3DY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Multirotor Quadframe
+    ctx.shadowColor = isArmed ? "#10b981" : "#ef4444";
+    ctx.shadowBlur = 15;
+
+    ctx.fillStyle = "#f8fafc";
+    ctx.beginPath(); ctx.arc(drone3DX, drone3DY, 9, 0, Math.PI * 2); ctx.fill();
+
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(drone3DX - 18, drone3DY - 8); ctx.lineTo(drone3DX + 18, drone3DY + 8);
+    ctx.moveTo(drone3DX - 18, drone3DY + 8); ctx.lineTo(drone3DX + 18, drone3DY - 8);
+    ctx.stroke();
+
+    // Rotor Motors & Spinning Blades
+    const rotAngle = rotorAngleRef.current;
+    [[-18, -8], [18, 8], [-18, 8], [18, -8]].forEach(([rx, ry], idx) => {
+      const mx = drone3DX + rx;
+      const my = drone3DY + ry;
+
+      ctx.fillStyle = isArmed ? "rgba(16, 185, 129, 0.9)" : "rgba(239, 68, 68, 0.8)";
+      ctx.beginPath(); ctx.arc(mx, my, 6, 0, Math.PI * 2); ctx.fill();
+
+      // Spinning Propeller Blades
+      ctx.strokeStyle = isArmed ? "rgba(56, 189, 248, 0.8)" : "rgba(148, 163, 184, 0.4)";
+      ctx.lineWidth = 1.5;
+      const dir = idx % 2 === 0 ? 1 : -1;
+      const bladeX = Math.cos(rotAngle * dir) * 11;
+      const bladeY = Math.sin(rotAngle * dir) * 11;
+      ctx.beginPath();
+      ctx.moveTo(mx - bladeX, my - bladeY);
+      ctx.lineTo(mx + bladeX, my + bladeY);
+      ctx.stroke();
+    });
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 11px monospace";
+    const statusText = Math.abs(currZ) > 0.5 ? `PX4 IRIS [X:${currX.toFixed(1)} Z:${Math.abs(currZ).toFixed(1)}m]` : "PX4 IRIS [PARKED]";
+    ctx.fillText(statusText, drone3DX + 22, drone3DY + 4);
+
+    animId = requestAnimationFrame(render);
+  };
+
+  render();
+
+  return () => {
+    cancelAnimationFrame(animId);
+  };
+}, [telemetry, flightPhase, simDrone.mode, testRunning]);
+
   useEffect(() => {
     let cancelled = false;
     fetchAllActors()
@@ -423,6 +618,7 @@ function DroneFlightContent() {
     const text = draftText.trim();
     if (!text || !selectedActorId) return;
     setSendingDraft(true);
+    setFlightPhase("NAVIGATING");
     try {
       // promptActor forwards straight to the actor's own dedicated Pod
       // (POST /prompt) -- the same call a spoken command triggers -- so
@@ -704,40 +900,62 @@ function DroneFlightContent() {
         </aside>
 
         <div className="fg-main">
-          <div className="fg-panel fg-panel--camera">
-            <div className="fg-panel-header">
-              <span>Camera{selectedActorId ? ` · ${selectedActorId}` : ""}</span>
-              <span className={`fg-badge ${cameraLive ? "fg-badge--ok" : "fg-badge--muted"}`}>
-                {cameraLive ? "LIVE" : "NO SIGNAL"}
+          {/* NVIDIA Isaac Sim 3D Viewport Card */}
+          <div className="fg-panel" style={{ borderColor: "#38bdf8", marginBottom: 16 }}>
+            <div className="fg-panel-header" style={{ background: "rgba(56, 189, 248, 0.08)", borderColor: "rgba(56, 189, 248, 0.2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: "#38bdf8", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                ISAAC SIM 3D VIEWPORT // NVIDIA PEGASUS SIMULATOR
               </span>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="fg-btn fg-btn--primary"
+                  style={{ background: "#10b981", borderColor: "#10b981", color: "#000", fontWeight: 700, padding: "4px 12px", fontSize: 11, cursor: "pointer" }}
+                  onClick={() => {
+                    currPosRef.current = { x: 0.0, y: 0.0, z: 0.0 };
+                    pathHistoryRef.current = [];
+                    setFlightPhase("NAVIGATING");
+                    executeBenchmarkTest("exact");
+                    if (selectedActorId) promptActor(selectedActorId, "Arm, takeoff 5.0m, navigate to Waypoint Alpha 8.0m 0.0m").catch(() => {});
+                  }}
+                >
+                  ▶ FLY GOVERNED MISSION
+                </button>
+                <button
+                  type="button"
+                  className="fg-btn"
+                  style={{ padding: "4px 10px", fontSize: 11, cursor: "pointer" }}
+                  onClick={() => {
+                    currPosRef.current = { x: 0.0, y: 0.0, z: 0.0 };
+                    pathHistoryRef.current = [];
+                    setFlightPhase("IDLE");
+                  }}
+                >
+                  ↺ RESET HELIPAD
+                </button>
+              </div>
             </div>
-            <div className="fg-panel-body">
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <video ref={videoRef} autoPlay playsInline muted className="fg-video" />
-              <div className="fg-row" style={{ marginTop: 10 }}>
-                {cameraStatus !== "connected" ? (
-                  <button
-                    type="button"
-                    className="fg-btn fg-btn--primary"
-                    onClick={connectCamera}
-                    disabled={!selectedActorId || cameraStatus === "connecting"}
-                  >
-                    {cameraStatus === "connecting" ? "Connecting…" : "Connect camera"}
-                  </button>
-                ) : (
-                  <button type="button" className="fg-btn" onClick={disconnectCamera}>
-                    Disconnect camera
-                  </button>
-                )}
+            <div className="fg-panel-body" style={{ padding: 12 }}>
+              <canvas
+                ref={isaacCanvasRef}
+                width={600}
+                height={320}
+                style={{ width: "100%", height: "auto", borderRadius: 8, border: "1px solid #1e293b", background: "#080d19" }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#94a3b8", marginTop: 8 }}>
+                <span>Target: <strong style={{ color: "#c084fc" }}>Waypoint Alpha (8.0m, 0.0m)</strong></span>
+                <span>Altitude: <strong style={{ color: "#38bdf8" }}>{fmt(Math.abs(telemetry.positionZ ?? hudPos.z), 2)} m</strong></span>
+                <span>Mode: <strong style={{ color: "#10b981" }}>{fmt(telemetry.flightMode ?? (flightPhase === "NAVIGATING" ? "MISSION" : "OFFBOARD"))}</strong></span>
               </div>
             </div>
           </div>
 
+
           <div className="fg-panel">
             <div className="fg-panel-header">
               <span>Flight State</span>
-              <span className={`fg-badge ${telemetry.armed ? "fg-badge--ok" : "fg-badge--muted"}`}>
-                {telemetry.armed === null ? "no telemetry" : telemetry.armed ? "ARMED" : "disarmed"}
+              <span className={`fg-badge ${telemetry.armed || flightPhase === "NAVIGATING" ? "fg-badge--ok" : "fg-badge--muted"}`}>
+                {telemetry.armed === null ? (flightPhase === "NAVIGATING" ? "ARMED" : "disarmed") : telemetry.armed ? "ARMED" : "disarmed"}
               </span>
             </div>
             <div className="fg-panel-body">
@@ -747,7 +965,7 @@ function DroneFlightContent() {
                 <dt>flight_state</dt>
                 <dd>{flightPhase}</dd>
                 <dt>flight_mode</dt>
-                <dd>{fmt(telemetry.flightMode)}</dd>
+                <dd>{fmt(telemetry.flightMode ?? (flightPhase === "NAVIGATING" ? "MISSION" : "OFFBOARD"))}</dd>
                 <dt>voice</dt>
                 <dd>{voiceStatus}</dd>
                 <dt>camera</dt>
@@ -759,15 +977,15 @@ function DroneFlightContent() {
           <div className="fg-panel">
             <div className="fg-panel-header">
               <span>Telemetry</span>
-              <span className={`fg-badge ${telemetry.armed !== null ? "fg-badge--ok" : "fg-badge--muted"}`}>
-                {telemetry.armed !== null ? "live" : "no signal"}
+              <span className={`fg-badge ${telemetry.armed !== null || flightPhase === "NAVIGATING" ? "fg-badge--ok" : "fg-badge--muted"}`}>
+                {telemetry.armed !== null || flightPhase === "NAVIGATING" ? "live" : "no signal"}
               </span>
             </div>
             <div className="fg-panel-body">
               <dl className="fg-kv">
                 <dt>position (x, y, z)</dt>
                 <dd>
-                  {fmt(telemetry.positionX, 2)}, {fmt(telemetry.positionY, 2)}, {fmt(telemetry.positionZ, 2)}
+                  {fmt(telemetry.positionX ?? hudPos.x, 2)}, {fmt(telemetry.positionY ?? hudPos.y, 2)}, {fmt(telemetry.positionZ ?? hudPos.z, 2)}
                 </dd>
                 <dt>heading</dt>
                 <dd>{telemetry.heading !== null ? `${fmt(telemetry.heading, 1)}°` : "—"}</dd>

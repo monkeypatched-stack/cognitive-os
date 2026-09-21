@@ -7,5 +7,6 @@
         "./domains/manufacturing/knowledge"
     ],
     "python-envs.defaultEnvManager": "ms-python.python:system",
-    "python-envs.pythonProjects": []
+    "python-envs.pythonProjects": [],
+    "CodeGPT.apiKey": "CodeGPT Plus Beta"
 }

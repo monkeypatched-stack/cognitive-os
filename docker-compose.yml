@@ -538,6 +538,17 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  ros-bridge:
+    image: cognitiveos/ros-bridge:latest
+    container_name: cognitiveos-ros-bridge
+    ports:
+      - "9010:9010"
+    environment:
+      - ACTOR_ID=drone-demo-1
+      - PX4_NAMESPACE=px4_1
+    command: python3 -m uvicorn src.monkey_brain.kernel.edge.ros_bridge_server:app --host 0.0.0.0 --port 9010
+    restart: unless-stopped
+
 volumes:
   mongodb_data:
   redis_data:

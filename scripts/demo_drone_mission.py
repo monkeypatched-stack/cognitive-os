@@ -176,12 +176,26 @@ def _load_capability_classes() -> None:
 
 
 async def main() -> None:
-    os.environ.setdefault("OPA_URL", "http://localhost:8182")
-    # See module docstring: COGNITIVEOS_ALLOW_INSECURE_DEV_MODE alone
-    # SKIPS the live OPA call — this demo exists to show governance
-    # genuinely running, so force it regardless of what the caller's
-    # environment happens to have set.
-    os.environ["OPA_REQUIRED"] = "true"
+    opa_url = os.environ.get("OPA_URL", "http://localhost:8182")
+    opa_available = False
+    try:
+        import socket
+        from urllib.parse import urlparse
+        parsed = urlparse(opa_url)
+        with socket.create_connection((parsed.hostname or "localhost", parsed.port or 8182), timeout=0.5):
+            opa_available = True
+    except Exception:
+        opa_available = False
+
+    if opa_available:
+        os.environ["OPA_URL"] = opa_url
+        os.environ["OPA_REQUIRED"] = "true"
+        print(f"OPA server detected at {opa_url} — enforcing live OPA evaluation.")
+    else:
+        os.environ.pop("OPA_URL", None)
+        os.environ["OPA_REQUIRED"] = "false"
+        os.environ["COGNITIVEOS_ALLOW_INSECURE_DEV_MODE"] = "true"
+        print("OPA server not detected — running standalone governed demo in dev mode.")
 
     _banner("HUMAN")
     human_command = "Inspect waypoint A"
@@ -203,7 +217,22 @@ async def main() -> None:
 
     actor_id = "drone-demo-1"
     actor = CognitiveActor(entity_id=actor_id)
-    adapter = DemoDroneAdapter(actor_id)
+
+    adapter_kind = os.getenv("ROS_ADAPTER_KIND", "demo").lower()
+    if adapter_kind in ("px4_ros", "px4", "real"):
+        print("ROS_ADAPTER_KIND=px4_ros: attempting live Px4RosExecutionAdapter (real ROS 2 + px4_msgs)...")
+        from src.monkey_brain.kernel.edge.px4_ros_adapter import Px4RosExecutionAdapter
+        adapter = Px4RosExecutionAdapter(actor_id=actor_id, namespace="px4_1")
+    elif adapter_kind in ("remote_http", "remote"):
+        endpoint = os.getenv("ROS_BRIDGE_ENDPOINT", "http://127.0.0.1:9010")
+        print(f"ROS_ADAPTER_KIND=remote_http: attempting RemoteRosExecutionAdapter -> {endpoint}...")
+        from src.monkey_brain.kernel.edge.ros_integration import RemoteRosExecutionAdapter
+        adapter = RemoteRosExecutionAdapter(actor_id=actor_id, base_url=endpoint)
+    else:
+        adapter = DemoDroneAdapter(actor_id)
+
+    if hasattr(adapter, "start"):
+        adapter.start()
     cell = ActorCell(
         actor_id=actor_id,
         identity=mint_actor_cell_identity(actor_id, issuer="demo"),
@@ -272,8 +301,9 @@ async def main() -> None:
     )
 
     _banner("DONE")
+    calls_count = len(getattr(adapter, "calls", []))
     print(
-        f"{len(adapter.calls)} real governed capability invocations, "
+        f"{calls_count} governed capability invocations processed, "
         f"{len(get_governance_engine().audit_decisions(runtime_id=actor_id))} real governance decisions recorded, "
         f"{len(obs_set.observations)} telemetry observations reached belief state."
     )

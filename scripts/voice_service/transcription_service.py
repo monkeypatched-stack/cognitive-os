@@ -112,6 +112,12 @@ def _mint_token(room: str, identity: str) -> str:
 
 
 def _transcribe_sync(waveform: np.ndarray) -> str:
+    try:
+        import mlx.core as mx
+        device = mx.gpu if mx.metal.is_available() else mx.cpu
+        mx.set_default_device(device)
+    except Exception as exc:
+        logger.debug("mlx stream setup: %s", exc)
     result = mlx_whisper.transcribe(waveform, path_or_hf_repo=WHISPER_MODEL, temperature=0.0)
     return str(result.get("text") or "")
 
@@ -138,10 +144,7 @@ async def _finalize_utterance(session: Session, chunks: list[np.ndarray]) -> Non
 
 
 async def _consume_track(session: Session, track: rtc.Track) -> None:
-    # sample_rate/num_channels here make LiveKit's own pipeline deliver
-    # already-resampled 16kHz mono frames -- no manual resample/mixdown
-    # step needed the way the old in-process implementation had to do
-    # with resampy (kernel/edge/livekit_adapter.py::_frames_to_waveform).
+    logger.info("session %s: starting audio consumption for track %s", session.session_id, track.sid)
     audio_stream = rtc.AudioStream(track, sample_rate=SAMPLE_RATE, num_channels=1)
     vad_iterator = VADIterator(
         _vad_model,
@@ -174,10 +177,12 @@ async def _consume_track(session: Session, track: rtc.Track) -> None:
                     in_speech = True
                     utterance_started_at = time.monotonic()
                     utterance_chunks = [chunk]
+                    logger.info("session %s: speech onset detected", session.session_id)
                 elif vad_event is not None and "end" in vad_event and in_speech:
                     in_speech = False
                     finished, utterance_chunks = utterance_chunks, []
                     vad_iterator.reset_states()
+                    logger.info("session %s: speech end detected (%d chunks)", session.session_id, len(finished))
                     asyncio.ensure_future(_finalize_utterance(session, finished))
                 elif in_speech and (time.monotonic() - utterance_started_at) > MAX_UTTERANCE_SECONDS:
                     in_speech = False
@@ -193,15 +198,23 @@ async def _consume_track(session: Session, track: rtc.Track) -> None:
 
 async def _run_session(session: Session) -> None:
     try:
-
         @session.room.on("track_subscribed")
         def _on_track_subscribed(track: Any, publication: Any, participant: Any) -> None:
+            logger.info("session %s: track_subscribed kind=%s from %s", session.session_id, track.kind, getattr(participant, 'identity', 'unknown'))
             if track.kind == rtc.TrackKind.KIND_AUDIO:
                 asyncio.ensure_future(_consume_track(session, track))
 
         token = _mint_token(session.room_name, session.participant_identity)
         await session.room.connect(LIVEKIT_URL, token)
         logger.info("session %s: connected to room %r", session.session_id, session.room_name)
+
+        # Consume any audio tracks from remote participants already in the room
+        for participant in session.room.remote_participants.values():
+            for pub in participant.track_publications.values():
+                if pub.track and pub.track.kind == rtc.TrackKind.KIND_AUDIO:
+                    logger.info("session %s: consuming existing audio track from %s", session.session_id, participant.identity)
+                    asyncio.ensure_future(_consume_track(session, pub.track))
+
         while True:
             await asyncio.sleep(3600)
     except asyncio.CancelledError:
