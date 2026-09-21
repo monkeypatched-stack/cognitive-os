@@ -1,11 +1,132 @@
 # MonkeyBrain — CognitiveOS
 
-Most agent systems build agents that can call tools. Monkeypatched
-builds the operating system that lets autonomous actors exist inside a
-changing world — entities that continuously ground their decisions in
-the world's current state, act on it, update both their own local
-state and the shared global state as a result, and learn from what
-actually happens.
+# CognitiveOS — The Operating System for Autonomous Actors
+
+**CognitiveOS is a runtime for AI actors that perceive, reason about, and act in a changing world.**
+
+Most agent frameworks coordinate LLM agents around a task. CognitiveOS is designed for something different: **persistent autonomous actors that continuously operate inside a shared world.**
+
+An **Actor is a local agent coordinator**. It owns its own beliefs, memory, goals, execution state, and local agents/capabilities. Multiple actors can operate simultaneously, coordinate through a shared world, contend for resources, negotiate, and adapt when reality changes.
+
+The same runtime can coordinate a software actor buying groceries, a robot navigating a warehouse, or a fleet of autonomous drones.
+
+### The core loop
+
+```text
+        WORLD
+          ↓
+       OBSERVE
+          ↓
+       BELIEVE
+          ↓
+         PLAN
+          ↓
+       PREDICT
+          ↓
+        GOVERN
+          ↓
+        EXECUTE
+          ↓
+       OBSERVE
+          ↓
+       COMPARE
+          ↓
+        LEARN
+          ↓
+       PERSIST
+          │
+          └──────────────→ WORLD
+```
+
+The important difference is that **execution changes the actor and the world**. CognitiveOS records that change, compares reality with what the actor predicted, and uses the resulting evidence to improve future decisions.
+
+### From agents to actors
+
+A conventional multi-agent system might look like:
+
+```text
+Task
+ ├── Agent A
+ ├── Agent B
+ └── Agent C
+       ↓
+     Result
+```
+
+CognitiveOS is designed around persistent actors:
+
+```text
+                         SHARED WORLD
+                              │
+              ┌───────────────┼───────────────┐
+              ↓               ↓               ↓
+           ACTOR A         ACTOR B         ACTOR C
+              │               │               │
+        Local agents     Local agents     Local agents
+        capabilities     capabilities     capabilities
+              │               │               │
+              └───────────────┼───────────────┘
+                              ↓
+                       Coordination
+                       Governance
+                       Negotiation
+                              ↓
+                         REAL WORLD
+```
+
+Each Actor remains autonomous. CognitiveOS provides the runtime that lets those actors coordinate without collapsing them into one monolithic agent.
+
+### Why this matters
+
+In a static software task, an agent can often execute a workflow and return a result.
+
+The real world does not stay still.
+
+A robot moves.
+Inventory changes.
+Another actor claims a resource.
+A machine fails.
+A human enters the environment.
+A previous plan becomes invalid.
+
+CognitiveOS treats these changes as first-class events in the runtime.
+
+**Actors don't simply complete tasks. They continuously operate in a changing world.**
+
+### Physical AI
+
+CognitiveOS is designed to extend from digital actors to physical actors.
+
+For example:
+
+```text
+                    Mission
+                       │
+                 CognitiveOS
+                       │
+        ┌──────────────┼──────────────┐
+        ↓              ↓              ↓
+     Actor A        Actor B        Actor C
+        │              │              │
+    local agents   local agents   local agents
+        │              │              │
+      Drone A         Drone B        Drone C
+        │              │              │
+        └──────────────┼──────────────┘
+                       ↓
+                    PX4 / ROS2
+                       ↓
+                  Physical World
+```
+
+The actor is the local coordination boundary; CognitiveOS provides the shared runtime, world model, governance, communication, and learning infrastructure around it.
+
+This makes the same cognitive runtime applicable to robotics, manufacturing, logistics, autonomous systems, consumer robotics, and software agents.
+
+### In one sentence
+
+> **CognitiveOS gives autonomous actors a persistent mind, a model of the world, and a governed runtime for acting on it.**
+
 
 That's what sets CognitiveOS apart: it's a persistent, per-actor
 cognitive runtime, not a stateless request/response tool-caller. Each
