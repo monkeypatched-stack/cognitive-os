@@ -554,6 +554,55 @@ Nothing here is scripted per-request. The same loop runs whether Priya
 asks for milk, eggs, bread, or ground coffee — only the plan the LLM
 produces differs.
 
+
+## Example: Flying a Drone
+
+The reference robotics domain for CognitiveOS uses a PX4/ROS 2 drone because a flight mission is simple enough to follow end to end while exercising the same runtime layers as the commerce example: world grounding, planning, prediction, gated execution, observation, and learning. The drone is not controlled through a single takeoff() function call — it operates as a persistent autonomous actor inside a changing physical world.
+
+One actor, the world, and a single mission
+
+A drone operator asks:
+
+"Take off, fly to waypoint Alpha, inspect the area, and return to land."
+
+The drone's CognitiveOS actor doesn't translate that request directly into PX4 commands. It runs the full cognitive loop:
+
+Observe / Believe — the actor grounds its current beliefs against the world model: drone position, flight mode, battery state, GPS/localization state, mission constraints, available waypoints, obstacles, and current vehicle telemetry from PX4/ROS 2.
+
+Plan — the cognitive planner converts the request into a concrete mission graph:
+
+Arm → Takeoff → Navigate(Alpha) → Inspect → Return → Land
+
+Each operation becomes an executable action rather than an unvalidated sequence of raw flight commands.
+
+Predict — before execution, CognitiveOS predicts the expected outcome against the current world state: expected trajectory, waypoint reachability, vehicle state transitions, battery requirements, and mission completion conditions.
+
+Decide — the actor evaluates whether the mission remains valid. If the world has changed — for example, the drone is already airborne, the waypoint is unavailable, or a safety constraint has changed — the actor can re-plan instead of blindly executing the original mission.
+
+Execute — the mission is executed through the ROS 2/PX4 capability interface.
+
+Arm proposes a vehicle-state transition.
+
+Takeoff produces the appropriate PX4/ROS 2 command.
+
+Navigate produces trajectory/setpoint commands.
+
+Land transitions the vehicle back toward a grounded state.
+
+Each governed transition is validated before it is committed to the physical vehicle.
+
+Observe Outcome / Compare — CognitiveOS observes the actual result from PX4/ROS 2 telemetry and compares it against the prediction:
+Did the drone arm?
+Did it reach the target altitude?
+Did it reach Alpha?
+Was the expected trajectory achieved?
+Did the inspection complete?
+Did the vehicle land successfully?
+Learn — the actor updates its learned model from the difference between the predicted and observed outcomes. Future missions can therefore incorporate what the actor learned about this vehicle, environment, route, action sequence, and execution conditions.
+
+The important distinction is that PX4 executes vehicle commands, while CognitiveOS owns the higher-level autonomous actor loop.
+
+
 ### Two actors, one contended resource
 
 Now suppose Priya and another actor both try to buy the **last unit**
