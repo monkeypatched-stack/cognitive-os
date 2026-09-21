@@ -1,6 +1,6 @@
 # MonkeyBrain — CognitiveOS
 
-CognitiveOS is the operating system for autonomous workforces—giving AI actors persistent memory, shared world context, coordination, and governed execution so companies can deploy fleets of autonomous workers and robots.
+CognitiveOS lets companies deploy AI workers that can continuously perform tasks, remember what they've learned, coordinate with other AI workers and robots, and safely take action in the real world.
 
 # CognitiveOS — The Operating System for Autonomous Actors
 
