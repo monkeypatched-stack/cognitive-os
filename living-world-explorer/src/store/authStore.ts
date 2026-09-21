@@ -78,7 +78,7 @@ async function probeMfaGate(token: string): Promise<boolean> {
 async function authPost<T>(path: string, body: unknown, bearerToken?: string): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`
-  const res = await fetch(`${AUTH_BASE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
+  const res = await fetch(`${AUTH_BASE}${path}`, { method: 'POST', headers, body: JSON.stringify(body), credentials: 'include' })
   const data: unknown = await res.json().catch(() => ({}))
   if (!res.ok) {
     const detail = (data as { detail?: string })?.detail

@@ -80,7 +80,7 @@ async function probeMfaGate(token: string): Promise<boolean> {
 async function authPost<T>(path: string, body: unknown, bearerToken?: string): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`;
-  const res = await fetch(`${AUTH_BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
+  const res = await fetch(`${AUTH_BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body), credentials: "include" });
   const data: unknown = await res.json().catch(() => ({}));
   if (!res.ok) {
     const detail = (data as { detail?: string })?.detail;
@@ -222,8 +222,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // means any session left idle that long otherwise 401s on its very next
   // API call with no recovery (apiClient.ts calls this on exactly that
   // 401, deduped so N concurrent pollers trigger one refresh, not N racing
-  // rotations of the same single-use refresh token). Same-origin fetch
-  // sends the cookie automatically -- no credentials/body plumbing needed.
+  // rotations of the same single-use refresh token). The fetch call MUST
+  // include credentials: "include" so the httpOnly cookie is sent.
   refreshAccessToken: async () => {
     const data = await authPost<{ access_token: string }>("/refresh", {});
     const claims = decodeJwtClaims(data.access_token) as { email?: string; role?: string };
