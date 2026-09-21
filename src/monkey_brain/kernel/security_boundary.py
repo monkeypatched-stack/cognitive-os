@@ -1294,5 +1294,9 @@ def reset_governed_pipeline_for_tests() -> None:
         _pipeline.set(None)
         _commitment.set(False)
         _privileged_infra.set(False)
-    except:
+    except (RuntimeError, ValueError):
+        # ContextVar reset can fail outside the context that created the
+        # token (e.g. cross-context test teardown). Never swallow
+        # KeyboardInterrupt/SystemExit here -- the previous bare `except:`
+        # did, in a security-critical module.
         pass

@@ -86,12 +86,17 @@ simulator or dead ROS link produces *no* drone observations that tick, not
 fabricated ones. A `None`/missing/exception-raising adapter degrades the
 same way (logged at debug level, never a crash).
 
-**Known, honest gap:** `DroneState.battery`/`.heading`/`.flight_mode`/
-`.gps_state` are always `None` today. The adapter doesn't subscribe to
-`battery_status`/`vehicle_gps_position`/`vehicle_attitude` yet — verify the
-real px4_msgs field names on a machine with ROS 2 + px4_msgs installed
-before wiring these up; guessing them here (no such environment was
-available while writing this) risks shipping silently-wrong telemetry.
+**Telemetry coverage:** `DroneState.battery`/`.heading`/`.flight_mode`/
+`.gps_state` are populated by `Px4RosExecutionAdapter.latest_state()` from
+enrichment subscriptions to `battery_status` / `vehicle_gps_position` /
+`vehicle_attitude` / `vehicle_status.nav_state`. `SensorGps`'s field names
+(topic `vehicle_gps_position`) and the Foxglove GPS bridge are confirmed
+against this repo's own `deploy/k8s/px4-sim-deployment.yaml`;
+`BatteryStatus`/`VehicleAttitude` are standard, long-stable PX4 messages.
+Every field is read via `getattr` with a `None` default, so a px4_msgs
+build or PX4 instance that doesn't publish one degrades that single field
+to `None` (never a crash, never fabricated) — `None` means "this
+build/publisher didn't supply it," not "not implemented."
 
 ## Execution pipeline
 
@@ -142,13 +147,13 @@ CognitiveOS-native multi-actor pattern (three isolated, governed
 
 ## Simulation time vs. trusted time
 
-Not yet separated in this codebase. `DroneState.sim_timestamp` exists as a
-field for this but is currently unpopulated — PX4's own message timestamps
-would need to be threaded through instead of the wall-clock receipt time
-`latest_state()` uses today. Do not conflate this with Trusted Time (a
-separate, already-built HMAC-signed-timestamp service — see
-`kernel/trusted_time.py`, `domains/.../services/trusted_time/` — used for
-signing security-critical artifacts, not simulation physics).
+`DroneState.sim_timestamp` is PX4's own onboard clock (microseconds since
+boot, taken from `vehicle_status.timestamp`) and is deliberately distinct
+from `DroneState.timestamp`, which is this process's wall-clock receipt
+time. Do not conflate either with Trusted Time (a separate, already-built
+HMAC-signed-timestamp service — see `kernel/trusted_time.py`,
+`domains/.../services/trusted_time/` — used for signing security-critical
+artifacts, not simulation physics).
 
 ## Safety and governance
 
@@ -160,12 +165,19 @@ chokepoint: `tests/architecture/test_architecture_invariants.py` and
 `tests/unit/test_ros_integration_contract.py` both assert no code path
 calls `adapter.invoke()` directly.
 
-**Known gap, not yet closed**: no idempotency/replay protection exists at
-this layer — `tests/validation/test_v13_ros_governance.py` proves an
-identical command sent twice executes twice (the vehicle moves twice). This
-matters more once retry-after-reconnect logic exists for a flaky sim link;
-until then, a caller that retries a drone command is responsible for not
-retrying one that already succeeded.
+**Replay protection (closed)**: `run_ros_action_if_governed` accepts an
+`idempotency_key` and deduplicates the PHYSICAL effect through it — a
+replayed command with the same key replays the cached successful result
+instead of moving the vehicle a second time (see
+`kernel/edge/ros_integration.py::_invoke_idempotent`). Governance still
+re-runs on every call; only `adapter.invoke()` is deduplicated, and only a
+*successful* effect is cached (so a failed command is never pinned to a
+cached failure). `ActionExecutor` supplies a stable per-step key
+(`execution_id:step_index:capability`) automatically, and the
+`Arm`/`Takeoff`/`Waypoint`/`Land`/`NavigateToPose`/`Stop`/`Heartbeat`
+capabilities forward it — so the ordinary plan path is protected without
+caller action. A caller that supplies no key keeps the prior
+always-execute behavior exactly.
 
 ## Gazebo launch
 

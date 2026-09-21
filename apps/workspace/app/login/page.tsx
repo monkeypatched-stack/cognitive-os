@@ -42,6 +42,26 @@ function LoginForm() {
       <button type="submit" disabled={busy}>
         {busy ? "Signing in…" : "Sign in"}
       </button>
+      <button
+        type="button"
+        onClick={() => {
+          useAuthStore.getState().enterDemoMode();
+          window.location.href = "/drone-flight";
+        }}
+        style={{
+          marginTop: 8,
+          background: "linear-gradient(90deg, #10b981 0%, #059669 100%)",
+          color: "#ffffff",
+          fontWeight: 700,
+          border: "none",
+          padding: "10px 14px",
+          borderRadius: 6,
+          cursor: "pointer",
+          fontSize: 13,
+        }}
+      >
+        🚀 Enter Judge / Demo Mode (One-Click)
+      </button>
     </form>
   );
 }

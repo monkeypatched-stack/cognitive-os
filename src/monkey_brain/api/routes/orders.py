@@ -150,10 +150,31 @@ async def pay_for_order(
         raise HTTPException(status_code=404, detail=f"no such order {order_id!r}")
 
     order_view = {"order_id": order_id, **order_entity.attributes}
+    # P0 (ADR-020): the authoritative amount is the ORDER's own stored
+    # total, never a client-supplied one. Previously a caller could pass
+    # body.total and charge an arbitrary amount unrelated to the real
+    # order. The client may still echo the total, but it must MATCH the
+    # order (a mismatch is a 400, not a silent override); omitting it is
+    # always fine. Only when the order carries no total at all (a
+    # world-building/test order built without one) does body.total act as
+    # a fallback -- there is no authoritative value to protect in that case.
+    authoritative_total = order_entity.attributes.get("total")
+    if authoritative_total is None:
+        total = body.total if body.total is not None else 0
+    else:
+        if body.total is not None and float(body.total) != float(authoritative_total):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"payment total {body.total!r} does not match order {order_id!r} "
+                    f"total {authoritative_total!r}"
+                ),
+            )
+        total = authoritative_total
     context = {
         "knowledge_graph": kg,
         "actor_id": body.actor_id,
-        "total": (body.total if body.total is not None else order_entity.attributes.get("total", 0)),
+        "total": total,
         "order": order_view,
         "selected_product": [
             {"id": item.get("product_id"), "qty": item.get("qty", 1)}

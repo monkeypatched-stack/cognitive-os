@@ -60,6 +60,7 @@ class HeartbeatCapability:
             parameters={},
             adapter=adapter,
             actor_id=actor_id,
+            idempotency_key=args.get("idempotency_key"),
         )
 
 
@@ -132,6 +133,13 @@ class _Px4MissionCapabilityBase:
             parameters=validated,
             adapter=adapter,
             actor_id=actor_id,
+            # Physical-effect idempotency (ros_integration.py::
+            # _invoke_idempotent): threaded from ActionExecutor's own
+            # stable per-step key so a resumed/replayed plan step can
+            # never move the drone a second time. None for any caller
+            # that doesn't supply one (e.g. the standalone demo), which
+            # preserves the prior always-execute behavior exactly.
+            idempotency_key=args.get("idempotency_key"),
         )
 
 
@@ -262,6 +270,9 @@ class _Nav2MissionCapabilityBase:
             parameters=validated,
             adapter=adapter,
             actor_id=actor_id,
+            # Same physical-effect idempotency threading as the PX4
+            # capabilities above.
+            idempotency_key=args.get("idempotency_key"),
         )
 
 

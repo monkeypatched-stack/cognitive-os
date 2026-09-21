@@ -137,6 +137,12 @@ class DemoDroneAdapter:
     def latest_state(self):
         from src.monkey_brain.kernel.edge.drone_state import DroneState
 
+        # Mirrors the field coverage Px4RosExecutionAdapter.latest_state()
+        # provides from its enrichment subscriptions (battery_status /
+        # vehicle_gps_position / vehicle_attitude / nav_state) -- so the
+        # telemetry->belief leg below is exercised against the same shape a
+        # real adapter produces, not a reduced one. Values are explicitly
+        # simulated; flight_mode tracks armed state the way nav_state would.
         return DroneState(
             actor_id=self.actor_id,
             namespace="px4_1",
@@ -145,7 +151,11 @@ class DemoDroneAdapter:
             position_y=self._y,
             position_z=self._z,
             timestamp=time.time(),
+            heading=0.0,
+            battery=0.87,
             flight_mode="OFFBOARD" if self._armed else "DISARMED",
+            gps_state="3",
+            sim_timestamp=time.monotonic(),
         )
 
 

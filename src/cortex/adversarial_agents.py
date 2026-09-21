@@ -448,17 +448,29 @@ def _model_check_deadlocks() -> list[dict[str, Any]]:
         visited: set[str] = set()
         rec_stack: set[str] = set()
 
-        def _dfs_cycle(state: str) -> list[str] | None:
-            visited.add(state)
-            rec_stack.add(state)
-            for nxt in machine.get(state, []):
-                if nxt not in visited:
+        # `machine`/`visited`/`rec_stack` are bound as default arguments
+        # (B023): without this the closure would capture the loop
+        # variables by reference and, if _dfs_cycle were ever stored or
+        # called after the loop advanced, would silently operate on the
+        # NEXT entity's graph/visited sets. Binding here is behaviourally
+        # identical for the immediate calls below but makes the capture
+        # explicit and correct-by-construction.
+        def _dfs_cycle(
+            state: str,
+            _machine: dict[str, list[str]] = machine,
+            _visited: set[str] = visited,
+            _rec_stack: set[str] = rec_stack,
+        ) -> list[str] | None:
+            _visited.add(state)
+            _rec_stack.add(state)
+            for nxt in _machine.get(state, []):
+                if nxt not in _visited:
                     result = _dfs_cycle(nxt)
                     if result is not None:
                         return [state] + result
-                elif nxt in rec_stack:
+                elif nxt in _rec_stack:
                     return [state, nxt]
-            rec_stack.discard(state)
+            _rec_stack.discard(state)
             return None
 
         for start in machine:

@@ -82,7 +82,6 @@ class WorldView:
             "clone",
             "has_edge",
             "__contains__",
-            "domains",
             "n_states",
             "index_state",
         }

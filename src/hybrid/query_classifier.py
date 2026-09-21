@@ -67,7 +67,6 @@ class QueryTypeClassifier:
         "send",
         "deliver",
         "pick",
-        "deliver",
     }
 
     # Retrieval question keywords

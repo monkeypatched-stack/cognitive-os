@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -35,6 +36,14 @@ from src.monkey_brain.kernel.pipeline.prediction.scenarios import (
 logger = logging.getLogger("agentos.pipeline.tuning")
 
 REDIS_KEY = "monkeybrain:pipeline_tuning"
+
+# Module-level singleton + lock. Declared here rather than lazily via a
+# try/except-NameError read in get_tuning(): the previous pattern had no
+# lock, so two threads racing the first call could each construct their
+# own PipelineTuning (one silently discarded) and each fire a Redis GET.
+_TUNING_LOCK = threading.Lock()
+_tuning_singleton: PipelineTuning | None = None
+_tuning_loaded = False
 
 
 @dataclass
@@ -274,27 +283,41 @@ class PipelineTuning:
 
 
 def get_tuning() -> PipelineTuning:
-    """Module-level singleton. Loads persisted config from Redis on first access."""
-    global _tuning_singleton
-    try:
-        _tuning_singleton  # type: ignore[name-defined]
-    except NameError:
-        _tuning_singleton = PipelineTuning()  # type: ignore[name-defined]
-    if not getattr(_tuning_singleton, "_loaded", False):  # type: ignore[name-defined]
-        _tuning_singleton._loaded = True  # type: ignore[name-defined]
-        try:
-            import redis as _redis
+    """Module-level singleton. Loads persisted config from Redis on first access.
 
-            r = _redis.Redis(
-                host=os.getenv("REDIS_HOST", "localhost"),
-                port=int(os.getenv("REDIS_PORT", "6379")),
-                decode_responses=True,
-                socket_connect_timeout=1,
-            )
-            data = r.get(REDIS_KEY)
-            if data:
-                _tuning_singleton._from_dict(json.loads(data))  # type: ignore[name-defined]
-                logger.info("Pipeline tuning loaded from Redis")
-        except Exception:
-            logger.debug("get_tuning: suppressed exception", exc_info=True)
-    return _tuning_singleton  # type: ignore[name-defined]
+    Thread-safe: the instance is created and the one-time Redis load is
+    performed exactly once even under concurrent first access. A failed
+    Redis load is remembered (``_tuning_loaded``) so a later call does not
+    re-attempt it on every tick; call ``reload_tuning()`` to force a
+    re-read (e.g. an admin hot-reload).
+    """
+    global _tuning_singleton, _tuning_loaded
+    with _TUNING_LOCK:
+        if _tuning_singleton is None:
+            _tuning_singleton = PipelineTuning()
+        if not _tuning_loaded:
+            _tuning_loaded = True
+            try:
+                import redis as _redis
+
+                r = _redis.Redis(
+                    host=os.getenv("REDIS_HOST", "localhost"),
+                    port=int(os.getenv("REDIS_PORT", "6379")),
+                    decode_responses=True,
+                    socket_connect_timeout=1,
+                )
+                data = r.get(REDIS_KEY)
+                if data:
+                    _tuning_singleton._from_dict(json.loads(data))
+                    logger.info("Pipeline tuning loaded from Redis")
+            except Exception:
+                logger.debug("get_tuning: suppressed exception", exc_info=True)
+        return _tuning_singleton
+
+
+def reload_tuning() -> PipelineTuning:
+    """Force a fresh Redis read for the singleton (admin hot-reload)."""
+    global _tuning_loaded
+    with _TUNING_LOCK:
+        _tuning_loaded = False
+    return get_tuning()

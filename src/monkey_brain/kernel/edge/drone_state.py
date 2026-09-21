@@ -109,9 +109,12 @@ class DroneState:
     position_y: float | None
     position_z: float | None
     timestamp: float
-    # Deliberately unpopulated today — no existing subscription backs these
-    # (see module docstring). Real follow-up work, not a stub pretending to
-    # be done.
+    # Populated by Px4RosExecutionAdapter.latest_state() from its enrichment
+    # subscriptions (battery_status / vehicle_gps_position / vehicle_attitude
+    # / vehicle_status.nav_state) — each read via getattr with a None
+    # default, so a missing px4_msgs message TYPE or PUBLISHER degrades that
+    # one field, never the snapshot. None here means "this build/publisher
+    # did not supply it," not "not implemented."
     heading: float | None = None
     battery: float | None = None
     flight_mode: str | None = None

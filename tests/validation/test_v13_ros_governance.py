@@ -112,26 +112,33 @@ class TestDirectRosInvocationIsUnavailableToRealActorCode:
         assert adapter.calls == []
 
 
-class TestStaleOrReplayedRosCommandsHaveNoProtectionOfTheirOwn:
-    """FINDING: run_ros_action_if_governed has NO idempotency-key,
-    sequence-number, or staleness parameter of its own (confirmed via
-    signature inspection) -- whatever replay/staleness protection a real
-    ROS deployment gets comes ENTIRELY from whatever the CALLER (an
-    Actor's own executed plan step) supplies as `idempotency_key`/
-    `operation_id` further up the ensure_governed chain, same as any
-    other capability (this suite's own test_v05_idempotent_execution.py
-    inventory already marks "physical ROS movement" as `unknown` for
-    exactly this reason). Proven directly: two structurally-identical
-    calls (a genuine replay) both execute the underlying adapter action
-    when no caller-supplied idempotency key is present."""
+class TestStaleOrReplayedRosCommands:
+    """Gap CLOSED at the ROS layer: run_ros_action_if_governed now accepts
+    an `idempotency_key` (this file previously asserted, correctly at the
+    time, that no such parameter existed) and deduplicates the PHYSICAL
+    effect through it -- a replayed command with the same key replays the
+    cached result instead of moving the vehicle a second time. Governance
+    still re-runs on every call; only adapter.invoke() is deduplicated.
 
-    def test_run_ros_action_if_governed_has_no_replay_protection_parameters(self):
+    Production wiring: ActionExecutor now supplies a stable per-step key
+    (execution_id + step_index + capability) to every capability via
+    handle_args["idempotency_key"], and the PX4/Nav2/Heartbeat
+    capabilities forward it here -- so the ordinary plan-execution path
+    gets dedup without any caller action. Passing no key (as these tests
+    do directly) preserves the prior always-execute behavior exactly,
+    which is the honest remaining contract for a caller that supplies no
+    stable identity for its command.
+    """
+
+    def test_run_ros_action_if_governed_accepts_an_idempotency_key(self):
         params = set(inspect.signature(run_ros_action_if_governed).parameters)
-        for absent in ("idempotency_key", "sequence", "nonce", "replay_token"):
-            assert absent not in params
+        assert "idempotency_key" in params
 
     @pytest.mark.asyncio
-    async def test_an_identical_command_sent_twice_moves_the_robot_twice(self, monkeypatch):
+    async def test_no_key_still_moves_the_robot_twice(self, monkeypatch):
+        """Without a caller-supplied key there is no stable identity to
+        deduplicate against, so two identical calls still both execute --
+        this is the deliberate, opt-in boundary, unchanged."""
         monkeypatch.setenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "true")
         adapter = FakeRosExecutionAdapter()
 
@@ -142,8 +149,6 @@ class TestStaleOrReplayedRosCommandsHaveNoProtectionOfTheirOwn:
             adapter=adapter,
             local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
         )
-        # A genuine replay: the exact same message, no idempotency
-        # wrapper anywhere in between.
         result2 = await run_ros_action_if_governed(
             capability="MoveArm",
             resource="arm-1",
@@ -153,7 +158,37 @@ class TestStaleOrReplayedRosCommandsHaveNoProtectionOfTheirOwn:
         )
         assert result1["success"] is True
         assert result2["success"] is True
-        assert len(adapter.calls) == 2, (
-            "this IS the finding: nothing here deduplicates a replayed physical-movement "
-            "command -- a robot arm asked to move twice, moves twice"
+        assert len(adapter.calls) == 2
+
+    @pytest.mark.asyncio
+    async def test_replayed_command_with_key_moves_the_robot_once(self, monkeypatch):
+        """The closed gap, proven directly: the exact same physical
+        command sent twice WITH the same stable key reaches the adapter
+        exactly once."""
+        monkeypatch.setenv("COGNITIVEOS_ALLOW_INSECURE_DEV_MODE", "true")
+        adapter = FakeRosExecutionAdapter()
+
+        result1 = await run_ros_action_if_governed(
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 90},
+            adapter=adapter,
+            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
+            idempotency_key="exec-1:step-0:MoveArm",
         )
+        result2 = await run_ros_action_if_governed(
+            capability="MoveArm",
+            resource="arm-1",
+            parameters={"angle": 90},
+            adapter=adapter,
+            local_policy_decision={"allowed": True, "approval_mode": "AUTO_APPROVE"},
+            idempotency_key="exec-1:step-0:MoveArm",
+        )
+        assert result1["success"] is True
+        assert result2["success"] is True
+        assert len(adapter.calls) == 1, (
+            "a replayed physical-movement command with the same idempotency key "
+            "must reach the adapter exactly once"
+        )
+        assert result1 == result2
+        assert len(adapter.calls) == 1, "the adapter must be invoked only once for a replayed command"

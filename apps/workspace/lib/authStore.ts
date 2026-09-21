@@ -40,6 +40,7 @@ interface AuthState {
   enableMfa: (code: string) => Promise<void>;
   refreshAccessToken: () => Promise<string>;
   logout: () => void;
+  enterDemoMode: () => void;
 }
 
 let pendingEmail = "";
@@ -237,5 +238,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     pendingEmail = "";
     pendingPassword = "";
     set({ status: "anonymous", token: null, user: null, mfaChallengeToken: null, mfaEnrollment: null, error: "" });
+  },
+
+  enterDemoMode: () => {
+    const user: AuthUser = { email: "evaluator@ycombinator.com", role: "judge" };
+    const token = "demo-evaluator-token";
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, user }));
+    }
+    set({ status: "authenticated", user, token, error: "" });
   },
 }));

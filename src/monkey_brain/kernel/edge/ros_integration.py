@@ -130,7 +130,17 @@ async def _invoke_idempotent(
     except BaseException:
         store.release(scoped_key)
         raise
-    if isinstance(result, dict):
+    # Only an actually-successful effect is cached -- same principle
+    # api/idempotency.py's own module docstring states for the HTTP
+    # decorator ("only a successful, already-committed side effect must
+    # not repeat"; "a handler that raises is never cached"). Caching a
+    # FAILED result here would be a real bug: ActionExecutor's same-tick
+    # recovery re-invokes a failed action with the SAME idempotency key,
+    # so a cached failure would replay "success: False" forever and the
+    # retry could never actually re-attempt the vehicle. A non-dict
+    # result (the adapter contract says it returns a dict) is likewise
+    # released, never cached, since it can't be replayed safely.
+    if isinstance(result, dict) and result.get("success"):
         store.complete(scoped_key, request_hash, result)
     else:
         store.release(scoped_key)

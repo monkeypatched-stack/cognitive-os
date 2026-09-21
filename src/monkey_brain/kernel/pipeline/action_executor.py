@@ -1301,10 +1301,24 @@ class ActionExecutor:
             # AskActorCapability's NATS request/reply) can be a real
             # async def handle() instead, and this is the one place that
             # has to know the difference.
+            # Stable per-step idempotency key for physical-effect dedup
+            # (kernel/edge/ros_integration.py::_invoke_idempotent): a
+            # resumed/replayed execution of the SAME step at the SAME
+            # execution_id must not repeat a physical effect (a drone
+            # moving twice). Only set when a real execution_id exists (the
+            # production executor path) -- a caller with none keeps the
+            # prior "no key, no dedup" behavior exactly. step_index is the
+            # plan's own step ordinal, which is stable across a resume of
+            # the same execution_id (action_id is NOT guaranteed stable
+            # across a rebuild), so it is the correct discriminator here.
+            _idempotency_key = None
+            if execution_id:
+                _idempotency_key = f"{execution_id}:{action.step_index}:{action.capability}"
             handle_args = {
                 "action": action.capability,
                 "parameters": action.parameters,
                 "context": context,
+                "idempotency_key": _idempotency_key,
             }
 
             async def _invoke_handle() -> Any:
