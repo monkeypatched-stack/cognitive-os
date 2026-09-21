@@ -56,7 +56,83 @@ DEFAULT_SCORE_THRESHOLD = 0.85
 
 
 def moss_plan_cache_enabled() -> bool:
-    return bool(os.environ.get("MOSS_PROJECT_ID", "").strip() and os.environ.get("MOSS_PROJECT_KEY", "").strip())
+    if os.environ.get("MOSS_EMULATION_MODE", "").strip().lower() in ("1", "true", "yes"):
+        return True
+    pid = os.environ.get("MOSS_PROJECT_ID", "").strip()
+    pkey = os.environ.get("MOSS_PROJECT_KEY", "").strip()
+    return bool(pid and pkey)
+
+
+class _InMemoryDoc:
+    def __init__(self, id: str, text: str, metadata: dict[str, Any], score: float = 1.0) -> None:
+        self.id = id
+        self.text = text
+        self.metadata = metadata
+        self.score = score
+
+
+class _InMemoryMossResult:
+    def __init__(self, docs: list[_InMemoryDoc]) -> None:
+        self.docs = docs
+
+
+class _InMemoryMossSession:
+    """Local, offline-capable zero-latency session implementing Moss's exact
+    add_docs and query protocol for testing and offline sprint demos."""
+
+    def __init__(self) -> None:
+        self._docs: dict[str, _InMemoryDoc] = {}
+
+    async def add_docs(self, docs: list[Any]) -> tuple[int, int]:
+        for doc in docs:
+            self._docs[doc.id] = _InMemoryDoc(
+                id=doc.id,
+                text=getattr(doc, "text", ""),
+                metadata=getattr(doc, "metadata", {}) or {},
+            )
+        return (len(docs), 0)
+
+    @staticmethod
+    def _similarity(s1: str, s2: str) -> float:
+        if s1.strip().lower() == s2.strip().lower():
+            return 1.0
+        words1 = set(s1.lower().split())
+        words2 = set(s2.lower().split())
+        if not words1 or not words2:
+            return 0.0
+        word_sim = len(words1 & words2) / max(len(words1 | words2), 1)
+
+        def get_ngrams(s: str, n: int = 3) -> set[str]:
+            s = f"  {s.lower()}  "
+            return {s[i : i + n] for i in range(len(s) - n + 1)}
+
+        ng1 = get_ngrams(s1)
+        ng2 = get_ngrams(s2)
+        ngram_sim = len(ng1 & ng2) / max(len(ng1 | ng2), 1) if (ng1 and ng2) else 0.0
+        return 0.4 * word_sim + 0.6 * ngram_sim
+
+    async def query(self, query_text: str, options: Any = None) -> _InMemoryMossResult:
+        if not self._docs:
+            return _InMemoryMossResult([])
+        scored: list[tuple[float, _InMemoryDoc]] = []
+        for doc in self._docs.values():
+            sim = self._similarity(query_text, doc.text)
+            scored.append((sim, _InMemoryDoc(doc.id, doc.text, doc.metadata, score=sim)))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top_k = getattr(options, "top_k", 1) if options else 1
+        return _InMemoryMossResult([item[1] for item in scored[:top_k]])
+
+
+class InMemoryMossClient:
+    """Drop-in local client for offline zero-latency execution."""
+
+    def __init__(self) -> None:
+        self._sessions: dict[str, _InMemoryMossSession] = {}
+
+    async def session(self, index_name: str, model_id: Any = None) -> _InMemoryMossSession:
+        if index_name not in self._sessions:
+            self._sessions[index_name] = _InMemoryMossSession()
+        return self._sessions[index_name]
 
 
 class MossPlanCache:
@@ -179,8 +255,20 @@ def get_moss_plan_cache() -> MossPlanCache | None:
     if not moss_plan_cache_enabled():
         return None
     if _default_cache is None:
-        from moss import MossClient
+        pid = os.environ.get("MOSS_PROJECT_ID", "").strip()
+        pkey = os.environ.get("MOSS_PROJECT_KEY", "").strip()
+        emulation = (
+            os.environ.get("MOSS_EMULATION_MODE", "").strip().lower() in ("1", "true", "yes")
+            or pid in ("demo", "mock", "emulation")
+            or not (pid and pkey)
+        )
+        if emulation:
+            client = InMemoryMossClient()
+            _default_cache = MossPlanCache(client, score_threshold=0.55)
+        else:
+            from moss import MossClient
 
-        client = MossClient(os.environ["MOSS_PROJECT_ID"], os.environ["MOSS_PROJECT_KEY"])
-        _default_cache = MossPlanCache(client)
+            client = MossClient(pid, pkey)
+            _default_cache = MossPlanCache(client)
     return _default_cache
+
