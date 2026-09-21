@@ -497,6 +497,17 @@ There is no separate impersonation mechanism. The delegated permissions go throu
 
 In simple terms: delegation lets one actor temporarily give another actor specific authority to act on their behalf, while keeping that authority explicit, revocable, and fully auditable.
 
+### Security
+
+CognitiveOS implements zero-trust workload identity, per-actor isolation, governed actor-to-actor communication, policy-based authorization, transition gates, approval controls, and auditability. Short-lived workload credentials limit the lifetime of compromised credentials, while authoritative world-state mutation is protected by policy and transition validation.
+
+### Performance
+
+CognitiveOS separates the real-time actor execution path from expensive cognitive inference. The current latency qualification measures the runtime/orchestration path; VLA inference remains deployment- and hardware-dependent, with adaptive processing and edge/cloud execution planned for target hardware validation.
+
+### Governance
+
+CognitiveOS provides deterministic policy and transition enforcement for autonomous actions. Domain-specific fairness auditing can be added when the deployment involves regulated decision-making such as employment selection.
 
 ## Example: Buying Groceries
 
